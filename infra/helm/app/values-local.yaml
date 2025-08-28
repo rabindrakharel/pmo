@@ -1,0 +1,47 @@
+# Values for local development (Kind/Minikube)
+api:
+  replicas: 1
+  env:
+    NODE_ENV: development
+    LOG_LEVEL: debug
+    DEV_BYPASS_OIDC: "true"
+    JWT_DEV_SECRET: dev-secret
+    WEB_ORIGIN: http://localhost
+    API_ORIGIN: http://localhost
+
+web:
+  replicas: 1
+
+ingress:
+  host: localhost
+  tls:
+    enabled: false
+
+# Use smaller resources for local development
+postgresql:
+  primary:
+    persistence:
+      size: 1Gi
+      
+redis:
+  master:
+    persistence:
+      size: 256Mi
+
+minio:
+  persistence:
+    size: 1Gi
+
+# Disable autoscaling for local
+autoscaling:
+  enabled: false
+
+# Use simpler security context for local
+podSecurityContext:
+  runAsNonRoot: false
+  runAsUser: 0
+
+securityContext:
+  runAsNonRoot: false
+  runAsUser: 0
+  readOnlyRootFilesystem: false

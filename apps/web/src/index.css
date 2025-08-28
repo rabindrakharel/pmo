@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Task stage colors */
+.stage-backlog {
+  @apply bg-gray-100 text-gray-700 border-gray-200;
+}
+
+.stage-todo {
+  @apply bg-blue-100 text-blue-700 border-blue-200;
+}
+
+.stage-in-progress {
+  @apply bg-orange-100 text-orange-700 border-orange-200;
+}
+
+.stage-review {
+  @apply bg-purple-100 text-purple-700 border-purple-200;
+}
+
+.stage-done {
+  @apply bg-green-100 text-green-700 border-green-200;
+}
+
+.stage-blocked {
+  @apply bg-red-100 text-red-700 border-red-200;
+}
+
+.dark .stage-backlog {
+  @apply bg-gray-800 text-gray-300 border-gray-700;
+}
+
+.dark .stage-todo {
+  @apply bg-blue-900 text-blue-300 border-blue-700;
+}
+
+.dark .stage-in-progress {
+  @apply bg-orange-900 text-orange-300 border-orange-700;
+}
+
+.dark .stage-review {
+  @apply bg-purple-900 text-purple-300 border-purple-700;
+}
+
+.dark .stage-done {
+  @apply bg-green-900 text-green-300 border-green-700;
+}
+
+.dark .stage-blocked {
+  @apply bg-red-900 text-red-300 border-red-700;
+}

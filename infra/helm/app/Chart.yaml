@@ -1,0 +1,16 @@
+apiVersion: v2
+name: pmo-app
+description: PMO Enterprise Task Management Platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - pmo
+  - task-management
+  - workflow
+home: https://github.com/your-org/pmo
+sources:
+  - https://github.com/your-org/pmo
+maintainers:
+  - name: PMO Team
+    email: dev@pmo.com

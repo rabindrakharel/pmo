@@ -1,0 +1,167 @@
+# Default values for pmo-app
+replicaCount: 2
+
+image:
+  registry: ghcr.io/your-org/pmo
+  pullPolicy: IfNotPresent
+  tag: latest
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+api:
+  name: api
+  port: 4000
+  replicas: 2
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  env:
+    NODE_ENV: production
+    LOG_LEVEL: info
+    # Database connection will be overridden in specific environment files
+    DATABASE_URL: postgresql://app:app@pmo-postgres:5432/app
+    REDIS_URL: redis://pmo-redis:6379/0
+    S3_ENDPOINT: http://pmo-minio:9000
+    S3_REGION: us-east-1
+    S3_BUCKET: pmo-files
+    SMTP_HOST: pmo-mailhog
+    SMTP_PORT: 1025
+    WEB_ORIGIN: https://pmo.example.com
+    API_ORIGIN: https://api.pmo.example.com
+
+web:
+  name: web
+  port: 80
+  replicas: 2
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  env:
+    VITE_API_BASE: /api
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+service:
+  type: ClusterIP
+  api:
+    port: 4000
+  web:
+    port: 80
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  host: pmo.example.com
+  tls:
+    enabled: true
+    secretName: pmo-tls
+
+# External dependencies (override these for production)
+postgresql:
+  enabled: true
+  auth:
+    username: app
+    password: app
+    database: app
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+
+minio:
+  enabled: true
+  auth:
+    rootUser: minio
+    rootPassword: minio123
+  persistence:
+    enabled: true
+    size: 10Gi
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Security
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+      - ALL
+
+# Monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    path: /metrics
+  prometheusRule:
+    enabled: true
+
+# Health checks
+healthChecks:
+  liveness:
+    enabled: true
+    path: /healthz
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readiness:
+    enabled: true
+    path: /readyz
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+# Resource limits for the namespace
+resourceQuota:
+  enabled: false
+  limits:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 8Gi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
