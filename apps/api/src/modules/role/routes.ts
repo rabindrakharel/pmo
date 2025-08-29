@@ -435,7 +435,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
           scope_id as "scopeId",
           scope_name as "scopeName",
           scope_permission as "permissions"
-        FROM app.rel_role_scope 
+        FROM app.rel_role_scope_unified 
         WHERE role_id = ${id} AND active = true
         ORDER BY scope_type, scope_name
       `);

@@ -35,7 +35,7 @@ CREATE TABLE app.ops_formlog_head (
 
   -- Worksite scoping
   worksite_specific boolean NOT NULL DEFAULT false,
-  worksite_id uuid REFERENCES app.d_worksite(id) ON DELETE SET NULL,
+  worksite_id uuid REFERENCES app.d_scope_worksite(id) ON DELETE SET NULL,
   worksite_permission jsonb NOT NULL DEFAULT '[]'::jsonb,
   
   tags jsonb NOT NULL DEFAULT '[]'::jsonb,
@@ -56,8 +56,8 @@ CREATE TABLE app.ops_formlog_records (
   instance_id uuid NOT NULL DEFAULT gen_random_uuid(),
   proj_head_id uuid REFERENCES app.ops_project_head(id) ON DELETE SET NULL,
   task_head_id uuid REFERENCES app.ops_task_head(id) ON DELETE SET NULL,
-  tasklog_head_id uuid REFERENCES app.ops_tasklog_head(id) ON DELETE SET NULL,
-  worksite_id uuid REFERENCES app.d_worksite(id) ON DELETE SET NULL,
+  task_activity_id uuid REFERENCES app.ops_task_activity(id) ON DELETE SET NULL,
+  worksite_id uuid REFERENCES app.d_scope_worksite(id) ON DELETE SET NULL,
 
   data jsonb NOT NULL,
   tags jsonb NOT NULL DEFAULT '[]'::jsonb,

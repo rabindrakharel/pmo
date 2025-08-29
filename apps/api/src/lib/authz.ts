@@ -18,7 +18,7 @@ export interface Abilities {
 }
 
 /**
- * Permission levels as defined in rel_user_scope.scope_permission
+ * Permission levels as defined in rel_employee_scope_unified.resource_permission
  * 0: view, 1: modify, 2: share, 3: delete, 4: create
  */
 export enum Permission {
@@ -116,7 +116,7 @@ export function applyScopeFilter<T extends Record<string, any>>(
 }
 
 /**
- * Resolve user abilities from rel_user_scope table
+ * Resolve user abilities from rel_employee_scope_unified table
  */
 export async function resolveAbilities(userId: string): Promise<Abilities> {
   if (!userId) {

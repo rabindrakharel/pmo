@@ -52,7 +52,10 @@ done
 # Always drop and recreate database schema for clean startup
 echo -e "${BLUE}3️⃣ Recreating database schema...${NC}"
 echo -e "${YELLOW}🗑️  Dropping all tables and recreating from DDL files...${NC}"
-"$PROJECT_ROOT/db/drop_and_recreate.sh"
+"$SCRIPT_DIR/db-import.sh" --verbose || {
+  echo -e "${RED}❌ Database import failed via db-import.sh${NC}"
+  exit 1
+}
 
 # Start API server
 echo -e "${BLUE}4️⃣ Starting API server...${NC}"

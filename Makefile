@@ -18,8 +18,8 @@ down: ## Stop and remove all containers
 db: ## Open psql shell
 	psql postgresql://app:app@localhost:5434/app
 
-seed: ## Drop and recreate database schema using individual DDL files
-	./db/drop_and_recreate.sh
+seed: ## Drop and recreate database schema using tools/db-import.sh
+	./tools/db-import.sh --verbose
 
 migrate: ## Run database migrations
 	pnpm --filter api db:migrate

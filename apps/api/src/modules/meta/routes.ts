@@ -8,15 +8,25 @@ import { sql } from 'drizzle-orm';
 const MetaItemSchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
+  descr: Type.Optional(Type.String()),
   code: Type.Optional(Type.String()),
-  description: Type.Optional(Type.String()),
   level_id: Type.Optional(Type.Number()),
-  parent_id: Type.Optional(Type.String()),
-  order: Type.Optional(Type.Number()),
+  sort_id: Type.Optional(Type.Number()),
+  sort_order: Type.Optional(Type.Number()),
+  country_code: Type.Optional(Type.String()),
+  salary_band_min: Type.Optional(Type.Number()),
+  salary_band_max: Type.Optional(Type.Number()),
+  is_management_level: Type.Optional(Type.Boolean()),
+  is_executive_level: Type.Optional(Type.Boolean()),
+  duration_weeks: Type.Optional(Type.Number()),
   color: Type.Optional(Type.String()),
-  icon: Type.Optional(Type.String()),
-  is_default: Type.Optional(Type.Boolean()),
-  wip_limit: Type.Optional(Type.Number()),
+  workflow_sequence: Type.Optional(Type.Number()),
+  is_terminal_state: Type.Optional(Type.Boolean()),
+  is_success_state: Type.Optional(Type.Boolean()),
+  tags: Type.Optional(Type.Array(Type.String())),
+  attr: Type.Optional(Type.Object({})),
+  from_ts: Type.Optional(Type.String()),
+  to_ts: Type.Optional(Type.String()),
   active: Type.Boolean(),
   created: Type.String(),
   updated: Type.String(),
@@ -24,13 +34,23 @@ const MetaItemSchema = Type.Object({
 
 const CreateMetaItemSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
+  descr: Type.Optional(Type.String()),
   code: Type.Optional(Type.String()),
-  description: Type.Optional(Type.String()),
-  order: Type.Optional(Type.Number()),
+  level_id: Type.Optional(Type.Number()),
+  sort_id: Type.Optional(Type.Number()),
+  sort_order: Type.Optional(Type.Number()),
+  country_code: Type.Optional(Type.String()),
+  salary_band_min: Type.Optional(Type.Number()),
+  salary_band_max: Type.Optional(Type.Number()),
+  is_management_level: Type.Optional(Type.Boolean()),
+  is_executive_level: Type.Optional(Type.Boolean()),
+  duration_weeks: Type.Optional(Type.Number()),
   color: Type.Optional(Type.String()),
-  icon: Type.Optional(Type.String()),
-  is_default: Type.Optional(Type.Boolean()),
-  wip_limit: Type.Optional(Type.Number()),
+  workflow_sequence: Type.Optional(Type.Number()),
+  is_terminal_state: Type.Optional(Type.Boolean()),
+  is_success_state: Type.Optional(Type.Boolean()),
+  tags: Type.Optional(Type.Array(Type.String())),
+  attr: Type.Optional(Type.Object({})),
   active: Type.Optional(Type.Boolean()),
 });
 
@@ -65,21 +85,23 @@ export async function metaRoutes(fastify: FastifyInstance) {
           SELECT 
             id::text,
             name,
+            "descr",
             code,
-            description as description,
-            level_id,
-            null as parent_id,
-            level_id as "order",
+            sort_id,
             color,
-            icon,
-            is_default,
-            wip_limit,
+            workflow_sequence,
+            is_terminal_state,
+            is_success_state,
+            tags,
+            attr,
+            from_ts,
+            to_ts,
             active,
             created,
             updated
           FROM app.meta_task_status
           ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
-          ORDER BY level_id ASC, name ASC
+          ORDER BY sort_id ASC, name ASC
         `;
         categoryName = 'task_status';
       } else if (category === 'task_stage' || category === 'task-stage') {
@@ -87,21 +109,23 @@ export async function metaRoutes(fastify: FastifyInstance) {
           SELECT 
             id::text,
             name,
+            "descr",
             code,
-            description as description,
-            level_id,
-            parent_id,
-            level_id as "order",
+            sort_id,
             color,
-            icon,
-            is_default,
-            null as wip_limit,
+            workflow_sequence,
+            is_terminal_state,
+            is_success_state,
+            tags,
+            attr,
+            from_ts,
+            to_ts,
             active,
             created,
             updated
           FROM app.meta_task_stage
           ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
-          ORDER BY level_id ASC, name ASC
+          ORDER BY sort_id ASC, name ASC
         `;
         categoryName = 'task_stage';
       } else if (category === 'project_status' || category === 'project-status') {
@@ -109,21 +133,23 @@ export async function metaRoutes(fastify: FastifyInstance) {
           SELECT 
             id::text,
             name,
+            "descr",
             code,
-            description as description,
-            level_id,
-            null as parent_id,
-            level_id as "order",
+            sort_id,
             color,
-            icon,
-            is_default,
-            null as wip_limit,
+            workflow_sequence,
+            is_terminal_state,
+            is_success_state,
+            tags,
+            attr,
+            from_ts,
+            to_ts,
             active,
             created,
             updated
           FROM app.meta_project_status
           ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
-          ORDER BY level_id ASC, name ASC
+          ORDER BY sort_id ASC, name ASC
         `;
         categoryName = 'project_status';
       } else if (category === 'project_stage' || category === 'project-stage') {
@@ -131,15 +157,14 @@ export async function metaRoutes(fastify: FastifyInstance) {
           SELECT 
             id::text,
             name,
-            code,
-            description as description,
+            "descr",
             level_id,
-            parent_id,
-            level_id as "order",
-            color,
-            icon,
-            is_default,
-            null as wip_limit,
+            duration_weeks,
+            sort_order,
+            tags,
+            attr,
+            from_ts,
+            to_ts,
             active,
             created,
             updated
@@ -148,6 +173,71 @@ export async function metaRoutes(fastify: FastifyInstance) {
           ORDER BY level_id ASC, name ASC
         `;
         categoryName = 'project_stage';
+      } else if (category === 'biz_level' || category === 'business-level') {
+        query = sql`
+          SELECT 
+            id::text,
+            name,
+            "descr",
+            level_id,
+            sort_order,
+            tags,
+            attr,
+            from_ts,
+            to_ts,
+            active,
+            created,
+            updated
+          FROM app.meta_biz_level
+          ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
+          ORDER BY level_id ASC
+        `;
+        categoryName = 'biz_level';
+      } else if (category === 'loc_level' || category === 'location-level') {
+        query = sql`
+          SELECT 
+            id::text,
+            name,
+            "descr",
+            level_id,
+            country_code,
+            sort_order,
+            tags,
+            attr,
+            from_ts,
+            to_ts,
+            active,
+            created,
+            updated
+          FROM app.meta_loc_level
+          ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
+          ORDER BY level_id ASC
+        `;
+        categoryName = 'loc_level';
+      } else if (category === 'hr_level' || category === 'hr-level') {
+        query = sql`
+          SELECT 
+            id::text,
+            name,
+            "descr",
+            level_id,
+            salary_band_min,
+            salary_band_max,
+            is_management_level,
+            is_executive_level,
+            sort_order,
+            tags,
+            attr,
+            from_ts,
+            to_ts,
+            active,
+            created,
+            updated
+          FROM app.meta_hr_level
+          ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
+          ORDER BY level_id ASC
+        `;
+        categoryName = 'hr_level';
       } else {
         // Return all categories or empty if unknown category
         if (category && !['all', undefined].includes(category)) {

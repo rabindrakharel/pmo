@@ -115,43 +115,24 @@ This directory contains all management tools for the PMO platform. This document
 
 ## 🗄️ Database Management Tools
 
-### db-drop.sh
-**Purpose**: Safely drops all database tables and schema
-**Usage**: `./tools/db-drop.sh`
-**LLM Context**: Use when user needs to completely clean the database
-**Features**:
-- Interactive confirmation prompt for safety
-- Drops entire `app` schema with CASCADE
-- Recreates empty `app` schema
-- Environment variable support for database connection
-
 ### db-import.sh
-**Purpose**: Imports schema and curated data from schema.sql file
-**Usage**: `./tools/db-import.sh`
-**LLM Context**: Use when user needs to restore database to default state
+**Purpose**: Single authoritative database tool for schema reset and import
+**Usage**: `./tools/db-import.sh [--dry-run] [--verbose] [--skip-validation]`
+**LLM Context**: Use for any database initialization, reset, or re-import
 **Features**:
-- Validates schema file exists before importing
-- Imports complete schema and sample data (30 tables, 23 route pages, 8 components)
-- Shows database statistics after import (15 user permissions)
-- Displays sample data counts for all major entities
+- Drops and recreates the `app` schema, then loads all `db/*.ddl` in dependency order
+- Supports dry runs and verbose output for troubleshooting
+- Performs post-import validation and shows schema/data stats
+- Honors `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` environment variables
 
-### db-recreate.sh
-**Purpose**: Combined drop and import in one step (most commonly used)
-**Usage**: `./tools/db-recreate.sh`  
-**LLM Context**: Use when user wants to reset database completely (most common database operation)
-**Features**:
-- Combines db-drop.sh and db-import.sh functionality
-- Interactive confirmation prompt for safety
-- Two-step process with progress indicators
-- Complete database statistics after recreation (30 tables, 23 route pages, 8 components, 15 permissions)
-- Comprehensive sample data for all entities (employees, clients, projects, tasks)
+
 
 ## 📋 LLM Quick Reference
 
 ### Most Common User Requests & Tool Mapping:
 - **"Start the platform"** → `./tools/start-all.sh`
 - **"Check what's running"** → `./tools/status.sh`  
-- **"Reset the database"** → `./tools/db-recreate.sh`
+- **"Import/Reset the database"** → `./tools/db-import.sh`
 - **"Stop everything"** → `./tools/stop-all.sh`
 - **"Restart after changes"** → `./tools/restart-all.sh`
 - **"Check API logs"** → `./tools/logs-api.sh`
@@ -184,12 +165,11 @@ Database tools support these environment variables:
 | `DB_USER` | `app` | Database user |
 | `DB_PASSWORD` | `app` | Database password |
 | `DB_NAME` | `app` | Database name |
-| `SCHEMA_FILE` | `../db/schema.sql` | Path to schema file |
 
 ## 🔄 Tool Dependencies & Order
 
 1. **Infrastructure First**: Docker services must be running before API/web
-2. **Database Schema**: Must be imported before API server starts
+2. **Database Schema**: Import/reset with `./tools/db-import.sh` before starting API
 3. **API Before Web**: Web application depends on API endpoints
 4. **PID Files**: Located in `.pids/` directory for process management
 
@@ -220,15 +200,13 @@ tools/
 ├── logs-web.sh
 ├── debug-rbac.sh       # API testing & debugging
 ├── test-api-endpoints.sh
-├── db-drop.sh          # Database management
-├── db-import.sh
-└── db-recreate.sh
+└── db-import.sh        # Database reset + import
 ```
 
 ## 💡 LLM Usage Guidelines
 
 1. **Always check service status first** if user reports issues
-2. **Use db-recreate.sh** for most database reset requests
+2. **Use db-import.sh** for any database reset or import
 3. **Prefer start-all.sh** for initial platform setup
 4. **Use specific service tools** only when user specifies partial operations
 5. **Check logs** when debugging service issues

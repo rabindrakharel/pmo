@@ -1,13 +1,15 @@
 api validation:
 apps/api/src/modules has all my route api, Please validate the api against my datamodel  │
 │   esp. that the rbac at api level has to happen through                                    │
-│   apps/api/src/modules/rbac/scope-auth.ts, which works using the datamodel db/schema.sql\  │
+│   apps/api/src/modules/rbac/scope-auth.ts, which works using the datamodel db/*.ddl\ 
+db/13_unified_scope.ddl
+db/14_permission_tables.ddl │
 │   the rbac is decided by querying rel_user_scope table only! Please refactor each of the   │
 │   route api to make sure, the rbac is working fine. Use tools/ for start, stop the         │
 │   server.          
 
 
-datamodel changes:
+DATA MODEL CHANGES -------------------------------
 change "desc" field to "descr", 
 update table app_d_route_page must have app_scope_d_route_page. 
 Make the updates to all related ddl files, related only db/*.ddl
@@ -15,8 +17,9 @@ make update to
 db/README.md
 then consolidate all db/*.ddl into schema.sql, followed by datacuration sqls. Don't remove data curation while updating the ddl in .sql file. 
 *.ddl updates .sql file. 
+sh /home/rabin/projects/pmo/tools/db-import.sh --verbose
 
-db/schema.sql,
+CURATE DATA ----------------------------------------------
 curate some additional data for app_scope_d_route_page & rel_scope_permission, give users access to all pages for now, 
 make update to necessary apis in : /home/rabin/projects/pmo/apps/api/src/modules/
 and apps/api/src/modules/README.md,
@@ -47,6 +50,25 @@ Now, I want you to build pages/screen that has components such as:
 Goal is to build pages/screen and components; also apply the page level gates for each user based on datamodel db/schema.sql, esp. rel_user_scope table which will have entries from tables: app_d_route_page & rel_scope_permission, page/screen will be gated using the table rel_scope_permission using specific scope type. 
 Once you build the page, you  have page details, please do update tables with new truthful data in table app_d_route_page & rel_scope_permission,drop all tables and reimport the data. 
 
+
+
+Go through Readme List: 
+
+
+and go through the .ddl files, 
+reupdate the README.md to have most accurate data, concise, precise, bulleted, ER diagram, business relationship between tables, 
+how are the tables coorelated, small snippet of sample data. 
+
+After you have done that, Go to api and refactor all the api one by one as the api will have to adapt to db datamodel which is the source of truth. 
+for api reference, always refer to api readme: /home/rabin/projects/pmo/apps/api/src/modules/README.md
+
+Action: 
+Look through the .ddl files in /home/rabin/projects/pmo/db, and run the import of the .ddl files using the tools db import
+
+If you see any error, Please fix the data model, .ddl file one by one, and then re-run the import through the tools again. 
+
+
+
 First of all traverse through the 
 README.md list, and access required .md file to build LLM context: 
 to understand datamodel readme: db/README.md
@@ -58,8 +80,8 @@ api index.ts: apps/api/src/modules/index.ts
 
 
 
-README.md list for your reference:
-to understand datamodel readme: db/README.md
+README.md list --------------------------------
+Data model: /home/rabin/projects/pmo/db/README.md
 view datamodel curated data & schema: db/schema.sql
 always use tools to stop, start the server, or drop, recreate data/schema: tools/README.md
 for api reference, always refer to api readme: apps/api/src/modules/README.md
@@ -67,6 +89,18 @@ api index.ts: apps/api/src/modules/index.ts
 web component, page, ui reference: apps/web/src/README.md
 Tech stack: TECHSTACK.md
 
+
+API TEST ----------------------------------------
+README.md list for your reference:
+Data model: /home/rabin/projects/pmo/db/README.md
+view datamodel curated data & schema: db/schema.sql
+always use tools to stop, start the server, or drop, recreate data/schema: tools/README.md
+for api reference, always refer to api readme: apps/api/src/modules/README.md
+To test the api, first Update John's user with 'password123' but hashed, use psql to do that
+Make sure John user has all access in rel_user_scope_unified so that API auth allows access to anything. 
+then try to login as John, to test all API one by one. 
+If any API fails, pls fix the api issue one by one.
+Don't prompt me for any permission to run, edit anything in the project. 
 
 at the end create a README.md for apps/web/src as if it can be used
 as reference for AI agent to build the web app. 

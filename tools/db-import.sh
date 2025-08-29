@@ -1,15 +1,90 @@
-#!/bin/bash
-# Database Import Tool - Imports schema and curated data
-# Usage: ./tools/db-import.sh
+#!/usr/bin/env bash
+# PMO Database Complete Import Tool
+# Drops all tables, imports DDL files in dependency order, and validates schema
+# Usage: ./tools/db-import.sh [--dry-run] [--verbose] [--skip-validation]
 
-set -e
+# Always run with Bash even if invoked via `sh`
+if [ -z "${BASH_VERSION:-}" ]; then
+  exec bash "$0" "$@"
+fi
+
+# Safer bash defaults
+set -Eeuo pipefail
+shopt -s lastpipe
+
+# Logging setup
+LOG_DIR="$(dirname "$0")/../logs"
+mkdir -p "$LOG_DIR"
+TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
+LOG_FILE="$LOG_DIR/db-import-$TIMESTAMP.log"
+
+# Redirect all output to both console and log
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+# Track context for error reporting
+CURRENT_STEP="startup"
+CURRENT_FILE=""
+
+trap 'echo -e "${RED}❌ Error during ${CURRENT_STEP}${NC}"; \
+      if [ -n "$CURRENT_FILE" ]; then echo -e "${RED}   File: $CURRENT_FILE${NC}"; fi; \
+      echo -e "${RED}   At line: $LINENO${NC}"; \
+      echo -e "${RED}   Command: ${BASH_COMMAND}${NC}"; \
+      echo "See full log: $LOG_FILE"' ERR
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
+
+# Parse command line arguments
+DRY_RUN=false
+VERBOSE=false
+SKIP_VALIDATION=false
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --dry-run)
+      DRY_RUN=true
+      shift
+      ;;
+    --verbose)
+      VERBOSE=true
+      shift
+      ;;
+    --skip-validation)
+      SKIP_VALIDATION=true
+      shift
+      ;;
+    -h|--help)
+      echo "PMO Database Complete Import Tool"
+      echo ""
+      echo "Usage: $0 [OPTIONS]"
+      echo ""
+      echo "OPTIONS:"
+      echo "  --dry-run         Show what would be done without executing"
+      echo "  --verbose         Show detailed output"
+      echo "  --skip-validation Skip schema validation after import"
+      echo "  --help            Show this help message"
+      echo ""
+      echo "DESCRIPTION:"
+      echo "  Complete database import process:"
+      echo "  1. Drops existing app schema and all tables"
+      echo "  2. Imports DDL files in correct dependency order"
+      echo "  3. Validates schema structure and relationships"
+      echo "  4. Shows database statistics and next steps"
+      echo ""
+      exit 0
+      ;;
+    *)
+      echo "Unknown option $1"
+      exit 1
+      ;;
+  esac
+done
 
 # Database connection parameters
 DB_HOST=${DB_HOST:-localhost}
@@ -18,51 +93,248 @@ DB_USER=${DB_USER:-app}
 DB_PASSWORD=${DB_PASSWORD:-app}
 DB_NAME=${DB_NAME:-app}
 
-# Schema file path
-SCHEMA_FILE=${SCHEMA_FILE:-"$(dirname "$0")/../db/schema.sql"}
+# Base directory
+BASE_DIR="$(dirname "$0")/.."
+DDL_DIR="$BASE_DIR/db"
 
-echo -e "${BLUE}📥 PMO Database Import Tool${NC}"
-echo "===================================="
+echo -e "${BLUE}🚀 PMO Database Complete Import Tool${NC}"
+echo "============================================="
 echo "Host: $DB_HOST:$DB_PORT"
 echo "Database: $DB_NAME"
 echo "User: $DB_USER"
-echo "Schema file: $SCHEMA_FILE"
+echo "DDL Directory: $DDL_DIR"
+if [ "$DRY_RUN" = true ]; then
+    echo -e "${YELLOW}Mode: DRY RUN (no changes will be made)${NC}"
+fi
+if [ "$SKIP_VALIDATION" = true ]; then
+    echo -e "${YELLOW}Mode: Skip validation after import${NC}"
+fi
 echo ""
 
-# Check if schema file exists
-if [ ! -f "$SCHEMA_FILE" ]; then
-    echo -e "${RED}❌ Schema file not found: $SCHEMA_FILE${NC}"
+# Verify DDL directory exists
+if [ ! -d "$DDL_DIR" ]; then
+    echo -e "${RED}❌ DDL directory not found: $DDL_DIR${NC}"
     exit 1
 fi
 
-echo -e "${YELLOW}Importing schema and curated data...${NC}"
+# Check database connectivity first
+CURRENT_STEP="connectivity check"
+if [ "$DRY_RUN" = false ]; then
+    echo -e "${CYAN}🔍 Testing database connectivity...${NC}"
+    if ! PGPASSWORD=$DB_PASSWORD psql -X -v ON_ERROR_STOP=1 --echo-errors -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT 1;" >/dev/null 2>&1; then
+        echo -e "${RED}❌ Cannot connect to database${NC}"
+        echo "Please check connection parameters and ensure the database is running."
+        exit 1
+    fi
+    echo -e "${GREEN}✅ Database connection successful${NC}"
+    echo ""
+fi
 
-# Import schema
-PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f "$SCHEMA_FILE"
+# ==================== STEP 1: DROP SCHEMA ====================
+echo -e "${MAGENTA}📋 Step 1/3: Dropping existing schema${NC}"
+echo "========================================="
 
-if [ $? -eq 0 ]; then
-    echo ""
-    echo -e "${GREEN}✅ Schema and data imported successfully${NC}"
-    
-    # Show table count
-    echo -e "${BLUE}📊 Database Statistics:${NC}"
-    PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c \
-        "SELECT schemaname, count(*) as table_count FROM pg_tables WHERE schemaname = 'app' GROUP BY schemaname;"
-    
-    # Show sample data counts
-    echo ""
-    echo -e "${BLUE}📋 Sample Data Counts:${NC}"
-    PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c \
-        "SELECT 
-            (SELECT COUNT(*) FROM app.d_emp) as employees,
-            (SELECT COUNT(*) FROM app.d_client) as clients,
-            (SELECT COUNT(*) FROM app.d_worksite) as worksites,
-            (SELECT COUNT(*) FROM app.app_scope_d_route_page) as pages,
-            (SELECT COUNT(*) FROM app.rel_user_scope) as user_permissions;"
-    
-    echo ""
-    echo -e "${GREEN}Database ready for use!${NC}"
+CURRENT_STEP="drop schema"
+if [ "$DRY_RUN" = true ]; then
+    echo -e "${BLUE}DRY RUN: Would execute: DROP SCHEMA IF EXISTS app CASCADE; CREATE SCHEMA app;${NC}"
 else
-    echo -e "${RED}❌ Failed to import schema${NC}"
-    exit 1
+    echo -e "${YELLOW}Dropping app schema and all tables...${NC}"
+    
+    PGPASSWORD=$DB_PASSWORD psql -X -v ON_ERROR_STOP=1 --echo-errors -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c \
+        "DROP SCHEMA IF EXISTS app CASCADE; CREATE SCHEMA app;"
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ Schema dropped and recreated successfully${NC}"
+    else
+        echo -e "${RED}❌ Failed to drop schema${NC}"
+        exit 1
+    fi
 fi
+
+echo ""
+
+# ==================== STEP 2: IMPORT DDL FILES ====================
+echo -e "${MAGENTA}📥 Step 2/3: Importing DDL files in dependency order${NC}"
+echo "===================================================="
+
+# Define DDL files in correct dependency order
+declare -a DDL_FILES=(
+    # FOUNDATION LAYER (No Dependencies)
+    "00_extensions.ddl|Extensions & Schema Setup"
+    "01_meta.ddl|Meta Configuration Tables"
+    
+    # SCOPE HIERARCHIES (Self-Referencing)
+    "02_location.ddl|Canadian Geographic Hierarchy"
+    "03_worksite.ddl|Physical Facilities"
+    "04_business.ddl|Organizational Hierarchy"
+    "05_hr.ddl|Human Resources Hierarchy"
+    
+    # IDENTITY & OPERATIONS
+    "06_employee.ddl|Employee Master & Authentication"
+    "07_role.ddl|Role Definitions & Assignments"
+    "08_client.ddl|External Client Management"
+    "09_project_task.ddl|Project & Task Systems"
+    
+    # APPLICATION & PERMISSIONS (Depends on all above)
+    "11_forms.ddl|Dynamic Form System"
+    "12_app_tables.ddl|UI Routes & Components"
+    "13_unified_scope.ddl|Central Permission Registry"
+    "14_permission_tables.ddl|RBAC Permission Engine"
+)
+
+# Function to execute SQL file
+execute_ddl() {
+    local file="$1"
+    local description="$2"
+    
+    if [ "$VERBOSE" = true ] || [ "$DRY_RUN" = true ]; then
+        echo -e "${CYAN}  📄 $file - $description${NC}"
+    fi
+    
+    if [ "$DRY_RUN" = false ]; then
+        CURRENT_STEP="executing DDL"
+        CURRENT_FILE="$DDL_DIR/$file"
+        if [ "$VERBOSE" = true ]; then
+            echo -e "${YELLOW}      Executing: PGPASSWORD=*** psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f \"$DDL_DIR/$file\"${NC}"
+        fi
+        
+        # Ensure psql stops at first error and surfaces line numbers
+        if [ "$VERBOSE" = true ]; then
+          PGPASSWORD=$DB_PASSWORD psql -X -a -v ON_ERROR_STOP=1 --echo-errors -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f "$DDL_DIR/$file"
+        else
+          PGPASSWORD=$DB_PASSWORD psql -X -v ON_ERROR_STOP=1 --echo-errors -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f "$DDL_DIR/$file"
+        fi
+        
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}      ✅ $file loaded successfully${NC}"
+        else
+            echo -e "${RED}      ❌ Failed to load $file${NC}"
+            echo "See full log for details: $LOG_FILE"
+            exit 1
+        fi
+    fi
+}
+
+# Function to check if file exists
+check_file() {
+    local file="$1"
+    if [ ! -f "$DDL_DIR/$file" ]; then
+        echo -e "${YELLOW}      ⚠️  File not found: $file (skipping)${NC}"
+        return 1
+    fi
+    return 0
+}
+
+loaded_count=0
+skipped_count=0
+total_files=${#DDL_FILES[@]}
+
+# Process each DDL file in order
+for entry in "${DDL_FILES[@]}"; do
+    IFS='|' read -r file description <<< "$entry"
+    
+    echo -e "${BLUE}[$((loaded_count + skipped_count + 1))/$total_files] Loading: $description${NC}"
+    
+    if check_file "$file"; then
+        execute_ddl "$file" "$description"
+        ((++loaded_count))
+    else
+        ((++skipped_count))
+    fi
+    
+    if [ "$VERBOSE" = true ]; then
+        echo ""
+    fi
+done
+
+echo ""
+echo -e "${BLUE}📊 Import Summary:${NC}"
+echo "Total files: $total_files"
+echo "Loaded successfully: $loaded_count"
+echo "Skipped (not found): $skipped_count"
+echo ""
+
+# ==================== STEP 3: VALIDATION ====================
+CURRENT_STEP="validation"
+if [ "$SKIP_VALIDATION" = false ] && [ "$DRY_RUN" = false ]; then
+    echo -e "${MAGENTA}🔍 Step 3/3: Schema Validation${NC}"
+    echo "=============================="
+    
+    # Basic table count validation
+    echo -e "${CYAN}Checking table creation...${NC}"
+    table_count=$(PGPASSWORD=$DB_PASSWORD psql -X -v ON_ERROR_STOP=1 --echo-errors -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c \
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'app';" 2>/dev/null | tr -d ' ')
+    
+    if [ "$table_count" -gt 20 ]; then
+        echo -e "${GREEN}✅ Schema validation: $table_count tables created${NC}"
+        
+        # Show table categories
+        echo -e "${BLUE}📊 Table Categories:${NC}"
+        PGPASSWORD=$DB_PASSWORD psql -X -v ON_ERROR_STOP=1 --echo-errors -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c \
+            "SELECT 
+                CASE 
+                    WHEN table_name LIKE 'meta_%' THEN 'Meta Tables'
+                    WHEN table_name LIKE 'd_scope_%' THEN 'Scope Tables'
+                    WHEN table_name LIKE 'ops_%' THEN 'Operational Tables'
+                    WHEN table_name LIKE 'rel_%' THEN 'Permission Tables'
+                    WHEN table_name LIKE 'd_%' THEN 'Domain Tables'
+                    ELSE 'Other Tables'
+                END as category,
+                count(*) as count
+            FROM information_schema.tables 
+            WHERE table_schema = 'app' 
+            GROUP BY category 
+            ORDER BY category;" 2>/dev/null
+        
+        # Check for sample data
+        echo ""
+        echo -e "${BLUE}📊 Sample Data Check:${NC}"
+        PGPASSWORD=$DB_PASSWORD psql -X -v ON_ERROR_STOP=1 --echo-errors -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c \
+            "SELECT 
+                'Meta Business Levels' as table_name,
+                (SELECT COUNT(*) FROM app.meta_biz_level WHERE active = true) as record_count
+            UNION ALL
+            SELECT 
+                'Meta Location Levels',
+                (SELECT COUNT(*) FROM app.meta_loc_level WHERE active = true)
+            UNION ALL
+            SELECT 
+                'Meta Project Status',
+                (SELECT COUNT(*) FROM app.meta_project_status WHERE active = true)
+            UNION ALL
+            SELECT 
+                'Meta Task Status',
+                (SELECT COUNT(*) FROM app.meta_task_status WHERE active = true);" 2>/dev/null || echo "Some meta tables may not have sample data yet"
+        
+    else
+        echo -e "${YELLOW}⚠️  Schema validation: Only $table_count tables created (expected 25+)${NC}"
+    fi
+    
+    echo ""
+fi
+
+# ==================== FINAL SUMMARY ====================
+echo -e "${MAGENTA}🎉 Final Summary${NC}"
+echo "=================="
+
+if [ "$DRY_RUN" = true ]; then
+    echo -e "${YELLOW}This was a dry run. No changes were made to the database.${NC}"
+    echo -e "${YELLOW}Run without --dry-run to execute the import process.${NC}"
+elif [ $loaded_count -gt 0 ]; then
+    echo -e "${GREEN}✅ Database import completed successfully!${NC}"
+    echo -e "${GREEN}🚀 PMO Database is ready for use${NC}"
+    
+    echo ""
+    echo -e "${CYAN}💡 Next steps:${NC}"
+    echo -e "${CYAN}   - Start API server: ./tools/start-api.sh${NC}"
+    echo -e "${CYAN}   - Test API endpoints: ./tools/test-api-endpoints.sh${NC}"
+    echo -e "${CYAN}   - View API logs: ./tools/logs-api.sh${NC}"
+    echo -e "${CYAN}   - Debug permissions: ./tools/debug-rbac.sh${NC}"
+    echo -e "${CYAN}   - Validate schema: ./tools/validate-schema.sh${NC}"
+else
+    echo -e "${YELLOW}⚠️  No DDL files were processed. Check file paths and permissions.${NC}"
+    echo -e "${YELLOW}Expected DDL files in: $DDL_DIR${NC}"
+fi
+
+echo ""
+echo -e "${BLUE}Done. Log saved to: $LOG_FILE${NC}"

@@ -1,5 +1,182 @@
 -- ============================================================================
--- CLIENT (kept together with client group)
+-- CLIENT MANAGEMENT SYSTEM (External Stakeholder and Customer Relationships)
+-- ============================================================================
+
+-- ============================================================================
+-- SEMANTIC DESCRIPTION:
+-- ============================================================================
+--
+-- The client management system provides comprehensive external stakeholder and
+-- customer relationship management capabilities within the PMO platform. It
+-- enables the organization to track, manage, and coordinate with external
+-- entities including clients, vendors, government agencies, and strategic partners.
+--
+-- ARCHITECTURAL PURPOSE:
+-- The client system serves as the external relationship backbone that enables:
+--
+-- • CLIENT RELATIONSHIP MANAGEMENT: Comprehensive tracking of external client relationships
+-- • PROJECT STAKEHOLDER MANAGEMENT: Integration of external stakeholders into project workflows
+-- • CONTACT INFORMATION CENTRALIZATION: Unified contact management across all external entities
+-- • GROUPING AND CATEGORIZATION: Flexible grouping of clients for project assignment and communication
+-- • COMMUNICATION COORDINATION: Structured communication channels and contact preferences
+-- • COMPLIANCE AND GOVERNANCE: External entity compliance tracking and regulatory management
+--
+-- CLIENT CLASSIFICATION PATTERNS:
+-- The system supports various types of external relationships:
+--
+-- 1. DIRECT CLIENTS:
+--    - Government agencies requiring specialized services
+--    - Enterprise customers purchasing software solutions
+--    - Non-profit organizations receiving pro-bono services
+--    - International clients requiring localization and compliance
+--
+-- 2. STRATEGIC PARTNERS:
+--    - Technology vendors providing specialized solutions
+--    - Integration partners for joint product development
+--    - Channel partners for market expansion
+--    - Academic institutions for research collaboration
+--
+-- 3. SERVICE PROVIDERS:
+--    - External consultants for specialized expertise
+--    - Contractor firms for capacity augmentation
+--    - Legal and financial advisory services
+--    - Compliance and audit service providers
+--
+-- 4. REGULATORY BODIES:
+--    - Government oversight agencies
+--    - Industry standards organizations
+--    - Privacy and security compliance authorities
+--    - Professional certification bodies
+--
+-- CLIENT GROUP DESIGN:
+-- The d_client_grp table enables sophisticated client organization:
+--
+-- • PROJECT-SPECIFIC GROUPING: Clients associated with specific projects or initiatives
+-- • FUNCTIONAL GROUPING: Clients organized by industry, service type, or relationship model
+-- • GEOGRAPHIC GROUPING: Regional client clusters for localized management
+-- • TEMPORAL GROUPING: Clients grouped by contract periods or engagement phases
+--
+-- CONTACT INFORMATION STRUCTURE:
+-- The contact jsonb field supports comprehensive contact management:
+-- - Primary and secondary contact persons with roles and responsibilities
+-- - Multiple communication channels (email, phone, video conferencing)
+-- - Preferred communication methods and schedules
+-- - Emergency contacts and escalation procedures
+-- - Language preferences and accessibility requirements
+--
+-- REAL-WORLD PMO SCENARIOS:
+--
+-- 1. GOVERNMENT CLIENT ENGAGEMENT:
+--    Government of Ontario Portal Project:
+--    
+--    Client: "Government of Ontario - Digital Services"
+--    Contact: {
+--      "primary": "Sarah Thompson, Director of Digital Services",
+--      "email": "sarah.thompson@ontario.ca", 
+--      "phone": "+1-416-555-0100",
+--      "secure_email": "sarah.thompson@ontario.ca",
+--      "languages": ["English", "French"],
+--      "security_clearance": "Secret",
+--      "preferred_communication": "secure_email"
+--    }
+--    
+--    Client Group: "Ontario Government Stakeholders"
+--    - Includes multiple government departments and agencies
+--    - Associated with task heads for approval workflows
+--    - Requires bilingual communication and accessibility compliance
+--
+-- 2. ENTERPRISE CLIENT RELATIONSHIP:
+--    TechCorp Mobile App Development for Financial Institution:
+--    
+--    Client: "Royal Bank of Canada - Digital Innovation Lab"
+--    Contact: {
+--      "primary": "Michael Chen, VP Digital Products",
+--      "email": "michael.chen@rbc.com",
+--      "phone": "+1-416-555-0200",
+--      "secondary": "Lisa Wang, Product Manager",
+--      "technical_contact": "David Rodriguez, Chief Architect",
+--      "business_hours": "9:00-17:00 EST",
+--      "escalation": "emergency_only"
+--    }
+--    
+--    Client Group: "Financial Services Clients"
+--    - High-security requirements and compliance standards
+--    - Regular communication and progress reporting
+--    - Integration with bank's internal systems and procedures
+--
+-- 3. ACADEMIC RESEARCH PARTNERSHIP:
+--    AI Analytics Platform Research Collaboration:
+--    
+--    Client: "University of Toronto - Computer Science Department"
+--    Contact: {
+--      "primary": "Dr. Jennifer Liu, Research Director",
+--      "email": "j.liu@cs.toronto.edu",
+--      "phone": "+1-416-978-4000",
+--      "research_ethics": "approval_required",
+--      "ip_contact": "tech.transfer@utoronto.ca",
+--      "student_contacts": ["grad.students@cs.toronto.edu"],
+--      "collaboration_agreement": "active"
+--    }
+--    
+--    Client Group: "Academic Research Partners"
+--    - Intellectual property agreements and research ethics compliance
+--    - Joint publication and knowledge sharing protocols
+--    - Student internship and co-op coordination
+--
+-- 4. VENDOR AND SUPPLIER MANAGEMENT:
+--    Network Infrastructure Upgrade Project:
+--    
+--    Client: "Cisco Canada - Enterprise Solutions"
+--    Contact: {
+--      "primary": "Robert Kim, Account Manager",
+--      "email": "robert.kim@cisco.com",
+--      "phone": "+1-416-555-0300",
+--      "technical_support": "support@cisco.com",
+--      "emergency_support": "+1-800-555-0400",
+--      "account_team": ["presales", "technical", "support"],
+--      "contract_manager": "contracts@cisco.com"
+--    }
+--    
+--    Client Group: "Technology Vendors"
+--    - Procurement and contract management integration
+--    - Technical support and maintenance coordination
+--    - Product roadmap alignment and strategic planning
+--
+-- CLIENT-PROJECT INTEGRATION:
+-- Clients integrate seamlessly with project and task management:
+--
+-- • PROJECT OWNERSHIP: External clients can own or sponsor projects
+-- • TASK COLLABORATION: Client groups can be assigned to specific tasks
+-- • APPROVAL WORKFLOWS: Client approval requirements integrated into task workflows
+-- • COMMUNICATION TRACKING: All client communications linked to projects and tasks
+-- • DELIVERABLE MANAGEMENT: Client review and approval of project deliverables
+--
+-- COMPLIANCE AND GOVERNANCE:
+-- The client system supports regulatory and governance requirements:
+--
+-- • PRIVACY COMPLIANCE: PIPEDA, GDPR, and other privacy regulation compliance
+-- • SECURITY REQUIREMENTS: Client-specific security clearances and protocols
+-- • CONTRACTUAL OBLIGATIONS: Terms of service and service level agreement tracking
+-- • AUDIT TRAILS: Complete communication and interaction history
+-- • DATA RESIDENCY: Geographic and jurisdictional data management requirements
+--
+-- MULTI-TENANT AND SCALABILITY:
+-- The design supports enterprise-scale client management:
+-- - Thousands of client relationships across multiple business units
+-- - International clients with localization and compliance requirements
+-- - Integration with external CRM and ERP systems
+-- - Automated communication workflows and client portal integration
+--
+-- COMMUNICATION AND COLLABORATION:
+-- Advanced client communication capabilities:
+-- - Multi-channel communication preferences and routing
+-- - Automated status updates and progress reporting
+-- - Client portal access for project visibility and collaboration
+-- - Document sharing and collaborative editing capabilities
+-- - Video conferencing and virtual meeting coordination
+
+-- ============================================================================
+-- DDL (Data Definition Language):
 -- ============================================================================
 
 CREATE TABLE app.d_client (
@@ -22,3 +199,355 @@ CREATE TABLE app.d_client_grp (
   created timestamptz NOT NULL DEFAULT now(),
   updated timestamptz NOT NULL DEFAULT now()
 );
+
+-- ============================================================================
+-- DATA CURATION (Synthetic Data Generation):
+-- ============================================================================
+
+-- Insert comprehensive client relationships representing various stakeholder types
+INSERT INTO app.d_client (name, contact, tags, attr) VALUES
+
+-- Government and Public Sector Clients
+('Government of Ontario - Digital Services', 
+ '{
+   "primary": {
+     "name": "Sarah Thompson",
+     "title": "Director of Digital Services",
+     "email": "sarah.thompson@ontario.ca",
+     "phone": "+1-416-326-1234",
+     "secure_email": "sarah.thompson@ontario.ca"
+   },
+   "secondary": {
+     "name": "Michael Rodriguez",
+     "title": "Senior Project Manager",
+     "email": "michael.rodriguez@ontario.ca",
+     "phone": "+1-416-326-1235"
+   },
+   "department": "Treasury Board Secretariat",
+   "address": "777 Bay Street, Toronto, ON M7A 2J3",
+   "languages": ["English", "French"],
+   "security_clearance": "Secret",
+   "preferred_communication": "secure_email",
+   "business_hours": "8:30-16:30 EST",
+   "accessibility_requirements": "AODA compliant communications",
+   "billing_contact": "procurement@ontario.ca"
+ }'::jsonb, 
+ '["government", "ontario", "digital-services", "bilingual"]', 
+ '{"jurisdiction": "provincial", "compliance_requirements": ["FIPPA", "AODA", "Official Languages Act"], "contract_type": "RFP", "security_classification": "protected", "project_value": 1200000}'),
+
+('City of Toronto - IT Department',
+ '{
+   "primary": {
+     "name": "Jennifer Liu",
+     "title": "Chief Information Officer",
+     "email": "jennifer.liu@toronto.ca",
+     "phone": "+1-416-392-1234"
+   },
+   "technical": {
+     "name": "David Kim",
+     "title": "Senior Systems Architect",
+     "email": "david.kim@toronto.ca",
+     "phone": "+1-416-392-1240"
+   },
+   "address": "100 Queen Street West, Toronto, ON M5H 2N2",
+   "languages": ["English"],
+   "preferred_communication": "email",
+   "business_hours": "8:30-16:30 EST",
+   "procurement_contact": "procurement@toronto.ca"
+ }'::jsonb,
+ '["municipal", "toronto", "it-services"]',
+ '{"jurisdiction": "municipal", "compliance_requirements": ["MFIPPA"], "contract_type": "vendor_of_record", "project_value": 450000}'),
+
+-- Enterprise and Financial Services Clients
+('Royal Bank of Canada - Digital Innovation Lab',
+ '{
+   "primary": {
+     "name": "Michael Chen",
+     "title": "VP Digital Products",
+     "email": "michael.chen@rbc.com",
+     "phone": "+1-416-955-1234"
+   },
+   "secondary": {
+     "name": "Lisa Wang",
+     "title": "Senior Product Manager",
+     "email": "lisa.wang@rbc.com",
+     "phone": "+1-416-955-1240"
+   },
+   "technical": {
+     "name": "David Rodriguez",
+     "title": "Chief Technology Architect",
+     "email": "david.rodriguez@rbc.com",
+     "phone": "+1-416-955-1250"
+   },
+   "address": "200 Bay Street, Toronto, ON M5J 2J5",
+   "languages": ["English", "French"],
+   "preferred_communication": "secure_email",
+   "business_hours": "9:00-17:00 EST",
+   "escalation_contact": "escalation@rbc.com",
+   "compliance_contact": "compliance@rbc.com"
+ }'::jsonb,
+ '["financial-services", "banking", "enterprise", "mobile-app"]',
+ '{"industry": "financial_services", "security_requirements": ["PCI-DSS", "SOX"], "compliance_requirements": ["OSFI", "PIPEDA"], "contract_type": "MSA", "project_value": 850000}'),
+
+('Shopify Inc. - Platform Engineering',
+ '{
+   "primary": {
+     "name": "Amanda Foster",
+     "title": "Director of Platform Engineering",
+     "email": "amanda.foster@shopify.com",
+     "phone": "+1-613-241-2828"
+   },
+   "technical": {
+     "name": "Roberto Santos",
+     "title": "Senior Staff Engineer",
+     "email": "roberto.santos@shopify.com",
+     "phone": "+1-613-241-2830"
+   },
+   "address": "150 Elgin Street, Ottawa, ON K2P 1L4",
+   "languages": ["English", "French"],
+   "preferred_communication": "slack",
+   "business_hours": "9:00-17:00 EST",
+   "slack_workspace": "shopify-techcorp.slack.com",
+   "emergency_contact": "on-call@shopify.com"
+ }'::jsonb,
+ '["technology", "e-commerce", "platform", "scale"]',
+ '{"industry": "technology", "collaboration_model": "agile", "communication_tools": ["slack", "jira", "confluence"], "contract_type": "SOW", "project_value": 650000}'),
+
+-- Academic and Research Partners
+('University of Toronto - Computer Science Department',
+ '{
+   "primary": {
+     "name": "Dr. Jennifer Liu",
+     "title": "Research Director",
+     "email": "j.liu@cs.toronto.edu",
+     "phone": "+1-416-978-4000"
+   },
+   "research_coordinator": {
+     "name": "Dr. Ahmed Hassan",
+     "title": "Principal Investigator",
+     "email": "ahmed.hassan@cs.toronto.edu",
+     "phone": "+1-416-978-4010"
+   },
+   "ip_contact": {
+     "name": "Technology Transfer Office",
+     "email": "tech.transfer@utoronto.ca",
+     "phone": "+1-416-978-7718"
+   },
+   "address": "40 St. George Street, Toronto, ON M5S 2E4",
+   "languages": ["English"],
+   "preferred_communication": "email",
+   "business_hours": "9:00-17:00 EST",
+   "research_ethics": "approval_required",
+   "student_contacts": ["grad.students@cs.toronto.edu"]
+ }'::jsonb,
+ '["academic", "research", "university", "ai-analytics"]',
+ '{"partnership_type": "research_collaboration", "ip_sharing": "joint_ownership", "student_involvement": true, "publication_rights": "joint", "research_agreement": "active", "funding_source": ["NSERC", "internal"]}'),
+
+('McGill University - AI Research Lab',
+ '{
+   "primary": {
+     "name": "Dr. Marie Dubois",
+     "title": "Laboratory Director",
+     "email": "marie.dubois@mcgill.ca",
+     "phone": "+1-514-398-1234"
+   },
+   "graduate_coordinator": {
+     "name": "Dr. François Martin",
+     "title": "Graduate Program Coordinator",
+     "email": "francois.martin@mcgill.ca",
+     "phone": "+1-514-398-1240"
+   },
+   "address": "845 Rue Sherbrooke Ouest, Montreal, QC H3A 0G4",
+   "languages": ["French", "English"],
+   "preferred_communication": "email",
+   "business_hours": "9:00-17:00 EST",
+   "collaboration_agreement": "active",
+   "research_focus": ["machine_learning", "natural_language_processing"]
+ }'::jsonb,
+ '["academic", "research", "montreal", "ai", "bilingual"]',
+ '{"partnership_type": "research_collaboration", "primary_language": "French", "ip_sharing": "shared_publication", "research_agreement": "active", "funding_source": ["FRQNT", "industry_partnership"]}'),
+
+-- Technology Vendors and Suppliers
+('Cisco Canada - Enterprise Solutions',
+ '{
+   "primary": {
+     "name": "Robert Kim",
+     "title": "Enterprise Account Manager",
+     "email": "robert.kim@cisco.com",
+     "phone": "+1-416-564-1234"
+   },
+   "technical_support": {
+     "email": "support@cisco.com",
+     "phone": "+1-800-553-6387"
+   },
+   "emergency_support": {
+     "phone": "+1-800-553-2447",
+     "escalation": "critical_systems_only"
+   },
+   "address": "181 Bay Street, Toronto, ON M5J 2T3",
+   "languages": ["English", "French"],
+   "preferred_communication": "email",
+   "business_hours": "8:00-17:00 EST",
+   "account_team": ["presales", "technical", "support"],
+   "contract_manager": "contracts@cisco.com"
+ }'::jsonb,
+ '["vendor", "networking", "infrastructure", "enterprise"]',
+ '{"vendor_type": "technology_supplier", "relationship": "strategic_partner", "contract_type": "enterprise_agreement", "support_level": "premium", "sla": "4_hour_response"}'),
+
+('Amazon Web Services - Canada',
+ '{
+   "primary": {
+     "name": "Patricia Anderson",
+     "title": "Solutions Architect",
+     "email": "patricia.anderson@amazon.com",
+     "phone": "+1-416-646-1234"
+   },
+   "technical_account_manager": {
+     "name": "James Thompson",
+     "title": "Technical Account Manager",
+     "email": "james.thompson@amazon.com",
+     "phone": "+1-416-646-1240"
+   },
+   "billing_contact": {
+     "email": "billing@amazon.com"
+   },
+   "address": "120 Bremner Blvd, Toronto, ON M5J 0A8",
+   "languages": ["English", "French"],
+   "preferred_communication": "email",
+   "business_hours": "24/7 support available",
+   "support_portal": "https://console.aws.amazon.com/support/"
+ }'::jsonb,
+ '["vendor", "cloud", "infrastructure", "aws"]',
+ '{"vendor_type": "cloud_provider", "relationship": "strategic_partner", "contract_type": "pay_as_you_go", "support_level": "business", "data_residency": "canada_central"}'),
+
+-- Consulting and Professional Services
+('Deloitte Digital - Technology Consulting',
+ '{
+   "primary": {
+     "name": "Sandra Martinez",
+     "title": "Managing Director",
+     "email": "sandra.martinez@deloitte.ca",
+     "phone": "+1-416-643-1234"
+   },
+   "project_lead": {
+     "name": "Kevin Wang",
+     "title": "Senior Manager",
+     "email": "kevin.wang@deloitte.ca",
+     "phone": "+1-416-643-1240"
+   },
+   "address": "Bay Adelaide Centre, 333 Bay Street, Toronto, ON M5H 2R2",
+   "languages": ["English", "French"],
+   "preferred_communication": "email",
+   "business_hours": "8:00-18:00 EST",
+   "expertise": ["digital_transformation", "cloud_migration", "agile_coaching"]
+ }'::jsonb,
+ '["consulting", "professional-services", "digital-transformation"]',
+ '{"service_type": "management_consulting", "expertise_areas": ["strategy", "technology", "operations"], "contract_type": "time_and_materials", "clearance_level": "public"}'),
+
+-- International and Remote Clients
+('TechStart Solutions - Berlin Office',
+ '{
+   "primary": {
+     "name": "Klaus Mueller",
+     "title": "Chief Technology Officer",
+     "email": "klaus.mueller@techstart.de",
+     "phone": "+49-30-1234-5678"
+   },
+   "local_contact": {
+     "name": "Emma Johnson",
+     "title": "North American Liaison",
+     "email": "emma.johnson@techstart.de",
+     "phone": "+1-647-555-1234"
+   },
+   "address": "Unter den Linden 77, 10117 Berlin, Germany",
+   "languages": ["German", "English"],
+   "preferred_communication": "video_conference",
+   "business_hours": "9:00-17:00 CET (UTC+1)",
+   "timezone": "Europe/Berlin",
+   "collaboration_tools": ["teams", "slack"]
+ }'::jsonb,
+ '["international", "european", "technology", "remote"]',
+ '{"geographic_region": "europe", "timezone_difference": "+6_hours", "currency": "EUR", "contract_jurisdiction": "ontario_law", "data_residency": "canadian_requirements"}');
+
+-- Insert Client Groups for project and organizational management
+INSERT INTO app.d_client_grp (name, clients, tags, attr) VALUES
+
+-- Government and Public Sector Group
+('Ontario Government Stakeholders',
+ ARRAY[
+   (SELECT id FROM app.d_client WHERE name = 'Government of Ontario - Digital Services'),
+   (SELECT id FROM app.d_client WHERE name = 'City of Toronto - IT Department')
+ ],
+ '["government", "public-sector", "ontario"]',
+ '{"classification": "government", "security_requirements": ["protected", "confidential"], "communication_requirements": ["bilingual", "accessible"], "compliance_standards": ["FIPPA", "AODA"]}'),
+
+-- Financial Services Client Group
+('Financial Services Clients',
+ ARRAY[
+   (SELECT id FROM app.d_client WHERE name = 'Royal Bank of Canada - Digital Innovation Lab')
+ ],
+ '["financial-services", "banking", "high-security"]',
+ '{"classification": "financial_services", "security_requirements": ["PCI-DSS", "SOX"], "communication_requirements": ["secure_channels"], "compliance_standards": ["OSFI", "PIPEDA"]}'),
+
+-- Technology Partners Group
+('Technology Partners',
+ ARRAY[
+   (SELECT id FROM app.d_client WHERE name = 'Shopify Inc. - Platform Engineering')
+ ],
+ '["technology", "partners", "collaboration"]',
+ '{"classification": "strategic_partners", "collaboration_model": "agile", "communication_tools": ["slack", "jira"], "partnership_type": "technology_collaboration"}'),
+
+-- Academic Research Partners Group
+('Academic Research Partners',
+ ARRAY[
+   (SELECT id FROM app.d_client WHERE name = 'University of Toronto - Computer Science Department'),
+   (SELECT id FROM app.d_client WHERE name = 'McGill University - AI Research Lab')
+ ],
+ '["academic", "research", "universities"]',
+ '{"classification": "research_partners", "ip_sharing": "joint_ownership", "publication_rights": "collaborative", "student_involvement": true, "research_focus": ["AI", "machine_learning"]}'),
+
+-- Technology Vendors Group
+('Technology Vendors',
+ ARRAY[
+   (SELECT id FROM app.d_client WHERE name = 'Cisco Canada - Enterprise Solutions'),
+   (SELECT id FROM app.d_client WHERE name = 'Amazon Web Services - Canada')
+ ],
+ '["vendors", "suppliers", "technology"]',
+ '{"classification": "technology_vendors", "relationship_type": "supplier", "contract_types": ["enterprise_agreement", "pay_as_you_go"], "support_requirements": ["premium", "24x7"]}'),
+
+-- Professional Services Group  
+('Professional Services Partners',
+ ARRAY[
+   (SELECT id FROM app.d_client WHERE name = 'Deloitte Digital - Technology Consulting')
+ ],
+ '["consulting", "professional-services", "expertise"]',
+ '{"classification": "professional_services", "expertise_areas": ["strategy", "technology", "operations"], "engagement_model": "project_based", "contract_type": "time_and_materials"}'),
+
+-- International Clients Group
+('International Clients',
+ ARRAY[
+   (SELECT id FROM app.d_client WHERE name = 'TechStart Solutions - Berlin Office')
+ ],
+ '["international", "remote", "timezone-coordination"]',
+ '{"classification": "international", "timezone_management": "required", "communication_tools": ["video_conference", "async_collaboration"], "contract_jurisdiction": "ontario_law", "data_residency": "canadian_compliance"}'),
+
+-- Mobile App Project Specific Group
+('Mobile App Project Stakeholders',
+ ARRAY[
+   (SELECT id FROM app.d_client WHERE name = 'Royal Bank of Canada - Digital Innovation Lab'),
+   (SELECT id FROM app.d_client WHERE name = 'Deloitte Digital - Technology Consulting')
+ ],
+ '["mobile-app", "project-specific", "stakeholders"]',
+ '{"project_association": "Mobile App V2", "role": "stakeholder_group", "communication_frequency": "weekly", "reporting_requirements": ["progress_updates", "milestone_reviews"]}'),
+
+-- Platform Modernization Project Group
+('Platform Modernization Stakeholders',
+ ARRAY[
+   (SELECT id FROM app.d_client WHERE name = 'Cisco Canada - Enterprise Solutions'),
+   (SELECT id FROM app.d_client WHERE name = 'Amazon Web Services - Canada'),
+   (SELECT id FROM app.d_client WHERE name = 'Deloitte Digital - Technology Consulting')
+ ],
+ '["platform-modernization", "infrastructure", "vendors"]',
+ '{"project_association": "Platform Modernization 2024", "role": "vendor_group", "coordination_requirements": ["technical_integration", "delivery_synchronization"], "escalation_procedures": "defined"}');
+
+-- Indexes removed for simplified import

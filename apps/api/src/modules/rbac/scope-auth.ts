@@ -1,13 +1,13 @@
 /**
  * RBAC Scope-based Authentication Utilities
- * Provides functions to check user permissions against rel_user_scope table
+ * Provides functions to check user permissions against rel_employee_scope_unified table
  */
 
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 
 /**
- * Permission levels as defined in rel_user_scope.scope_permission
+ * Permission levels as defined in rel_employee_scope_unified.resource_permission
  * 0: view, 1: modify, 2: share, 3: delete, 4: create
  */
 export enum Permission {
@@ -65,19 +65,19 @@ export async function checkScopeAccess(
   try {
     // Query the database for user permissions
     let query = sql`
-      SELECT scope_id, scope_permission
-      FROM app.rel_user_scope 
+      SELECT scope_id, resource_permission
+      FROM app.rel_employee_scope_unified 
       WHERE emp_id = ${userId} 
-        AND scope_type = ${scopeType} 
+        AND resource_type = ${scopeType} 
         AND active = true
     `;
 
     if (specificScopeId) {
       query = sql`
-        SELECT scope_id, scope_permission
-        FROM app.rel_user_scope 
+        SELECT scope_id, resource_permission
+        FROM app.rel_employee_scope_unified 
         WHERE emp_id = ${userId} 
-          AND scope_type = ${scopeType} 
+          AND resource_type = ${scopeType} 
           AND scope_id = ${specificScopeId}
           AND active = true
       `;
@@ -91,8 +91,8 @@ export async function checkScopeAccess(
 
     // Check if user has the required permission
     const hasPermission = permissions.some(perm => {
-      const scopePermission = perm.scope_permission as number[] | null;
-      return scopePermission && Array.isArray(scopePermission) && scopePermission.includes(requiredPermission);
+      const resourcePermission = perm.resource_permission as number[] | null;
+      return resourcePermission && Array.isArray(resourcePermission) && resourcePermission.includes(requiredPermission);
     });
 
     if (!hasPermission) {
@@ -101,8 +101,8 @@ export async function checkScopeAccess(
 
     const scopeIds = permissions.map(p => p.scope_id as string | null).filter((id): id is string => id !== null);
     const allPermissions = permissions.flatMap(p => {
-      const scopePermission = p.scope_permission as number[] | null;
-      return Array.isArray(scopePermission) ? scopePermission : [];
+      const resourcePermission = p.resource_permission as number[] | null;
+      return Array.isArray(resourcePermission) ? resourcePermission : [];
     });
 
     return {
@@ -142,19 +142,20 @@ export async function getUserScopes(
   
   try {
     const scopes = await db.execute(sql`
-      SELECT scope_id, scope_name, scope_permission
-      FROM app.rel_user_scope 
-      WHERE emp_id = ${userId} 
-        AND scope_type = ${scopeType} 
-        AND active = true
-        AND ${minPermission} = ANY(scope_permission)
-      ORDER BY scope_name
+      SELECT rus.scope_id, ds.scope_name, rus.resource_permission
+      FROM app.rel_employee_scope_unified rus
+      JOIN app.d_scope_unified ds ON rus.scope_id = ds.id
+      WHERE rus.emp_id = ${userId} 
+        AND rus.resource_type = ${scopeType} 
+        AND rus.active = true
+        AND ${minPermission} = ANY(rus.resource_permission)
+      ORDER BY ds.scope_name
     `);
 
     return scopes.map(scope => ({
       scopeId: (scope.scope_id as string | null) || '',
       scopeName: scope.scope_name as string,
-      permissions: (Array.isArray(scope.scope_permission) ? scope.scope_permission : []) as Permission[],
+      permissions: (Array.isArray(scope.resource_permission) ? scope.resource_permission : []) as Permission[],
     }));
   } catch (error) {
     console.error('Error getting user scopes:', error);
@@ -179,11 +180,11 @@ export async function isUserAdmin(userId: string): Promise<boolean> {
     // Check if user has app-level permissions
     const adminPermissions = await db.execute(sql`
       SELECT COUNT(*) as count
-      FROM app.rel_user_scope 
+      FROM app.rel_employee_scope_unified 
       WHERE emp_id = ${userId} 
-        AND scope_type = 'app' 
+        AND resource_type = 'app' 
         AND active = true
-        AND 4 = ANY(scope_permission) -- CREATE permission on app scope
+        AND 4 = ANY(resource_permission) -- CREATE permission on app scope
     `);
 
     return Number(adminPermissions[0]?.count || 0) > 0;
@@ -220,10 +221,11 @@ export async function getUserEffectivePermissions(userId: string): Promise<{
 
   try {
     const allPermissions = await db.execute(sql`
-      SELECT scope_type, scope_id, scope_name, scope_permission
-      FROM app.rel_user_scope 
-      WHERE emp_id = ${userId} AND active = true
-      ORDER BY scope_type, scope_name
+      SELECT rus.resource_type as scope_type, rus.scope_id, ds.scope_name, rus.resource_permission as scope_permission
+      FROM app.rel_employee_scope_unified rus
+      JOIN app.d_scope_unified ds ON rus.scope_id = ds.id
+      WHERE rus.emp_id = ${userId} AND rus.active = true
+      ORDER BY rus.resource_type, ds.scope_name
     `);
 
     const result = {
