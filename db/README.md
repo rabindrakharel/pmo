@@ -1,10 +1,22 @@
-# Huron Home Services - Database Schema Architecture
+# PMO Database Schema - Comprehensive Data Model Documentation
 
-**Platform**: PostgreSQL 16+ with PostGIS and pgcrypto extensions  
-**Schema**: `app`  
-**Tables**: 24 tables across 6 categories  
-**Authentication**: JWT + bcrypt with email-based login  
-**DDL Structure**: Standardized 3-section format (Semantics → DDL → Data Curation)
+A sophisticated PostgreSQL database system designed for enterprise project management with comprehensive RBAC, temporal data patterns, and Canadian organizational compliance.
+
+## 🏗️ Database Architecture Overview
+
+### System Specifications
+- **Database**: PostgreSQL 16+ with PostGIS and pgcrypto extensions
+- **Total Tables**: 24 tables across 6 logical categories
+- **Data Organization**: 13 DDL files in dependency-optimized loading order (00-13, excluding deleted 12_unified_scope.ddl)
+- **Permission Records**: 113+ comprehensive permission entries in unified table
+- **Hierarchical Relationships**: Multi-level parent-child structures across all scope types
+
+### Latest Updates (2025-08-30)
+- **🔄 Enhanced Permission System**: Unified `rel_employee_scope_unified` table with direct table references
+- **🔧 Auth API Integration**: New permission endpoints (`/permissions`, `/scopes/:scopeType`, `/debug`)
+- **📊 Granular Scope Types**: app:page, app:api, app:component for fine-grained access control
+- **🎯 Permission Bundling**: Login response includes complete user permission structure
+- **🔍 Advanced Debugging**: Admin-only debug endpoint for detailed permission analysis
 
 ---
 
@@ -12,12 +24,13 @@
 
 ### Core Design Philosophy
 
-The Huron Home Services database represents a **real-world Canadian home services company** operating across Southern Ontario. This schema demonstrates:
+The PMO database represents a **comprehensive enterprise project management system** designed for Canadian organizational compliance. This schema demonstrates:
 
-- **Canadian Business Context**: Full integration with Canadian geographic, regulatory, and business structures
-- **Operational Excellence**: Complete service delivery from landscaping to solar installation  
-- **Scalable Architecture**: Hierarchical scopes supporting growth from startup to enterprise
-- **Regulatory Compliance**: WSIB, TSSA, ESA, and municipal requirement integration
+- **Enterprise RBAC**: Sophisticated role-based access control with multi-dimensional scope hierarchies
+- **Unified Permission Model**: Single table (`rel_employee_scope_unified`) with direct table references eliminating intermediate lookups
+- **Temporal Data Patterns**: Complete audit trails with head/records pattern for project and task management
+- **Canadian Compliance**: Full integration with Canadian geographic, regulatory, and business structures
+- **API-First Design**: Direct integration with enhanced authentication endpoints for real-time permission validation
 
 ### Entity Relationship Diagram - Foreign Key Relationships
 
@@ -316,41 +329,127 @@ erDiagram
 
 ---
 
-## 📊 Table Categories
+## 📊 Complete Table Relationships & Data Model
 
-### 1. Meta Configuration Tables (7 tables) - Expanded Data
+### **Category 1: Meta Configuration Tables (7 tables)**
 
-**Purpose**: Define organizational vocabulary, hierarchical structures, and operational workflows
+Meta tables define the reference vocabulary and configuration for the entire system.
 
-- **meta_biz_level**: 6 business hierarchy levels (Corporation → Division → Department → Team → Squad → Sub-team)
-- **meta_loc_level**: 8 Canadian location levels (Corp-Region → Country → Province → Economic Region → Metro → City → District → Address)
-- **meta_hr_level**: 20 HR hierarchy levels with salary bands (CEO $300K-$600K → Engineer $55K-$95K)
-- **meta_project_status**: 16 comprehensive project statuses (Draft → Submitted → Planning → Active → Delivered → Cancelled)
-- **meta_project_stage**: 5 PMBOK-aligned stages (Initiation → Planning → Execution → Monitoring → Closure)
-- **meta_task_status**: 15 development lifecycle statuses (Open → Assigned → In Progress → Code Review → Deployed → Verified)
-- **meta_task_stage**: 14 enhanced Kanban stages with WIP limits (Icebox → Backlog → Ready → In Progress → UAT → Done)
+#### 📋 **meta_biz_level** - Business Hierarchy Levels
+- **Purpose**: Defines 6-level organizational hierarchy structure
+- **Key Relationships**: Referenced by `d_scope_business.level_id`
+- **Data Coverage**: Corporation → Division → Department → Team → Squad → Sub-team
 
-### 2. Scope Hierarchy Tables (4 tables) - Geographic & Organizational Structure
+#### 📋 **meta_loc_level** - Location Hierarchy Levels  
+- **Purpose**: Defines 8-level Canadian geographic structure
+- **Key Relationships**: Referenced by `d_scope_location.level_id`
+- **Data Coverage**: Corp-Region → Country → Province → Economic Region → Metro → City → District → Address
 
-**Purpose**: Multi-dimensional organizational scope management supporting hierarchical permissions
+#### 📋 **meta_hr_level** - HR Position Levels
+- **Purpose**: Defines 20-level human resources hierarchy
+- **Key Relationships**: Referenced by `d_scope_hr.level_id`
+- **Data Coverage**: CEO → C-Level → SVP/EVP → VP → Directors → Managers → Team Leads → Professionals → Interns
+- **Salary Bands**: CAD $18,000 - $600,000 with comprehensive benefits packages
 
-- **d_scope_location**: Canadian geographic hierarchy with PostGIS integration
-  - Real data: North America → Canada → Ontario → Southern Ontario → GTA → Mississauga → Central District → 1250 South Service Rd (HQ)
-  - Features: Timezone, currency, bilingual support, tax jurisdiction, emergency contacts
+#### 📋 **meta_project_status** - Project Status Definitions
+- **Purpose**: Defines 16 comprehensive project statuses for lifecycle management
+- **Key Relationships**: Referenced by `ops_project_records.status_id`
+- **Data Coverage**: Draft → Submitted → Planning → Active → At Risk → Critical → Completed → Delivered → Archived
 
-- **d_scope_business**: Huron Home Services organizational structure
-  - Real data: Huron Home Services → Field Services Division → Landscaping Department
-  - Features: Cost centers, budgets, profit/cost center flags, approval limits, FTE allocation
+#### 📋 **meta_project_stage** - Project Stage Framework
+- **Purpose**: PMBOK-aligned 5-stage project management framework  
+- **Key Relationships**: Referenced by `ops_project_records.stage_id`
+- **Data Coverage**: Initiation → Planning → Execution → Monitoring & Controlling → Closure
 
-- **d_scope_worksite**: Physical operational facilities
-  - Real data: HQ (Mississauga), Toronto Branch, London Office, Client sites, Mobile emergency, Seasonal staging
-  - Features: Security levels, access hours, safety protocols, GPS coordinates
+#### 📋 **meta_task_status** - Task Status Definitions
+- **Purpose**: Defines 15 development lifecycle statuses for comprehensive task tracking
+- **Key Relationships**: Referenced by `ops_task_records.status_id` 
+- **Data Coverage**: Open → Assigned → In Progress → Code Review → Testing → Done → Deployed → Verified
 
-- **d_scope_hr**: Human resources hierarchy with salary bands
-  - Real data: CEO Office ($300K-$500K) → VP Engineering ($200K-$300K) → Engineering Directors → Managers → Senior Engineers
-  - Features: Position codes, job families, bonus targets, equity eligibility, approval limits
+#### 📋 **meta_task_stage** - Kanban Stage Framework
+- **Purpose**: Enhanced 14-stage Kanban workflow with WIP limits and deployment states
+- **Key Relationships**: Referenced by `ops_task_records.stage_id`
+- **Data Coverage**: Icebox → Backlog → Ready → In Progress → Code Review → Testing → UAT → Deployed → Done
 
-### 3. Domain Tables (1 table) - Identity & Authentication
+### **Category 2: Scope Hierarchy Tables (5 tables)**
+
+Scope tables define the organizational, geographic, and operational structure for permission-based access control.
+
+#### 🏛️ **d_scope_business** - Organizational Structure
+```sql
+CREATE TABLE app.d_scope_business (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  descr text,
+  level_id smallint REFERENCES app.meta_biz_level(id),
+  parent_id uuid REFERENCES app.d_scope_business(id),
+  budget_allocated numeric(15,2),
+  cost_center text,
+  business_unit_code text UNIQUE,
+  -- Standard audit fields
+  tags jsonb DEFAULT '[]'::jsonb,
+  attr jsonb DEFAULT '{}'::jsonb,
+  from_ts timestamptz DEFAULT now(),
+  to_ts timestamptz,
+  active boolean DEFAULT true,
+  created timestamptz DEFAULT now(),
+  updated timestamptz DEFAULT now()
+);
+```
+
+**Relationships:**
+- **Parent Reference**: `parent_id → d_scope_business.id` (self-referencing hierarchy)
+- **Level Definition**: `level_id → meta_biz_level.id` (organizational level)
+- **Project Assignment**: `ops_project_head.business_scope_id ← id` (project scoping)
+- **Worksite Assignment**: `d_scope_worksite.biz_id ← id` (worksite business ownership)
+- **Permission Control**: `rel_employee_scope_unified.scope_table_reference_id ← id` (access permissions)
+
+**Data Examples:**
+- **Level 1 (Corporation)**: Huron Home Services Inc.
+- **Level 2 (Division)**: Operations Division, Technology Division  
+- **Level 3 (Department)**: Engineering Department, Quality Assurance Department
+- **Level 4 (Team)**: Backend Development Team, Frontend Development Team
+- **Level 5 (Squad)**: API Squad, Database Squad
+- **Level 6 (Sub-team)**: Authentication Sub-team, Reporting Sub-team
+
+### **Category 3: Application Scope Tables (1 table)**
+
+Application scope tables define UI components, API endpoints, and frontend routes for granular permission control.
+
+#### 🔧 **d_scope_app** - Application Component/Route/API Registry
+```sql
+CREATE TABLE app.d_scope_app (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  scope_type text NOT NULL,  -- 'page', 'api-path', 'component'
+  scope_name text NOT NULL,  -- Actual paths/routes/component names
+  descr text,
+  parent_id uuid REFERENCES app.d_scope_app(id) ON DELETE SET NULL,
+  is_protected boolean NOT NULL DEFAULT false,
+  props_schema jsonb NOT NULL DEFAULT '{}'::jsonb,
+  dependencies jsonb NOT NULL DEFAULT '[]'::jsonb,
+  -- Standard audit fields
+  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
+  attr jsonb NOT NULL DEFAULT '{}'::jsonb,
+  from_ts timestamptz NOT NULL DEFAULT now(),
+  to_ts timestamptz,
+  active boolean NOT NULL DEFAULT true,
+  created timestamptz NOT NULL DEFAULT now(),
+  updated timestamptz NOT NULL DEFAULT now()
+);
+```
+
+**Key Features:**
+- **scope_name contains actual identifiers**: Unlike other scope tables that use descriptive names, d_scope_app.scope_name contains the actual API paths, routes, and component names
+- **Three scope types**: 'page' (frontend routes), 'api-path' (backend endpoints), 'component' (UI elements)
+- **Hierarchical structure**: Parent-child relationships for nested components/routes
+- **Permission integration**: Direct integration with unified permission system via scope_name
+
+**Data Examples:**
+- **Pages**: scope_name="/dashboard", scope_name="/admin/users", scope_name="/projects/:id"
+- **API Paths**: scope_name="/api/v1/auth/login", scope_name="/api/v1/task", scope_name="/api/v1/emp/:id"
+- **Components**: scope_name="datatable:DataTable", scope_name="form:Button", scope_name="widget:TaskBoard"
+
+### **Category 4: Domain Tables (1 table) - Identity & Authentication**
 
 **Purpose**: Employee identity management and authentication backbone
 
@@ -358,7 +457,7 @@ erDiagram
   - Real data: 15 employees across all employment types (full-time, part-time, contractor, co-op, intern, contingent)
   - Features: Email/password authentication, emergency contacts, skills/certifications, education, work modes
 
-### 4. Operational Tables (3 tables) - Project & Task Management
+### **Category 5: Operational Tables (3 tables) - Project & Task Management**
 
 **Purpose**: Real-world project execution with comprehensive tracking
 
@@ -373,7 +472,7 @@ erDiagram
 - **ops_task_records**: Task execution tracking with comprehensive logging
   - Features: Status/stage tracking, time logging, work log entries, quality gates, acceptance criteria
 
-### 5. Relationship Tables (1 table) - Multi-Dimensional Assignments
+### **Category 6: Relationship Tables (1 table) - Multi-Dimensional Assignments**
 
 **Purpose**: Matrix organization support across business, location, and HR dimensions
 
@@ -473,16 +572,16 @@ Files must be loaded in strict dependency order:
 1. **00_extensions.ddl** - PostgreSQL extensions and schema setup
 2. **01_meta.ddl** - Meta configuration tables (7 tables)
 3. **02_location.ddl** - Geographic hierarchy (depends on meta_loc_level)
-4. **03_worksite.ddl** - Physical facilities (depends on location)
-5. **04_business.ddl** - Organizational structure (depends on meta_biz_level)
+4. **04_business.ddl** - Organizational structure (depends on meta_biz_level)
+5. **03_worksite.ddl** - Physical facilities (depends on location and business)
 6. **05_hr.ddl** - HR hierarchy and matrix (depends on meta_hr_level, business, location)
 7. **06_employee.ddl** - Employee identity and authentication
-8. **07_client.ddl** - Client management (self-referencing)
-9. **08_project_task.ddl** - Project and task operations (depends on employee, worksite)
-10. **09_forms.ddl** - Dynamic forms system
-11. **10_app_tables.ddl** - Application component scopes
-12. **11_unified_scope.ddl** - Central permission registry
-13. **12_permission_tables.ddl** - RBAC relationship tables
+8. **06_role.ddl** - Role definitions and assignments
+9. **07_client.ddl** - Client management (self-referencing)
+10. **09_project_task.ddl** - Project and task operations (depends on employee, worksite)
+11. **10_forms.ddl** - Dynamic forms system
+12. **11_app_tables.ddl** - Application component scopes (d_scope_app with scope_name field)
+13. **13_permission_tables.ddl** - Unified scope system and RBAC relationship tables
 
 ---
 
@@ -497,6 +596,26 @@ Files must be loaded in strict dependency order:
 - **Scope-Based RBAC**: Hierarchical permissions across location, business, HR, and worksite scopes
 - **Permission Inheritance**: Parent scope permissions cascade to children
 - **Cross-Scope Validation**: Operations validate access across multiple scope dimensions
+
+### Unified Scope Name System
+The current permission system uses a **scope_name** field that contains actual identifiers:
+
+- **Business/Location/HR/Worksite Scopes**: `scope_name` contains descriptive names from the `name` field
+  - Examples: "Huron Home Services", "Operations Division", "Ontario", "Mississauga"
+  
+- **Application Scopes**: `scope_name` contains actual API paths, routes, and component names from d_scope_app
+  - **Pages**: "/dashboard", "/projects", "/admin/users"
+  - **API Endpoints**: "/api/v1/auth/login", "/api/v1/task", "/api/v1/emp"
+  - **Components**: "datatable:DataTable", "widget:TaskBoard", "form:Button"
+  
+- **Project/Task Scopes**: `scope_name` contains project/task names
+  - Examples: "ERP Implementation Phase 1", "Solar Panel Installation - Residential Q1"
+
+**Key Changes from Previous System:**
+- ✅ **scope_name** field contains actual paths/routes/components (for app scopes) or descriptive names (for other scopes)
+- ❌ **scope_path** field has been completely removed
+- ✅ Direct reference to scope tables via `scope_table_reference_id` and `scope_reference_table`
+- ✅ Unified `rel_employee_scope_unified` table eliminates intermediate lookups
 
 ### Canadian Compliance Integration
 - **Privacy**: PIPEDA-compliant personal information handling

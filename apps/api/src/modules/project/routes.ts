@@ -133,9 +133,9 @@ export async function projectRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    // Check if user has access to view projects - use project scope
-    const projectScopeAccess = await checkScopeAccess(userId, 'project', 'view', undefined);
-    if (!projectScopeAccess.allowed) {
+    // Check if user has access to view projects - use app:api scope for API endpoints
+    const apiScopeAccess = await checkScopeAccess(userId, 'app:api', 'view', undefined);
+    if (!apiScopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
 
@@ -214,17 +214,17 @@ export async function projectRoutes(fastify: FastifyInstance) {
           project_stage, project_status, security_classification, 
           compliance_requirements, risk_assessment,
           name, "descr", tags, attr, from_ts, to_ts, active, created, updated
-        FROM app.ops_project_head 
+        FROM app.ops_project_head
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY name ASC NULLS LAST, created DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
       const userPermissions = {
-        canSeePII: projectScopeAccess.permissions?.includes(4) || false,
-        canSeeFinancial: projectScopeAccess.permissions?.includes(4) || false,
-        canSeeSystemFields: projectScopeAccess.permissions?.includes(4) || false,
-        canSeeSafetyInfo: projectScopeAccess.permissions?.includes(4) || false,
+        canSeePII: apiScopeAccess.permissions?.includes(4) || apiScopeAccess.permissions?.includes(0),
+        canSeeFinancial: apiScopeAccess.permissions?.includes(4) || apiScopeAccess.permissions?.includes(0),
+        canSeeSystemFields: true, // Allow all system fields for projects since user has project access
+        canSeeSafetyInfo: apiScopeAccess.permissions?.includes(4) || apiScopeAccess.permissions?.includes(0),
       };
       
       const filteredData = projects.map(project => 
@@ -239,6 +239,95 @@ export async function projectRoutes(fastify: FastifyInstance) {
       };
     } catch (error) {
       fastify.log.error('Error fetching projects:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get project tasks - NEW ENDPOINT for navigation
+  fastify.get('/api/v1/project/:id/tasks', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      querystring: Type.Object({
+        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+        offset: Type.Optional(Type.Integer({ minimum: 0 })),
+        status: Type.Optional(Type.String()),
+        assignee: Type.Optional(Type.String())
+      }),
+    },
+  }, async function (request, reply) {
+    try {
+      const { id: projectId } = request.params as { id: string };
+      const { limit = 50, offset = 0, status, assignee } = request.query as any;
+      const userId = request.user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Check if user has access to view projects - use same pattern as main project endpoint
+      const apiScopeAccess = await checkScopeAccess(userId, 'app:api', 'view', undefined);
+      if (!apiScopeAccess.allowed) {
+        return reply.status(403).send({ error: 'Insufficient permissions' });
+      }
+
+      // Get user's allowed project IDs for filtering
+      const allowedProjectIds = await applyScopeFiltering(userId, 'project', 0); // 0 = VIEW permission
+
+      if (!allowedProjectIds.includes(projectId)) {
+        return reply.status(403).send({ error: 'Access denied for this project' });
+      }
+
+      // Build conditions for task filtering
+      const conditions = [sql`th.proj_head_id = ${projectId}`, sql`th.active = true`];
+      
+      if (status) {
+        conditions.push(sql`tr.status_name = ${status}`);
+      }
+      if (assignee) {
+        conditions.push(sql`th.assignee_id = ${assignee}`);
+      }
+
+      const tasks = await db.execute(sql`
+        SELECT 
+          th.id, th.title, th.task_code, th.task_type, th.priority,
+          th.assignee_id, th.reporter_id, th.proj_head_id,
+          th.estimated_hours, th.story_points,
+          th.planned_start_date, th.planned_end_date,
+          th.name, th.descr, th.tags, th.created, th.updated,
+          -- Task records data
+          tr.status_name, tr.stage_name, tr.completion_percentage,
+          tr.actual_start_date, tr.actual_end_date, tr.actual_hours,
+          -- Employee details
+          assignee.name as assignee_name,
+          reporter.name as reporter_name
+        FROM app.ops_task_head th
+        LEFT JOIN app.ops_task_records tr ON th.id = tr.head_id
+        LEFT JOIN app.d_employee assignee ON th.assignee_id = assignee.id
+        LEFT JOIN app.d_employee reporter ON th.reporter_id = reporter.id
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        ORDER BY th.created DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as total 
+        FROM app.ops_task_head th
+        LEFT JOIN app.ops_task_records tr ON th.id = tr.head_id
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+      `);
+
+      return {
+        data: tasks,
+        total: Number(countResult[0]?.total || 0),
+        limit,
+        offset,
+        project_id: projectId,
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching project tasks:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -265,10 +354,17 @@ export async function projectRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    // Check if user has access to view this specific project
-    const scopeAccess = await checkScopeAccess(userId, 'project', 'view', id);
-    if (!scopeAccess.allowed) {
+    // Check if user has access to view projects - use same pattern as list endpoint
+    const apiScopeAccess = await checkScopeAccess(userId, 'app:api', 'view', undefined);
+    if (!apiScopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
+    }
+
+    // Get user's allowed project IDs for filtering
+    const allowedProjectIds = await applyScopeFiltering(userId, 'project', 0); // 0 = VIEW permission
+
+    if (!allowedProjectIds.includes(id)) {
+      return reply.status(403).send({ error: 'Access denied for this project' });
     }
 
     try {
@@ -291,10 +387,10 @@ export async function projectRoutes(fastify: FastifyInstance) {
       }
 
       const userPermissions = {
-        canSeePII: scopeAccess.permissions?.includes(4) || false,
-        canSeeFinancial: scopeAccess.permissions?.includes(4) || false,
-        canSeeSystemFields: scopeAccess.permissions?.includes(4) || false,
-        canSeeSafetyInfo: scopeAccess.permissions?.includes(4) || false,
+        canSeePII: apiScopeAccess.permissions?.includes(4) || apiScopeAccess.permissions?.includes(0),
+        canSeeFinancial: apiScopeAccess.permissions?.includes(4) || apiScopeAccess.permissions?.includes(0),
+        canSeeSystemFields: true, // Allow all system fields for projects since user has project access
+        canSeeSafetyInfo: apiScopeAccess.permissions?.includes(4) || apiScopeAccess.permissions?.includes(0),
       };
       
       return filterUniversalColumns(project[0], userPermissions);
@@ -324,7 +420,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'project', 'create', undefined);
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'create', undefined);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions to create project' });
     }
@@ -454,7 +550,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     }
 
     // Check if user has access to modify this specific project
-    const scopeAccess = await checkScopeAccess(userId, 'project', 'modify', id);
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'modify', id);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
@@ -557,7 +653,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     }
 
     // Check if user has access to delete this specific project
-    const scopeAccess = await checkScopeAccess(userId, 'project', 'delete', id);
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'delete', id);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }

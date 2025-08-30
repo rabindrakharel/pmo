@@ -67,6 +67,10 @@ function getTableNameFromPath(path: string): string | null {
   
   const resource = pathParts[apiIndex + 2];
   
+  if (!resource) {
+    return null;
+  }
+  
   // Map resource names to table names
   const resourceToTable: Record<string, string> = {
     'emp': 'app.d_employee',
@@ -160,7 +164,13 @@ async function schemaPreHandler(
     
     request.schemaContext = {
       tableName,
-      userPermissions,
+      userPermissions: {
+        canSeePII: userPermissions.canSeePII,
+        canSeeFinancial: userPermissions.canSeeFinancial,
+        canEdit: userPermissions.canEdit,
+        canCreate: userPermissions.canCreate,
+        canDelete: userPermissions.canDelete,
+      },
       searchableColumns,
       restrictedColumns,
       piiColumns,

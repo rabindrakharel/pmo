@@ -74,7 +74,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'app', 'view', undefined);
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'view', undefined);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
@@ -172,7 +172,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'app', 'view', undefined);
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'view', undefined);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
@@ -229,7 +229,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'app', 'view', undefined);
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'view', undefined);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
@@ -249,6 +249,10 @@ export async function clientRoutes(fastify: FastifyInstance) {
       }
 
       const client = clientResult[0];
+
+      if (!client) {
+        return reply.status(404).send({ error: 'Client not found' });
+      }
 
       // Get parent if exists
       let parent = null;
@@ -310,7 +314,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'app', 'create', undefined);
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'create', undefined);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
@@ -398,7 +402,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'app', 'modify', undefined);
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'modify', undefined);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
@@ -502,7 +506,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'app', 'delete', undefined);
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'delete', undefined);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }

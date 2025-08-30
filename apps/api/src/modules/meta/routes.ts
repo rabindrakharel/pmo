@@ -88,10 +88,11 @@ export async function metaRoutes(fastify: FastifyInstance) {
             "descr",
             code,
             sort_id,
-            color,
-            workflow_sequence,
-            is_terminal_state,
-            is_success_state,
+            color_hex as color,
+            is_initial,
+            is_final,
+            is_blocked,
+            icon,
             tags,
             attr,
             from_ts,
@@ -112,10 +113,12 @@ export async function metaRoutes(fastify: FastifyInstance) {
             "descr",
             code,
             sort_id,
-            color,
-            workflow_sequence,
-            is_terminal_state,
-            is_success_state,
+            color_hex as color,
+            is_default,
+            is_done,
+            is_blocked,
+            wip_limit,
+            icon,
             tags,
             attr,
             from_ts,
@@ -380,7 +383,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
     }
 
     // Check if user has permission to create meta data (admin-level)
-    const scopeAccess = await checkScopeAccess(userId, 'app', 'create');
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'create');
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions - admin required' });
     }
@@ -465,7 +468,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
     }
 
     // Check if user has permission to modify meta data (admin-level)
-    const scopeAccess = await checkScopeAccess(userId, 'app', 'modify');
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'modify');
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions - admin required' });
     }
@@ -550,7 +553,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
     }
 
     // Check if user has permission to delete meta data (admin-level)
-    const scopeAccess = await checkScopeAccess(userId, 'app', 'delete');
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'delete');
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions - admin required' });
     }

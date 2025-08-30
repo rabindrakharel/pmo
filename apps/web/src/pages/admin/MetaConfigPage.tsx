@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { api, type TaskStage } from '@/lib/api';
 import { toast } from 'sonner';
 import {
-  Edit,
   Plus,
   GripVertical,
   Eye,
@@ -14,6 +13,7 @@ import {
   X,
   AlertCircle,
 } from 'lucide-react';
+import { MinimalActionButtons } from '@/components/ui/action-buttons';
 
 export function MetaConfigPage() {
   const [editingStage, setEditingStage] = useState<TaskStage | null>(null);
@@ -53,6 +53,23 @@ export function MetaConfigPage() {
         tags: updatedStage.tags,
       },
     });
+  };
+
+  // Action handlers for task stages
+  const handleViewStage = (stage: TaskStage) => {
+    console.log('View stage:', stage);
+  };
+
+  const handleEditStage = (stage: TaskStage) => {
+    setEditingStage(stage);
+  };
+
+  const handleShareStage = (stage: TaskStage) => {
+    console.log('Share stage:', stage);
+  };
+
+  const handleDeleteStage = (stage: TaskStage) => {
+    console.log('Delete stage:', stage);
   };
 
   if (isLoading) {
@@ -104,10 +121,13 @@ export function MetaConfigPage() {
                   key={stage.id}
                   stage={stage}
                   isEditing={editingStage?.id === stage.id}
-                  onEdit={() => setEditingStage(stage)}
+                  onEdit={() => handleEditStage(stage)}
                   onSave={handleSaveStage}
                   onCancel={() => setEditingStage(null)}
                   isUpdating={updateStageMutation.isPending}
+                  onView={() => handleViewStage(stage)}
+                  onShare={() => handleShareStage(stage)}
+                  onDelete={() => handleDeleteStage(stage)}
                 />
               ))}
           </div>
@@ -153,6 +173,9 @@ interface TaskStageRowProps {
   onSave: (stage: TaskStage) => void;
   onCancel: () => void;
   isUpdating: boolean;
+  onView: () => void;
+  onShare: () => void;
+  onDelete: () => void;
 }
 
 function TaskStageRow({ 
@@ -161,7 +184,10 @@ function TaskStageRow({
   onEdit, 
   onSave, 
   onCancel, 
-  isUpdating 
+  isUpdating,
+  onView,
+  onShare,
+  onDelete
 }: TaskStageRowProps) {
   const [editedStage, setEditedStage] = useState<TaskStage>(stage);
 
@@ -265,13 +291,15 @@ function TaskStageRow({
         Sort: {stage.sortId}
       </div>
       
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={onEdit}
-      >
-        <Edit className="h-3 w-3" />
-      </Button>
+      <MinimalActionButtons
+        resource="meta"
+        itemId={stage.id}
+        item={stage}
+        onView={onView}
+        onEdit={onEdit}
+        onShare={onShare}
+        onDelete={onDelete}
+      />
     </div>
   );
 }

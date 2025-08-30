@@ -222,7 +222,8 @@ export function TaskDetailPage() {
   const updateTaskMutation = useMutation({
     mutationFn: (updates: Partial<Task>) => {
       // This would create a new task record
-      return fetch(`/api/v1/task/${id}/record`, {
+      const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000/api';
+      return fetch(`${API_BASE_URL}/v1/task/${id}/record`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,

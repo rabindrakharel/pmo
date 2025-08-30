@@ -21,8 +21,9 @@ export const useAuthStore = create<AuthState>()(
       login: async (email: string, password: string) => {
         set({ isLoading: true });
         try {
-          // Call the real auth endpoint
-          const response = await fetch('/api/v1/auth/login', {
+          // Call the real auth endpoint using the proper API base URL
+          const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000/api';
+          const response = await fetch(`${API_BASE_URL}/v1/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),

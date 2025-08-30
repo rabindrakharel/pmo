@@ -9,6 +9,7 @@ import { api, Project } from '@/lib/api';
 import { Plus, Calendar, FolderKanban, Building, MapPin } from 'lucide-react';
 import { formatRelativeTime } from '@/lib/utils';
 import type { ColumnDef } from '@tanstack/react-table';
+import { TableActionButtons } from '@/components/ui/action-buttons';
 
 export function ProjectsPage() {
   const navigate = useNavigate();
@@ -92,27 +93,58 @@ export function ProjectsPage() {
         const project = row.original;
         return (
           <div className="space-y-1">
-            <div className="font-medium">{project.name}</div>
-            {project.slug && (
-              <div className="text-sm text-muted-foreground">{project.slug}</div>
+            <div className="font-medium cursor-pointer hover:text-blue-600" onClick={() => handleView(project)}>
+              {project.name}
+            </div>
+            {project.project_code && (
+              <div className="text-sm text-muted-foreground">{project.project_code}</div>
             )}
           </div>
         );
       },
     },
     {
-      accessorKey: 'status',
+      accessorKey: 'project_type',
+      header: ({ column }: any) => (
+        <DataTableColumnHeader column={column} title="Type" />
+      ),
+      cell: ({ row }: any) => (
+        <Badge variant="outline">{row.original.project_type}</Badge>
+      ),
+    },
+    {
+      accessorKey: 'priority_level',
+      header: ({ column }: any) => (
+        <DataTableColumnHeader column={column} title="Priority" />
+      ),
+      cell: ({ row }: any) => {
+        const priority = row.original.priority_level;
+        return (
+          <Badge 
+            variant={
+              priority === 'high' ? 'destructive' :
+              priority === 'medium' ? 'default' :
+              'secondary'
+            }
+          >
+            {priority}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: 'project_status',
       header: ({ column }: any) => (
         <DataTableColumnHeader column={column} title="Status" />
       ),
       cell: ({ row }: any) => {
         const project = row.original;
-        const status = project.status || (project.active ? 'Active' : 'Inactive');
+        const status = project.project_status || (project.active ? 'active' : 'inactive');
         return (
           <Badge 
             variant={
               status === 'completed' ? 'secondary' :
-              status === 'Active' || project.active ? 'default' :
+              status === 'active' || status === 'in_progress' ? 'default' :
               'outline'
             }
           >
@@ -122,44 +154,56 @@ export function ProjectsPage() {
       },
     },
     {
-      accessorKey: 'scope',
-      header: 'Scope',
+      accessorKey: 'project_stage',
+      header: ({ column }: any) => (
+        <DataTableColumnHeader column={column} title="Stage" />
+      ),
+      cell: ({ row }: any) => (
+        <Badge variant="outline">{row.original.project_stage}</Badge>
+      ),
+    },
+    {
+      accessorKey: 'budget_allocated',
+      header: ({ column }: any) => (
+        <DataTableColumnHeader column={column} title="Budget" />
+      ),
       cell: ({ row }: any) => {
         const project = row.original;
-        const scopes = [];
-        
-        if (project.businessSpecific) {
-          scopes.push(
-            <div key="business" className="flex items-center text-sm text-muted-foreground">
-              <Building className="mr-1 h-3 w-3" />
-              Business
-            </div>
-          );
-        }
-        
-        if (project.locationSpecific) {
-          scopes.push(
-            <div key="location" className="flex items-center text-sm text-muted-foreground">
-              <MapPin className="mr-1 h-3 w-3" />
-              Location
-            </div>
-          );
-        }
-        
-        if (project.worksiteSpecific) {
-          scopes.push(
-            <div key="worksite" className="flex items-center text-sm text-muted-foreground">
-              <FolderKanban className="mr-1 h-3 w-3" />
-              Worksite
-            </div>
-          );
-        }
-        
+        if (!project.budget_allocated) return <span className="text-muted-foreground">-</span>;
         return (
-          <div className="space-y-1">
-            {scopes.length > 0 ? scopes : (
-              <span className="text-sm text-muted-foreground">Global</span>
+          <div className="text-sm">
+            ${project.budget_allocated.toLocaleString()} {project.budget_currency}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'timeline',
+      header: 'Timeline',
+      cell: ({ row }: any) => {
+        const project = row.original;
+        return (
+          <div className="text-sm space-y-1">
+            {project.planned_start_date && (
+              <div>Start: {new Date(project.planned_start_date).toLocaleDateString()}</div>
             )}
+            {project.planned_end_date && (
+              <div>End: {new Date(project.planned_end_date).toLocaleDateString()}</div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'progress',
+      header: 'Progress',
+      cell: ({ row }: any) => {
+        const project = row.original;
+        if (!project.estimated_hours) return <span className="text-muted-foreground">-</span>;
+        const progress = project.actual_hours ? Math.round((project.actual_hours / project.estimated_hours) * 100) : 0;
+        return (
+          <div className="text-sm">
+            {project.actual_hours || 0}h / {project.estimated_hours}h ({progress}%)
           </div>
         );
       },
@@ -178,15 +222,20 @@ export function ProjectsPage() {
       },
     },
     {
-      accessorKey: 'updated',
-      header: ({ column }: any) => (
-        <DataTableColumnHeader column={column} title="Last Updated" />
-      ),
+      id: 'actions',
+      header: 'Actions',
       cell: ({ row }: any) => {
+        const project = row.original;
         return (
-          <div className="text-sm text-muted-foreground">
-            {formatRelativeTime(row.original.updated)}
-          </div>
+          <TableActionButtons
+            resource="project"
+            itemId={project.id}
+            item={project}
+            onView={() => handleView(project)}
+            onEdit={() => handleEdit(project)}
+            onShare={() => handleShare(project)}
+            onDelete={() => handleDelete(project)}
+          />
         );
       },
     },
@@ -234,7 +283,7 @@ export function ProjectsPage() {
 
   // Action handlers
   const handleView = (project: Project) => {
-    navigate(`/projects/${project.id}/board`);
+    navigate(`/projects/${project.id}`);
   };
 
   const handleEdit = (project: Project) => {

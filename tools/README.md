@@ -16,16 +16,6 @@ This directory contains all management tools for the PMO platform. This document
 - Provides service status and quick links
 - Automatic readiness checks and error handling
 
-### stop-all.sh
-**Purpose**: Stops all platform services (API, web, and infrastructure)
-**Usage**: `./tools/stop-all.sh`
-**LLM Context**: Use when user wants to completely shut down the platform
-
-### restart-all.sh
-**Purpose**: Restarts all platform services in correct order
-**Usage**: `./tools/restart-all.sh`
-**LLM Context**: Use when user needs to restart everything (e.g., after configuration changes)
-
 ### status.sh
 **Purpose**: Shows current status of all platform services
 **Usage**: `./tools/status.sh`
@@ -36,6 +26,16 @@ This directory contains all management tools for the PMO platform. This document
 - Docker container status for infrastructure services
 - Service URLs and management command suggestions
 
+### restart-all.sh
+**Purpose**: Restarts all platform services in correct order
+**Usage**: `./tools/restart-all.sh`
+**LLM Context**: Use when user needs to restart everything (e.g., after configuration changes)
+
+### stop-all.sh
+**Purpose**: Stops all platform services (API, web, and infrastructure)
+**Usage**: `./tools/stop-all.sh`
+**LLM Context**: Use when user wants to completely shut down the platform
+
 ## 🔧 API Service Tools
 
 ### start-api.sh
@@ -43,15 +43,15 @@ This directory contains all management tools for the PMO platform. This document
 **Usage**: `./tools/start-api.sh`
 **LLM Context**: Use when user only needs backend services or for API development
 
-### stop-api.sh  
-**Purpose**: Stops only the API server
-**Usage**: `./tools/stop-api.sh`
-**LLM Context**: Use when user wants to stop just the backend service
-
 ### restart-api.sh
 **Purpose**: Restarts only the API server
 **Usage**: `./tools/restart-api.sh`  
 **LLM Context**: Use when user has made backend changes and needs to restart API only
+
+### stop-api.sh  
+**Purpose**: Stops only the API server
+**Usage**: `./tools/stop-api.sh`
+**LLM Context**: Use when user wants to stop just the backend service
 
 ### logs-api.sh
 **Purpose**: Views API server logs
@@ -69,15 +69,15 @@ This directory contains all management tools for the PMO platform. This document
 **Usage**: `./tools/start-web.sh`
 **LLM Context**: Use when user only needs frontend services or for UI development
 
-### stop-web.sh
-**Purpose**: Stops only the web application  
-**Usage**: `./tools/stop-web.sh`
-**LLM Context**: Use when user wants to stop just the frontend service
-
 ### restart-web.sh
 **Purpose**: Restarts only the web application
 **Usage**: `./tools/restart-web.sh`
 **LLM Context**: Use when user has made frontend changes and needs to restart web only
+
+### stop-web.sh
+**Purpose**: Stops only the web application  
+**Usage**: `./tools/stop-web.sh`
+**LLM Context**: Use when user wants to stop just the frontend service
 
 ### logs-web.sh
 **Purpose**: Views web application logs
@@ -86,44 +86,59 @@ This directory contains all management tools for the PMO platform. This document
 
 ## 🧪 API Testing Tools
 
-### debug-rbac.sh
-**Purpose**: Deep analysis of RBAC permissions for debugging access issues
-**Usage**: `./tools/debug-rbac.sh [email] [password]`
-**LLM Context**: Use when user reports permission/access issues or RBAC debugging needed
-**Features**:
-- **JWT Token Authentication**: Obtains and uses JWT tokens for all API calls
-- **Database Permission Verification**: Provides SQL queries to check user permissions in `rel_user_scope` table
-- Endpoint access testing with detailed error reporting
-- Permission matrix analysis for specific users
-- RBAC system engagement verification
-- Step-by-step debugging guidance with SQL commands for manual verification
-
 ### test-api-endpoints.sh
-**Purpose**: Comprehensive API endpoint testing with JWT authentication and RBAC validation
+**Purpose**: Comprehensive API endpoint testing with enhanced authentication and unified RBAC validation
 **Usage**: `./tools/test-api-endpoints.sh [base_url] [email] [password]`
 **LLM Context**: Use when user needs complete API system validation or endpoint testing
 **Features**:
-- **JWT Authentication**: Automatically obtains JWT token via login endpoint
+- **Enhanced JWT Authentication**: Tests new auth endpoints with permission bundling
 - **Bearer Token Usage**: All API calls use proper Authorization headers
-- 15+ endpoint coverage across all modules (emp, client, project, task, scope, etc.)
-- Public, authenticated, and protected endpoint testing
-- RBAC permission checking (expects 403 responses for users without permissions)
-- **Note**: John Smith has full permissions, so most endpoints return 200 (not 403)
-- Detailed test results with pass/fail indicators
-- Color-coded output for better readability
-- Test summary with next steps guidance
+- **Extended Endpoint Coverage**: 20+ endpoints including new auth endpoints (`/permissions`, `/scopes/:scopeType`, `/debug`)
+- **Unified RBAC Testing**: Tests permission system using `rel_employee_scope_unified` table
+- **Granular Permission Validation**: Validates app:page, app:api, app:component scopes
+- **Permission Bundling Testing**: Validates login response includes complete permission structure
+- **Enhanced Test Coverage**: James Miller with 113+ permissions across multiple scope types
+- **Real-time Permission Checks**: Tests new permission validation endpoints
+- **Detailed Test Results**: Pass/fail indicators with permission analysis
+- **Color-coded Output**: Enhanced readability with detailed permission debugging information
+
+### debug-rbac.sh
+**Purpose**: Enhanced RBAC permissions analysis with unified permission system support
+**Usage**: `./tools/debug-rbac.sh [email] [password]`  
+**LLM Context**: Use when user reports permission/access issues or RBAC debugging needed
+**Features**:
+- **Enhanced JWT Token Authentication**: Supports new auth endpoints with permission bundling
+- **Unified Permission Analysis**: Analyzes `rel_employee_scope_unified` table with direct table references
+- **Advanced Permission Endpoints**: Tests `/permissions`, `/scopes/:scopeType`, `/permissions/debug` endpoints
+- **Granular Scope Testing**: Validates app:page, app:api, app:component permissions
+- **Permission Matrix Analysis**: 113+ permission records across 8+ scope types
+- **Real-time Permission Validation**: Uses new auth API for comprehensive permission checking
+- **Step-by-step Debugging**: Enhanced SQL commands for unified permission model verification
 
 ## 🗄️ Database Management Tools
 
 ### db-import.sh
-**Purpose**: Single authoritative database tool for schema reset and import
+**Purpose**: Complete database import with correct DDL dependency order
 **Usage**: `./tools/db-import.sh [--dry-run] [--verbose] [--skip-validation]`
 **LLM Context**: Use for any database initialization, reset, or re-import
 **Features**:
-- Drops and recreates the `app` schema, then loads all `db/*.ddl` in dependency order
-- Supports dry runs and verbose output for troubleshooting
-- Performs post-import validation and shows schema/data stats
-- Honors `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` environment variables
+- **Complete Schema Reset**: Drops and recreates app schema
+- **Dependency-Optimized Loading**: Processes 13 DDL files in correct order (00-13)
+- **Data Validation**: Validates schema structure and relationships post-import
+- **Enhanced Logging**: Comprehensive logging with timestamps
+- **Environment Variable Support**: Honors all database connection variables
+- **Dry-run Mode**: Test import process without making changes
+
+### validate-schema.sh
+**Purpose**: Database schema validation and integrity checking
+**Usage**: `./tools/validate-schema.sh [--fix-permissions] [--verbose]`
+**LLM Context**: Use when user reports database issues or wants to verify schema integrity
+**Features**:
+- **Schema Structure Validation**: Checks all expected tables and relationships
+- **Foreign Key Integrity**: Validates referential integrity
+- **Permission System Validation**: Checks RBAC permission structure
+- **Auto-fix Capabilities**: Can repair common permission issues
+- **Comprehensive Coverage**: Tests core tables across all functional categories
 
 
 
@@ -133,13 +148,14 @@ This directory contains all management tools for the PMO platform. This document
 - **"Start the platform"** → `./tools/start-all.sh`
 - **"Check what's running"** → `./tools/status.sh`  
 - **"Import/Reset the database"** → `./tools/db-import.sh`
+- **"Validate database schema"** → `./tools/validate-schema.sh`
 - **"Stop everything"** → `./tools/stop-all.sh`
 - **"Restart after changes"** → `./tools/restart-all.sh`
 - **"Check API logs"** → `./tools/logs-api.sh`
 - **"API development only"** → `./tools/start-api.sh`
 - **"Test all API endpoints"** → `./tools/test-api-endpoints.sh`
 - **"Debug RBAC permissions"** → `./tools/debug-rbac.sh`
-- **"API not working/permission issues"** → `./tools/debug-rbac.sh`
+- **"Database issues/corruption"** → `./tools/validate-schema.sh`
 
 ### Service Ports & URLs:
 - API Server: `http://localhost:4000` (with `/docs` for OpenAPI)
@@ -148,11 +164,6 @@ This directory contains all management tools for the PMO platform. This document
 - MailHog: `http://localhost:8025`
 - PostgreSQL: `localhost:5434` (app/app)
 - Redis: `localhost:6379`
-
-### 🚨 **Security Notice**
-- **Development Mode**: `DEV_BYPASS_OIDC=true` disables ALL authentication
-- **No Login Required**: Direct access to full admin functionality
-- **John Smith Access**: No password needed - automatic super admin privileges
 
 ## 🔧 Environment Variables
 
@@ -173,19 +184,11 @@ Database tools support these environment variables:
 3. **API Before Web**: Web application depends on API endpoints
 4. **PID Files**: Located in `.pids/` directory for process management
 
-## 🚨 Safety Features
-
-- **Interactive Confirmation**: Destructive operations require "yes" confirmation
-- **Process Management**: PID file tracking prevents duplicate processes
-- **Health Checks**: Automatic readiness validation for services
-- **Error Handling**: `set -e` in all scripts for fail-fast behavior
-- **Colored Output**: Visual status indicators (🟢 success, 🔴 error, 🟡 warning)
-
-## 📁 File Structure Context
+## 📁 Active Tools
 
 ```
 tools/
-├── readme.md           # This comprehensive index
+├── README.md           # This tool index
 ├── start-all.sh        # Complete platform startup
 ├── stop-all.sh         # Complete platform shutdown  
 ├── restart-all.sh      # Complete platform restart
@@ -198,9 +201,10 @@ tools/
 ├── stop-web.sh
 ├── restart-web.sh
 ├── logs-web.sh
-├── debug-rbac.sh       # API testing & debugging
-├── test-api-endpoints.sh
-└── db-import.sh        # Database reset + import
+├── test-api-endpoints.sh # API endpoint testing
+├── debug-rbac.sh       # RBAC debugging
+├── db-import.sh        # Database import/reset
+└── validate-schema.sh  # Database validation
 ```
 
 ## 💡 LLM Usage Guidelines
@@ -210,4 +214,4 @@ tools/
 3. **Prefer start-all.sh** for initial platform setup
 4. **Use specific service tools** only when user specifies partial operations
 5. **Check logs** when debugging service issues
-6. **All tools have colored output** - mention this for user experience
+6. **All tools have colored output** for better user experience

@@ -131,11 +131,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
       }
       
       if (assigneeId !== undefined) {
-        conditions.push(sql`th.assignee = ${assigneeId}`);
+        conditions.push(sql`th.assignee_id = ${assigneeId}`);
       }
       
       if (parentHeadId !== undefined) {
-        conditions.push(sql`th.parent_head_id = ${parentHeadId}`);
+        conditions.push(sql`th.parent_task_id = ${parentHeadId}`);
       }
 
       // Get total count
@@ -150,9 +150,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const tasks = await db.execute(sql`
         SELECT 
           th.id as "headId",
+          th.title as "headTitle",
           th.proj_head_id as "projHeadId",
-          th.parent_head_id as "parentHeadId",
-          th.assignee as "assigneeId",
+          th.parent_task_id as "parentHeadId",
+          th.assignee_id as "assigneeId",
           th.client_group_id as "clientGroupId",
           th.clients,
           th.reviewers,
@@ -163,10 +164,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
           th.created as "headCreated",
           th.updated as "headUpdated",
           tr.id as "recordId",
-          tr.title,
-          tr.status_id as "statusId",
-          tr.stage_id as "stageId",
-          tr.due_date as "dueDate",
+          tr.name as "title",
+          tr.status_name as "statusId",
+          tr.stage_name as "stageId",
+          null as "dueDate",
           tr.active,
           tr.from_ts as "fromTs",
           tr.to_ts as "toTs",
@@ -191,6 +192,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const data = tasks.map(task => {
         const taskHeadData = {
           id: task.headId,
+          title: task.headTitle,
           projHeadId: task.projHeadId,
           parentHeadId: task.parentHeadId,
           assigneeId: task.assigneeId,
@@ -233,7 +235,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
         offset,
       };
     } catch (error) {
-      fastify.log.error('Error fetching tasks:', error as any);
+      fastify.log.error('Error fetching tasks:', error);
+      console.error('Detailed task error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -268,9 +271,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const task = await db.execute(sql`
         SELECT 
           th.id as "headId",
+          th.title as "headTitle",
           th.proj_head_id as "projHeadId",
-          th.parent_head_id as "parentHeadId",
-          th.assignee as "assigneeId",
+          th.parent_task_id as "parentHeadId",
+          th.assignee_id as "assigneeId",
           th.client_group_id as "clientGroupId",
           th.clients,
           th.reviewers,
@@ -281,10 +285,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
           th.created as "headCreated",
           th.updated as "headUpdated",
           tr.id as "recordId",
-          tr.title,
-          tr.status_id as "statusId",
-          tr.stage_id as "stageId",
-          tr.due_date as "dueDate",
+          tr.name as "title",
+          tr.status_name as "statusId",
+          tr.stage_name as "stageId",
+          null as "dueDate",
           tr.active,
           tr.from_ts as "fromTs",
           tr.to_ts as "toTs",

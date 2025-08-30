@@ -46,12 +46,33 @@ if [[ -f "$PID_FILE" ]]; then
     fi
 fi
 
-# Check if port is in use by another process
+# Check if port is in use by another process and kill it
 if lsof -Pi :$API_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
-    echo -e "${RED}❌ Port $API_PORT is already in use by another process${NC}"
+    echo -e "${YELLOW}⚠️  Port $API_PORT is in use by another process${NC}"
     echo "Processes using port $API_PORT:"
     lsof -Pi :$API_PORT -sTCP:LISTEN
-    exit 1
+    
+    echo -e "${YELLOW}🔄 Killing processes using port $API_PORT...${NC}"
+    PIDS=$(lsof -Pi :$API_PORT -sTCP:LISTEN -t)
+    for pid in $PIDS; do
+        echo -e "${YELLOW}   Killing PID: $pid${NC}"
+        kill "$pid" 2>/dev/null || true
+    done
+    
+    sleep 2
+    
+    # Force kill if still running
+    if lsof -Pi :$API_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
+        echo -e "${RED}💀 Force killing remaining processes...${NC}"
+        PIDS=$(lsof -Pi :$API_PORT -sTCP:LISTEN -t)
+        for pid in $PIDS; do
+            echo -e "${RED}   Force killing PID: $pid${NC}"
+            kill -9 "$pid" 2>/dev/null || true
+        done
+        sleep 1
+    fi
+    
+    echo -e "${GREEN}✅ Cleared port $API_PORT${NC}"
 fi
 
 # Ensure we're in the right directory
@@ -63,18 +84,12 @@ if [[ ! -d "node_modules" ]] || [[ ! -d "apps/api/node_modules" ]]; then
     pnpm install
 fi
 
-# Build if necessary (check if dist exists and is newer than src)
-if [[ ! -d "apps/api/dist" ]] || [[ "apps/api/src" -nt "apps/api/dist" ]]; then
-    echo -e "${YELLOW}🔨 Building API server...${NC}"
-    pnpm --filter api build
-fi
+echo -e "${BLUE}🔧 Starting API server on port $API_PORT (dev mode)...${NC}"
 
-echo -e "${BLUE}🔧 Starting API server on port $API_PORT...${NC}"
-
-# Start the API server in background and capture PID
+# Start the API server in background and capture PID using tsx for development
 cd apps/api
-# Load environment variables from project root and start server
-nohup bash -c "set -a; source ../../.env; set +a; pnpm start" > "../../$LOG_FILE" 2>&1 &
+# Load environment variables from project root and start server with tsx
+nohup bash -c "set -a; source ../../.env; set +a; DEV_BYPASS_OIDC=false DATABASE_URL='postgresql://app:app@localhost:5434/app' REDIS_URL='redis://localhost:6379' JWT_SECRET='your-super-secret-jwt-key-change-in-production' npx tsx src/server.ts" > "../../$LOG_FILE" 2>&1 &
 API_PID=$!
 
 # Save PID to file

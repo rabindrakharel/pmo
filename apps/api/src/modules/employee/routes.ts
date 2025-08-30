@@ -103,7 +103,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'app', 'view', undefined);
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'view', undefined);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
@@ -150,10 +150,16 @@ export async function empRoutes(fastify: FastifyInstance) {
 
       const employees = await db.execute(sql`
         SELECT 
-          id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
+          id, name, "descr", 
+          COALESCE(tags, '[]'::jsonb) as tags,
+          attr, from_ts, to_ts, active, created, updated,
           addr, email, phone, mobile, emergency_contact, lang, birth_date,
           emp_code, hire_date, status, employment_type, work_mode, 
-          security_clearance, skills, certifications, education, labels
+          security_clearance, 
+          COALESCE(skills, '[]'::jsonb) as skills,
+          COALESCE(certifications, '[]'::jsonb) as certifications,
+          COALESCE(education, '[]'::jsonb) as education,
+          COALESCE(labels, '[]'::jsonb) as labels
         FROM app.d_employee 
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY name ASC NULLS LAST, created DESC
@@ -166,9 +172,18 @@ export async function empRoutes(fastify: FastifyInstance) {
         canSeeSystemFields: scopeAccess.permissions?.includes(4) || false,
       };
       
-      const filteredData = employees.map(emp => 
-        filterUniversalColumns(emp, userPermissions)
-      );
+      const filteredData = employees.map(emp => {
+        // Ensure JSON fields are properly parsed as JavaScript arrays
+        const parsedEmp = {
+          ...emp,
+          tags: Array.isArray(emp.tags) ? emp.tags : (emp.tags ? JSON.parse(emp.tags) : []),
+          skills: Array.isArray(emp.skills) ? emp.skills : (emp.skills ? JSON.parse(emp.skills) : []),
+          certifications: Array.isArray(emp.certifications) ? emp.certifications : (emp.certifications ? JSON.parse(emp.certifications) : []),
+          education: Array.isArray(emp.education) ? emp.education : (emp.education ? JSON.parse(emp.education) : []),
+          labels: Array.isArray(emp.labels) ? emp.labels : (emp.labels ? JSON.parse(emp.labels) : []),
+        };
+        return filterUniversalColumns(parsedEmp, userPermissions);
+      });
 
       return {
         data: filteredData,
@@ -204,7 +219,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'app', 'view', undefined);
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'view', undefined);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
@@ -257,7 +272,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'app', 'create', undefined);
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'create', undefined);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
@@ -365,7 +380,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'app', 'modify', undefined);
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'modify', undefined);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
@@ -463,7 +478,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'app', 'delete', undefined);
+    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'delete', undefined);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }

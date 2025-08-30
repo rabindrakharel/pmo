@@ -154,7 +154,7 @@ echo "=== 🏢 PROTECTED API ENDPOINTS ==="
 
 echo "📊 Employee Management:"
 make_request "GET" "/api/v1/emp?limit=3" "200" "List employees (James Miller has CEO access)"
-make_request "GET" "/api/v1/emp/7962a664-4b6c-4d4a-8e5f-5e5fb110b208" "200" "Get James Miller employee record"
+make_request "GET" "/api/v1/emp/061fcafe-2617-476c-8f77-be2cc7cf0460" "200" "Get James Miller employee record"
 echo ""
 
 echo "👥 Client Management:"
@@ -172,9 +172,17 @@ make_request "GET" "/api/v1/project?limit=3" "200" "List projects (James Miller 
 make_request "GET" "/api/v1/task?limit=3" "200" "List tasks (James Miller has CEO access)"
 echo ""
 
-echo "🏢 Other Endpoints:"
-make_request "GET" "/api/v1/worksite?limit=3" "200" "List worksites (James Miller has CEO access)"
-make_request "GET" "/api/v1/role?limit=3" "403" "List roles (James Miller has no role permissions)"
+echo "🔐 Auth Permission Endpoints:"
+make_request "GET" "/api/v1/auth/me" "200" "Get current user info"
+make_request "GET" "/api/v1/auth/permissions" "200" "Get user permissions"
+make_request "GET" "/api/v1/auth/permissions/debug" "200" "Debug user permissions (admin only)"
+make_request "GET" "/api/v1/auth/scopes/business?minPermission=0" "200" "Get business scopes"
+make_request "GET" "/api/v1/auth/scopes/location?minPermission=0" "200" "Get location scopes"
+make_request "GET" "/api/v1/auth/scopes/project?minPermission=0" "200" "Get project scopes"
+echo ""
+
+echo "🏗️ Worksite & Additional Scope Management:"
+make_request "GET" "/api/v1/scope-worksite?limit=3" "200" "List worksite scopes (if available)"
 echo ""
 
 # Summary

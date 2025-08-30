@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { db } from '@/db/index.js';
+import { sql } from 'drizzle-orm';
 
 export type Action = 'view' | 'create' | 'modify' | 'delete' | 'grant';
 export type Resource = 'project' | 'task' | 'tasklog' | 'form' | 'meta' | 'location' | 'business' | 'hr' | 'worksite' | 'employee' | 'client' | 'projects';
@@ -136,10 +137,58 @@ export async function resolveAbilities(userId: string): Promise<Abilities> {
     };
   }
   
-  // In production, this would query the database
-  return {
-    app: new Set(),
-    scopes: {},
-    isAdmin: false,
-  };
+  try {
+    // Query the new permission structure
+    const permissions = await db.execute(sql`
+      SELECT 
+        scope_type,
+        scope_table_reference_id,
+        resource_permission
+      FROM app.rel_employee_scope_unified 
+      WHERE emp_id = ${userId} AND active = true
+    `);
+
+    const abilities: Abilities = {
+      app: new Set(),
+      scopes: {},
+      isAdmin: false,
+    };
+
+    for (const perm of permissions) {
+      const scopeType = perm.scope_type as string;
+      const scopeId = perm.scope_table_reference_id as string;
+      const resourcePermissions = perm.resource_permission as number[];
+
+      // Convert permission numbers to actions
+      const actions = new Set<Action>();
+      if (resourcePermissions.includes(0)) actions.add('view');
+      if (resourcePermissions.includes(1)) actions.add('modify');
+      if (resourcePermissions.includes(3)) actions.add('delete');
+      if (resourcePermissions.includes(4)) actions.add('create');
+      if (resourcePermissions.includes(2)) actions.add('grant');
+
+      if (scopeType?.startsWith('app:')) {
+        // App-level permissions
+        actions.forEach(action => abilities.app.add(action));
+        abilities.isAdmin = actions.has('create');
+      } else {
+        // Scope-specific permissions
+        const resourceType = scopeType as keyof typeof abilities.scopes;
+        if (!abilities.scopes[resourceType]) {
+          abilities.scopes[resourceType] = { ids: [], actions: new Set() };
+        }
+        abilities.scopes[resourceType]!.ids.push(scopeId);
+        actions.forEach(action => abilities.scopes[resourceType]!.actions.add(action));
+      }
+    }
+
+    return abilities;
+  } catch (error) {
+    console.error('Error resolving abilities:', error);
+    return {
+      app: new Set(),
+      scopes: {},
+      isAdmin: false,
+    };
+  }
 }

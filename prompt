@@ -82,7 +82,8 @@ api index.ts: apps/api/src/modules/index.ts
 README.md list --------------------------------
 Data model: /home/rabin/projects/pmo/db/README.md
 view datamodel curated data & schema in each of the .ddl files 
-for api reference, always refer to api readme: apps/api/src/modules/README.md
+for api reference, api reference need updates,
+ always refer to api readme: apps/api/src/modules/README.md
 /home/rabin/projects/pmo/tools/README.md
 api index.ts: /home/rabin/projects/pmo/apps/api/src/modules/index.ts
 web component, page, ui reference: /home/rabin/projects/pmo/apps/web/src/README.md
@@ -185,3 +186,23 @@ Similarly, a specific task within a project can have similar view as project wit
 
 First of all create react page, and dynamic react component; sortable, searchable and paginated  data table, delete, view, edit, share icon, filter with dropdown checkboxes, 
 A particular project offers kanban view or grid view, a particular task offers task view which allows updating case note, or logs or submitting form data to the task head. 
+
+
+
+> > Would you rather have dynamic         │
+│   component for view, edit, share and     │
+│   delete, just add icons  │               │
+│   │   for each of them to the right;      │
+│   make entries of these components in     │
+│   the scope permission   │                │
+│   │   table for user                      │
+│   james.miller@huronhome.ca so that the   │
+│   user can see all 4 componentin ui    │  │
+│   │   ux, ui ux permission needs to be    │
+│   checked prior to rendering based on     │
+│   scop permission      │                  │
+│   │   table.     \                        │
+│   \                                       │
+│   Just work on dynamic component for      │
+│   view, edit, share, delete\              │
+│   \                         

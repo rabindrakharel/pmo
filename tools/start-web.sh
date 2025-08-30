@@ -46,12 +46,33 @@ if [[ -f "$PID_FILE" ]]; then
     fi
 fi
 
-# Check if port is in use by another process
+# Check if port is in use by another process and kill it
 if lsof -Pi :$WEB_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
-    echo -e "${RED}❌ Port $WEB_PORT is already in use by another process${NC}"
+    echo -e "${YELLOW}⚠️  Port $WEB_PORT is in use by another process${NC}"
     echo "Processes using port $WEB_PORT:"
     lsof -Pi :$WEB_PORT -sTCP:LISTEN
-    exit 1
+    
+    echo -e "${YELLOW}🔄 Killing processes using port $WEB_PORT...${NC}"
+    PIDS=$(lsof -Pi :$WEB_PORT -sTCP:LISTEN -t)
+    for pid in $PIDS; do
+        echo -e "${YELLOW}   Killing PID: $pid${NC}"
+        kill "$pid" 2>/dev/null || true
+    done
+    
+    sleep 2
+    
+    # Force kill if still running
+    if lsof -Pi :$WEB_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
+        echo -e "${RED}💀 Force killing remaining processes...${NC}"
+        PIDS=$(lsof -Pi :$WEB_PORT -sTCP:LISTEN -t)
+        for pid in $PIDS; do
+            echo -e "${RED}   Force killing PID: $pid${NC}"
+            kill -9 "$pid" 2>/dev/null || true
+        done
+        sleep 1
+    fi
+    
+    echo -e "${GREEN}✅ Cleared port $WEB_PORT${NC}"
 fi
 
 # Ensure we're in the right directory

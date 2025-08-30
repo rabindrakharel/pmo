@@ -70,7 +70,7 @@ function generateSchemas(tableName: string, sampleData?: Record<string, any>) {
     const isOptional = !['id', 'name', 'title'].includes(column);
     
     // Determine TypeScript type
-    let tsType = Type.String();
+    let tsType: any = Type.String();
     if (typeof exampleValue === 'number') {
       tsType = Type.Number();
     } else if (typeof exampleValue === 'boolean') {
@@ -187,20 +187,20 @@ function generateListRoute(
       
       // Build sort clause
       const sortColumns = getSortColumns(tableName, ['name', 'created']);
-      const sortColumn = sortBy && sortBy in SCHEMA_METADATA[tableName]?.columns 
+      const sortColumn = sortBy && SCHEMA_METADATA[tableName] && sortBy in SCHEMA_METADATA[tableName].columns 
         ? sortBy 
         : sortColumns[0] || 'created';
       
       // Execute query
       const query = sql`
-        SELECT * FROM ${sql.identifier(tableName.split('.')[0], tableName.split('.')[1])}
+        SELECT * FROM ${sql.identifier(tableName)}
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY ${sql.identifier(sortColumn)} ${sortOrder === 'desc' ? sql`DESC` : sql`ASC`}
         LIMIT ${limit} OFFSET ${offset}
       `;
       
       const countQuery = sql`
-        SELECT COUNT(*) as total FROM ${sql.identifier(tableName.split('.')[0], tableName.split('.')[1])}
+        SELECT COUNT(*) as total FROM ${sql.identifier(tableName)}
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `;
       
@@ -216,13 +216,13 @@ function generateListRoute(
       };
       
       // Filter columns based on permissions
-      const filteredData = results.rows.map((row: any) => 
+      const filteredData = results.map((row: any) => 
         filterObjectColumns(tableName, row, userPermissions)
       );
       
       return {
         data: filteredData,
-        total: Number(countResults.rows[0]?.total || 0),
+        total: Number(countResults[0]?.total || 0),
         limit,
         offset,
         searchableColumns: getSearchableColumns(tableName, ['name', 'descr', 'title', 'code']),
@@ -274,11 +274,11 @@ function generateGetRoute(
     
     try {
       const result = await db.execute(sql`
-        SELECT * FROM ${sql.identifier(tableName.split('.')[0], tableName.split('.')[1])}
+        SELECT * FROM ${sql.identifier(tableName)}
         WHERE id = ${id}
       `);
       
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return reply.status(404).send({ error: 'Resource not found' });
       }
       
@@ -289,7 +289,7 @@ function generateGetRoute(
       };
       
       // Filter columns based on permissions
-      const filteredData = filterObjectColumns(tableName, result.rows[0], userPermissions);
+      const filteredData = filterObjectColumns(tableName, result[0] || {}, userPermissions);
       
       return filteredData;
     } catch (error) {
@@ -351,7 +351,7 @@ function generateCreateRoute(
       const values = Object.values(createData);
       
       const result = await db.execute(sql`
-        INSERT INTO ${sql.identifier(tableName.split('.')[0], tableName.split('.')[1])}
+        INSERT INTO ${sql.identifier(tableName)}
         (${sql.join(columns.map(c => sql.identifier(c)), sql`, `)})
         VALUES (${sql.join(values, sql`, `)})
         RETURNING *
@@ -364,7 +364,7 @@ function generateCreateRoute(
       };
       
       // Filter columns based on permissions
-      const filteredData = filterObjectColumns(tableName, result.rows[0], userPermissions);
+      const filteredData = filterObjectColumns(tableName, result[0] || {}, userPermissions);
       
       return reply.status(201).send(filteredData);
     } catch (error) {
@@ -423,11 +423,11 @@ function generateUpdateRoute(
     try {
       // Check if resource exists
       const existingResult = await db.execute(sql`
-        SELECT id FROM ${sql.identifier(tableName.split('.')[0], tableName.split('.')[1])}
+        SELECT id FROM ${sql.identifier(tableName)}
         WHERE id = ${id}
       `);
       
-      if (existingResult.rows.length === 0) {
+      if (existingResult.length === 0) {
         return reply.status(404).send({ error: 'Resource not found' });
       }
       
@@ -443,7 +443,7 @@ function generateUpdateRoute(
       );
       
       const result = await db.execute(sql`
-        UPDATE ${sql.identifier(tableName.split('.')[0], tableName.split('.')[1])}
+        UPDATE ${sql.identifier(tableName)}
         SET ${sql.join(updateClauses, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -456,7 +456,7 @@ function generateUpdateRoute(
       };
       
       // Filter columns based on permissions
-      const filteredData = filterObjectColumns(tableName, result.rows[0], userPermissions);
+      const filteredData = filterObjectColumns(tableName, result[0] || {}, userPermissions);
       
       return filteredData;
     } catch (error) {
@@ -511,17 +511,17 @@ function generateDeleteRoute(
     try {
       // Check if resource exists
       const existingResult = await db.execute(sql`
-        SELECT id FROM ${sql.identifier(tableName.split('.')[0], tableName.split('.')[1])}
+        SELECT id FROM ${sql.identifier(tableName)}
         WHERE id = ${id}
       `);
       
-      if (existingResult.rows.length === 0) {
+      if (existingResult.length === 0) {
         return reply.status(404).send({ error: 'Resource not found' });
       }
       
       // Soft delete by setting active = false and to_ts = now()
       await db.execute(sql`
-        UPDATE ${sql.identifier(tableName.split('.')[0], tableName.split('.')[1])}
+        UPDATE ${sql.identifier(tableName)}
         SET active = false, to_ts = now(), updated = now()
         WHERE id = ${id}
       `);

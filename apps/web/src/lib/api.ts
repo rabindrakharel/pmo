@@ -4,7 +4,7 @@
  */
 
 // Base API configuration
-const API_BASE_URL = '/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 // Permission enum matching backend
 export enum Permission {
@@ -53,18 +53,43 @@ export interface Client {
 
 export interface Project {
   id: string;
+  tenant_id: string;
   name: string;
+  descr?: string;
   slug?: string;
-  locationSpecific: boolean;
-  locationId?: string;
-  businessSpecific: boolean;
-  bizId?: string;
-  worksiteSpecific: boolean;
-  worksiteId?: string;
+  project_code?: string;
+  project_type?: string;
+  priority_level?: string;
+  project_status?: string;
+  project_stage?: string;
+  budget_allocated?: number;
+  budget_currency?: string;
+  business_id?: string;
+  planned_start_date?: string;
+  planned_end_date?: string;
+  actual_start_date?: string;
+  actual_end_date?: string;
+  estimated_hours?: number;
+  actual_hours?: number;
+  locations?: any[];
+  worksites?: any[];
+  project_managers?: any[];
+  project_sponsors?: any[];
+  project_leads?: any[];
+  clients?: any[];
+  approvers?: any[];
+  milestones?: any[];
+  deliverables?: any[];
+  security_classification?: string;
+  compliance_requirements?: string[];
+  risk_assessment?: Record<string, any>;
+  tags?: string[];
+  attr?: Record<string, any>;
+  from_ts?: string;
+  to_ts?: string;
   active: boolean;
   created: string;
   updated: string;
-  status?: string;
 }
 
 export interface Task {
@@ -85,6 +110,77 @@ export interface Task {
   dueDate?: string;
   stageCode?: string;
   statusId?: string;
+  created: string;
+  updated: string;
+}
+
+// Comprehensive scope-based permission interfaces
+export interface ScopeContext {
+  type: 'business' | 'location' | 'worksite' | 'hr' | 'project' | 'global';
+  id?: string;           // Specific scope ID from d_scope_unified
+  reference_id?: string; // Reference to actual scope table record
+  parent_id?: string;    // Parent scope for hierarchy
+}
+
+export interface ResourceContext {
+  projectId?: string;    // Project context
+  locationId?: string;   // Location context  
+  businessId?: string;   // Business context
+  worksiteId?: string;   // Worksite context
+  clientId?: string;     // Client context
+  hrId?: string;         // HR context
+  employeeId?: string;   // Employee context
+}
+
+export interface PermissionCheckRequest {
+  userId: string;
+  action: 'view' | 'create' | 'modify' | 'delete' | 'grant' | 'share';
+  resource: string;
+  scope?: ScopeContext;
+  resourceId?: string;
+  resourceContext?: ResourceContext;
+}
+
+export interface PermissionCheckResponse {
+  hasPermission: boolean;
+  permissions: number[];
+  scope_context?: string;
+  scope_hierarchy?: ScopeContext[];
+  effective_scope?: ScopeContext;
+  debug_info?: {
+    direct_permissions?: any[];
+    inherited_permissions?: any[];
+    role_permissions?: any[];
+  };
+}
+
+export interface UnifiedScope {
+  id: string;
+  scope_type: 'business' | 'location' | 'worksite' | 'hr' | 'project';
+  scope_name: string;
+  scope_reference_id: string;
+  parent_scope_id?: string;
+  name: string;
+  descr?: string;
+  tags: string[];
+  attr: Record<string, any>;
+  active: boolean;
+  created: string;
+  updated: string;
+}
+
+export interface EmployeeScopePermission {
+  id: string;
+  emp_id: string;
+  scope_id: string;
+  resource_type: string;
+  resource_id?: string;
+  resource_permission: number[];
+  name: string;
+  descr?: string;
+  tags: string[];
+  attr: Record<string, any>;
+  active: boolean;
   created: string;
   updated: string;
 }
@@ -123,6 +219,48 @@ export interface Role {
   active: boolean;
   created: string;
   updated: string;
+}
+
+export interface Business {
+  id: string;
+  name: string;
+  desc?: string;
+  levelId: number;
+  levelName?: string;
+  parentId?: string;
+  parentName?: string;
+  active: boolean;
+  fromTs: string;
+  toTs?: string;
+  created: string;
+  updated: string;
+  tags?: string[];
+  attr?: Record<string, any>;
+}
+
+export interface Location {
+  id: string;
+  name: string;
+  descr?: string;
+  addr?: string;
+  levelId: number;
+  levelName?: string;
+  parentId?: string;
+  parentName?: string;
+  active: boolean;
+  fromTs: string;
+  toTs?: string;
+  created: string;
+  updated: string;
+  tags?: string[];
+  attr?: Record<string, any>;
+}
+
+export interface MetaLevel {
+  id: string;
+  levelId: number;
+  name: string;
+  description?: string;
 }
 
 // API response types
@@ -377,6 +515,73 @@ export const api = {
     return client.delete(`/v1/role/${id}`);
   },
 
+  // Business management
+  async getBusinesses(params?: QueryParams): Promise<ApiResponse<Business>> {
+    return client.get('/v1/scope/business', params);
+  },
+
+  async getBusiness(id: string): Promise<Business> {
+    return client.get(`/v1/scope/business/${id}`);
+  },
+
+  async createBusiness(data: Partial<Business>): Promise<Business> {
+    return client.post('/v1/scope/business', data);
+  },
+
+  async updateBusiness(id: string, data: Partial<Business>): Promise<Business> {
+    return client.put(`/v1/scope/business/${id}`, data);
+  },
+
+  async deleteBusiness(id: string): Promise<void> {
+    return client.delete(`/v1/scope/business/${id}`);
+  },
+
+  async getBusinessHierarchy(id: string): Promise<{
+    business: Business;
+    children: Business[];
+    parent?: Business;
+  }> {
+    return client.get(`/v1/scope/business/${id}/hierarchy`);
+  },
+
+  // Location management
+  async getLocations(params?: QueryParams): Promise<ApiResponse<Location>> {
+    return client.get('/v1/scope/location', params);
+  },
+
+  async getLocation(id: string): Promise<Location> {
+    return client.get(`/v1/scope/location/${id}`);
+  },
+
+  async createLocation(data: Partial<Location>): Promise<Location> {
+    return client.post('/v1/scope/location', data);
+  },
+
+  async updateLocation(id: string, data: Partial<Location>): Promise<Location> {
+    return client.put(`/v1/scope/location/${id}`, data);
+  },
+
+  async deleteLocation(id: string): Promise<void> {
+    return client.delete(`/v1/scope/location/${id}`);
+  },
+
+  async getLocationHierarchy(id: string): Promise<{
+    location: Location;
+    children: Location[];
+    parent?: Location;
+  }> {
+    return client.get(`/v1/scope/location/${id}/hierarchy`);
+  },
+
+  // Business and Location levels
+  async getBusinessLevels(): Promise<ApiResponse<MetaLevel>> {
+    return client.get('/v1/meta', { category: 'business_level' });
+  },
+
+  async getLocationLevels(): Promise<ApiResponse<MetaLevel>> {
+    return client.get('/v1/meta', { category: 'location_level' });
+  },
+
   // Authentication (for real login, not dev mode)
   async login(email: string, password: string): Promise<{ token: string; user: User }> {
     return client.post('/v1/auth/login', { email, password });
@@ -386,9 +591,43 @@ export const api = {
     return client.get('/v1/auth/me');
   },
 
-  // Permission checking
+  // Get current user permissions
+  async getCurrentUserPermissions(): Promise<any> {
+    return client.get('/v1/auth/permissions');
+  },
+
+  // Legacy permission checking (deprecated but maintained for compatibility)
   async getUserPermissions(userId: string, resource: string, scopeId?: string) {
     return client.get(`/v1/permissions/${userId}`, { resource, scopeId });
+  },
+
+  // Scope management
+  async getUnifiedScopes(params?: {
+    scope_type?: 'business' | 'location' | 'worksite' | 'hr' | 'project';
+    active?: boolean;
+    parent_scope_id?: string;
+  }): Promise<ApiResponse<UnifiedScope>> {
+    return client.get('/v1/scope/unified', params);
+  },
+
+  async getEmployeeScopePermissions(employeeId: string, params?: {
+    resource_type?: string;
+    scope_type?: string;
+    active?: boolean;
+  }): Promise<ApiResponse<EmployeeScopePermission>> {
+    return client.get(`/v1/permissions/employee/${employeeId}/scopes`, params);
+  },
+
+  async createEmployeeScopePermission(data: Partial<EmployeeScopePermission>): Promise<ApiSingleResponse<EmployeeScopePermission>> {
+    return client.post('/v1/permissions/employee-scope', data);
+  },
+
+  async updateEmployeeScopePermission(id: string, data: Partial<EmployeeScopePermission>): Promise<ApiSingleResponse<EmployeeScopePermission>> {
+    return client.put(`/v1/permissions/employee-scope/${id}`, data);
+  },
+
+  async deleteEmployeeScopePermission(id: string): Promise<void> {
+    return client.delete(`/v1/permissions/employee-scope/${id}`);
   },
 
   // Meta data (task stages, statuses, etc.)

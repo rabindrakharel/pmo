@@ -1,64 +1,112 @@
 -- ============================================================================
--- PERMISSION RELATIONSHIP TABLES (Role-Based Access Control System)
+-- UNIFIED SCOPE SYSTEM (Central Permission Registry)
 -- ============================================================================
 
 -- ============================================================================
 -- SEMANTICS:
 -- ============================================================================
 --
--- 🛡️ **RBAC ENGINE CORE**
--- • Role-based access control implementation
--- • Direct user permissions & role inheritance
--- • Scope-based security enforcement
--- • Granular permission levels (view, modify, share, delete, create)
+-- 🎯 **UNIVERSAL PERMISSION HUB**
+-- • Central registry for all permission-based entities
+-- • Single interface for referencing any scope type
+-- • Polymorphic relationships across dimensions
+-- • Consistent RBAC across organization
 --
--- 🔄 **PERMISSION MODEL**
--- 1. Unified Scope Table: Single scope reference table for all scope types
--- 2. Employee-Scope Permissions: Employee → Scope → Resource → Permission Array
--- 3. Role-based inheritance through rel_emp_role table
+-- 🔄 **SCOPE REFERENCE PATTERN**
+-- scope_reference_table → table name where scope data resides
+-- scope_table_reference_id → UUID primary key in scope_reference_table
+-- name → copied from the name field of the scope_reference_table (contains actual paths/values)
 --
--- 📊 **PERMISSION LEVELS**
--- • 0 = VIEW: Read-only access to resource data
--- • 1 = MODIFY: Edit, update, change resource properties
--- • 2 = SHARE: Share resources with other users/external parties
--- • 3 = DELETE: Remove or deactivate resources
--- • 4 = CREATE: Create new instances of resource type
+-- 📊 **SCOPE TYPE TO REFERENCE TABLE MAPPING**
 --
--- 🎯 **RESOURCE COVERAGE**
--- • 'business': Organizational hierarchy & structure
--- • 'location': Geographic locations & facilities
--- • 'hr': Human resources hierarchy & employee management
--- • 'worksite': Physical worksites & operational facilities
--- • 'app': Application pages, APIs, UI components
--- • 'project': Project lifecycle & deliverable management
--- • 'task': Task execution & work breakdown
--- • 'form': Dynamic forms & document workflows
+-- BUSINESS SCOPE:
+-- • scope_type: 'business'
+-- • scope_reference_table: 'd_scope_business'
+-- • scope_table_reference_id: maps to d_scope_business.id (uuid)
+-- • name: copied from d_scope_business.name
+--   - "Huron Home Services" (Corporate level)
+--   - "Business Operations Division" (Division level)
+--   - "Landscaping Department" (Department level)
 --
--- 🔗 **PERMISSION RESOLUTION**
--- 1. Direct user permissions (highest priority)
--- 2. Role-based permissions (inherited)
--- 3. Scope hierarchy inheritance (parent → child)
+-- LOCATION SCOPE:
+-- • scope_type: 'location'
+-- • scope_reference_table: 'd_scope_location'
+-- • scope_table_reference_id: maps to d_scope_location.id (uuid)
+-- • name: copied from d_scope_location.name
+--   - "Canada" (Country level)
+--   - "Ontario" (Province level)
+--   - "Greater Toronto Area" (Region level)
+--   - "Mississauga" (City level)
+--
+-- HR SCOPE:
+-- • scope_type: 'hr'
+-- • scope_reference_table: 'd_scope_hr'
+-- • scope_table_reference_id: maps to d_scope_hr.id (uuid)
+-- • name: copied from d_scope_hr.name
+--   - "CEO Office" (Executive level)
+--   - "Operations Management" (Director level)
+--   - "Department Managers" (Manager level)
+--
+-- APPLICATION SCOPE (references existing data from db/11_app_tables.ddl):
+-- • scope_type: 'app:page', 'app:component', 'app:api' (transformed from d_scope_app.scope_type)
+-- • scope_reference_table: 'd_scope_app'
+-- • scope_table_reference_id: maps to d_scope_app.id (uuid)
+-- • scope_name: copied from d_scope_app.scope_name (contains actual API paths/routes/components)
+--   - d_scope_app.scope_type: 'page' → unified scope_type: 'app:page', name: "/admin/users"
+--   - d_scope_app.scope_type: 'component' → unified scope_type: 'app:component', name: "TaskBoard"
+--   - d_scope_app.scope_type: 'api-path' → unified scope_type: 'app:api', name: "/api/v1/auth/logout"
+--   - d_scope_app.scope_type: 'page' → unified scope_type: 'app:page', name: "/projects"
+--   - d_scope_app.scope_type: 'component' → unified scope_type: 'app:component', name: "datatable:DataTable"
+--   - d_scope_app.scope_type: 'api-path' → unified scope_type: 'app:api', name: "/api/v1/task"
+--
+-- WORKSITE SCOPE:
+-- • scope_type: 'worksite'
+-- • scope_reference_table: 'd_scope_worksite'
+-- • scope_table_reference_id: maps to d_scope_worksite.id (uuid)
+-- • name: copied from d_scope_worksite.name
+--   - "Huron Home Services HQ" (Headquarters)
+--   - "Solar Install - 1847 Sheridan Park Dr" (Project worksite)
+--   - "Winter Ops - Equipment Staging" (Seasonal worksite)
+--
+-- PROJECT SCOPE:
+-- • scope_type: 'project'
+-- • scope_reference_table: 'ops_project_head'
+-- • scope_table_reference_id: maps to ops_project_head.id (uuid)
+-- • name: copied from ops_project_head.name
+--   - "ERP Implementation Phase 1" (Major project)
+--   - "Solar Panel Installation - Residential Q1" (Service project)
+--   - "Winter Operations 2025" (Seasonal project)
+--
+-- TASK SCOPE:
+-- • scope_type: 'task'
+-- • scope_reference_table: 'ops_task_head'
+-- • scope_table_reference_id: maps to ops_task_head.id (uuid)
+-- • name: copied from ops_task_head.name
+--   - "Complete HVAC system installation" (Individual task)
+--   - "Customer satisfaction survey implementation" (Process task)
+--
+-- 🔗 **PERMISSION INHERITANCE**
+-- 1. Direct scope permissions (highest priority)
+-- 2. Parent scope inheritance (cascading)
+-- 3. Cross-scope bridging (HR → Business → Location)
 -- 4. Default permissions (fallback)
+--
+-- 🛡️ **ENTERPRISE FEATURES**
+-- • Multi-tenant data isolation
+-- • Hierarchical permission cascades
+-- • Cross-functional team support
+-- • Audit trail consolidation
+-- • Dynamic scope assignment
 
 -- ============================================================================
--- DDL (Data Definition Language):
+-- DDL:
 -- ============================================================================
 
--- Unified scope reference table to consolidate all scope types
 CREATE TABLE app.d_scope_unified (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  
-  -- Scope identification
-  scope_type text NOT NULL, -- 'business', 'location', 'worksite', 'hr'
-  scope_name text NOT NULL,
-  scope_reference_id uuid NOT NULL, -- References the actual scope table record
-  
-  -- Hierarchy support
-  parent_scope_id uuid REFERENCES app.d_scope_unified(id),
-  
   -- Standard fields (audit, metadata, SCD type 2)
-  name text NOT NULL,
-  descr text,
+  scope_name text NOT NULL,
+  "descr" text,
   tags jsonb NOT NULL DEFAULT '[]'::jsonb,
   attr jsonb NOT NULL DEFAULT '{}'::jsonb,
   from_ts timestamptz NOT NULL DEFAULT now(),
@@ -66,26 +114,27 @@ CREATE TABLE app.d_scope_unified (
   active boolean NOT NULL DEFAULT true,
   created timestamptz NOT NULL DEFAULT now(),
   updated timestamptz NOT NULL DEFAULT now(),
-  
-  UNIQUE(scope_type, scope_reference_id, active)
+  -- Unified scope-specific fields
+  scope_type text NOT NULL,
+  scope_reference_table text NOT NULL, -- e.g. 'd_scope_business', 'd_scope_location', etc.
+  scope_table_reference_id uuid NOT NULL,
+  scope_level_id int,
+  parent_scope_id uuid REFERENCES app.d_scope_unified(id) ON DELETE SET NULL,
+  tenant_id uuid,
+  is_system_scope boolean NOT NULL DEFAULT false,
+  is_inherited boolean NOT NULL DEFAULT false,
+  resource_permission smallint[] NOT NULL DEFAULT ARRAY[]::smallint[]
 );
 
--- Employee-Scope Permission relationship table (direct user permissions)
+-- ============================================================================
+-- EMPLOYEE-SCOPE RELATIONSHIP TABLE
+-- ============================================================================
+
 CREATE TABLE app.rel_employee_scope_unified (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  
-  -- Permission binding
-  emp_id uuid NOT NULL REFERENCES app.d_employee(id) ON DELETE CASCADE,
-  scope_id uuid NOT NULL REFERENCES app.d_scope_unified(id) ON DELETE CASCADE,
-  
-  -- Resource specification
-  resource_type text NOT NULL,
-  resource_id uuid,
-  resource_permission smallint[] NOT NULL DEFAULT ARRAY[]::smallint[],
-  
   -- Standard fields (audit, metadata, SCD type 2)
-  name text NOT NULL,
-  descr text,
+  scope_name text NOT NULL,
+  "descr" text,
   tags jsonb NOT NULL DEFAULT '[]'::jsonb,
   attr jsonb NOT NULL DEFAULT '{}'::jsonb,
   from_ts timestamptz NOT NULL DEFAULT now(),
@@ -93,21 +142,36 @@ CREATE TABLE app.rel_employee_scope_unified (
   active boolean NOT NULL DEFAULT true,
   created timestamptz NOT NULL DEFAULT now(),
   updated timestamptz NOT NULL DEFAULT now(),
-  
-  UNIQUE(emp_id, scope_id, resource_type, resource_id, active)
+  -- Employee-scope relationship fields
+  emp_id uuid NOT NULL REFERENCES app.d_employee(id) ON DELETE CASCADE,
+  scope_type text NOT NULL, -- 'business', 'location', 'hr', 'app:page', 'app:api', 'app:component', 'worksite', 'project', 'task'
+  scope_reference_table text NOT NULL, -- e.g. 'd_scope_business', 'd_scope_location', 'd_scope_app', etc.
+  scope_table_reference_id uuid NOT NULL, -- UUID referencing the actual scope table
+  resource_permission smallint[] NOT NULL DEFAULT ARRAY[]::smallint[], -- [0,1,2,3,4] for CRUD + Execute permissions
+  -- Optional fields for additional context
+  resource_type text, -- Additional resource type specification
+  resource_id uuid, -- Optional specific resource ID
+  tenant_id uuid,
+  -- Performance indexes
+  UNIQUE(emp_id, scope_type, scope_reference_table, scope_table_reference_id, resource_type, resource_id)
 );
+
 
 -- ============================================================================
 -- DATA CURATION:
 -- ============================================================================
 
--- First, populate the unified scope table with references to existing scope tables
-INSERT INTO app.d_scope_unified (scope_type, scope_name, scope_reference_id, name, descr, tags, attr)
+-- NOTE: d_scope_app data is already populated in db/11_app_tables.ddl
+-- We will reference the existing data structure which uses scope_type and scope_name columns
+-- The scope_name field contains the actual API paths/routes/components
+
+-- Now populate the unified scope table with references to existing scope tables
+INSERT INTO app.d_scope_unified (scope_type, scope_reference_table, scope_table_reference_id, scope_name, descr, tags, attr)
 SELECT 
   'business' as scope_type,
-  name as scope_name,
-  id as scope_reference_id,
-  name,
+  'd_scope_business' as scope_reference_table,
+  id as scope_table_reference_id,
+  name, -- name from d_scope_business
   "descr",
   tags,
   attr
@@ -118,9 +182,9 @@ UNION ALL
 
 SELECT 
   'location' as scope_type,
-  name as scope_name,
-  id as scope_reference_id,
-  name,
+  'd_scope_location' as scope_reference_table,
+  id as scope_table_reference_id,
+  name, -- name from d_scope_location
   "descr",
   tags,
   attr
@@ -131,9 +195,9 @@ UNION ALL
 
 SELECT 
   'worksite' as scope_type,
-  name as scope_name,
-  id as scope_reference_id,
-  name,
+  'd_scope_worksite' as scope_reference_table,
+  id as scope_table_reference_id,
+  name, -- name from d_scope_worksite
   "descr",
   tags,
   attr
@@ -144,242 +208,211 @@ UNION ALL
 
 SELECT 
   'hr' as scope_type,
-  name as scope_name,
-  id as scope_reference_id,
-  name,
+  'd_scope_hr' as scope_reference_table,
+  id as scope_table_reference_id,
+  name, -- name from d_scope_hr
   "descr",
   tags,
   attr
 FROM app.d_scope_hr
+WHERE active = true
+
+UNION ALL
+
+-- Add app scope entries using the existing structure from 11_app_tables.ddl
+SELECT 
+  CASE scope_type
+    WHEN 'page' THEN 'app:page'
+    WHEN 'api-path' THEN 'app:api'  
+    WHEN 'component' THEN 'app:component'
+    ELSE 'app:' || scope_type
+  END as scope_type,
+  'd_scope_app' as scope_reference_table,
+  id as scope_table_reference_id,
+  scope_name, -- use scope_name directly (contains actual API paths/routes/components)
+  "descr",
+  tags,
+  attr
+FROM app.d_scope_app
 WHERE active = true;
 
--- Now insert synthetic permission data for James Miller and other key employees
--- James Miller (CEO) - Full organizational access
-INSERT INTO app.rel_employee_scope_unified (emp_id, scope_id, resource_type, resource_id, resource_permission, name, descr, tags, attr) VALUES
+-- ============================================================================
+-- JAMES MILLER (CEO) PERMISSIONS - COMPREHENSIVE ACCESS
+-- ============================================================================
 
--- James Miller CEO Permissions
--- Business scope - full access across all departments
-((SELECT id FROM app.d_employee WHERE name = 'James Miller'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Huron Home Services'),
- 'business', NULL, ARRAY[0,1,2,3,4]::smallint[], 
- 'CEO Full Business Access', 'Complete organizational authority across all business operations', 
- '["ceo", "executive", "full-access"]'::jsonb, 
- '{"executive_authority": true, "budget_approval": 10000000, "strategic_oversight": true}'::jsonb),
+-- Create meaningful permissions for James Miller using the new direct structure
+INSERT INTO app.rel_employee_scope_unified (emp_id, scope_type, scope_reference_table, scope_table_reference_id, resource_permission, scope_name, descr, tags, attr)
 
--- Project scope - full project lifecycle management
-((SELECT id FROM app.d_employee WHERE name = 'James Miller'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Huron Home Services'),
- 'project', NULL, ARRAY[0,1,2,3,4]::smallint[], 
- 'CEO Project Oversight Authority', 'Executive oversight for all company projects and strategic initiatives', 
- '["project-executive", "strategic-oversight"]'::jsonb, 
- '{"project_oversight": true, "portfolio_management": true, "executive_approval": true}'::jsonb),
+-- Business permissions - Direct reference to business scopes
+SELECT 
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca') as emp_id,
+  'business' as scope_type,
+  'd_scope_business' as scope_reference_table,
+  sb.id as scope_table_reference_id,
+  ARRAY[0,1,2,3,4]::smallint[] as resource_permission,
+  'James Miller - ' || sb.name || ' - Executive Authority' as name,
+  'CEO executive authority over ' || sb.descr as descr,
+  '["ceo", "executive", "business"]'::jsonb as tags,
+  '{"executive_authority": true, "budget_unlimited": true, "strategic_oversight": true}'::jsonb as attr
+FROM app.d_scope_business sb 
+WHERE sb.active = true
 
--- HR scope - full human resources authority
-((SELECT id FROM app.d_employee WHERE name = 'James Miller'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_hr sh ON su.scope_reference_id = sh.id WHERE sh.name = 'CEO Office'),
- 'hr', NULL, ARRAY[0,1,2,3,4]::smallint[], 
- 'CEO Human Resources Authority', 'Complete HR authority for hiring, performance, and organizational structure', 
- '["hr-executive", "organizational-authority"]'::jsonb, 
- '{"hr_authority": true, "hiring_approval": true, "compensation_authority": true}'::jsonb),
+UNION ALL
 
--- Location scope - access to all operational locations
-((SELECT id FROM app.d_employee WHERE name = 'James Miller'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_location sl ON su.scope_reference_id = sl.id WHERE sl.name = 'Greater Toronto Area'),
- 'location', NULL, ARRAY[0,1,2,3,4]::smallint[], 
- 'CEO GTA Operations Authority', 'Executive authority over Greater Toronto Area operations and facilities', 
- '["location-executive", "operations"]'::jsonb, 
- '{"operational_authority": true, "facility_management": true, "regional_oversight": true}'::jsonb),
+-- Location permissions - Direct reference to location scopes
+SELECT 
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'location',
+  'd_scope_location',
+  sl.id,
+  ARRAY[0,1,2,3,4]::smallint[],
+  'James Miller - ' || sl.name || ' - Geographic Authority',
+  'CEO geographic authority over ' || sl.descr,
+  '["ceo", "executive", "location"]'::jsonb,
+  '{"geographic_authority": true, "operational_oversight": true, "expansion_authority": true}'::jsonb
+FROM app.d_scope_location sl 
+WHERE sl.active = true
 
--- Worksite scope - oversight of all operational worksites
-((SELECT id FROM app.d_employee WHERE name = 'James Miller'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_worksite sw ON su.scope_reference_id = sw.id WHERE sw.name = 'Huron Home Services HQ'),
- 'worksite', NULL, ARRAY[0,1,2,3,4]::smallint[], 
- 'CEO Headquarters Authority', 'Executive authority over headquarters operations and strategic coordination', 
- '["worksite-executive", "headquarters"]'::jsonb, 
- '{"headquarters_authority": true, "strategic_coordination": true}'::jsonb),
+UNION ALL
 
--- App scope - full system administration access
-((SELECT id FROM app.d_employee WHERE name = 'James Miller'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Huron Home Services'),
- 'app', NULL, ARRAY[0,1,2,3,4]::smallint[], 
- 'CEO System Administration Access', 'Complete system access for executive oversight and administrative functions', 
- '["system-admin", "executive-access"]'::jsonb, 
- '{"system_admin": true, "executive_dashboard": true, "full_access": true}'::jsonb),
+-- HR permissions - Direct reference to HR scopes
+SELECT 
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'hr',
+  'd_scope_hr',
+  sh.id,
+  ARRAY[0,1,2,3,4]::smallint[],
+  'James Miller - ' || sh.name || ' - HR Executive Authority',
+  'CEO human resources authority over ' || sh.descr,
+  '["ceo", "executive", "hr"]'::jsonb,
+  '{"hr_executive": true, "hiring_authority": true, "compensation_authority": true, "organizational_design": true}'::jsonb
+FROM app.d_scope_hr sh 
+WHERE sh.active = true
 
--- Sarah Chen (Operations Director) Permissions
--- Business operations management
-((SELECT id FROM app.d_employee WHERE name = 'Sarah Chen'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Business Operations Division'),
- 'business', NULL, ARRAY[0,1,2,3]::smallint[], 
- 'Operations Director Business Authority', 'Business operations management across all service divisions', 
- '["operations-director", "management"]'::jsonb, 
- '{"operations_management": true, "team_leadership": true, "process_optimization": true}'::jsonb),
+UNION ALL
 
--- Project management authority
-((SELECT id FROM app.d_employee WHERE name = 'Sarah Chen'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Business Operations Division'),
- 'project', NULL, ARRAY[0,1,2,3,4]::smallint[], 
- 'Operations Project Management', 'Project management authority for operational improvements and service delivery', 
- '["project-manager", "operations"]'::jsonb, 
- '{"project_management": true, "operational_projects": true, "team_coordination": true}'::jsonb),
+-- Worksite permissions - Direct reference to worksite scopes
+SELECT 
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'worksite',
+  'd_scope_worksite',
+  sw.id,
+  ARRAY[0,1,2,3,4]::smallint[],
+  'James Miller - ' || sw.name || ' - Facility Authority',
+  'CEO facility authority over ' || sw.descr,
+  '["ceo", "executive", "worksite"]'::jsonb,
+  '{"facility_authority": true, "safety_oversight": true, "capital_investments": true}'::jsonb
+FROM app.d_scope_worksite sw 
+WHERE sw.active = true
 
--- Task management across departments
-((SELECT id FROM app.d_employee WHERE name = 'Sarah Chen'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Business Operations Division'),
- 'task', NULL, ARRAY[0,1,2,3,4]::smallint[], 
- 'Operations Task Coordination', 'Task management and coordination across landscaping, plumbing, HVAC, and electrical departments', 
- '["task-coordinator", "operations"]'::jsonb, 
- '{"task_coordination": true, "department_oversight": true, "quality_control": true}'::jsonb),
+UNION ALL
 
--- Robert Thompson (Landscaping Manager) Permissions
--- Landscaping department management
-((SELECT id FROM app.d_employee WHERE name = 'Robert Thompson'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Landscaping Department'),
- 'business', NULL, ARRAY[0,1,2,3]::smallint[], 
- 'Landscaping Department Management', 'Complete management authority for landscaping operations and team', 
- '["department-manager", "landscaping"]'::jsonb, 
- '{"department_management": true, "team_leadership": true, "seasonal_planning": true}'::jsonb),
+-- App Page permissions - Direct reference to app scopes (pages only) 
+SELECT 
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'app:page',
+  'd_scope_app',
+  sa.id,
+  ARRAY[0,1,2,3,4]::smallint[],
+  'James Miller - ' || sa.scope_name || ' - Executive Dashboard Access',
+  'CEO access to ' || sa.scope_name || ' for executive oversight',
+  '["ceo", "executive", "app-page"]'::jsonb,
+  jsonb_build_object('page_access', true, 'executive_view', true, 'path', sa.scope_name, 'name', sa.scope_name)
+FROM app.d_scope_app sa 
+WHERE sa.active = true AND sa.scope_type = 'page'
 
--- Landscaping project authority
-((SELECT id FROM app.d_employee WHERE name = 'Robert Thompson'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Landscaping Department'),
- 'project', NULL, ARRAY[0,1,2,3,4]::smallint[], 
- 'Landscaping Project Leadership', 'Project management for landscaping contracts and seasonal operations', 
- '["project-manager", "landscaping"]'::jsonb, 
- '{"landscaping_projects": true, "seasonal_operations": true, "contractor_coordination": true}'::jsonb),
+UNION ALL
 
--- HR management for landscaping team
-((SELECT id FROM app.d_employee WHERE name = 'Robert Thompson'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Landscaping Department'),
- 'hr', NULL, ARRAY[0,1,2]::smallint[], 
- 'Landscaping Team HR Authority', 'HR management for landscaping department including seasonal staff coordination', 
- '["hr-manager", "landscaping"]'::jsonb, 
- '{"team_management": true, "seasonal_hiring": true, "performance_management": true}'::jsonb),
+-- App API permissions - Direct reference to app scopes (APIs only)
+SELECT 
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'app:api',
+  'd_scope_app',
+  sa.id,
+  ARRAY[0,1,2,3,4]::smallint[],
+  'James Miller - ' || sa.scope_name || ' - Full API Access',
+  'CEO access to ' || sa.scope_name || ' API for data oversight and reporting',
+  '["ceo", "executive", "app-api"]'::jsonb,
+  jsonb_build_object('api_access', true, 'executive_data', true, 'endpoint', sa.scope_name, 'name', sa.scope_name, 'methods', '["GET", "POST", "PUT", "DELETE"]')
+FROM app.d_scope_app sa 
+WHERE sa.active = true AND sa.scope_type = 'api-path'
 
--- Michael O'Brien (Master Plumber Manager) Permissions
--- Plumbing department full management
-((SELECT id FROM app.d_employee WHERE name = 'Michael O''Brien'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Plumbing Department'),
- 'business', NULL, ARRAY[0,1,2,3,4]::smallint[], 
- 'Master Plumber Department Authority', 'Complete plumbing department management including emergency services', 
- '["master-plumber", "department-manager"]'::jsonb, 
- '{"master_plumber_license": "MP-5547-ON", "emergency_authority": true, "code_compliance": true}'::jsonb),
+UNION ALL
 
--- Emergency response project management
-((SELECT id FROM app.d_employee WHERE name = 'Michael O''Brien'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_worksite sw ON su.scope_reference_id = sw.id WHERE sw.name = 'Emergency Response - Mobile'),
- 'project', NULL, ARRAY[0,1,2,3,4]::smallint[], 
- 'Emergency Plumbing Project Authority', 'Emergency response project coordination and 24/7 service management', 
- '["emergency-manager", "mobile-services"]'::jsonb, 
- '{"emergency_response": true, "24_7_coordination": true, "mobile_operations": true}'::jsonb),
+-- App Component permissions - Direct reference to app scopes (components only)
+SELECT 
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'app:component',
+  'd_scope_app',
+  sa.id,
+  ARRAY[0,1,2,3,4]::smallint[],
+  'James Miller - ' || sa.scope_name || ' - Component Authority',
+  'CEO access to ' || sa.scope_name || ' component for executive functions',
+  '["ceo", "executive", "app-component"]'::jsonb,
+  jsonb_build_object('component_access', true, 'executive_functions', true, 'component', sa.scope_name, 'name', sa.scope_name)
+FROM app.d_scope_app sa 
+WHERE sa.active = true AND sa.scope_type = 'component';
 
--- Emma Foster (Customer Service) Permissions
--- Customer service operations
-((SELECT id FROM app.d_employee WHERE name = 'Emma Foster'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Customer Service Department'),
- 'business', NULL, ARRAY[0,1,2]::smallint[], 
- 'Customer Service Operations', 'Customer service operations including appointment scheduling and billing support', 
- '["customer-service", "operations"]'::jsonb, 
- '{"customer_service": true, "appointment_scheduling": true, "billing_support": true}'::jsonb),
+-- ============================================================================
+-- PROJECT PERMISSIONS FOR JAMES MILLER
+-- ============================================================================
 
--- App access for customer service functions
-((SELECT id FROM app.d_employee WHERE name = 'Emma Foster'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Customer Service Department'),
- 'app', NULL, ARRAY[0,1]::smallint[], 
- 'Customer Service App Access', 'Application access for customer service functions and scheduling system', 
- '["app-user", "customer-service"]'::jsonb, 
- '{"scheduling_system": true, "customer_portal": true, "billing_system": true}'::jsonb),
+-- James Miller gets executive oversight on all projects - Direct reference to project scopes
+INSERT INTO app.rel_employee_scope_unified (emp_id, scope_type, scope_reference_table, scope_table_reference_id, resource_permission, scope_name, descr, tags, attr)
+SELECT 
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'project',
+  'ops_project_head',
+  p.id,
+  ARRAY[0,1,2,3,4]::smallint[],
+  'James Miller - ' || p.name || ' - Executive Project Oversight',
+  'CEO executive oversight and strategic direction for ' || p.name,
+  '["ceo", "executive", "project", "strategic"]'::jsonb,
+  jsonb_build_object(
+    'executive_oversight', true, 
+    'budget_authority', true, 
+    'strategic_direction', true,
+    'project_name', p.name,
+    'approval_required', false
+  )
+FROM app.ops_project_head p 
+WHERE p.active = true;
 
--- Lisa Rodriguez (HVAC Technician) Permissions
--- HVAC technical operations
-((SELECT id FROM app.d_employee WHERE name = 'Lisa Rodriguez'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Heating Department'),
- 'business', NULL, ARRAY[0,1,2]::smallint[], 
- 'HVAC Technical Operations', 'HVAC installation and maintenance operations authority', 
- '["hvac-technician", "technical"]'::jsonb, 
- '{"hvac_certified": true, "gas_license": "GT2-5523-ON", "energy_efficiency": true}'::jsonb),
+-- ============================================================================
+-- SUMMARY OF JAMES MILLER PERMISSIONS
+-- ============================================================================
+-- 
+-- James Miller (james.miller@huronhome.ca) as CEO has been granted:
+-- • Full access (permissions 0,1,2,3,4) to ALL business scopes
+-- • Full access to ALL location scopes (geographic authority)
+-- • Full access to ALL HR scopes (hiring, compensation, organizational design)
+-- • Full access to ALL worksite scopes (facility authority, safety oversight)
+-- • Full access to ALL app:page scopes (executive dashboard access)
+-- • Full access to ALL app:api scopes (complete API access for data oversight)
+-- • Full access to ALL app:component scopes (all system components)
+-- • Executive oversight on ALL projects (budget authority, strategic direction)
+--
+-- This provides comprehensive system access appropriate for the CEO role
+-- with proper name-based scope tracking for granular permission management.
 
--- HVAC task management
-((SELECT id FROM app.d_employee WHERE name = 'Lisa Rodriguez'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Heating Department'),
- 'task', NULL, ARRAY[0,1,2,3]::smallint[], 
- 'HVAC Task Management', 'Task management for HVAC installations, maintenance, and energy efficiency projects', 
- '["task-manager", "hvac"]'::jsonb, 
- '{"task_management": true, "installation_projects": true, "maintenance_scheduling": true}'::jsonb),
+-- ============================================================================
+-- ADDITIONAL PROJECT SCOPE ENTRIES FROM EXISTING PROJECTS
+-- ============================================================================
 
--- John MacLeod (Licensed Electrician) Permissions
--- Electrical operations authority
-((SELECT id FROM app.d_employee WHERE name = 'John MacLeod'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Electrical Department'),
- 'business', NULL, ARRAY[0,1,2,3]::smallint[], 
- 'Master Electrician Operations', 'Licensed electrical operations including panel upgrades and safety inspections', 
- '["master-electrician", "licensed"]'::jsonb, 
- '{"master_electrician": true, "esa_license": "ME-7845-ON", "safety_inspections": true}'::jsonb),
-
--- Electrical project management
-((SELECT id FROM app.d_employee WHERE name = 'John MacLeod'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Electrical Department'),
- 'project', NULL, ARRAY[0,1,2,3]::smallint[], 
- 'Electrical Project Authority', 'Project management for electrical installations and code compliance work', 
- '["project-manager", "electrical"]'::jsonb, 
- '{"electrical_projects": true, "code_compliance": true, "safety_oversight": true}'::jsonb),
-
--- Ahmed Hassan (Solar Technician) Permissions
--- Solar installation operations
-((SELECT id FROM app.d_employee WHERE name = 'Ahmed Hassan'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Solar Installation Department'),
- 'business', NULL, ARRAY[0,1,2]::smallint[], 
- 'Solar Installation Operations', 'Solar panel installation and maintenance operations authority', 
- '["solar-technician", "certified"]'::jsonb, 
- '{"solar_certified": true, "nabcep_certified": true, "installations_completed": 150}'::jsonb),
-
--- Solar worksite access
-((SELECT id FROM app.d_employee WHERE name = 'Ahmed Hassan'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_worksite sw ON su.scope_reference_id = sw.id WHERE sw.name = 'Solar Install - 1847 Sheridan Park Dr'),
- 'worksite', NULL, ARRAY[0,1,2,3]::smallint[], 
- 'Solar Installation Worksite Authority', 'Worksite management for solar installation projects and system commissioning', 
- '["worksite-manager", "solar"]'::jsonb, 
- '{"solar_installations": true, "system_commissioning": true, "warranty_specialist": true}'::jsonb),
-
--- Frank Kowalski (Snow Removal) Permissions - Seasonal access
--- Snow removal operations (seasonal)
-((SELECT id FROM app.d_employee WHERE name = 'Frank Kowalski'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Snow Removal Department'),
- 'business', NULL, ARRAY[0,1,2]::smallint[], 
- 'Seasonal Snow Removal Operations', 'Winter operations management for snow removal and ice control services', 
- '["snow-removal", "seasonal", "equipment-operator"]'::jsonb, 
- '{"seasonal_worker": true, "equipment_certified": ["plow_truck", "salt_spreader"], "winter_operations": true}'::jsonb),
-
--- Winter operations worksite
-((SELECT id FROM app.d_employee WHERE name = 'Frank Kowalski'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_worksite sw ON su.scope_reference_id = sw.id WHERE sw.name = 'Winter Ops - Equipment Staging'),
- 'worksite', NULL, ARRAY[0,1,2]::smallint[], 
- 'Winter Operations Equipment Authority', 'Equipment staging and winter operations coordination authority', 
- '["equipment-operator", "winter-ops"]'::jsonb, 
- '{"equipment_authority": true, "staging_operations": true, "emergency_response": true}'::jsonb),
-
--- Jessica Park (Co-op Student) Permissions - Limited access
--- Environmental project support
-((SELECT id FROM app.d_employee WHERE name = 'Jessica Park'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Business Operations Division'),
- 'project', NULL, ARRAY[0,1]::smallint[], 
- 'Co-op Environmental Project Support', 'Environmental engineering project support and sustainability research', 
- '["co-op-student", "environmental"]'::jsonb, 
- '{"co_op_student": true, "environmental_focus": true, "academic_program": "Environmental Engineering"}'::jsonb),
-
--- Limited app access for data collection
-((SELECT id FROM app.d_employee WHERE name = 'Jessica Park'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Business Operations Division'),
- 'app', NULL, ARRAY[0]::smallint[], 
- 'Co-op Student App Access', 'Limited application access for data collection and reporting functions', 
- '["app-user", "co-op", "read-only"]'::jsonb, 
- '{"read_only_access": true, "data_collection": true, "reporting_tools": true}'::jsonb),
-
--- Ryan Kim (Marketing Intern) Permissions - Limited marketing access
--- Marketing support access
-((SELECT id FROM app.d_employee WHERE name = 'Ryan Kim'),
- (SELECT su.id FROM app.d_scope_unified su JOIN app.d_scope_business sb ON su.scope_reference_id = sb.id WHERE sb.name = 'Customer Service Department'),
- 'business', NULL, ARRAY[0,1]::smallint[], 
- 'Marketing Intern Support Access', 'Marketing campaign support and customer engagement initiatives', 
- '["marketing-intern", "student"]'::jsonb, 
- '{"intern": true, "marketing_focus": true, "academic_program": "Business Marketing"}'::jsonb);
+-- Create project scopes from existing project data using the new structure
+INSERT INTO app.d_scope_unified (scope_type, scope_reference_table, scope_table_reference_id, parent_scope_id, scope_name, descr, active)
+SELECT 
+  'project' as scope_type,
+  'ops_project_head' as scope_reference_table,
+  p.id as scope_table_reference_id,
+  (SELECT id FROM app.d_scope_unified WHERE scope_type = 'business' AND scope_name = 'Huron Home Services' LIMIT 1) as parent_scope_id,
+  p.name, -- name from ops_project_head
+  'Project scope for ' || p.name,
+  true
+FROM app.ops_project_head p 
+WHERE p.active = true
+AND NOT EXISTS (
+  SELECT 1 FROM app.d_scope_unified su 
+  WHERE su.scope_type = 'project' 
+  AND su.scope_table_reference_id = p.id
+);

@@ -19,9 +19,11 @@ The PMO Enterprise Task Management Platform is built using modern, scalable tech
 
 ### Validation & Security
 - **Zod** - Schema validation for request/response data and environment variables
-- **JWT (JSON Web Tokens)** - Stateless authentication and authorization
-- **Bcrypt** - Password hashing with configurable rounds
+- **@sinclair/typebox** - JSON Schema and TypeScript type definitions for Fastify
+- **JWT (JSON Web Tokens)** - Stateless authentication and authorization with user ID extraction
+- **Bcrypt** - Password hashing with configurable rounds for employee authentication
 - **Helmet** - Security middleware for HTTP headers
+- **RBAC System** - Comprehensive role-based access control with scope inheritance
 
 ### API & Documentation
 - **OpenAPI/Swagger** - API specification and interactive documentation
@@ -52,9 +54,10 @@ The PMO Enterprise Task Management Platform is built using modern, scalable tech
 - **Zod** - Form validation with TypeScript integration
 
 ### UI Interactions
-- **DnD Kit** - Drag-and-drop functionality for Kanban boards
+- **DnD Kit** - Drag-and-drop functionality for Kanban boards and sortable lists
 - **React Router DOM** - Client-side routing and navigation
 - **Date-fns** - Date manipulation and formatting utilities
+- **Radix UI** - Accessible component primitives for complex UI patterns
 
 ### Development Tools
 - **ESLint** - Code linting and style enforcement
@@ -73,12 +76,14 @@ The PMO Enterprise Task Management Platform is built using modern, scalable tech
 
 ### Development Infrastructure
 - **pnpm** - Fast, efficient package manager with workspace support
-- **Turborepo** - Monorepo build system for optimized builds
+- **Development Tools** - 17 shell scripts for platform management
+  - `start-all.sh`, `db-import.sh`, `validate-schema.sh`, etc.
 - **Makefiles** - Development workflow automation
 
 ### Supporting Services
 - **MailHog** - Email testing and development SMTP server
-- **pgAdmin** - PostgreSQL database administration (optional)
+- **MinIO** - S3-compatible object storage for file attachments
+- **Redis** - Caching and session management
 
 ## Data Architecture
 
@@ -87,17 +92,18 @@ The PMO Enterprise Task Management Platform is built using modern, scalable tech
 - **Role-Based Access Control (RBAC)** - Granular permission scoping
 - **Multi-Tenant Architecture** - Support for multiple organizations
 
-### Data Domains
-1. **META** - Reference data and vocabulary management
-2. **LOC** - Hierarchical location management
-3. **WORKSITE** - Physical service sites with geospatial data
-4. **BIZ** - Business organization hierarchy
-5. **HR** - Human resources and department structure
-6. **EMP/ROLE** - Employee management with role assignments
-7. **CLIENT** - Client relationship management
-8. **PROJECT** - Project lifecycle tracking
-9. **TASK** - Task management with workflow stages
-10. **FORMS** - Dynamic form builder with JSON Schema
+### Data Architecture Categories
+1. **META** - Reference data and vocabulary management (7 tables)
+2. **SCOPE** - Hierarchical organizational structures (5 tables)
+   - Location, Business, HR, Worksite, and Application scopes
+3. **DOMAIN** - Core business entities (5 tables)
+   - Employee, Role, Client management with relationships
+4. **OPERATIONAL** - Project and task execution (5 tables)
+   - Project/Task management with head/records pattern
+5. **PERMISSION** - RBAC and security (2 tables)
+   - Employee permissions and role assignments
+
+**Total**: 24+ tables across 14 DDL files
 
 ## API Design
 
@@ -108,9 +114,11 @@ The PMO Enterprise Task Management Platform is built using modern, scalable tech
 - **CORS Configuration** - Cross-origin resource sharing setup
 
 ### Authentication & Authorization
-- **JWT-based Authentication** - Stateless token-based auth
-- **Role-based Authorization** - Granular permission checking
-- **Scope-based Access Control** - Location, business, project-level scoping
+- **JWT-based Authentication** - Stateless token-based auth with `d_employee` table
+- **Scope-based RBAC** - Granular permission checking via `rel_employee_scope_unified`
+- **Multi-dimensional Access Control** - Location, business, hr, worksite, project, and task scoping
+- **Permission Levels** - VIEW(0), MODIFY(1), SHARE(2), DELETE(3), CREATE(4)
+- **Hierarchical Inheritance** - Parent scope permissions cascade to children
 
 ## Development Workflow
 

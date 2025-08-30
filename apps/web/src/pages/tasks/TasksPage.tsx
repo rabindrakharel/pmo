@@ -14,6 +14,7 @@ import {
   Calendar,
   Map
 } from 'lucide-react';
+import { TableActionButtons } from '@/components/ui/action-buttons';
 
 type ViewMode = 'board' | 'list' | 'calendar' | 'map';
 
@@ -46,6 +47,27 @@ export function TasksPage() {
   const stages = stagesData?.data || [];
   const projects = projectsData?.data || [];
   const tasks = tasksData?.data || [];
+
+  // Action handlers for tasks
+  const handleViewTask = (task: any) => {
+    // Navigate to task detail or show modal
+    console.log('View task:', task);
+  };
+
+  const handleEditTask = (task: any) => {
+    // Open edit modal or navigate to edit page
+    console.log('Edit task:', task);
+  };
+
+  const handleShareTask = (task: any) => {
+    // Open share modal
+    console.log('Share task:', task);
+  };
+
+  const handleDeleteTask = (task: any) => {
+    // Show confirmation dialog and delete
+    console.log('Delete task:', task);
+  };
 
   if (tasksLoading) {
     return (
@@ -218,13 +240,15 @@ export function TasksPage() {
                         <span>ID: {task.id.slice(0, 8)}...</span>
                       </div>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => console.log('Edit task:', task)}
-                    >
-                      View
-                    </Button>
+                    <TableActionButtons
+                      resource="task"
+                      itemId={task.id}
+                      item={task}
+                      onView={() => handleViewTask(task)}
+                      onEdit={() => handleEditTask(task)}
+                      onShare={() => handleShareTask(task)}
+                      onDelete={() => handleDeleteTask(task)}
+                    />
                   </div>
                 ))
               )}

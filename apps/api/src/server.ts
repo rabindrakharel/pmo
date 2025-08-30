@@ -29,9 +29,25 @@ await fastify.register(helmet, {
   contentSecurityPolicy: false, // Disable for development
 });
 
-// CORS
+// CORS - allow frontend origin explicitly
 await fastify.register(cors, {
-  origin: [config.WEB_ORIGIN, config.API_ORIGIN],
+  origin: (origin, cb) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return cb(null, true);
+    
+    // Allow localhost development origins
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return cb(null, true);
+    }
+    
+    // Allow configured origins
+    const allowedOrigins = [config.WEB_ORIGIN, config.API_ORIGIN];
+    if (allowedOrigins.includes(origin)) {
+      return cb(null, true);
+    }
+    
+    return cb(new Error("Not allowed by CORS"), false);
+  },
   credentials: true,
 });
 

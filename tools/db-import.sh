@@ -165,8 +165,8 @@ declare -a DDL_FILES=(
     
     # SCOPE HIERARCHIES (Self-Referencing)
     "02_location.ddl|Canadian Geographic Hierarchy"
-    "03_worksite.ddl|Physical Facilities (Worksites)"
     "04_business.ddl|Organizational Hierarchy (Business)"
+    "03_worksite.ddl|Physical Facilities (Worksites)"
     "05_hr.ddl|Human Resources Hierarchy"
     
     # IDENTITY & OPERATIONS
@@ -176,7 +176,7 @@ declare -a DDL_FILES=(
     "09_project_task.ddl|Project & Task Systems"
     
     # APPLICATION & PERMISSIONS (Depends on all above)
-    "10_forms_fixed.ddl|Dynamic Form System"
+    "10_forms.ddl|Dynamic Form System"
     "11_app_tables.ddl|UI Routes & Components"
     "13_permission_tables.ddl|RBAC Permission Engine"
 )

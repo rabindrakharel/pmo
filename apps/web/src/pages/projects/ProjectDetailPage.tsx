@@ -62,7 +62,8 @@ export function ProjectDetailPage() {
     queryKey: ['project', id, 'status'], 
     queryFn: async () => {
       try {
-        const response = await fetch(`/api/v1/project/${id}/status`, {
+        const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000/api';
+        const response = await fetch(`${API_BASE_URL}/v1/project/${id}/status`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
             'Content-Type': 'application/json',
@@ -78,10 +79,20 @@ export function ProjectDetailPage() {
     enabled: !!id,
   });
 
-  // Fetch tasks for this project
+  // Fetch tasks for this project using new project-task endpoint
   const { data: tasksData, isLoading: tasksLoading, error: tasksError } = useQuery({
-    queryKey: ['tasks', { projHeadId: id }],
-    queryFn: () => api.getTasks({ projHeadId: id, limit: 100 }),
+    queryKey: ['project', id, 'tasks'],
+    queryFn: async () => {
+      const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000/api';
+      const response = await fetch(`${API_BASE_URL}/v1/project/${id}/tasks?limit=100`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) throw new Error('Failed to fetch project tasks');
+      return response.json();
+    },
     enabled: !!id,
   });
 
@@ -155,7 +166,8 @@ export function ProjectDetailPage() {
   const handleTaskMove = async (taskId: string, newStatusId: string) => {
     try {
       // Update task status - this would need to create a new task record
-      await fetch(`/api/v1/task/${taskId}/record`, {
+      const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000/api';
+      await fetch(`${API_BASE_URL}/v1/task/${taskId}/record`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
@@ -281,8 +293,13 @@ export function ProjectDetailPage() {
             <div className="flex items-center">
               <Calendar className="h-8 w-8 text-muted-foreground" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Created</p>
-                <p className="text-sm">{formatRelativeTime(projectData.created)}</p>
+                <p className="text-sm font-medium text-muted-foreground">Timeline</p>
+                <p className="text-sm">
+                  {projectData.planned_start_date ? 
+                    `${new Date(projectData.planned_start_date).toLocaleDateString()} - ${new Date(projectData.planned_end_date).toLocaleDateString()}` :
+                    'Not scheduled'
+                  }
+                </p>
               </div>
             </div>
           </CardContent>
@@ -305,12 +322,12 @@ export function ProjectDetailPage() {
             <div className="flex items-center">
               <Building className="h-8 w-8 text-muted-foreground" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Scope</p>
+                <p className="text-sm font-medium text-muted-foreground">Budget</p>
                 <p className="text-sm">
-                  {projectData.businessSpecific && 'Business '}
-                  {projectData.locationSpecific && 'Location '}
-                  {projectData.worksiteSpecific && 'Worksite '}
-                  {!projectData.businessSpecific && !projectData.locationSpecific && !projectData.worksiteSpecific && 'Global'}
+                  {projectData.budget_allocated ? 
+                    `$${projectData.budget_allocated.toLocaleString()} ${projectData.budget_currency}` :
+                    'Not set'
+                  }
                 </p>
               </div>
             </div>
@@ -322,8 +339,13 @@ export function ProjectDetailPage() {
             <div className="flex items-center">
               <Activity className="h-8 w-8 text-muted-foreground" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Updated</p>
-                <p className="text-sm">{formatRelativeTime(projectData.updated)}</p>
+                <p className="text-sm font-medium text-muted-foreground">Progress</p>
+                <p className="text-sm">
+                  {projectData.estimated_hours ? 
+                    `${projectData.actual_hours || 0}h / ${projectData.estimated_hours}h` :
+                    `Stage: ${projectData.project_stage}`
+                  }
+                </p>
               </div>
             </div>
           </CardContent>

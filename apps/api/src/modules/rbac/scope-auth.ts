@@ -31,7 +31,7 @@ export async function checkScopeAccess(
   userId: string,
   scopeType: string,
   action: 'view' | 'modify' | 'share' | 'delete' | 'create',
-  specificScopeId?: string
+  specificScopeTableReferenceId?: string
 ): Promise<ScopeAccess> {
   
   if (!userId) {
@@ -57,28 +57,28 @@ export async function checkScopeAccess(
   if (process.env.DEV_BYPASS_OIDC === 'true') {
     return { 
       allowed: true, 
-      scopeIds: specificScopeId ? [specificScopeId] : [], 
+      scopeIds: specificScopeTableReferenceId ? [specificScopeTableReferenceId] : [], 
       permissions: [0, 1, 2, 3, 4] 
     };
   }
   
   try {
-    // Query the database for user permissions
+    // Query the database for user permissions using new structure
     let query = sql`
-      SELECT scope_id, resource_permission
+      SELECT scope_table_reference_id, resource_permission
       FROM app.rel_employee_scope_unified 
       WHERE emp_id = ${userId} 
-        AND resource_type = ${scopeType} 
+        AND scope_type = ${scopeType} 
         AND active = true
     `;
 
-    if (specificScopeId) {
+    if (specificScopeTableReferenceId) {
       query = sql`
-        SELECT scope_id, resource_permission
+        SELECT scope_table_reference_id, resource_permission
         FROM app.rel_employee_scope_unified 
         WHERE emp_id = ${userId} 
-          AND resource_type = ${scopeType} 
-          AND scope_id = ${specificScopeId}
+          AND scope_type = ${scopeType} 
+          AND scope_table_reference_id = ${specificScopeTableReferenceId}
           AND active = true
       `;
     }
@@ -99,7 +99,7 @@ export async function checkScopeAccess(
       return { allowed: false, scopeIds: [], permissions: [] };
     }
 
-    const scopeIds = permissions.map(p => p.scope_id as string | null).filter((id): id is string => id !== null);
+    const scopeIds = permissions.map(p => p.scope_table_reference_id as string | null).filter((id): id is string => id !== null);
     const allPermissions = permissions.flatMap(p => {
       const resourcePermission = p.resource_permission as number[] | null;
       return Array.isArray(resourcePermission) ? resourcePermission : [];
@@ -141,20 +141,38 @@ export async function getUserScopes(
   }
   
   try {
+    // Query using new permission structure
     const scopes = await db.execute(sql`
-      SELECT rus.scope_id, ds.name as scope_name, rus.resource_permission
+      SELECT 
+        rus.scope_table_reference_id, 
+        rus.scope_reference_table,
+        rus.resource_permission,
+        CASE 
+          WHEN rus.scope_reference_table = 'd_scope_business' THEN sb.name
+          WHEN rus.scope_reference_table = 'd_scope_location' THEN sl.name  
+          WHEN rus.scope_reference_table = 'd_scope_hr' THEN sh.name
+          WHEN rus.scope_reference_table = 'd_scope_worksite' THEN sw.name
+          WHEN rus.scope_reference_table = 'd_scope_app' THEN sa.scope_name
+          WHEN rus.scope_reference_table = 'ops_project_head' THEN ph.name
+          ELSE 'Unknown'
+        END as scope_name
       FROM app.rel_employee_scope_unified rus
-      JOIN app.d_scope_unified ds ON rus.scope_id = ds.id
+      LEFT JOIN app.d_scope_business sb ON rus.scope_reference_table = 'd_scope_business' AND rus.scope_table_reference_id = sb.id
+      LEFT JOIN app.d_scope_location sl ON rus.scope_reference_table = 'd_scope_location' AND rus.scope_table_reference_id = sl.id
+      LEFT JOIN app.d_scope_hr sh ON rus.scope_reference_table = 'd_scope_hr' AND rus.scope_table_reference_id = sh.id
+      LEFT JOIN app.d_scope_worksite sw ON rus.scope_reference_table = 'd_scope_worksite' AND rus.scope_table_reference_id = sw.id
+      LEFT JOIN app.d_scope_app sa ON rus.scope_reference_table = 'd_scope_app' AND rus.scope_table_reference_id = sa.id
+      LEFT JOIN app.ops_project_head ph ON rus.scope_reference_table = 'ops_project_head' AND rus.scope_table_reference_id = ph.id
       WHERE rus.emp_id = ${userId} 
-        AND rus.resource_type = ${scopeType} 
+        AND rus.scope_type = ${scopeType} 
         AND rus.active = true
         AND ${minPermission} = ANY(rus.resource_permission)
-      ORDER BY ds.name
+      ORDER BY scope_name
     `);
 
     return scopes.map(scope => ({
-      scopeId: (scope.scope_id as string | null) || '',
-      scopeName: scope.scope_name as string,
+      scopeId: (scope.scope_table_reference_id as string | null) || '',
+      scopeName: (scope.scope_name as string) || 'Unknown',
       permissions: (Array.isArray(scope.resource_permission) ? scope.resource_permission : []) as Permission[],
     }));
   } catch (error) {
@@ -177,12 +195,12 @@ export async function isUserAdmin(userId: string): Promise<boolean> {
   }
 
   try {
-    // Check if user has app-level permissions
+    // Check if user has app-level permissions (any app scope type)
     const adminPermissions = await db.execute(sql`
       SELECT COUNT(*) as count
       FROM app.rel_employee_scope_unified 
       WHERE emp_id = ${userId} 
-        AND resource_type = 'app' 
+        AND scope_type IN ('app:page', 'app:api', 'app:component')
         AND active = true
         AND 4 = ANY(resource_permission) -- CREATE permission on app scope
     `);
@@ -221,11 +239,13 @@ export async function getUserEffectivePermissions(userId: string): Promise<{
 
   try {
     const allPermissions = await db.execute(sql`
-      SELECT rus.resource_type as scope_type, rus.scope_id, ds.name as scope_name, rus.resource_permission as scope_permission
+      SELECT 
+        rus.scope_type,
+        rus.scope_table_reference_id, 
+        rus.resource_permission as scope_permission
       FROM app.rel_employee_scope_unified rus
-      JOIN app.d_scope_unified ds ON rus.scope_id = ds.id
       WHERE rus.emp_id = ${userId} AND rus.active = true
-      ORDER BY rus.resource_type, ds.name
+      ORDER BY rus.scope_type
     `);
 
     const result = {
@@ -236,10 +256,10 @@ export async function getUserEffectivePermissions(userId: string): Promise<{
 
     for (const perm of allPermissions) {
       const scopeType = perm.scope_type as string;
-      const scopeId = perm.scope_id as string | null;
+      const scopeId = perm.scope_table_reference_id as string | null;
       const permissions = (Array.isArray(perm.scope_permission) ? perm.scope_permission : []) as Permission[];
 
-      if (scopeType === 'app') {
+      if (scopeType?.startsWith('app:')) {
         result.app = [...new Set([...result.app, ...permissions])];
       } else {
         if (!result.scopes[scopeType]) {

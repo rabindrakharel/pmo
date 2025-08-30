@@ -210,9 +210,10 @@ CREATE TABLE app.ops_task_records (
 
 -- Insert Huron Home Services Seasonal and Service Projects
 INSERT INTO app.ops_project_head 
-  (name, descr, slug, project_code, project_type, priority_level, budget_allocated, budget_currency, planned_start_date, planned_end_date, estimated_hours, security_classification, compliance_requirements, risk_assessment, tenant_id, tags, attr)
+  (name, descr, slug, project_code, project_type, priority_level, budget_allocated, budget_currency, business_id, planned_start_date, planned_end_date, estimated_hours, security_classification, compliance_requirements, risk_assessment, tenant_id, tags, attr)
 VALUES
   ('Fall 2025 Landscaping Campaign', 'Comprehensive fall landscaping services campaign including leaf cleanup, garden preparation, tree care, and lawn winterization across all service areas', 'fall-2025-landscaping', 'FALL-2025-LAND', 'seasonal', 'high', 450000.00, 'CAD',
+    (SELECT id FROM app.d_scope_business WHERE name = 'Huron Home Services'),
     '2025-09-01', '2025-11-30', 1800.0, 'internal',
     '["WSIB Safety Standards", "Environmental Protection Act", "Pesticide Application Permits"]'::jsonb,
     '{"weather_risk": "high", "equipment_availability": "medium", "seasonal_staff": "critical", "customer_demand": "high"}'::jsonb,
@@ -221,6 +222,7 @@ VALUES
     '{"peak_season": "October", "service_types": ["leaf_cleanup", "garden_prep", "tree_care", "winterization"], "crew_scaling": "3x_normal", "equipment_required": ["leaf_blowers", "mulching_mowers", "tree_equipment"]}'),
     
   ('Winter 2025 Snow Removal Operations', 'Winter snow removal and ice management services for residential, commercial, and municipal clients with 24/7 emergency response capability', 'winter-2025-snow', 'WIN-2025-SNOW', 'seasonal', 'critical', 520000.00, 'CAD',
+    (SELECT id FROM app.d_scope_business WHERE name = 'Huron Home Services'),
     '2025-11-15', '2026-03-31', 2200.0, 'internal',
     '["Municipal Snow Removal Standards", "Commercial Driver Licensing", "Environmental Salt Management"]'::jsonb,
     '{"weather_dependency": "critical", "equipment_failure": "high", "salt_supply": "medium", "crew_availability": "high"}'::jsonb,
@@ -229,6 +231,7 @@ VALUES
     '{"coverage_area": "GTA_and_London", "response_time": "2_hours", "equipment_fleet": "15_plows", "salt_capacity": "200_tons", "crew_size": "25_operators", "contract_types": ["residential", "commercial", "municipal"]}'),
     
   ('Tank Water Heater Replacement Program', 'Systematic replacement and upgrade of aging tank water heaters for residential clients with energy-efficient models and extended warranties', 'water-heater-replacement-2025', 'WHR-2025-PLUMB', 'service', 'medium', 180000.00, 'CAD',
+    (SELECT id FROM app.d_scope_business WHERE name = 'Huron Home Services'),
     '2025-01-15', '2025-12-15', 960.0, 'internal',
     '["TSSA Gas Installation Standards", "Building Code Compliance", "Manufacturer Warranties"]'::jsonb,
     '{"supply_chain": "medium", "permit_delays": "low", "technical_complexity": "low", "customer_coordination": "medium"}'::jsonb,
@@ -237,6 +240,7 @@ VALUES
     '{"target_installations": 120, "heater_types": ["gas", "electric", "hybrid"], "warranty_period": "10_years", "energy_rebates": "available", "average_installation_time": "4_hours"}'),
     
   ('Spring 2025 Garden Renewal Initiative', 'Spring landscaping and garden renewal services including soil preparation, planting, irrigation system installation, and landscape design consultations', 'spring-2025-gardens', 'SPR-2025-GARD', 'seasonal', 'high', 320000.00, 'CAD',
+    (SELECT id FROM app.d_scope_business WHERE name = 'Huron Home Services'),
     '2025-04-01', '2025-06-30', 1440.0, 'internal',
     '["Nursery Sourcing Standards", "Irrigation Installation Permits", "Landscape Design Certification"]'::jsonb,
     '{"weather_dependency": "high", "plant_sourcing": "medium", "crew_training": "low", "customer_expectations": "high"}'::jsonb,
@@ -245,6 +249,7 @@ VALUES
     '{"peak_months": "April_May", "services": ["soil_prep", "planting", "irrigation", "design"], "plant_sourcing": "local_nurseries", "crew_expansion": "2x_normal", "design_consultations": 75}'),
     
   ('Residential Solar Installation Expansion', 'Expansion of residential solar panel installation services targeting energy-conscious homeowners in the GTA and London markets', 'solar-expansion-2025', 'SOL-2025-EXP', 'expansion', 'medium', 285000.00, 'CAD',
+    (SELECT id FROM app.d_scope_business WHERE name = 'Huron Home Services'),
     '2025-03-01', '2025-10-31', 1200.0, 'internal',
     '["Electrical Safety Authority (ESA)", "Solar Panel Certification", "Roof Safety Standards", "Electrical Code Compliance"]'::jsonb,
     '{"technical_expertise": "medium", "permit_processing": "high", "weather_dependency": "medium", "market_competition": "high"}'::jsonb,
@@ -253,6 +258,7 @@ VALUES
     '{"target_installations": 85, "system_sizes": ["6kW", "8kW", "10kW"], "warranty": "25_years", "financing_options": true, "team_expansion": "london_office"}'),
     
   ('HVAC Maintenance Contract Initiative', 'Development of comprehensive HVAC maintenance contracts for residential and commercial clients including seasonal tune-ups and emergency service', 'hvac-maintenance-2025', 'HVAC-2025-MAINT', 'service', 'medium', 240000.00, 'CAD',
+    (SELECT id FROM app.d_scope_business WHERE name = 'Huron Home Services'),
     '2025-02-01', '2025-12-31', 1080.0, 'internal',
     '["TSSA Gas Technician Certification", "HRAI Standards", "Refrigerant Handling Permits"]'::jsonb,
     '{"technician_availability": "medium", "equipment_costs": "medium", "seasonal_demand": "high", "contract_conversion": "medium"}'::jsonb,
@@ -261,6 +267,7 @@ VALUES
     '{"contract_types": ["residential_annual", "commercial_quarterly"], "services": ["tune_ups", "filter_changes", "emergency_response"], "target_contracts": 200, "service_guarantee": "24_hour_response"}'),
     
   ('Emergency Plumbing Service Enhancement', 'Enhancement of 24/7 emergency plumbing response capabilities with improved dispatch technology and expanded contractor network', 'emergency-plumbing-2025', 'EMER-2025-PLUMB', 'service', 'high', 165000.00, 'CAD',
+    (SELECT id FROM app.d_scope_business WHERE name = 'Huron Home Services'),
     '2025-01-01', '2025-06-30', 720.0, 'internal',
     '["Master Plumber Supervision", "Emergency Response Standards", "Contractor Insurance Requirements"]'::jsonb,
     '{"response_time": "critical", "contractor_availability": "high", "equipment_readiness": "medium", "customer_satisfaction": "critical"}'::jsonb,

@@ -16,7 +16,6 @@ A comprehensive, enterprise-grade Project Management Office (PMO) platform built
 
 | Document | Purpose | Key Topics |
 |----------|---------|------------|
-| **[🏗️ Architecture](./architecture.md)** | System design principles | Domain-first design, RBAC, scalability patterns |
 | **[⚙️ Tech Stack](./TECHSTACK.md)** | Complete technology overview | Frontend, backend, infrastructure, performance |
 | **[🗄️ Database Schema](./db/README.md)** | Data model and database guide | Tables, relationships, RBAC, installation |
 | **[🔧 Management Tools](./tools/README.md)** | Platform operation tools | Start/stop servers, database management, logs |
@@ -66,10 +65,11 @@ make seed            # Initialize database
 
 ### Frontend  
 - **Framework**: React 18 with TypeScript
-- **Build**: Vite (fast development)
-- **UI**: Tailwind CSS + shadcn/ui
+- **Build**: Vite (fast development and building)
+- **UI**: Tailwind CSS + shadcn/ui components
 - **State**: TanStack Query + Zustand
-- **Forms**: React Hook Form + Zod
+- **Forms**: React Hook Form + Zod validation
+- **DnD**: DnD Kit for drag-and-drop functionality
 
 ### Infrastructure
 - **Containers**: Docker + Docker Compose
@@ -82,7 +82,7 @@ make seed            # Initialize database
 
 ## 🏗️ Architecture Overview
 
-> **Latest Update (2025-08-27)**: **JWT Authentication & RBAC System Fully Operational** - Simplified authentication architecture using lightweight JWT-only approach with on-demand RBAC checking. All protected endpoints now working with John Smith's database permissions (61 total across 8 scope types).
+> **Latest Update (2025-08-30)**: **Advanced Permission System & Auth API Enhanced** - Completed comprehensive RBAC system overhaul with unified scope-based permissions. Enhanced authentication API with new permission endpoints and direct `rel_employee_scope_unified` table integration. All 113 permission records loaded with refined scope mapping (app:page, app:api, app:component granularity).
 
 ### System Design Principles
 - **Domain-First**: UI mirrors database domains
@@ -109,23 +109,22 @@ make seed            # Initialize database
 ## 🗄️ Database Schema
 
 ### Quick Access
-- **Schema File**: [`db/schema.sql`](./db/schema.sql) - Complete database schema with sample data
-- **Installation**: `./tools/db-recreate.sh` - Reset database to default state
+- **DDL Files**: 13 dependency-optimized DDL files (00-13) in [`db/`](./db/) directory
+- **Installation**: `./tools/db-import.sh` - Reset database to default state
 - **Management**: Use `tools/db-*.sh` scripts for database operations
 
 ### Key Features
-- **30 Tables** with comprehensive RBAC system (23 route pages, 8 UI components)
+- **13 DDL Files** organized in dependency-optimized order (00-13)
+- **24 Tables** across Meta, Scope, Domain, Operational, and Permission categories
 - **Head/Records Pattern** for temporal data and audit trails
-- **Scope-based Permissions** with route page/component access control
-- **Super Admin Access** - John Smith has full permissions (61 total) across all scopes
-- **Canadian Geographic Structure** for location hierarchy
+- **Unified RBAC** with `rel_employee_scope_unified` permissions
+- **Canadian Business Context** with realistic organizational structure
 - **PostGIS Integration** for geospatial queries
 
 ### Database Tools
 ```bash
-./tools/db-recreate.sh    # Reset database (most common)
-./tools/db-import.sh      # Import schema and data
-./tools/db-drop.sh        # Drop all tables
+./tools/db-import.sh      # Import schema and data (primary tool)
+./tools/validate-schema.sh # Validate database integrity
 ```
 
 **[📖 Complete Database Guide →](./db/README.md)**
@@ -140,7 +139,7 @@ make seed            # Initialize database
 | `start-all.sh` | Start complete platform | `./tools/start-all.sh` |
 | `stop-all.sh` | Stop all services | `./tools/stop-all.sh` |
 | `status.sh` | Check service status | `./tools/status.sh` |
-| `db-recreate.sh` | Reset database | `./tools/db-recreate.sh` |
+| `db-import.sh` | Reset database | `./tools/db-import.sh` |
 
 ### Individual Services
 ```bash
@@ -173,17 +172,18 @@ make seed            # Initialize database
 ## 🌐 API Reference
 
 ### API Status & Endpoints
-- **✅ Fully Working**: Employee, Client, HR Scope, Worksite, Location, Business management
-- **✅ Authentication**: JWT login/logout with John Smith credentials working
-- **✅ RBAC**: All endpoints properly checking database permissions  
-- **⚠️ Minor Issues**: Project/Task endpoints (500 errors - non-auth related)
+- **✅ Fully Implemented**: All 11 API modules working with database integration
+- **✅ Enhanced Authentication**: JWT login with bundled permissions + new auth endpoints (`/permissions`, `/scopes/:scopeType`, `/debug`)
+- **✅ Advanced RBAC**: All endpoints using `rel_employee_scope_unified` with direct table reference resolution  
+- **✅ Complete CRUD**: Create, Read, Update, Delete operations for all entities with scope-aware filtering
+- **✅ Permission Debugging**: Admin-only endpoint for detailed permission analysis and troubleshooting
 - **🔗 Base URL**: `http://localhost:4000/api/v1/`
 
 ### Key Features
 - **OpenAPI Documentation** at `/docs`
 - **JWT Authentication** using `@fastify/jwt` plugin
 - **Lightweight RBAC** with on-demand permission checking
-- **Database Integration** with John Smith's 61 permissions active
+- **Database Integration** with James Miller's 113+ permissions active
 - **TypeScript Schemas** with comprehensive validation
 - **Production Ready** authentication flow (DEV_BYPASS_OIDC=false)
 
@@ -252,36 +252,38 @@ apps/web/src/
 | **Executive** | Dashboards and reporting | Read-only |
 | **Auditor** | Audit trails and compliance | Audit scope |
 
-### RBAC Permission System
-- **Database-Driven Authorization**: All permissions stored in `rel_user_scope` table
-- **Scope-based Access**: 8 scope types (app, location, business, hr, worksite, project, task, route_page, component)
-- **Permission Arrays**: [0:view, 1:modify, 2:share, 3:delete, 4:create] enforced by API
-- **John Smith Access**: Full permissions {0,1,2,3,4} across all business scopes (61 total permissions)
-- **JWT Authentication**: Production-ready token validation and user ID extraction
-- **API-Only Authorization**: No frontend role guards - all security enforced by backend
-- **On-Demand RBAC**: Permissions checked per-request using `checkScopeAccess()`
-- **Graceful Degradation**: Frontend shows 403 errors for unauthorized actions
+### Unified RBAC Permission System
+- **Enhanced Permission Model**: All permissions in `rel_employee_scope_unified` with direct table references
+- **Granular Scope Types**: 8+ scope types including app:page, app:api, app:component for fine-grained control  
+- **Permission Levels**: [0:view, 1:modify, 2:share, 3:delete, 4:create] enforced across all APIs
+- **New Auth Endpoints**: `/permissions`, `/scopes/:scopeType`, `/permissions/debug` with comprehensive debugging
+- **Direct Table Integration**: Scope references link directly to business tables without intermediate lookups
+- **JWT + Permission Bundling**: Login response includes complete permission structure for frontend optimization
+- **Scope-Aware Filtering**: Dynamic query filtering based on user's effective permissions per scope
+- **Production-Ready RBAC**: Full permission checking with graceful error handling and admin overrides
 
 ---
 
 ## 🎯 Features Overview
 
 ### ✅ Implemented
-- **Multi-domain Data Model** with Canadian geography
-- **Working JWT Authentication** - Login, token generation, validation, user ID extraction
-- **Operational RBAC System** - John Smith's 61 permissions working across all endpoints
-- **Database Integration** - All API endpoints connecting to PostgreSQL with real data
-- **Simplified Architecture** - Lightweight JWT-only auth without abilities plugin overhead
-- **Production Security** - Proper boolean parsing, environment variable handling
-- **Comprehensive Testing** - Debug tools for RBAC and endpoint validation
-- **Route Page Management** with 23 application pages and component definitions
+- **Multi-domain Data Model** with Canadian business context (13 DDL files, 24 tables, 5 categories)
+- **Complete Database Schema** - All tables implemented with proper relationships and constraints
+- **Full API Suite** - 11 modules with comprehensive CRUD operations and RBAC
+- **Enhanced JWT Authentication** - Login with bundled permissions, token validation, user ID extraction
+- **Unified RBAC System** - Complete permission system using `rel_employee_scope_unified` table
+- **Database Integration** - All API endpoints connecting to PostgreSQL with curated sample data
+- **React + Vite Frontend** - Modern web app with shadcn/ui, drag-and-drop, and responsive design
+- **Comprehensive Tooling** - 16 management tools for development, testing, and maintenance
+- **Schema Validation** - Database integrity checking and automated validation
 - **API Documentation** with OpenAPI/Swagger
 
-### 🚧 In Development
+### 🚧 Future Enhancements
 - **Advanced Reporting** and analytics dashboards
 - **Mobile PWA** for field workers
 - **Workflow Automation** engine
-- **SSO/OIDC Integration** for enterprise auth
+- **Enhanced UI Components** with more drag-and-drop features
+- **Real-time Collaboration** features
 
 ---
 

@@ -73,7 +73,8 @@ export function Sidebar() {
         const token = localStorage.getItem('auth_token');
         if (!token) return;
 
-        const response = await fetch('/api/v1/auth/me', {
+        const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000/api';
+        const response = await fetch(`${API_BASE_URL}/v1/auth/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
