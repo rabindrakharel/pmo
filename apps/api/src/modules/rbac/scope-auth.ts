@@ -142,14 +142,14 @@ export async function getUserScopes(
   
   try {
     const scopes = await db.execute(sql`
-      SELECT rus.scope_id, ds.scope_name, rus.resource_permission
+      SELECT rus.scope_id, ds.name as scope_name, rus.resource_permission
       FROM app.rel_employee_scope_unified rus
       JOIN app.d_scope_unified ds ON rus.scope_id = ds.id
       WHERE rus.emp_id = ${userId} 
         AND rus.resource_type = ${scopeType} 
         AND rus.active = true
         AND ${minPermission} = ANY(rus.resource_permission)
-      ORDER BY ds.scope_name
+      ORDER BY ds.name
     `);
 
     return scopes.map(scope => ({
@@ -221,11 +221,11 @@ export async function getUserEffectivePermissions(userId: string): Promise<{
 
   try {
     const allPermissions = await db.execute(sql`
-      SELECT rus.resource_type as scope_type, rus.scope_id, ds.scope_name, rus.resource_permission as scope_permission
+      SELECT rus.resource_type as scope_type, rus.scope_id, ds.name as scope_name, rus.resource_permission as scope_permission
       FROM app.rel_employee_scope_unified rus
       JOIN app.d_scope_unified ds ON rus.scope_id = ds.id
       WHERE rus.emp_id = ${userId} AND rus.active = true
-      ORDER BY rus.resource_type, ds.scope_name
+      ORDER BY rus.resource_type, ds.name
     `);
 
     const result = {

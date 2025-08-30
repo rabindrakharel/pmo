@@ -2,13 +2,13 @@ import type { FastifyInstance } from 'fastify';
 import { scopeLocationRoutes } from './scope-location/routes.js';
 import { scopeBusinessRoutes } from './scope-business/routes.js';
 import { scopeHRRoutes } from './scope-hr/routes.js';
-import { empRoutes } from './emp/routes.js';
+import { empRoutes } from './employee/routes.js';
 import { roleRoutes } from './role/routes.js';
 import { projectRoutes } from './project/routes.js';
 import { taskRoutes } from './task/routes.js';
-import { taskActivityRoutes } from './task/activity-routes.js';
+// import { taskActivityRoutes } from './task/activity-routes.js';
 import { metaRoutes } from './meta/routes.js';
-import { worksiteRoutes } from './worksite/routes.js';
+import { worksiteRoutes } from './scope-worksite/routes.js';
 import { clientRoutes } from './client/routes.js';
 import { authRoutes } from './auth/routes.js';
 
@@ -34,6 +34,6 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await clientRoutes(fastify);
   await projectRoutes(fastify);
   await taskRoutes(fastify);
-  await taskActivityRoutes(fastify);
+  // await taskActivityRoutes(fastify);
   await metaRoutes(fastify);
 }

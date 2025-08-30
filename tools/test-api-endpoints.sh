@@ -8,7 +8,7 @@ set -e
 
 # Default configuration
 BASE_URL="${1:-http://localhost:4000}"
-EMAIL="${2:-john.smith@techcorp.com}"
+EMAIL="${2:-james.miller@huronhome.ca}"
 PASSWORD="${3:-password123}"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
@@ -110,7 +110,7 @@ else
 fi
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
-make_request "GET" "/api/v1/auth/me" "200" "Get current user"
+make_request "GET" "/api/v1/auth/profile" "200" "Get current user profile"
 echo ""
 
 # Test public endpoints
@@ -153,28 +153,28 @@ echo ""
 echo "=== 🏢 PROTECTED API ENDPOINTS ==="
 
 echo "📊 Employee Management:"
-make_request "GET" "/api/v1/emp?limit=3" "403" "List employees"
-make_request "GET" "/api/v1/emp/139fbe67-71b2-47f3-884d-099c83b3934e" "403" "Get specific employee"
+make_request "GET" "/api/v1/emp?limit=3" "200" "List employees (James Miller has CEO access)"
+make_request "GET" "/api/v1/emp/7962a664-4b6c-4d4a-8e5f-5e5fb110b208" "200" "Get James Miller employee record"
 echo ""
 
 echo "👥 Client Management:"
-make_request "GET" "/api/v1/client?limit=3" "403" "List clients"
+make_request "GET" "/api/v1/client?limit=3" "200" "List clients (James Miller has CEO access)"
 echo ""
 
 echo "🏗️ Scope Management:"
-make_request "GET" "/api/v1/scope/hr?limit=3" "403" "List HR scopes"
-make_request "GET" "/api/v1/scope/location?limit=3" "403" "List location scopes"
-make_request "GET" "/api/v1/scope/business?limit=3" "403" "List business scopes"
+make_request "GET" "/api/v1/scope/hr?limit=3" "200" "List HR scopes (James Miller has CEO access)"
+make_request "GET" "/api/v1/scope/location?limit=3" "200" "List location scopes (James Miller has CEO access)"
+make_request "GET" "/api/v1/scope/business?limit=3" "200" "List business scopes (James Miller has CEO access)"
 echo ""
 
 echo "📋 Project & Task Management:"
-make_request "GET" "/api/v1/project?limit=3" "403" "List projects"
-make_request "GET" "/api/v1/task?limit=3" "403" "List tasks"
+make_request "GET" "/api/v1/project?limit=3" "200" "List projects (James Miller has CEO access)"
+make_request "GET" "/api/v1/task?limit=3" "200" "List tasks (James Miller has CEO access)"
 echo ""
 
 echo "🏢 Other Endpoints:"
-make_request "GET" "/api/v1/worksite?limit=3" "403" "List worksites"
-make_request "GET" "/api/v1/role?limit=3" "403" "List roles"
+make_request "GET" "/api/v1/worksite?limit=3" "200" "List worksites (James Miller has CEO access)"
+make_request "GET" "/api/v1/role?limit=3" "403" "List roles (James Miller has no role permissions)"
 echo ""
 
 # Summary

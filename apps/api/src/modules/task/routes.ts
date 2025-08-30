@@ -3,6 +3,11 @@ import { Type } from '@sinclair/typebox';
 import { checkScopeAccess, Permission, applyScopeFiltering } from '../rbac/scope-auth.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import { 
+  getUniversalColumnMetadata, 
+  filterUniversalColumns,
+  getColumnsByMetadata 
+} from '../../lib/universal-schema-metadata.js';
 
 const TaskSchema = Type.Object({
   id: Type.String(),
@@ -109,7 +114,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const conditions = [];
       
       if (allowedProjectIds.length > 0) {
-        conditions.push(sql`th.proj_head_id = ANY(${allowedProjectIds})`);
+        // Use IN clause instead of ANY for better compatibility with Drizzle
+        conditions.push(sql.raw(`th.proj_head_id IN (${allowedProjectIds.map(id => `'${id}'`).join(',')})`));
       } else {
         // If no project access, return empty result
         return {
@@ -174,9 +180,16 @@ export async function taskRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      // Transform the data
-      const data = tasks.map(task => ({
-        taskHead: {
+      // Apply universal column filtering and transform data
+      const userPermissions = {
+        canSeePII: projectScopeAccess.permissions?.includes(4) || false,
+        canSeeFinancial: projectScopeAccess.permissions?.includes(4) || false,
+        canSeeSystemFields: projectScopeAccess.permissions?.includes(4) || false,
+        canSeeSafetyInfo: projectScopeAccess.permissions?.includes(4) || false,
+      };
+      
+      const data = tasks.map(task => {
+        const taskHeadData = {
           id: task.headId,
           projHeadId: task.projHeadId,
           parentHeadId: task.parentHeadId,
@@ -190,8 +203,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
           tags: task.headTags,
           created: task.headCreated,
           updated: task.headUpdated,
-        },
-        currentRecord: task.recordId ? {
+        };
+        
+        const recordData = task.recordId ? {
           id: task.recordId,
           headId: task.headId,
           title: task.title,
@@ -204,8 +218,13 @@ export async function taskRoutes(fastify: FastifyInstance) {
           tags: task.recordTags,
           created: task.recordCreated,
           updated: task.recordUpdated,
-        } : undefined,
-      }));
+        } : undefined;
+        
+        return {
+          taskHead: filterUniversalColumns(taskHeadData, userPermissions),
+          currentRecord: recordData ? filterUniversalColumns(recordData, userPermissions) : undefined,
+        };
+      });
 
       return {
         data,

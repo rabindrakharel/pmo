@@ -163,63 +163,41 @@ CREATE TABLE app.meta_task_stage (
 -- DATA CURATION:
 -- ============================================================================
 
--- Business Hierarchy Levels (Expanded)
+-- Business Hierarchy Levels (Corrected - Corporation starts at level 0)
 INSERT INTO app.meta_biz_level (level_id, name, "descr", sort_order, is_leaf_level, tags, attr) VALUES
-(1, 'Corporation', 'Top-level corporate entity with board governance', 1, false, '["enterprise", "root", "legal-entity"]', '{"max_children": 50, "requires_board": true, "governance": "board", "compliance": ["SOX", "securities"], "reporting": "public"}'),
-(2, 'Division', 'Major business division with P&L responsibility', 2, false, '["division", "strategic", "profit-center"]', '{"max_children": 20, "has_p_and_l": true, "governance": "executive", "budget_authority": "high", "market_focus": true}'),
-(3, 'Department', 'Functional department with operational focus', 3, false, '["department", "operational", "functional"]', '{"max_children": 15, "has_budget": true, "governance": "management", "specialization": "functional", "cross_functional": false}'),
-(4, 'Team', 'Working team unit with specific deliverables', 4, false, '["team", "tactical", "delivery"]', '{"max_children": 8, "has_manager": true, "governance": "team-lead", "delivery_focus": true, "agile_enabled": true}'),
-(5, 'Squad', 'Agile squad with cross-functional capabilities', 5, false, '["squad", "agile", "cross-functional"]', '{"max_children": 6, "has_lead": true, "governance": "servant-leader", "methodology": "scrum", "autonomy": "high"}'),
-(6, 'Sub-team', 'Specialized sub-team for specific functions', 6, true, '["subteam", "specialized", "focused"]', '{"max_children": 0, "has_lead": true, "governance": "peer", "specialization": "technical", "temporary": false}');
+(0, 'Corporation', 'Top-level corporate entity with board governance', 0, false, '["enterprise", "root", "legal-entity"]', '{"max_children": 50, "requires_board": true, "governance": "board", "compliance": ["SOX", "securities"], "reporting": "public"}'),
+(1, 'Division', 'Major business division with P&L responsibility', 1, false, '["division", "strategic", "profit-center"]', '{"max_children": 20, "has_p_and_l": true, "governance": "executive", "budget_authority": "high", "market_focus": true}'),
+(2, 'Department', 'Functional department with operational focus', 2, false, '["department", "operational", "functional"]', '{"max_children": 15, "has_budget": true, "governance": "management", "specialization": "functional", "cross_functional": false}'),
+(3, 'Team', 'Working team unit with specific deliverables', 3, false, '["team", "tactical", "delivery"]', '{"max_children": 8, "has_manager": true, "governance": "team-lead", "delivery_focus": true, "agile_enabled": true}'),
+(4, 'Squad', 'Agile squad with cross-functional capabilities', 4, false, '["squad", "agile", "cross-functional"]', '{"max_children": 6, "has_lead": true, "governance": "servant-leader", "methodology": "scrum", "autonomy": "high"}'),
+(5, 'Sub-team', 'Specialized sub-team for specific functions', 5, true, '["subteam", "specialized", "focused"]', '{"max_children": 0, "has_lead": true, "governance": "peer", "specialization": "technical", "temporary": false}');
 
--- Canadian Location Hierarchy Levels (Expanded)
+-- Canadian Location Hierarchy Levels (Corrected - starts at level 0)
 INSERT INTO app.meta_loc_level (level_id, name, "descr", country_code, sort_order, is_leaf_level, tags, attr) VALUES
-(1, 'Corp-Region', 'Corporate regional division spanning multiple countries', 'CA', 1, false, '["corporate", "region", "international"]', '{"timezone_span": true, "multi_country": true, "currency_zones": ["CAD", "USD", "EUR"], "coordination_complexity": "high"}'),
-(2, 'Country', 'National boundary with federal jurisdiction', 'CA', 2, false, '["country", "national", "sovereign"]', '{"has_federal_law": true, "currency": "CAD", "languages": ["en", "fr"], "tax_system": "federal_provincial"}'),
-(3, 'Province', 'Provincial/territorial division with legislative authority', 'CA', 3, false, '["province", "territorial", "legislative"]', '{"has_provincial_law": true, "tax_jurisdiction": true, "healthcare_jurisdiction": true, "education_authority": true}'),
-(4, 'Economic Region', 'Statistics Canada economic region for reporting', 'CA', 4, false, '["region", "economic", "statistical"]', '{"statscan_classification": true, "economic_reporting": true, "labour_market": true, "development_agency": true}'),
-(5, 'Metropolitan Area', 'Census metropolitan area or agglomeration', 'CA', 5, false, '["metropolitan", "urban", "census"]', '{"population_threshold": 100000, "commuting_area": true, "urban_core": true, "statistical_unit": true}'),
-(6, 'City', 'Municipal corporation with local government', 'CA', 6, false, '["city", "municipal", "incorporated"]', '{"has_municipal_law": true, "service_delivery": true, "property_tax": true, "local_governance": true}'),
-(7, 'District', 'Municipal district or neighbourhood', 'CA', 7, false, '["district", "neighbourhood", "administrative"]', '{"service_area": true, "postal_sorting": true, "local_services": true, "community_identity": true}'),
-(8, 'Address', 'Specific street address and postal code', 'CA', 8, true, '["address", "location", "physical"]', '{"geocodable": true, "service_point": true, "delivery_address": true, "precise_location": true}');
+(0, 'Corp-Region', 'Corporate regional division spanning multiple countries', 'CA', 0, false, '["corporate", "region", "international"]', '{"timezone_span": true, "multi_country": true, "currency_zones": ["CAD", "USD", "EUR"], "coordination_complexity": "high"}'),
+(1, 'Country', 'National boundary with federal jurisdiction', 'CA', 1, false, '["country", "national", "sovereign"]', '{"has_federal_law": true, "currency": "CAD", "languages": ["en", "fr"], "tax_system": "federal_provincial"}'),
+(2, 'Province', 'Provincial/territorial division with legislative authority', 'CA', 2, false, '["province", "territorial", "legislative"]', '{"has_provincial_law": true, "tax_jurisdiction": true, "healthcare_jurisdiction": true, "education_authority": true}'),
+(3, 'Economic Region', 'Statistics Canada economic region for reporting', 'CA', 3, false, '["region", "economic", "statistical"]', '{"statscan_classification": true, "economic_reporting": true, "labour_market": true, "development_agency": true}'),
+(4, 'Metropolitan Area', 'Census metropolitan area or agglomeration', 'CA', 4, false, '["metropolitan", "urban", "census"]', '{"population_threshold": 100000, "commuting_area": true, "urban_core": true, "statistical_unit": true}'),
+(5, 'City', 'Municipal corporation with local government', 'CA', 5, false, '["city", "municipal", "incorporated"]', '{"has_municipal_law": true, "service_delivery": true, "property_tax": true, "local_governance": true}'),
+(6, 'District', 'Municipal district or neighbourhood', 'CA', 6, false, '["district", "neighbourhood", "administrative"]', '{"service_area": true, "postal_sorting": true, "local_services": true, "community_identity": true}'),
+(7, 'Address', 'Specific street address and postal code', 'CA', 7, true, '["address", "location", "physical"]', '{"geocodable": true, "service_point": true, "delivery_address": true, "precise_location": true}');
 
--- HR Hierarchy Levels with Canadian Salary Bands (CAD) - Expanded
+-- HR Hierarchy Levels with Canadian Salary Bands (CAD) - Corrected starting at level 0
 INSERT INTO app.meta_hr_level (level_id, name, "descr", salary_band_min, salary_band_max, sort_order, is_management, is_executive, tags, attr) VALUES
 -- Executive Levels (C-Suite)
-(1, 'CEO/President', 'Chief Executive Officer or President', 300000, 600000, 1, true, true, '["executive", "c-suite", "ceo"]', '{"board_reporting": true, "equity_eligible": true, "stock_options": true, "governance": "board", "public_facing": true}'),
-(2, 'C-Level', 'Chief Officers (CTO, CFO, COO, etc.)', 250000, 450000, 2, true, true, '["executive", "c-suite", "chief"]', '{"board_reporting": true, "equity_eligible": true, "stock_options": true, "governance": "executive", "strategic_planning": true}'),
-(3, 'SVP/EVP', 'Senior/Executive Vice President', 200000, 350000, 3, true, true, '["executive", "svp", "evp"]', '{"multi_division": true, "equity_eligible": true, "strategic_input": true, "cross_functional": true}'),
+(0, 'CEO/President', 'Chief Executive Officer or President', 300000, 600000, 0, true, true, '["executive", "c-suite", "ceo"]', '{"board_reporting": true, "equity_eligible": true, "stock_options": true, "governance": "board", "public_facing": true}'),
+(1, 'C-Level', 'Chief Officers (CTO, CFO, COO, etc.)', 250000, 450000, 1, true, true, '["executive", "c-suite", "chief"]', '{"board_reporting": true, "equity_eligible": true, "stock_options": true, "governance": "executive", "strategic_planning": true}'),
+(2, 'SVP/EVP', 'Senior/Executive Vice President', 200000, 350000, 2, true, true, '["executive", "svp", "evp"]', '{"multi_division": true, "equity_eligible": true, "strategic_input": true, "cross_functional": true}'),
 
 -- Vice President Levels
-(4, 'VP', 'Vice President', 150000, 280000, 4, true, true, '["executive", "vp", "divisional"]', '{"direct_reports": 8, "budget_authority": 15000000, "p_and_l": true, "divisional_responsibility": true}'),
-(5, 'AVP', 'Assistant Vice President', 130000, 220000, 5, true, false, '["management", "avp", "senior-management"]', '{"direct_reports": 6, "budget_authority": 8000000, "specialized_expertise": true}'),
+(3, 'VP', 'Vice President', 150000, 280000, 3, true, true, '["executive", "vp", "divisional"]', '{"direct_reports": 8, "budget_authority": 15000000, "p_and_l": true, "divisional_responsibility": true}'),
+(4, 'AVP', 'Assistant Vice President', 130000, 220000, 4, true, false, '["management", "avp", "senior-management"]', '{"direct_reports": 6, "budget_authority": 8000000, "specialized_expertise": true}'),
 
 -- Director Levels  
-(6, 'Senior Director', 'Senior Director Level', 120000, 190000, 6, true, false, '["management", "senior-director", "strategic"]', '{"direct_reports": 12, "budget_authority": 5000000, "cross_departmental": true, "strategic_planning": true}'),
-(7, 'Director', 'Director Level', 100000, 160000, 7, true, false, '["management", "director", "departmental"]', '{"direct_reports": 10, "budget_authority": 3000000, "departmental_oversight": true, "hiring_authority": true}'),
-(8, 'Associate Director', 'Associate Director Level', 90000, 140000, 8, true, false, '["management", "associate-director", "program"]', '{"direct_reports": 8, "budget_authority": 1500000, "program_management": true}'),
-
--- Management Levels
-(9, 'Senior Manager', 'Senior Manager Level', 80000, 130000, 9, true, false, '["management", "senior-manager", "operational"]', '{"direct_reports": 12, "budget_authority": 1000000, "performance_management": true, "hiring_input": true}'),
-(10, 'Manager', 'Manager Level', 70000, 115000, 10, true, false, '["management", "manager", "team-management"]', '{"direct_reports": 8, "budget_authority": 500000, "daily_operations": true, "team_development": true}'),
-(11, 'Associate Manager', 'Associate Manager Level', 65000, 100000, 11, true, false, '["management", "associate-manager", "developing-management"]', '{"direct_reports": 6, "budget_authority": 250000, "management_training": true, "project_leadership": true}'),
-
--- Team Leadership
-(12, 'Team Lead/Supervisor', 'Team Leadership and Supervision', 60000, 95000, 12, true, false, '["leadership", "team-lead", "supervisor"]', '{"direct_reports": 8, "technical_lead": true, "coaching_responsibility": true, "escalation_point": true}'),
-(13, 'Senior Lead', 'Senior Team Lead or Technical Lead', 65000, 105000, 13, false, false, '["leadership", "senior-lead", "technical"]', '{"technical_expertise": "expert", "mentorship_required": true, "architecture_input": true, "code_review": true}'),
-
--- Senior Individual Contributors
-(14, 'Principal', 'Principal Level IC (Architect/Specialist)', 75000, 125000, 14, false, false, '["senior", "principal", "specialist"]', '{"domain_expertise": "expert", "architecture_responsibility": true, "technical_decision_maker": true, "external_consulting": true}'),
-(15, 'Senior Professional', 'Senior Individual Contributor', 60000, 100000, 15, false, false, '["senior", "specialist", "experienced"]', '{"mentorship_required": true, "senior_expertise": true, "complex_projects": true, "minimal_supervision": true}'),
-
--- Mid-Level Contributors  
-(16, 'Professional', 'Mid-level Professional', 55000, 85000, 16, false, false, '["professional", "intermediate", "independent"]', '{"independent_work": true, "project_ownership": true, "skill_development": true, "some_mentorship": true}'),
-(17, 'Associate Professional', 'Associate Level Professional', 50000, 75000, 17, false, false, '["associate", "developing", "supervised"]', '{"mentorship_eligible": true, "growth_track": true, "structured_development": true, "regular_feedback": true}'),
-
--- Entry Levels
-(18, 'Junior Professional', 'Junior Level Professional', 45000, 65000, 18, false, false, '["junior", "entry", "learning"]', '{"training_required": true, "close_supervision": true, "learning_focused": true, "skill_building": true}'),
-(19, 'Graduate/Trainee', 'Graduate or Management Trainee', 42000, 60000, 19, false, false, '["graduate", "trainee", "rotational"]', '{"graduate_program": true, "rotation_eligible": true, "intensive_training": true, "fast_track": true}'),
-(20, 'Intern/Co-op', 'Intern or Co-operative Education Student', 18000, 35000, 20, false, false, '["intern", "co-op", "student", "temporary"]', '{"student_status": true, "academic_credit": true, "temporary_position": true, "learning_objective": true, "school_partnership": true}');
+(5, 'Senior Director', 'Senior Director Level', 120000, 190000, 5, true, false, '["management", "senior-director", "strategic"]', '{"direct_reports": 12, "budget_authority": 5000000, "cross_departmental": true, "strategic_planning": true}'),
+(6, 'Director', 'Director Level', 100000, 160000, 6, true, false, '["management", "director", "departmental"]', '{"direct_reports": 10, "budget_authority": 3000000, "departmental_oversight": true, "hiring_authority": true}'),
+(7, 'Associate Director', 'Associate Director Level', 90000, 140000, 7, true, false, '["management", "associate-director", "program"]', '{"direct_reports": 8, "budget_authority": 1500000, "program_management": true}');
 
 -- Project Status Lifecycle (Expanded)
 INSERT INTO app.meta_project_status (code, name, "descr", sort_id, is_initial, is_final, is_active, color_hex, icon, tags, attr) VALUES

@@ -67,9 +67,9 @@ INSERT INTO app.d_role (name, "descr", role_type, role_category, authority_level
 
 -- Insert Employee-Role Assignments
 INSERT INTO app.rel_emp_role (emp_id, role_id, tags) VALUES
-((SELECT id FROM app.d_employee WHERE name = 'John Smith'), (SELECT id FROM app.d_role WHERE name = 'Project Manager'), '["primary"]'::jsonb),
-((SELECT id FROM app.d_employee WHERE name = 'Jane Doe'), (SELECT id FROM app.d_role WHERE name = 'Senior Developer'), '["senior"]'::jsonb),
-((SELECT id FROM app.d_employee WHERE name = 'Bob Wilson'), (SELECT id FROM app.d_role WHERE name = 'System Administrator'), '["admin"]'::jsonb),
-((SELECT id FROM app.d_employee WHERE name = 'Alice Johnson'), (SELECT id FROM app.d_role WHERE name = 'Product Manager'), '["product"]'::jsonb),
-((SELECT id FROM app.d_employee WHERE name = 'Mike Chen'), (SELECT id FROM app.d_role WHERE name = 'Backend Developer'), '["backend"]'::jsonb),
-((SELECT id FROM app.d_employee WHERE name = 'Sarah Lee'), (SELECT id FROM app.d_role WHERE name = 'QA Engineer'), '["qa"]'::jsonb);
+((SELECT id FROM app.d_employee WHERE name = 'James Miller'), (SELECT id FROM app.d_role WHERE name = 'Project Manager'), '["ceo", "executive"]'::jsonb),
+((SELECT id FROM app.d_employee WHERE name = 'Sarah Chen'), (SELECT id FROM app.d_role WHERE name = 'System Administrator'), '["operations", "director"]'::jsonb),
+((SELECT id FROM app.d_employee WHERE name = 'Robert Thompson'), (SELECT id FROM app.d_role WHERE name = 'Project Manager'), '["landscaping", "manager"]'::jsonb),
+((SELECT id FROM app.d_employee WHERE name = 'Michael O''Brien'), (SELECT id FROM app.d_role WHERE name = 'Senior Developer'), '["plumbing", "manager"]'::jsonb),
+((SELECT id FROM app.d_employee WHERE name = 'Lisa Rodriguez'), (SELECT id FROM app.d_role WHERE name = 'QA Engineer'), '["hvac", "technician"]'::jsonb),
+((SELECT id FROM app.d_employee WHERE name = 'Emma Foster'), (SELECT id FROM app.d_role WHERE name = 'Product Manager'), '["customer_service", "representative"]'::jsonb);

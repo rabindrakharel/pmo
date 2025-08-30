@@ -3,14 +3,15 @@ import { Type } from '@sinclair/typebox';
 import { checkScopeAccess } from '../rbac/scope-auth.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import bcrypt from 'bcrypt';
 import { 
   getUniversalColumnMetadata, 
   filterUniversalColumns,
   getColumnsByMetadata 
 } from '../../lib/universal-schema-metadata.js';
 
-// Schema based on actual d_client table structure from db/07_client.ddl
-const ClientSchema = Type.Object({
+// Schema based on actual d_employee table structure from db/06_employee.ddl
+const EmployeeSchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
@@ -21,43 +22,71 @@ const ClientSchema = Type.Object({
   active: Type.Boolean(),
   created: Type.String(),
   updated: Type.String(),
-  // Client-specific fields
-  client_parent_id: Type.Optional(Type.String()),
-  contact: Type.Object({}),
-  level_id: Type.Optional(Type.Number()),
-  level_name: Type.Optional(Type.String()),
+  // Employee-specific fields
+  addr: Type.Optional(Type.String()),
+  email: Type.Optional(Type.String()),
+  phone: Type.Optional(Type.String()),
+  mobile: Type.Optional(Type.String()),
+  emergency_contact: Type.Object({}),
+  lang: Type.String(),
+  birth_date: Type.Optional(Type.String()),
+  emp_code: Type.Optional(Type.String()),
+  hire_date: Type.Optional(Type.String()),
+  status: Type.String(),
+  employment_type: Type.String(),
+  work_mode: Type.String(),
+  security_clearance: Type.String(),
+  skills: Type.Array(Type.Any()),
+  certifications: Type.Array(Type.Any()),
+  education: Type.Array(Type.Any()),
+  labels: Type.Array(Type.String()),
 });
 
-const CreateClientSchema = Type.Object({
+const CreateEmployeeSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
-  client_parent_id: Type.Optional(Type.String({ format: 'uuid' })),
-  contact: Type.Optional(Type.Object({})),
-  level_id: Type.Optional(Type.Number()),
-  level_name: Type.Optional(Type.String()),
+  addr: Type.Optional(Type.String()),
+  email: Type.Optional(Type.String({ format: 'email' })),
+  password: Type.Optional(Type.String({ minLength: 6 })),
+  phone: Type.Optional(Type.String()),
+  mobile: Type.Optional(Type.String()),
+  emergency_contact: Type.Optional(Type.Object({})),
+  lang: Type.Optional(Type.String()),
+  birth_date: Type.Optional(Type.String({ format: 'date' })),
+  emp_code: Type.Optional(Type.String()),
+  hire_date: Type.Optional(Type.String({ format: 'date' })),
+  status: Type.Optional(Type.String()),
+  employment_type: Type.Optional(Type.String()),
+  work_mode: Type.Optional(Type.String()),
+  security_clearance: Type.Optional(Type.String()),
+  skills: Type.Optional(Type.Array(Type.Any())),
+  certifications: Type.Optional(Type.Array(Type.Any())),
+  education: Type.Optional(Type.Array(Type.Any())),
+  labels: Type.Optional(Type.Array(Type.String())),
   tags: Type.Optional(Type.Array(Type.String())),
   attr: Type.Optional(Type.Object({})),
   active: Type.Optional(Type.Boolean()),
 });
 
-const UpdateClientSchema = Type.Partial(CreateClientSchema);
+const UpdateEmployeeSchema = Type.Partial(CreateEmployeeSchema);
 
-export async function clientRoutes(fastify: FastifyInstance) {
-  // List clients with filtering
-  fastify.get('/api/v1/client', {
+export async function empRoutes(fastify: FastifyInstance) {
+  // List employees
+  fastify.get('/api/v1/emp', {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         active: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
-        client_parent_id: Type.Optional(Type.String()),
-        level_id: Type.Optional(Type.Number()),
+        status: Type.Optional(Type.String()),
+        employment_type: Type.Optional(Type.String()),
+        work_mode: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
       response: {
         200: Type.Object({
-          data: Type.Array(ClientSchema),
+          data: Type.Array(EmployeeSchema),
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),
@@ -67,7 +96,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { active, search, client_parent_id, level_id, limit = 50, offset = 0 } = request.query as any;
+    const { active, search, status, employment_type, work_mode, limit = 50, offset = 0 } = request.query as any;
     const userId = (request as any).user?.sub;
 
     if (!userId) {
@@ -86,25 +115,26 @@ export async function clientRoutes(fastify: FastifyInstance) {
         conditions.push(sql`active = ${active}`);
       }
       
-      if (client_parent_id) {
-        conditions.push(sql`client_parent_id = ${client_parent_id}`);
+      if (status) {
+        conditions.push(sql`status = ${status}`);
       }
       
-      if (level_id !== undefined) {
-        conditions.push(sql`level_id = ${level_id}`);
+      if (employment_type) {
+        conditions.push(sql`employment_type = ${employment_type}`);
+      }
+      
+      if (work_mode) {
+        conditions.push(sql`work_mode = ${work_mode}`);
       }
       
       if (search) {
         const searchableColumns = getColumnsByMetadata([
-          'name', 'descr', 'level_name'
+          'name', 'descr', 'addr', 'email', 'emp_code', 'phone'
         ], 'ui:search');
         
         const searchConditions = searchableColumns.map(col => 
           sql`COALESCE(${sql.identifier(col)}, '') ILIKE ${`%${search}%`}`
         );
-        
-        // Also search in contact JSON
-        searchConditions.push(sql`COALESCE(contact::text, '') ILIKE ${`%${search}%`}`);
         
         if (searchConditions.length > 0) {
           conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
@@ -113,16 +143,18 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total 
-        FROM app.d_client 
+        FROM app.d_employee 
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
 
-      const clients = await db.execute(sql`
+      const employees = await db.execute(sql`
         SELECT 
           id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-          client_parent_id, contact, level_id, level_name
-        FROM app.d_client 
+          addr, email, phone, mobile, emergency_contact, lang, birth_date,
+          emp_code, hire_date, status, employment_type, work_mode, 
+          security_clearance, skills, certifications, education, labels
+        FROM app.d_employee 
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY name ASC NULLS LAST, created DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -134,8 +166,8 @@ export async function clientRoutes(fastify: FastifyInstance) {
         canSeeSystemFields: scopeAccess.permissions?.includes(4) || false,
       };
       
-      const filteredData = clients.map(client => 
-        filterUniversalColumns(client, userPermissions)
+      const filteredData = employees.map(emp => 
+        filterUniversalColumns(emp, userPermissions)
       );
 
       return {
@@ -145,20 +177,20 @@ export async function clientRoutes(fastify: FastifyInstance) {
         offset,
       };
     } catch (error) {
-      fastify.log.error('Error fetching clients:', error as any);
+      fastify.log.error('Error fetching employees:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Get single client
-  fastify.get('/api/v1/client/:id', {
+  // Get single employee
+  fastify.get('/api/v1/emp/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
       }),
       response: {
-        200: ClientSchema,
+        200: EmployeeSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -178,16 +210,18 @@ export async function clientRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const client = await db.execute(sql`
+      const employee = await db.execute(sql`
         SELECT 
           id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-          client_parent_id, contact, level_id, level_name
-        FROM app.d_client 
+          addr, email, phone, mobile, emergency_contact, lang, birth_date,
+          emp_code, hire_date, status, employment_type, work_mode, 
+          security_clearance, skills, certifications, education, labels
+        FROM app.d_employee 
         WHERE id = ${id}
       `);
 
-      if (client.length === 0) {
-        return reply.status(404).send({ error: 'Client not found' });
+      if (employee.length === 0) {
+        return reply.status(404).send({ error: 'Employee not found' });
       }
 
       const userPermissions = {
@@ -196,107 +230,20 @@ export async function clientRoutes(fastify: FastifyInstance) {
         canSeeSystemFields: scopeAccess.permissions?.includes(4) || false,
       };
       
-      return filterUniversalColumns(client[0], userPermissions);
+      return filterUniversalColumns(employee[0], userPermissions);
     } catch (error) {
-      fastify.log.error('Error fetching client:', error as any);
+      fastify.log.error('Error fetching employee:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Get client hierarchy (parent and children)
-  fastify.get('/api/v1/client/:id/hierarchy', {
+  // Create employee
+  fastify.post('/api/v1/emp', {
     preHandler: [fastify.authenticate],
     schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+      body: CreateEmployeeSchema,
       response: {
-        200: Type.Object({
-          client: ClientSchema,
-          parent: Type.Optional(ClientSchema),
-          children: Type.Array(ClientSchema),
-        }),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
-
-    const scopeAccess = await checkScopeAccess(userId, 'app', 'view', undefined);
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
-
-    try {
-      // Get the client
-      const clientResult = await db.execute(sql`
-        SELECT 
-          id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-          client_parent_id, contact, level_id, level_name
-        FROM app.d_client 
-        WHERE id = ${id}
-      `);
-
-      if (clientResult.length === 0) {
-        return reply.status(404).send({ error: 'Client not found' });
-      }
-
-      const client = clientResult[0];
-
-      // Get parent if exists
-      let parent = null;
-      if (client.client_parent_id) {
-        const parentResult = await db.execute(sql`
-          SELECT 
-            id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-            client_parent_id, contact, level_id, level_name
-          FROM app.d_client 
-          WHERE id = ${client.client_parent_id}
-        `);
-        parent = parentResult[0] || null;
-      }
-
-      // Get children
-      const children = await db.execute(sql`
-        SELECT 
-          id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-          client_parent_id, contact, level_id, level_name
-        FROM app.d_client 
-        WHERE client_parent_id = ${id}
-        ORDER BY name ASC
-      `);
-
-      const userPermissions = {
-        canSeePII: scopeAccess.permissions?.includes(4) || false,
-        canSeeFinancial: scopeAccess.permissions?.includes(4) || false,
-        canSeeSystemFields: scopeAccess.permissions?.includes(4) || false,
-      };
-
-      return {
-        client: filterUniversalColumns(client, userPermissions),
-        parent: parent ? filterUniversalColumns(parent, userPermissions) : null,
-        children: children.map(child => filterUniversalColumns(child, userPermissions)),
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching client hierarchy:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // Create client
-  fastify.post('/api/v1/client', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      body: CreateClientSchema,
-      response: {
-        201: ClientSchema,
+        201: EmployeeSchema,
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -316,39 +263,60 @@ export async function clientRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Check for unique client name at the same level
-      const existingClient = await db.execute(sql`
-        SELECT id FROM app.d_client 
-        WHERE name = ${data.name} 
-        AND client_parent_id IS NOT DISTINCT FROM ${data.client_parent_id || null}
-        AND active = true
-      `);
-      if (existingClient.length > 0) {
-        return reply.status(400).send({ error: 'Client with this name already exists at this level' });
-      }
-
-      // Validate parent exists if specified
-      if (data.client_parent_id) {
-        const parent = await db.execute(sql`
-          SELECT id FROM app.d_client WHERE id = ${data.client_parent_id} AND active = true
+      // Check for unique employee code if provided
+      if (data.emp_code) {
+        const existingEmpCode = await db.execute(sql`
+          SELECT id FROM app.d_employee WHERE emp_code = ${data.emp_code} AND active = true
         `);
-        if (parent.length === 0) {
-          return reply.status(400).send({ error: 'Parent client not found' });
+        if (existingEmpCode.length > 0) {
+          return reply.status(400).send({ error: 'Employee with this code already exists' });
         }
+      }
+      
+      // Check for unique email if provided
+      if (data.email) {
+        const existingEmail = await db.execute(sql`
+          SELECT id FROM app.d_employee WHERE email = ${data.email} AND active = true
+        `);
+        if (existingEmail.length > 0) {
+          return reply.status(400).send({ error: 'Employee with this email already exists' });
+        }
+      }
+      
+      // Hash password if provided
+      let passwordHash = null;
+      if (data.password) {
+        passwordHash = await bcrypt.hash(data.password, 10);
       }
 
       const result = await db.execute(sql`
-        INSERT INTO app.d_client (
-          name, "descr", client_parent_id, contact, level_id, level_name,
-          tags, attr, active
+        INSERT INTO app.d_employee (
+          name, "descr", addr, email, password_hash, phone, mobile,
+          emergency_contact, lang, birth_date, emp_code,
+          hire_date, status, employment_type, work_mode, security_clearance,
+          skills, certifications, education, labels, tags, attr, active
         )
         VALUES (
           ${data.name}, 
           ${data.descr || null}, 
-          ${data.client_parent_id || null}, 
-          ${data.contact ? JSON.stringify(data.contact) : '{}'}::jsonb,
-          ${data.level_id || null},
-          ${data.level_name || null},
+          ${data.addr || null}, 
+          ${data.email || null}, 
+          ${passwordHash}, 
+          ${data.phone || null}, 
+          ${data.mobile || null},
+          ${data.emergency_contact ? JSON.stringify(data.emergency_contact) : '{}'}::jsonb,
+          ${data.lang || 'en'}, 
+          ${data.birth_date || null}, 
+          ${data.emp_code || null},
+          ${data.hire_date || null}, 
+          ${data.status || 'active'}, 
+          ${data.employment_type || 'full_time'}, 
+          ${data.work_mode || 'office'}, 
+          ${data.security_clearance || 'internal'},
+          ${data.skills ? JSON.stringify(data.skills) : '[]'}::jsonb,
+          ${data.certifications ? JSON.stringify(data.certifications) : '[]'}::jsonb,
+          ${data.education ? JSON.stringify(data.education) : '[]'}::jsonb,
+          ${data.labels ? JSON.stringify(data.labels) : '[]'}::jsonb,
           ${data.tags ? JSON.stringify(data.tags) : '[]'}::jsonb,
           ${data.attr ? JSON.stringify(data.attr) : '{}'}::jsonb,
           ${data.active !== false}
@@ -357,7 +325,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
       `);
 
       if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to create client' });
+        return reply.status(500).send({ error: 'Failed to create employee' });
       }
 
       const userPermissions = {
@@ -368,24 +336,23 @@ export async function clientRoutes(fastify: FastifyInstance) {
       
       return reply.status(201).send(filterUniversalColumns(result[0], userPermissions));
     } catch (error) {
-      fastify.log.error('Error creating client:', error as any);
+      fastify.log.error('Error creating employee:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Update client
-  fastify.put('/api/v1/client/:id', {
+  // Update employee  
+  fastify.put('/api/v1/emp/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
       }),
-      body: UpdateClientSchema,
+      body: UpdateEmployeeSchema,
       response: {
-        200: ClientSchema,
+        200: EmployeeSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        400: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
       },
     },
@@ -405,49 +372,44 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
     try {
       const existing = await db.execute(sql`
-        SELECT id, client_parent_id FROM app.d_client WHERE id = ${id}
+        SELECT id FROM app.d_employee WHERE id = ${id}
       `);
       
       if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Client not found' });
-      }
-
-      // Check for unique name on update
-      if (data.name !== undefined) {
-        const parentId = data.client_parent_id !== undefined ? data.client_parent_id : existing[0].client_parent_id;
-        const existingName = await db.execute(sql`
-          SELECT id FROM app.d_client 
-          WHERE name = ${data.name} 
-          AND client_parent_id IS NOT DISTINCT FROM ${parentId || null}
-          AND id != ${id} 
-          AND active = true
-        `);
-        if (existingName.length > 0) {
-          return reply.status(400).send({ error: 'Client with this name already exists at this level' });
-        }
-      }
-
-      // Validate parent exists if specified
-      if (data.client_parent_id) {
-        const parent = await db.execute(sql`
-          SELECT id FROM app.d_client WHERE id = ${data.client_parent_id} AND active = true
-        `);
-        if (parent.length === 0) {
-          return reply.status(400).send({ error: 'Parent client not found' });
-        }
+        return reply.status(404).send({ error: 'Employee not found' });
       }
 
       const updateFields = [];
       
       if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
       if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
-      if (data.client_parent_id !== undefined) updateFields.push(sql`client_parent_id = ${data.client_parent_id}`);
-      if (data.contact !== undefined) updateFields.push(sql`contact = ${JSON.stringify(data.contact)}::jsonb`);
-      if (data.level_id !== undefined) updateFields.push(sql`level_id = ${data.level_id}`);
-      if (data.level_name !== undefined) updateFields.push(sql`level_name = ${data.level_name}`);
+      if (data.addr !== undefined) updateFields.push(sql`addr = ${data.addr}`);
+      if (data.email !== undefined) updateFields.push(sql`email = ${data.email}`);
+      if (data.phone !== undefined) updateFields.push(sql`phone = ${data.phone}`);
+      if (data.mobile !== undefined) updateFields.push(sql`mobile = ${data.mobile}`);
+      if (data.emergency_contact !== undefined) {
+        updateFields.push(sql`emergency_contact = ${JSON.stringify(data.emergency_contact)}::jsonb`);
+      }
+      if (data.lang !== undefined) updateFields.push(sql`lang = ${data.lang}`);
+      if (data.birth_date !== undefined) updateFields.push(sql`birth_date = ${data.birth_date}`);
+      if (data.emp_code !== undefined) updateFields.push(sql`emp_code = ${data.emp_code}`);
+      if (data.hire_date !== undefined) updateFields.push(sql`hire_date = ${data.hire_date}`);
+      if (data.status !== undefined) updateFields.push(sql`status = ${data.status}`);
+      if (data.employment_type !== undefined) updateFields.push(sql`employment_type = ${data.employment_type}`);
+      if (data.work_mode !== undefined) updateFields.push(sql`work_mode = ${data.work_mode}`);
+      if (data.security_clearance !== undefined) updateFields.push(sql`security_clearance = ${data.security_clearance}`);
+      if (data.skills !== undefined) updateFields.push(sql`skills = ${JSON.stringify(data.skills)}::jsonb`);
+      if (data.certifications !== undefined) updateFields.push(sql`certifications = ${JSON.stringify(data.certifications)}::jsonb`);
+      if (data.education !== undefined) updateFields.push(sql`education = ${JSON.stringify(data.education)}::jsonb`);
+      if (data.labels !== undefined) updateFields.push(sql`labels = ${JSON.stringify(data.labels)}::jsonb`);
       if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
       if (data.attr !== undefined) updateFields.push(sql`attr = ${JSON.stringify(data.attr)}::jsonb`);
       if (data.active !== undefined) updateFields.push(sql`active = ${data.active}`);
+
+      if (data.password) {
+        const passwordHash = await bcrypt.hash(data.password, 10);
+        updateFields.push(sql`password_hash = ${passwordHash}`);
+      }
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
@@ -456,14 +418,14 @@ export async function clientRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_client 
+        UPDATE app.d_employee 
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
       `);
 
       if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to update client' });
+        return reply.status(500).send({ error: 'Failed to update employee' });
       }
 
       const userPermissions = {
@@ -474,13 +436,13 @@ export async function clientRoutes(fastify: FastifyInstance) {
       
       return filterUniversalColumns(result[0], userPermissions);
     } catch (error) {
-      fastify.log.error('Error updating client:', error as any);
+      fastify.log.error('Error updating employee:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Delete client (soft delete)
-  fastify.delete('/api/v1/client/:id', {
+  // Delete employee (soft delete)
+  fastify.delete('/api/v1/emp/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -490,7 +452,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
         204: Type.Null(),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        400: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
       },
     },
@@ -509,34 +470,22 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
     try {
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_client WHERE id = ${id}
+        SELECT id FROM app.d_employee WHERE id = ${id}
       `);
       
       if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Client not found' });
+        return reply.status(404).send({ error: 'Employee not found' });
       }
 
-      // Check if client has children
-      const children = await db.execute(sql`
-        SELECT id FROM app.d_client WHERE client_parent_id = ${id} AND active = true
-      `);
-
-      if (children.length > 0) {
-        return reply.status(400).send({ 
-          error: 'Cannot delete client with active sub-clients. Delete or reassign sub-clients first.' 
-        });
-      }
-
-      // Soft delete (using SCD Type 2 pattern)
       await db.execute(sql`
-        UPDATE app.d_client 
+        UPDATE app.d_employee 
         SET active = false, to_ts = NOW(), updated = NOW()
         WHERE id = ${id}
       `);
 
       return reply.status(204).send();
     } catch (error) {
-      fastify.log.error('Error deleting client:', error as any);
+      fastify.log.error('Error deleting employee:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

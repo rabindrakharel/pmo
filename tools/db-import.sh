@@ -165,21 +165,20 @@ declare -a DDL_FILES=(
     
     # SCOPE HIERARCHIES (Self-Referencing)
     "02_location.ddl|Canadian Geographic Hierarchy"
-    "03_worksite.ddl|Physical Facilities"
-    "04_business.ddl|Organizational Hierarchy"
+    "03_worksite.ddl|Physical Facilities (Worksites)"
+    "04_business.ddl|Organizational Hierarchy (Business)"
     "05_hr.ddl|Human Resources Hierarchy"
     
     # IDENTITY & OPERATIONS
     "06_employee.ddl|Employee Master & Authentication"
-    "07_role.ddl|Role Definitions & Assignments"
-    "08_client.ddl|External Client Management"
+    "06_role.ddl|Role Definitions & Assignments"
+    "07_client.ddl|External Client Management"
     "09_project_task.ddl|Project & Task Systems"
     
     # APPLICATION & PERMISSIONS (Depends on all above)
-    "11_forms.ddl|Dynamic Form System"
-    "12_app_tables.ddl|UI Routes & Components"
-    "13_unified_scope.ddl|Central Permission Registry"
-    "14_permission_tables.ddl|RBAC Permission Engine"
+    "10_forms_fixed.ddl|Dynamic Form System"
+    "11_app_tables.ddl|UI Routes & Components"
+    "13_permission_tables.ddl|RBAC Permission Engine"
 )
 
 # Function to execute SQL file
@@ -286,25 +285,28 @@ if [ "$SKIP_VALIDATION" = false ] && [ "$DRY_RUN" = false ]; then
             GROUP BY category 
             ORDER BY category;" 2>/dev/null
         
-        # Check for sample data
+        # Check record count for all tables
         echo ""
-        echo -e "${BLUE}📊 Sample Data Check:${NC}"
+        echo -e "${BLUE}📊 Record Count Validation:${NC}"
         PGPASSWORD=$DB_PASSWORD psql -X -v ON_ERROR_STOP=1 --echo-errors -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c \
             "SELECT 
-                'Meta Business Levels' as table_name,
-                (SELECT COUNT(*) FROM app.meta_biz_level WHERE active = true) as record_count
-            UNION ALL
-            SELECT 
-                'Meta Location Levels',
-                (SELECT COUNT(*) FROM app.meta_loc_level WHERE active = true)
-            UNION ALL
-            SELECT 
-                'Meta Project Status',
-                (SELECT COUNT(*) FROM app.meta_project_status WHERE active = true)
-            UNION ALL
-            SELECT 
-                'Meta Task Status',
-                (SELECT COUNT(*) FROM app.meta_task_status WHERE active = true);" 2>/dev/null || echo "Some meta tables may not have sample data yet"
+                table_name,
+                (xpath('/row/c/text()', 
+                    query_to_xml(format('SELECT COUNT(*) as c FROM app.%I', table_name), false, true, '')
+                ))[1]::text::bigint as record_count
+            FROM information_schema.tables 
+            WHERE table_schema = 'app' 
+                AND table_type = 'BASE TABLE'
+            ORDER BY 
+                CASE 
+                    WHEN table_name LIKE 'meta_%' THEN 1
+                    WHEN table_name LIKE 'd_scope_%' THEN 2
+                    WHEN table_name LIKE 'd_%' THEN 3
+                    WHEN table_name LIKE 'rel_%' THEN 4
+                    WHEN table_name LIKE 'ops_%' THEN 5
+                    ELSE 6
+                END,
+                table_name;" 2>/dev/null || echo "Error getting record counts"
         
     else
         echo -e "${YELLOW}⚠️  Schema validation: Only $table_count tables created (expected 25+)${NC}"

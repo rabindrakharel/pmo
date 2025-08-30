@@ -57,7 +57,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       // Find user by email
       const userResult = await db.execute(sql`
         SELECT id, name, email, password_hash
-        FROM app.d_emp 
+        FROM app.d_employee 
         WHERE email = ${email} 
           AND active = true
           AND (to_ts IS NULL OR to_ts > NOW())
@@ -137,7 +137,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     try {
       const userResult = await db.execute(sql`
         SELECT id, name, email
-        FROM app.d_emp 
+        FROM app.d_employee 
         WHERE id = ${userId}
           AND active = true
           AND (to_ts IS NULL OR to_ts > NOW())
@@ -161,6 +161,62 @@ export async function authRoutes(fastify: FastifyInstance) {
       };
     } catch (error) {
       fastify.log.error('Get user error:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get current user profile endpoint (alias for /me)
+  fastify.get('/profile', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['auth'],
+      summary: 'Get current user profile',
+      description: 'Get current authenticated user profile information',
+      response: {
+        200: Type.Object({
+          user: Type.Object({
+            id: Type.String(),
+            name: Type.String(),
+            email: Type.String(),
+          }),
+        }),
+        401: ErrorResponseSchema,
+      },
+    },
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    
+    if (!userId) {
+      return reply.status(401).send({ error: 'Invalid token' });
+    }
+
+    try {
+      const userResult = await db.execute(sql`
+        SELECT id, name, email
+        FROM app.d_employee 
+        WHERE id = ${userId}
+          AND active = true
+          AND (to_ts IS NULL OR to_ts > NOW())
+      `);
+
+      if (userResult.length === 0) {
+        return reply.status(401).send({ error: 'User not found' });
+      }
+
+      const user = userResult[0];
+      if (!user) {
+        return reply.status(401).send({ error: 'User not found' });
+      }
+
+      return {
+        user: {
+          id: user.id as string,
+          name: user.name as string,
+          email: user.email as string,
+        },
+      };
+    } catch (error) {
+      fastify.log.error('Get user profile error:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

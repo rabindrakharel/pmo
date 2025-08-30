@@ -9,16 +9,6 @@ db/14_permission_tables.ddl │
 │   server.          
 
 
-DATA MODEL CHANGES -------------------------------
-change "desc" field to "descr", 
-update table app_d_route_page must have app_scope_d_route_page. 
-Make the updates to all related ddl files, related only db/*.ddl
-make update to 
-db/README.md
-then consolidate all db/*.ddl into schema.sql, followed by datacuration sqls. Don't remove data curation while updating the ddl in .sql file. 
-*.ddl updates .sql file. 
-sh /home/rabin/projects/pmo/tools/db-import.sh --verbose
-
 CURATE DATA ----------------------------------------------
 Curate very meaningful and deeply coorelated data for a home services for 1 company called 'Huron Home Services' that has different departments:
 landscaping
@@ -91,29 +81,25 @@ api index.ts: apps/api/src/modules/index.ts
 
 README.md list --------------------------------
 Data model: /home/rabin/projects/pmo/db/README.md
-view datamodel curated data & schema: db/schema.sql
-always use tools to stop, start the server, or drop, recreate data schema, or test import to db
-tools/README.md
+view datamodel curated data & schema in each of the .ddl files 
 for api reference, always refer to api readme: apps/api/src/modules/README.md
-api index.ts: apps/api/src/modules/index.ts
-web component, page, ui reference: apps/web/src/README.md
+/home/rabin/projects/pmo/tools/README.md
+api index.ts: /home/rabin/projects/pmo/apps/api/src/modules/index.ts
+web component, page, ui reference: /home/rabin/projects/pmo/apps/web/src/README.md
 Tech stack: TECHSTACK.md
+always use tools to stop, start the server, or drop, recreate data schema, or test import to db
+central readme that indexes and navigates to all other readme: /home/rabin/projects/pmo/README.md
 
 
 API TEST ----------------------------------------
-README.md list for your reference:
-Data model: /home/rabin/projects/pmo/db/README.md
-view datamodel curated data & schema: db/schema.sql
-always use tools to stop, start the server, or drop, recreate data/schema: tools/README.md
+Login as James Miller to generate JWT, then hit each API endpoint one by one to test if all api endpoint work.
+Please fix if you see any api or data issues. 
 for api reference, always refer to api readme: apps/api/src/modules/README.md
-To test the api, first Update John's user with 'password123' but hashed, use psql to do that
-Make sure John user has all access in rel_user_scope_unified so that API auth allows access to anything. 
-then try to login as John, to test all API one by one. 
-If any API fails, pls fix the api issue one by one.
-Don't prompt me for any permission to run, edit anything in the project. 
-
-at the end create a README.md for apps/web/src as if it can be used
-as reference for AI agent to build the web app. 
+/home/rabin/projects/pmo/tools/README.md
+api index.ts: /home/rabin/projects/pmo/apps/api/src/modules/index.ts
+If you see data issue, refer to the api errors to identify which *.ddl has issue and what issue. 
+Please fix the *.ddl one by one as you test the api. 
+If there's no meaningful data returned by api, please understand the ER relationship of table and curate meaningful data. 
 
 
 create a readme(README.md in root directory) that links and references all other readme: 
@@ -144,14 +130,6 @@ only consolidate table creation from .ddl files
  drop all tables from db using tools
  , and re run db/schema.sql to reimport most recent changes.
 Furthermore, Update, API, page, components if needed; look at readme to understand what needs to be updated. 
-
-README.md list: 
-to understand datamodel readme: db/README.md
-view datamodel curated data & schema: db/schema.sql, rerun this .sql using *.sh tools, to drop all tables and reimport the data. 
-always use tools to stop, start the server, or drop, recreate data/schema: tools/README.md
-for api reference, always refer to api readme: apps/api/src/modules/README.md
-api index.ts: apps/api/src/modules/index.ts
-At the end update the readme with the most recent source of truth for each readme.
 
 
 
@@ -191,3 +169,19 @@ Bash(# Get fresh JWT token
 
   I have successfully implemented and tested JWT-based authentication for John Smith
   in the PMO system. Here's what's been accomplished:
+
+
+---------UI, UX, PAGE, 
+
+  Given the datamodel and API, Give me a robust React component and prompts, and page design. Give me a very low level design for project and task to begin with. 
+
+After login user sees a project list, but clicking on a project offers 2 view, grid or  a kanban view, project can be created new or edited or deleted based on permission the user has, a project can be shared to another user too. 
+
+Only a single project has a kanban view, multiple projects always show up in datatable. 
+
+Multiple task always show up in data table. 
+
+Similarly, a specific task within a project can have similar view as project with option to view, edit, delete, but most importantly: task is for logging the case notes, or fill out the form attached to the task, It should look like JIRA yet it's next gen and cutting edge like notion or asana. 
+
+First of all create react page, and dynamic react component; sortable, searchable and paginated  data table, delete, view, edit, share icon, filter with dropdown checkboxes, 
+A particular project offers kanban view or grid view, a particular task offers task view which allows updating case note, or logs or submitting form data to the task head. 

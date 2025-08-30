@@ -208,76 +208,143 @@ CREATE TABLE app.ops_task_records (
 -- DATA CURATION:
 -- ============================================================================
 
--- Insert Projects
+-- Insert Huron Home Services Seasonal and Service Projects
 INSERT INTO app.ops_project_head 
   (name, descr, slug, project_code, project_type, priority_level, budget_allocated, budget_currency, planned_start_date, planned_end_date, estimated_hours, security_classification, compliance_requirements, risk_assessment, tenant_id, tags, attr)
 VALUES
-  ('Platform Modernization 2024', 'Comprehensive infrastructure modernization project to migrate legacy systems to cloud-native architecture with enhanced security and scalability', 'platform-modernization-2024', 'PM-2024-001', 'infrastructure', 'critical', 2500000.00, 'CAD',
-    '2024-01-15', '2024-12-15', 8000.0, 'confidential',
-    '["ISO 27001", "SOC 2 Type II", "PIPEDA", "Cloud Security Standards"]'::jsonb,
-    '{"budget_risk": "medium", "timeline_risk": "high", "technical_complexity": "high", "stakeholder_impact": "critical"}'::jsonb,
+  ('Fall 2025 Landscaping Campaign', 'Comprehensive fall landscaping services campaign including leaf cleanup, garden preparation, tree care, and lawn winterization across all service areas', 'fall-2025-landscaping', 'FALL-2025-LAND', 'seasonal', 'high', 450000.00, 'CAD',
+    '2025-09-01', '2025-11-30', 1800.0, 'internal',
+    '["WSIB Safety Standards", "Environmental Protection Act", "Pesticide Application Permits"]'::jsonb,
+    '{"weather_risk": "high", "equipment_availability": "medium", "seasonal_staff": "critical", "customer_demand": "high"}'::jsonb,
     gen_random_uuid(),
-    '["infrastructure", "cloud", "modernization", "strategic"]',
-    '{"methodology": "Agile", "delivery_model": "Phased", "team_size": 25, "external_vendors": ["AWS", "CloudFlare"], "compliance_audit": "Q3-2024"}'),
+    '["seasonal", "fall", "landscaping", "campaign"]',
+    '{"peak_season": "October", "service_types": ["leaf_cleanup", "garden_prep", "tree_care", "winterization"], "crew_scaling": "3x_normal", "equipment_required": ["leaf_blowers", "mulching_mowers", "tree_equipment"]}'),
     
-  ('Mobile App V2', 'Next generation mobile application with enhanced user experience, offline capabilities, and real-time synchronization', 'mobile-app-v2', 'MA-2024-002', 'development', 'high', 850000.00, 'CAD',
-    '2024-03-01', '2024-10-30', 3200.0, 'internal',
-    '["App Store Guidelines", "Google Play Policies", "AODA Accessibility"]'::jsonb,
-    '{"budget_risk": "low", "timeline_risk": "medium", "market_competition": "high", "user_adoption": "medium"}'::jsonb,
+  ('Winter 2025 Snow Removal Operations', 'Winter snow removal and ice management services for residential, commercial, and municipal clients with 24/7 emergency response capability', 'winter-2025-snow', 'WIN-2025-SNOW', 'seasonal', 'critical', 520000.00, 'CAD',
+    '2025-11-15', '2026-03-31', 2200.0, 'internal',
+    '["Municipal Snow Removal Standards", "Commercial Driver Licensing", "Environmental Salt Management"]'::jsonb,
+    '{"weather_dependency": "critical", "equipment_failure": "high", "salt_supply": "medium", "crew_availability": "high"}'::jsonb,
     gen_random_uuid(),
-    '["mobile", "development", "user-experience", "real-time"]',
-    '{"platforms": ["iOS", "Android"], "framework": "React Native", "offline_support": true, "team_distribution": {"Toronto": 12, "Montreal": 3}}'),
+    '["seasonal", "winter", "snow_removal", "emergency"]',
+    '{"coverage_area": "GTA_and_London", "response_time": "2_hours", "equipment_fleet": "15_plows", "salt_capacity": "200_tons", "crew_size": "25_operators", "contract_types": ["residential", "commercial", "municipal"]}'),
     
-  ('Ontario Client Portal', 'Secure government service portal with bilingual support, accessibility compliance, and integrated identity management', 'ontario-client-portal', 'OCP-2024-003', 'service', 'critical', 1200000.00, 'CAD',
-    '2024-02-01', '2024-11-30', 4500.0, 'restricted',
-    '["Government of Canada Security Standards", "AODA", "Official Languages Act", "PIPEDA"]'::jsonb,
-    '{"security_risk": "high", "compliance_risk": "critical", "political_visibility": "high", "technical_complexity": "medium"}'::jsonb,
+  ('Tank Water Heater Replacement Program', 'Systematic replacement and upgrade of aging tank water heaters for residential clients with energy-efficient models and extended warranties', 'water-heater-replacement-2025', 'WHR-2025-PLUMB', 'service', 'medium', 180000.00, 'CAD',
+    '2025-01-15', '2025-12-15', 960.0, 'internal',
+    '["TSSA Gas Installation Standards", "Building Code Compliance", "Manufacturer Warranties"]'::jsonb,
+    '{"supply_chain": "medium", "permit_delays": "low", "technical_complexity": "low", "customer_coordination": "medium"}'::jsonb,
     gen_random_uuid(),
-    '["government", "portal", "bilingual", "accessibility", "security"]',
-    '{"languages": ["English", "French"], "clearance_required": "Secret", "accessibility_level": "WCAG 2.1 AA", "identity_provider": "Government SSO"}'),
+    '["plumbing", "replacement", "energy_efficiency"]',
+    '{"target_installations": 120, "heater_types": ["gas", "electric", "hybrid"], "warranty_period": "10_years", "energy_rebates": "available", "average_installation_time": "4_hours"}'),
     
-  ('AI-Powered Analytics Platform', 'Research and development project to create next-generation analytics platform using machine learning and artificial intelligence', 'ai-analytics-platform', 'AI-2024-004', 'research', 'medium', 600000.00, 'CAD',
-    '2024-04-01', '2025-03-31', 2800.0, 'confidential',
-    '["University Research Agreements", "IP Protection Protocols", "Ethics in AI"]'::jsonb,
-    '{"technology_risk": "high", "market_viability": "medium", "ip_protection": "high", "research_timeline": "uncertain"}'::jsonb,
+  ('Spring 2025 Garden Renewal Initiative', 'Spring landscaping and garden renewal services including soil preparation, planting, irrigation system installation, and landscape design consultations', 'spring-2025-gardens', 'SPR-2025-GARD', 'seasonal', 'high', 320000.00, 'CAD',
+    '2025-04-01', '2025-06-30', 1440.0, 'internal',
+    '["Nursery Sourcing Standards", "Irrigation Installation Permits", "Landscape Design Certification"]'::jsonb,
+    '{"weather_dependency": "high", "plant_sourcing": "medium", "crew_training": "low", "customer_expectations": "high"}'::jsonb,
     gen_random_uuid(),
-    '["research", "ai", "analytics", "innovation", "machine-learning"]',
-    '{"research_partners": ["McGill University", "Concordia"], "patent_applications": 3, "prototype_phase": "Phase 2", "funding_sources": ["Internal R&D", "Government Grant"]}'),
+    '["seasonal", "spring", "landscaping", "design"]',
+    '{"peak_months": "April_May", "services": ["soil_prep", "planting", "irrigation", "design"], "plant_sourcing": "local_nurseries", "crew_expansion": "2x_normal", "design_consultations": 75}'),
     
-  ('Multi-Site Network Upgrade', 'Comprehensive network infrastructure upgrade across all Canadian facilities with enhanced security and redundancy', 'network-upgrade-2024', 'NET-2024-005', 'infrastructure', 'high', 450000.00, 'CAD',
-    '2024-05-15', '2024-09-30', 1600.0, 'restricted',
-    '["ISO 27001", "Network Security Standards", "Business Continuity"]'::jsonb,
-    '{"downtime_risk": "high", "budget_overrun": "medium", "vendor_dependency": "high", "rollback_complexity": "high"}'::jsonb,
+  ('Residential Solar Installation Expansion', 'Expansion of residential solar panel installation services targeting energy-conscious homeowners in the GTA and London markets', 'solar-expansion-2025', 'SOL-2025-EXP', 'expansion', 'medium', 285000.00, 'CAD',
+    '2025-03-01', '2025-10-31', 1200.0, 'internal',
+    '["Electrical Safety Authority (ESA)", "Solar Panel Certification", "Roof Safety Standards", "Electrical Code Compliance"]'::jsonb,
+    '{"technical_expertise": "medium", "permit_processing": "high", "weather_dependency": "medium", "market_competition": "high"}'::jsonb,
     gen_random_uuid(),
-    '["infrastructure", "network", "security", "multi-site", "upgrade"]',
-    '{"sites_affected": 7, "downtime_windows": "weekends_only", "redundancy_level": "N+1", "vendor": "Cisco", "rollback_plan": "detailed"}');
+    '["solar", "renewable", "expansion", "residential"]',
+    '{"target_installations": 85, "system_sizes": ["6kW", "8kW", "10kW"], "warranty": "25_years", "financing_options": true, "team_expansion": "london_office"}'),
+    
+  ('HVAC Maintenance Contract Initiative', 'Development of comprehensive HVAC maintenance contracts for residential and commercial clients including seasonal tune-ups and emergency service', 'hvac-maintenance-2025', 'HVAC-2025-MAINT', 'service', 'medium', 240000.00, 'CAD',
+    '2025-02-01', '2025-12-31', 1080.0, 'internal',
+    '["TSSA Gas Technician Certification", "HRAI Standards", "Refrigerant Handling Permits"]'::jsonb,
+    '{"technician_availability": "medium", "equipment_costs": "medium", "seasonal_demand": "high", "contract_conversion": "medium"}'::jsonb,
+    gen_random_uuid(),
+    '["hvac", "maintenance", "contracts", "service"]',
+    '{"contract_types": ["residential_annual", "commercial_quarterly"], "services": ["tune_ups", "filter_changes", "emergency_response"], "target_contracts": 200, "service_guarantee": "24_hour_response"}'),
+    
+  ('Emergency Plumbing Service Enhancement', 'Enhancement of 24/7 emergency plumbing response capabilities with improved dispatch technology and expanded contractor network', 'emergency-plumbing-2025', 'EMER-2025-PLUMB', 'service', 'high', 165000.00, 'CAD',
+    '2025-01-01', '2025-06-30', 720.0, 'internal',
+    '["Master Plumber Supervision", "Emergency Response Standards", "Contractor Insurance Requirements"]'::jsonb,
+    '{"response_time": "critical", "contractor_availability": "high", "equipment_readiness": "medium", "customer_satisfaction": "critical"}'::jsonb,
+    gen_random_uuid(),
+    '["emergency", "plumbing", "service", "enhancement"]',
+    '{"response_guarantee": "2_hours", "coverage_expansion": "london_region", "contractor_network": "+5_partners", "dispatch_technology": "GPS_tracking", "success_metric": "95%_satisfaction"}');
 
--- Insert Task Hierarchy for Platform Modernization Project
+-- Insert Task Hierarchy for Huron Home Services Projects
 INSERT INTO app.ops_task_head 
-  (proj_head_id, parent_task_id, name, descr, task_code, task_type, priority, estimated_hours, story_points, planned_start_date, planned_end_date, tags, attr)
+  (proj_head_id, parent_task_id, title, name, descr, task_code, task_type, priority, estimated_hours, story_points, planned_start_date, planned_end_date, tags, attr)
 VALUES
-  ((SELECT id FROM app.ops_project_head WHERE project_code = 'PM-2024-001'), NULL,
-    'Database Migration to PostgreSQL', 'Migrate legacy Oracle database to PostgreSQL with data validation and performance optimization', 'PM-DB-001', 'development', 'high',
-    120.0, 21, '2024-06-01', '2024-08-15',
-    '["database", "migration", "oracle", "postgresql"]',
-    '{"database_size_gb": 2500, "migration_tool": "AWS DMS", "downtime_tolerance": "4 hours"}'),
+  -- Fall 2025 Landscaping Campaign Tasks
+  ((SELECT id FROM app.ops_project_head WHERE project_code = 'FALL-2025-LAND'), NULL,
+    'Equipment Preparation and Maintenance', 'Equipment Preparation and Maintenance', 'Complete maintenance and preparation of all landscaping equipment including leaf blowers, mulchers, and tree care equipment', 'FALL-EQ-001', 'maintenance', 'high',
+    80.0, 13, '2025-08-15', '2025-08-30',
+    '["equipment", "maintenance", "seasonal", "preparation"]',
+    '{"equipment_count": 45, "maintenance_hours": 80, "safety_inspection": true, "seasonal_setup": "fall_configuration"}'),
     
-  ((SELECT id FROM app.ops_project_head WHERE project_code = 'PM-2024-001'),
-    (SELECT id FROM app.ops_task_head WHERE task_code = 'PM-DB-001'),
-    'Migrate Database Schema', 'Convert Oracle-specific schema elements to PostgreSQL equivalent structures', 'PM-DB-001-A', 'development', 'high',
-    40.0, 8, '2024-06-01', '2024-06-20',
-    '["schema", "conversion", "postgresql"]',
-    '{"tables_count": 156, "views_count": 23, "procedures_count": 45}'),
+  ((SELECT id FROM app.ops_project_head WHERE project_code = 'FALL-2025-LAND'), NULL,
+    'Seasonal Staff Training Program', 'Seasonal Staff Training Program', 'Train seasonal landscaping staff on fall-specific procedures, safety protocols, and customer service standards', 'FALL-TR-002', 'training', 'high',
+    120.0, 21, '2025-08-20', '2025-09-05',
+    '["training", "seasonal", "safety", "procedures"]',
+    '{"trainees": 45, "training_modules": ["safety", "procedures", "customer_service", "equipment"], "certification_required": true}'),
     
-  ((SELECT id FROM app.ops_project_head WHERE project_code = 'PM-2024-001'),
-    (SELECT id FROM app.ops_task_head WHERE task_code = 'PM-DB-001-A'),
-    'Convert Oracle Stored Procedures', 'Convert Oracle PL/SQL stored procedures to PostgreSQL functions', 'PM-DB-001-A-1', 'development', 'medium',
-    16.0, 3, '2024-06-05', '2024-06-15',
-    '["procedures", "plsql", "conversion"]',
-    '{"procedures_count": 45, "complexity": "medium", "test_data": "required"}'),
+  ((SELECT id FROM app.ops_project_head WHERE project_code = 'FALL-2025-LAND'), NULL,
+    'Client Route Planning and Scheduling', 'Client Route Planning and Scheduling', 'Optimize service routes and create efficient scheduling for fall landscaping services across all service areas', 'FALL-SCH-003', 'planning', 'medium',
+    40.0, 8, '2025-09-01', '2025-09-15',
+    '["scheduling", "routing", "optimization", "efficiency"]',
+    '{"client_count": 850, "service_areas": ["mississauga", "toronto", "london"], "route_optimization": "GPS_based", "scheduling_software": "updated"}'),
     
-  ((SELECT id FROM app.ops_project_head WHERE project_code = 'PM-2024-001'), NULL,
-    'Implement OAuth 2.0 Authentication', 'Replace legacy authentication system with OAuth 2.0 and JWT tokens for enhanced security and scalability', 'PM-API-002', 'development', 'high',
-    80.0, 13, '2024-07-01', '2024-08-15',
-    '["authentication", "oauth", "security", "api"]',
-    '{"security_standard": "OAuth 2.0", "token_type": "JWT", "session_timeout": 24}');
+  -- Winter 2025 Snow Removal Operations Tasks  
+  ((SELECT id FROM app.ops_project_head WHERE project_code = 'WIN-2025-SNOW'), NULL,
+    'Snow Plow Fleet Preparation', 'Snow Plow Fleet Preparation', 'Complete preparation, maintenance, and deployment of snow removal equipment fleet including plows, salt spreaders, and support vehicles', 'WIN-FL-001', 'maintenance', 'critical',
+    160.0, 34, '2025-10-15', '2025-11-10',
+    '["fleet", "snow_equipment", "maintenance", "critical"]',
+    '{"vehicle_count": 15, "plow_attachments": 15, "salt_spreaders": 12, "backup_equipment": 5, "safety_inspection": "mandatory"}'),
+    
+  ((SELECT id FROM app.ops_project_head WHERE project_code = 'WIN-2025-SNOW'), NULL,
+    'Salt and De-icing Supply Management', 'Salt and De-icing Supply Management', 'Secure and manage winter salt supply chain with strategic storage locations and inventory management systems', 'WIN-SALT-002', 'procurement', 'critical',
+    60.0, 13, '2025-09-01', '2025-11-01',
+    '["supply_chain", "salt", "storage", "inventory"]',
+    '{"salt_tons": 200, "storage_locations": 3, "supplier_contracts": "locked_pricing", "inventory_system": "automated"}'),
+    
+  ((SELECT id FROM app.ops_project_head WHERE project_code = 'WIN-2025-SNOW'), NULL,
+    '24/7 Dispatch Center Setup', '24/7 Dispatch Center Setup', 'Establish enhanced dispatch center for winter operations with weather monitoring, GPS tracking, and emergency response coordination', 'WIN-DISP-003', 'operations', 'high',
+    80.0, 21, '2025-11-01', '2025-11-15',
+    '["dispatch", "monitoring", "gps", "emergency"]',
+    '{"weather_integration": "environment_canada", "gps_tracking": "real_time", "response_guarantee": "2_hours", "staff_24_7": true}'),
+    
+  -- Water Heater Replacement Program Tasks
+  ((SELECT id FROM app.ops_project_head WHERE project_code = 'WHR-2025-PLUMB'), NULL,
+    'Supplier Partnership and Inventory Setup', 'Supplier Partnership and Inventory Setup', 'Establish partnerships with water heater manufacturers and set up inventory management for energy-efficient models', 'WHR-SUP-001', 'procurement', 'medium',
+    40.0, 8, '2025-01-01', '2025-01-31',
+    '["suppliers", "inventory", "partnerships", "efficiency"]',
+    '{"supplier_count": 3, "heater_models": ["gas", "electric", "hybrid"], "inventory_target": 50, "energy_star_rated": true}'),
+    
+  ((SELECT id FROM app.ops_project_head WHERE project_code = 'WHR-2025-PLUMB'), NULL,
+    'Customer Assessment and Scheduling Program', 'Customer Assessment and Scheduling Program', 'Develop systematic customer assessment process for water heater replacement needs and efficient installation scheduling', 'WHR-ASSESS-002', 'service', 'medium',
+    60.0, 13, '2025-02-01', '2025-02-28',
+    '["assessment", "customer", "scheduling", "process"]',
+    '{"assessment_criteria": ["age", "efficiency", "capacity"], "scheduling_system": "optimized_routing", "customer_communication": "automated"}'),
+    
+  -- Spring 2025 Garden Renewal Tasks
+  ((SELECT id FROM app.ops_project_head WHERE project_code = 'SPR-2025-GARD'), NULL,
+    'Nursery Partnership and Plant Sourcing', 'Nursery Partnership and Plant Sourcing', 'Establish partnerships with local nurseries and create plant sourcing strategy for spring garden renewal services', 'SPR-NURS-001', 'procurement', 'high',
+    50.0, 13, '2025-02-01', '2025-03-15',
+    '["nursery", "sourcing", "partnerships", "plants"]',
+    '{"nursery_partners": 5, "plant_varieties": 150, "local_sourcing": "80_percent", "quality_standards": "grade_1"}'),
+    
+  ((SELECT id FROM app.ops_project_head WHERE project_code = 'SPR-2025-GARD'), NULL,
+    'Landscape Design Consultation Program', 'Landscape Design Consultation Program', 'Develop comprehensive landscape design consultation service including site assessment, design plans, and installation coordination', 'SPR-DESIGN-002', 'service', 'high',
+    90.0, 21, '2025-03-01', '2025-04-15',
+    '["design", "consultation", "landscaping", "professional"]',
+    '{"consultation_count": 75, "design_software": "AutoCAD", "site_assessment": "included", "3d_visualization": true}'),
+    
+  -- Emergency Plumbing Service Enhancement Tasks
+  ((SELECT id FROM app.ops_project_head WHERE project_code = 'EMER-2025-PLUMB'), NULL,
+    'GPS Dispatch Technology Implementation', 'GPS Dispatch Technology Implementation', 'Implement advanced GPS dispatch technology for optimal emergency response routing and real-time technician tracking', 'EMER-GPS-001', 'technology', 'high',
+    80.0, 21, '2025-01-01', '2025-02-28',
+    '["gps", "dispatch", "technology", "tracking"]',
+    '{"gps_system": "real_time", "response_optimization": "traffic_aware", "technician_tracking": "live", "integration": "dispatch_system"}'),
+    
+  ((SELECT id FROM app.ops_project_head WHERE project_code = 'EMER-2025-PLUMB'), NULL,
+    'Contractor Network Expansion', 'Contractor Network Expansion', 'Expand emergency plumbing contractor network to improve coverage area and reduce response times', 'EMER-CONT-002', 'partnership', 'medium',
+    60.0, 13, '2025-02-01', '2025-04-30',
+    '["contractors", "network", "expansion", "emergency"]',
+    '{"new_contractors": 5, "coverage_expansion": "london_region", "qualification_requirements": ["licensed", "insured", "emergency_certified"], "response_commitment": "2_hours"}');
