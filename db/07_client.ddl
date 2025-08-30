@@ -1,207 +1,43 @@
 -- ============================================================================
--- CLIENT MANAGEMENT SYSTEM (External Stakeholder and Customer Relationships)
+-- SEMANTICS:
 -- ============================================================================
+--
+-- Client management system for external stakeholder and customer relationships,
+-- enabling comprehensive tracking and coordination with external entities including
+-- clients, vendors, government agencies, and strategic partners.
+--
+-- Key Features:
+-- • External relationship management and contact centralization
+-- • Client grouping and categorization for project workflows
+-- • Communication coordination and compliance tracking
+-- • Integration with project management and approval workflows
 
 -- ============================================================================
--- SEMANTIC DESCRIPTION:
--- ============================================================================
---
--- The client management system provides comprehensive external stakeholder and
--- customer relationship management capabilities within the PMO platform. It
--- enables the organization to track, manage, and coordinate with external
--- entities including clients, vendors, government agencies, and strategic partners.
---
--- ARCHITECTURAL PURPOSE:
--- The client system serves as the external relationship backbone that enables:
---
--- • CLIENT RELATIONSHIP MANAGEMENT: Comprehensive tracking of external client relationships
--- • PROJECT STAKEHOLDER MANAGEMENT: Integration of external stakeholders into project workflows
--- • CONTACT INFORMATION CENTRALIZATION: Unified contact management across all external entities
--- • GROUPING AND CATEGORIZATION: Flexible grouping of clients for project assignment and communication
--- • COMMUNICATION COORDINATION: Structured communication channels and contact preferences
--- • COMPLIANCE AND GOVERNANCE: External entity compliance tracking and regulatory management
---
--- CLIENT CLASSIFICATION PATTERNS:
--- The system supports various types of external relationships:
---
--- 1. DIRECT CLIENTS:
---    - Government agencies requiring specialized services
---    - Enterprise customers purchasing software solutions
---    - Non-profit organizations receiving pro-bono services
---    - International clients requiring localization and compliance
---
--- 2. STRATEGIC PARTNERS:
---    - Technology vendors providing specialized solutions
---    - Integration partners for joint product development
---    - Channel partners for market expansion
---    - Academic institutions for research collaboration
---
--- 3. SERVICE PROVIDERS:
---    - External consultants for specialized expertise
---    - Contractor firms for capacity augmentation
---    - Legal and financial advisory services
---    - Compliance and audit service providers
---
--- 4. REGULATORY BODIES:
---    - Government oversight agencies
---    - Industry standards organizations
---    - Privacy and security compliance authorities
---    - Professional certification bodies
---
--- CLIENT GROUP DESIGN:
--- The d_client_grp table enables sophisticated client organization:
---
--- • PROJECT-SPECIFIC GROUPING: Clients associated with specific projects or initiatives
--- • FUNCTIONAL GROUPING: Clients organized by industry, service type, or relationship model
--- • GEOGRAPHIC GROUPING: Regional client clusters for localized management
--- • TEMPORAL GROUPING: Clients grouped by contract periods or engagement phases
---
--- CONTACT INFORMATION STRUCTURE:
--- The contact jsonb field supports comprehensive contact management:
--- - Primary and secondary contact persons with roles and responsibilities
--- - Multiple communication channels (email, phone, video conferencing)
--- - Preferred communication methods and schedules
--- - Emergency contacts and escalation procedures
--- - Language preferences and accessibility requirements
---
--- REAL-WORLD PMO SCENARIOS:
---
--- 1. GOVERNMENT CLIENT ENGAGEMENT:
---    Government of Ontario Portal Project:
---    
---    Client: "Government of Ontario - Digital Services"
---    Contact: {
---      "primary": "Sarah Thompson, Director of Digital Services",
---      "email": "sarah.thompson@ontario.ca", 
---      "phone": "+1-416-555-0100",
---      "secure_email": "sarah.thompson@ontario.ca",
---      "languages": ["English", "French"],
---      "security_clearance": "Secret",
---      "preferred_communication": "secure_email"
---    }
---    
---    Client Group: "Ontario Government Stakeholders"
---    - Includes multiple government departments and agencies
---    - Associated with task heads for approval workflows
---    - Requires bilingual communication and accessibility compliance
---
--- 2. ENTERPRISE CLIENT RELATIONSHIP:
---    TechCorp Mobile App Development for Financial Institution:
---    
---    Client: "Royal Bank of Canada - Digital Innovation Lab"
---    Contact: {
---      "primary": "Michael Chen, VP Digital Products",
---      "email": "michael.chen@rbc.com",
---      "phone": "+1-416-555-0200",
---      "secondary": "Lisa Wang, Product Manager",
---      "technical_contact": "David Rodriguez, Chief Architect",
---      "business_hours": "9:00-17:00 EST",
---      "escalation": "emergency_only"
---    }
---    
---    Client Group: "Financial Services Clients"
---    - High-security requirements and compliance standards
---    - Regular communication and progress reporting
---    - Integration with bank's internal systems and procedures
---
--- 3. ACADEMIC RESEARCH PARTNERSHIP:
---    AI Analytics Platform Research Collaboration:
---    
---    Client: "University of Toronto - Computer Science Department"
---    Contact: {
---      "primary": "Dr. Jennifer Liu, Research Director",
---      "email": "j.liu@cs.toronto.edu",
---      "phone": "+1-416-978-4000",
---      "research_ethics": "approval_required",
---      "ip_contact": "tech.transfer@utoronto.ca",
---      "student_contacts": ["grad.students@cs.toronto.edu"],
---      "collaboration_agreement": "active"
---    }
---    
---    Client Group: "Academic Research Partners"
---    - Intellectual property agreements and research ethics compliance
---    - Joint publication and knowledge sharing protocols
---    - Student internship and co-op coordination
---
--- 4. VENDOR AND SUPPLIER MANAGEMENT:
---    Network Infrastructure Upgrade Project:
---    
---    Client: "Cisco Canada - Enterprise Solutions"
---    Contact: {
---      "primary": "Robert Kim, Account Manager",
---      "email": "robert.kim@cisco.com",
---      "phone": "+1-416-555-0300",
---      "technical_support": "support@cisco.com",
---      "emergency_support": "+1-800-555-0400",
---      "account_team": ["presales", "technical", "support"],
---      "contract_manager": "contracts@cisco.com"
---    }
---    
---    Client Group: "Technology Vendors"
---    - Procurement and contract management integration
---    - Technical support and maintenance coordination
---    - Product roadmap alignment and strategic planning
---
--- CLIENT-PROJECT INTEGRATION:
--- Clients integrate seamlessly with project and task management:
---
--- • PROJECT OWNERSHIP: External clients can own or sponsor projects
--- • TASK COLLABORATION: Client groups can be assigned to specific tasks
--- • APPROVAL WORKFLOWS: Client approval requirements integrated into task workflows
--- • COMMUNICATION TRACKING: All client communications linked to projects and tasks
--- • DELIVERABLE MANAGEMENT: Client review and approval of project deliverables
---
--- COMPLIANCE AND GOVERNANCE:
--- The client system supports regulatory and governance requirements:
---
--- • PRIVACY COMPLIANCE: PIPEDA, GDPR, and other privacy regulation compliance
--- • SECURITY REQUIREMENTS: Client-specific security clearances and protocols
--- • CONTRACTUAL OBLIGATIONS: Terms of service and service level agreement tracking
--- • AUDIT TRAILS: Complete communication and interaction history
--- • DATA RESIDENCY: Geographic and jurisdictional data management requirements
---
--- MULTI-TENANT AND SCALABILITY:
--- The design supports enterprise-scale client management:
--- - Thousands of client relationships across multiple business units
--- - International clients with localization and compliance requirements
--- - Integration with external CRM and ERP systems
--- - Automated communication workflows and client portal integration
---
--- COMMUNICATION AND COLLABORATION:
--- Advanced client communication capabilities:
--- - Multi-channel communication preferences and routing
--- - Automated status updates and progress reporting
--- - Client portal access for project visibility and collaboration
--- - Document sharing and collaborative editing capabilities
--- - Video conferencing and virtual meeting coordination
-
--- ============================================================================
--- DDL (Data Definition Language):
+-- DDL:
 -- ============================================================================
 
 CREATE TABLE app.d_client (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- Standard fields (audit, metadata, SCD type 2)
   name text NOT NULL,
-  contact jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "descr" text,
   tags jsonb NOT NULL DEFAULT '[]'::jsonb,
   attr jsonb NOT NULL DEFAULT '{}'::jsonb,
+  from_ts timestamptz NOT NULL DEFAULT now(),
+  to_ts timestamptz,
+  active boolean NOT NULL DEFAULT true,
   created timestamptz NOT NULL DEFAULT now(),
-  updated timestamptz NOT NULL DEFAULT now()
+  updated timestamptz NOT NULL DEFAULT now(),
+  -- Client-specific fields
+  client_parent_id uuid REFERENCES app.d_client(id) ON DELETE SET NULL,
+  contact jsonb NOT NULL DEFAULT '{}'::jsonb,
+  level_id int,
+  level_name text
 );
 
-CREATE TABLE app.d_client_grp (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  task_head_id uuid, -- FK to app.ops_task_head added after task tables
-  clients uuid[] NOT NULL DEFAULT '{}'::uuid[], -- refs d_client.id (per-element FK not enforced)
-  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
-  attr jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created timestamptz NOT NULL DEFAULT now(),
-  updated timestamptz NOT NULL DEFAULT now()
-);
 
 -- ============================================================================
--- DATA CURATION (Synthetic Data Generation):
+-- DATA CURATION:
 -- ============================================================================
 
 -- Insert comprehensive client relationships representing various stakeholder types

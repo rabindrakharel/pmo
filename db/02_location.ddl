@@ -1,95 +1,34 @@
 -- ============================================================================
--- LOCATION SCOPE HIERARCHY (Geographic and Administrative Boundaries)
+-- SEMANTICS:
 -- ============================================================================
+--
+-- Location scope hierarchy representing geographic and administrative organizational 
+-- structure for business operations, employee assignments, and regulatory compliance.
+--
+-- Hierarchy Structure:
+-- • Corp-Region → Country → Province → Region → City → Address
+-- Most granular: Address:  means the actual Address of the Corp campus. 
+-- • Supports Canadian business and governmental structures
+-- • Enables geographic permissions, regulatory compliance, and resource allocation
+-- • Integrates with PostGIS for spatial operations
 
 -- ============================================================================
--- SEMANTIC DESCRIPTION:
--- ============================================================================
---
--- The location scope hierarchy represents the geographic and administrative 
--- organizational structure within which the PMO operates. It provides the 
--- foundational geographic context for all business operations, employee 
--- assignments, project deployments, and regulatory compliance requirements.
---
--- ARCHITECTURAL PURPOSE:
--- The d_scope_location table serves as the geographic backbone that enables:
---
--- • GEOGRAPHIC ORGANIZATION: Multi-level geographic hierarchy from corporate regions to cities
--- • REGULATORY COMPLIANCE: Location-based regulatory and tax jurisdiction management
--- • WORKFORCE DISTRIBUTION: Employee and resource allocation across geographic boundaries
--- • PROJECT DEPLOYMENT: Geographic scope definition for projects and operational activities
--- • COST CENTER MANAGEMENT: Location-based budgeting and financial reporting
--- • DISASTER RECOVERY: Geographic risk assessment and business continuity planning
---
--- CANADIAN ORGANIZATIONAL CONTEXT:
--- The hierarchy specifically supports Canadian business and governmental structures:
---
--- Level 1 (Corp-Region): North America, Europe, Asia-Pacific (Corporate Regions)
--- Level 2 (Country): Canada, United States, Mexico (National Boundaries)
--- Level 3 (Province): Ontario, Quebec, British Columbia (Provincial/State)
--- Level 4 (Region): Southern Ontario, Northern Quebec (Sub-Provincial Regions)
--- Level 5 (City): Toronto, Montreal, Vancouver (Municipal Level)
---
--- GEOSPATIAL INTEGRATION:
--- Each location can optionally include geospatial data (PostGIS geometry) for:
--- - Precise geographic coordinates and boundaries
--- - Spatial queries and distance calculations
--- - Geographic Information System (GIS) integration
--- - Location-based service optimization
--- - Proximity analysis for resource allocation
---
--- HIERARCHICAL INHERITANCE PATTERNS:
--- Location permissions and properties cascade through the hierarchy:
---
--- • PARENT PERMISSIONS: Access to parent location implies access to all children
--- • REGULATORY INHERITANCE: Tax codes and regulations flow from province to cities
--- • OPERATIONAL INHERITANCE: Corporate policies cascade from region to local offices
--- • RESOURCE INHERITANCE: Budget allocations and resource pools flow down hierarchy
---
--- MULTI-DIMENSIONAL INTEGRATION:
--- Location scopes integrate with other organizational dimensions:
---
--- • BUSINESS INTEGRATION: Worksites link locations to business units
--- • HR INTEGRATION: Employees assigned to specific locations through HR hierarchy
--- • PROJECT INTEGRATION: Projects scoped to specific geographic regions
--- • COMPLIANCE INTEGRATION: Location-specific regulatory requirements and reporting
---
--- REAL-WORLD PMO SCENARIOS:
---
--- 1. MULTI-PROVINCIAL PROJECT:
---    - Project Manager has access to 'Ontario' location scope
---    - Automatically grants access to Toronto, London, Ottawa sub-locations
---    - Inherits provincial tax and regulatory compliance requirements
---    - Enables cross-city resource sharing and coordination
---
--- 2. REGIONAL SALES MANAGEMENT:
---    - Sales VP has access to 'Eastern Canada' region scope
---    - Includes Quebec, Ontario, and Maritime provinces
---    - Enables regional sales reporting and territory management
---    - Supports location-based customer relationship management
---
--- 3. REGULATORY COMPLIANCE:
---    - Privacy Officer has access to 'Canada' national scope
---    - Ensures PIPEDA compliance across all Canadian operations
---    - Manages provincial privacy variations (Quebec PPPA, etc.)
---    - Coordinates with international data transfer regulations
---
--- OPERATIONAL EFFICIENCY:
--- Location hierarchy enables operational optimizations:
--- - Resource sharing between nearby locations
--- - Travel cost optimization for cross-location projects
--- - Time zone coordination for distributed teams
--- - Local vendor and supplier management
--- - Cultural and language considerations (English/French in Canada)
-
--- ============================================================================
--- DDL (Data Definition Language):
+-- DDL:
 -- ============================================================================
 
 CREATE TABLE app.d_scope_location (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- Standard fields (audit, metadata, SCD type 2)
   name text NOT NULL,
   "descr" text,
+  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
+  attr jsonb NOT NULL DEFAULT '{}'::jsonb,
+  from_ts timestamptz NOT NULL DEFAULT now(),
+  to_ts timestamptz,
+  active boolean NOT NULL DEFAULT true,
+  created timestamptz NOT NULL DEFAULT now(),
+  updated timestamptz NOT NULL DEFAULT now(),
+  -- Location-specific fields
   addr text, -- Physical address for cities/offices
   postal_code text, -- Postal/ZIP code for precise addressing
   country_code text DEFAULT 'CA', -- ISO 3166-1 alpha-2 country code
@@ -101,26 +40,13 @@ CREATE TABLE app.d_scope_location (
   regulatory_region text, -- Regulatory classification (federal, provincial, municipal)
   tax_jurisdiction jsonb DEFAULT '{}'::jsonb, -- Tax codes and rates
   emergency_contacts jsonb DEFAULT '[]'::jsonb, -- Emergency contact information
-  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
-  from_ts timestamptz NOT NULL DEFAULT now(),
-  to_ts timestamptz,
-  active boolean NOT NULL DEFAULT true,
   level_id int NOT NULL REFERENCES app.meta_loc_level(level_id),
   parent_id uuid REFERENCES app.d_scope_location(id) ON DELETE SET NULL,
-  geom geometry(Geometry, 4326), -- PostGIS geometry for spatial operations
-  attr jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created timestamptz NOT NULL DEFAULT now(),
-  updated timestamptz NOT NULL DEFAULT now(),
-  
-  -- Constraints
-  CONSTRAINT chk_country_code CHECK (country_code ~ '^[A-Z]{2}$'),
-  CONSTRAINT chk_currency_code CHECK (currency_code ~ '^[A-Z]{3}$'),
-  CONSTRAINT chk_language_primary CHECK (language_primary IN ('en', 'fr', 'es')),
-  CONSTRAINT chk_time_zone CHECK (time_zone ~ '^[A-Za-z_]+/[A-Za-z_]+$')
+  geom geometry(Geometry, 4326) -- PostGIS geometry for spatial operations
 );
 
 -- ============================================================================
--- DATA CURATION (Synthetic Data Generation):
+-- DATA CURATION:
 -- ============================================================================
 
 -- Insert Canadian Location Hierarchy

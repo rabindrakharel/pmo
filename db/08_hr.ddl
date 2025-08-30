@@ -1,34 +1,33 @@
 -- ============================================================================
--- HR SCOPE HIERARCHY (Human Resources and Organizational Structure)
+-- SEMANTICS:
 -- ============================================================================
+--
+-- HR scope hierarchy representing human resources organizational structure 
+-- for reporting relationships, management hierarchies, and career progression paths.
+--
+-- Key Features:
+-- • Management hierarchy and reporting chains
+-- • Authority delegation and approval workflows  
+-- • Compensation planning with salary bands and bonus structures
+-- • Performance management and succession planning
 
 -- ============================================================================
--- SEMANTIC DESCRIPTION:
--- ============================================================================
---
--- The HR scope hierarchy represents the human resources organizational structure
--- that defines reporting relationships, management hierarchies, authority levels,
--- and career progression paths within the organization. It provides the foundation
--- for performance management, compensation planning, and organizational governance.
---
--- ARCHITECTURAL PURPOSE:
--- The d_scope_hr table serves as the human capital structure that enables:
---
--- • REPORTING RELATIONSHIPS: Clear management hierarchy and reporting chains
--- • AUTHORITY DELEGATION: Decision-making authority levels and approval workflows
--- • PERFORMANCE MANAGEMENT: Performance review cycles and career development paths
--- • COMPENSATION PLANNING: Salary bands, bonus structures, and equity programs
--- • SUCCESSION PLANNING: Leadership development and succession management
--- • ORGANIZATIONAL GOVERNANCE: Compliance with labor laws and HR policies
-
--- ============================================================================
--- DDL (Data Definition Language):
+-- DDL:
 -- ============================================================================
 
 CREATE TABLE app.d_scope_hr (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- Standard fields (audit, metadata, SCD type 2)
   name text NOT NULL,
   "descr" text,
+  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
+  attr jsonb NOT NULL DEFAULT '{}'::jsonb,
+  from_ts timestamptz NOT NULL DEFAULT now(),
+  to_ts timestamptz,
+  active boolean NOT NULL DEFAULT true,
+  created timestamptz NOT NULL DEFAULT now(),
+  updated timestamptz NOT NULL DEFAULT now(),
+  -- HR-specific fields
   position_code text,
   job_family text,
   job_level text,
@@ -39,15 +38,8 @@ CREATE TABLE app.d_scope_hr (
   direct_reports_max int,
   approval_limit numeric(12,2),
   bilingual_req boolean DEFAULT false,
-  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
-  from_ts timestamptz NOT NULL DEFAULT now(),
-  to_ts timestamptz,
-  active boolean NOT NULL DEFAULT true,
   level_id int NOT NULL REFERENCES app.meta_hr_level(level_id),
-  parent_id uuid REFERENCES app.d_scope_hr(id) ON DELETE SET NULL,
-  attr jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created timestamptz NOT NULL DEFAULT now(),
-  updated timestamptz NOT NULL DEFAULT now()
+  parent_id uuid REFERENCES app.d_scope_hr(id) ON DELETE SET NULL
 );
 
 CREATE TABLE app.rel_hr_biz_loc (
@@ -66,7 +58,7 @@ CREATE TABLE app.rel_hr_biz_loc (
 );
 
 -- ============================================================================
--- DATA CURATION (Synthetic Data Generation):
+-- DATA CURATION:
 -- ============================================================================
 
 -- Insert Canadian HR Hierarchy

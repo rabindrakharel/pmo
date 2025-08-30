@@ -3,124 +3,76 @@
 -- ============================================================================
 
 -- ============================================================================
--- SEMANTIC DESCRIPTION:
--- ============================================================================ 
+-- SEMANTICS:
+-- ============================================================================
 -- 
--- The d_scope_app table serves as the unified registry and foundation for the entire 
--- application's permission and access control system. It consolidates three critical 
--- application elements into a single, cohesive data structure:
+-- 🎯 **UNIFIED APP REGISTRY**
+-- • Frontend pages (routes & screens)
+-- • Backend APIs (endpoints & services)  
+-- • UI components (reusable elements)
+-- • Centralized permission control
 --
--- 1. FRONTEND PAGES: All user-facing routes and screens (/dashboard, /projects, /admin/*)
--- 2. BACKEND APIs: All server endpoints and microservices (/api/v1/emp, /api/v1/project)  
--- 3. UI COMPONENTS: Reusable interface elements (DataTable, Modal, Button, etc.)
+-- 📱 **SCOPE TYPES**
+-- • 'page': User-facing routes (/dashboard, /projects, /admin/*)
+-- • 'api-path': Server endpoints (/api/v1/emp, /api/v1/project)
+-- • 'component': UI elements (DataTable, Modal, Button, etc.)
 --
--- ARCHITECTURAL PURPOSE:
--- This table replaces the fragmented approach of separate app_scope_d_route_page and 
--- app_scope_d_component tables, providing a unified foundation for:
+-- 🔐 **PERMISSION INTEGRATION**
+-- • Granular RBAC (page, API, component level)
+-- • Dynamic UI generation (permission-based)
+-- • Security enforcement (centralized access)
+-- • Audit & compliance (complete traceability)
 --
--- • GRANULAR RBAC: Enable permission control at page, API endpoint, and component levels
--- • DYNAMIC UI: Generate navigation, menus, and interfaces based on user permissions
--- • SECURITY ENFORCEMENT: Centralized access control for all application touchpoints
--- • AUDIT & COMPLIANCE: Complete traceability of user interactions across the system
--- • MICROSERVICE COORDINATION: Unified scope reference for distributed service authorization
+-- 🏗️ **HIERARCHICAL STRUCTURE**
+-- • Parent-child relationships (Admin Dashboard → User Management → User Detail Modal)
+-- • Permission inheritance (child inherits parent unless overridden)
+-- • Nested navigation support
 --
--- PERMISSION INTEGRATION:
--- Each record in d_scope_app can be referenced by the d_scope table, which then connects
--- to the role-based permission system (rel_role_scope, rel_user_scope). This creates a
--- three-tier authorization model:
+-- 🔄 **INTEGRATION PATTERNS**
+-- User/Role → d_scope → d_scope_app → Actual Resource
 --
--- User/Role → d_scope → d_scope_app → Actual Resource (Page/API/Component)
---
--- SCOPE_TYPE SEMANTICS:
--- • 'page': Frontend routes that users navigate to. Protected pages require authentication
---           and specific permissions. Used for navigation generation and route protection.
--- • 'api-path': Backend endpoints that process business logic. Each API requires specific
---               permissions for CRUD operations. Used for request authorization.
--- • 'component': UI building blocks that may contain sensitive data or functionality.
---                Fine-grained component permissions enable hiding/showing interface elements.
---
--- SCOPE_PATH UNIFICATION:
--- The scope_path field serves different purposes based on scope_type:
--- • Pages: URL routes (/admin/users, /projects/:id)
--- • APIs: Endpoint paths (/api/v1/emp, /api/v1/project/:id)  
--- • Components: Component identifiers with optional type prefixes (datatable:UserList, modal:EditUser)
---
--- HIERARCHICAL RELATIONSHIPS:
--- parent_id enables nested permission inheritance:
--- • Admin Dashboard ← Admin User Management ← User Detail Modal ← User Edit Form
--- • Each child inherits parent permissions unless explicitly overridden
---
--- METADATA ENRICHMENT:
--- • tags: Categorization for filtering and grouping (["admin", "hr"], ["ui", "form"])
--- • attr: Extended properties (icons, HTTP methods, component variants, feature flags)
--- • is_protected: Security flag for authentication requirements
---
--- REAL-WORLD USAGE SCENARIOS:
---
--- 1. DYNAMIC NAVIGATION: Frontend queries d_scope_app for 'page' types, filtered by user
---    permissions, to build personalized navigation menus and breadcrumbs.
---
--- 2. API GATEWAY: Backend middleware checks d_scope_app for 'api-path' types to validate
---    whether the requesting user has permission to access specific endpoints.
---
--- 3. COMPONENT RENDERING: UI framework queries for 'component' types to determine which
---    interface elements to render based on user's granular permissions.
---
--- 4. AUDIT LOGGING: All user interactions reference d_scope_app entries, providing
---    complete audit trails of what users accessed, when, and with what permissions.
---
--- 5. ADMIN INTERFACES: Permission management screens use this table to present 
---    administrators with all available resources for permission assignment.
---
--- 6. FEATURE FLAGS: The attr column can store feature toggles, A/B test configurations,
---    and environment-specific settings for dynamic application behavior.
---
--- INTEGRATION WITH PMO WORKFLOW:
--- In the PMO context, this enables scenarios like:
--- • Project Managers see project pages/APIs but not HR management interfaces
--- • HR staff access employee components but not financial project data  
--- • Contractors view task-related APIs but cannot access admin configuration
--- • Executives see dashboard components with aggregated data across all scopes
---
--- This unified approach transforms traditional role-based access into a sophisticated,
--- fine-grained permission system that scales with organizational complexity while
--- maintaining security, auditability, and user experience optimization.
+-- 💼 **REAL-WORLD SCENARIOS**
+-- • Project Managers: project pages/APIs only
+-- • HR Staff: employee components only
+-- • Contractors: task-related APIs only  
+-- • Executives: dashboard components with aggregated data
 
 -- ============================================================================
--- DDL (Data Definition Language):
+-- DDL:
 -- ============================================================================
 
 -- Unified App Scope Table for components, pages, and API paths
 CREATE TABLE app.d_scope_app (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  scope_type text NOT NULL, -- 'component', 'page', 'api-path'
-  scope_path text NOT NULL, -- unified: route path for pages/api-paths, component name for components, with optional type prefix for components (e.g., 'datatable:UserList', 'modal:EditUser', '/admin/users', '/api/users')
-  name text NOT NULL,
-  "descr" text,
+  
+  -- App scope definition
+  scope_type text NOT NULL,
+  scope_path text NOT NULL,
   parent_id uuid REFERENCES app.d_scope_app(id) ON DELETE SET NULL,
   is_protected boolean NOT NULL DEFAULT false,
+  
+  -- Component/API properties
   props_schema jsonb NOT NULL DEFAULT '{}'::jsonb,
-  dependencies jsonb NOT NULL DEFAULT '[]'::jsonb, -- array of component IDs this depends on
+  dependencies jsonb NOT NULL DEFAULT '[]'::jsonb,
+  
+  -- Standard fields (audit, metadata, SCD type 2)
+  name text NOT NULL,
+  descr text,
   tags jsonb NOT NULL DEFAULT '[]'::jsonb,
   attr jsonb NOT NULL DEFAULT '{}'::jsonb,
   from_ts timestamptz NOT NULL DEFAULT now(),
   to_ts timestamptz,
   active boolean NOT NULL DEFAULT true,
   created timestamptz NOT NULL DEFAULT now(),
-  updated timestamptz NOT NULL DEFAULT now(),
-  
-  -- Constraints
-  CONSTRAINT chk_scope_type CHECK (scope_type IN ('component', 'page', 'api-path')),
-  UNIQUE(name, scope_type, active),
-  UNIQUE(scope_path, scope_type, active)
+  updated timestamptz NOT NULL DEFAULT now()
 );
 
 -- ============================================================================
--- DATA CURATION (Synthetic Data Generation):
+-- DATA CURATION:
 -- ============================================================================
 
 -- Insert Pages (Frontend Routes)
-INSERT INTO app.d_scope_app (name, "descr", scope_type, scope_path, is_protected, tags, attr) VALUES
+INSERT INTO app.d_scope_app (name, descr, scope_type, scope_path, is_protected, tags, attr) VALUES
 -- Main Application Pages
 ('Dashboard', 'Main dashboard with project and task overview', 'page', '/', true, '["dashboard", "overview"]', '{"icon": "LayoutDashboard", "order": 1}'),
 ('Dashboard Alt', 'Alternative dashboard route', 'page', '/dashboard', true, '["dashboard", "overview"]', '{"icon": "LayoutDashboard", "order": 1}'),
@@ -161,7 +113,7 @@ INSERT INTO app.d_scope_app (name, "descr", scope_type, scope_path, is_protected
 ('Admin Webhooks', 'Webhook configuration', 'page', '/admin/webhooks', true, '["admin", "webhooks", "integration"]', '{"icon": "Webhook", "admin": true}');
 
 -- Insert API Paths (Backend Endpoints)
-INSERT INTO app.d_scope_app (name, "descr", scope_type, scope_path, is_protected, tags, attr) VALUES
+INSERT INTO app.d_scope_app (name, descr, scope_type, scope_path, is_protected, tags, attr) VALUES
 -- Health and Authentication
 ('Health Check', 'API health status endpoint', 'api-path', '/api/health', false, '["health", "monitoring"]', '{"method": "GET", "public": true}'),
 ('Auth Login', 'User authentication endpoint', 'api-path', '/api/v1/auth/login', false, '["auth", "login"]', '{"method": "POST", "public": true}'),
@@ -202,7 +154,7 @@ INSERT INTO app.d_scope_app (name, "descr", scope_type, scope_path, is_protected
 ('Meta API', 'System meta configuration', 'api-path', '/api/v1/meta', true, '["meta", "configuration"]', '{"methods": ["GET", "POST", "PUT", "DELETE"]}');
 
 -- Insert Components (UI Components)
-INSERT INTO app.d_scope_app (name, "descr", scope_type, scope_path, is_protected, tags, attr) VALUES
+INSERT INTO app.d_scope_app (name, descr, scope_type, scope_path, is_protected, tags, attr) VALUES
 -- Layout Components
 ('Layout', 'Main application layout wrapper', 'component', 'Layout', false, '["layout", "wrapper"]', '{"type": "layout", "reusable": true}'),
 ('Sidebar', 'Application navigation sidebar', 'component', 'Sidebar', false, '["layout", "navigation"]', '{"type": "navigation", "position": "left"}'),

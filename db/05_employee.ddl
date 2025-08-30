@@ -1,96 +1,34 @@
 -- ============================================================================
--- EMPLOYEE MANAGEMENT (Identity, Authentication, and People Data)
+-- SEMANTICS:
 -- ============================================================================
+--
+-- Employee table serves as central identity and authentication repository for all 
+-- human resources, consolidating personal identity, authentication credentials, 
+-- and demographic information for HR and access control operations.
+--
+-- Key Features:
+-- • Identity management and authentication (JWT, email-based login)
+-- • Profile management with Canadian privacy compliance (PIPEDA)
+-- • Role-based access control foundation
+-- • HR integration and employee lifecycle management
 
 -- ============================================================================
--- SEMANTIC DESCRIPTION:
--- ============================================================================
---
--- The employee table serves as the central identity and authentication repository
--- for all human resources within the PMO system. It consolidates personal identity,
--- authentication credentials, and basic demographic information into a unified
--- employee record that serves as the foundation for all HR and access control operations.
---
--- ARCHITECTURAL PURPOSE:
--- The d_emp table serves as the identity backbone that enables:
---
--- • IDENTITY MANAGEMENT: Centralized employee identity and unique identification
--- • AUTHENTICATION: Secure login credentials and password management
--- • PROFILE MANAGEMENT: Basic employee information and contact details
--- • RBAC FOUNDATION: Primary entity for all role-based access control assignments
--- • AUDIT TRAILS: User attribution for all system activities and transactions
--- • HR INTEGRATION: Foundation for HR processes and employee lifecycle management
---
--- AUTHENTICATION INTEGRATION:
--- Employee records support modern authentication patterns:
--- - JWT token-based authentication with secure password hashing (bcrypt)
--- - Email-based login for user-friendly authentication
--- - Password reset and credential management workflows
--- - Multi-factor authentication support through attr field
--- - Single sign-on (SSO) integration capabilities
---
--- CANADIAN CONTEXT:
--- Employee data management considers Canadian privacy and employment regulations:
--- - Personal Information Protection and Electronic Documents Act (PIPEDA) compliance
--- - Provincial privacy legislation compliance (Quebec PPPA, etc.)
--- - Employment equity and diversity reporting capabilities
--- - Bilingual contact and communication preferences
--- - Canadian address formats and postal code validation
---
--- PRIVACY AND SECURITY:
--- Employee data protection follows privacy-by-design principles:
--- - Minimal data collection with explicit purpose limitation
--- - Secure password storage using industry-standard hashing
--- - Audit logging for all access and modifications
--- - Data retention policies and right-to-be-forgotten support
--- - Role-based access to sensitive employee information
---
--- INTEGRATION PATTERNS:
--- Employee records integrate with all system components:
---
--- • HR HIERARCHY: Employees assigned to HR positions through rel_emp_role
--- • BUSINESS UNITS: Employee assignments to business units through projects and tasks
--- • LOCATION ASSIGNMENTS: Geographic assignments through worksite and project associations
--- • PROJECT ASSIGNMENTS: Task assignments and project team memberships
--- • PERMISSION SYSTEM: Direct permissions through rel_user_scope
--- • ROLE ASSIGNMENTS: Role-based permissions through rel_emp_role
---
--- REAL-WORLD PMO SCENARIOS:
---
--- 1. EMPLOYEE ONBOARDING:
---    - New employee record created with basic profile information
---    - Authentication credentials established with secure password
---    - Role assignments made based on job position and responsibilities
---    - Business unit and location assignments configured
---    - Project access granted based on role and business unit scope
---
--- 2. AUTHENTICATION AND ACCESS:
---    - Employee logs in using email and password
---    - JWT token generated with employee ID and basic profile information
---    - Permission system queries rel_user_scope for employee access rights
---    - Business context determined through role and business unit assignments
---
--- 3. EMPLOYEE LIFECYCLE:
---    - Profile updates tracked through updated timestamp
---    - Role changes reflected in permission assignments
---    - Location transfers updated through business and location associations
---    - Departure handled through active flag and data retention policies
---
--- SCALABILITY AND PERFORMANCE:
--- Employee table design supports enterprise-scale operations:
--- - Efficient indexing on email for authentication lookups
--- - Optimized queries for permission resolution
--- - Audit trail support without performance degradation
--- - Bulk operations support for HR processes
-
--- ============================================================================
--- DDL (Data Definition Language)
+-- DDL:
 -- ============================================================================
 
-CREATE TABLE app.d_emp (
+CREATE TABLE app.d_employee (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- Standard fields (audit, metadata, SCD type 2)
   name text NOT NULL,
   "descr" text,
+  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
+  attr jsonb NOT NULL DEFAULT '{}'::jsonb,
+  from_ts timestamptz NOT NULL DEFAULT now(),
+  to_ts timestamptz,
+  active boolean NOT NULL DEFAULT true,
+  created timestamptz NOT NULL DEFAULT now(),
+  updated timestamptz NOT NULL DEFAULT now(),
+  -- Employee-specific fields
   addr text,
   email text UNIQUE,
   password_hash text,
@@ -102,24 +40,20 @@ CREATE TABLE app.d_emp (
   emp_code text,
   hire_date date,
   status text DEFAULT 'active',
-  employment_type text DEFAULT 'full_time',
+  employment_type text DEFAULT 'full_time', --contingent, intern, part_time, full_time, contractor, co-op
   work_mode text DEFAULT 'office',
   security_clearance text DEFAULT 'internal',
   skills jsonb NOT NULL DEFAULT '[]'::jsonb,
   certifications jsonb NOT NULL DEFAULT '[]'::jsonb,
   education jsonb NOT NULL DEFAULT '[]'::jsonb,
-  labels jsonb NOT NULL DEFAULT '[]'::jsonb,
-  attr jsonb NOT NULL DEFAULT '{}'::jsonb,
-  active boolean NOT NULL DEFAULT true,
-  created timestamptz NOT NULL DEFAULT now(),
-  updated timestamptz NOT NULL DEFAULT now()
+  labels jsonb NOT NULL DEFAULT '[]'::jsonb
 );
 
 -- ============================================================================
--- DATA CURATION (Synthetic Data)
+-- DATA CURATION:
 -- ============================================================================
 
-INSERT INTO app.d_emp (
+INSERT INTO app.d_employee (
   name, "descr", addr, email, password_hash, phone, mobile, emergency_contact,
   lang, birth_date, emp_code, hire_date, status, employment_type, work_mode,
   security_clearance, skills, certifications, education, labels, attr

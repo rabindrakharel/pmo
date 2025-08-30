@@ -20,12 +20,21 @@ then consolidate all db/*.ddl into schema.sql, followed by datacuration sqls. Do
 sh /home/rabin/projects/pmo/tools/db-import.sh --verbose
 
 CURATE DATA ----------------------------------------------
-curate some additional data for app_scope_d_route_page & rel_scope_permission, give users access to all pages for now, 
-make update to necessary apis in : /home/rabin/projects/pmo/apps/api/src/modules/
-and apps/api/src/modules/README.md,
-once update are made drop all tables from db, and re run db/schema.sql
-Lastly update the respective .md files to reflect the source of truth. 
-Run api test to confirm the behavior is all working for each of the API. 
+Curate very meaningful and deeply coorelated data for a home services for 1 company called 'Huron Home Services' that has different departments:
+landscaping
+plumbing
+heating
+snow Removal
+electrical
+Solar Installation
+, 
+Has office in Missisuaga, Toronto, London has 3 locations
+, can have worksite which are client's address
+, employee can be employment type --contingent, intern, part_time, full_time, contractor, co-op
+These contractor are based of a particular location, but serve different worksites. 
+Start from the the top .ddl file and keep building downward, and curate very meaningful data relationship. 
+May be first think of all levels, addressess, name and designation against department; then curate the data. 
+Project can be: Fall 2025 Landscaping, Winter 2025 SnowRemoval, Tank Water Heater replacement, etc. 
 
 
 rbac testing: 
@@ -83,7 +92,8 @@ api index.ts: apps/api/src/modules/index.ts
 README.md list --------------------------------
 Data model: /home/rabin/projects/pmo/db/README.md
 view datamodel curated data & schema: db/schema.sql
-always use tools to stop, start the server, or drop, recreate data/schema: tools/README.md
+always use tools to stop, start the server, or drop, recreate data schema, or test import to db
+tools/README.md
 for api reference, always refer to api readme: apps/api/src/modules/README.md
 api index.ts: apps/api/src/modules/index.ts
 web component, page, ui reference: apps/web/src/README.md

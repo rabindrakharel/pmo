@@ -55,7 +55,8 @@
       "Bash(cat:*)",
       "Bash(/dev/null)",
       "Bash(./tools/db-drop.sh:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(sh:*)"
     ],
     "deny": [],
     "ask": [],

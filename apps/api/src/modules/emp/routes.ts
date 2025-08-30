@@ -161,7 +161,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // Get total count
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total 
-        FROM app.d_emp 
+        FROM app.d_employee 
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
@@ -200,7 +200,7 @@ export async function empRoutes(fastify: FastifyInstance) {
           to_ts as "toTs",
           created,
           updated
-        FROM app.d_emp 
+        FROM app.d_employee 
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY name ASC NULLS LAST, created DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -279,7 +279,7 @@ export async function empRoutes(fastify: FastifyInstance) {
           to_ts as "toTs",
           created,
           updated
-        FROM app.d_emp 
+        FROM app.d_employee 
         WHERE id = ${id}
       `);
 
@@ -323,7 +323,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // Check for unique employee number if provided
       if (data.employeeNumber) {
         const existingEmpNumber = await db.execute(sql`
-          SELECT id FROM app.d_emp WHERE employee_number = ${data.employeeNumber} AND active = true
+          SELECT id FROM app.d_employee WHERE employee_number = ${data.employeeNumber} AND active = true
         `);
         if (existingEmpNumber.length > 0) {
           return reply.status(400).send({ error: 'Employee with this employee number already exists' });
@@ -333,7 +333,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // Check for unique email if provided
       if (data.email) {
         const existingEmail = await db.execute(sql`
-          SELECT id FROM app.d_emp WHERE email = ${data.email} AND active = true
+          SELECT id FROM app.d_employee WHERE email = ${data.email} AND active = true
         `);
         if (existingEmail.length > 0) {
           return reply.status(400).send({ error: 'Employee with this email already exists' });
@@ -348,7 +348,7 @@ export async function empRoutes(fastify: FastifyInstance) {
 
       const fromTs = data.fromTs || new Date().toISOString();
       const result = await db.execute(sql`
-        INSERT INTO app.d_emp (
+        INSERT INTO app.d_employee (
           name, "descr", addr, email, password_hash, phone, mobile,
           emergency_contact, preferred_language, date_of_birth, employee_number,
           hire_date, termination_date, employment_status, employment_type,
@@ -427,7 +427,7 @@ export async function empRoutes(fastify: FastifyInstance) {
     try {
       // Check if employee exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_emp WHERE id = ${id}
+        SELECT id FROM app.d_employee WHERE id = ${id}
       `);
       
       if (existing.length === 0) {
@@ -437,7 +437,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // Check for unique employee number on update
       if (data.employeeNumber) {
         const existingEmpNumber = await db.execute(sql`
-          SELECT id FROM app.d_emp WHERE employee_number = ${data.employeeNumber} AND active = true AND id != ${id}
+          SELECT id FROM app.d_employee WHERE employee_number = ${data.employeeNumber} AND active = true AND id != ${id}
         `);
         if (existingEmpNumber.length > 0) {
           return reply.status(400).send({ error: 'Employee with this employee number already exists' });
@@ -447,7 +447,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // Check for unique email on update
       if (data.email) {
         const existingEmail = await db.execute(sql`
-          SELECT id FROM app.d_emp WHERE email = ${data.email} AND active = true AND id != ${id}
+          SELECT id FROM app.d_employee WHERE email = ${data.email} AND active = true AND id != ${id}
         `);
         if (existingEmail.length > 0) {
           return reply.status(400).send({ error: 'Employee with this email already exists' });
@@ -565,7 +565,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_emp 
+        UPDATE app.d_employee 
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING 
@@ -622,7 +622,7 @@ export async function empRoutes(fastify: FastifyInstance) {
     try {
       // Check if employee exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_emp WHERE id = ${id}
+        SELECT id FROM app.d_employee WHERE id = ${id}
       `);
       
       if (existing.length === 0) {
@@ -631,7 +631,7 @@ export async function empRoutes(fastify: FastifyInstance) {
 
       // Soft delete
       await db.execute(sql`
-        UPDATE app.d_emp 
+        UPDATE app.d_employee 
         SET active = false, to_ts = NOW(), updated = NOW()
         WHERE id = ${id}
       `);
@@ -693,7 +693,7 @@ export async function empRoutes(fastify: FastifyInstance) {
           to_ts as "toTs",
           created,
           updated
-        FROM app.d_emp 
+        FROM app.d_employee 
         WHERE id = ${id}
       `);
 
@@ -760,7 +760,7 @@ export async function empRoutes(fastify: FastifyInstance) {
     try {
       // Get current password hash
       const employee = await db.execute(sql`
-        SELECT password_hash FROM app.d_emp WHERE id = ${id} AND active = true
+        SELECT password_hash FROM app.d_employee WHERE id = ${id} AND active = true
       `);
 
       if (employee.length === 0) {
@@ -775,7 +775,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // Update password
       const newPasswordHash = await bcrypt.hash(newPassword, 10);
       await db.execute(sql`
-        UPDATE app.d_emp 
+        UPDATE app.d_employee 
         SET password_hash = ${newPasswordHash}, updated = NOW()
         WHERE id = ${id}
       `);
@@ -833,7 +833,7 @@ export async function empRoutes(fastify: FastifyInstance) {
           security_clearance as "securityClearance", photo_url as "photoUrl",
           biography, skills, certifications, education, tags,
           active, from_ts as "fromTs", to_ts as "toTs", created, updated
-        FROM app.d_emp 
+        FROM app.d_employee 
         WHERE id = ${id} AND active = true
       `);
 
@@ -861,7 +861,7 @@ export async function empRoutes(fastify: FastifyInstance) {
             security_clearance as "securityClearance", photo_url as "photoUrl",
             biography, skills, certifications, education, tags,
             active, from_ts as "fromTs", to_ts as "toTs", created, updated
-          FROM app.d_emp 
+          FROM app.d_employee 
           WHERE id = ${emp.managerEmpId!} AND active = true
         `);
         manager = managerResult[0] || null;
@@ -880,7 +880,7 @@ export async function empRoutes(fastify: FastifyInstance) {
           security_clearance as "securityClearance", photo_url as "photoUrl",
           biography, skills, certifications, education, tags,
           active, from_ts as "fromTs", to_ts as "toTs", created, updated
-        FROM app.d_emp 
+        FROM app.d_employee 
         WHERE manager_emp_id = ${id} AND active = true
         ORDER BY name
       `);
@@ -901,7 +901,7 @@ export async function empRoutes(fastify: FastifyInstance) {
             biography, skills, certifications, education, tags,
             active, from_ts as "fromTs", to_ts as "toTs", created, updated,
             1 as level
-          FROM app.d_emp 
+          FROM app.d_employee 
           WHERE id = ${emp.managerEmpId || 'null'} AND active = true
           
           UNION ALL
@@ -919,7 +919,7 @@ export async function empRoutes(fastify: FastifyInstance) {
             e.biography, e.skills, e.certifications, e.education, e.tags,
             e.active, e.from_ts as "fromTs", e.to_ts as "toTs", e.created, e.updated,
             mh.level + 1
-          FROM app.d_emp e
+          FROM app.d_employee e
           INNER JOIN manager_hierarchy mh ON e.id = mh."managerEmpId"
           WHERE e.active = true AND mh.level < 10  -- Prevent infinite recursion
         )

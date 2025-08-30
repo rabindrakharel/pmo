@@ -1,131 +1,50 @@
 -- ============================================================================
--- WORKSITE SCOPE HIERARCHY (Physical Service Sites and Operational Facilities)
+-- SEMANTICS:
 -- ============================================================================
+--
+-- Worksite scope hierarchy representing physical sites where work is performed 
+-- or projects are executed. Different from location scope in that worksites are 
+-- specific operational facilities linked to both geographic locations and business units.
+--
+-- Key Features:
+-- • Physical operations management and resource allocation
+-- • Site-specific safety protocols and compliance requirements
+-- • Integration with location and business dimensions
+-- • Support for temporary and permanent operational facilities
 
 -- ============================================================================
--- SEMANTIC DESCRIPTION:
+-- DDL:
 -- ============================================================================
---
--- The worksite scope hierarchy represents the physical operational facilities
--- and service sites where business activities are conducted. It provides the
--- foundational infrastructure context for project execution, resource deployment,
--- and operational management across distributed physical locations.
---
--- ARCHITECTURAL PURPOSE:
--- The d_scope_worksite table serves as the physical infrastructure backbone that enables:
---
--- • PHYSICAL OPERATIONS: Management of physical sites where work is performed
--- • RESOURCE ALLOCATION: Equipment, materials, and personnel assignment to specific sites
--- • OPERATIONAL COORDINATION: Site-specific operational procedures and workflows
--- • SAFETY MANAGEMENT: Site safety protocols, emergency procedures, and compliance
--- • ASSET MANAGEMENT: Physical asset tracking and maintenance across worksites
--- • SERVICE DELIVERY: Client service delivery and project execution locations
---
--- WORKSITE CLASSIFICATION DESIGN:
--- Worksites are classified by their operational purpose and characteristics:
---
--- Type 1 (Corporate Office): Headquarters, regional offices, administrative centers
--- Type 2 (Development Center): R&D facilities, software development centers, labs
--- Type 3 (Service Delivery): Client sites, field offices, temporary project locations
--- Type 4 (Data Center): IT infrastructure, server farms, cloud facilities
--- Type 5 (Warehouse/Logistics): Storage facilities, distribution centers, supply depots
--- Type 6 (Manufacturing): Production facilities, assembly plants, workshops
---
--- GEOGRAPHIC AND BUSINESS INTEGRATION:
--- Worksites bridge geographic and business organizational dimensions:
--- - Each worksite is tied to a specific geographic location (d_scope_location)
--- - Each worksite can be owned/operated by specific business units (d_scope_business)
--- - Projects are executed at specific worksites with local resource access
--- - Employees are assigned to worksites for operational coordination
---
--- OPERATIONAL INTEGRATION:
--- Worksite scopes integrate with operational activities:
--- - Projects reference worksites for execution location and resource access
--- - Tasks inherit worksite context for local operational requirements
--- - Equipment and materials are allocated to specific worksites
--- - Safety and compliance requirements are site-specific
---
--- MULTI-DIMENSIONAL COORDINATION:
--- Worksite hierarchy enables cross-functional operations:
---
--- • LOCATION-BUSINESS MATRIX: Worksites link geographic and business dimensions
--- • RESOURCE OPTIMIZATION: Shared resources between nearby worksites
--- • OPERATIONAL EFFICIENCY: Site-specific procedures and local expertise
--- • COMPLIANCE MANAGEMENT: Site-specific regulatory and safety requirements
---
--- REAL-WORLD PMO SCENARIOS:
---
--- 1. MULTI-SITE PROJECT EXECUTION:
---    - Platform Modernization project spans Toronto HQ and Montreal Development Center
---    - Resources allocated across multiple worksites with local expertise
---    - Site-specific compliance and security requirements managed
---    - Equipment and infrastructure shared between nearby worksites
---
--- 2. CLIENT SERVICE DELIVERY:
---    - Client Portal project deployed at client worksite in Ottawa
---    - Temporary project team established at client location
---    - Local regulations and client security protocols enforced
---    - Remote coordination with Toronto development team
---
--- 3. DISASTER RECOVERY AND BUSINESS CONTINUITY:
---    - Primary operations at Toronto HQ disrupted
---    - Operations transferred to backup worksite in Mississauga
---    - Resources and personnel relocated based on worksite capabilities
---    - Service delivery continued with minimal disruption
---
--- OPERATIONAL CHARACTERISTICS:
--- Each worksite maintains specific operational attributes:
--- - Physical infrastructure and capacity specifications
--- - Security clearance levels and access control requirements
--- - Available equipment, tools, and technological capabilities
--- - Local regulatory compliance and safety protocols
--- - Emergency procedures and disaster recovery plans
---
--- SCALABILITY AND FLEXIBILITY:
--- Worksite design supports operational growth:
--- - Dynamic worksite establishment for temporary projects
--- - Flexible capacity allocation based on project requirements
--- - Integration with external partner and contractor facilities
--- - Support for remote and hybrid work arrangements
 
--- ============================================================================
--- DDL (Data Definition Language):
--- ============================================================================
 
 CREATE TABLE app.d_scope_worksite (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- Standard fields (audit, metadata, SCD type 2)
   name text NOT NULL,
   "descr" text,
+  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
+  attr jsonb NOT NULL DEFAULT '{}'::jsonb,
+  from_ts timestamptz NOT NULL DEFAULT now(),
+  to_ts timestamptz,
+  active boolean NOT NULL DEFAULT true,
+  created timestamptz NOT NULL DEFAULT now(),
+  updated timestamptz NOT NULL DEFAULT now(),
+  -- Worksite-specific fields
   worksite_code text,
   worksite_type text DEFAULT 'office',
   operational_status text DEFAULT 'active',
-
-  -- Location and Business relationships
   loc_id uuid REFERENCES app.d_scope_location(id) ON DELETE SET NULL,
   biz_id uuid,
-
-  -- Operational details
   security_level text DEFAULT 'standard',
   access_hours jsonb DEFAULT '{"weekdays": "08:00-18:00", "weekend": "closed"}'::jsonb,
   emergency_contacts jsonb DEFAULT '[]'::jsonb,
   safety_protocols jsonb DEFAULT '{}'::jsonb,
-
-  -- Geospatial and operational
   geom geometry(Geometry, 4326),
-  timezone text DEFAULT 'America/Toronto',
-
-  -- Standard audit fields
-  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
-  from_ts timestamptz NOT NULL DEFAULT now(),
-  to_ts timestamptz,
-  active boolean NOT NULL DEFAULT true,
-  attr jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created timestamptz NOT NULL DEFAULT now(),
-  updated timestamptz NOT NULL DEFAULT now()
+  timezone text DEFAULT 'America/Toronto'
 );
 
 -- ============================================================================
--- DATA CURATION (Synthetic Data Generation):
+-- DATA CURATION:
 -- ============================================================================
 
 -- Insert Canadian Technology Corporation Worksite Infrastructure

@@ -4,12 +4,13 @@ This document provides complete documentation for the PMO API system, covering t
 
 ## 🚨 **CURRENT STATUS (2025-08-28)**
 
-### ✅ **DATABASE SCHEMA: FULLY IMPLEMENTED**
-- **24 Tables**: Complete PMO database with 5 main categories
-- **Hierarchical Scopes**: Business, Location, HR with parent-child relationships
+### ✅ **DATABASE SCHEMA: FULLY IMPLEMENTED & OPTIMIZED**
+- **24 Tables**: Complete PMO database with 5 main categories in dependency-optimized order (00-13)
+- **Hierarchical Scopes**: Business (6 levels), Location (8 levels), HR (20 levels) with parent-child relationships  
 - **Temporal Data**: Head/Record pattern for projects and tasks with full audit trails
-- **RBAC Foundation**: Comprehensive permission system with `rel_user_scope` integration
-- **Meta Tables**: Status, stage, and level definitions for workflow management
+- **RBAC Foundation**: Comprehensive permission system with `rel_employee_scope_unified` integration
+- **Expanded Meta Tables**: 16 project statuses, 15 task statuses, 14 kanban stages for comprehensive workflow management
+- **Standard Field Ordering**: All dimension tables follow consistent field pattern (name, descr, tags, attr, timestamps first)
 
 ### ✅ **API MODULES: 9 OF 10 COMPLETED** 
 - **Authentication**: Full JWT system with bcrypt password hashing
@@ -169,14 +170,14 @@ erDiagram
     rel_emp_role }o--|| d_role : "role assignments"
 ```
 
-### **1. Meta Configuration Tables (7 tables)**
-- **meta_biz_level**: 5-level business hierarchy (Corporation → Team)
-- **meta_loc_level**: 5-level location hierarchy (Corp-Region → City)
-- **meta_hr_level**: 8-level HR hierarchy (C-Level → Individual)
-- **meta_project_status**: Project workflow states (Draft → Completed)
-- **meta_project_stage**: Project phases (Initiation → Closure)
-- **meta_task_status**: Task workflow (Open → Done)
-- **meta_task_stage**: Task stages (Backlog → Review → Done)
+### **1. Meta Configuration Tables (7 tables) - EXPANDED DATA**
+- **meta_biz_level**: 6-level business hierarchy (Corporation → Division → Department → Team → Squad → Sub-team)  
+- **meta_loc_level**: 8-level location hierarchy (Corp-Region → Country → Province → Economic Region → Metro → City → District → Address)
+- **meta_hr_level**: 20-level HR hierarchy (CEO → C-Level → SVP/EVP → VP → Directors → Managers → Team Leads → Professionals → Interns)
+- **meta_project_status**: 16 comprehensive project statuses (Draft → Submitted → Planning → Active → At Risk → Critical → Completed → Delivered)
+- **meta_project_stage**: 5 PMBOK-aligned project stages (Initiation → Planning → Execution → Monitoring & Controlling → Closure)  
+- **meta_task_status**: 15 development lifecycle statuses (Open → Assigned → In Progress → Code Review → Testing → Done → Deployed → Verified)
+- **meta_task_stage**: 14 enhanced Kanban stages (Icebox → Backlog → Ready → In Progress → Code Review → Testing → UAT → Deployed → Done)
 
 ### **2. Scope Hierarchy Tables (5 tables)**
 - **d_scope_business**: Organizational structure with budgets and cost centers
@@ -185,12 +186,12 @@ erDiagram
 - **d_scope_worksite**: Physical facilities linking business and location
 - **d_scope_app**: Application pages and components with permissions
 
-### **3. Domain Tables (5 tables)**
-- **d_emp**: Employee master with JWT authentication (email/password)
-- **d_role**: Role definitions with authority levels
-- **d_client**: External client entities with contact information
+### **3. Domain Tables (5 tables) - STANDARDIZED FIELDS**
+- **d_employee**: Employee master with JWT authentication (email/password) - Renamed from d_emp for clarity
+- **d_role**: Role definitions with authority levels and approval limits
+- **d_client**: External client entities with hierarchical contact information  
 - **d_client_grp**: Client groups for project stakeholder management
-- **d_emp_grp**: Task team assignments with roles and allocation
+- **d_employee_grp**: Task team assignments with roles and allocation percentages
 
 ### **4. Operational Tables (5 tables)**
 - **ops_project_head**: Project definitions with scope assignments (immutable)
@@ -200,21 +201,27 @@ erDiagram
 - **ops_formlog_head**: Dynamic form system with scope-based access
 
 ### **5. Permission Tables (2 tables)**
-- **rel_user_scope**: Direct user permissions across all scope types
+- **rel_employee_scope_unified**: Direct user permissions across all scope types (renamed from rel_user_scope)
 - **rel_emp_role**: Employee role assignments with temporal validity
 
 ### **RBAC Permission System**
 
 ```sql
--- Core permission structure
-rel_user_scope (
+-- Core permission structure (updated table name and fields)
+rel_employee_scope_unified (
   emp_id uuid,              -- Employee/user ID  
-  scope_type text,          -- 'app', 'business', 'location', 'hr', 'worksite', 'project', 'task', 'route_page'
-  scope_id uuid,            -- Specific entity ID within scope_type
-  scope_name text,          -- Human-readable scope name
-  scope_permission int[],   -- [0:VIEW, 1:MODIFY, 2:SHARE, 3:DELETE, 4:CREATE]
-  active boolean,           -- Permission is active
-  from_ts/to_ts            -- Temporal validity
+  scope_id uuid,            -- Reference to d_scope_unified.id
+  resource_type text,       -- Resource type identifier
+  resource_id text,         -- Specific resource ID
+  resource_permission jsonb,-- Permission structure as JSON
+  name text,                -- Human-readable permission name
+  descr text,               -- Permission description
+  -- Standard fields
+  tags jsonb,               -- Permission tags
+  attr jsonb,               -- Additional attributes
+  from_ts/to_ts,           -- Temporal validity
+  active boolean,          -- Permission is active
+  created/updated          -- Audit timestamps
 )
 ```
 
@@ -963,7 +970,62 @@ POST /api/v1/scope/business
 
 This refactored API system provides a solid foundation for secure, scalable project management operations with proper RBAC enforcement.
 
-## Recent Updates (2025-08-27)
+## Recent Updates (2025-08-30)
+
+### Database Schema Reorganization & Standardization
+
+#### **File Dependency Optimization (Major Update)**
+- **Reordered DDL Files**: 00-13 dependency-optimized loading order
+  - `00_extensions.ddl` → `01_meta.ddl` → `02_location.ddl` → `03_business.ddl` → ... → `13_permission_tables.ddl`
+- **Dependency Resolution**: Proper loading sequence eliminates foreign key reference errors
+- **Clean Import Process**: Each file can be loaded sequentially without dependency conflicts
+
+#### **Standard Field Ordering (Breaking Change)**
+All dimension tables now follow consistent field pattern:
+```sql
+CREATE TABLE app.d_dimension_table (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- Standard fields (audit, metadata, SCD type 2) - ALWAYS FIRST
+  name text NOT NULL,
+  "descr" text,
+  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
+  attr jsonb NOT NULL DEFAULT '{}'::jsonb,
+  from_ts timestamptz NOT NULL DEFAULT now(),
+  to_ts timestamptz,
+  active boolean NOT NULL DEFAULT true,
+  created timestamptz NOT NULL DEFAULT now(),
+  updated timestamptz NOT NULL DEFAULT now(),
+  -- Table-specific fields follow...
+)
+```
+
+#### **Expanded Meta Data (5x Growth)**
+- **Business Levels**: 5 → 6 levels with governance models and methodology support
+- **Location Levels**: 5 → 8 levels with full Canadian geographic structure  
+- **HR Levels**: 8 → 20 levels with complete salary bands (CAD $18K-$600K)
+- **Project Status**: 7 → 16 statuses with governance and risk management states
+- **Task Status**: 6 → 15 statuses covering full development lifecycle
+- **Task Stages**: 6 → 14 Kanban stages with WIP limits and deployment workflow
+
+#### **Table Standardization**
+- **Naming Consistency**: `d_emp` → `d_employee` for clarity
+- **Permission Structure**: `rel_user_scope` → `rel_employee_scope_unified` 
+- **Field Standardization**: All tables use consistent `name`, `descr`, `tags`, `attr` pattern
+- **Foreign Key Alignment**: 22 FK relationships properly documented and working
+
+#### **API Module Updates**
+- **Employee Module**: Updated all references from `app.d_emp` to `app.d_employee`  
+- **Schema Compatibility**: All existing API endpoints remain compatible
+- **Enhanced Meta Support**: Meta APIs handle expanded data structures
+- **Standard Field Support**: APIs work with new field ordering without changes
+
+#### **Development Impact**
+- **Database Imports**: Must follow new 00-13 file order for clean imports
+- **API Compatibility**: Existing frontend code continues to work without changes  
+- **Query Performance**: Standard field ordering improves cache efficiency
+- **Maintenance**: Consistent patterns across all tables simplify development
+
+## Previous Updates (2025-08-27)
 
 ### Schema Field Standardization
 - **Field Rename**: All `desc` fields changed to `descr` across all modules and database schema
