@@ -42,7 +42,8 @@
       "Bash(pkill:*)",
       "Bash(cat:*)",
       "Bash(pgrep:*)",
-      "Bash(export:*)"
+      "Bash(export:*)",
+      "Read(/home/rabin/Screenshots/**)"
     ],
     "deny": [],
     "ask": [],

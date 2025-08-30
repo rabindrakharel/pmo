@@ -102,7 +102,8 @@ export function AccessBoundary({
 
       try {
         // Use the existing /api/v1/auth/permissions endpoint
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/v1/auth/permissions`, {
+        const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000/api';
+        const response = await fetch(`${API_BASE_URL}/v1/auth/permissions`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
             'Content-Type': 'application/json',

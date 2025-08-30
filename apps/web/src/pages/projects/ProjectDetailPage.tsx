@@ -57,27 +57,7 @@ export function ProjectDetailPage() {
     enabled: !!id,
   });
 
-  // Fetch project status
-  const { data: projectStatus } = useQuery({
-    queryKey: ['project', id, 'status'], 
-    queryFn: async () => {
-      try {
-        const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000/api';
-        const response = await fetch(`${API_BASE_URL}/v1/project/${id}/status`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        if (!response.ok) throw new Error('Failed to fetch project status');
-        return response.json();
-      } catch (error) {
-        console.warn('Project status endpoint not available:', error);
-        return null;
-      }
-    },
-    enabled: !!id,
-  });
+  // Note: Project status endpoint doesn't exist yet, using project data instead
 
   // Fetch tasks for this project using new project-task endpoint
   const { data: tasksData, isLoading: tasksLoading, error: tasksError } = useQuery({
@@ -259,7 +239,7 @@ export function ProjectDetailPage() {
               <Badge 
                 variant={projectData.active ? 'default' : 'secondary'}
               >
-                {projectStatus?.currentStatus?.statusName || (projectData.active ? 'Active' : 'Inactive')}
+                {projectData.project_status || (projectData.active ? 'Active' : 'Inactive')}
               </Badge>
             </div>
             {projectData.slug && (

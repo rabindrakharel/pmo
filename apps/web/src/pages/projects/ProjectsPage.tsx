@@ -466,10 +466,6 @@ export function ProjectsPage() {
         searchPlaceholder="Search projects..."
         resource="project"
         onCreateNew={handleCreateNew}
-        onView={handleView}
-        onEdit={handleEdit}
-        onShare={handleShare}
-        onDelete={handleDelete}
         pageSize={pageSize}
         totalCount={totalCount}
         currentPage={currentPage}
