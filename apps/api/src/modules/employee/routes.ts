@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { checkScopeAccess } from '../rbac/scope-auth.js';
+import { hasPermissionOnAPI } from '../rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
@@ -103,9 +103,10 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'view', undefined);
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
+    // Check if employee has access to view employees via API endpoint
+    const hasAPIAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/employees', 'view');
+    if (!hasAPIAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to access employees API' });
     }
 
     try {
@@ -219,9 +220,10 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'view', undefined);
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
+    // Check if employee has access to view employees via API endpoint
+    const hasAPIAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/employees', 'view');
+    if (!hasAPIAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to access employees API' });
     }
 
     try {
@@ -272,9 +274,10 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'create', undefined);
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
+    // Check if employee has permission to create employees via API
+    const hasCreateAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/employees', 'create');
+    if (!hasCreateAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to create employees' });
     }
 
     try {
@@ -380,9 +383,10 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'modify', undefined);
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
+    // Check if employee has permission to modify employees via API
+    const hasModifyAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/employees', 'modify');
+    if (!hasModifyAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to modify employees' });
     }
 
     try {
@@ -478,9 +482,10 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'delete', undefined);
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
+    // Check if employee has permission to delete employees via API  
+    const hasDeleteAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/employees', 'delete');
+    if (!hasDeleteAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to delete employees' });
     }
 
     try {

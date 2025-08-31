@@ -19,8 +19,8 @@ A comprehensive, enterprise-grade Project Management Office (PMO) platform built
 | **[⚙️ Tech Stack](./TECHSTACK.md)** | Complete technology overview | Frontend, backend, infrastructure, performance |
 | **[🗄️ Database Schema](./db/README.md)** | Data model and database guide | Tables, relationships, RBAC, installation |
 | **[🔧 Management Tools](./tools/README.md)** | Platform operation tools | Start/stop servers, database management, logs |
-| **[🌐 API Reference](./apps/api/src/modules/README.md)** | Backend API documentation | Endpoints, authentication, RBAC, examples |
-| **[💻 Frontend Guide](./apps/web/src/README.md)** | Web app development guide | Components, pages, state management, patterns |
+| **[🌐 API Reference](./apps/api/README.md)** | Backend API documentation | RBAC endpoints, authentication, patterns |
+| **[💻 Frontend Guide](./apps/web/README.md)** | Web app development guide | RBAC components, data tables, permission hooks |
 
 ---
 
@@ -80,9 +80,48 @@ make seed            # Initialize database
 
 ---
 
+## 🛡️ Enterprise RBAC System
+
+The PMO platform features a comprehensive Role-Based Access Control system with sophisticated UI component gating and permission-based data tables.
+
+### 🎯 Key Features
+
+✅ **Elegant Action Buttons** - Eye, pencil, share, trash icons with permission gating  
+✅ **Dynamic UI Adaptation** - Only shows actions employees can perform  
+✅ **Universal Scope Support** - Works with projects, tasks, business units, HR, locations, worksites  
+✅ **Real-time Permission Checks** - Seamless API integration with caching  
+✅ **Full Table Functionality** - Sortable, filterable, paginated data tables  
+
+### 🔐 RBAC Integration Points
+
+| Level | Integration | API Endpoints | Usage |
+|-------|-------------|---------------|-------|
+| **API** | Route protection | `/api/v1/auth/scopes/:scopeType` | Get accessible resources with permissions |
+| **Page** | Route guards | `/api/v1/rbac/page-permission` | Validate page access |
+| **Component** | UI gating | `/api/v1/rbac/component-permission` | Control component visibility |
+| **Data Table** | Action buttons | `/api/v1/rbac/employee-scopes` | Show/hide row-level actions |
+
+### 📊 Permission-Based Data Tables
+
+```tsx
+// Automatic permission-gated action buttons
+<RBACDataTable
+  scopeType="project"
+  data={projects}
+  getRowId={(row) => row.id}
+  enabledActions={['view', 'edit', 'share', 'delete']}
+/>
+```
+
+Each row displays only the actions the current employee has permission to perform on that specific resource.
+
+**[📖 Complete RBAC Documentation →](./apps/api/README.md#-rbac-system-architecture)**
+
+---
+
 ## 🏗️ Architecture Overview
 
-> **Latest Update (2025-08-30)**: **Advanced Permission System & Auth API Enhanced** - Completed comprehensive RBAC system overhaul with unified scope-based permissions. Enhanced authentication API with new permission endpoints and direct `rel_employee_scope_unified` table integration. All 113 permission records loaded with refined scope mapping (app:page, app:api, app:component granularity).
+> **Latest Update (2025-08-31)**: **RBAC UI Component System Complete** - Implemented comprehensive permission-gated data tables with elegant action buttons. Added React hooks for permission management and seamless API integration. All data tables now feature dynamic permission-based UI rendering.
 
 ### System Design Principles
 - **Domain-First**: UI mirrors database domains
@@ -189,14 +228,18 @@ make seed            # Initialize database
 
 ### Common Endpoints
 ```
-GET    /api/v1/emp           # List employees
-GET    /api/v1/project       # List projects  
-GET    /api/v1/task          # List tasks
-GET    /api/v1/client        # List clients
-GET    /api/v1/scope/hr      # List HR units
+GET    /api/v1/emp                    # List employees
+GET    /api/v1/project                # List projects  
+GET    /api/v1/task                   # List tasks
+GET    /api/v1/client                 # List clients
+GET    /api/v1/scope/hr               # List HR units
+GET    /api/v1/scope/business         # List business units
+GET    /api/v1/scope/location         # List locations
+GET    /api/v1/worksite               # List worksites
+GET    /api/v1/meta                   # System metadata
 ```
 
-**[📖 Complete API Documentation →](./apps/api/src/modules/README.md)**
+**[📖 Complete API Documentation →](./apps/api/README.md)**
 
 ---
 
@@ -205,20 +248,28 @@ GET    /api/v1/scope/hr      # List HR units
 ### Web Application Structure
 ```
 apps/web/src/
-├── components/     # Reusable UI components
-│   ├── auth/      # Authentication components
-│   ├── layout/    # Sidebar, TopBar, Layout
-│   ├── ui/        # shadcn/ui base components
-│   └── tasks/     # Task-specific components
-├── pages/         # Route components
-│   ├── admin/     # Admin management pages
-│   ├── dashboard/ # Dashboard page
-│   ├── projects/  # Project pages
-│   └── tasks/     # Task pages
-├── lib/           # Core utilities
-│   ├── api.ts     # API client
-│   └── utils.ts   # Utility functions
-└── stores/        # Global state management
+├── components/          # React components
+│   ├── ui/             # shadcn/ui components + RBAC data table
+│   ├── tables/         # Specialized table implementations
+│   ├── auth/           # Authentication & access control
+│   ├── layout/         # Sidebar, TopBar, Layout
+│   ├── tasks/          # Task-related components
+│   ├── projects/       # Project-related components
+│   └── common/         # Shared components
+├── pages/              # Route pages (19 total)
+│   ├── admin/         # Admin management pages (9 pages)
+│   ├── auth/          # Login page
+│   ├── dashboard/     # Dashboard
+│   ├── directory/     # Employee directory
+│   ├── forms/         # Forms/reports
+│   ├── projects/      # Project pages
+│   └── tasks/         # Task pages
+├── hooks/              # Custom hooks (10 files including RBAC)
+├── stores/             # Zustand state management
+├── contexts/           # React contexts
+├── lib/                # Utilities and API client
+├── types/              # TypeScript type definitions
+└── utils/              # Helper utilities
 ```
 
 ### Key Features
@@ -236,7 +287,7 @@ apps/web/src/
 - **Viewer** - Read-only access
 - **Auditor** - Audit trail access
 
-**[📖 Complete Frontend Guide →](./apps/web/src/README.md)**
+**[📖 Complete Frontend Guide →](./apps/web/README.md)**
 
 ---
 

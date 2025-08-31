@@ -472,7 +472,7 @@ All refactored routes implement this consistent RBAC pattern:
 preHandler: [fastify.authenticate]
 
 // 2. Scope access validation
-const scopeAccess = await checkScopeAccess(userId, 'scopeType', 'permission', resourceId);
+const scopeAccess = await checkScopeAccess(employeeId, 'scopeType', 'permission', resourceId);
 if (!scopeAccess.allowed) {
   return reply.status(403).send({ error: 'Insufficient permissions' });
 }
@@ -1316,39 +1316,39 @@ GET    /api/v1/{entity}/:id/scopes       # Get scope relationships
 
 ### Core Functions
 
-#### `checkScopeAccess(userId, scopeType, action, specificScopeId?)`
+#### `checkScopeAccess(employeeId, scopeType, action, specificScopeId?)`
 Validates if a user has permission to perform an action within a scope.
 
 ```typescript
-const hasAccess = await checkScopeAccess(userId, 'location', 'view', locationId);
+const hasAccess = await checkScopeAccess(employeeId, 'location', 'view', locationId);
 if (!hasAccess.allowed) {
   return reply.status(403).send({ error: 'Access denied' });
 }
 ```
 
-#### `getUserScopes(userId, scopeType, minPermission?)`
-Returns all scopes a user has access to for a given scope type.
+#### `getEmployeeScopeIdsByScopeType(employeeId, scopeType, minPermission?)`
+Returns all scopes an employee has access to for a given scope type.
 
 ```typescript
-const userScopes = await getUserScopes(userId, 'project', Permission.VIEW);
+const employeeScopes = await getEmployeeScopeIdsByScopeType(employeeId, 'project', Permission.VIEW);
 // Returns: [{ scopeId, scopeName, permissions[] }]
 ```
 
-#### `applyScopeFiltering(userId, scopeType, minPermission?)`
+#### `getEmployeeScopeIds(employeeId, scopeType, minPermission?)`
 Returns scope IDs for database query filtering.
 
 ```typescript
-const accessibleIds = await applyScopeFiltering(userId, 'business');
+const accessibleIds = await getEmployeeScopeIds(employeeId, 'business');
 // Use in WHERE clauses: WHERE business.id IN (accessibleIds)
 ```
 
-#### `isUserAdmin(userId)`
-Checks if user has system-wide admin permissions.
+#### `hasPermissionOnAPI(employeeId, 'app:api', apiEndpoint, 'view')` - Check API Access
+Checks if employee can access specific API endpoints.
 
 ```typescript
-const isAdmin = await isUserAdmin(userId);
-if (isAdmin) {
-  // Bypass scope restrictions
+const canAccessProjectAPI = await hasPermissionOnAPI(employeeId, 'app:api', '/api/v1/project', 'view');
+if (canAccessProjectAPI) {
+  // Allow access to project endpoints
 }
 ```
 
@@ -1375,9 +1375,9 @@ export async function registerAllRoutes(fastify: FastifyInstance) {
 ```typescript
 // Pre-handler resolves user abilities for every authenticated request
 fastify.addHook('preHandler', async (request, reply) => {
-  const abilities = await resolveAbilities(userId);
+  const abilities = await resolveAbilities(employeeId);
   request.abilities = abilities;
-  request.userId = userId;
+  request.employeeId = employeeId;
 });
 ```
 
@@ -1398,16 +1398,16 @@ fastify.get('/', {
   preHandler: [fastify.authenticate, authorize('location', 'view')],
   schema: { /* OpenAPI schema */ },
 }, async (request, reply) => {
-  const userId = request.user?.sub;
+  const employeeId = request.user?.sub;
   
   // Fine-grained scope check
-  const hasAccess = await checkScopeAccess(userId, 'location', 'view');
+  const hasAccess = await checkScopeAccess(employeeId, 'location', 'view');
   if (!hasAccess.allowed) {
     return reply.status(403).send({ error: 'Access denied' });
   }
   
   // Apply scope filtering to query
-  const accessibleIds = await applyScopeFiltering(userId, 'location');
+  const accessibleIds = await applyScopeFiltering(employeeId, 'location');
   
   // Execute database query with scope constraints
   const results = await db
@@ -1444,8 +1444,8 @@ fastify.get('/', {
 ```typescript
 // Validate parent scope access before creating child entities
 if (data.parentId) {
-  const hasAccess = await checkScopeAccess(userId, scopeType, 'create', data.parentId);
-  if (!hasAccess.allowed) {
+  const hasAccess = await hasPermissionOnScopeId(employeeId, scopeType, data.parentId, 'create');
+  if (!hasAccess) {
     return reply.status(403).send({ error: 'Access denied to parent scope' });
   }
 }
@@ -1455,8 +1455,8 @@ if (data.parentId) {
 ```typescript
 // Project creation with location and business scope validation
 if (projectData.locationId) {
-  const locationAccess = await checkScopeAccess(userId, 'location', 'view', projectData.locationId);
-  if (!locationAccess.allowed) {
+  const locationAccess = await hasPermissionOnScopeId(employeeId, 'location', projectData.locationId, 'view');
+  if (!locationAccess) {
     return reply.status(403).send({ error: 'Access denied to specified location' });
   }
 }
@@ -1520,10 +1520,10 @@ const UpdateEntitySchema = Type.Partial(CreateEntitySchema);
 #### What Gets Bypassed
 ```typescript
 // These functions return permissive defaults in development:
-checkScopeAccess(userId, 'project', 'delete')     // → { allowed: true }
-isUserAdmin(userId)                                // → true  
-getUserScopes(userId, 'business')                  // → mock data
-applyScopeFiltering(userId, 'location')           // → bypass filters
+hasPermissionOnScopeId(employeeId, 'project', projectId, 'delete')     // → true
+hasPermissionOnAPI(employeeId, 'app:api', '/api/v1/project', 'view')    // → true  
+getEmployeeScopeIdsByScopeType(employeeId, 'business')                  // → mock data
+getEmployeeScopeIds(employeeId, 'location')                             // → scope IDs for filtering
 ```
 
 #### Files with Dev Bypasses

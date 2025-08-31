@@ -445,7 +445,7 @@ CREATE TABLE app.d_scope_app (
 - **Permission integration**: Direct integration with unified permission system via scope_name
 
 **Data Examples:**
-- **Pages**: scope_name="/dashboard", scope_name="/admin/users", scope_name="/projects/:id"
+- **Pages**: scope_name="/dashboard", scope_name="/employees", scope_name="/projects/:id"
 - **API Paths**: scope_name="/api/v1/auth/login", scope_name="/api/v1/task", scope_name="/api/v1/emp/:id"
 - **Components**: scope_name="datatable:DataTable", scope_name="form:Button", scope_name="widget:TaskBoard"
 
@@ -604,7 +604,7 @@ The current permission system uses a **scope_name** field that contains actual i
   - Examples: "Huron Home Services", "Operations Division", "Ontario", "Mississauga"
   
 - **Application Scopes**: `scope_name` contains actual API paths, routes, and component names from d_scope_app
-  - **Pages**: "/dashboard", "/projects", "/admin/users"
+  - **Pages**: "/dashboard", "/projects", "/employees"
   - **API Endpoints**: "/api/v1/auth/login", "/api/v1/task", "/api/v1/emp"
   - **Components**: "datatable:DataTable", "widget:TaskBoard", "form:Button"
   

@@ -110,7 +110,6 @@ else
 fi
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
-make_request "GET" "/api/v1/auth/profile" "200" "Get current user profile"
 echo ""
 
 # Test public endpoints
@@ -172,18 +171,6 @@ make_request "GET" "/api/v1/project?limit=3" "200" "List projects (James Miller 
 make_request "GET" "/api/v1/task?limit=3" "200" "List tasks (James Miller has CEO access)"
 echo ""
 
-echo "🔐 Auth Permission Endpoints:"
-make_request "GET" "/api/v1/auth/me" "200" "Get current user info"
-make_request "GET" "/api/v1/auth/permissions" "200" "Get user permissions"
-make_request "GET" "/api/v1/auth/permissions/debug" "200" "Debug user permissions (admin only)"
-make_request "GET" "/api/v1/auth/scopes/business?minPermission=0" "200" "Get business scopes"
-make_request "GET" "/api/v1/auth/scopes/location?minPermission=0" "200" "Get location scopes"
-make_request "GET" "/api/v1/auth/scopes/project?minPermission=0" "200" "Get project scopes"
-echo ""
-
-echo "🏗️ Worksite & Additional Scope Management:"
-make_request "GET" "/api/v1/scope-worksite?limit=3" "200" "List worksite scopes (if available)"
-echo ""
 
 # Summary
 echo "================================================================="

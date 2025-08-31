@@ -13,7 +13,7 @@
 -- • Centralized permission control
 --
 -- 📱 **SCOPE TYPES**
--- • 'page': User-facing routes (/dashboard, /projects, /admin/*)
+-- • 'page': User-facing routes (/dashboard, /projects, /employees/*)
 -- • 'api-path': Server endpoints (/api/v1/emp, /api/v1/project)
 -- • 'component': UI elements (DataTable, Modal, Button, etc.)
 --
@@ -99,17 +99,17 @@ INSERT INTO app.d_scope_app (scope_name, descr, scope_type, is_protected, tags, 
 -- Meta Configuration
 ('/meta', 'System meta configuration', 'page', true, '["admin", "meta", "config"]', '{"icon": "Settings", "admin": true}'),
 
--- Admin Pages
-('/admin', 'Administrative dashboard', 'page', true, '["admin", "dashboard"]', '{"icon": "Settings", "order": 6, "admin": true}'),
-('/admin/meta', 'Meta data configuration management', 'page', true, '["admin", "meta"]', '{"icon": "Tag", "admin": true}'),
-('/admin/locations', 'Administrative location management', 'page', true, '["admin", "locations"]', '{"icon": "MapPin", "admin": true}'),
-('/admin/businesses', 'Administrative business management', 'page', true, '["admin", "business"]', '{"icon": "Building2", "admin": true}'),
-('/admin/hr', 'HR department management', 'page', true, '["admin", "hr"]', '{"icon": "BriefcaseIcon", "admin": true}'),
-('/admin/worksites', 'Administrative worksite management', 'page', true, '["admin", "worksites"]', '{"icon": "Building", "admin": true}'),
-('/admin/employees', 'Administrative employee management', 'page', true, '["admin", "employees"]', '{"icon": "Users", "admin": true}'),
-('/admin/roles', 'Role and permission management', 'page', true, '["admin", "roles", "rbac"]', '{"icon": "Shield", "admin": true}'),
-('/admin/clients', 'Client management', 'page', true, '["admin", "clients"]', '{"icon": "UserCheck", "admin": true}'),
-('/admin/webhooks', 'Webhook configuration', 'page', true, '["admin", "webhooks", "integration"]', '{"icon": "Webhook", "admin": true}');
+-- Management Pages
+('/management', 'Management dashboard', 'page', true, '["management", "dashboard"]', '{"icon": "Settings", "order": 6}'),
+('/meta', 'Meta data configuration management', 'page', true, '["meta", "config"]', '{"icon": "Tag"}'),
+('/locations', 'Location management', 'page', true, '["locations", "management"]', '{"icon": "MapPin"}'),
+('/businesses', 'Business management', 'page', true, '["business", "management"]', '{"icon": "Building2"}'),
+('/hr', 'HR department management', 'page', true, '["hr", "management"]', '{"icon": "BriefcaseIcon"}'),
+('/worksites', 'Worksite management', 'page', true, '["worksites", "management"]', '{"icon": "Building"}'),
+('/employees', 'Employee management', 'page', true, '["employees", "management"]', '{"icon": "Users"}'),
+('/roles', 'Role and permission management', 'page', true, '["roles", "rbac", "management"]', '{"icon": "Shield"}'),
+('/clients', 'Client management', 'page', true, '["clients", "management"]', '{"icon": "UserCheck"}'),
+('/webhooks', 'Webhook configuration', 'page', true, '["webhooks", "integration", "management"]', '{"icon": "Webhook"}');
 
 -- Insert API Paths (Backend Endpoints)
 INSERT INTO app.d_scope_app (scope_name, descr, scope_type, is_protected, tags, attr) VALUES

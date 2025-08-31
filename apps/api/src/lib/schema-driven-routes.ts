@@ -16,7 +16,7 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { Type, type Static } from '@sinclair/typebox';
-import { checkScopeAccess, Permission, applyScopeFiltering } from '../modules/rbac/scope-auth.js';
+import { hasPermissionOnAPI, getEmployeeScopeIds, hasPermissionOnScopeId, Permission } from '../modules/rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import { 
@@ -151,15 +151,15 @@ function generateListRoute(
       return reply.status(401).send({ error: 'Invalid token' });
     }
     
-    // Check scope access
-    const scopeAccess = await checkScopeAccess(userId, scopeType, 'view');
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
+    // Check if employee has access to list this resource type via API
+    const hasAPIAccess = await hasPermissionOnAPI(userId, 'app:api', request.url, 'view');
+    if (!hasAPIAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to access this API endpoint' });
     }
     
     try {
-      // Get accessible scope IDs for filtering
-      const accessibleIds = await applyScopeFiltering(userId, scopeType, Permission.VIEW);
+      // Get employee's accessible scope IDs for filtering
+      const accessibleIds = await getEmployeeScopeIds(userId, scopeType, Permission.VIEW);
       
       // Build base query
       const conditions: any[] = [];
@@ -266,9 +266,9 @@ function generateGetRoute(
       return reply.status(401).send({ error: 'Invalid token' });
     }
     
-    // Check specific resource access
-    const scopeAccess = await checkScopeAccess(userId, scopeType, 'view', id);
-    if (!scopeAccess.allowed) {
+    // Check if employee has permission to view this specific resource
+    const hasViewAccess = await hasPermissionOnScopeId(userId, scopeType, id, 'view');
+    if (!hasViewAccess) {
       return reply.status(403).send({ error: 'Access denied to this resource' });
     }
     
@@ -329,10 +329,10 @@ function generateCreateRoute(
       return reply.status(401).send({ error: 'Invalid token' });
     }
     
-    // Check create permissions
-    const scopeAccess = await checkScopeAccess(userId, scopeType, 'create');
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions to create resources' });
+    // Check if employee has permission to create resources of this type via API
+    const hasCreateAccess = await hasPermissionOnAPI(userId, 'app:api', request.url, 'create');
+    if (!hasCreateAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to create resources via this API endpoint' });
     }
     
     try {
@@ -414,9 +414,9 @@ function generateUpdateRoute(
       return reply.status(401).send({ error: 'Invalid token' });
     }
     
-    // Check specific resource access
-    const scopeAccess = await checkScopeAccess(userId, scopeType, 'modify', id);
-    if (!scopeAccess.allowed) {
+    // Check if employee has permission to modify this specific resource
+    const hasModifyAccess = await hasPermissionOnScopeId(userId, scopeType, id, 'modify');
+    if (!hasModifyAccess) {
       return reply.status(403).send({ error: 'Access denied to modify this resource' });
     }
     
@@ -502,9 +502,9 @@ function generateDeleteRoute(
       return reply.status(401).send({ error: 'Invalid token' });
     }
     
-    // Check specific resource access
-    const scopeAccess = await checkScopeAccess(userId, scopeType, 'delete', id);
-    if (!scopeAccess.allowed) {
+    // Check if employee has permission to delete this specific resource
+    const hasDeleteAccess = await hasPermissionOnScopeId(userId, scopeType, id, 'delete');
+    if (!hasDeleteAccess) {
       return reply.status(403).send({ error: 'Access denied to delete this resource' });
     }
     

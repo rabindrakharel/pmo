@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { checkScopeAccess } from '../rbac/scope-auth.js';
+import { hasPermissionOnAPI } from '../rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 
@@ -75,6 +75,17 @@ export async function metaRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { category, active } = request.query as any;
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'Invalid token' });
+    }
+
+    // Check if employee has permission to view meta data via API
+    const hasViewAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/meta', 'view');
+    if (!hasViewAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to view meta data' });
+    }
 
     try {
       let query;
@@ -382,10 +393,10 @@ export async function metaRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    // Check if user has permission to create meta data (admin-level)
-    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'create');
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions - admin required' });
+    // Check if employee has permission to create meta data via API
+    const hasCreateAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/meta', 'create');
+    if (!hasCreateAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to create meta data' });
     }
 
     try {
@@ -467,10 +478,10 @@ export async function metaRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    // Check if user has permission to modify meta data (admin-level)
-    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'modify');
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions - admin required' });
+    // Check if employee has permission to modify meta data via API
+    const hasModifyAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/meta', 'modify');
+    if (!hasModifyAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to modify meta data' });
     }
 
     try {
@@ -553,9 +564,10 @@ export async function metaRoutes(fastify: FastifyInstance) {
     }
 
     // Check if user has permission to delete meta data (admin-level)
-    const scopeAccess = await checkScopeAccess(userId, 'app:api', 'delete');
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions - admin required' });
+    // Check if employee has permission to delete meta data via API
+    const hasDeleteAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/meta', 'delete');
+    if (!hasDeleteAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to delete meta data' });
     }
 
     try {

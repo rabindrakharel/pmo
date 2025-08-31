@@ -206,3 +206,25 @@ A particular project offers kanban view or grid view, a particular task offers t
 │   Just work on dynamic component for      │
 │   view, edit, share, delete\              │
 │   \                         
+
+
+UI UX component gates ==========================
+Each data table component row data will have action tiny elegant button view,   │
+│   edit, share, delete; some small icon like eye, pencil, recycle bin,    │
+│   and share icon. \                                                      │
+│   \                                                                      │
+│   To decide which data table item gets what icon, you must use           │
+│   /home/rabin/projects/pmo/apps/api/src/modules/rbac/ui-api-permission-  │
+│   rbac-gate.ts component gate function getEmployeeScopeIdsByScopeType(. You will get a list of id and permissions for given scope_type be it project or task or location or business or meta levels or anything. 
+       │
+│   Please make this change across all datatable: data table is elegant sortable,     │
+│   filterable, paginated  and will have these action buttons on the right      │
+│   most side  of the row which is based on the hasPermissionOnComponent( function.    │
+
+
+│   To create project, there isn't any function available to check the permission: 
+hasPermissionOnCreateScope is the function you must use, this checks permission on any create for component button of create,  This function doesn't exist "hasPermissionOnCreateScope" you have to create it. 
+This one is more advanced as you have to check both 
+Also use the same method, create button either for  │
+│   task, or project or business or location, or meta; all will show +     │
+│   icon to create, now this create is also checked by component gate.   

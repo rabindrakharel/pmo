@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { checkScopeAccess } from '../rbac/scope-auth.js';
+import { hasPermissionOnAPI, hasPermissionOnScopeId } from '../rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 
@@ -90,8 +90,8 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await checkScopeAccess(userId, 'worksite', 'view', undefined);
-    if (!scopeAccess.allowed) {
+    const hasAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/worksite', 'view');
+    if (!hasAccess) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
 
@@ -181,8 +181,8 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await checkScopeAccess(userId, 'worksite', 'view', id);
-    if (!scopeAccess.allowed) {
+    const hasAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/worksite', 'view');
+    if (!hasAccess) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
 
@@ -234,16 +234,16 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await checkScopeAccess(userId, 'worksite', 'create', undefined);
-    if (!scopeAccess.allowed) {
+    const hasAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/worksite', 'create');
+    if (!hasAccess) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
 
     try {
       // Validate location scope access if specified
       if (data.locId) {
-        const locationAccess = await checkScopeAccess(userId, 'location', 'view', data.locId);
-        if (!locationAccess.allowed) {
+        const locationAccess = await hasPermissionOnScopeId(userId, 'location', data.locId, 'view');
+        if (!locationAccess) {
           return reply.status(403).send({ error: 'Insufficient location permissions' });
         }
         
@@ -258,8 +258,8 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
 
       // Validate business scope access if specified
       if (data.bizId) {
-        const businessAccess = await checkScopeAccess(userId, 'business', 'view', data.bizId);
-        if (!businessAccess.allowed) {
+        const businessAccess = await hasPermissionOnScopeId(userId, 'business', data.bizId, 'view');
+        if (!businessAccess) {
           return reply.status(403).send({ error: 'Insufficient business permissions' });
         }
         
@@ -344,8 +344,8 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await checkScopeAccess(userId, 'worksite', 'modify', id);
-    if (!scopeAccess.allowed) {
+    const hasAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/worksite', 'modify');
+    if (!hasAccess) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
 
@@ -361,8 +361,8 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
 
       // Validate location scope access for updated fields
       if (data.locId) {
-        const locationAccess = await checkScopeAccess(userId, 'location', 'view', data.locId);
-        if (!locationAccess.allowed) {
+        const locationAccess = await hasPermissionOnScopeId(userId, 'location', data.locId, 'view');
+        if (!locationAccess) {
           return reply.status(403).send({ error: 'Insufficient location permissions' });
         }
         
@@ -376,8 +376,8 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
 
       // Validate business scope access for updated fields
       if (data.bizId) {
-        const businessAccess = await checkScopeAccess(userId, 'business', 'view', data.bizId);
-        if (!businessAccess.allowed) {
+        const businessAccess = await hasPermissionOnScopeId(userId, 'business', data.bizId, 'view');
+        if (!businessAccess) {
           return reply.status(403).send({ error: 'Insufficient business permissions' });
         }
         
@@ -528,8 +528,8 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await checkScopeAccess(userId, 'worksite', 'delete', id);
-    if (!scopeAccess.allowed) {
+    const hasAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/worksite', 'delete');
+    if (!hasAccess) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
 

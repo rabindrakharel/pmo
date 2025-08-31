@@ -52,7 +52,7 @@
 -- • scope_reference_table: 'd_scope_app'
 -- • scope_table_reference_id: maps to d_scope_app.id (uuid)
 -- • scope_name: copied from d_scope_app.scope_name (contains actual API paths/routes/components)
---   - d_scope_app.scope_type: 'page' → unified scope_type: 'app:page', name: "/admin/users"
+--   - d_scope_app.scope_type: 'page' → unified scope_type: 'app:page', name: "/employees"
 --   - d_scope_app.scope_type: 'component' → unified scope_type: 'app:component', name: "TaskBoard"
 --   - d_scope_app.scope_type: 'api-path' → unified scope_type: 'app:api', name: "/api/v1/auth/logout"
 --   - d_scope_app.scope_type: 'page' → unified scope_type: 'app:page', name: "/projects"

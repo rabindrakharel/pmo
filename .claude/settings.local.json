@@ -43,7 +43,11 @@
       "Bash(cat:*)",
       "Bash(pgrep:*)",
       "Bash(export:*)",
-      "Read(/home/rabin/Screenshots/**)"
+      "Read(/home/rabin/Screenshots/**)",
+      "Bash(find:*)",
+      "Bash(./tools/stop-api.sh:*)",
+      "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" REDIS_URL=\"redis://localhost:6379\" JWT_SECRET=\"your-super-secret-jwt-key-change-in-production\" npx tsx src/server.ts)",
+      "Bash(tree:*)"
     ],
     "deny": [],
     "ask": [],

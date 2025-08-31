@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Search, Bell, Plus, Command, Settings, CheckSquare, FolderKanban, MapPin, Building } from 'lucide-react';
+import { Search, Bell, Plus, Command, Settings, CheckSquare, FolderKanban, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/auth';
 import { cn } from '@/lib/utils';
@@ -10,56 +10,107 @@ const navigationTabs = [
     name: 'Meta',
     href: '/meta',
     icon: Settings,
-    routePage: 'Meta Configuration',
+    routePage: '/meta',
   },
   {
-    name: 'Location',
-    href: '/admin/locations',
+    name: 'Directory',
+    href: '/directory',
     icon: MapPin,
-    routePage: 'Location Management',
-  },
-  {
-    name: 'Business',
-    href: '/admin/businesses',
-    icon: Building,
-    routePage: 'Business Management',
+    routePage: '/directory',
   },
   {
     name: 'Projects',
     href: '/projects',
     icon: FolderKanban,
-    routePage: 'Projects List',
+    routePage: '/projects',
   },
   {
     name: 'Tasks',
     href: '/tasks',
     icon: CheckSquare,
-    routePage: 'Tasks Board',
+    routePage: '/tasks',
   },
 ];
 
 export function TopBar() {
   const { logout, user } = useAuthStore();
   const location = useLocation();
-  const [userPermissions, setUserPermissions] = useState<Record<string, boolean>>({});
+  const [navigationPermissions, setNavigationPermissions] = useState<Record<string, boolean>>({});
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Since RBAC is handled at API level, show all tabs 
-    // API will return proper errors for unauthorized access
-    if (user?.id) {
-      const allRoutePages = navigationTabs.map(item => item.routePage);
-      const permissions: Record<string, boolean> = {};
+    const checkNavigationPermissions = async () => {
+      if (!user?.id) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        // Test permissions by making API calls to endpoints that use RBAC gate functions
+        // This will trigger hasPermissionOnAPI() calls in the backend
+        const permissionChecks = await Promise.all([
+          // Check meta permissions via API call
+          fetch('/api/v1/meta', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json',
+            },
+          }).then(res => ({ path: '/meta', hasPermission: res.status !== 403 })),
+          
+          // Check projects permissions via API call  
+          fetch('/api/v1/project', {
+            method: 'GET', 
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json',
+            },
+          }).then(res => ({ path: '/projects', hasPermission: res.status !== 403 })),
+          
+          // Check tasks permissions via API call
+          fetch('/api/v1/task', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`, 
+              'Content-Type': 'application/json',
+            },
+          }).then(res => ({ path: '/tasks', hasPermission: res.status !== 403 })),
+          
+          // Check directory (location) permissions via API call
+          fetch('/api/v1/scope/location', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json', 
+            },
+          }).then(res => ({ path: '/directory', hasPermission: res.status !== 403 })),
+        ]);
+
+        const permissions: Record<string, boolean> = {};
+        permissionChecks.forEach(check => {
+          permissions[check.path] = check.hasPermission;
+        });
+
+        setNavigationPermissions(permissions);
+      } catch (error) {
+        console.error('Error checking navigation permissions:', error);
+        // On error, show all tabs (graceful degradation)
+        setNavigationPermissions({
+          '/meta': true,
+          '/directory': true,
+          '/projects': true,
+          '/tasks': true
+        });
+      }
       
-      allRoutePages.forEach(routePage => {
-        permissions[routePage] = true;
-      });
-      
-      setUserPermissions(permissions);
-    }
+      setIsLoading(false);
+    };
+
+    checkNavigationPermissions();
   }, [user]);
 
-  const hasPermission = (routePage: string) => {
-    return userPermissions[routePage] || false;
+  const hasNavigationPermission = (routePage: string) => {
+    return navigationPermissions[routePage] || false;
   };
 
   const isActiveTab = (href: string) => {
@@ -88,7 +139,8 @@ export function TopBar() {
           {/* Navigation Tabs */}
           <nav className="flex space-x-1">
             {navigationTabs.map((tab) => {
-              if (!hasPermission(tab.routePage)) return null;
+              // Check if user has permission for this navigation tab
+              if (!hasNavigationPermission(tab.routePage)) return null;
 
               const isActive = isActiveTab(tab.href);
 

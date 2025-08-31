@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { checkScopeAccess, Permission, applyScopeFiltering } from '../rbac/scope-auth.js';
+import { hasPermissionOnAPI, getEmployeeScopeIds, hasPermissionOnScopeId, Permission } from '../rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import { 
@@ -100,15 +100,15 @@ export async function taskRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    // Check if user has access to view tasks - filter by projects they can access
-    const projectScopeAccess = await checkScopeAccess(userId, 'project', 'view', undefined);
-    if (!projectScopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
+    // Check if employee has access to view tasks via API endpoint
+    const hasAPIAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/task', 'view');
+    if (!hasAPIAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to access tasks API' });
     }
 
     try {
-      // Get user's allowed project IDs for filtering
-      const allowedProjectIds = await applyScopeFiltering(userId, 'project', 0); // 0 = VIEW permission
+      // Get employee's allowed project IDs for filtering
+      const allowedProjectIds = await getEmployeeScopeIds(userId, 'project');
 
       // Build query conditions
       const conditions = [];
@@ -183,10 +183,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Apply universal column filtering and transform data
       const userPermissions = {
-        canSeePII: projectScopeAccess.permissions?.includes(4) || false,
-        canSeeFinancial: projectScopeAccess.permissions?.includes(4) || false,
-        canSeeSystemFields: projectScopeAccess.permissions?.includes(4) || false,
-        canSeeSafetyInfo: projectScopeAccess.permissions?.includes(4) || false,
+        canSeePII: true,
+        canSeeFinancial: true,
+        canSeeSystemFields: true,
+        canSeeSafetyInfo: true,
       };
       
       const data = tasks.map(task => {
@@ -306,10 +306,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       const taskData = task[0] as any;
 
-      // Check if user has access to the project this task belongs to
-      const scopeAccess = await checkScopeAccess(userId, 'project', 'view', taskData.projHeadId);
-      if (!scopeAccess.allowed) {
-        return reply.status(403).send({ error: 'Insufficient permissions' });
+      // Check if employee has permission to view this task's project
+      const hasViewAccess = await hasPermissionOnScopeId(userId, 'project', taskData.projHeadId, 'view');
+      if (!hasViewAccess) {
+        return reply.status(403).send({ error: 'Insufficient permissions to view this task' });
       }
 
       return {
@@ -372,9 +372,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    // Check if user has access to create tasks in the specified project
-    const scopeAccess = await checkScopeAccess(userId, 'project', 'modify', data.projHeadId);
-    if (!scopeAccess.allowed) {
+    // Check if employee has permission to modify the project (required to create tasks)
+    const hasModifyAccess = await hasPermissionOnScopeId(userId, 'project', data.projHeadId, 'modify');
+    if (!hasModifyAccess) {
       return reply.status(403).send({ error: 'Insufficient permissions to create task in this project' });
     }
 
@@ -488,10 +488,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Task not found' });
       }
 
-      // Check if user has access to modify the project this task belongs to
-      const scopeAccess = await checkScopeAccess(userId, 'project', 'modify', (taskHead[0] as any).proj_head_id);
-      if (!scopeAccess.allowed) {
-        return reply.status(403).send({ error: 'Insufficient permissions' });
+      // Check if employee has permission to modify the project containing this task
+      const hasModifyAccess = await hasPermissionOnScopeId(userId, 'project', (taskHead[0] as any).proj_head_id, 'modify');
+      if (!hasModifyAccess) {
+        return reply.status(403).send({ error: 'Insufficient permissions to modify this task' });
       }
 
       // Deactivate current record
@@ -572,10 +572,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Task not found' });
       }
 
-      // Check if user has access to delete from the project this task belongs to
-      const scopeAccess = await checkScopeAccess(userId, 'project', 'delete', (taskHead[0] as any).proj_head_id);
-      if (!scopeAccess.allowed) {
-        return reply.status(403).send({ error: 'Insufficient permissions' });
+      // Check if employee has permission to delete from the project containing this task
+      const hasDeleteAccess = await hasPermissionOnScopeId(userId, 'project', (taskHead[0] as any).proj_head_id, 'delete');
+      if (!hasDeleteAccess) {
+        return reply.status(403).send({ error: 'Insufficient permissions to delete this task' });
       }
 
       // Soft delete all task records

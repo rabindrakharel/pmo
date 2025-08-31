@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { checkScopeAccess, Permission } from '../rbac/scope-auth.js';
+import { hasPermissionOnAPI, getEmployeeScopeIds, hasPermissionOnScopeId, Permission } from '../rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm';
 
@@ -62,8 +62,8 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
     };
 
     // Check scope access
-    const scopeAccess = await checkScopeAccess(userId, 'location', 'view', undefined);
-    if (!scopeAccess.allowed) {
+    const hasAPIAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/location', 'view');
+    if (!hasAPIAccess) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
 
@@ -149,7 +149,7 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await checkScopeAccess(userId, 'location', 'view', id);
+    const scopeAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/location', 'view', id);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
@@ -205,12 +205,12 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
 
     // Check if user can create in this scope
     if (data.parentId) {
-      const scopeAccess = await checkScopeAccess(userId, 'location', 'create', data.parentId);
+      const scopeAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/location', 'create', data.parentId);
       if (!scopeAccess.allowed) {
         return reply.status(403).send({ error: 'Insufficient permissions to create in parent scope' });
       }
     } else {
-      const scopeAccess = await checkScopeAccess(userId, 'location', 'create', undefined);
+      const scopeAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/location', 'create', undefined);
       if (!scopeAccess.allowed) {
         return reply.status(403).send({ error: 'Insufficient permissions' });
       }
@@ -271,7 +271,7 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await checkScopeAccess(userId, 'location', 'modify', id);
+    const scopeAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/location', 'modify', id);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
@@ -377,7 +377,7 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await checkScopeAccess(userId, 'location', 'delete', id);
+    const scopeAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/location', 'delete', id);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
@@ -441,7 +441,7 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await checkScopeAccess(userId, 'location', 'view', id);
+    const scopeAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/location', 'view', id);
     if (!scopeAccess.allowed) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }

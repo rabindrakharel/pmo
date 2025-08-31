@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { checkScopeAccess, Permission } from '../rbac/scope-auth.js';
+import { hasPermissionOnAPI, Permission } from '../rbac/ui-api-permission-rbac-gate.js';
 
 const WorksiteSchema = Type.Object({
   id: Type.String(),

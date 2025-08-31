@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { checkScopeAccess, Permission } from '../rbac/scope-auth.js';
+import { hasPermissionOnAPI, getEmployeeScopeIds, hasPermissionOnScopeId, Permission } from '../rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm';
 
@@ -59,9 +59,10 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await checkScopeAccess(userId, 'business', 'view', undefined);
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
+    // Check if employee has access to view business units via API endpoint
+    const hasAPIAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/business', 'view');
+    if (!hasAPIAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to access business units API' });
     }
 
     try {
@@ -145,9 +146,10 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await checkScopeAccess(userId, 'business', 'view', id);
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
+    // Check if employee has permission to view this specific business unit
+    const hasViewAccess = await hasPermissionOnScopeId(userId, 'business', id, 'view');
+    if (!hasViewAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to view this business unit' });
     }
 
     try {
@@ -198,16 +200,17 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    // Check if user can create in this scope
+    // Check if employee has permission to create business units via API
+    const hasCreateAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/business', 'create');
+    if (!hasCreateAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to create business unit' });
+    }
+
+    // If creating under a parent, check parent access
     if (data.parentId) {
-      const scopeAccess = await checkScopeAccess(userId, 'business', 'create', data.parentId);
-      if (!scopeAccess.allowed) {
+      const hasParentAccess = await hasPermissionOnScopeId(userId, 'business', data.parentId, 'view');
+      if (!hasParentAccess) {
         return reply.status(403).send({ error: 'Insufficient permissions to create in parent scope' });
-      }
-    } else {
-      const scopeAccess = await checkScopeAccess(userId, 'business', 'create', undefined);
-      if (!scopeAccess.allowed) {
-        return reply.status(403).send({ error: 'Insufficient permissions' });
       }
     }
 
@@ -265,9 +268,10 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await checkScopeAccess(userId, 'business', 'modify', id);
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
+    // Check if employee has permission to modify this specific business unit
+    const hasModifyAccess = await hasPermissionOnScopeId(userId, 'business', id, 'modify');
+    if (!hasModifyAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to modify this business unit' });
     }
 
     try {
@@ -359,9 +363,10 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await checkScopeAccess(userId, 'business', 'delete', id);
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
+    // Check if employee has permission to delete this specific business unit
+    const hasDeleteAccess = await hasPermissionOnScopeId(userId, 'business', id, 'delete');
+    if (!hasDeleteAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to delete this business unit' });
     }
 
     try {
@@ -423,9 +428,10 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await checkScopeAccess(userId, 'business', 'view', id);
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
+    // Check if employee has permission to view this specific business unit
+    const hasViewAccess = await hasPermissionOnScopeId(userId, 'business', id, 'view');
+    if (!hasViewAccess) {
+      return reply.status(403).send({ error: 'Insufficient permissions to view this business unit' });
     }
 
     try {

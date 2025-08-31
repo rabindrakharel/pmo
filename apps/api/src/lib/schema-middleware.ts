@@ -21,7 +21,7 @@ import {
   getRestrictedColumns,
   SCHEMA_METADATA
 } from './schema-metadata.js';
-import { checkScopeAccess, Permission } from '../modules/rbac/scope-auth.js';
+import { hasPermissionOnAPI, hasPermissionOnScopeId, Permission } from '../modules/rbac/ui-api-permission-rbac-gate.js';
 
 export interface SchemaMiddlewareOptions {
   tables: string[];
@@ -112,20 +112,21 @@ async function getUserPermissions(
                    'meta';
   
   try {
+    // Check permissions using new RBAC system based on resource ID or scope type
     const [viewAccess, createAccess, modifyAccess, deleteAccess, shareAccess] = await Promise.all([
-      checkScopeAccess(userId, scopeType, 'view', resourceId),
-      checkScopeAccess(userId, scopeType, 'create', resourceId),
-      checkScopeAccess(userId, scopeType, 'modify', resourceId),
-      checkScopeAccess(userId, scopeType, 'delete', resourceId),
-      checkScopeAccess(userId, scopeType, 'share', resourceId), // Share permission indicates PII access
+      resourceId ? hasPermissionOnScopeId(userId, scopeType, resourceId, 'view') : hasPermissionOnAPI(userId, 'app:api', request.url, 'view'),
+      resourceId ? hasPermissionOnScopeId(userId, scopeType, resourceId, 'create') : hasPermissionOnAPI(userId, 'app:api', request.url, 'create'),
+      resourceId ? hasPermissionOnScopeId(userId, scopeType, resourceId, 'modify') : hasPermissionOnAPI(userId, 'app:api', request.url, 'modify'),
+      resourceId ? hasPermissionOnScopeId(userId, scopeType, resourceId, 'delete') : hasPermissionOnAPI(userId, 'app:api', request.url, 'delete'),
+      resourceId ? hasPermissionOnScopeId(userId, scopeType, resourceId, 'share') : hasPermissionOnAPI(userId, 'app:api', request.url, 'share'), // Share permission indicates PII access
     ]);
     
     return {
-      canSeePII: shareAccess.allowed,
-      canSeeFinancial: deleteAccess.allowed, // Using delete as high-privilege indicator for financial data
-      canEdit: modifyAccess.allowed,
-      canCreate: createAccess.allowed,
-      canDelete: deleteAccess.allowed,
+      canSeePII: shareAccess,
+      canSeeFinancial: deleteAccess, // Using delete as high-privilege indicator for financial data
+      canEdit: modifyAccess,
+      canCreate: createAccess,
+      canDelete: deleteAccess,
     };
   } catch (error) {
     // Default to minimal permissions on error
