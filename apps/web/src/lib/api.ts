@@ -293,12 +293,24 @@ export const roleApi = {
 
 export const formApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; version?: number }) {
-    const response = await apiClient.get('/api/v1/form', { params });
+    // Map UI pagination to API limit/offset
+    const limit = params?.pageSize ?? 20;
+    const offset = ((params?.page ?? 1) - 1) * limit;
+    const query: any = { limit, offset };
+    if (params?.version != null) query.version = params.version;
+    const response = await apiClient.get('/api/v1/form', { params: query });
     return response.data;
   },
   
   async get(id: string) {
     const response = await apiClient.get(`/api/v1/form/${id}`);
+    return response.data;
+  },
+
+  async getRecords(id: string, params?: { page?: number; pageSize?: number }) {
+    const limit = params?.pageSize ?? 20;
+    const offset = ((params?.page ?? 1) - 1) * limit;
+    const response = await apiClient.get(`/api/v1/form/${id}/records`, { params: { limit, offset } });
     return response.data;
   },
   

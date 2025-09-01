@@ -2,7 +2,7 @@
 // PROJECT STATUS META CONFIGURATION
 // ============================================================================
 
-import type { EntityPageConfig } from '../types.js';
+import type { EntityPageConfig } from '../types';
 
 export const projectStatusConfig: EntityPageConfig = {
   entityName: 'projectStatus',
@@ -17,13 +17,13 @@ export const projectStatusConfig: EntityPageConfig = {
   },
 
   api: {
-    baseEndpoint: '/api/v1/meta/projectStatus',
+    baseEndpoint: '/api/v1/meta/project-status',
     endpoints: {
-      list: 'GET /api/v1/meta?category=projectStatus',
-      get: 'GET /api/v1/meta/projectStatus/:id',
-      create: 'POST /api/v1/meta/projectStatus',
-      update: 'PUT /api/v1/meta/projectStatus/:id',
-      delete: 'DELETE /api/v1/meta/projectStatus/:id',
+      list: 'GET /api/v1/meta?category=project_status',
+      get: 'GET /api/v1/meta/project-status/:id',
+      create: 'POST /api/v1/meta/project-status',
+      update: 'PUT /api/v1/meta/project-status/:id',
+      delete: 'DELETE /api/v1/meta/project-status/:id',
     },
   },
 

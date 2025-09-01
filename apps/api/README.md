@@ -177,14 +177,14 @@ Content-Type: application/json
 - **`GET /api/v1/auth/scopes/:scopeType`** - Scopes by type for current user
 - **`GET /api/v1/auth/permissions/debug`** - Detailed permission debugging (admin only)
 
-### 👥 Employee Management (`/api/v1/emp`)
+### 👥 Employee Management (`/api/v1/employee`)
 
 #### Core Operations
-- **`GET /api/v1/emp`** - List employees with RBAC filtering
-- **`GET /api/v1/emp/:id`** - Get employee details
-- **`POST /api/v1/emp`** - Create new employee
-- **`PUT /api/v1/emp/:id`** - Update employee information
-- **`DELETE /api/v1/emp/:id`** - Soft delete employee
+- **`GET /api/v1/employee`** - List employees with RBAC filtering
+- **`GET /api/v1/employee/:id`** - Get employee details
+- **`POST /api/v1/employee`** - Create new employee
+- **`PUT /api/v1/employee/:id`** - Update employee information
+- **`DELETE /api/v1/employee/:id`** - Soft delete employee
 
 **Features:**
 - Automatic RBAC filtering based on user permissions
@@ -274,6 +274,31 @@ Content-Type: application/json
 - **`GET /api/v1/meta?category=biz_level`** - Business hierarchy levels
 - **`GET /api/v1/meta?category=loc_level`** - Location hierarchy levels
 - **`GET /api/v1/meta?category=hr_level`** - HR position levels
+
+### 🔧 Entity Configuration API (`/api/v1/config`)
+
+#### **NEW** - Frontend-Safe Configuration System
+- **`GET /api/v1/config/entity/:entityType`** - Get entity page configuration
+- **`GET /api/v1/config/entities`** - List all available entity types
+
+**✅ Perfect Consistency Examples:**
+```http
+# Config API (camelCase entity names)
+GET /api/v1/config/entity/projectStatus    # Frontend configuration
+GET /api/v1/config/entity/taskStage        # UI table/form schema
+GET /api/v1/config/entity/businessLevel    # Page layout config
+
+# Data API (snake_case categories) 
+GET /api/v1/meta?category=project_status   # Actual data records
+GET /api/v1/meta?category=task_stage       # Data for tables
+GET /api/v1/meta?category=biz_level        # Meta data content
+```
+
+**Key Features:**
+- **Database Schema Protection**: Config API exposes only frontend-safe fields
+- **Consistent Caching**: 5-minute cache duration with automatic refresh
+- **Type-Safe**: Full TypeScript integration with Zod validation
+- **Authentication**: Bearer token required for all config endpoints
 
 **Categories Available:**
 - `project_status`, `project_stage` - Project lifecycle management

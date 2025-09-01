@@ -5,7 +5,7 @@
 import type { EntityPageConfig } from '../types';
 
 export const businessLevelConfig: EntityPageConfig = {
-  entityName: 'business-level',
+  entityName: 'businessLevel',
   displayName: 'Business Level',
   displayNamePlural: 'Business Levels',
   description: 'Organizational hierarchy levels for business unit structure',
@@ -265,7 +265,7 @@ export const businessLevelConfig: EntityPageConfig = {
   navigation: {
     breadcrumbs: [
       { label: 'Meta Data', path: '/meta' },
-      { label: 'Business Levels', path: '/meta/business-level' },
+      { label: 'Business Levels', path: '/meta/businessLevel' },
     ],
   },
 

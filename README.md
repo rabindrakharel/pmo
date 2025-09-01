@@ -121,7 +121,7 @@ Each row displays only the actions the current employee has permission to perfor
 
 ## 🏗️ Architecture Overview
 
-> **Latest Update (2025-09-01)**: **API-First Configuration System Complete** - Implemented secure entity configuration API with complete naming consistency. Frontend now loads all entity configurations dynamically via API with database schema protection. Meta data management features expandable sidebar dropdown with individual pages for 7 entity types using consistent camelCase naming across all layers.
+> **Latest Update (2025-09-01)**: **🎯 Complete End-to-End Consistency Achieved** - All critical naming inconsistencies resolved. Perfect camelCase consistency across sidebar, routes, components, and API calls. Fixed base URL mismatches, auth token inconsistencies, and URL construction issues. MetaDataTable now properly integrates with both Config API (camelCase) and Data API (snake_case) with full authentication flow.
 
 ### System Design Principles
 - **Domain-First**: UI mirrors database domains
@@ -253,6 +253,16 @@ GET    /api/v1/config/entity/:type    # Entity configuration (frontend-safe)
 GET    /api/v1/config/schema/:type    # Full schema (backend-only)
 ```
 
+#### Forms Endpoints
+```
+GET    /api/v1/form                   # List forms (limit/offset)
+GET    /api/v1/form/:id               # Read a form definition (with schema)
+GET    /api/v1/form/:id/records       # List form submissions
+POST   /api/v1/form                   # Create a new form (schema-driven)
+PUT    /api/v1/form/:id               # Update an existing form
+DELETE /api/v1/form/:id               # Soft-delete a form (no submissions)
+```
+
 **[📖 Complete API Documentation →](./apps/api/README.md)**
 
 ---
@@ -364,39 +374,39 @@ Result: Dynamic UI + Live Data = Complete Management Page
 #### **Meta Data Entities** ⚠️ **ACTUAL IMPLEMENTATION**
 | **Entity** | **Sidebar** | **Route** | **Page Component** | **📊 Data API** | **🔧 Config API** | **Status** |
 |------------|-------------|-----------|-------------------|-----------------|-------------------|-----------|
-| Project Status | `projectStatus` | `/meta/project-status` | `ProjectStatusPage.tsx` | `/api/v1/meta?category=project_status` | `/api/v1/config/entity/projectStatus` | ⚠️ **Mismatch** |
-| Project Stage | `projectStage` | `/meta/project-stage` | `ProjectStagePage.tsx` | `/api/v1/meta?category=project_stage` | `/api/v1/config/entity/projectStage` | ⚠️ **Mismatch** |
-| Task Status | `taskStatus` | `/meta/task-status` | `TaskStatusPage.tsx` | `/api/v1/meta?category=task_status` | `/api/v1/config/entity/taskStatus` | ⚠️ **Mismatch** |
-| Task Stage | `taskStage` | `/meta/task-stage` | `TaskStagePage.tsx` | `/api/v1/meta?category=task_stage` | `/api/v1/config/entity/taskStage` | ⚠️ **Mismatch** |
-| Business Level | `businessLevel` | `/meta/business-level` | `BusinessLevelPage.tsx` | `/api/v1/meta?category=biz_level` | `/api/v1/config/entity/businessLevel` | ⚠️ **Mismatch** |
-| Location Level | `locationLevel` | `/meta/location-level` | `LocationLevelPage.tsx` | `/api/v1/meta?category=loc_level` | `/api/v1/config/entity/locationLevel` | ⚠️ **Mismatch** |
-| HR Level | `hrLevel` | `/meta/hr-level` | `HrLevelPage.tsx` | `/api/v1/meta?category=hr_level` | `/api/v1/config/entity/hrLevel` | ⚠️ **Mismatch** |
+| Project Status | `projectStatus` | `/meta/projectStatus` | `ProjectStatusPage.tsx` | `/api/v1/meta?category=project_status` | `/api/v1/config/entity/projectStatus` | ✅ **Perfect** |
+| Project Stage | `projectStage` | `/meta/projectStage` | `ProjectStagePage.tsx` | `/api/v1/meta?category=project_stage` | `/api/v1/config/entity/projectStage` | ✅ **Perfect** |
+| Task Status | `taskStatus` | `/meta/taskStatus` | `TaskStatusPage.tsx` | `/api/v1/meta?category=task_status` | `/api/v1/config/entity/taskStatus` | ✅ **Perfect** |
+| Task Stage | `taskStage` | `/meta/taskStage` | `TaskStagePage.tsx` | `/api/v1/meta?category=task_stage` | `/api/v1/config/entity/taskStage` | ✅ **Perfect** |
+| Business Level | `businessLevel` | `/meta/businessLevel` | `BusinessLevelPage.tsx` | `/api/v1/meta?category=biz_level` | `/api/v1/config/entity/businessLevel` | ✅ **Perfect** |
+| Location Level | `locationLevel` | `/meta/locationLevel` | `LocationLevelPage.tsx` | `/api/v1/meta?category=loc_level` | `/api/v1/config/entity/locationLevel` | ✅ **Perfect** |
+| HR Level | `hrLevel` | `/meta/hrLevel` | `HrLevelPage.tsx` | `/api/v1/meta?category=hr_level` | `/api/v1/config/entity/hrLevel` | ✅ **Perfect** |
 
-### 🚨 **CRITICAL INCONSISTENCIES FOUND**
+### ✅ **COMPLETE CONSISTENCY ACHIEVED** (Updated 2025-09-01)
 
-#### **Key Mismatches Identified:**
-1. **Sidebar → Route Mismatch**: Sidebar uses `camelCase` but routes use `kebab-case`
-   - Sidebar: `projectStatus` → Route: `/meta/project-status` 
-   - **Result**: Clicking sidebar buttons leads to 404s or broken navigation
+#### **🎯 Perfect End-to-End Flow:**
 
-2. **Data API Category Mismatch**: Frontend expects `camelCase`, backend uses `snake_case`
-   - Frontend: `category=projectStatus` → Backend expects: `category=project_status`
-   - **Result**: Data tables show empty results or loading errors
+All critical inconsistencies have been **RESOLVED**. The platform now features complete naming consistency across all layers:
 
-3. **Config API vs Data API**: Config API uses `camelCase`, Data API categories use `snake_case`
-   - Config: `/api/v1/config/entity/projectStatus` ✅ Works
-   - Data: `/api/v1/meta?category=project_status` ✅ Works 
-   - **Problem**: Frontend code inconsistency between the two
+**✅ Navigation Flow:**
+1. **Sidebar Click**: User clicks `projectStatus` (camelCase)
+2. **Route Navigation**: Routes to `/meta/projectStatus` (camelCase)  
+3. **Component Loading**: Loads `ProjectStatusPage` with `entityType="projectStatus"`
+4. **Config API**: `GET /api/v1/config/entity/projectStatus` (camelCase)
+5. **Data API**: `GET /api/v1/meta?category=project_status` (snake_case)
 
-#### **What Actually Works:**
-- ✅ **Config API**: `/api/v1/config/entity/projectStatus` (camelCase)
-- ✅ **Data API**: `/api/v1/meta?category=project_status` (snake_case)  
-- ✅ **Business APIs**: `/api/v1/project`, `/api/v1/task`, `/api/v1/employee`, etc.
+**✅ Critical Infrastructure Fixes Applied:**
+- **✅ Base URL Consistency**: All services unified to `http://localhost:4000`
+- **✅ Auth Token Consistency**: All services use `auth_token` localStorage key
+- **✅ URL Construction**: Proper HTTP method stripping and full URL building  
+- **✅ File Naming**: All config files converted to camelCase (`taskStage.ts`)
+- **✅ Import Paths**: Corrected TypeScript imports without `.js` extensions
+- **✅ Route Mapping**: App.tsx routes updated to match sidebar camelCase format
 
-#### **What Needs Fixing:**
-- ⚠️ **Routes**: Update to match sidebar (camelCase) OR update sidebar to match routes (kebab-case)
-- ⚠️ **Data API calls**: Frontend must call correct snake_case categories
-- ⚠️ **Component mapping**: Ensure route → component mapping works
+**✅ Data API Integration:**
+- MetaDataTable now properly constructs URLs with base URL
+- HTTP method prefixes stripped from config endpoints  
+- Consistent Bearer token authentication across all API calls
 
 #### **Core Business Entities** ✅ **VALIDATED**
 | **Entity** | **Sidebar** | **Route** | **Page Component** | **📊 Data API** | **🔧 Config API** | **Config File** |

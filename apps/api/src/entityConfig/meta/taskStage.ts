@@ -2,7 +2,7 @@
 // TASK STAGE META CONFIGURATION
 // ============================================================================
 
-import type { EntityPageConfig } from '../types.js';
+import type { EntityPageConfig } from '../types';
 
 export const taskStageConfig: EntityPageConfig = {
   entityName: 'taskStage',
@@ -207,7 +207,7 @@ export const taskStageConfig: EntityPageConfig = {
   navigation: {
     breadcrumbs: [
       { label: 'Meta Data', path: '/meta' },
-      { label: 'Task Stage', path: '/meta/task-stage' },
+      { label: 'Task Stage', path: '/meta/taskStage' },
     ],
   },
 

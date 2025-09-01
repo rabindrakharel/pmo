@@ -14,7 +14,7 @@ export const LocationLevelPage: React.FC = () => {
       </div>
       
       <div className="flex-1 overflow-hidden">
-        <MetaDataTable entityType="location-level" />
+        <MetaDataTable entityType="locationLevel" />
       </div>
     </div>
   );

@@ -5,7 +5,7 @@
 import type { EntityPageConfig } from '../types';
 
 export const locationLevelConfig: EntityPageConfig = {
-  entityName: 'location-level',
+  entityName: 'locationLevel',
   displayName: 'Location Level',
   displayNamePlural: 'Location Levels',
   description: 'Geographic hierarchy levels for location organization structure',
@@ -287,7 +287,7 @@ export const locationLevelConfig: EntityPageConfig = {
   navigation: {
     breadcrumbs: [
       { label: 'Meta Data', path: '/meta' },
-      { label: 'Location Levels', path: '/meta/location-level' },
+      { label: 'Location Levels', path: '/meta/locationLevel' },
     ],
   },
 

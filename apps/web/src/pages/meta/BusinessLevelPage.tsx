@@ -14,7 +14,7 @@ export const BusinessLevelPage: React.FC = () => {
       </div>
       
       <div className="flex-1 overflow-hidden">
-        <MetaDataTable entityType="business-level" />
+        <MetaDataTable entityType="businessLevel" />
       </div>
     </div>
   );

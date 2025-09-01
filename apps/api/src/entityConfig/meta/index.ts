@@ -1,10 +1,10 @@
-import { projectStatusConfig } from './projectStatus.js';
-import { projectStageConfig } from './projectStage.js';
-import { taskStatusConfig } from './taskStatus.js';
-import { taskStageConfig } from './taskStage.js';
-import { businessLevelConfig } from './businessLevel.js';
-import { locationLevelConfig } from './locationLevel.js';
-import { hrLevelConfig } from './hrLevel.js';
+import { projectStatusConfig } from './projectStatus';
+import { projectStageConfig } from './projectStage';
+import { taskStatusConfig } from './taskStatus';
+import { taskStageConfig } from './taskStage';
+import { businessLevelConfig } from './businessLevelConfig';
+import { locationLevelConfig } from './locationLevelConfig';
+import { hrLevelConfig } from './hrLevelConfig';
 
 export const META_CONFIGS = {
   'projectStatus': projectStatusConfig,

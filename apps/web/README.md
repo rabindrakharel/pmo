@@ -14,7 +14,7 @@ A sophisticated, professional-grade frontend for the PMO Enterprise Task Managem
 - **Styling**: TailwindCSS 3.4.0 with @tailwindcss/forms plugin
 - **State Management**: React Context API for authentication
 - **Form Handling**: React Hook Form 7.62.0 with Zod validation
-- **HTTP Client**: Axios 1.11.0 for API communication
+- **HTTP Client**: Axios 1.11.0 + Fetch API for dual communication patterns
 - **Icons**: Lucide React 0.542.0 (modern icon library)
 - **Routing**: React Router DOM 7.8.2
 
@@ -407,6 +407,49 @@ interface TreeViewProps<T> {
 - **Section Gaps**: `space-y-6` (24px) between major sections
 - **Element Gaps**: `space-y-4` (16px) between related elements
 - **Tight Spacing**: `space-y-2` (8px) for form elements and tight content
+
+---
+
+## 🔗 API Integration & Data Management
+
+### 🎯 **Perfect Consistency Architecture** (Updated 2025-09-01)
+
+The frontend achieves **complete end-to-end consistency** through a dual-API integration pattern:
+
+#### **Two-API System Architecture**
+```typescript
+// 1. Config API - Entity page configurations (camelCase)
+GET /api/v1/config/entity/projectStatus  → Page layout, fields, UI behavior
+GET /api/v1/config/entity/taskStage      → Form schemas, validation rules
+GET /api/v1/config/entity/businessLevel  → Table configurations
+
+// 2. Data API - Actual business data (snake_case categories)
+GET /api/v1/meta?category=project_status  → Project status records
+GET /api/v1/meta?category=task_stage      → Task stage data  
+GET /api/v1/meta?category=biz_level       → Business level data
+```
+
+#### **Critical Infrastructure Components**
+
+**ConfigService** (`/services/configService.ts`)
+- **Base URL**: `http://localhost:4000` (unified across all services)
+- **Authentication**: Bearer token with `auth_token` localStorage key
+- **Caching**: 5-minute entity configuration cache with automatic refresh
+- **Error Handling**: Comprehensive error boundaries with user-friendly messages
+
+**MetaDataTable** (`/components/MetaDataTable.tsx`)
+- **Dynamic Configuration**: Loads page layout from Config API
+- **Smart Data Fetching**: Constructs Data API calls with proper snake_case conversion
+- **URL Construction**: Strips HTTP methods and builds full URLs with base URL
+- **Authentication**: Consistent Bearer token integration across both APIs
+
+#### **Perfect Naming Flow Example**
+1. **User Click**: Sidebar `projectStatus` (camelCase)
+2. **Route Navigation**: `/meta/projectStatus` (camelCase)
+3. **Component Render**: `<MetaDataTable entityType="projectStatus" />` (camelCase)
+4. **Config API Call**: `/api/v1/config/entity/projectStatus` (camelCase)
+5. **Data API Call**: `/api/v1/meta?category=project_status` (snake_case)
+6. **Perfect Integration**: UI displays with proper authentication and error handling
 
 ---
 

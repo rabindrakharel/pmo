@@ -3,6 +3,7 @@ import { FileText, Plus } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, Column } from '../components/ui/DataTable';
 import { formApi } from '../lib/api';
+import { useNavigate } from 'react-router-dom';
 
 interface Form {
   id: string;
@@ -27,6 +28,7 @@ interface Form {
 }
 
 export function FormsPage() {
+  const navigate = useNavigate();
   const [forms, setForms] = useState<Form[]>([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({
@@ -60,56 +62,16 @@ export function FormsPage() {
     setPagination(prev => ({ ...prev, current: page, pageSize }));
   };
 
-  const getStatusBadge = (active?: boolean) => {
-    const isActive = active !== false;
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-        isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-      }`}>
-        {isActive ? 'Active' : 'Inactive'}
-      </span>
-    );
-  };
-
-  const getScopeChips = (form: Form) => {
-    const scopes = [];
-    if (form.projectSpecific) scopes.push('Project');
-    if (form.taskSpecific) scopes.push('Task');
-    if (form.locationSpecific) scopes.push('Location');
-    if (form.businessSpecific) scopes.push('Business');
-    if (form.hrSpecific) scopes.push('HR');
-    if (form.worksiteSpecific) scopes.push('Worksite');
-
-    if (scopes.length === 0) return <span className="text-gray-400">Global</span>;
-
-    return (
-      <div className="flex flex-wrap gap-1">
-        {scopes.slice(0, 2).map(scope => (
-          <span
-            key={scope}
-            className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
-          >
-            {scope}
-          </span>
-        ))}
-        {scopes.length > 2 && (
-          <span className="text-xs text-gray-500">+{scopes.length - 2} more</span>
-        )}
-      </div>
-    );
-  };
-
-  const getVersionBadge = (version?: number) => {
-    if (!version) return null;
-    
-    return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-        v{version}
-      </span>
-    );
-  };
-
   const tableColumns: Column<Form>[] = [
+    {
+      key: 'id',
+      title: 'Form ID',
+      sortable: false,
+      filterable: false,
+      render: (value) => (
+        <code className="text-xs text-gray-600">{String(value).slice(0, 8)}…</code>
+      ),
+    },
     {
       key: 'name',
       title: 'Form Name',
@@ -127,42 +89,14 @@ export function FormsPage() {
       ),
     },
     {
-      key: 'version',
-      title: 'Version',
-      sortable: true,
-      align: 'center',
-      render: (value) => getVersionBadge(value),
-    },
-    {
-      key: 'scope',
-      title: 'Scope',
+      key: 'creator',
+      title: 'Creator',
       sortable: false,
       filterable: false,
-      render: (_, record) => getScopeChips(record),
-    },
-    {
-      key: 'formGlobalLink',
-      title: 'Public Link',
-      sortable: false,
-      filterable: false,
-      render: (value) => value ? (
-        <div className="flex items-center">
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            Available
-          </span>
-        </div>
-      ) : (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-          Private
-        </span>
-      ),
-    },
-    {
-      key: 'active',
-      title: 'Status',
-      sortable: true,
-      filterable: true,
-      render: (value) => getStatusBadge(value),
+      render: (_, record) => {
+        const creator = (record as any)?.attr?.createdByName || (record as any)?.attr?.createdBy || '-';
+        return <span className="text-gray-700">{creator}</span>;
+      },
     },
     {
       key: 'created',
@@ -192,7 +126,10 @@ export function FormsPage() {
             </div>
           </div>
           
-          <button className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200">
+          <button
+            onClick={() => navigate('/forms/new')}
+            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
+          >
             <Plus className="h-4 w-4 mr-2" />
             New Form
           </button>
@@ -235,9 +172,9 @@ export function FormsPage() {
             rowKey="id"
             filterable={true}
             columnSelection={true}
-            onRowClick={(form) => console.log('Navigate to form:', form.id)}
-            onView={(form) => console.log('View form:', form.id)}
-            onEdit={(form) => console.log('Edit form:', form.id)}
+            onRowClick={(form) => navigate(`/forms/${form.id}`)}
+            onView={(form) => navigate(`/forms/${form.id}`)}
+            onEdit={(form) => navigate(`/forms/${form.id}/edit`)}
             onShare={(form) => console.log('Share form:', form.id)}
             onDelete={(form) => console.log('Delete form:', form.id)}
           />

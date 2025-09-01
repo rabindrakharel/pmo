@@ -3,6 +3,8 @@ import { DataTable, Column, RowAction } from './ui/DataTable';
 import type { FrontendEntityConfig } from '../types/config';
 import { configService } from '../services/configService';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+
 export interface MetaDataTableProps {
   entityType: string;
 }
@@ -151,13 +153,20 @@ export const MetaDataTable: React.FC<MetaDataTableProps> = ({ entityType }) => {
     
     setLoading(true);
     try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      // Extract the URL part from the endpoint (remove HTTP method)
+      const listEndpoint = config.api.endpoints.list.replace(/^GET\s+/, '');
       const response = await fetch(
-        `${config.api.endpoints.list}?page=${currentPage}&limit=${pageSize}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }
+        `${API_BASE_URL}${listEndpoint}?page=${currentPage}&limit=${pageSize}`,
+        { headers }
       );
       
       if (response.ok) {
@@ -200,13 +209,22 @@ export const MetaDataTable: React.FC<MetaDataTableProps> = ({ entityType }) => {
     if (!config) return;
     
     try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      // Extract the URL part from the endpoint (remove HTTP method) 
+      const deleteEndpoint = config.api.endpoints.delete.replace(/^DELETE\s+/, '');
       const response = await fetch(
-        config.api.endpoints.delete.replace(':id', record.id),
+        `${API_BASE_URL}${deleteEndpoint.replace(':id', record.id)}`,
         {
           method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          }
+          headers
         }
       );
       

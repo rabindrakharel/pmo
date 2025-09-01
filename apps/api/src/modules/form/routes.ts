@@ -9,11 +9,17 @@ const FormSchema = Type.Object({
   descr: Type.Optional(Type.String()),
   formGlobalLink: Type.Optional(Type.String()),
   projectSpecific: Type.Optional(Type.Boolean()),
+  projectId: Type.Optional(Type.String()),
   taskSpecific: Type.Optional(Type.Boolean()),
+  taskId: Type.Optional(Type.String()),
   locationSpecific: Type.Optional(Type.Boolean()),
+  locationId: Type.Optional(Type.String()),
   businessSpecific: Type.Optional(Type.Boolean()),
+  businessId: Type.Optional(Type.String()),
   hrSpecific: Type.Optional(Type.Boolean()),
+  hrId: Type.Optional(Type.String()),
   worksiteSpecific: Type.Optional(Type.Boolean()),
+  worksiteId: Type.Optional(Type.String()),
   version: Type.Optional(Type.Number()),
   active: Type.Boolean(),
   fromTs: Type.String(),
@@ -30,11 +36,17 @@ const CreateFormSchema = Type.Object({
   descr: Type.Optional(Type.String()),
   formGlobalLink: Type.Optional(Type.String()),
   projectSpecific: Type.Optional(Type.Boolean()),
+  projectId: Type.Optional(Type.String()),
   taskSpecific: Type.Optional(Type.Boolean()),
+  taskId: Type.Optional(Type.String()),
   locationSpecific: Type.Optional(Type.Boolean()),
+  locationId: Type.Optional(Type.String()),
   businessSpecific: Type.Optional(Type.Boolean()),
+  businessId: Type.Optional(Type.String()),
   hrSpecific: Type.Optional(Type.Boolean()),
+  hrId: Type.Optional(Type.String()),
   worksiteSpecific: Type.Optional(Type.Boolean()),
+  worksiteId: Type.Optional(Type.String()),
   version: Type.Optional(Type.Number()),
   active: Type.Optional(Type.Boolean()),
   fromTs: Type.Optional(Type.String({ format: 'date-time' })),
@@ -144,11 +156,17 @@ export async function formRoutes(fastify: FastifyInstance) {
           "descr",
           form_global_link as "formGlobalLink",
           project_specific as "projectSpecific",
+          project_id as "projectId",
           task_specific as "taskSpecific",
+          task_id as "taskId",
           location_specific as "locationSpecific",
+          location_id as "locationId",
           business_specific as "businessSpecific",
+          business_id as "businessId",
           hr_specific as "hrSpecific",
+          hr_id as "hrId",
           worksite_specific as "worksiteSpecific",
+          worksite_id as "worksiteId",
           version,
           active,
           from_ts as "fromTs",
@@ -206,11 +224,17 @@ export async function formRoutes(fastify: FastifyInstance) {
           "descr",
           form_global_link as "formGlobalLink",
           project_specific as "projectSpecific",
+          project_id as "projectId",
           task_specific as "taskSpecific",
+          task_id as "taskId",
           location_specific as "locationSpecific",
+          location_id as "locationId",
           business_specific as "businessSpecific",
+          business_id as "businessId",
           hr_specific as "hrSpecific",
+          hr_id as "hrId",
           worksite_specific as "worksiteSpecific",
+          worksite_id as "worksiteId",
           version,
           active,
           from_ts as "fromTs",
@@ -269,26 +293,30 @@ export async function formRoutes(fastify: FastifyInstance) {
       
       const result = await db.execute(sql`
         INSERT INTO app.ops_formlog_head (
-          name, "descr", form_global_link, 
-          project_specific, task_specific, location_specific, 
-          business_specific, hr_specific, worksite_specific,
+          name, "descr", form_global_link,
+          project_specific, project_id,
+          task_specific, task_id,
+          location_specific, location_id,
+          business_specific, business_id,
+          hr_specific, hr_id,
+          worksite_specific, worksite_id,
           version, active, from_ts, tags, schema, attr
         )
         VALUES (
-          ${data.name}, 
-          ${data.descr || null}, 
+          ${data.name},
+          ${data.descr || null},
           ${data.formGlobalLink || null},
-          ${data.projectSpecific !== undefined ? data.projectSpecific : false}, 
-          ${data.taskSpecific !== undefined ? data.taskSpecific : false}, 
-          ${data.locationSpecific !== undefined ? data.locationSpecific : false},
-          ${data.businessSpecific !== undefined ? data.businessSpecific : false}, 
-          ${data.hrSpecific !== undefined ? data.hrSpecific : false}, 
-          ${data.worksiteSpecific !== undefined ? data.worksiteSpecific : false},
-          ${data.version || 1}, 
-          ${data.active !== false}, 
-          ${fromTs}, 
-          ${JSON.stringify(data.tags || [])}, 
-          ${JSON.stringify(data.schema || {})}, 
+          ${data.projectSpecific !== undefined ? data.projectSpecific : false}, ${data.projectId || null},
+          ${data.taskSpecific !== undefined ? data.taskSpecific : false}, ${data.taskId || null},
+          ${data.locationSpecific !== undefined ? data.locationSpecific : false}, ${data.locationId || null},
+          ${data.businessSpecific !== undefined ? data.businessSpecific : false}, ${data.businessId || null},
+          ${data.hrSpecific !== undefined ? data.hrSpecific : false}, ${data.hrId || null},
+          ${data.worksiteSpecific !== undefined ? data.worksiteSpecific : false}, ${data.worksiteId || null},
+          ${data.version || 1},
+          ${data.active !== false},
+          ${fromTs},
+          ${JSON.stringify(data.tags || [])},
+          ${JSON.stringify(data.schema || {})},
           ${JSON.stringify(data.attr || {})}
         )
         RETURNING 
@@ -297,11 +325,17 @@ export async function formRoutes(fastify: FastifyInstance) {
           "descr",
           form_global_link as "formGlobalLink",
           project_specific as "projectSpecific",
+          project_id as "projectId",
           task_specific as "taskSpecific",
+          task_id as "taskId",
           location_specific as "locationSpecific",
+          location_id as "locationId",
           business_specific as "businessSpecific",
+          business_id as "businessId",
           hr_specific as "hrSpecific",
+          hr_id as "hrId",
           worksite_specific as "worksiteSpecific",
+          worksite_id as "worksiteId",
           version,
           active,
           from_ts as "fromTs",
@@ -387,25 +421,43 @@ export async function formRoutes(fastify: FastifyInstance) {
       if (data.projectSpecific !== undefined) {
         updateFields.push(sql`project_specific = ${data.projectSpecific}`);
       }
+      if (data.projectId !== undefined) {
+        updateFields.push(sql`project_id = ${data.projectId}`);
+      }
       
       if (data.taskSpecific !== undefined) {
         updateFields.push(sql`task_specific = ${data.taskSpecific}`);
+      }
+      if (data.taskId !== undefined) {
+        updateFields.push(sql`task_id = ${data.taskId}`);
       }
       
       if (data.locationSpecific !== undefined) {
         updateFields.push(sql`location_specific = ${data.locationSpecific}`);
       }
+      if (data.locationId !== undefined) {
+        updateFields.push(sql`location_id = ${data.locationId}`);
+      }
       
       if (data.businessSpecific !== undefined) {
         updateFields.push(sql`business_specific = ${data.businessSpecific}`);
+      }
+      if (data.businessId !== undefined) {
+        updateFields.push(sql`business_id = ${data.businessId}`);
       }
       
       if (data.hrSpecific !== undefined) {
         updateFields.push(sql`hr_specific = ${data.hrSpecific}`);
       }
+      if (data.hrId !== undefined) {
+        updateFields.push(sql`hr_id = ${data.hrId}`);
+      }
       
       if (data.worksiteSpecific !== undefined) {
         updateFields.push(sql`worksite_specific = ${data.worksiteSpecific}`);
+      }
+      if (data.worksiteId !== undefined) {
+        updateFields.push(sql`worksite_id = ${data.worksiteId}`);
       }
       
       if (data.version !== undefined) {
@@ -444,11 +496,17 @@ export async function formRoutes(fastify: FastifyInstance) {
           "descr",
           form_global_link as "formGlobalLink",
           project_specific as "projectSpecific",
+          project_id as "projectId",
           task_specific as "taskSpecific",
+          task_id as "taskId",
           location_specific as "locationSpecific",
+          location_id as "locationId",
           business_specific as "businessSpecific",
+          business_id as "businessId",
           hr_specific as "hrSpecific",
+          hr_id as "hrId",
           worksite_specific as "worksiteSpecific",
+          worksite_id as "worksiteId",
           version,
           active,
           from_ts as "fromTs",
@@ -575,11 +633,17 @@ export async function formRoutes(fastify: FastifyInstance) {
           "descr",
           form_global_link as "formGlobalLink",
           project_specific as "projectSpecific",
+          project_id as "projectId",
           task_specific as "taskSpecific",
+          task_id as "taskId",
           location_specific as "locationSpecific",
+          location_id as "locationId",
           business_specific as "businessSpecific",
+          business_id as "businessId",
           hr_specific as "hrSpecific",
+          hr_id as "hrId",
           worksite_specific as "worksiteSpecific",
+          worksite_id as "worksiteId",
           version,
           active,
           from_ts as "fromTs",

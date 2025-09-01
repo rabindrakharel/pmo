@@ -2,7 +2,7 @@
 // PROJECT STAGE META CONFIGURATION
 // ============================================================================
 
-import type { EntityPageConfig } from '../types.js';
+import type { EntityPageConfig } from '../types';
 
 export const projectStageConfig: EntityPageConfig = {
   entityName: 'projectStage',
@@ -17,13 +17,13 @@ export const projectStageConfig: EntityPageConfig = {
   },
 
   api: {
-    baseEndpoint: '/api/v1/meta/projectStage',
+    baseEndpoint: '/api/v1/meta/project-stage',
     endpoints: {
-      list: 'GET /api/v1/meta?category=projectStage',
-      get: 'GET /api/v1/meta/projectStage/:id',
-      create: 'POST /api/v1/meta/projectStage',
-      update: 'PUT /api/v1/meta/projectStage/:id',
-      delete: 'DELETE /api/v1/meta/projectStage/:id',
+      list: 'GET /api/v1/meta?category=project_stage',
+      get: 'GET /api/v1/meta/project-stage/:id',
+      create: 'POST /api/v1/meta/project-stage',
+      update: 'PUT /api/v1/meta/project-stage/:id',
+      delete: 'DELETE /api/v1/meta/project-stage/:id',
     },
   },
 

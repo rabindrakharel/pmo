@@ -10,6 +10,9 @@ import { TaskPage } from './pages/TaskPage';
 import { EmployeePage } from './pages/EmployeePage';
 import { RolePage } from './pages/RolePage';
 import { FormsPage } from './pages/FormsPage';
+import { FormViewPage } from './pages/FormViewPage';
+import { FormBuilderPage } from './pages/FormBuilderPage';
+import { FormEditPage } from './pages/FormEditPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SecurityPage } from './pages/SecurityPage';
@@ -74,7 +77,7 @@ function AppRoutes() {
       />
       {/* Meta Dropdown Pages */}
       <Route
-        path="/meta/project-status"
+        path="/meta/projectStatus"
         element={
           <ProtectedRoute>
             <ProjectStatusPage />
@@ -82,7 +85,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/meta/project-stage"
+        path="/meta/projectStage"
         element={
           <ProtectedRoute>
             <ProjectStagePage />
@@ -90,7 +93,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/meta/task-status"
+        path="/meta/taskStatus"
         element={
           <ProtectedRoute>
             <TaskStatusPage />
@@ -98,7 +101,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/meta/task-stage"
+        path="/meta/taskStage"
         element={
           <ProtectedRoute>
             <TaskStagePage />
@@ -106,7 +109,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/meta/business-level"
+        path="/meta/businessLevel"
         element={
           <ProtectedRoute>
             <BusinessLevelPage />
@@ -114,7 +117,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/meta/location-level"
+        path="/meta/locationLevel"
         element={
           <ProtectedRoute>
             <LocationLevelPage />
@@ -122,7 +125,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/meta/hr-level"
+        path="/meta/hrLevel"
         element={
           <ProtectedRoute>
             <HrLevelPage />
@@ -182,6 +185,30 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <FormsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/forms/new"
+        element={
+          <ProtectedRoute>
+            <FormBuilderPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/forms/:id"
+        element={
+          <ProtectedRoute>
+            <FormViewPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/forms/:id/edit"
+        element={
+          <ProtectedRoute>
+            <FormEditPage />
           </ProtectedRoute>
         }
       />

@@ -14,7 +14,7 @@ export const ProjectStatusPage: React.FC = () => {
       </div>
       
       <div className="flex-1 overflow-hidden">
-        <MetaDataTable entityType="project-status" />
+        <MetaDataTable entityType="projectStatus" />
       </div>
     </div>
   );

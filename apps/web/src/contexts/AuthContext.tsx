@@ -36,6 +36,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const { token, employee } = response;
       
       localStorage.setItem('auth_token', token);
+      if (employee?.name) localStorage.setItem('user_name', employee.name);
       setState({
         user: employee,
         token,
@@ -75,6 +76,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       const user = await authApi.getProfile();
+      if ((user as any)?.name) localStorage.setItem('user_name', (user as any).name);
       setState({
         user,
         token,

@@ -1,13 +1,13 @@
 import type { FrontendEntityConfig, ConfigApiResponse, EntityTypesApiResponse } from '../types/config';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 class ConfigService {
   private cache = new Map<string, { data: FrontendEntityConfig; timestamp: number }>();
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   private async fetchWithAuth(url: string): Promise<Response> {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('auth_token');
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };

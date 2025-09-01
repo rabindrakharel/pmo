@@ -14,7 +14,7 @@ export const TaskStagePage: React.FC = () => {
       </div>
       
       <div className="flex-1 overflow-hidden">
-        <MetaDataTable entityType="task-stage" />
+        <MetaDataTable entityType="taskStage" />
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 // TASK STATUS META CONFIGURATION
 // ============================================================================
 
-import type { EntityPageConfig } from '../types.js';
+import type { EntityPageConfig } from '../types';
 
 export const taskStatusConfig: EntityPageConfig = {
   entityName: 'taskStatus',
@@ -17,13 +17,13 @@ export const taskStatusConfig: EntityPageConfig = {
   },
 
   api: {
-    baseEndpoint: '/api/v1/meta/taskStatus',
+    baseEndpoint: '/api/v1/meta/task-status',
     endpoints: {
-      list: 'GET /api/v1/meta?category=taskStatus',
-      get: 'GET /api/v1/meta/taskStatus/:id',
-      create: 'POST /api/v1/meta/taskStatus',
-      update: 'PUT /api/v1/meta/taskStatus/:id',
-      delete: 'DELETE /api/v1/meta/taskStatus/:id',
+      list: 'GET /api/v1/meta?category=task_status',
+      get: 'GET /api/v1/meta/task-status/:id',
+      create: 'POST /api/v1/meta/task-status',
+      update: 'PUT /api/v1/meta/task-status/:id',
+      delete: 'DELETE /api/v1/meta/task-status/:id',
     },
   },
 

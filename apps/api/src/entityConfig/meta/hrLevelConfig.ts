@@ -5,7 +5,7 @@
 import type { EntityPageConfig } from '../types';
 
 export const hrLevelConfig: EntityPageConfig = {
-  entityName: 'hr-level',
+  entityName: 'hrLevel',
   displayName: 'HR Level',
   displayNamePlural: 'HR Levels',
   description: 'Human resources hierarchy levels with salary bands and management indicators',
@@ -375,7 +375,7 @@ export const hrLevelConfig: EntityPageConfig = {
   navigation: {
     breadcrumbs: [
       { label: 'Meta Data', path: '/meta' },
-      { label: 'HR Levels', path: '/meta/hr-level' },
+      { label: 'HR Levels', path: '/meta/hrLevel' },
     ],
   },
 

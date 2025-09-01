@@ -14,7 +14,7 @@ export const HrLevelPage: React.FC = () => {
       </div>
       
       <div className="flex-1 overflow-hidden">
-        <MetaDataTable entityType="hr-level" />
+        <MetaDataTable entityType="hrLevel" />
       </div>
     </div>
   );
