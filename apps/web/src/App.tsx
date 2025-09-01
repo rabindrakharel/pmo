@@ -6,10 +6,23 @@ import { MetaPage } from './pages/MetaPage';
 import { BusinessPage } from './pages/BusinessPage';
 import { LocationPage } from './pages/LocationPage';
 import { ProjectPage } from './pages/ProjectPage';
+import { TaskPage } from './pages/TaskPage';
+import { EmployeePage } from './pages/EmployeePage';
+import { RolePage } from './pages/RolePage';
+import { FormsPage } from './pages/FormsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { BillingPage } from './pages/BillingPage';
+import { 
+  ProjectStatusPage,
+  ProjectStagePage,
+  TaskStatusPage,
+  TaskStagePage,
+  BusinessLevelPage,
+  LocationLevelPage,
+  HrLevelPage
+} from './pages/meta';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -59,6 +72,63 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      {/* Meta Dropdown Pages */}
+      <Route
+        path="/meta/project-status"
+        element={
+          <ProtectedRoute>
+            <ProjectStatusPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/meta/project-stage"
+        element={
+          <ProtectedRoute>
+            <ProjectStagePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/meta/task-status"
+        element={
+          <ProtectedRoute>
+            <TaskStatusPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/meta/task-stage"
+        element={
+          <ProtectedRoute>
+            <TaskStagePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/meta/business-level"
+        element={
+          <ProtectedRoute>
+            <BusinessLevelPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/meta/location-level"
+        element={
+          <ProtectedRoute>
+            <LocationLevelPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/meta/hr-level"
+        element={
+          <ProtectedRoute>
+            <HrLevelPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/business"
         element={
@@ -80,6 +150,38 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ProjectPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/task"
+        element={
+          <ProtectedRoute>
+            <TaskPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/employee"
+        element={
+          <ProtectedRoute>
+            <EmployeePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/roles"
+        element={
+          <ProtectedRoute>
+            <RolePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/forms"
+        element={
+          <ProtectedRoute>
+            <FormsPage />
           </ProtectedRoute>
         }
       />

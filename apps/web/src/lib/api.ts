@@ -126,27 +126,27 @@ export const metaApi = {
 
 export const employeeApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; department?: string; role?: string }) {
-    const response = await apiClient.get('/api/v1/emp', { params });
+    const response = await apiClient.get('/api/v1/employee', { params });
     return response.data;
   },
   
   async get(id: string) {
-    const response = await apiClient.get(`/api/v1/emp/${id}`);
+    const response = await apiClient.get(`/api/v1/employee/${id}`);
     return response.data;
   },
   
   async create(data: any) {
-    const response = await apiClient.post('/api/v1/emp', data);
+    const response = await apiClient.post('/api/v1/employee', data);
     return response.data;
   },
   
   async update(id: string, data: any) {
-    const response = await apiClient.put(`/api/v1/emp/${id}`, data);
+    const response = await apiClient.put(`/api/v1/employee/${id}`, data);
     return response.data;
   },
   
   async delete(id: string) {
-    const response = await apiClient.delete(`/api/v1/emp/${id}`);
+    const response = await apiClient.delete(`/api/v1/employee/${id}`);
     return response.data;
   },
 };

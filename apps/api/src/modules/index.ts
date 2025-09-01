@@ -12,6 +12,8 @@ import { metaRoutes } from './meta/routes.js';
 import { worksiteRoutes } from './scope-worksite/routes.js';
 import { clientRoutes } from './client/routes.js';
 import { authRoutes } from './auth/routes.js';
+import { schemaRoutes } from './schema/routes.js';
+import { configRoutes } from '../routes/config.js';
 
 /**
  * Register all API route modules with full RBAC functionality
@@ -24,6 +26,12 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
 
   // Authentication routes (no auth required)
   await fastify.register(authRoutes, { prefix: '/api/v1/auth' });
+
+  // Schema API routes (requires auth)
+  await schemaRoutes(fastify);
+
+  // Configuration API routes
+  await configRoutes(fastify);
 
   // Register all RBAC route modules
   await scopeLocationRoutes(fastify);

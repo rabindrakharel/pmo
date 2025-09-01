@@ -121,16 +121,25 @@ Each row displays only the actions the current employee has permission to perfor
 
 ## 🏗️ Architecture Overview
 
-> **Latest Update (2025-08-31)**: **RBAC UI Component System Complete** - Implemented comprehensive permission-gated data tables with elegant action buttons. Added React hooks for permission management and seamless API integration. All data tables now feature dynamic permission-based UI rendering.
+> **Latest Update (2025-09-01)**: **API-First Configuration System Complete** - Implemented secure entity configuration API with complete naming consistency. Frontend now loads all entity configurations dynamically via API with database schema protection. Meta data management features expandable sidebar dropdown with individual pages for 7 entity types using consistent camelCase naming across all layers.
 
 ### System Design Principles
 - **Domain-First**: UI mirrors database domains
 - **RBAC + Scope-Aware**: Role-based access control
 - **Policy-Gated Routes**: Unified permission enforcement
 - **Head/Records Pattern**: Temporal data for audit trails
+- **API-First Configuration**: Entity configs exposed via secure API
+- **Perfect Naming Consistency**: Unified camelCase across all layers
 
 ### Data Domains
-1. **META** - Reference vocabulary and configuration
+1. **META** - Reference vocabulary and configuration with 7 entity types
+   - `projectStatus` - Project workflow states
+   - `projectStage` - Project lifecycle stages
+   - `taskStatus` - Task workflow states  
+   - `taskStage` - Task workflow stages
+   - `businessLevel` - Organizational hierarchy levels
+   - `locationLevel` - Geographic hierarchy levels
+   - `hrLevel` - HR hierarchy with salary bands
 2. **LOC** - Hierarchical location management  
 3. **WORKSITE** - Physical service sites with geospatial data
 4. **BIZ** - Business organization hierarchy
@@ -216,6 +225,7 @@ Each row displays only the actions the current employee has permission to perfor
 - **✅ Advanced RBAC**: All endpoints using `rel_employee_scope_unified` with direct table reference resolution  
 - **✅ Complete CRUD**: Create, Read, Update, Delete operations for all entities with scope-aware filtering
 - **✅ Permission Debugging**: Admin-only endpoint for detailed permission analysis and troubleshooting
+- **✅ Entity Configuration API**: Secure API endpoints for frontend configuration with database schema protection
 - **🔗 Base URL**: `http://localhost:4000/api/v1/`
 
 ### Key Features
@@ -225,10 +235,11 @@ Each row displays only the actions the current employee has permission to perfor
 - **Database Integration** with James Miller's 113+ permissions active
 - **TypeScript Schemas** with comprehensive validation
 - **Production Ready** authentication flow (DEV_BYPASS_OIDC=false)
+- **API-First Configuration**: Entity configurations exposed via API with frontend-safe transformation
 
 ### Common Endpoints
 ```
-GET    /api/v1/emp                    # List employees
+GET    /api/v1/employee                    # List employees
 GET    /api/v1/project                # List projects  
 GET    /api/v1/task                   # List tasks
 GET    /api/v1/client                 # List clients
@@ -237,6 +248,9 @@ GET    /api/v1/scope/business         # List business units
 GET    /api/v1/scope/location         # List locations
 GET    /api/v1/worksite               # List worksites
 GET    /api/v1/meta                   # System metadata
+GET    /api/v1/config/entities        # Available entity types
+GET    /api/v1/config/entity/:type    # Entity configuration (frontend-safe)
+GET    /api/v1/config/schema/:type    # Full schema (backend-only)
 ```
 
 **[📖 Complete API Documentation →](./apps/api/README.md)**
@@ -251,8 +265,17 @@ apps/web/src/
 ├── components/          # React components
 │   ├── ui/             # Advanced UI components (DataTable, GridView, TreeView)
 │   ├── auth/           # Authentication components (LoginForm)
-│   └── layout/         # Layout components (Layout with collapsible sidebar)
+│   ├── layout/         # Layout with expandable Meta dropdown
+│   └── MetaDataTable   # API-driven configuration table component
 ├── pages/              # Route pages
+│   ├── meta/           # Meta data management pages
+│   │   ├── project-status.tsx     # Project status management
+│   │   ├── project-stage.tsx      # Project stage management  
+│   │   ├── task-status.tsx        # Task status management
+│   │   ├── task-stage.tsx         # Task stage management
+│   │   ├── business-level.tsx     # Business hierarchy levels
+│   │   ├── location-level.tsx     # Location hierarchy levels
+│   │   └── hr-level.tsx          # HR hierarchy levels
 │   ├── MetaPage        # System configuration management
 │   ├── BusinessPage    # Business units management
 │   ├── LocationPage    # Geographic hierarchy management
@@ -264,19 +287,174 @@ apps/web/src/
 │   ├── SettingsPage    # Application preferences
 │   ├── SecurityPage    # Security management
 │   └── BillingPage     # Payment management
-├── contexts/           # React contexts (AuthContext for authentication)
-├── lib/                # API client and utilities
+├── services/           # API service layer
+│   └── configService   # Entity configuration API client with caching
 ├── types/              # TypeScript type definitions
+│   └── config         # Frontend-safe configuration types
+├── contexts/           # React contexts (AuthContext for authentication)
 └── App.tsx            # Main application routing
 ```
 
 ### Key Features
 - **Modern React 19 + TypeScript** architecture
+- **API-Driven Configuration**: Entity configs loaded from secure backend API
+- **Complete Naming Consistency**: Unified camelCase naming across all layers
 - **Advanced Data Tables** with sticky headers, filtering, sorting, and pagination
 - **Professional UI Components** with gradient-based design system
 - **JWT Authentication** with secure token management
 - **Responsive Design** with mobile-first approach
 - **Multi-View Components** - DataTable, GridView, TreeView for versatile data presentation
+- **Configuration Caching**: 5-minute cache for entity configurations with automatic refresh
+
+### 🎯 Perfect Naming Consistency Flow
+
+**Example 1: Task Status - ACTUAL vs EXPECTED**
+```
+❌ BROKEN - What Currently Happens:
+1. User clicks sidebar: "taskStatus" 
+   ↓
+2. Browser navigates: "/meta/taskStatus" ❌ 404 Error!
+   ↓
+3. Route not found - shows error page
+
+✅ WORKING - What Should Happen:
+1. User clicks sidebar: "taskStatus"
+   ↓  
+2. Browser navigates: "/meta/task-status" (kebab-case route)
+   ↓
+3. React renders: TaskStatusPage.tsx
+   ↓
+4. Component calls: GET /api/v1/config/entity/taskStatus (🔧 Config API)
+   ↓
+5. Gets UI schema: field definitions, forms, table columns
+   ↓
+6. Component renders table using schema  
+   ↓
+7. Table calls: GET /api/v1/meta?category=task_status (📊 Data API)
+   ↓
+8. Gets actual task status records to display
+```
+
+**Example 2: Project Management Complete Flow**
+```
+1. Click: "Project" → 2. Navigate: "/project"
+→ 3. Component loads: project.tsx
+→ 4. Schema fetch: GET /api/v1/config/entity/project (🔧 Config)
+→ 5. Data fetch: GET /api/v1/project (📊 Data)
+→ 6. Component renders project management page
+```
+
+**Example 3: Two-API Architecture in Action**  
+```
+Config API (🔧): GET /api/v1/config/entity/employee
+Returns: { fields: {...}, forms: {...}, validation: {...} }
+
+Data API (📊): GET /api/v1/employee  
+Returns: [{ id: 1, name: "John", email: "..." }, ...]
+
+Result: Dynamic UI + Live Data = Complete Management Page
+```
+
+### 📊 Complete Entity Consistency Tables
+
+> **Key Distinction**: Each entity has **TWO types of endpoints**:
+> - **🔧 Configuration Endpoints**: Metadata for UI rendering (field definitions, forms, validation)
+> - **📊 Data Endpoints**: Actual business data (CRUD operations on records)
+
+#### **Meta Data Entities** ⚠️ **ACTUAL IMPLEMENTATION**
+| **Entity** | **Sidebar** | **Route** | **Page Component** | **📊 Data API** | **🔧 Config API** | **Status** |
+|------------|-------------|-----------|-------------------|-----------------|-------------------|-----------|
+| Project Status | `projectStatus` | `/meta/project-status` | `ProjectStatusPage.tsx` | `/api/v1/meta?category=project_status` | `/api/v1/config/entity/projectStatus` | ⚠️ **Mismatch** |
+| Project Stage | `projectStage` | `/meta/project-stage` | `ProjectStagePage.tsx` | `/api/v1/meta?category=project_stage` | `/api/v1/config/entity/projectStage` | ⚠️ **Mismatch** |
+| Task Status | `taskStatus` | `/meta/task-status` | `TaskStatusPage.tsx` | `/api/v1/meta?category=task_status` | `/api/v1/config/entity/taskStatus` | ⚠️ **Mismatch** |
+| Task Stage | `taskStage` | `/meta/task-stage` | `TaskStagePage.tsx` | `/api/v1/meta?category=task_stage` | `/api/v1/config/entity/taskStage` | ⚠️ **Mismatch** |
+| Business Level | `businessLevel` | `/meta/business-level` | `BusinessLevelPage.tsx` | `/api/v1/meta?category=biz_level` | `/api/v1/config/entity/businessLevel` | ⚠️ **Mismatch** |
+| Location Level | `locationLevel` | `/meta/location-level` | `LocationLevelPage.tsx` | `/api/v1/meta?category=loc_level` | `/api/v1/config/entity/locationLevel` | ⚠️ **Mismatch** |
+| HR Level | `hrLevel` | `/meta/hr-level` | `HrLevelPage.tsx` | `/api/v1/meta?category=hr_level` | `/api/v1/config/entity/hrLevel` | ⚠️ **Mismatch** |
+
+### 🚨 **CRITICAL INCONSISTENCIES FOUND**
+
+#### **Key Mismatches Identified:**
+1. **Sidebar → Route Mismatch**: Sidebar uses `camelCase` but routes use `kebab-case`
+   - Sidebar: `projectStatus` → Route: `/meta/project-status` 
+   - **Result**: Clicking sidebar buttons leads to 404s or broken navigation
+
+2. **Data API Category Mismatch**: Frontend expects `camelCase`, backend uses `snake_case`
+   - Frontend: `category=projectStatus` → Backend expects: `category=project_status`
+   - **Result**: Data tables show empty results or loading errors
+
+3. **Config API vs Data API**: Config API uses `camelCase`, Data API categories use `snake_case`
+   - Config: `/api/v1/config/entity/projectStatus` ✅ Works
+   - Data: `/api/v1/meta?category=project_status` ✅ Works 
+   - **Problem**: Frontend code inconsistency between the two
+
+#### **What Actually Works:**
+- ✅ **Config API**: `/api/v1/config/entity/projectStatus` (camelCase)
+- ✅ **Data API**: `/api/v1/meta?category=project_status` (snake_case)  
+- ✅ **Business APIs**: `/api/v1/project`, `/api/v1/task`, `/api/v1/employee`, etc.
+
+#### **What Needs Fixing:**
+- ⚠️ **Routes**: Update to match sidebar (camelCase) OR update sidebar to match routes (kebab-case)
+- ⚠️ **Data API calls**: Frontend must call correct snake_case categories
+- ⚠️ **Component mapping**: Ensure route → component mapping works
+
+#### **Core Business Entities** ✅ **VALIDATED**
+| **Entity** | **Sidebar** | **Route** | **Page Component** | **📊 Data API** | **🔧 Config API** | **Config File** |
+|------------|-------------|-----------|-------------------|-----------------|-------------------|-----------------|
+| Project | `Project` | `/project` | `project.tsx` | `/api/v1/project` | `/api/v1/config/entity/project` | `project.ts` |
+| Task | `Task` | `/task` | `task.tsx` | `/api/v1/task` | `/api/v1/config/entity/task` | `task.ts` |
+| Employee | `Employee` | `/employee` | `employee.tsx` | `/api/v1/employee` | `/api/v1/config/entity/employee` | `employee.ts` |
+| Client | `Client` | `/client` | `client.tsx` | `/api/v1/client` | `/api/v1/config/entity/client` | `client.ts` |
+
+#### **Scope & Hierarchy Entities**
+| **Entity** | **Sidebar** | **Route** | **Page Component** | **📊 Data API** | **🔧 Config API** | **Config File** |
+|------------|-------------|-----------|-------------------|-----------------|-------------------|-----------------|
+| Business | `Business` | `/business` | `business.tsx` | `/api/v1/scope/business` | `/api/v1/config/entity/business` | `business.ts` |
+| Location | `Location` | `/location` | `location.tsx` | `/api/v1/scope/location` | `/api/v1/config/entity/location` | `location.ts` |
+| HR | `HR` | `/hr` | `hr.tsx` | `/api/v1/scope/hr` | `/api/v1/config/entity/hr` | `hr.ts` |
+| Worksite | `Worksite` | `/worksite` | `worksite.tsx` | `/api/v1/worksite` | `/api/v1/config/entity/worksite` | `worksite.ts` |
+
+#### **System & Admin Entities**
+| **Entity** | **Sidebar** | **Route** | **Page Component** | **📊 Data API** | **🔧 Config API** | **Config File** |
+|------------|-------------|-----------|-------------------|-----------------|-------------------|-----------------|
+| Roles | `Roles` | `/roles` | `roles.tsx` | `/api/v1/role` | `/api/v1/config/entity/roles` | `roles.ts` |
+| Forms | `Forms` | `/forms` | `forms.tsx` | `/api/v1/form` | `/api/v1/config/entity/forms` | `forms.ts` |
+| Profile | `Profile` | `/profile` | `profile.tsx` | `/api/v1/auth/me` | `/api/v1/config/entity/profile` | `profile.ts` |
+| Settings | `Settings` | `/settings` | `settings.tsx` | `/api/v1/settings` | `/api/v1/config/entity/settings` | `settings.ts` |
+
+### 🔄 **Two-Endpoint Architecture Explained**
+
+#### **📊 Data Endpoints** (Business Data Access)
+- **Purpose**: CRUD operations on actual business records
+- **Returns**: Raw database records (projects, tasks, employees, etc.)
+- **RBAC**: Filtered by user permissions and scope access
+- **Examples**: 
+  - `GET /api/v1/project` → List of actual project records
+  - `POST /api/v1/task` → Create a new task record
+  - `GET /api/v1/meta?category=projectStatus` → List of project status records
+  - `PUT /api/v1/employee/123` → Update employee record
+
+#### **🔧 Configuration Endpoints** (Frontend Schema)
+- **Purpose**: Pull UI configuration schema for each page
+- **Returns**: Field definitions, forms, validation rules, table columns, UI behavior
+- **Security**: DDL fields stripped, only frontend-safe field mappings
+- **Usage**: Component calls config API to know how to render forms/tables
+- **Examples**:
+  - `GET /api/v1/config/entity/projectStatus` → Schema for project status page UI
+  - `GET /api/v1/config/entity/task` → Schema for task management page UI
+  - `GET /api/v1/config/entity/employee` → Schema for employee page UI
+
+#### **🏗️ How They Work Together**
+1. **Component loads** → Calls **🔧 Config API** to get UI schema
+2. **Component renders** → Uses schema to build forms/tables/validation  
+3. **User interacts** → Calls **📊 Data API** for CRUD operations
+4. **Data updates** → Component re-renders using same config schema
+
+**🔒 Security Benefits**
+- **Database Schema Protection**: DDL field names never exposed to frontend
+- **API Field Mapping**: Only safe `apiField` names sent to client
+- **Configuration Caching**: Reduces API calls while maintaining security
+- **Type Safety**: Complete TypeScript coverage prevents runtime errors
 
 ### Development Personas
 - **Admin** - Full system access
@@ -324,6 +502,11 @@ apps/web/src/
 - **Unified RBAC System** - Complete permission system using `rel_employee_scope_unified` table
 - **Database Integration** - All API endpoints connecting to PostgreSQL with curated sample data
 - **React + Vite Frontend** - Modern web app with shadcn/ui, drag-and-drop, and responsive design
+- **API-First Configuration System** - Secure entity config API with frontend-safe transformation
+- **Meta Data Management** - 7 entity types with expandable sidebar dropdown navigation
+- **Perfect Naming Consistency** - Unified camelCase naming across all layers (API, UI, files, routes)
+- **Configuration Security** - Database schema protection with API field mapping
+- **Dynamic Component Loading** - API-driven configuration with 5-minute caching
 - **Comprehensive Tooling** - 16 management tools for development, testing, and maintenance
 - **Schema Validation** - Database integrity checking and automated validation
 - **API Documentation** with OpenAPI/Swagger

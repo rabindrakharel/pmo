@@ -8,6 +8,8 @@ import {
   Menu, 
   X, 
   ChevronLeft,
+  ChevronDown,
+  ChevronRight,
   Database,
   Building2,
   MapPin,
@@ -15,7 +17,11 @@ import {
   UserCheck,
   FileText,
   CheckSquare,
-  Users
+  Users,
+  ListChecks,
+  KanbanSquare,
+  Crown,
+  Star
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -28,13 +34,23 @@ export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState(window.location.pathname);
+  const [isMetaExpanded, setIsMetaExpanded] = useState(false);
 
   const handleLogout = async () => {
     await logout();
   };
 
+  const metaDropdownItems = [
+    { name: 'projectStatus', href: '/meta/projectStatus', icon: ListChecks },
+    { name: 'projectStage', href: '/meta/projectStage', icon: KanbanSquare },
+    { name: 'taskStatus', href: '/meta/taskStatus', icon: ListChecks },
+    { name: 'taskStage', href: '/meta/taskStage', icon: KanbanSquare },
+    { name: 'businessLevel', href: '/meta/businessLevel', icon: Building2 },
+    { name: 'locationLevel', href: '/meta/locationLevel', icon: MapPin },
+    { name: 'hrLevel', href: '/meta/hrLevel', icon: Crown },
+  ];
+
   const mainNavigationItems = [
-    { name: 'Meta', href: '/meta', icon: Database },
     { name: 'Business', href: '/business', icon: Building2 },
     { name: 'Location', href: '/location', icon: MapPin },
     { name: 'Project', href: '/project', icon: FolderOpen },
@@ -53,6 +69,10 @@ export function Layout({ children }: LayoutProps) {
 
   const isCurrentPage = (href: string) => {
     return currentPage === href;
+  };
+
+  const isMetaPageActive = () => {
+    return metaDropdownItems.some(item => isCurrentPage(item.href));
   };
 
   return (
@@ -94,6 +114,59 @@ export function Layout({ children }: LayoutProps) {
 
           {/* Main Navigation */}
           <nav className="flex-1 px-2 py-4 space-y-1">
+            {/* Meta Dropdown */}
+            <div>
+              <button
+                onClick={() => !isCollapsed && setIsMetaExpanded(!isMetaExpanded)}
+                className={`${
+                  isMetaPageActive()
+                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
+                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                } group flex items-center w-full ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2 text-sm font-medium rounded-l-lg transition-colors duration-150`}
+                title={isCollapsed ? 'Meta Data' : undefined}
+              >
+                <Database className={`${
+                  isMetaPageActive() ? 'text-blue-700' : 'text-gray-400 group-hover:text-gray-500'
+                } ${isCollapsed ? '' : 'mr-3'} h-5 w-5 transition-colors duration-150`} />
+                {!isCollapsed && (
+                  <>
+                    <span className="flex-1 text-left">Meta</span>
+                    <ChevronRight className={`h-4 w-4 transition-transform duration-150 ${
+                      isMetaExpanded ? 'transform rotate-90' : ''
+                    }`} />
+                  </>
+                )}
+              </button>
+              
+              {/* Meta Dropdown Items */}
+              {!isCollapsed && isMetaExpanded && (
+                <div className="ml-6 mt-1 space-y-1">
+                  {metaDropdownItems.map((item) => {
+                    const IconComponent = item.icon;
+                    const isActive = isCurrentPage(item.href);
+                    return (
+                      <a
+                        key={item.name}
+                        href={item.href}
+                        className={`${
+                          isActive
+                            ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        } group flex items-center px-3 py-2 text-sm rounded-l-lg transition-colors duration-150`}
+                        onClick={() => setCurrentPage(item.href)}
+                      >
+                        <IconComponent className={`${
+                          isActive ? 'text-blue-700' : 'text-gray-400 group-hover:text-gray-500'
+                        } mr-3 h-4 w-4 transition-colors duration-150`} />
+                        {item.name}
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Other Navigation Items */}
             {mainNavigationItems.map((item) => {
               const IconComponent = item.icon;
               const isActive = isCurrentPage(item.href);
