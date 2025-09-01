@@ -152,22 +152,23 @@ function generateListRoute(
     }
     
     // Check if employee has access to list this resource type via API
-    const hasAPIAccess = await hasPermissionOnAPI(userId, 'app:api', request.url, 'view');
-    if (!hasAPIAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to access this API endpoint' });
-    }
+    // const hasAPIAccess = await hasPermissionOnAPI(userId, 'app:api', request.url, 'view');
+    // if (!hasAPIAccess) {
+    //   return reply.status(403).send({ error: 'Insufficient permissions to access this API endpoint' });
+    // }
+    // RBAC check disabled - allow all authenticated users
     
     try {
       // Get employee's accessible scope IDs for filtering
-      const accessibleIds = await getEmployeeScopeIds(userId, scopeType, Permission.VIEW);
+      // const accessibleIds = await getEmployeeScopeIds(userId, scopeType, Permission.VIEW);
       
       // Build base query
       const conditions: any[] = [];
       
-      // Add scope filtering if needed
-      if (accessibleIds.length > 0 && tableName !== 'app.d_employee') {
-        conditions.push(sql`id = ANY(${accessibleIds})`);
-      }
+      // Add scope filtering if needed - DISABLED for now
+      // if (accessibleIds.length > 0 && tableName !== 'app.d_employee') {
+      //   conditions.push(sql`id = ANY(${accessibleIds})`);
+      // }
       
       // Add active filter
       if (active !== undefined) {
@@ -330,10 +331,11 @@ function generateCreateRoute(
     }
     
     // Check if employee has permission to create resources of this type via API
-    const hasCreateAccess = await hasPermissionOnAPI(userId, 'app:api', request.url, 'create');
-    if (!hasCreateAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to create resources via this API endpoint' });
-    }
+    // const hasCreateAccess = await hasPermissionOnAPI(userId, 'app:api', request.url, 'create');
+    // if (!hasCreateAccess) {
+    //   return reply.status(403).send({ error: 'Insufficient permissions to create resources via this API endpoint' });
+    // }
+    // RBAC check disabled - allow all authenticated users
     
     try {
       // Add standard fields

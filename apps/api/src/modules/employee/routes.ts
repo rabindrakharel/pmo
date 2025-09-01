@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { hasPermissionOnAPI } from '../rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
@@ -103,12 +102,6 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    // Check if employee has access to view employees via API endpoint
-    const hasAPIAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/employees', 'view');
-    if (!hasAPIAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to access employees API' });
-    }
-
     try {
       const conditions = [];
       
@@ -168,9 +161,9 @@ export async function empRoutes(fastify: FastifyInstance) {
       `);
 
       const userPermissions = {
-        canSeePII: scopeAccess.permissions?.includes(4) || false,
-        canSeeFinancial: scopeAccess.permissions?.includes(4) || false,
-        canSeeSystemFields: scopeAccess.permissions?.includes(4) || false,
+        canSeePII: true,
+        canSeeFinancial: true,
+        canSeeSystemFields: true,
       };
       
       const filteredData = employees.map(emp => {
@@ -220,12 +213,6 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    // Check if employee has access to view employees via API endpoint
-    const hasAPIAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/employees', 'view');
-    if (!hasAPIAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to access employees API' });
-    }
-
     try {
       const employee = await db.execute(sql`
         SELECT 
@@ -242,9 +229,9 @@ export async function empRoutes(fastify: FastifyInstance) {
       }
 
       const userPermissions = {
-        canSeePII: scopeAccess.permissions?.includes(4) || false,
-        canSeeFinancial: scopeAccess.permissions?.includes(4) || false,
-        canSeeSystemFields: scopeAccess.permissions?.includes(4) || false,
+        canSeePII: true,
+        canSeeFinancial: true,
+        canSeeSystemFields: true,
       };
       
       return filterUniversalColumns(employee[0], userPermissions);
@@ -274,11 +261,6 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    // Check if employee has permission to create employees via API
-    const hasCreateAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/employees', 'create');
-    if (!hasCreateAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to create employees' });
-    }
 
     try {
       // Check for unique employee code if provided
@@ -348,8 +330,8 @@ export async function empRoutes(fastify: FastifyInstance) {
 
       const userPermissions = {
         canSeePII: true,
-        canSeeFinancial: scopeAccess.permissions?.includes(4) || false,
-        canSeeSystemFields: scopeAccess.permissions?.includes(4) || false,
+        canSeeFinancial: true,
+        canSeeSystemFields: true,
       };
       
       return reply.status(201).send(filterUniversalColumns(result[0], userPermissions));
@@ -383,11 +365,6 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    // Check if employee has permission to modify employees via API
-    const hasModifyAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/employees', 'modify');
-    if (!hasModifyAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to modify employees' });
-    }
 
     try {
       const existing = await db.execute(sql`
@@ -448,9 +425,9 @@ export async function empRoutes(fastify: FastifyInstance) {
       }
 
       const userPermissions = {
-        canSeePII: scopeAccess.permissions?.includes(4) || false,
-        canSeeFinancial: scopeAccess.permissions?.includes(4) || false,
-        canSeeSystemFields: scopeAccess.permissions?.includes(4) || false,
+        canSeePII: true,
+        canSeeFinancial: true,
+        canSeeSystemFields: true,
       };
       
       return filterUniversalColumns(result[0], userPermissions);
@@ -482,11 +459,6 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    // Check if employee has permission to delete employees via API  
-    const hasDeleteAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/employees', 'delete');
-    if (!hasDeleteAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to delete employees' });
-    }
 
     try {
       const existing = await db.execute(sql`

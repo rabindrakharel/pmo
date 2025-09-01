@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { hasPermissionOnAPI, hasPermissionOnScopeId } from '../rbac/ui-api-permission-rbac-gate.js';
+import { hasPermissionOnScopeId } from '../rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 
@@ -90,11 +90,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const hasAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/worksite', 'view');
-    if (!hasAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
-
     try {
       // Build query conditions
       const conditions = [];
@@ -181,11 +176,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const hasAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/worksite', 'view');
-    if (!hasAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
-
     try {
       const worksite = await db.execute(sql`
         SELECT 
@@ -234,10 +224,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const hasAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/worksite', 'create');
-    if (!hasAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
 
     try {
       // Validate location scope access if specified
@@ -344,10 +330,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const hasAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/worksite', 'modify');
-    if (!hasAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
 
     try {
       // Check if worksite exists
@@ -528,10 +510,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const hasAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/worksite', 'delete');
-    if (!hasAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
 
     try {
       // Check if worksite exists

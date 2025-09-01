@@ -54,7 +54,15 @@
       "Bash(pnpm dev:*)",
       "Bash(pnpm remove:*)",
       "Bash(pnpm typecheck:*)",
-      "Bash(JWT_TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyZDA4ODRjZi0zMzMyLTQxMzYtOGJiMy0zOGM1N2I4MDdmMGMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzU2NzM3NzEzLCJleHAiOjE3NTY4MjQxMTN9.w7Y0_rKJlej0nhZmAxwILn4ZH-fh6VYqcGmkeNmjipQ\")"
+      "Bash(JWT_TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyZDA4ODRjZi0zMzMyLTQxMzYtOGJiMy0zOGM1N2I4MDdmMGMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzU2NzM3NzEzLCJleHAiOjE3NTY4MjQxMTN9.w7Y0_rKJlej0nhZmAxwILn4ZH-fh6VYqcGmkeNmjipQ\")",
+      "Bash(./tools/restart-all.sh:*)",
+      "Bash(fuser:*)",
+      "Bash(./tools/stop-all.sh:*)",
+      "Bash(lsof:*)",
+      "Bash(./tools/stop-web.sh:*)",
+      "Bash(docker ps:*)",
+      "Bash(./tools/logs-api.sh:*)",
+      "Bash(JWT_TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OWMwNDQ5NC05NDNiLTQ2ZGItODMxNS00Mzc4Y2RiYzYyZWYiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzU2NzU0NjUzLCJleHAiOjE3NTY4NDEwNTN9._Rm8L_KVgHgYAW9bKXugtAwbaEHNOqif3CIhF3FwBTk\")"
     ],
     "deny": [],
     "ask": [],

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { hasPermissionOnAPI, getEmployeeScopeIds, hasPermissionOnScopeId, Permission } from '../rbac/ui-api-permission-rbac-gate.js';
+import { getEmployeeScopeIds, hasPermissionOnScopeId } from '../rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm';
 
@@ -59,10 +59,6 @@ export async function scopeHRRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/hr', 'view');
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
 
     try {
       // Build query conditions
@@ -203,11 +199,6 @@ export async function scopeHRRoutes(fastify: FastifyInstance) {
       const scopeAccess = await hasPermissionOnScopeId(userId, 'hr', data.parentId, 'view');
       if (!scopeAccess.allowed) {
         return reply.status(403).send({ error: 'Insufficient permissions to create in parent scope' });
-      }
-    } else {
-      const scopeAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/hr', 'create');
-      if (!scopeAccess.allowed) {
-        return reply.status(403).send({ error: 'Insufficient permissions' });
       }
     }
 

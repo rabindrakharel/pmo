@@ -89,7 +89,7 @@ echo -e "${BLUE}🔧 Starting API server on port $API_PORT (dev mode)...${NC}"
 # Start the API server in background and capture PID using tsx for development
 cd apps/api
 # Load environment variables from project root and start server with tsx
-nohup bash -c "set -a; source ../../.env; set +a; DEV_BYPASS_OIDC=false DATABASE_URL='postgresql://app:app@localhost:5434/app' REDIS_URL='redis://localhost:6379' JWT_SECRET='your-super-secret-jwt-key-change-in-production' npx tsx src/server.ts" > "../../$LOG_FILE" 2>&1 &
+nohup bash -c "set -a; source ../../.env; set +a; DATABASE_URL='postgresql://app:app@localhost:5434/app' REDIS_URL='redis://localhost:6379' JWT_SECRET='your-super-secret-jwt-key-change-in-production' npx tsx src/server.ts" > "../../$LOG_FILE" 2>&1 &
 API_PID=$!
 
 # Save PID to file

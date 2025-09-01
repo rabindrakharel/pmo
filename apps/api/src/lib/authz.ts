@@ -30,18 +30,12 @@ export enum Permission {
   CREATE = 4,
 }
 
-// Simplified authorization middleware for development
+// Authorization middleware
 export function authorize(resource: Resource, action: Action) {
   return async (req: FastifyRequest, reply: FastifyReply) => {
-    // For development, allow all admin operations
-    // In production, this would check actual user permissions
     const abilities = (req as any).abilities as Abilities;
     
     if (!abilities) {
-      // Dev mode: create mock admin abilities
-      if (process.env.DEV_BYPASS_OIDC === 'true') {
-        return; // Allow access in development
-      }
       return reply.status(401).send({ error: 'Abilities not resolved' });
     }
 
@@ -86,12 +80,8 @@ export async function canAccessEntity(
   action: Action, 
   entityId: string
 ): Promise<boolean> {
-  // For development with OIDC bypass, allow all access
-  if (process.env.DEV_BYPASS_OIDC === 'true') {
-    return true;
-  }
-  
-  // In production, this would check actual permissions
+  // This would check actual permissions against the database
+  // For now, returning false as this needs proper implementation
   return false;
 }
 
@@ -107,12 +97,8 @@ export function applyScopeFilter<T extends Record<string, any>>(
     return queryBuilder;
   }
 
-  // For development with OIDC bypass, return everything
-  if (process.env.DEV_BYPASS_OIDC === 'true') {
-    return queryBuilder;
-  }
-
-  // In production, this would apply scope filters
+  // Apply scope-based filtering for non-admin users
+  // This would apply scope filters based on user permissions
   return queryBuilder;
 }
 
@@ -125,15 +111,6 @@ export async function resolveAbilities(userId: string): Promise<Abilities> {
       app: new Set(),
       scopes: {},
       isAdmin: false,
-    };
-  }
-
-  // For development mode with OIDC bypass, return basic abilities
-  if (process.env.DEV_BYPASS_OIDC === 'true') {
-    return {
-      app: new Set(['view', 'create', 'modify', 'delete', 'grant']),
-      scopes: {},
-      isAdmin: true,
     };
   }
   

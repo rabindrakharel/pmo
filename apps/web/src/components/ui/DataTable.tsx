@@ -67,16 +67,16 @@ export function DataTable<T = any>({
 }: DataTableProps<T>) {
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
     new Set(initialColumns.map(col => col.key))
   );
   const [showColumnSelector, setShowColumnSelector] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [dropdownFilters, setDropdownFilters] = useState<Record<string, string[]>>({});
-  const [dropdownSearchTerms, setDropdownSearchTerms] = useState<Record<string, string>>({});
-  const filterRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [selectedFilterColumn, setSelectedFilterColumn] = useState<string>('');
+  const [filterSearchTerm, setFilterSearchTerm] = useState<string>('');
+  const [showFilterDropdown, setShowFilterDropdown] = useState<boolean>(false);
+  const filterContainerRef = useRef<HTMLDivElement | null>(null);
+  const columnSelectorRef = useRef<HTMLDivElement | null>(null);
 
   const getRowKey = (record: T, index: number): string => {
     if (typeof rowKey === 'function') {
@@ -97,22 +97,25 @@ export function DataTable<T = any>({
     return Array.from(uniqueValues).sort();
   };
 
-  // Handle clicking outside dropdown to close
+  // Handle clicking outside dropdowns to close
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (activeFilter && filterRefs.current[activeFilter]) {
-        const filterElement = filterRefs.current[activeFilter];
-        if (filterElement && !filterElement.contains(event.target as Node)) {
-          setActiveFilter(null);
-        }
+      // Close filter dropdown
+      if (filterContainerRef.current && !filterContainerRef.current.contains(event.target as Node)) {
+        setShowFilterDropdown(false);
+      }
+      
+      // Close column selector dropdown
+      if (columnSelectorRef.current && !columnSelectorRef.current.contains(event.target as Node)) {
+        setShowColumnSelector(false);
       }
     };
 
-    if (activeFilter) {
+    if (showFilterDropdown || showColumnSelector) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [activeFilter]);
+  }, [showFilterDropdown, showColumnSelector]);
 
   // Create default actions if needed
   const defaultActions: RowAction<T>[] = useMemo(() => {
@@ -219,24 +222,7 @@ export function DataTable<T = any>({
   const filteredAndSortedData = useMemo(() => {
     let result = [...data];
 
-    if (searchTerm && searchable) {
-      result = result.filter(record => 
-        Object.values(record as any).some(value => 
-          value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      );
-    }
-
     if (filterable) {
-      // Handle text filters
-      Object.entries(columnFilters).forEach(([key, filterValue]) => {
-        if (filterValue) {
-          result = result.filter(record => 
-            (record as any)[key]?.toString().toLowerCase().includes(filterValue.toLowerCase())
-          );
-        }
-      });
-
       // Handle dropdown filters
       Object.entries(dropdownFilters).forEach(([key, selectedValues]) => {
         if (selectedValues.length > 0) {
@@ -261,7 +247,7 @@ export function DataTable<T = any>({
     }
 
     return result;
-  }, [data, searchTerm, columnFilters, dropdownFilters, sortField, sortDirection, searchable, filterable]);
+  }, [data, dropdownFilters, sortField, sortDirection, filterable]);
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -272,9 +258,6 @@ export function DataTable<T = any>({
     }
   };
 
-  const handleColumnFilter = (key: string, value: string) => {
-    setColumnFilters(prev => ({ ...prev, [key]: value }));
-  };
 
   const handleDropdownFilter = (columnKey: string, value: string, checked: boolean) => {
     setDropdownFilters(prev => {
@@ -287,11 +270,22 @@ export function DataTable<T = any>({
     });
   };
 
-  const clearDropdownFilter = (columnKey: string) => {
-    setDropdownFilters(prev => ({ ...prev, [columnKey]: [] }));
-    setDropdownSearchTerms(prev => ({ ...prev, [columnKey]: '' }));
-    setActiveFilter(null);
+  const removeFilterChip = (columnKey: string, value: string) => {
+    setDropdownFilters(prev => {
+      const currentValues = prev[columnKey] || [];
+      const newValues = currentValues.filter(v => v !== value);
+      if (newValues.length === 0) {
+        const { [columnKey]: removed, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [columnKey]: newValues };
+    });
   };
+
+  const getColumnTitle = (columnKey: string) => {
+    return initialColumns.find(col => col.key === columnKey)?.title || columnKey;
+  };
+
 
   const toggleColumnVisibility = (key: string) => {
     setVisibleColumns(prev => {
@@ -315,16 +309,22 @@ export function DataTable<T = any>({
   const PaginationComponent = () => {
     if (!pagination) return null;
 
-    const { current, pageSize, total, showSizeChanger = true, pageSizeOptions = [10, 20, 50, 100], onChange } = pagination;
-    const totalPages = Math.ceil(total / pageSize);
-    const startRecord = (current - 1) * pageSize + 1;
-    const endRecord = Math.min(current * pageSize, total);
+    const { current, pageSize, total, showSizeChanger = true, pageSizeOptions = [20, 50, 100, 200], onChange } = pagination;
+    const totalPages = Math.max(1, Math.ceil((total || filteredAndSortedData.length) / pageSize));
+    const actualTotal = Math.max(0, total || filteredAndSortedData.length);
+    const startRecord = actualTotal > 0 ? (current - 1) * pageSize + 1 : 0;
+    const endRecord = actualTotal > 0 ? Math.min(current * pageSize, actualTotal) : 0;
+
 
     return (
       <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gradient-to-r from-gray-50/50 to-white">
         <div className="flex items-center text-sm text-gray-600">
           <span className="font-medium">
-            Showing <span className="text-gray-900">{startRecord}</span> to <span className="text-gray-900">{endRecord}</span> of <span className="text-gray-900">{total}</span> results
+            {loading ? (
+              <>Loading...</>
+            ) : (
+              <>Showing <span className="text-gray-900">{startRecord}</span> to <span className="text-gray-900">{endRecord}</span> of <span className="text-gray-900">{actualTotal}</span> results</>
+            )}
           </span>
           {showSizeChanger && (
             <select
@@ -342,7 +342,7 @@ export function DataTable<T = any>({
         <div className="flex items-center space-x-2">
           <button
             onClick={() => onChange?.(current - 1, pageSize)}
-            disabled={current <= 1}
+            disabled={current <= 1 || actualTotal === 0}
             className="p-2 border border-gray-200 rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white hover:border-gray-300 hover:shadow-sm transition-all duration-200 bg-white/50"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -379,7 +379,7 @@ export function DataTable<T = any>({
           
           <button
             onClick={() => onChange?.(current + 1, pageSize)}
-            disabled={current >= totalPages}
+            disabled={current >= totalPages || actualTotal === 0}
             className="p-2 border border-gray-200 rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white hover:border-gray-300 hover:shadow-sm transition-all duration-200 bg-white/50"
           >
             <ChevronRight className="h-4 w-4" />
@@ -401,27 +401,139 @@ export function DataTable<T = any>({
   }
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden ${className}`}>
-      {(searchable || filterable || columnSelection) && (
+    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col m-1 ${className}`}>
+      {(filterable || columnSelection) && (
         <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-50/50 border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              {searchable && (
+          {filterable && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-6">
+                <div className="flex items-center text-sm text-gray-700">
+                  <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center mr-3">
+                    <Filter className="h-4 w-4 text-white" />
+                  </div>
+                  <span className="font-semibold text-gray-900">Filter by:</span>
+                </div>
+                
                 <div className="relative">
-                  <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Search across all data..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2.5 w-80 border border-gray-200 rounded-xl text-sm bg-white/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 focus:bg-white transition-all duration-200 placeholder:text-gray-400"
-                  />
+                  <select
+                    value={selectedFilterColumn}
+                    onChange={(e) => setSelectedFilterColumn(e.target.value)}
+                    className="appearance-none px-4 py-2 pr-10 w-48 border border-gray-300 rounded-xl text-sm bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all duration-200 shadow-sm font-medium text-gray-700"
+                  >
+                    <option value="" className="text-gray-500">Select column...</option>
+                    {initialColumns.filter(col => col.filterable).map(column => (
+                      <option key={column.key} value={column.key}>
+                        {column.title}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="h-4 w-4 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                </div>
+
+                {selectedFilterColumn && (
+                  <div className="relative" ref={filterContainerRef}>
+                    <div className="relative">
+                      <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Type to filter values..."
+                        value={filterSearchTerm}
+                        onChange={(e) => {
+                          setFilterSearchTerm(e.target.value);
+                          setShowFilterDropdown(true);
+                        }}
+                        onFocus={() => setShowFilterDropdown(true)}
+                        className="pl-10 pr-4 py-2 w-64 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition-all duration-200"
+                      />
+                    </div>
+
+                    {showFilterDropdown && (
+                      <div className="absolute top-full left-0 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-xl z-50 backdrop-blur-sm max-h-64 overflow-y-auto">
+                        <div className="p-3">
+                          {getColumnOptions(selectedFilterColumn)
+                            .filter(option => 
+                              option.toLowerCase().includes(filterSearchTerm.toLowerCase())
+                            )
+                            .map((option) => (
+                              <label
+                                key={option}
+                                className="flex items-center px-3 py-2 hover:bg-blue-50/50 rounded-lg cursor-pointer transition-colors group"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={(dropdownFilters[selectedFilterColumn] || []).includes(option)}
+                                  onChange={(e) => handleDropdownFilter(selectedFilterColumn, option, e.target.checked)}
+                                  className="mr-3 text-blue-600 rounded focus:ring-blue-500 focus:ring-offset-0"
+                                />
+                                <span className="text-sm text-gray-700 truncate group-hover:text-gray-900">{option}</span>
+                              </label>
+                            ))
+                          }
+                          {getColumnOptions(selectedFilterColumn)
+                            .filter(option => 
+                              option.toLowerCase().includes(filterSearchTerm.toLowerCase())
+                            ).length === 0 && (
+                            <div className="px-2 py-3 text-xs text-gray-500 text-center">
+                              No options found
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {Object.keys(dropdownFilters).length > 0 && (
+                  <button
+                    onClick={() => {
+                      setDropdownFilters({});
+                      setSelectedFilterColumn('');
+                      setFilterSearchTerm('');
+                      setShowFilterDropdown(false);
+                    }}
+                    className="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
+
+              {columnSelection && (
+                <div className="relative" ref={columnSelectorRef}>
+                  <button
+                    onClick={() => setShowColumnSelector(!showColumnSelector)}
+                    className="flex items-center px-4 py-2.5 text-sm text-gray-600 bg-white/70 backdrop-blur-sm border border-gray-200 rounded-xl hover:bg-white hover:border-gray-300 transition-all duration-200 shadow-sm"
+                  >
+                    <Columns className="h-4 w-4 mr-2" />
+                    Columns
+                  </button>
+                  
+                  {showColumnSelector && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 backdrop-blur-sm">
+                      <div className="p-3">
+                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 px-1">Show Columns</div>
+                        {initialColumns.map(column => (
+                          <label key={column.key} className="flex items-center px-3 py-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={visibleColumns.has(column.key)}
+                              onChange={() => toggleColumnVisibility(column.key)}
+                              className="mr-3 text-blue-600 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700">{column.title}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-            
-            {columnSelection && (
-              <div className="relative">
+          )}
+
+          {!filterable && columnSelection && (
+            <div className="flex items-center justify-end">
+              <div className="relative" ref={columnSelectorRef}>
                 <button
                   onClick={() => setShowColumnSelector(!showColumnSelector)}
                   className="flex items-center px-4 py-2.5 text-sm text-gray-600 bg-white/70 backdrop-blur-sm border border-gray-200 rounded-xl hover:bg-white hover:border-gray-300 transition-all duration-200 shadow-sm"
@@ -449,22 +561,54 @@ export function DataTable<T = any>({
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Filter Chips */}
+          {Object.keys(dropdownFilters).length > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <div className="flex items-center flex-wrap gap-2">
+                <span className="text-xs text-gray-500 font-medium">Active filters:</span>
+                {Object.entries(dropdownFilters).map(([columnKey, values]) =>
+                  values.map((value) => (
+                    <div
+                      key={`${columnKey}-${value}`}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium"
+                    >
+                      <span className="text-blue-600">{getColumnTitle(columnKey)}:</span>
+                      <span className="max-w-32 truncate" title={value}>
+                        {value}
+                      </span>
+                      <button
+                        onClick={() => removeFilterChip(columnKey, value)}
+                        className="ml-1 hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                        title={`Remove ${value} filter`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      <div className="relative">
-        <div className="overflow-x-auto overflow-y-auto scrollbar-elegant" style={{ height: '60vh', minHeight: '60vh' }}>
+      <div className="relative flex flex-col" style={{ maxHeight: 'calc(100vh - 400px)' }}>
+        <div className={`overflow-y-auto ${
+          columns.length > 7 
+            ? 'overflow-x-scroll scrollbar-always-visible' 
+            : 'overflow-x-auto scrollbar-elegant'
+        }`} style={{ maxHeight: 'calc(100% - 100px)' }}>
           <table 
-            className="w-full h-full" 
+            className="w-full" 
             style={{ 
               minWidth: columns.length > 7 ? `${columns.length * 200}px` : '100%',
-              tableLayout: columns.length <= 7 ? 'auto' : 'fixed',
-              minHeight: '100%'
+              tableLayout: columns.length <= 7 ? 'auto' : 'fixed'
             }}
           >
-            <thead className="bg-gradient-to-r from-gray-50 to-gray-50/80 sticky top-0 z-10 shadow-sm">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-50/80 sticky top-0 z-30 shadow-sm">
               <tr>
                 {columns.map((column, index) => (
                   <th
@@ -472,7 +616,7 @@ export function DataTable<T = any>({
                     className={`px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-100 ${
                       column.sortable ? 'cursor-pointer hover:bg-gray-100/50 transition-colors' : ''
                     } ${columns.length > 7 ? 'min-w-[200px]' : ''} ${
-                      index === 0 ? 'sticky left-0 z-30 bg-gray-50 shadow-r' : ''
+                      index === 0 ? 'sticky left-0 z-40 bg-gray-50 shadow-r' : ''
                     }`}
                     style={{ 
                       width: columns.length > 7 ? '200px' : (column.width || 'auto'), 
@@ -488,104 +632,13 @@ export function DataTable<T = any>({
                             {renderSortIcon(column.key)}
                           </div>
                         )}
-                        {column.filterable && filterable && (
-                          <div 
-                            className="relative" 
-                            ref={(el) => {
-                              filterRefs.current[column.key] = el;
-                            }}
-                          >
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveFilter(activeFilter === column.key ? null : column.key);
-                              }}
-                              className={`p-1.5 rounded-md hover:bg-white/80 transition-all duration-200 ${
-                                (dropdownFilters[column.key]?.length > 0) 
-                                  ? 'text-blue-600 bg-blue-50 shadow-sm' 
-                                  : 'text-gray-400 hover:text-gray-600'
-                              }`}
-                              title="Filter"
-                            >
-                              <Filter className="h-3 w-3" />
-                            </button>
-                            
-                            {activeFilter === column.key && (
-                              <div className="absolute top-full left-0 mt-2 w-72 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 backdrop-blur-sm">
-                                <div className="p-4">
-                                  <div className="flex items-center justify-between mb-3">
-                                    <span className="text-sm font-semibold text-gray-800">Filter {column.title}</span>
-                                    <button
-                                      onClick={() => clearDropdownFilter(column.key)}
-                                      className="text-xs text-gray-500 hover:text-red-600 flex items-center px-2 py-1 rounded-md hover:bg-red-50 transition-colors"
-                                    >
-                                      <X className="h-3 w-3 mr-1" />
-                                      Clear
-                                    </button>
-                                  </div>
-                                  
-                                  <div className="relative mb-3">
-                                    <Search className="h-3.5 w-3.5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                                    <input
-                                      type="text"
-                                      placeholder="Search options..."
-                                      value={dropdownSearchTerms[column.key] || ''}
-                                      onChange={(e) => setDropdownSearchTerms(prev => ({ ...prev, [column.key]: e.target.value }))}
-                                      className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-50/50 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 focus:bg-white transition-all duration-200"
-                                    />
-                                  </div>
-                                  
-                                  <div className="max-h-48 overflow-y-auto">
-                                    {getColumnOptions(column.key)
-                                      .filter(option => {
-                                        const searchTerm = dropdownSearchTerms[column.key] || '';
-                                        return option.toLowerCase().includes(searchTerm.toLowerCase());
-                                      })
-                                      .map((option) => (
-                                        <label
-                                          key={option}
-                                          className="flex items-center px-3 py-2 hover:bg-blue-50/50 rounded-lg cursor-pointer transition-colors group"
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            checked={(dropdownFilters[column.key] || []).includes(option)}
-                                            onChange={(e) => handleDropdownFilter(column.key, option, e.target.checked)}
-                                            className="mr-3 text-blue-600 rounded focus:ring-blue-500 focus:ring-offset-0"
-                                          />
-                                          <span className="text-sm text-gray-700 truncate group-hover:text-gray-900">{option}</span>
-                                        </label>
-                                      ))
-                                    }
-                                    {getColumnOptions(column.key)
-                                      .filter(option => {
-                                        const searchTerm = dropdownSearchTerms[column.key] || '';
-                                        return option.toLowerCase().includes(searchTerm.toLowerCase());
-                                      }).length === 0 && (
-                                      <div className="px-2 py-3 text-xs text-gray-500 text-center">
-                                        No options found
-                                      </div>
-                                    )}
-                                  </div>
-                                  
-                                  {(dropdownFilters[column.key]?.length > 0) && (
-                                    <div className="mt-2 pt-2 border-t border-gray-200">
-                                      <div className="text-xs text-gray-500">
-                                        {dropdownFilters[column.key].length} selected
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
                     </div>
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-100" style={{ height: '100%' }}>
+            <tbody className="bg-white divide-y divide-gray-100">
               {filteredAndSortedData.map((record, index) => (
                 <tr
                   key={getRowKey(record, index)}
@@ -614,30 +667,20 @@ export function DataTable<T = any>({
                   ))}
                 </tr>
               ))}
-              {/* Spacer row to maintain table height */}
-              <tr style={{ height: '100%' }}>
-                {columns.map((column, index) => (
-                  <td
-                    key={`spacer-${column.key}`}
-                    className={index === 0 ? 'sticky left-0 z-20 bg-white' : ''}
-                    style={{ border: 'none', padding: 0 }}
-                  >
-                    &nbsp;
-                  </td>
-                ))}
-              </tr>
             </tbody>
           </table>
         </div>
         
-        {filteredAndSortedData.length === 0 && (
-          <div className="text-center py-12">
+        {filteredAndSortedData.length === 0 && !loading && (
+          <div className="absolute inset-0 flex items-center justify-center">
             <p className="text-gray-500">No data found</p>
           </div>
         )}
       </div>
-
-      <PaginationComponent />
+      
+      <div className="flex-shrink-0 mt-4">
+        <PaginationComponent />
+      </div>
     </div>
   );
 }

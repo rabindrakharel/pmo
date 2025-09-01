@@ -15,12 +15,6 @@ const configSchema = z.object({
   // JWT
   JWT_SECRET: z.string(),
   JWT_EXPIRES_IN: z.string().default('24h'),
-  DEV_BYPASS_OIDC: z.preprocess((val) => {
-    if (typeof val === 'string') {
-      return val.toLowerCase() === 'true';
-    }
-    return Boolean(val);
-  }, z.boolean().default(false)),
   
   // CORS
   WEB_ORIGIN: z.string().url().default('http://localhost:5173'),

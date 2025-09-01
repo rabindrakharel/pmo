@@ -165,18 +165,6 @@ fastify.get('/readyz', {
 
 // JWT authentication decorator
 fastify.decorate('authenticate', async function(request: any, reply: any) {
-  if (config.DEV_BYPASS_OIDC) {
-    // Dev mode - use James Miller's ID for testing (has full permissions)
-    request.user = {
-      sub: '69b8ad53-38e9-4794-85ce-6631ec869fdf',
-      email: 'james.miller@huronhome.ca',
-      name: 'James Miller',
-      tenant_id: 'dev-tenant',
-      roles: ['admin'],
-    };
-    return;
-  }
-
   try {
     await request.jwtVerify();
   } catch (err) {

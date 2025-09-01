@@ -48,7 +48,7 @@ export function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-screen bg-gray-50 flex">
       {/* Collapsible Sidebar */}
       <div className={`${isCollapsed ? 'w-16' : 'w-64'} bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col`}>
         <div className="flex flex-col h-full">
@@ -181,10 +181,8 @@ export function Layout({ children }: LayoutProps) {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto bg-gray-50">
-          <div className="p-6">
-            {children}
-          </div>
+        <main className="flex-1 overflow-hidden bg-gray-50 p-4">
+          {children}
         </main>
       </div>
     </div>

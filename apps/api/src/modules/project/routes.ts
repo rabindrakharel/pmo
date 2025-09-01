@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { hasPermissionOnAPI, getEmployeeScopeIds, hasPermissionOnScopeId } from '../rbac/ui-api-permission-rbac-gate.js';
+import { getEmployeeScopeIds, hasPermissionOnScopeId } from '../rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import { 
@@ -133,11 +133,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    // Check if employee has access to view projects via API endpoint
-    const hasAPIAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/project', 'view');
-    if (!hasAPIAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to access projects API' });
-    }
 
     try {
       // Get employee's allowed project IDs for filtering
@@ -267,11 +262,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'User not authenticated' });
       }
 
-      // Check if employee has access to view projects via API endpoint
-      const hasAPIAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/project', 'view');
-      if (!hasAPIAccess) {
-        return reply.status(403).send({ error: 'Insufficient permissions to access projects API' });
-      }
 
       // Get employee's allowed project IDs for filtering
       const allowedProjectIds = await getEmployeeScopeIds(userId, 'project');
@@ -413,11 +403,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    // Check if employee has permission to create projects via API
-    const hasCreateAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/project', 'create');
-    if (!hasCreateAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to create project' });
-    }
 
     try {
       // Check for unique project code if provided

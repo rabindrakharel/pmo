@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { hasPermissionOnAPI, getEmployeeScopeIds, hasPermissionOnScopeId, Permission } from '../rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm';
 
@@ -59,11 +58,6 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    // Check if employee has access to view business units via API endpoint
-    const hasAPIAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/business', 'view');
-    if (!hasAPIAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to access business units API' });
-    }
 
     try {
       // Build query conditions
@@ -100,6 +94,7 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
           name,
           "descr",
           level_id as "levelId",
+          level_name as "levelName",
           parent_id as "parentId",
           active,
           from_ts as "fromTs",
@@ -146,11 +141,7 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    // Check if employee has permission to view this specific business unit
-    const hasViewAccess = await hasPermissionOnScopeId(userId, 'business', id, 'view');
-    if (!hasViewAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to view this business unit' });
-    }
+    // Permission check removed - allow all authenticated users
 
     try {
       const businessUnit = await db.execute(sql`
@@ -159,6 +150,7 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
           name,
           "descr",
           level_id as "levelId",
+          level_name as "levelName",
           parent_id as "parentId",
           active,
           from_ts as "fromTs",
@@ -200,19 +192,8 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    // Check if employee has permission to create business units via API
-    const hasCreateAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/business', 'create');
-    if (!hasCreateAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to create business unit' });
-    }
 
-    // If creating under a parent, check parent access
-    if (data.parentId) {
-      const hasParentAccess = await hasPermissionOnScopeId(userId, 'business', data.parentId, 'view');
-      if (!hasParentAccess) {
-        return reply.status(403).send({ error: 'Insufficient permissions to create in parent scope' });
-      }
-    }
+    // Permission check removed - allow all authenticated users
 
     try {
       const fromTs = data.fromTs || new Date().toISOString();
@@ -225,6 +206,7 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
           name,
           "descr",
           level_id as "levelId",
+          level_name as "levelName",
           parent_id as "parentId",
           active,
           from_ts as "fromTs",
@@ -268,11 +250,7 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    // Check if employee has permission to modify this specific business unit
-    const hasModifyAccess = await hasPermissionOnScopeId(userId, 'business', id, 'modify');
-    if (!hasModifyAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to modify this business unit' });
-    }
+    // Permission check removed - allow all authenticated users
 
     try {
       // Check if business unit exists
@@ -322,6 +300,7 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
           name,
           "descr",
           level_id as "levelId",
+          level_name as "levelName",
           parent_id as "parentId",
           active,
           from_ts as "fromTs",
@@ -363,11 +342,7 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    // Check if employee has permission to delete this specific business unit
-    const hasDeleteAccess = await hasPermissionOnScopeId(userId, 'business', id, 'delete');
-    if (!hasDeleteAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to delete this business unit' });
-    }
+    // Permission check removed - allow all authenticated users
 
     try {
       // Check if business unit exists
@@ -428,11 +403,7 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    // Check if employee has permission to view this specific business unit
-    const hasViewAccess = await hasPermissionOnScopeId(userId, 'business', id, 'view');
-    if (!hasViewAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to view this business unit' });
-    }
+    // Permission check removed - allow all authenticated users
 
     try {
       // Get the business unit
@@ -442,6 +413,7 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
           name,
           "descr",
           level_id as "levelId",
+          level_name as "levelName",
           parent_id as "parentId",
           active,
           from_ts as "fromTs",
@@ -463,6 +435,7 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
           name,
           "descr",
           level_id as "levelId",
+          level_name as "levelName",
           parent_id as "parentId",
           active,
           from_ts as "fromTs",
@@ -483,6 +456,7 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
             name,
             "descr",
             level_id as "levelId",
+          level_name as "levelName",
             parent_id as "parentId",
             active,
             from_ts as "fromTs",

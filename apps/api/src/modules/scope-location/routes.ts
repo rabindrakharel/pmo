@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { hasPermissionOnAPI, getEmployeeScopeIds, hasPermissionOnScopeId, Permission } from '../rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm';
 
@@ -61,11 +60,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    // Check scope access
-    const hasAPIAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/location', 'view');
-    if (!hasAPIAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
 
     try {
       // Build query conditions
@@ -103,6 +97,7 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
           "descr",
           addr,
           level_id as "levelId",
+          level_name as "levelName",
           parent_id as "parentId",
           active,
           from_ts as "fromTs",
@@ -149,11 +144,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/location', 'view', id);
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
-
     try {
       const location = await db.execute(sql`
         SELECT 
@@ -162,6 +152,7 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
           "descr",
           addr,
           level_id as "levelId",
+          level_name as "levelName",
           parent_id as "parentId",
           active,
           from_ts as "fromTs",
@@ -203,18 +194,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    // Check if user can create in this scope
-    if (data.parentId) {
-      const scopeAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/location', 'create', data.parentId);
-      if (!scopeAccess.allowed) {
-        return reply.status(403).send({ error: 'Insufficient permissions to create in parent scope' });
-      }
-    } else {
-      const scopeAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/location', 'create', undefined);
-      if (!scopeAccess.allowed) {
-        return reply.status(403).send({ error: 'Insufficient permissions' });
-      }
-    }
 
     try {
       const fromTs = data.fromTs || new Date().toISOString();
@@ -228,6 +207,7 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
           "descr",
           addr,
           level_id as "levelId",
+          level_name as "levelName",
           parent_id as "parentId",
           active,
           from_ts as "fromTs",
@@ -270,11 +250,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
     if (!userId) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
-
-    const scopeAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/location', 'modify', id);
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
 
     try {
       // Check if location exists
@@ -336,6 +311,7 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
           "descr",
           addr,
           level_id as "levelId",
+          level_name as "levelName",
           parent_id as "parentId",
           active,
           from_ts as "fromTs",
@@ -376,11 +352,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
     if (!userId) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
-
-    const scopeAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/location', 'delete', id);
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
 
     try {
       // Check if location exists
@@ -441,11 +412,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    const scopeAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/scope/location', 'view', id);
-    if (!scopeAccess.allowed) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
-
     try {
       // Get the location
       const location = await db.execute(sql`
@@ -455,6 +421,7 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
           "descr",
           addr,
           level_id as "levelId",
+          level_name as "levelName",
           parent_id as "parentId",
           active,
           from_ts as "fromTs",
@@ -477,6 +444,7 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
           "descr",
           addr,
           level_id as "levelId",
+          level_name as "levelName",
           parent_id as "parentId",
           active,
           from_ts as "fromTs",
@@ -498,6 +466,7 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
             "descr",
             addr,
             level_id as "levelId",
+          level_name as "levelName",
             parent_id as "parentId",
             active,
             from_ts as "fromTs",

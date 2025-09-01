@@ -184,10 +184,6 @@ async function hasPermissionByName(
 
   const requiredPermission = actionToPermission[action];
   
-  // For development mode with OIDC bypass, allow all access
-  if (process.env.DEV_BYPASS_OIDC === 'true') {
-    return true;
-  }
   
   try {
     const result = await db.execute(sql`
@@ -235,16 +231,6 @@ export async function getEmployeeScopeIdsByScopeType(
     return [];
   }
 
-  // For development mode with OIDC bypass, return mock data
-  if (process.env.DEV_BYPASS_OIDC === 'true') {
-    return [
-      {
-        scopeId: 'mock-scope-id',
-        scopeName: `Mock ${scopeType} Scope`,
-        permissions: [Permission.VIEW, Permission.MODIFY, Permission.SHARE, Permission.DELETE, Permission.CREATE]
-      }
-    ];
-  }
   
   try {
     const scopes = await db.execute(sql`
@@ -312,10 +298,6 @@ export async function hasPermissionOnScopeId(
 
   const requiredPermission = actionToPermission[action];
 
-  // For development mode with OIDC bypass, return true
-  if (process.env.DEV_BYPASS_OIDC === 'true') {
-    return true;
-  }
   
   try {
     const result = await db.execute(sql`

@@ -39,6 +39,7 @@ CREATE TABLE app.d_scope_hr (
   approval_limit numeric(12,2),
   bilingual_req boolean DEFAULT false,
   level_id int NOT NULL REFERENCES app.meta_hr_level(level_id),
+  level_name text NOT NULL,
   parent_id uuid REFERENCES app.d_scope_hr(id) ON DELETE SET NULL
 );
 
@@ -62,10 +63,10 @@ CREATE TABLE app.rel_hr_biz_loc (
 -- ============================================================================
 
 -- Insert Canadian HR Hierarchy
-INSERT INTO app.d_scope_hr (name, "descr", position_code, job_family, salary_band_min, salary_band_max, bonus_target_pct, equity_eligible, direct_reports_max, approval_limit, from_ts, level_id, parent_id, tags, attr) VALUES
-('CEO Office', 'Chief Executive Officer and executive leadership team', 'CEO-001', 'Executive', 300000.00, 500000.00, 50.0, true, 8, 10000000.00, now(), 1, NULL, '["c-level", "executive"]', '{"board_reporting": true}'),
-('VP Engineering', 'Vice President of Engineering', 'VP-ENG-001', 'Engineering', 200000.00, 300000.00, 35.0, true, 10, 2000000.00, now(), 2, (SELECT id FROM app.d_scope_hr WHERE name = 'CEO Office'), '["vp", "technical"]', '{"engineering_strategy": true}'),
-('VP Sales', 'Vice President of Sales', 'VP-SALES-001', 'Sales', 180000.00, 280000.00, 50.0, true, 8, 1500000.00, now(), 2, (SELECT id FROM app.d_scope_hr WHERE name = 'CEO Office'), '["vp", "revenue"]', '{"revenue_responsibility": true}'),
-('Engineering Directors', 'Engineering department directors', 'DIR-ENG-001', 'Engineering', 140000.00, 200000.00, 25.0, true, 15, 500000.00, now(), 3, (SELECT id FROM app.d_scope_hr WHERE name = 'VP Engineering'), '["director", "management"]', '{"department_management": true}'),
-('Engineering Managers', 'Team and project managers', 'MGR-ENG-001', 'Engineering', 95000.00, 150000.00, 20.0, false, 8, 200000.00, now(), 4, (SELECT id FROM app.d_scope_hr WHERE name = 'Engineering Directors'), '["manager", "team"]', '{"team_management": true}'),
-('Senior Engineers', 'Senior individual contributors', 'SR-ENG-001', 'Engineering', 75000.00, 110000.00, 12.0, false, 3, 25000.00, now(), 6, (SELECT id FROM app.d_scope_hr WHERE name = 'Engineering Managers'), '["senior", "technical"]', '{"technical_expertise": true}');
+INSERT INTO app.d_scope_hr (name, "descr", position_code, job_family, salary_band_min, salary_band_max, bonus_target_pct, equity_eligible, direct_reports_max, approval_limit, from_ts, level_id, level_name, parent_id, tags, attr) VALUES
+('CEO Office', 'Chief Executive Officer and executive leadership team', 'CEO-001', 'Executive', 300000.00, 500000.00, 50.0, true, 8, 10000000.00, now(), 1, 'CEO/President', NULL, '["c-level", "executive"]', '{"board_reporting": true}'),
+('VP Engineering', 'Vice President of Engineering', 'VP-ENG-001', 'Engineering', 200000.00, 300000.00, 35.0, true, 10, 2000000.00, now(), 2, 'C-Level', (SELECT id FROM app.d_scope_hr WHERE name = 'CEO Office'), '["vp", "technical"]', '{"engineering_strategy": true}'),
+('VP Sales', 'Vice President of Sales', 'VP-SALES-001', 'Sales', 180000.00, 280000.00, 50.0, true, 8, 1500000.00, now(), 2, 'C-Level', (SELECT id FROM app.d_scope_hr WHERE name = 'CEO Office'), '["vp", "revenue"]', '{"revenue_responsibility": true}'),
+('Engineering Directors', 'Engineering department directors', 'DIR-ENG-001', 'Engineering', 140000.00, 200000.00, 25.0, true, 15, 500000.00, now(), 3, 'VP', (SELECT id FROM app.d_scope_hr WHERE name = 'VP Engineering'), '["director", "management"]', '{"department_management": true}'),
+('Engineering Managers', 'Team and project managers', 'MGR-ENG-001', 'Engineering', 95000.00, 150000.00, 20.0, false, 8, 200000.00, now(), 4, 'AVP', (SELECT id FROM app.d_scope_hr WHERE name = 'Engineering Directors'), '["manager", "team"]', '{"team_management": true}'),
+('Senior Engineers', 'Senior individual contributors', 'SR-ENG-001', 'Engineering', 75000.00, 110000.00, 12.0, false, 3, 25000.00, now(), 6, 'Director', (SELECT id FROM app.d_scope_hr WHERE name = 'Engineering Managers'), '["senior", "technical"]', '{"technical_expertise": true}');

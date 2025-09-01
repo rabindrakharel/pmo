@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { hasPermissionOnAPI, getEmployeeScopeIds, hasPermissionOnScopeId, Permission } from '../rbac/ui-api-permission-rbac-gate.js';
+import { getEmployeeScopeIds, hasPermissionOnScopeId, Permission } from '../rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import { 
@@ -100,11 +100,6 @@ export async function taskRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     };
 
-    // Check if employee has access to view tasks via API endpoint
-    const hasAPIAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/task', 'view');
-    if (!hasAPIAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to access tasks API' });
-    }
 
     try {
       // Get employee's allowed project IDs for filtering

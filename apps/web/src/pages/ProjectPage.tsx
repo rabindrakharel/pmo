@@ -49,7 +49,7 @@ export function ProjectPage() {
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 10,
+    pageSize: 20,
     total: 0,
   });
 
@@ -244,7 +244,7 @@ export function ProjectPage() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="h-10 w-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
@@ -289,7 +289,9 @@ export function ProjectPage() {
           </div>
         </div>
 
-        {renderContent()}
+        <div className="flex-1 min-h-0">
+          {renderContent()}
+        </div>
       </div>
     </Layout>
   );

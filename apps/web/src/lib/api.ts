@@ -123,3 +123,143 @@ export const metaApi = {
     return response.data;
   },
 };
+
+export const employeeApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; department?: string; role?: string }) {
+    const response = await apiClient.get('/api/v1/emp', { params });
+    return response.data;
+  },
+  
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/emp/${id}`);
+    return response.data;
+  },
+  
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/emp', data);
+    return response.data;
+  },
+  
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/emp/${id}`, data);
+    return response.data;
+  },
+  
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/emp/${id}`);
+    return response.data;
+  },
+};
+
+export const clientApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; type?: string }) {
+    const response = await apiClient.get('/api/v1/client', { params });
+    return response.data;
+  },
+  
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/client/${id}`);
+    return response.data;
+  },
+  
+  async getHierarchy(id: string) {
+    const response = await apiClient.get(`/api/v1/client/${id}/hierarchy`);
+    return response.data;
+  },
+  
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/client', data);
+    return response.data;
+  },
+  
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/client/${id}`, data);
+    return response.data;
+  },
+  
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/client/${id}`);
+    return response.data;
+  },
+};
+
+export const businessApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; level?: string }) {
+    const response = await apiClient.get('/api/v1/scope/business', { params });
+    return response.data;
+  },
+  
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/scope/business/${id}`);
+    return response.data;
+  },
+  
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/scope/business', data);
+    return response.data;
+  },
+  
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/scope/business/${id}`, data);
+    return response.data;
+  },
+  
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/scope/business/${id}`);
+    return response.data;
+  },
+};
+
+export const locationApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; level?: string }) {
+    const response = await apiClient.get('/api/v1/scope/location', { params });
+    return response.data;
+  },
+  
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/scope/location/${id}`);
+    return response.data;
+  },
+  
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/scope/location', data);
+    return response.data;
+  },
+  
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/scope/location/${id}`, data);
+    return response.data;
+  },
+  
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/scope/location/${id}`);
+    return response.data;
+  },
+};
+
+export const worksiteApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; location?: string }) {
+    const response = await apiClient.get('/api/v1/worksite', { params });
+    return response.data;
+  },
+  
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/worksite/${id}`);
+    return response.data;
+  },
+  
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/worksite', data);
+    return response.data;
+  },
+  
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/worksite/${id}`, data);
+    return response.data;
+  },
+  
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/worksite/${id}`);
+    return response.data;
+  },
+};

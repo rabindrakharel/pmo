@@ -13,6 +13,12 @@
   height: 8px;
 }
 
+/* Force horizontal scrollbar to be visible when using overflow-x-scroll */
+.overflow-x-scroll::-webkit-scrollbar:horizontal {
+  height: 8px !important;
+  display: block !important;
+}
+
 /* Vertical scrollbar */
 .scrollbar-elegant::-webkit-scrollbar:vertical {
   width: 8px;
@@ -48,6 +54,53 @@
 /* Shadow for sticky columns */
 .shadow-r {
   box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure horizontal scrollbar is always visible when content overflows */
+.overflow-x-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f8fafc;
+  overflow-x: scroll !important;
+}
+
+.overflow-x-scroll::-webkit-scrollbar {
+  height: 8px;
+  -webkit-appearance: none;
+}
+
+.overflow-x-scroll::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 8px;
+  -webkit-box-shadow: inset 0 0 3px rgba(0,0,0,0.1);
+}
+
+.overflow-x-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+/* Force scrollbar to always be visible */
+.scrollbar-always-visible {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f8fafc;
+}
+
+.scrollbar-always-visible::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  -webkit-appearance: none;
+}
+
+.scrollbar-always-visible::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.scrollbar-always-visible::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
 }
 
 /* Ensure sticky elements maintain position */

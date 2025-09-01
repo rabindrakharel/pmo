@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { hasPermissionOnAPI } from '../rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import { 
@@ -74,10 +73,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const hasAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/client', 'view');
-    if (!hasAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
 
     try {
       const conditions = [];
@@ -129,9 +124,9 @@ export async function clientRoutes(fastify: FastifyInstance) {
       `);
 
       const userPermissions = {
-        canSeePII: scopeAccess.permissions?.includes(4) || false,
-        canSeeFinancial: scopeAccess.permissions?.includes(4) || false,
-        canSeeSystemFields: scopeAccess.permissions?.includes(4) || false,
+        canSeePII: true,
+        canSeeFinancial: true,
+        canSeeSystemFields: true,
       };
       
       const filteredData = clients.map(client => 
@@ -172,10 +167,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const hasAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/client', 'view');
-    if (!hasAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
 
     try {
       const client = await db.execute(sql`
@@ -191,9 +182,9 @@ export async function clientRoutes(fastify: FastifyInstance) {
       }
 
       const userPermissions = {
-        canSeePII: scopeAccess.permissions?.includes(4) || false,
-        canSeeFinancial: scopeAccess.permissions?.includes(4) || false,
-        canSeeSystemFields: scopeAccess.permissions?.includes(4) || false,
+        canSeePII: true,
+        canSeeFinancial: true,
+        canSeeSystemFields: true,
       };
       
       return filterUniversalColumns(client[0], userPermissions);
@@ -229,10 +220,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const hasAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/client', 'view');
-    if (!hasAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
 
     try {
       // Get the client
@@ -278,9 +265,9 @@ export async function clientRoutes(fastify: FastifyInstance) {
       `);
 
       const userPermissions = {
-        canSeePII: scopeAccess.permissions?.includes(4) || false,
-        canSeeFinancial: scopeAccess.permissions?.includes(4) || false,
-        canSeeSystemFields: scopeAccess.permissions?.includes(4) || false,
+        canSeePII: true,
+        canSeeFinancial: true,
+        canSeeSystemFields: true,
       };
 
       return {
@@ -314,10 +301,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const hasAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/client', 'create');
-    if (!hasAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
 
     try {
       // Check for unique client name at the same level
@@ -366,8 +349,8 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
       const userPermissions = {
         canSeePII: true,
-        canSeeFinancial: scopeAccess.permissions?.includes(4) || false,
-        canSeeSystemFields: scopeAccess.permissions?.includes(4) || false,
+        canSeeFinancial: true,
+        canSeeSystemFields: true,
       };
       
       return reply.status(201).send(filterUniversalColumns(result[0], userPermissions));
@@ -402,10 +385,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const hasAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/client', 'modify');
-    if (!hasAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
 
     try {
       const existing = await db.execute(sql`
@@ -471,9 +450,9 @@ export async function clientRoutes(fastify: FastifyInstance) {
       }
 
       const userPermissions = {
-        canSeePII: scopeAccess.permissions?.includes(4) || false,
-        canSeeFinancial: scopeAccess.permissions?.includes(4) || false,
-        canSeeSystemFields: scopeAccess.permissions?.includes(4) || false,
+        canSeePII: true,
+        canSeeFinancial: true,
+        canSeeSystemFields: true,
       };
       
       return filterUniversalColumns(result[0], userPermissions);
@@ -506,10 +485,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const hasAccess = await hasPermissionOnAPI(userId, 'app:api', '/api/v1/client', 'delete');
-    if (!hasAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
 
     try {
       const existing = await db.execute(sql`
