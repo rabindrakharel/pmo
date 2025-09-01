@@ -11,7 +11,11 @@ import {
   Database,
   Building2,
   MapPin,
-  FolderOpen
+  FolderOpen,
+  UserCheck,
+  FileText,
+  CheckSquare,
+  Users
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -34,6 +38,10 @@ export function Layout({ children }: LayoutProps) {
     { name: 'Business', href: '/business', icon: Building2 },
     { name: 'Location', href: '/location', icon: MapPin },
     { name: 'Project', href: '/project', icon: FolderOpen },
+    { name: 'Task', href: '/task', icon: CheckSquare },
+    { name: 'Employee', href: '/employee', icon: Users },
+    { name: 'Roles', href: '/roles', icon: UserCheck },
+    { name: 'Forms', href: '/forms', icon: FileText },
   ];
 
   const profileNavigationItems = [

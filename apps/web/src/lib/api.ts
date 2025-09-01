@@ -263,3 +263,57 @@ export const worksiteApi = {
     return response.data;
   },
 };
+
+export const roleApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; roleType?: string; roleCategory?: string }) {
+    const response = await apiClient.get('/api/v1/role', { params });
+    return response.data;
+  },
+  
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/role/${id}`);
+    return response.data;
+  },
+  
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/role', data);
+    return response.data;
+  },
+  
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/role/${id}`, data);
+    return response.data;
+  },
+  
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/role/${id}`);
+    return response.data;
+  },
+};
+
+export const formApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; version?: number }) {
+    const response = await apiClient.get('/api/v1/form', { params });
+    return response.data;
+  },
+  
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/form/${id}`);
+    return response.data;
+  },
+  
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/form', data);
+    return response.data;
+  },
+  
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/form/${id}`, data);
+    return response.data;
+  },
+  
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/form/${id}`);
+    return response.data;
+  },
+};

@@ -7,18 +7,32 @@ const RoleSchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
+  roleType: Type.Optional(Type.String()),
+  roleCategory: Type.Optional(Type.String()),
+  authorityLevel: Type.Optional(Type.String()),
+  approvalLimit: Type.Optional(Type.Number()),
+  delegationAllowed: Type.Optional(Type.Boolean()),
   active: Type.Boolean(),
   fromTs: Type.String(),
   toTs: Type.Optional(Type.String()),
   created: Type.String(),
   updated: Type.String(),
+  tags: Type.Optional(Type.Array(Type.String())),
+  attr: Type.Optional(Type.Any()),
 });
 
 const CreateRoleSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
+  roleType: Type.Optional(Type.String()),
+  roleCategory: Type.Optional(Type.String()),
+  authorityLevel: Type.Optional(Type.String()),
+  approvalLimit: Type.Optional(Type.Number()),
+  delegationAllowed: Type.Optional(Type.Boolean()),
   active: Type.Optional(Type.Boolean()),
   fromTs: Type.Optional(Type.String({ format: 'date-time' })),
+  tags: Type.Optional(Type.Array(Type.String())),
+  attr: Type.Optional(Type.Any()),
 });
 
 const UpdateRoleSchema = Type.Partial(CreateRoleSchema);
@@ -75,11 +89,18 @@ export async function roleRoutes(fastify: FastifyInstance) {
           id,
           name,
           "descr",
+          role_type as "roleType",
+          role_category as "roleCategory",
+          authority_level as "authorityLevel",
+          approval_limit as "approvalLimit",
+          delegation_allowed as "delegationAllowed",
           active,
           from_ts as "fromTs",
           to_ts as "toTs",
           created,
-          updated
+          updated,
+          tags,
+          attr
         FROM app.d_role 
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY name ASC
@@ -127,11 +148,18 @@ export async function roleRoutes(fastify: FastifyInstance) {
           id,
           name,
           "descr",
+          role_type as "roleType",
+          role_category as "roleCategory",
+          authority_level as "authorityLevel",
+          approval_limit as "approvalLimit",
+          delegation_allowed as "delegationAllowed",
           active,
           from_ts as "fromTs",
           to_ts as "toTs",
           created,
-          updated
+          updated,
+          tags,
+          attr
         FROM app.d_role 
         WHERE id = ${id} AND active = true
       `);
@@ -180,17 +208,24 @@ export async function roleRoutes(fastify: FastifyInstance) {
       const fromTs = data.fromTs || new Date().toISOString();
       
       const result = await db.execute(sql`
-        INSERT INTO app.d_role (name, "descr", active, from_ts)
-        VALUES (${data.name}, ${data.descr || null}, ${data.active !== false}, ${fromTs})
+        INSERT INTO app.d_role (name, "descr", role_type, role_category, authority_level, approval_limit, delegation_allowed, active, from_ts, tags, attr)
+        VALUES (${data.name}, ${data.descr || null}, ${data.roleType || 'functional'}, ${data.roleCategory || null}, ${data.authorityLevel || 'standard'}, ${data.approvalLimit || null}, ${data.delegationAllowed !== undefined ? data.delegationAllowed : false}, ${data.active !== false}, ${fromTs}, ${JSON.stringify(data.tags || [])}, ${JSON.stringify(data.attr || {})})
         RETURNING 
           id,
           name,
           "descr",
+          role_type as "roleType",
+          role_category as "roleCategory",
+          authority_level as "authorityLevel",
+          approval_limit as "approvalLimit",
+          delegation_allowed as "delegationAllowed",
           active,
           from_ts as "fromTs",
           to_ts as "toTs",
           created,
-          updated
+          updated,
+          tags,
+          attr
       `);
 
       if (result.length === 0) {
@@ -260,6 +295,34 @@ export async function roleRoutes(fastify: FastifyInstance) {
         updateFields.push(sql`"descr" = ${data.descr}`);
       }
       
+      if (data.roleType !== undefined) {
+        updateFields.push(sql`role_type = ${data.roleType}`);
+      }
+      
+      if (data.roleCategory !== undefined) {
+        updateFields.push(sql`role_category = ${data.roleCategory}`);
+      }
+      
+      if (data.authorityLevel !== undefined) {
+        updateFields.push(sql`authority_level = ${data.authorityLevel}`);
+      }
+      
+      if (data.approvalLimit !== undefined) {
+        updateFields.push(sql`approval_limit = ${data.approvalLimit}`);
+      }
+      
+      if (data.delegationAllowed !== undefined) {
+        updateFields.push(sql`delegation_allowed = ${data.delegationAllowed}`);
+      }
+      
+      if (data.tags !== undefined) {
+        updateFields.push(sql`tags = ${JSON.stringify(data.tags)}`);
+      }
+      
+      if (data.attr !== undefined) {
+        updateFields.push(sql`attr = ${JSON.stringify(data.attr)}`);
+      }
+      
       if (data.active !== undefined) {
         updateFields.push(sql`active = ${data.active}`);
       }
@@ -278,11 +341,18 @@ export async function roleRoutes(fastify: FastifyInstance) {
           id,
           name,
           "descr",
+          role_type as "roleType",
+          role_category as "roleCategory",
+          authority_level as "authorityLevel",
+          approval_limit as "approvalLimit",
+          delegation_allowed as "delegationAllowed",
           active,
           from_ts as "fromTs",
           to_ts as "toTs",
           created,
-          updated
+          updated,
+          tags,
+          attr
       `);
 
       if (result.length === 0) {
@@ -390,11 +460,18 @@ export async function roleRoutes(fastify: FastifyInstance) {
           id,
           name,
           "descr",
+          role_type as "roleType",
+          role_category as "roleCategory",
+          authority_level as "authorityLevel",
+          approval_limit as "approvalLimit",
+          delegation_allowed as "delegationAllowed",
           active,
           from_ts as "fromTs",
           to_ts as "toTs",
           created,
-          updated
+          updated,
+          tags,
+          attr
         FROM app.d_role 
         WHERE id = ${id} AND active = true
       `);

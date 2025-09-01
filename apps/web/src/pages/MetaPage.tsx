@@ -22,6 +22,11 @@ export function MetaPage() {
   const [metaItems, setMetaItems] = useState<MetaItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<MetaCategory>('project_status');
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 20,
+    total: 0,
+  });
 
   const categories = [
     { value: 'project_status' as MetaCategory, label: 'Project Status', description: 'Project lifecycle statuses' },
@@ -42,12 +47,18 @@ export function MetaPage() {
       setLoading(true);
       const response = await metaApi.get(selectedCategory);
       setMetaItems(response.data || []);
+      setPagination(prev => ({ ...prev, total: (response.data || []).length }));
     } catch (error) {
       console.error('Failed to load meta items:', error);
       setMetaItems([]);
+      setPagination(prev => ({ ...prev, total: 0 }));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePaginationChange = (page: number, pageSize: number) => {
+    setPagination(prev => ({ ...prev, current: page, pageSize }));
   };
 
   const getStatusBadge = (active?: boolean) => {
@@ -209,6 +220,10 @@ export function MetaPage() {
             data={metaItems}
             columns={tableColumns}
             loading={loading}
+            pagination={{
+              ...pagination,
+              onChange: handlePaginationChange,
+            }}
             rowKey="id"
             filterable={true}
             columnSelection={true}

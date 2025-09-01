@@ -4,6 +4,7 @@ import { scopeBusinessRoutes } from './scope-business/routes.js';
 import { scopeHRRoutes } from './scope-hr/routes.js';
 import { empRoutes } from './employee/routes.js';
 import { roleRoutes } from './role/routes.js';
+import { formRoutes } from './form/routes.js';
 import { projectRoutes } from './project/routes.js';
 import { taskRoutes } from './task/routes.js';
 // import { taskActivityRoutes } from './task/activity-routes.js';
@@ -30,6 +31,7 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await scopeHRRoutes(fastify);
   await empRoutes(fastify);
   await roleRoutes(fastify);
+  await formRoutes(fastify);
   await worksiteRoutes(fastify);
   await clientRoutes(fastify);
   await projectRoutes(fastify);
