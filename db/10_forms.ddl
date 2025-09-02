@@ -152,7 +152,40 @@ INSERT INTO app.ops_formlog_head (name, descr, form_global_link, project_specifi
 ('Budget Allocation Request', 'Department budget allocation and expense approval request form', null, false, false, false, true, false, false,
   '{"fields": [{"name": "department", "type": "select", "label": "Department", "required": true, "options": ["Engineering", "Sales", "Marketing", "HR", "Operations"]}]}'::jsonb, 1,
   '["business", "budget", "allocation", "approval"]',
-  '{"approval_workflow": ["manager", "finance", "executive"], "budget_limit_escalation": 10000}');
+  '{"approval_workflow": ["manager", "finance", "executive"], "budget_limit_escalation": 10000}'),
+
+-- Emergency Plumbing Service Enhancement Project Forms (EMER-2025-PLUMB)
+('Emergency Response Assessment', 'Initial emergency plumbing assessment form for rapid service deployment', 'https://forms.emergencyplumb.ca/assessment-001', true, false, false, false, false, true,
+  '{"fields": [
+    {"name": "emergency_severity", "type": "select", "label": "Emergency Severity", "required": true, "options": ["Critical", "High", "Medium", "Low"]},
+    {"name": "water_damage_risk", "type": "select", "label": "Water Damage Risk", "required": true, "options": ["Immediate", "Within 1 Hour", "Within 4 Hours", "Minimal"]},
+    {"name": "affected_areas", "type": "multiselect", "label": "Affected Areas", "required": true, "options": ["Kitchen", "Bathroom", "Basement", "Laundry Room", "Utility Room", "Multiple Floors"]},
+    {"name": "estimated_response_time", "type": "number", "label": "Estimated Response Time (minutes)", "required": true, "min": 15, "max": 240}
+  ]}'::jsonb, 1,
+  '["emergency", "plumbing", "assessment", "response"]',
+  '{"project_code": "EMER-2025-PLUMB", "priority": "critical", "auto_dispatch": true, "sla_minutes": 60}'),
+
+('Plumbing Service Completion', 'Post-service completion report for emergency plumbing interventions', 'https://forms.emergencyplumb.ca/completion-001', true, true, false, false, false, true,
+  '{"fields": [
+    {"name": "service_type", "type": "select", "label": "Service Type", "required": true, "options": ["Leak Repair", "Pipe Burst", "Drain Blockage", "Water Heater", "Fixture Replacement", "Emergency Shutoff"]},
+    {"name": "resolution_time", "type": "number", "label": "Resolution Time (hours)", "required": true, "min": 0.25, "max": 12, "step": 0.25},
+    {"name": "parts_used", "type": "textarea", "label": "Parts and Materials Used", "required": true},
+    {"name": "follow_up_required", "type": "boolean", "label": "Follow-up Service Required", "required": true},
+    {"name": "customer_satisfaction", "type": "select", "label": "Customer Satisfaction", "required": true, "options": ["Very Satisfied", "Satisfied", "Neutral", "Dissatisfied", "Very Dissatisfied"]}
+  ]}'::jsonb, 1,
+  '["plumbing", "completion", "service", "report"]',
+  '{"project_code": "EMER-2025-PLUMB", "billable": true, "warranty_period": 90, "quality_assurance": true}'),
+
+('Emergency Contact Registration', 'Customer emergency contact and service preference registration form', 'https://forms.emergencyplumb.ca/contact-001', false, false, false, false, false, true,
+  '{"fields": [
+    {"name": "primary_contact", "type": "text", "label": "Primary Contact Name", "required": true},
+    {"name": "emergency_phone", "type": "tel", "label": "Emergency Phone Number", "required": true},
+    {"name": "property_access", "type": "select", "label": "Property Access Method", "required": true, "options": ["Key Lockbox", "Property Manager", "Tenant Present", "Hidden Key", "Call for Entry"]},
+    {"name": "water_shutoff_location", "type": "textarea", "label": "Main Water Shutoff Location", "required": true},
+    {"name": "special_instructions", "type": "textarea", "label": "Special Access Instructions", "required": false}
+  ]}'::jsonb, 1,
+  '["emergency", "contact", "customer", "access"]',
+  '{"project_code": "EMER-2025-PLUMB", "confidential": true, "retention_years": 5, "gdpr_compliant": true}');
 
 -- Insert Sample Form Records (simplified)
 INSERT INTO app.ops_formlog_records (head_id, name, descr, data, tags, attr) VALUES
@@ -172,4 +205,23 @@ INSERT INTO app.ops_formlog_records (head_id, name, descr, data, tags, attr) VAL
   'Conference Room A Booking', 'Weekly team meeting room reservation request',
   '{"resource_type": "Meeting Room", "requested_date": "2024-07-01", "requested_by": "Jane Doe"}'::jsonb,
   '["meeting-room", "booking", "weekly"]',
-  '{"submission_time": "2024-06-25T11:00:00Z", "auto_approved": true}');
+  '{"submission_time": "2024-06-25T11:00:00Z", "auto_approved": true}'),
+
+-- Emergency Plumbing Service Enhancement Project Records (EMER-2025-PLUMB)
+((SELECT id FROM app.ops_formlog_head WHERE name = 'Emergency Response Assessment' LIMIT 1),
+  'Basement Pipe Burst - 123 Maple St', 'Critical emergency assessment for burst pipe in basement',
+  '{"emergency_severity": "Critical", "water_damage_risk": "Immediate", "affected_areas": ["Basement", "Laundry Room"], "estimated_response_time": 45}'::jsonb,
+  '["critical", "pipe-burst", "basement"]',
+  '{"submission_time": "2024-12-30T08:15:00Z", "dispatcher": "Sarah Wilson", "technician_assigned": "Mike Rodriguez", "project_code": "EMER-2025-PLUMB"}'),
+
+((SELECT id FROM app.ops_formlog_head WHERE name = 'Plumbing Service Completion' LIMIT 1),
+  'Leak Repair Completion - 456 Oak Ave', 'Completed emergency leak repair service',
+  '{"service_type": "Leak Repair", "resolution_time": 2.5, "parts_used": "3/4 inch copper elbow, pipe tape, solder", "follow_up_required": false, "customer_satisfaction": "Very Satisfied"}'::jsonb,
+  '["completed", "leak-repair", "satisfied"]',
+  '{"submission_time": "2024-12-29T16:45:00Z", "technician": "James Chen", "invoice_number": "PLUMB-2024-0892", "project_code": "EMER-2025-PLUMB"}'),
+
+((SELECT id FROM app.ops_formlog_head WHERE name = 'Emergency Contact Registration' LIMIT 1),
+  'Emergency Contact - 789 Pine Blvd', 'Customer emergency contact registration for property',
+  '{"primary_contact": "Lisa Thompson", "emergency_phone": "+1-416-555-0123", "property_access": "Key Lockbox", "water_shutoff_location": "Basement utility room, left wall near furnace", "special_instructions": "Ring doorbell twice, dog friendly"}'::jsonb,
+  '["contact", "registered", "key-lockbox"]',
+  '{"submission_time": "2024-12-28T14:20:00Z", "service_rep": "Anna Martinez", "verified": true, "project_code": "EMER-2025-PLUMB"}');

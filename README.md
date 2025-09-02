@@ -476,6 +476,20 @@ All critical inconsistencies have been **RESOLVED**. The platform now features c
 
 **[📖 Complete Frontend Guide →](./apps/web/README.md)**
 
+## 📝 Forms Module (UI + API)
+
+- List View: Reuses `DataTable` to show `Form ID`, `Form Name`, `Creator`, `Created`, `Updated`.
+- Routes:
+  - `/forms` → Forms list
+  - `/forms/new` → Create Form (builder)
+  - `/forms/:id` → Form View (read-only schema preview)
+  - `/forms/:id/edit` → Edit Form (builder, preloaded)
+- Builder: Add fields (text, number, select, datetime), reorder, edit label/name/required, select options; optional Task attachment by Task ID.
+- API Client: `formApi` in `apps/web/src/lib/api.ts` with `list`, `get`, `getRecords`, `create`, `update`, `delete`. Pagination maps `{page,pageSize}` → `{limit,offset}`.
+- Backend: `apps/api/src/modules/form/routes.ts` with list/read/create/update/delete and records; supports optional scoping IDs (`projectId`, `taskId`, `locationId`, `businessId`, `hrId`, `worksiteId`).
+
+This follows the existing sidebar → route → page pattern (see Projects) and keeps the DataTable component unchanged, using its built-in action props instead.
+
 ---
 
 ## 🔑 Role-Based Access Control
