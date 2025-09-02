@@ -161,11 +161,11 @@ export function EmployeePage() {
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="h-10 w-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <Users className="h-6 w-6 text-white" />
+            <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+              <Users className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Employees</h1>
+              <h1 className="text-2xl font-semibold text-gray-800">Employees</h1>
               <p className="mt-1 text-gray-600">Manage employee information and organizational structure</p>
             </div>
           </div>

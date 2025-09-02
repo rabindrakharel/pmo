@@ -329,3 +329,36 @@ export const formApi = {
     return response.data;
   },
 };
+
+// Wiki API
+export const wikiApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; tag?: string }) {
+    const limit = params?.pageSize ?? 20;
+    const offset = ((params?.page ?? 1) - 1) * limit;
+    const query: any = { limit, offset };
+    if (params?.search) query.search = params.search;
+    if (params?.tag) query.tag = params.tag;
+    const response = await apiClient.get('/api/v1/wiki', { params: query });
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/wiki/${id}`);
+    return response.data;
+  },
+
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/wiki', data);
+    return response.data;
+  },
+
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/wiki/${id}`, data);
+    return response.data;
+  },
+
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/wiki/${id}`);
+    return response.data;
+  },
+};

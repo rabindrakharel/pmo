@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { FullscreenProvider } from './contexts/FullscreenContext';
 import { LoginForm } from './components/auth/LoginForm';
 import { MetaPage } from './pages/MetaPage';
 import { BusinessPage } from './pages/BusinessPage';
@@ -13,6 +14,9 @@ import { FormsPage } from './pages/FormsPage';
 import { FormViewPage } from './pages/FormViewPage';
 import { FormBuilderPage } from './pages/FormBuilderPage';
 import { FormEditPage } from './pages/FormEditPage';
+import { WikiPage } from './pages/WikiPage';
+import { WikiEditorPage } from './pages/WikiEditorPage';
+import { WikiViewPage } from './pages/WikiViewPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SecurityPage } from './pages/SecurityPage';
@@ -212,6 +216,38 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/wiki"
+        element={
+          <ProtectedRoute>
+            <WikiPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/wiki/new"
+        element={
+          <ProtectedRoute>
+            <WikiEditorPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/wiki/:id"
+        element={
+          <ProtectedRoute>
+            <WikiViewPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/wiki/:id/edit"
+        element={
+          <ProtectedRoute>
+            <WikiEditorPage />
+          </ProtectedRoute>
+        }
+      />
       {/* Profile Navigation Pages */}
       <Route
         path="/profile"
@@ -253,9 +289,11 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AppRoutes />
-      </Router>
+      <FullscreenProvider>
+        <Router>
+          <AppRoutes />
+        </Router>
+      </FullscreenProvider>
     </AuthProvider>
   );
 }

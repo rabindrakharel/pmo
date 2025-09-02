@@ -120,6 +120,15 @@ importers:
 
   apps/web:
     dependencies:
+      '@dnd-kit/core':
+        specifier: ^6.3.1
+        version: 6.3.1(react-dom@19.1.1)(react@19.1.1)
+      '@dnd-kit/sortable':
+        specifier: ^10.0.0
+        version: 10.0.0(@dnd-kit/core@6.3.1)(react@19.1.1)
+      '@dnd-kit/utilities':
+        specifier: ^3.2.2
+        version: 3.2.2(react@19.1.1)
       '@hookform/resolvers':
         specifier: ^5.2.1
         version: 5.2.1(react-hook-form@7.62.0)
@@ -129,6 +138,9 @@ importers:
       '@tanstack/react-router-devtools':
         specifier: ^1.131.31
         version: 1.131.31(@tanstack/react-router@1.131.31)(@tanstack/router-core@1.131.30)(csstype@3.1.3)(react-dom@19.1.1)(react@19.1.1)(solid-js@1.9.9)(tiny-invariant@1.3.3)
+      '@types/react-datepicker':
+        specifier: ^7.0.0
+        version: 7.0.0(react-dom@19.1.1)(react@19.1.1)
       axios:
         specifier: ^1.11.0
         version: 1.11.0
@@ -138,6 +150,9 @@ importers:
       react:
         specifier: ^19.1.1
         version: 19.1.1
+      react-datepicker:
+        specifier: ^8.7.0
+        version: 8.7.0(react-dom@19.1.1)(react@19.1.1)
       react-dom:
         specifier: ^19.1.1
         version: 19.1.1(react@19.1.1)
@@ -394,6 +409,49 @@ packages:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
     dev: true
+
+  /@dnd-kit/accessibility@3.1.1(react@19.1.1):
+    resolution: {integrity: sha512-2P+YgaXF+gRsIihwwY1gCsQSYnu9Zyj2py8kY5fFvUM1qm2WA2u639R6YNVfU4GWr+ZM5mqEsfHZZLoRONbemw==}
+    peerDependencies:
+      react: '>=16.8.0'
+    dependencies:
+      react: 19.1.1
+      tslib: 2.8.1
+    dev: false
+
+  /@dnd-kit/core@6.3.1(react-dom@19.1.1)(react@19.1.1):
+    resolution: {integrity: sha512-xkGBRQQab4RLwgXxoqETICr6S5JlogafbhNsidmrkVv2YRs5MLwpjoF2qpiGjQt8S9AoxtIV603s0GIUpY5eYQ==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+    dependencies:
+      '@dnd-kit/accessibility': 3.1.1(react@19.1.1)
+      '@dnd-kit/utilities': 3.2.2(react@19.1.1)
+      react: 19.1.1
+      react-dom: 19.1.1(react@19.1.1)
+      tslib: 2.8.1
+    dev: false
+
+  /@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1)(react@19.1.1):
+    resolution: {integrity: sha512-+xqhmIIzvAYMGfBYYnbKuNicfSsk4RksY2XdmJhT+HAC01nix6fHCztU68jooFiMUB01Ky3F0FyOvhG/BZrWkg==}
+    peerDependencies:
+      '@dnd-kit/core': ^6.3.0
+      react: '>=16.8.0'
+    dependencies:
+      '@dnd-kit/core': 6.3.1(react-dom@19.1.1)(react@19.1.1)
+      '@dnd-kit/utilities': 3.2.2(react@19.1.1)
+      react: 19.1.1
+      tslib: 2.8.1
+    dev: false
+
+  /@dnd-kit/utilities@3.2.2(react@19.1.1):
+    resolution: {integrity: sha512-+MKAJEOfaBe5SmV6t34p80MMKhjvUz0vRrvVJbPT0WElzaOJ/1xs+D+KDv+tD/NE5ujfrChEcshd4fLn0wpiqg==}
+    peerDependencies:
+      react: '>=16.8.0'
+    dependencies:
+      react: 19.1.1
+      tslib: 2.8.1
+    dev: false
 
   /@esbuild-kit/core-utils@3.3.2:
     resolution: {integrity: sha512-sPRAnw9CdSsRmEtnsl2WXWdyquogVpB3yZ3dgwJfe8zrOzTsV7cJvmwrKVa+0ma5BoiGJ+BoqkMvawbayKUsqQ==}
@@ -1497,6 +1555,47 @@ packages:
       '@sinclair/typebox': 0.31.28
     dev: false
 
+  /@floating-ui/core@1.7.3:
+    resolution: {integrity: sha512-sGnvb5dmrJaKEZ+LDIpguvdX3bDlEllmv4/ClQ9awcmCZrlx5jQyyMWFM5kBI+EyNOCDDiKk8il0zeuX3Zlg/w==}
+    dependencies:
+      '@floating-ui/utils': 0.2.10
+    dev: false
+
+  /@floating-ui/dom@1.7.4:
+    resolution: {integrity: sha512-OOchDgh4F2CchOX94cRVqhvy7b3AFb+/rQXyswmzmGakRfkMgoWVjfnLWkRirfLEfuD4ysVW16eXzwt3jHIzKA==}
+    dependencies:
+      '@floating-ui/core': 1.7.3
+      '@floating-ui/utils': 0.2.10
+    dev: false
+
+  /@floating-ui/react-dom@2.1.6(react-dom@19.1.1)(react@19.1.1):
+    resolution: {integrity: sha512-4JX6rEatQEvlmgU80wZyq9RT96HZJa88q8hp0pBd+LrczeDI4o6uA2M+uvxngVHo4Ihr8uibXxH6+70zhAFrVw==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+    dependencies:
+      '@floating-ui/dom': 1.7.4
+      react: 19.1.1
+      react-dom: 19.1.1(react@19.1.1)
+    dev: false
+
+  /@floating-ui/react@0.27.16(react-dom@19.1.1)(react@19.1.1):
+    resolution: {integrity: sha512-9O8N4SeG2z++TSM8QA/KTeKFBVCNEz/AGS7gWPJf6KFRzmRWixFRnCnkPHRDwSVZW6QPDO6uT0P2SpWNKCc9/g==}
+    peerDependencies:
+      react: '>=17.0.0'
+      react-dom: '>=17.0.0'
+    dependencies:
+      '@floating-ui/react-dom': 2.1.6(react-dom@19.1.1)(react@19.1.1)
+      '@floating-ui/utils': 0.2.10
+      react: 19.1.1
+      react-dom: 19.1.1(react@19.1.1)
+      tabbable: 6.2.0
+    dev: false
+
+  /@floating-ui/utils@0.2.10:
+    resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
+    dev: false
+
   /@hono/node-server@1.19.0(hono@4.9.4):
     resolution: {integrity: sha512-1k8/8OHf5VIymJEcJyVksFpT+AQ5euY0VA5hUkCnlKpD4mr8FSbvXaHblxeTTEr90OaqWzAkQaqD80qHZQKxBA==}
     engines: {node: '>=18.14.1'}
@@ -2057,6 +2156,16 @@ packages:
       '@types/node': 20.19.11
       pg-protocol: 1.10.3
       pg-types: 2.2.0
+
+  /@types/react-datepicker@7.0.0(react-dom@19.1.1)(react@19.1.1):
+    resolution: {integrity: sha512-4tWwOUq589tozyQPBVEqGNng5DaZkomx5IVNuur868yYdgjH6RaL373/HKiVt1IDoNNXYiTGspm1F7kjrarM8Q==}
+    deprecated: This is a stub types definition. react-datepicker provides its own type definitions, so you do not need this installed.
+    dependencies:
+      react-datepicker: 8.7.0(react-dom@19.1.1)(react@19.1.1)
+    transitivePeerDependencies:
+      - react
+      - react-dom
+    dev: false
 
   /@types/react-dom@19.1.9(@types/react@19.1.12):
     resolution: {integrity: sha512-qXRuZaOsAdXKFyOhRBg6Lqqc0yay13vN7KrIg4L7N4aaHN68ma9OK3NE1BoDFgFOTfM7zg+3/8+2n8rLUH3OKQ==}
@@ -2846,6 +2955,10 @@ packages:
       es5-ext: 0.10.64
       type: 2.7.3
     dev: true
+
+  /date-fns@4.1.0:
+    resolution: {integrity: sha512-Ukq0owbQXxa/U3EGtsdVBkR1w7KOQ5gIBqdH2hkvknzZPYvBxb/aa6E8L7tmjFtkwZBu3UXBbjIgPo/Ez4xaNg==}
+    dev: false
 
   /dateformat@4.6.3:
     resolution: {integrity: sha512-2P0p0pFGzHS5EMnhdxQi7aJN+iMheud0UhG4dlE1DLAlvL8JHjJJTX/CSm4JXwV0Ka5nGk3zC5mcb5bUQUxxMA==}
@@ -4921,6 +5034,19 @@ packages:
     resolution: {integrity: sha512-tYC1Q1hgyRuHgloV/YXs2w15unPVh8qfu/qCTfhTYamaw7fyhumKa2yGpdSo87vY32rIclj+4fWYQXUMs9EHvg==}
     dev: false
 
+  /react-datepicker@8.7.0(react-dom@19.1.1)(react@19.1.1):
+    resolution: {integrity: sha512-r5OJbiLWc3YiVNy69Kau07/aVgVGsFVMA6+nlqCV7vyQ8q0FUOnJ+wAI4CgVxHejG3i5djAEiebrF8/Eip4rIw==}
+    peerDependencies:
+      react: ^16.9.0 || ^17 || ^18 || ^19 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17 || ^18 || ^19 || ^19.0.0-rc
+    dependencies:
+      '@floating-ui/react': 0.27.16(react-dom@19.1.1)(react@19.1.1)
+      clsx: 2.1.1
+      date-fns: 4.1.0
+      react: 19.1.1
+      react-dom: 19.1.1(react@19.1.1)
+    dev: false
+
   /react-dom@19.1.1(react@19.1.1):
     resolution: {integrity: sha512-Dlq/5LAZgF0Gaz6yiqZCf6VCcZs1ghAJyrsu84Q/GT0gV+mCxbfmKNoGRKBYMJ8IEdGPqu49YWXD02GCknEDkw==}
     peerDependencies:
@@ -5342,6 +5468,10 @@ packages:
     engines: {node: '>= 0.4'}
     dev: true
 
+  /tabbable@6.2.0:
+    resolution: {integrity: sha512-Cat63mxsVJlzYvN51JmVXIgNoUokrIaT2zLclCXjRd8boZ0004U4KCs/sToJ75C6sdlByWxpYnb5Boif1VSFew==}
+    dev: false
+
   /tailwindcss@3.4.17:
     resolution: {integrity: sha512-w33E2aCvSDP0tW9RZuNXadXlkHXqFzSkQew/aIa2i/Sj8fThxwovwlXHSPXTbAHwEIhBFXAedUhP2tueAKP8Og==}
     engines: {node: '>=14.0.0'}
@@ -5509,6 +5639,10 @@ packages:
       normalize-path: 3.0.0
       plimit-lit: 1.6.1
     dev: true
+
+  /tslib@2.8.1:
+    resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
+    dev: false
 
   /tsx@4.20.5:
     resolution: {integrity: sha512-+wKjMNU9w/EaQayHXb7WA7ZaHY6hN8WgfvHNQ3t1PnU91/7O8TcTnIhCDYTZwnt8JsO9IBqZ30Ln1r7pPF52Aw==}

@@ -90,7 +90,7 @@ export function BillingPage() {
           <div className="px-4 py-5 sm:p-6">
             <div className="flex items-center mb-6">
               <div className="h-12 w-12 bg-blue-600 rounded-full flex items-center justify-center">
-                <CreditCard className="h-6 w-6 text-white" />
+                <CreditCard className="h-5 w-5 text-white" />
               </div>
               <div className="ml-4">
                 <h1 className="text-2xl font-bold text-gray-900">Billing & Subscription</h1>
