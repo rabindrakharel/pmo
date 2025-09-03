@@ -1,305 +1,829 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
+import { 
+  Bold, 
+  Italic, 
+  Underline, 
+  List, 
+  ListOrdered, 
+  Code,
+  Minus,
+  Link,
+  Unlink,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Quote,
+  Type,
+  Image,
+  Video,
+  Youtube,
+  Menu,
+  ChevronDown,
+  ChevronRight
+} from 'lucide-react';
+import './editor.css';
 
-export type BlockType = 'paragraph' | 'h1' | 'h2' | 'h3' | 'bulleted' | 'numbered' | 'todo' | 'quote' | 'code' | 'divider' | 'callout' | 'image';
-
+// Block type definition to match your existing WikiEditorPage
 export interface Block {
   id: string;
-  type: BlockType;
-  text?: string;         // for simple blocks
-  checked?: boolean;     // for todo
-  language?: string;     // for code
-  src?: string;          // for image
-  alt?: string;          // for image
-  width?: number;        // for image
-  children?: Block[];    // reserved for nesting
+  type: 'paragraph' | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'bulleted' | 'numbered' | 'quote' | 'code';
+  text: string;
 }
 
 export interface BlockEditorProps {
   value: Block[];
   onChange: (blocks: Block[]) => void;
+  onToolbarAction?: (action: string, value?: string) => void;
 }
 
-const uid = () => Math.random().toString(36).slice(2, 10);
+export interface BlockEditorRef {
+  execCommand: (command: string, value?: string) => boolean;
+  handleBlockFormat: (tag: string) => void;
+  insertLink: () => void;
+  insertImage: () => void;
+  insertCodeBlock: () => void;
+  isFormatActive: (command: string) => boolean;
+}
 
-const defaultParagraph = (): Block => ({ id: uid(), type: 'paragraph', text: '' });
-
+// Convert blocks to HTML for saving
 export function renderBlocksToHtml(blocks: Block[]): string {
-  const escape = (s?: string) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const map = (b: Block): string => {
-    const t = escape(b.text);
-    switch (b.type) {
-      case 'h1': return `<h1>${t}</h1>`;
-      case 'h2': return `<h2>${t}</h2>`;
-      case 'h3': return `<h3>${t}</h3>`;
-      case 'quote': return `<blockquote>${t}</blockquote>`;
-      case 'code': return `<pre><code class="language-${b.language || 'plaintext'}">${t}</code></pre>`;
-      case 'todo': return `<p><input type="checkbox" disabled ${b.checked ? 'checked' : ''}/> ${t}</p>`;
-      case 'divider': return `<hr/>`;
-      case 'callout': return `<div class="callout">${t}</div>`;
-      case 'image': return `<figure><img src="${b.src || ''}" alt="${escape(b.alt)}" style="max-width:100%;height:auto;"/>${b.text ? `<figcaption>${t}</figcaption>` : ''}</figure>`;
-      case 'bulleted': return `<li>${t}</li>`;
-      case 'numbered': return `<li>${t}</li>`;
-      default: return `<p>${t}</p>`;
+  return blocks.map(block => {
+    switch (block.type) {
+      case 'h1': return `<h1>${block.text}</h1>`;
+      case 'h2': return `<h2>${block.text}</h2>`;
+      case 'h3': return `<h3>${block.text}</h3>`;
+      case 'h4': return `<h4>${block.text}</h4>`;
+      case 'h5': return `<h5>${block.text}</h5>`;
+      case 'h6': return `<h6>${block.text}</h6>`;
+      case 'quote': return `<blockquote>${block.text}</blockquote>`;
+      case 'code': return `<pre><code>${block.text}</code></pre>`;
+      case 'bulleted': return `<ul><li>${block.text}</li></ul>`;
+      case 'numbered': return `<ol><li>${block.text}</li></ol>`;
+      default: return `<p>${block.text}</p>`;
     }
-  };
-
-  // Group list items
-  const html: string[] = [];
-  let i = 0;
-  while (i < blocks.length) {
-    const b = blocks[i];
-    if (b.type === 'bulleted') {
-      const group: string[] = [];
-      while (i < blocks.length && blocks[i].type === 'bulleted') { group.push(map(blocks[i++])); }
-      html.push(`<ul>${group.join('')}</ul>`);
-      continue;
-    }
-    if (b.type === 'numbered') {
-      const group: string[] = [];
-      while (i < blocks.length && blocks[i].type === 'numbered') { group.push(map(blocks[i++])); }
-      html.push(`<ol>${group.join('')}</ol>`);
-      continue;
-    }
-    html.push(map(b));
-    i++;
-  }
-  return html.join('');
+  }).join('\n');
 }
 
-const SlashMenu = ({ onChoose }: { onChoose: (t: BlockType) => void }) => {
-  const items: { key: BlockType; label: string }[] = [
-    { key: 'paragraph', label: 'Paragraph' },
-    { key: 'h1', label: 'Heading 1' },
-    { key: 'h2', label: 'Heading 2' },
-    { key: 'h3', label: 'Heading 3' },
-    { key: 'bulleted', label: 'Bulleted list' },
-    { key: 'numbered', label: 'Numbered list' },
-    { key: 'todo', label: 'To-do' },
-    { key: 'quote', label: 'Quote' },
-    { key: 'code', label: 'Code' },
-    { key: 'divider', label: 'Divider' },
-    { key: 'callout', label: 'Callout' },
-    { key: 'image', label: 'Image' },
-  ];
-  return (
-    <div className="absolute z-20 mt-1 w-56 rounded-lg border bg-white shadow-lg">
-      {items.map(it => (
-        <button key={it.key} onClick={() => onChoose(it.key)} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">
-          {it.label}
-        </button>
-      ))}
-    </div>
-  );
-};
-
-export function BlockEditor({ value, onChange }: BlockEditorProps) {
-  const [blocks, setBlocks] = useState<Block[]>(value.length ? value : [defaultParagraph()]);
-  const [slashAt, setSlashAt] = useState<{ index: number } | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const fileRef = useRef<HTMLInputElement | null>(null);
-  const [bubble, setBubble] = useState<{ x: number; y: number; visible: boolean } | null>(null);
-
-  useEffect(() => setBlocks(value.length ? value : [defaultParagraph()]), [value]);
-  useEffect(() => onChange(blocks), [blocks, onChange]);
-
-  const updateBlockText = (index: number, text: string) => {
-    setBlocks(prev => prev.map((b, i) => i === index ? { ...b, text } : b));
-  };
-
-  const setType = (index: number, type: BlockType) => {
-    setBlocks(prev => prev.map((b, i) => i === index ? { ...b, type } : b));
-  };
-
-  const insertBlockAfter = (index: number) => {
-    setBlocks(prev => {
-      const next = [...prev];
-      next.splice(index + 1, 0, defaultParagraph());
-      return next;
-    });
-  };
-
-  const removeBlock = (index: number) => {
-    setBlocks(prev => prev.length > 1 ? prev.filter((_, i) => i !== index) : prev);
-  };
-
-  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, index: number) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      insertBlockAfter(index);
-      requestAnimationFrame(() => {
-        const el = containerRef.current?.querySelector(`[data-bindex="${index + 1}"]`) as HTMLElement | null;
-        el?.focus();
+// Convert HTML to blocks (for loading)
+function htmlToBlocks(html: string): Block[] {
+  if (!html || html.trim() === '<p>Start writing your wiki page...</p>') {
+    return [{ id: 't1', type: 'paragraph', text: '' }];
+  }
+  
+  // Create a temporary div to parse HTML
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  
+  const blocks: Block[] = [];
+  const elements = tempDiv.children;
+  
+  for (let i = 0; i < elements.length; i++) {
+    const element = elements[i];
+    const tagName = element.tagName.toLowerCase();
+    const text = element.textContent || '';
+    
+    let blockType: Block['type'] = 'paragraph';
+    
+    switch (tagName) {
+      case 'h1': blockType = 'h1'; break;
+      case 'h2': blockType = 'h2'; break;
+      case 'h3': blockType = 'h3'; break;
+      case 'h4': blockType = 'h4'; break;
+      case 'h5': blockType = 'h5'; break;
+      case 'h6': blockType = 'h6'; break;
+      case 'blockquote': blockType = 'quote'; break;
+      case 'pre': blockType = 'code'; break;
+      case 'ul': blockType = 'bulleted'; break;
+      case 'ol': blockType = 'numbered'; break;
+      default: blockType = 'paragraph';
+    }
+    
+    // Handle list items
+    if (tagName === 'ul' || tagName === 'ol') {
+      const listItems = element.querySelectorAll('li');
+      listItems.forEach((li, index) => {
+        blocks.push({
+          id: `t${blocks.length + 1}`,
+          type: tagName === 'ul' ? 'bulleted' : 'numbered',
+          text: li.textContent || ''
+        });
+      });
+    } else {
+      blocks.push({
+        id: `t${blocks.length + 1}`,
+        type: blockType,
+        text: text
       });
     }
-    if (e.key === 'Backspace') {
-      const el = e.target as HTMLElement;
-      if ((el.innerText || '').trim() === '') {
-        e.preventDefault();
-        removeBlock(index);
-        const prev = containerRef.current?.querySelector(`[data-bindex="${Math.max(0, index - 1)}"]`) as HTMLElement | null;
-        prev?.focus();
+  }
+  
+  return blocks.length > 0 ? blocks : [{ id: 't1', type: 'paragraph', text: '' }];
+}
+
+interface ToolbarButtonProps {
+  onClick: () => void;
+  isActive?: boolean;
+  disabled?: boolean;
+  title?: string;
+  children: React.ReactNode;
+}
+
+const ToolbarButton: React.FC<ToolbarButtonProps> = ({ 
+  onClick, 
+  isActive = false, 
+  disabled = false, 
+  title, 
+  children 
+}) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    title={title}
+    className={`
+      p-2 rounded-md border transition-all duration-200 text-sm font-medium
+      ${isActive 
+        ? 'bg-blue-100 border-blue-300 text-blue-700 shadow-sm' 
+        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
       }
-    }
-    if (e.key === '/' ) {
-      // Show slash menu only at start of empty or fresh line
-      const el = e.target as HTMLElement;
-      const text = el.innerText || '';
-      if (text.length === 0) {
-        setSlashAt({ index });
-      }
-    }
-    if (e.key === 'Escape') setSlashAt(null);
-  };
+      ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+    `}
+  >
+    {children}
+  </button>
+);
 
-  const chooseSlash = (t: BlockType) => {
-    if (slashAt) {
-      if (t === 'image') {
-        const idx = slashAt.index;
-        setType(idx, 'image');
-        setSlashAt(null);
-        // Defer to allow DOM update then open picker
-        requestAnimationFrame(() => fileRef.current?.click());
-        return;
-      }
-      setType(slashAt.index, t);
-      setSlashAt(null);
+const ToolbarDivider: React.FC = () => (
+  <div className="w-px h-6 bg-gray-300 mx-1" />
+);
+
+export function BlockEditor({ value, onChange, onToolbarAction }: BlockEditorProps) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [tocOpen, setTocOpen] = useState(true);
+  const [tableOfContents, setTableOfContents] = useState<{id: string, text: string, level: number}[]>([]);
+
+  // Ensure editor has proper content structure
+  const ensureValidContent = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    
+    // If editor is empty, add a paragraph
+    if (!editor.innerHTML.trim() || editor.innerHTML === '<br>') {
+      editor.innerHTML = '<p><br></p>';
     }
-  };
-
-  const blockClass = (t: BlockType) => {
-    switch (t) {
-      case 'h1': return 'text-3xl font-bold';
-      case 'h2': return 'text-2xl font-semibold';
-      case 'h3': return 'text-xl font-semibold';
-      case 'quote': return 'border-l-4 pl-3 italic text-gray-700';
-      case 'code': return 'font-mono bg-gray-50 border rounded p-3';
-      case 'callout': return 'border rounded p-3 bg-yellow-50';
-      default: return '';
-    }
-  };
-
-  // Markdown-like shortcuts on input
-  const onInputShortcut = (index: number, el: HTMLElement) => {
-    const raw = (el.innerText || '').trimStart();
-    const apply = (t: BlockType, strip: RegExp) => {
-      const text = (el.innerText || '').replace(strip, '');
-      setBlocks(prev => prev.map((b, i) => i === index ? { ...b, type: t, text } : b));
-    };
-    if (/^###\s/.test(raw)) return apply('h3', /^###\s/);
-    if (/^##\s/.test(raw)) return apply('h2', /^##\s/);
-    if (/^#\s/.test(raw)) return apply('h1', /^#\s/);
-    if (/^-\s/.test(raw)) return apply('bulleted', /^-\s/);
-    if (/^1\.\s/.test(raw)) return apply('numbered', /^1\.\s/);
-    if (/^>\s/.test(raw)) return apply('quote', /^>\s/);
-    if (/^\[\s\]\s/.test(raw)) return apply('todo', /^\[\s\]\s/);
-  };
-
-  // Bubble toolbar for inline formatting
-  useEffect(() => {
-    const handleSelection = () => {
-      const sel = window.getSelection();
-      if (!sel || sel.isCollapsed) { setBubble(null); return; }
-      const range = sel.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      setBubble({ x: rect.left + rect.width / 2, y: rect.top - 8, visible: true });
-    };
-    document.addEventListener('selectionchange', handleSelection);
-    return () => document.removeEventListener('selectionchange', handleSelection);
+    
+    // Ensure all empty paragraphs have <br> tags
+    const emptyPs = editor.querySelectorAll('p:empty');
+    emptyPs.forEach(p => {
+      p.innerHTML = '<br>';
+    });
   }, []);
 
-  const exec = (cmd: 'bold' | 'italic' | 'underline' | 'createLink' | 'unlink') => {
-    if (cmd === 'createLink') {
-      const url = prompt('Enter URL');
-      if (!url) return; document.execCommand('createLink', false, url);
+  // Get current selection
+  const getCurrentSelection = useCallback(() => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+    
+    const range = selection.getRangeAt(0);
+    const editor = editorRef.current;
+    if (!editor || !editor.contains(range.commonAncestorContainer)) return null;
+    
+    return { selection, range };
+  }, []);
+
+  // Initialize editor with blocks content
+  useEffect(() => {
+    if (!editorRef.current || isInitialized) return;
+    
+    const html = renderBlocksToHtml(value);
+    if (html.trim()) {
+      editorRef.current.innerHTML = html;
     } else {
-      document.execCommand(cmd, false);
+      editorRef.current.innerHTML = '<p><br></p>';
+      // Set cursor focus to start typing immediately
+      setTimeout(() => {
+        if (editorRef.current) {
+          editorRef.current.focus();
+          const range = document.createRange();
+          const selection = window.getSelection();
+          const firstP = editorRef.current.querySelector('p');
+          if (firstP) {
+            range.setStart(firstP, 0);
+            range.collapse(true);
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+          }
+        }
+      }, 100);
     }
-  };
+    
+    ensureValidContent();
+    setIsInitialized(true);
+  }, [value, isInitialized, ensureValidContent]);
+
+  // Update table of contents
+  const updateTableOfContents = useCallback(() => {
+    if (!editorRef.current) return;
+    
+    const headings = editorRef.current.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    const toc = Array.from(headings).map((heading, index) => {
+      const level = parseInt(heading.tagName.charAt(1));
+      const text = heading.textContent || '';
+      const id = `heading-${index}`;
+      heading.id = id; // Add ID for navigation
+      return { id, text, level };
+    });
+    setTableOfContents(toc);
+  }, []);
+
+  // Handle content changes and convert back to blocks
+  const handleInput = useCallback(() => {
+    if (!editorRef.current) return;
+    
+    ensureValidContent();
+    updateTableOfContents();
+    
+    const html = editorRef.current.innerHTML;
+    const newBlocks = htmlToBlocks(html);
+    onChange(newBlocks);
+  }, [onChange, ensureValidContent, updateTableOfContents]);
+
+  // Execute formatting commands
+  const execCommand = useCallback((command: string, value?: string) => {
+    // Focus editor first
+    editorRef.current?.focus();
+    
+    // Execute the command
+    const success = document.execCommand(command, false, value);
+    
+    // Force update and maintain focus
+    setTimeout(() => {
+      handleInput();
+      editorRef.current?.focus();
+    }, 10);
+    
+    return success;
+  }, [handleInput]);
+
+  // Check if a format is active
+  const isFormatActive = useCallback((command: string): boolean => {
+    try {
+      return document.queryCommandState(command);
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Handle block format changes
+  const handleBlockFormat = useCallback((tag: string) => {
+    // Focus the editor first
+    editorRef.current?.focus();
+    
+    // Use formatBlock with proper tag format
+    const formattedTag = tag.startsWith('<') ? tag : `<${tag}>`;
+    document.execCommand('formatBlock', false, formattedTag);
+    
+    // Force update
+    setTimeout(() => {
+      handleInput();
+      editorRef.current?.focus();
+    }, 10);
+  }, [handleInput]);
+
+  // Insert special elements
+  const insertElement = useCallback((html: string) => {
+    const selection = window.getSelection();
+    if (!selection?.rangeCount) return;
+    
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    
+    while (div.firstChild) {
+      range.insertNode(div.firstChild);
+    }
+    
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    
+    handleInput();
+    editorRef.current?.focus();
+  }, [handleInput]);
+
+  const insertHorizontalRule = useCallback(() => {
+    insertElement('<hr style="margin: 20px 0; border: none; border-top: 2px solid #e5e7eb;">');
+  }, [insertElement]);
+
+  const insertCodeBlock = useCallback(() => {
+    const code = prompt('Enter your code:');
+    if (!code) return;
+    
+    const escapedCode = code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    
+    const codeHtml = `
+      <pre style="
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-left: 4px solid #3b82f6;
+        border-radius: 6px;
+        padding: 16px;
+        margin: 16px 0;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 14px;
+        line-height: 1.5;
+        overflow-x: auto;
+        white-space: pre-wrap;
+      "><code>${escapedCode}</code></pre>
+    `;
+    
+    insertElement(codeHtml);
+  }, [insertElement]);
+
+  const insertLink = useCallback(() => {
+    const url = prompt('Enter URL:');
+    if (!url) return;
+    execCommand('createLink', url);
+  }, [execCommand]);
+
+  // Insert image with alignment options
+  const insertImage = useCallback(() => {
+    const imageUrl = prompt('Enter image URL:');
+    if (!imageUrl) return;
+    
+    const alignment = prompt('Choose alignment (left/center/right):', 'center')?.toLowerCase() || 'center';
+    const altText = prompt('Enter alt text (optional):') || 'Image';
+    
+    const editor = editorRef.current;
+    if (!editor) return;
+    
+    editor.focus();
+    const selection = getCurrentSelection();
+    if (!selection) return;
+    
+    // Create image container
+    const container = document.createElement('div');
+    container.className = 'image-container';
+    container.style.cssText = `
+      margin: 1.5rem 0;
+      text-align: ${alignment};
+    `;
+    
+    const img = document.createElement('img');
+    img.src = imageUrl;
+    img.alt = altText;
+    img.style.cssText = `
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      display: inline-block;
+    `;
+    
+    container.appendChild(img);
+    
+    selection.range.deleteContents();
+    selection.range.insertNode(container);
+    
+    // Add paragraph after image
+    const p = document.createElement('p');
+    p.innerHTML = '<br>';
+    container.parentNode?.insertBefore(p, container.nextSibling);
+    
+    handleInput();
+  }, [getCurrentSelection, handleInput]);
+
+  // Insert video
+  const insertVideo = useCallback(() => {
+    const videoUrl = prompt('Enter video URL (mp4, webm, etc.):');
+    if (!videoUrl) return;
+    
+    const alignment = prompt('Choose alignment (left/center/right):', 'center')?.toLowerCase() || 'center';
+    
+    const editor = editorRef.current;
+    if (!editor) return;
+    
+    editor.focus();
+    const selection = getCurrentSelection();
+    if (!selection) return;
+    
+    const container = document.createElement('div');
+    container.className = 'video-container';
+    container.style.cssText = `
+      margin: 1.5rem 0;
+      text-align: ${alignment};
+    `;
+    
+    const video = document.createElement('video');
+    video.src = videoUrl;
+    video.controls = true;
+    video.style.cssText = `
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      display: inline-block;
+    `;
+    
+    container.appendChild(video);
+    
+    selection.range.deleteContents();
+    selection.range.insertNode(container);
+    
+    // Add paragraph after video
+    const p = document.createElement('p');
+    p.innerHTML = '<br>';
+    container.parentNode?.insertBefore(p, container.nextSibling);
+    
+    handleInput();
+  }, [getCurrentSelection, handleInput]);
+
+  // Insert YouTube video
+  const insertYouTube = useCallback(() => {
+    const youtubeUrl = prompt('Enter YouTube URL:');
+    if (!youtubeUrl) return;
+    
+    const alignment = prompt('Choose alignment (left/center/right):', 'center')?.toLowerCase() || 'center';
+    
+    // Extract video ID from YouTube URL
+    const videoId = youtubeUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+    if (!videoId) {
+      alert('Invalid YouTube URL. Please use a valid YouTube link.');
+      return;
+    }
+    
+    const editor = editorRef.current;
+    if (!editor) return;
+    
+    editor.focus();
+    const selection = getCurrentSelection();
+    if (!selection) return;
+    
+    const container = document.createElement('div');
+    container.className = 'youtube-container';
+    container.style.cssText = `
+      margin: 1.5rem 0;
+      text-align: ${alignment};
+    `;
+    
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.youtube.com/embed/${videoId[1]}`;
+    iframe.width = '560';
+    iframe.height = '315';
+    iframe.frameBorder = '0';
+    iframe.allowFullscreen = true;
+    iframe.style.cssText = `
+      max-width: 100%;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      display: inline-block;
+    `;
+    
+    container.appendChild(iframe);
+    
+    selection.range.deleteContents();
+    selection.range.insertNode(container);
+    
+    // Add paragraph after video
+    const p = document.createElement('p');
+    p.innerHTML = '<br>';
+    container.parentNode?.insertBefore(p, container.nextSibling);
+    
+    handleInput();
+  }, [getCurrentSelection, handleInput]);
+
+  // Modern list handling with proper functionality
+  const toggleList = useCallback((listType: 'ul' | 'ol') => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    
+    editor.focus();
+    
+    // First try the standard execCommand approach
+    const command = listType === 'ul' ? 'insertUnorderedList' : 'insertOrderedList';
+    
+    try {
+      const success = document.execCommand(command, false);
+      if (success) {
+        setTimeout(() => handleInput(), 10);
+        return;
+      }
+    } catch (e) {
+      console.warn('execCommand failed for list, using fallback');
+    }
+    
+    // Fallback: Manual list creation with proper DOM manipulation
+    const selection = getCurrentSelection();
+    if (!selection) return;
+    
+    // Create new list
+    const listElement = document.createElement(listType);
+    const listItem = document.createElement('li');
+    
+    const selectedText = selection.range.toString();
+    if (selectedText) {
+      listItem.textContent = selectedText;
+    } else {
+      listItem.innerHTML = '<br>';
+    }
+    
+    listElement.appendChild(listItem);
+    
+    selection.range.deleteContents();
+    selection.range.insertNode(listElement);
+    
+    // Place cursor at end of list item
+    const newRange = document.createRange();
+    newRange.setStart(listItem, listItem.childNodes.length);
+    newRange.collapse(true);
+    selection.selection.removeAllRanges();
+    selection.selection.addRange(newRange);
+    
+    handleInput();
+  }, [getCurrentSelection, handleInput]);
+
+  // Handle keyboard shortcuts
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+      e.preventDefault();
+      execCommand('bold');
+    } else if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+      e.preventDefault();
+      execCommand('italic');
+    } else if ((e.metaKey || e.ctrlKey) && e.key === 'u') {
+      e.preventDefault();
+      execCommand('underline');
+    }
+  }, [execCommand]);
+
+  // Expose editor functions to parent component
+  React.useEffect(() => {
+    if (onToolbarAction) {
+      // Set up a global reference for toolbar actions
+      (window as any).blockEditorActions = {
+        execCommand,
+        handleBlockFormat,
+        insertLink,
+        insertImage,
+        insertCodeBlock,
+        isFormatActive,
+        toggleList
+      };
+    }
+  }, [onToolbarAction, execCommand, handleBlockFormat, insertLink, insertImage, insertCodeBlock, isFormatActive, toggleList]);
 
   return (
-    <div ref={containerRef} className="relative">
-      {/* hidden input for image uploads */}
-      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => {
-        const file = e.target.files?.[0]; if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          const src = String(reader.result || '');
-          setBlocks(prev => prev.map((x, idx) => idx === (slashAt?.index ?? -1) ? { ...x, src } : x));
-        };
-        reader.readAsDataURL(file);
-      }} />
-
-      {blocks.map((b, i) => (
-        <div key={b.id} className="group flex items-start gap-2">
-          {/* drag/convert handle (visual only) */}
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity select-none text-gray-400 pt-2">⋮⋮</div>
-          {b.type === 'divider' ? (
-            <hr className="my-4 w-full" />
-          ) : b.type === 'image' ? (
-            <figure className="my-2 w-full">
-              {b.src ? (
-                <img src={b.src} alt={b.alt || ''} className="max-w-full rounded-lg border" />
-              ) : (
-                <div className="w-full h-40 border-2 border-dashed rounded-lg flex items-center justify-center text-gray-400">Drop or choose an image</div>
-              )}
-              <figcaption
-                data-bindex={i}
-                className="text-center text-sm text-gray-600 outline-none mt-2"
-                contentEditable
-                suppressContentEditableWarning
-                onKeyDown={(e) => onKeyDown(e, i)}
-                onInput={(e) => updateBlockText(i, (e.target as HTMLElement).innerText)}
-              >{b.text || 'Write a caption...'}</figcaption>
-            </figure>
-          ) : b.type === 'bulleted' || b.type === 'numbered' ? (
-            <div className="flex w-full">
-              <div className="w-5 text-right mr-3 select-none pt-2">{b.type === 'bulleted' ? '•' : (i + 1) + '.'}</div>
-              <div
-                data-bindex={i}
-                className={`flex-1 outline-none py-1 whitespace-pre-wrap ${blockClass(b.type)}`}
-                contentEditable
-                suppressContentEditableWarning
-                onKeyDown={(e) => onKeyDown(e, i)}
-                onInput={(e) => { updateBlockText(i, (e.target as HTMLElement).innerText); onInputShortcut(i, e.target as HTMLElement); }}
-              >{b.text}</div>
-            </div>
-          ) : b.type === 'todo' ? (
-            <div className="flex w-full items-start gap-2">
-              <input type="checkbox" checked={!!b.checked} onChange={(e) => setBlocks(prev => prev.map((x, idx) => idx === i ? { ...x, checked: e.target.checked } : x))} className="mt-2" />
-              <div
-                data-bindex={i}
-                className={`flex-1 outline-none py-1 whitespace-pre-wrap ${blockClass(b.type)}`}
-                contentEditable
-                suppressContentEditableWarning
-                onKeyDown={(e) => onKeyDown(e, i)}
-                onInput={(e) => { updateBlockText(i, (e.target as HTMLElement).innerText); onInputShortcut(i, e.target as HTMLElement); }}
-              >{b.text}</div>
-            </div>
-          ) : (
-            <div
-              data-bindex={i}
-              className={`w-full outline-none py-1 whitespace-pre-wrap ${blockClass(b.type)}`}
-              contentEditable
-              suppressContentEditableWarning
-              onKeyDown={(e) => onKeyDown(e, i)}
-              onInput={(e) => { updateBlockText(i, (e.target as HTMLElement).innerText); onInputShortcut(i, e.target as HTMLElement); }}
-            >{b.text}</div>
-          )}
-          {slashAt && slashAt.index === i && (
-            <SlashMenu onChoose={chooseSlash} />
+    <div className="w-full h-full flex">
+      {/* Table of Contents Sidebar */}
+      <div className={`${tocOpen ? 'w-64' : 'w-12'} flex-shrink-0 bg-gradient-to-b from-gray-50 to-gray-100/50 transition-all duration-300 flex flex-col relative`}>
+        {/* Elegant vertical separator */}
+        <div className="absolute right-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent"></div>
+        {/* TOC Header */}
+        <div className="p-3 border-b border-gray-200 bg-white flex items-center justify-between">
+          <button
+            onClick={() => setTocOpen(!tocOpen)}
+            className="p-1 hover:bg-gray-100 rounded text-gray-600"
+            title={tocOpen ? 'Collapse TOC' : 'Expand TOC'}
+          >
+            {tocOpen ? <ChevronDown className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </button>
+          {tocOpen && (
+            <span className="text-sm font-semibold text-gray-700">Table of Contents</span>
           )}
         </div>
-      ))}
+        
+        {/* TOC Content */}
+        {tocOpen && (
+          <div className="flex-1 overflow-y-auto p-3">
+            {tableOfContents.length === 0 ? (
+              <div className="text-xs text-gray-500 text-center py-8">
+                Add headings to see table of contents
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {tableOfContents.map((heading) => (
+                  <button
+                    key={heading.id}
+                    onClick={() => {
+                      const element = document.getElementById(heading.id);
+                      element?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className={`w-full text-left text-xs p-2 rounded hover:bg-white transition-colors ${
+                      heading.level === 1 ? 'font-semibold text-gray-800' :
+                      heading.level === 2 ? 'font-medium text-gray-700 ml-2' :
+                      'text-gray-600 ml-4'
+                    }`}
+                    style={{ paddingLeft: `${(heading.level - 1) * 0.5 + 0.5}rem` }}
+                  >
+                    {heading.text}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      
+      {/* Main Editor Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Enhanced Toolbar - Fixed height */}
+        <div className="flex-shrink-0 p-3 border-b border-gray-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center gap-2">
+          {/* Block Formats */}
+          <div className="flex items-center gap-1">
+            <ToolbarButton
+              onClick={() => handleBlockFormat('H1')}
+              title="Heading 1"
+            >
+              <span className="text-xs font-bold">H1</span>
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={() => handleBlockFormat('H2')}
+              title="Heading 2"
+            >
+              <span className="text-xs font-bold">H2</span>
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={() => handleBlockFormat('H3')}
+              title="Heading 3"
+            >
+              <span className="text-xs font-bold">H3</span>
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={() => handleBlockFormat('P')}
+              title="Paragraph"
+            >
+              <span className="text-xs">P</span>
+            </ToolbarButton>
+          </div>
 
-      {bubble && bubble.visible && (
-        <div style={{ position: 'fixed', left: bubble.x, top: bubble.y, transform: 'translate(-50%, -100%)' }} className="z-30 flex items-center gap-1 bg-gray-900 text-white text-xs px-2 py-1 rounded-md shadow-lg">
-          <button className="px-2 py-1 hover:bg-gray-800 rounded" onClick={() => exec('bold')}>B</button>
-          <button className="px-2 py-1 hover:bg-gray-800 rounded italic" onClick={() => exec('italic')}>I</button>
-          <button className="px-2 py-1 hover:bg-gray-800 rounded underline" onClick={() => exec('underline')}>U</button>
-          <button className="px-2 py-1 hover:bg-gray-800 rounded" onClick={() => exec('createLink')}>Link</button>
-          <button className="px-2 py-1 hover:bg-gray-800 rounded" onClick={() => exec('unlink')}>Unlink</button>
+          <ToolbarDivider />
+
+          {/* Text Formatting */}
+          <ToolbarButton
+            onClick={() => execCommand('bold')}
+            isActive={isFormatActive('bold')}
+            title="Bold (Ctrl+B)"
+          >
+            <Bold className="h-4 w-4" />
+          </ToolbarButton>
+
+          <ToolbarButton
+            onClick={() => execCommand('italic')}
+            isActive={isFormatActive('italic')}
+            title="Italic (Ctrl+I)"
+          >
+            <Italic className="h-4 w-4" />
+          </ToolbarButton>
+
+          <ToolbarButton
+            onClick={() => execCommand('underline')}
+            isActive={isFormatActive('underline')}
+            title="Underline (Ctrl+U)"
+          >
+            <Underline className="h-4 w-4" />
+          </ToolbarButton>
+
+          <ToolbarDivider />
+
+          {/* Lists */}
+          <ToolbarButton
+            onClick={() => toggleList('ul')}
+            isActive={isFormatActive('insertUnorderedList')}
+            title="Bullet List"
+          >
+            <List className="h-4 w-4" />
+          </ToolbarButton>
+
+          <ToolbarButton
+            onClick={() => toggleList('ol')}
+            isActive={isFormatActive('insertOrderedList')}
+            title="Numbered List"
+          >
+            <ListOrdered className="h-4 w-4" />
+          </ToolbarButton>
+
+          <ToolbarDivider />
+
+          {/* Alignment */}
+          <ToolbarButton
+            onClick={() => execCommand('justifyLeft')}
+            title="Align Left"
+          >
+            <AlignLeft className="h-4 w-4" />
+          </ToolbarButton>
+
+          <ToolbarButton
+            onClick={() => execCommand('justifyCenter')}
+            title="Align Center"
+          >
+            <AlignCenter className="h-4 w-4" />
+          </ToolbarButton>
+
+          <ToolbarButton
+            onClick={() => execCommand('justifyRight')}
+            title="Align Right"
+          >
+            <AlignRight className="h-4 w-4" />
+          </ToolbarButton>
+
+          <ToolbarDivider />
+
+          {/* Special Elements */}
+          <ToolbarButton
+            onClick={() => handleBlockFormat('BLOCKQUOTE')}
+            title="Quote"
+          >
+            <Quote className="h-4 w-4" />
+          </ToolbarButton>
+
+          <ToolbarButton
+            onClick={insertCodeBlock}
+            title="Code Block"
+          >
+            <Code className="h-4 w-4" />
+          </ToolbarButton>
+
+          <ToolbarButton
+            onClick={insertHorizontalRule}
+            title="Horizontal Line"
+          >
+            <Minus className="h-4 w-4" />
+          </ToolbarButton>
+
+          <ToolbarDivider />
+
+          {/* Links */}
+          <ToolbarButton
+            onClick={insertLink}
+            title="Insert Link"
+          >
+            <Link className="h-4 w-4" />
+          </ToolbarButton>
+
+          <ToolbarButton
+            onClick={() => execCommand('unlink')}
+            title="Remove Link"
+          >
+            <Unlink className="h-4 w-4" />
+          </ToolbarButton>
+          
+          <ToolbarDivider />
+          
+          {/* Media */}
+          <ToolbarButton
+            onClick={insertImage}
+            title="Insert Image"
+          >
+            <Image className="h-4 w-4" />
+          </ToolbarButton>
+          
+          <ToolbarButton
+            onClick={insertVideo}
+            title="Insert Video"
+          >
+            <Video className="h-4 w-4" />
+          </ToolbarButton>
+          
+          <ToolbarButton
+            onClick={insertYouTube}
+            title="Insert YouTube Video"
+          >
+            <Youtube className="h-4 w-4" />
+          </ToolbarButton>
+          </div>
         </div>
-      )}
+
+      {/* Editor Content - Takes remaining space */}
+      <div className="flex-1 flex flex-col bg-white overflow-hidden">
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          onInput={handleInput}
+          onKeyDown={handleKeyDown}
+          className="flex-1 w-full p-8 outline-none border-0 overflow-y-auto editor-content focus:bg-white transition-all duration-300"
+          style={{
+            fontSize: '16px',
+            lineHeight: '1.7',
+            fontFamily: '"Inter", "Segoe UI", system-ui, sans-serif',
+            minHeight: 'calc(100vh - 200px)',
+            boxShadow: 'none'
+          }}
+          data-placeholder="Start writing your wiki page..."
+        />
+        
+        {/* Help Text - Fixed at bottom */}
+        <div className="flex-shrink-0 p-4 bg-gray-50 border-t border-gray-200 text-xs text-gray-500">
+          💡 Use keyboard shortcuts: Ctrl+B (Bold), Ctrl+I (Italic), Ctrl+U (Underline) • Click H1/H2/H3 to format text • All formatting tools are working
+        </div>
+      </div>
+      </div>
     </div>
   );
 }

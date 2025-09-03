@@ -4,12 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { formApi } from '../lib/api';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { ArrowLeft, Save, Plus, Link2, Search, Type, MessageSquare, Hash, Mail, Phone, Globe, ChevronDown, Radio, CheckSquare, Calendar, Upload, Sliders, PenTool, MapPin, Home, Navigation, ChevronLeft, ChevronRight, Layers, X, Maximize, Minimize, Camera, Video, QrCode, Barcode } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Search, Type, MessageSquare, Hash, Mail, Phone, Globe, ChevronDown, Radio, CheckSquare, Calendar, Upload, Sliders, PenTool, Home, Navigation, ChevronLeft, ChevronRight, Layers, X, Camera, Video, QrCode, Barcode, BookOpen } from 'lucide-react';
+import { ModularEditor } from '../components/editor/ModularEditor';
 import { DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors, DragStartEvent, DragEndEvent, useDraggable, useDroppable } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-type FieldType = 'text' | 'number' | 'select' | 'datetime' | 'textarea' | 'email' | 'phone' | 'url' | 'checkbox' | 'radio' | 'file' | 'range' | 'signature' | 'initials' | 'address' | 'geolocation' | 'image_capture' | 'video_capture' | 'qr_scanner' | 'barcode_scanner';
+type FieldType = 'text' | 'number' | 'select' | 'datetime' | 'textarea' | 'email' | 'phone' | 'url' | 'checkbox' | 'radio' | 'file' | 'range' | 'signature' | 'initials' | 'address' | 'geolocation' | 'image_capture' | 'video_capture' | 'qr_scanner' | 'barcode_scanner' | 'wiki';
 
 interface BuilderField {
   id: string;
@@ -31,6 +32,10 @@ interface BuilderField {
   dateFormat?: string;
   minDate?: string;
   maxDate?: string;
+  // Wiki specific options
+  wikiTitle?: string;
+  wikiContent?: string;
+  wikiHeight?: number;
 }
 
 interface FormStep {
@@ -74,6 +79,7 @@ const getFieldIcon = (type: FieldType) => {
     video_capture: <Video className="h-4 w-4" />,
     qr_scanner: <QrCode className="h-4 w-4" />,
     barcode_scanner: <Barcode className="h-4 w-4" />,
+    wiki: <BookOpen className="h-4 w-4" />,
   };
   return iconMap[type] || <Type className="h-4 w-4" />;
 };
@@ -792,6 +798,7 @@ function BarcodeScannerInput({ disabled = false }: { disabled?: boolean }) {
   );
 }
 
+
 // Modern DateTime Picker Component
 function ModernDateTimePicker({ 
   value, 
@@ -967,7 +974,7 @@ function DraggableFieldType({ fieldType }: { fieldType: { type: FieldType; label
 }
 
 // Droppable Form Canvas Component
-function DroppableFormCanvas({ children, onDrop }: { children: React.ReactNode; onDrop: (fieldType: FieldType) => void }) {
+function DroppableFormCanvas({ children }: { children: React.ReactNode }) {
   const { isOver, setNodeRef } = useDroppable({
     id: 'form-canvas',
   });
@@ -1067,7 +1074,7 @@ function SortableFieldCard({ field, selected, onSelect, onChange, onRemove }: {
         </div>
         
         {/* Placeholder field for most input types */}
-        {(['text', 'email', 'phone', 'url', 'textarea', 'number', 'signature', 'initials', 'address', 'geolocation', 'datetime', 'image_capture', 'video_capture', 'qr_scanner', 'barcode_scanner'].includes(field.type)) && (
+        {(['text', 'email', 'phone', 'url', 'textarea', 'number', 'signature', 'initials', 'address', 'geolocation', 'datetime', 'image_capture', 'video_capture', 'qr_scanner', 'barcode_scanner', 'wiki'].includes(field.type)) && (
           <div className="md:col-span-3 flex flex-col">
             <label className="text-xs text-gray-600 mb-1">Placeholder</label>
             <input
@@ -1273,6 +1280,59 @@ function SortableFieldCard({ field, selected, onSelect, onChange, onRemove }: {
             <strong>Note:</strong> Users will be prompted to allow location access when using this field.
           </div>
         )}
+
+        {/* Wiki field configuration */}
+        {field.type === 'wiki' && (
+          <>
+            <div className="flex flex-col">
+              <label className="text-xs text-gray-600 mb-1">Wiki Title</label>
+              <input
+                value={field.wikiTitle || 'Documentation'}
+                onChange={(e) => onChange({ wikiTitle: e.target.value })}
+                placeholder="Enter wiki title..."
+                className="px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-xs text-gray-600 mb-1">Editor Height (px)</label>
+              <input
+                type="number"
+                value={field.wikiHeight || 400}
+                onChange={(e) => onChange({ wikiHeight: parseInt(e.target.value) || 400 })}
+                min="300"
+                max="800"
+                className="px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div className="col-span-full flex flex-col">
+              <label className="text-xs text-gray-600 mb-2">Rich Text Content</label>
+              <div className="border border-gray-300 rounded-lg overflow-hidden">
+                <ModularEditor
+                  value={field.wikiContent || ''}
+                  onChange={(html) => onChange({ wikiContent: html })}
+                  placeholder="Create your wiki content..."
+                  height={Math.min(500, field.wikiHeight || 400)}
+                />
+              </div>
+              <div className="text-xs text-gray-400 mt-2">
+                Professional rich text editor with headings, formatting, lists, links, code blocks, and more
+              </div>
+            </div>
+            <div className="col-span-full text-xs text-gray-500 bg-blue-50 p-3 rounded-lg">
+              <strong>Modular Editor Features:</strong> 
+              <ul className="mt-1 space-y-1 list-disc list-inside">
+                <li>Headings (H1-H6), paragraph formatting</li>
+                <li>Bold, italic, underline text styling</li>
+                <li>Bullet and numbered lists</li>
+                <li>Text alignment (left, center, right)</li>
+                <li>Blockquotes and code blocks</li>
+                <li>Links and horizontal dividers</li>
+                <li>Keyboard shortcuts (Ctrl+B, Ctrl+I, Ctrl+U)</li>
+              </ul>
+            </div>
+          </>
+        )}
+        
       </div>
     </div>
   );
@@ -1282,7 +1342,7 @@ export function FormBuilderPage() {
   const navigate = useNavigate();
   const [title, setTitle] = useState('Untitled Form');
   const [descr, setDescr] = useState('');
-  const [taskId, setTaskId] = useState('');
+  const [taskId] = useState('');
   const [fields, setFields] = useState<BuilderField[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -1316,6 +1376,7 @@ export function FormBuilderPage() {
     { type: 'video_capture', label: 'Video Capture', hint: 'Record video with camera', icon: <Video className="h-4 w-4" /> },
     { type: 'qr_scanner', label: 'QR Scanner', hint: 'Scan QR codes with camera', icon: <QrCode className="h-4 w-4" /> },
     { type: 'barcode_scanner', label: 'Barcode Scanner', hint: 'Scan barcodes with camera', icon: <Barcode className="h-4 w-4" /> },
+    { type: 'wiki', label: 'Rich Text Wiki', hint: 'Rich text editor for documentation', icon: <BookOpen className="h-4 w-4" /> },
   ]), []);
 
   const filteredPalette = useMemo(() => {
@@ -1410,6 +1471,11 @@ export function FormBuilderPage() {
         showTimeSelect: true, 
         dateFormat: 'MMM d, yyyy h:mm aa',
         placeholder: 'Select date and time'
+      } : {}),
+      ...(type === 'wiki' ? {
+        wikiTitle: 'Documentation',
+        wikiHeight: 400,
+        wikiContent: '<h1>Welcome</h1><p>Start creating your documentation...</p>'
       } : {}),
     } as BuilderField;
     setFields(prev => [...prev, base]);
@@ -1755,7 +1821,7 @@ export function FormBuilderPage() {
 
                 <div className="flex-1 overflow-y-auto">
                   <SortableContext items={currentStepFields.map(f => f.id)} strategy={rectSortingStrategy}>
-                    <DroppableFormCanvas onDrop={addField}>
+                    <DroppableFormCanvas>
                       {currentStepFields.length === 0 ? (
                         <div className="h-40 border border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-500">
                           <Layers className="h-8 w-8 mb-2 text-gray-400" />
@@ -1972,6 +2038,23 @@ export function FormBuilderPage() {
                           {f.type === 'barcode_scanner' && (
                             <BarcodeScannerInput disabled={true} />
                           )}
+                          
+                          {f.type === 'wiki' && (
+                            <div className="border border-gray-200 rounded-lg overflow-hidden">
+                              <div className="bg-blue-50 border-b border-gray-200 px-4 py-2 flex items-center space-x-2">
+                                <BookOpen className="h-4 w-4 text-blue-600" />
+                                <span className="text-sm font-semibold text-blue-800">{f.wikiTitle || 'Documentation'}</span>
+                                <span className="text-xs text-gray-500 ml-auto">Read-only preview</span>
+                              </div>
+                              <ModularEditor
+                                value={f.wikiContent || ''}
+                                onChange={() => {}}
+                                height={Math.min(300, f.wikiHeight || 400)}
+                                disabled={true}
+                              />
+                            </div>
+                          )}
+                          
                         </div>
                       );
                     })}

@@ -70,7 +70,9 @@
       "Read(/home/rabin/Screenshots/**)",
       "Bash(npm run dev:*)",
       "Bash(grep:*)",
-      "Read(/home/rabin/Screenshots/**)"
+      "Read(/home/rabin/Screenshots/**)",
+      "Bash(./tools/start-web.sh:*)",
+      "Bash(./tools/restart-web.sh:*)"
     ],
     "deny": [],
     "ask": [],

@@ -1,0 +1,240 @@
+/* Wiki Editor Styles - Completely Fluid */
+.editor-content {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transition: all 0.3s ease;
+}
+
+.editor-content:focus,
+.editor-content:focus-visible,
+.editor-content:focus-within {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  ring: none !important;
+}
+
+.editor-content h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 1.5rem 0 1rem 0;
+  color: #1f2937;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 0.5rem;
+  position: relative;
+}
+
+.editor-content h1::before {
+  content: "📝";
+  margin-right: 0.5rem;
+  opacity: 0.7;
+}
+
+.editor-content h2 {
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 1.25rem 0 0.875rem 0;
+  color: #1f2937;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 0.25rem;
+}
+
+.editor-content h2::before {
+  content: "📄";
+  margin-right: 0.5rem;
+  opacity: 0.7;
+}
+
+.editor-content h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 1rem 0 0.75rem 0;
+  color: #1f2937;
+}
+
+.editor-content h3::before {
+  content: "📋";
+  margin-right: 0.5rem;
+  opacity: 0.7;
+}
+
+.editor-content h4 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0.875rem 0 0.625rem 0;
+  color: #374151;
+}
+
+.editor-content h5 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0.75rem 0 0.5rem 0;
+  color: #374151;
+}
+
+.editor-content h6 {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0.625rem 0 0.375rem 0;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.editor-content p {
+  margin: 0.75rem 0;
+  line-height: 1.7;
+  color: #374151;
+}
+
+.editor-content ul {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+  list-style-type: disc;
+}
+
+.editor-content ol {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+  list-style-type: decimal;
+}
+
+.editor-content li {
+  margin: 0.25rem 0;
+  line-height: 1.6;
+  color: #374151;
+}
+
+.editor-content li::marker {
+  color: #6b7280;
+}
+
+.editor-content blockquote {
+  border-left: 4px solid #3b82f6;
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  font-style: italic;
+  color: #6b7280;
+  background-color: #f8fafc;
+  padding: 1rem;
+  border-radius: 0 0.375rem 0.375rem 0;
+}
+
+.editor-content pre {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #3b82f6;
+  border-radius: 6px;
+  padding: 1rem;
+  margin: 1rem 0;
+  overflow-x: auto;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.editor-content code {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Courier New', monospace;
+  color: #1e40af;
+}
+
+.editor-content pre code {
+  color: #374151;
+}
+
+.editor-content strong {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.editor-content em {
+  font-style: italic;
+  color: #374151;
+}
+
+.editor-content a {
+  color: #3b82f6 !important;
+  text-decoration: underline !important;
+}
+
+.editor-content a:hover {
+  color: #1d4ed8 !important;
+}
+
+.editor-content hr {
+  border: none;
+  border-top: 2px solid #e5e7eb;
+  margin: 2rem 0;
+}
+
+/* Completely remove all borders and outlines */
+.editor-content,
+.editor-content:focus,
+.editor-content:active,
+.editor-content:hover {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* Enhanced placeholder styling */
+.editor-content[data-placeholder]:empty:before {
+  content: "✏️ " attr(data-placeholder);
+  color: #9ca3af;
+  font-style: italic;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.editor-content[data-placeholder]:focus:empty:before {
+  opacity: 0.5;
+}
+
+/* Make sure nested lists work properly */
+.editor-content ul ul,
+.editor-content ol ol,
+.editor-content ul ol,
+.editor-content ol ul {
+  margin: 0.5rem 0;
+}
+
+/* Better spacing for consecutive elements */
+.editor-content h1 + p,
+.editor-content h2 + p,
+.editor-content h3 + p,
+.editor-content h4 + p,
+.editor-content h5 + p,
+.editor-content h6 + p {
+  margin-top: 0;
+}
+
+/* Ensure proper cursor display and fluid appearance */
+.editor-content {
+  cursor: text;
+  min-height: 100% !important;
+  width: 100% !important;
+  resize: none !important;
+}
+
+/* Remove any potential container borders */
+.editor-content * {
+  border: none !important;
+  outline: none !important;
+}
+
+.editor-content div,
+.editor-content p,
+.editor-content span {
+  background: transparent !important;
+}

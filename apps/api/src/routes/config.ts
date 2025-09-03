@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { META_CONFIGS, MetaEntityType } from '../entityConfig/meta/index.js';
+import { META_CONFIGS } from '../entityConfig/meta/index.js';
+import type { MetaEntityType } from '../entityConfig/meta/index.js';
 import { transformConfigForFrontend } from '../lib/configTransformer.js';
 
 const EntityTypeParams = Type.Object({

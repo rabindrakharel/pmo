@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { ENTITY_CONFIG, getEntityConfig, getAllEntityNames } from '../../../../../shared/entityConfig.js';
+import { ENTITY_CONFIG, getEntityConfig, getAllEntityNames } from '../../lib/entityConfig.js';
 
 // Schema response types
 const FieldConfigSchema = Type.Object({

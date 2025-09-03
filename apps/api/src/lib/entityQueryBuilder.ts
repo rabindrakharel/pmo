@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { Type } from '@sinclair/typebox';
-import { ENTITY_CONFIG, EntityConfig, FieldConfig } from '../../../../shared/entityConfig.js';
+import { ENTITY_CONFIG, EntityConfig, FieldConfig } from './entityConfig.js';
 
 /**
  * Entity Query Builder
