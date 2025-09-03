@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { UserCheck, Plus } from 'lucide-react';
+import { UserCheck, Shield, Users } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, Column } from '../components/ui/DataTable';
+import { StatsGrid } from '../components/common/StatsGrid';
 import { roleApi } from '../lib/api';
 
 interface Role {
@@ -182,49 +183,40 @@ export function RolePage() {
   ];
 
   return (
-    <Layout>
+    <Layout createButton={{ label: "Create Role", href: "/roles/new" }}>
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <UserCheck className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-800">Roles</h1>
-              <p className="mt-1 text-gray-600">Manage organizational roles and permission templates</p>
-            </div>
+        <div className="flex items-center space-x-3">
+          <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+            <UserCheck className="h-5 w-5 text-white" />
           </div>
-          
-          <button className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200">
-            <Plus className="h-4 w-4 mr-2" />
-            New Role
-          </button>
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-800">Roles</h1>
+            <p className="mt-1 text-gray-600">Manage organizational roles and permission templates</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-blue-600">{roles.length}</div>
-            <div className="text-sm text-gray-600">Total Roles</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-green-600">
-              {roles.filter(r => r.active !== false).length}
-            </div>
-            <div className="text-sm text-gray-600">Active Roles</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-purple-600">
-              {roles.filter(r => r.roleType === 'functional').length}
-            </div>
-            <div className="text-sm text-gray-600">Functional Roles</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-yellow-600">
-              {roles.filter(r => r.delegationAllowed).length}
-            </div>
-            <div className="text-sm text-gray-600">Delegation Enabled</div>
-          </div>
-        </div>
+        <StatsGrid 
+          stats={[
+            {
+              value: roles.length,
+              label: "Total Roles",
+              color: "blue",
+              icon: UserCheck
+            },
+            {
+              value: roles.filter(r => r.active !== false).length,
+              label: "Active Roles",
+              color: "green",
+              icon: Users
+            },
+            {
+              value: roles.filter(r => r.roleType === 'functional').length,
+              label: "Functional Roles",
+              color: "purple",
+              icon: Shield
+            }
+          ]}
+        />
 
         <div className="flex-1 min-h-0">
           <DataTable

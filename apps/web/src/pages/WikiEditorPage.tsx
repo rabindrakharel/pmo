@@ -2,7 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Block, BlockEditor, renderBlocksToHtml } from '../components/wiki/BlockEditor';
 import { wikiApi } from '../lib/api';
-import { Bold, Italic, Underline, List, ListOrdered, Image, Link, Code } from 'lucide-react';
+import { 
+  Bold, Italic, Underline, List, ListOrdered, Image, Link, Code, 
+  Minus, Quote, Indent, Outdent, AlignLeft, AlignCenter, AlignRight, 
+  Video, Youtube, Upload, FileText, Palette, Type, Strikethrough,
+  Subscript, Superscript, Highlighter, Undo, Redo, Save, Copy,
+  Clipboard, Search, Replace, MoreHorizontal, Space, Move3D
+} from 'lucide-react';
 
 export function WikiEditorPage() {
   const navigate = useNavigate();
@@ -10,7 +16,10 @@ export function WikiEditorPage() {
   const editing = Boolean(id);
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
-  const [blocks, setBlocks] = useState<Block[]>([{ id: 't1', type: 'paragraph', text: '' }]);
+  const [blocks, setBlocks] = useState<Block[]>([
+    { id: 't1', type: 'h1', text: 'Your title goes here' },
+    { id: 't2', type: 'paragraph', text: '' }
+  ]);
   const [tags, setTags] = useState<string[]>([]);
   const [icon, setIcon] = useState<string>('📄');
   const [cover, setCover] = useState<string>('gradient-blue');
@@ -19,6 +28,15 @@ export function WikiEditorPage() {
   const [createdDate, setCreatedDate] = useState<string>('');
   const [updatedDate, setUpdatedDate] = useState<string>('');
   const [newTag, setNewTag] = useState<string>('');
+
+  // Sync tags from editor's metadata node edits
+  useEffect(() => {
+    const onTags = (e: any) => {
+      if (Array.isArray(e.detail)) setTags(e.detail);
+    };
+    window.addEventListener('wiki:metadata:tags', onTags as any);
+    return () => window.removeEventListener('wiki:metadata:tags', onTags as any);
+  }, []);
 
   useEffect(() => {
     if (editing && id) {
@@ -30,7 +48,7 @@ export function WikiEditorPage() {
           setTags(page.tags || []);
           setIcon(page.attr?.icon || '📄');
           setCover(page.attr?.cover || 'gradient-blue');
-          setAuthor(page.ownerName || 'Unknown');
+          setAuthor(page.ownerName || 'Current User');
           setCreatedDate(page.created || '');
           setUpdatedDate(page.updated || '');
           const loadedBlocks: Block[] = Array.isArray(page.content?.blocks) ? page.content.blocks : [{ id: 't1', type: 'paragraph', text: '' }];
@@ -39,8 +57,20 @@ export function WikiEditorPage() {
           console.error('Load wiki page failed', e);
         }
       })();
+    } else {
+      // Set default values for new documents
+      setAuthor('Current User');
+      setCreatedDate(new Date().toISOString());
+      setUpdatedDate(new Date().toISOString());
     }
   }, [editing, id]);
+
+  // Update the updated date when content changes
+  useEffect(() => {
+    if (blocks.length > 0 && blocks.some(block => block.text.trim())) {
+      setUpdatedDate(new Date().toISOString());
+    }
+  }, [blocks]);
 
   const onSave = async () => {
     setSaving(true);
@@ -90,7 +120,7 @@ export function WikiEditorPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="h-screen bg-white flex flex-col">
       <div className="w-full h-full flex flex-col">
         {/* Compact Single Line Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-3">
@@ -209,7 +239,7 @@ export function WikiEditorPage() {
 
         {/* Page Tools Row */}
         <div className="bg-white border-b border-gray-200 px-6 py-2">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 md:gap-2 flex-nowrap overflow-x-auto">
             {/* Block Formats */}
             <div className="flex items-center gap-1">
               <button 
@@ -241,24 +271,45 @@ export function WikiEditorPage() {
             <div className="flex items-center gap-1">
               <button 
                 onClick={() => (window as any).blockEditorActions?.execCommand('bold')}
-                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer" 
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
                 title="Bold (Ctrl+B)"
               >
                 <Bold className="h-4 w-4" />
               </button>
               <button 
                 onClick={() => (window as any).blockEditorActions?.execCommand('italic')}
-                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer" 
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
                 title="Italic (Ctrl+I)"
               >
                 <Italic className="h-4 w-4" />
               </button>
               <button 
                 onClick={() => (window as any).blockEditorActions?.execCommand('underline')}
-                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer" 
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
                 title="Underline (Ctrl+U)"
               >
                 <Underline className="h-4 w-4" />
+              </button>
+              <button 
+                onClick={() => (window as any).blockEditorActions?.execCommand('strikeThrough')}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Strikethrough"
+              >
+                <Strikethrough className="h-4 w-4" />
+              </button>
+              <button 
+                onClick={() => (window as any).blockEditorActions?.execCommand('subscript')}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Subscript"
+              >
+                <Subscript className="h-4 w-4" />
+              </button>
+              <button 
+                onClick={() => (window as any).blockEditorActions?.execCommand('superscript')}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Superscript"
+              >
+                <Superscript className="h-4 w-4" />
               </button>
             </div>
             
@@ -284,39 +335,158 @@ export function WikiEditorPage() {
             
             <div className="w-px h-4 bg-gray-300 mx-2"></div>
             
-            {/* Media */}
+            {/* Media & Content */}
             <div className="flex items-center gap-1">
               <button 
-                onClick={() => (window as any).blockEditorActions?.insertImage()}
-                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer" 
-                title="Insert Image"
+                onClick={() => (window as any).blockEditorActions?.insertImageAdvanced()}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Insert Image (Device/URL)"
               >
                 <Image className="h-4 w-4" />
               </button>
               <button 
+                onClick={() => (window as any).blockEditorActions?.insertVideoAdvanced()}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Insert Video (Device/URL/YouTube)"
+              >
+                <Video className="h-4 w-4" />
+              </button>
+              <button 
                 onClick={() => (window as any).blockEditorActions?.insertLink()}
-                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer" 
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
                 title="Insert Link"
               >
                 <Link className="h-4 w-4" />
               </button>
               <button 
-                onClick={() => (window as any).blockEditorActions?.insertCodeBlock()}
-                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer" 
-                title="Code Block"
+                onClick={() => (window as any).blockEditorActions?.insertCodeBlockAdvanced()}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Enhanced Code Block"
               >
                 <Code className="h-4 w-4" />
+              </button>
+            </div>
+            
+            <div className="w-px h-4 bg-gray-300 mx-2"></div>
+            
+            {/* Formatting & Layout */}
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => (window as any).blockEditorActions?.insertQuoteBlock()}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Quote Block"
+              >
+                <Quote className="h-4 w-4" />
+              </button>
+              <button 
+                onClick={() => (window as any).blockEditorActions?.insertHorizontalRule()}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Horizontal Line"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <button 
+                onClick={() => (window as any).blockEditorActions?.insertSpacing()}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Add Spacing"
+              >
+                <Space className="h-4 w-4" />
+              </button>
+            </div>
+            
+            <div className="w-px h-4 bg-gray-300 mx-2"></div>
+            
+            {/* Content Controls */}
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => (window as any).blockEditorActions?.indentContent()}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Indent Content"
+              >
+                <Indent className="h-4 w-4" />
+              </button>
+              <button 
+                onClick={() => (window as any).blockEditorActions?.outdentContent()}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Outdent Content"
+              >
+                <Outdent className="h-4 w-4" />
+              </button>
+            </div>
+            
+            <div className="w-px h-4 bg-gray-300 mx-2"></div>
+            
+            {/* Alignment */}
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => (window as any).blockEditorActions?.execCommand('justifyLeft')}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Align Left"
+              >
+                <AlignLeft className="h-4 w-4" />
+              </button>
+              <button 
+                onClick={() => (window as any).blockEditorActions?.execCommand('justifyCenter')}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Align Center"
+              >
+                <AlignCenter className="h-4 w-4" />
+              </button>
+              <button 
+                onClick={() => (window as any).blockEditorActions?.execCommand('justifyRight')}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Align Right"
+              >
+                <AlignRight className="h-4 w-4" />
+              </button>
+            </div>
+            
+            <div className="w-px h-4 bg-gray-300 mx-2"></div>
+            
+            {/* Actions */}
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => (window as any).blockEditorActions?.execCommand('undo')}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Undo"
+              >
+                <Undo className="h-4 w-4" />
+              </button>
+              <button 
+                onClick={() => (window as any).blockEditorActions?.execCommand('redo')}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Redo"
+              >
+                <Redo className="h-4 w-4" />
+              </button>
+              <button 
+                onClick={() => {
+                  const content = (document.querySelector('.editor-content') as HTMLElement)?.innerText || '';
+                  navigator.clipboard.writeText(content);
+                  alert('Content copied to clipboard!');
+                }}
+                className="p-2 rounded-lg border-0 transition-all duration-200 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100" 
+                title="Copy Content"
+              >
+                <Copy className="h-4 w-4" />
               </button>
             </div>
           </div>
         </div>
 
         {/* Editor - Full height remaining space */}
-        <div className="flex-1 bg-white flex flex-col overflow-hidden">
-          <BlockEditor value={blocks} onChange={setBlocks} onToolbarAction={() => {}} />
+        <div className="flex-1 bg-white flex flex-col min-h-0">
+          <BlockEditor 
+            value={blocks} 
+            onChange={setBlocks} 
+            onToolbarAction={() => {}} 
+            author={author}
+            createdDate={createdDate}
+            updatedDate={updatedDate}
+            tags={tags}
+          />
         </div>
       </div>
     </div>
   );
 }
-

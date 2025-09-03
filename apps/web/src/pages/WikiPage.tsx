@@ -3,7 +3,8 @@ import { Layout } from '../components/layout/Layout';
 import { useNavigate } from 'react-router-dom';
 import { wikiApi } from '../lib/api';
 import { DataTable, Column } from '../components/ui/DataTable';
-import { Plus, BookOpen, Users, FileText, Eye, Calendar } from 'lucide-react';
+import { StatsGrid } from '../components/common/StatsGrid';
+import { BookOpen, Users, FileText, Eye, Calendar } from 'lucide-react';
 
 type Wiki = {
   id: string;
@@ -145,52 +146,40 @@ export function WikiPage() {
   ];
 
   return (
-    <Layout>
+    <Layout createButton={{ label: "Create Page", href: "/wiki/new" }}>
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <BookOpen className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-800">Wiki</h1>
-              <p className="mt-1 text-gray-600">Collaborate on documentation and share knowledge</p>
-            </div>
+        <div className="flex items-center space-x-3">
+          <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+            <BookOpen className="h-5 w-5 text-white" />
           </div>
-          
-          <button 
-            onClick={() => navigate('/wiki/new')}
-            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Page
-          </button>
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-800">Wiki</h1>
+            <p className="mt-1 text-gray-600">Collaborate on documentation and share knowledge</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-blue-600">{data.length}</div>
-            <div className="text-sm text-gray-600">Total Pages</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-green-600">
-              {data.filter(d => d.published).length}
-            </div>
-            <div className="text-sm text-gray-600">Published Pages</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-yellow-600">
-              {data.filter(d => !d.published).length}
-            </div>
-            <div className="text-sm text-gray-600">Draft Pages</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-purple-600">
-              {data.reduce((acc, d) => acc + (d.tags?.length || 0), 0)}
-            </div>
-            <div className="text-sm text-gray-600">Total Tags</div>
-          </div>
-        </div>
+        <StatsGrid 
+          stats={[
+            {
+              value: data.length,
+              label: "Total Pages",
+              color: "blue",
+              icon: FileText
+            },
+            {
+              value: data.filter(d => d.published).length,
+              label: "Published Pages",
+              color: "green",
+              icon: Eye
+            },
+            {
+              value: data.filter(d => !d.published).length,
+              label: "Draft Pages",
+              color: "yellow",
+              icon: BookOpen
+            }
+          ]}
+        />
 
         <div className="flex-1 min-h-0">
           <DataTable

@@ -29,15 +29,22 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useFullscreen } from '../../contexts/FullscreenContext';
 import { FullscreenToggle } from '../common/FullscreenToggle';
 import { FloatingFullscreenToggle } from '../common/FloatingFullscreenToggle';
+import { CreateButton } from '../common/CreateButton';
+
+interface CreateButtonConfig {
+  label: string;
+  href: string;
+}
 
 interface LayoutProps {
   children: ReactNode;
   showFullscreenToggle?: boolean;
   fullscreenHeader?: ReactNode;
   hideFloatingToggle?: boolean;
+  createButton?: CreateButtonConfig;
 }
 
-export function Layout({ children, showFullscreenToggle = true, fullscreenHeader, hideFloatingToggle = false }: LayoutProps) {
+export function Layout({ children, showFullscreenToggle = true, fullscreenHeader, hideFloatingToggle = false, createButton }: LayoutProps) {
   const { user, logout } = useAuth();
   const { isFullscreen } = useFullscreen();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -114,11 +121,21 @@ export function Layout({ children, showFullscreenToggle = true, fullscreenHeader
         
         {/* Fullscreen Content */}
         <main className="flex-1 overflow-hidden bg-gray-50 p-4">
+          {/* Create Button in Content Area */}
+          {createButton && (
+            <div className="flex justify-end mb-4">
+              <CreateButton 
+                label={createButton.label} 
+                href={createButton.href} 
+                size="sm"
+              />
+            </div>
+          )}
           {children}
         </main>
         
         {/* Floating Fullscreen Toggle */}
-        {!hideFloatingToggle && <FloatingFullscreenToggle />}
+        {!hideFloatingToggle && <FloatingFullscreenToggle position="bottom-right" />}
       </div>
     );
   }
@@ -363,15 +380,24 @@ export function Layout({ children, showFullscreenToggle = true, fullscreenHeader
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        
         {/* Page content */}
         <main className={`flex-1 overflow-hidden bg-gray-50 ${showFullscreenToggle ? 'p-4' : 'p-4'}`}>
+          {/* Create Button in Content Area */}
+          {createButton && (
+            <div className="flex justify-end mb-4">
+              <CreateButton 
+                label={createButton.label} 
+                href={createButton.href} 
+                size="sm"
+              />
+            </div>
+          )}
           {children}
         </main>
       </div>
       
       {/* Floating Fullscreen Toggle */}
-      {!hideFloatingToggle && <FloatingFullscreenToggle />}
+      {!hideFloatingToggle && <FloatingFullscreenToggle position="bottom-right" />}
     </div>
   );
 }

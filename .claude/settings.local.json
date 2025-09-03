@@ -72,7 +72,10 @@
       "Bash(grep:*)",
       "Read(/home/rabin/Screenshots/**)",
       "Bash(./tools/start-web.sh:*)",
-      "Bash(./tools/restart-web.sh:*)"
+      "Bash(./tools/restart-web.sh:*)",
+      "Bash(npm i)",
+      "Bash(pnpm:*)",
+      "Read(/home/rabin/Screenshots/**)"
     ],
     "deny": [],
     "ask": [],

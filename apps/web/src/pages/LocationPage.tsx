@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Plus } from 'lucide-react';
+import { MapPin, TrendingUp, Building2 } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, Column } from '../components/ui/DataTable';
+import { StatsGrid } from '../components/common/StatsGrid';
 import { locationApi } from '../lib/api';
 
 interface Location {
@@ -152,49 +153,40 @@ export function LocationPage() {
   ];
 
   return (
-    <Layout>
+    <Layout createButton={{ label: "Create Location", href: "/location/new" }}>
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <MapPin className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-800">Locations</h1>
-              <p className="mt-1 text-gray-600">Manage geographic locations and regional hierarchies</p>
-            </div>
+        <div className="flex items-center space-x-3">
+          <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+            <MapPin className="h-5 w-5 text-white" />
           </div>
-          
-          <button className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200">
-            <Plus className="h-4 w-4 mr-2" />
-            New Location
-          </button>
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-800">Locations</h1>
+            <p className="mt-1 text-gray-600">Manage geographic locations and regional hierarchies</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-blue-600">{locations.length}</div>
-            <div className="text-sm text-gray-600">Total Locations</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-green-600">
-              {locations.filter(l => l.active !== false).length}
-            </div>
-            <div className="text-sm text-gray-600">Active Locations</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-purple-600">
-              {locations.filter(l => l.levelName === 'City').length}
-            </div>
-            <div className="text-sm text-gray-600">Cities</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-yellow-600">
-              {new Set(locations.map(l => l.levelName).filter(Boolean)).size}
-            </div>
-            <div className="text-sm text-gray-600">Hierarchy Levels</div>
-          </div>
-        </div>
+        <StatsGrid 
+          stats={[
+            {
+              value: locations.length,
+              label: "Total Locations",
+              color: "blue",
+              icon: MapPin
+            },
+            {
+              value: locations.filter(l => l.active !== false).length,
+              label: "Active Locations",
+              color: "green",
+              icon: TrendingUp
+            },
+            {
+              value: locations.filter(l => l.levelName === 'City').length,
+              label: "Cities",
+              color: "purple",
+              icon: Building2
+            }
+          ]}
+        />
 
         <div className="flex-1 min-h-0">
           <DataTable

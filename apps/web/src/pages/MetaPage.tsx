@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Plus } from 'lucide-react';
+import { Database } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, Column } from '../components/ui/DataTable';
 import { metaApi } from '../lib/api';
@@ -146,23 +146,16 @@ export function MetaPage() {
   const selectedCategoryInfo = categories.find(c => c.value === selectedCategory);
 
   return (
-    <Layout>
+    <Layout createButton={{ label: "Create Meta", href: "/meta/new" }}>
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <Database className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-800">Meta Configuration</h1>
-              <p className="mt-1 text-gray-600">Manage system metadata and configuration settings</p>
-            </div>
+        <div className="flex items-center space-x-3">
+          <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+            <Database className="h-5 w-5 text-white" />
           </div>
-          
-          <button className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200">
-            <Plus className="h-4 w-4 mr-2" />
-            New Item
-          </button>
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-800">Meta Configuration</h1>
+            <p className="mt-1 text-gray-600">Manage system metadata and configuration settings</p>
+          </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

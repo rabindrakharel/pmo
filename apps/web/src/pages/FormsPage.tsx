@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Plus } from 'lucide-react';
+import { FileText, Eye, Edit } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, Column } from '../components/ui/DataTable';
+import { StatsGrid } from '../components/common/StatsGrid';
 import { formApi } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 
@@ -113,52 +114,40 @@ export function FormsPage() {
   ];
 
   return (
-    <Layout>
+    <Layout createButton={{ label: "Create Form", href: "/forms/new" }}>
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <FileText className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-800">Forms</h1>
-              <p className="mt-1 text-gray-600">Manage dynamic forms and data collection templates</p>
-            </div>
+        <div className="flex items-center space-x-3">
+          <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+            <FileText className="h-5 w-5 text-white" />
           </div>
-          
-          <button
-            onClick={() => navigate('/forms/new')}
-            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Form
-          </button>
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-800">Forms</h1>
+            <p className="mt-1 text-gray-600">Manage dynamic forms and data collection templates</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-blue-600">{forms.length}</div>
-            <div className="text-sm text-gray-600">Total Forms</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-green-600">
-              {forms.filter(f => f.active !== false).length}
-            </div>
-            <div className="text-sm text-gray-600">Active Forms</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-purple-600">
-              {forms.filter(f => f.formGlobalLink).length}
-            </div>
-            <div className="text-sm text-gray-600">Public Forms</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-yellow-600">
-              {forms.filter(f => f.projectSpecific || f.taskSpecific).length}
-            </div>
-            <div className="text-sm text-gray-600">Project/Task Forms</div>
-          </div>
-        </div>
+        <StatsGrid 
+          stats={[
+            {
+              value: forms.length,
+              label: "Total Forms",
+              color: "blue",
+              icon: FileText
+            },
+            {
+              value: forms.filter(f => f.active !== false).length,
+              label: "Active Forms",
+              color: "green",
+              icon: Eye
+            },
+            {
+              value: forms.filter(f => f.formGlobalLink).length,
+              label: "Public Forms",
+              color: "purple",
+              icon: Edit
+            }
+          ]}
+        />
 
         <div className="flex-1 min-h-0">
           <DataTable

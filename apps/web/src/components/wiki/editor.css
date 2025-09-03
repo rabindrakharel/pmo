@@ -6,6 +6,8 @@
   box-shadow: none !important;
   outline: none !important;
   transition: all 0.3s ease;
+  direction: ltr !important;
+  text-align: left !important;
 }
 
 .editor-content:focus,
@@ -27,7 +29,13 @@
   border-bottom: 2px solid #e5e7eb;
   padding-bottom: 0.5rem;
   position: relative;
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: normal !important;
+  text-orientation: mixed !important;
 }
+
+/* DEBUGGING: No direction fixes - test vanilla Tiptap behavior */
 
 .editor-content h1::before {
   content: "📝";
@@ -238,3 +246,391 @@
 .editor-content span {
   background: transparent !important;
 }
+
+/* Syntax highlighting styles - Light theme (legacy) */
+.hljs {
+  background: #ffffff !important;
+  color: #374151;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+}
+
+.hljs-comment {
+  color: #6a737d !important;
+  font-style: italic;
+}
+
+.hljs-keyword {
+  color: #d73a49 !important;
+  font-weight: 600;
+}
+
+.hljs-string {
+  color: #032f62 !important;
+}
+
+.hljs-number {
+  color: #005cc5 !important;
+}
+
+.hljs-built_in,
+.hljs-function {
+  color: #6f42c1 !important;
+}
+
+.hljs-variable {
+  color: #e36209 !important;
+}
+
+.hljs-title {
+  color: #6f42c1 !important;
+  font-weight: 600;
+}
+
+.hljs-attr {
+  color: #005cc5 !important;
+}
+
+.hljs-attribute {
+  color: #005cc5 !important;
+}
+
+.hljs-tag {
+  color: #22863a !important;
+}
+
+.hljs-name {
+  color: #22863a !important;
+}
+
+/* Dark theme syntax highlighting */
+.hljs.dark-theme {
+  background: #383b40 !important;
+  color: #e2e8f0 !important;
+}
+
+.hljs.dark-theme .hljs-comment {
+  color: #9ca3af !important;
+  font-style: italic;
+}
+
+.hljs.dark-theme .hljs-keyword {
+  color: #f87171 !important;
+  font-weight: 600;
+}
+
+.hljs.dark-theme .hljs-string {
+  color: #a78bfa !important;
+}
+
+.hljs.dark-theme .hljs-number {
+  color: #60a5fa !important;
+}
+
+.hljs.dark-theme .hljs-built_in,
+.hljs.dark-theme .hljs-function {
+  color: #fbbf24 !important;
+}
+
+.hljs.dark-theme .hljs-variable {
+  color: #34d399 !important;
+}
+
+.hljs.dark-theme .hljs-title {
+  color: #fbbf24 !important;
+  font-weight: 600;
+}
+
+.hljs.dark-theme .hljs-attr {
+  color: #60a5fa !important;
+}
+
+.hljs.dark-theme .hljs-attribute {
+  color: #60a5fa !important;
+}
+
+.hljs.dark-theme .hljs-tag {
+  color: #34d399 !important;
+}
+
+.hljs.dark-theme .hljs-name {
+  color: #34d399 !important;
+}
+
+/* Better code block styling */
+.code-editor__area .hljs {
+  font-family: 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.code-editor__area code[contenteditable] {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  outline: none !important;
+}
+
+.code-editor__area pre {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+}
+
+/* Code editor area styling */
+.code-editor__area {
+  position: relative;
+}
+
+.pre-code-wrapper {
+  position: relative;
+}
+
+.copy-code-button {
+  transition: all 0.2s ease;
+}
+
+.copy-code-button:hover {
+  background: #e5e7eb !important;
+}
+
+/* Dark theme button hover effects */
+.code-editor__area .pre-code-wrapper button:hover,
+.code-editor__area .code-header button:hover {
+  background: #5a67d8 !important;
+  color: #ffffff !important;
+  transition: all 0.2s ease;
+  transform: translateY(-1px);
+}
+
+.code-editor__area .pre-code-wrapper select:hover,
+.code-editor__area .code-header select:hover {
+  background: #5a67d8 !important;
+  color: #ffffff !important;
+  transition: all 0.2s ease;
+}
+
+/* Code block specific styling */
+.code-header {
+  background: #2d3748 !important;
+}
+
+.code-content {
+  background: #383b40 !important;
+}
+
+.code-area {
+  background: #383b40 !important;
+}
+
+/* Enhanced code block button styling */
+.code-editor__area button {
+  transition: all 0.2s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.code-editor__area button:hover {
+  background: #5a67d8 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.code-editor__area select {
+  transition: all 0.2s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.code-editor__area select:hover {
+  background: #5a67d8 !important;
+  color: #ffffff !important;
+}
+
+.simple-code {
+  font-family: 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace !important;
+}
+
+/* Ensure consistent styling for all code block variations */
+.pre-code-wrapper {
+  background: #383b40 !important;
+  border: 1px solid #4a5568 !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+}
+
+.code-editor__area .pre-code-wrapper .code-header {
+  background: #2d3748 !important;
+  border-bottom: 1px solid #4a5568 !important;
+}
+
+.code-editor__area .line-numbers {
+  background: #383b40 !important;
+  color: #718096 !important;
+  border-right: 1px solid #4a5568 !important;
+}
+
+/* Fix any white background issues */
+.code-editor__area,
+.code-editor__area *:not(code):not(span) {
+  background: transparent !important;
+}
+
+.code-editor__area code[contenteditable] {
+  background: #383b40 !important;
+  color: #e2e8f0 !important;
+}
+
+/* Make code editor headers non-selectable and protected */
+.code-editor__area .code-header {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  pointer-events: auto !important;
+}
+
+.code-editor__area .code-header * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+.code-editor__area .line-numbers {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* Prevent header deletion and make it stable */
+.code-editor__area .pre-code-wrapper {
+  position: relative;
+  overflow: visible !important;
+}
+
+/* Improved quote block styling */
+blockquote[data-quote-id] {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+blockquote[data-quote-id]:hover {
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  transform: translateY(-1px);
+}
+
+blockquote[data-quote-id] p[contenteditable]:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Enhanced keyboard navigation indicators */
+.editor-content:focus-within {
+  outline: none;
+}
+
+/* Better code block focus states */
+.code-editor__area code[contenteditable]:focus {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Enhanced click-anywhere support */
+.ProseMirror {
+  min-height: calc(100vh - 300px) !important;
+  cursor: text !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  outline: none !important;
+  border: none !important;
+  background: transparent !important;
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: normal !important;
+  text-orientation: mixed !important;
+  writing-mode: horizontal-tb !important;
+}
+
+.ProseMirror:focus {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Ensure empty editor area is clickable */
+.ProseMirror[data-is-empty="true"]:before,
+.ProseMirror.is-empty:before {
+  content: attr(data-placeholder);
+  position: absolute;
+  color: #9ca3af;
+  font-style: italic;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+/* Free-flow editing support */
+.ProseMirror p.is-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #9ca3af;
+  font-style: italic;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+/* Metadata styling within editor content */
+.metadata-section,
+.metadata-block {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  pointer-events: none !important;
+}
+
+/* Protected metadata node styling */
+.ProseMirror div[data-type="metadata"],
+.metadata-block {
+  background: #f9fafb !important;
+  border-left: 4px solid #d1d5db !important;
+  padding: 12px 16px !important;
+  margin: 16px 0 32px 0 !important;
+  border-radius: 0 8px 8px 0 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+  font-size: 14px !important;
+  color: #6b7280 !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  cursor: default !important;
+}
+
+/* Prevent metadata from being selected or edited */
+.ProseMirror div[data-type="metadata"]:focus,
+.ProseMirror div[data-type="metadata"]:hover {
+  outline: none !important;
+  background: #f9fafb !important;
+}
+
+/* Better space filling for editor */
+.editor-content .ProseMirror {
+  min-height: 600px;
+}
+
+/* Improved editor container */
+.editor-content {
+  height: 100%;
+  flex: 1;
+  direction: ltr !important;
+}
+
+.editor-content .ProseMirror {
+  height: 100%;
+  flex: 1;
+}
+
+/* DEBUGGING: Remove all direction fixes temporarily to test cursor */

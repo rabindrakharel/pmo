@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { CheckSquare, Plus } from 'lucide-react';
+import { CheckSquare, Clock, TrendingUp } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, Column } from '../components/ui/DataTable';
+import { StatsGrid } from '../components/common/StatsGrid';
 import { taskApi, projectApi } from '../lib/api';
 
 interface Task {
@@ -176,51 +177,40 @@ export function TaskPage() {
   ];
 
   return (
-    <Layout>
+    <Layout createButton={{ label: "Create Task", href: "/task/new" }}>
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <CheckSquare className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-800">Tasks</h1>
-              <p className="mt-1 text-gray-600">Manage and track project tasks and deliverables</p>
-            </div>
+        <div className="flex items-center space-x-3">
+          <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+            <CheckSquare className="h-5 w-5 text-white" />
           </div>
-          
-          <button className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200">
-            <Plus className="h-4 w-4 mr-2" />
-            New Task
-          </button>
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-800">Tasks</h1>
+            <p className="mt-1 text-gray-600">Manage and track project tasks and deliverables</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-blue-600">{tasks.length}</div>
-            <div className="text-sm text-gray-600">Total Tasks</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-yellow-600">
-              {tasks.filter(t => t.status_name === 'In Progress').length}
-            </div>
-            <div className="text-sm text-gray-600">In Progress</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-green-600">
-              {tasks.filter(t => t.status_name === 'Done').length}
-            </div>
-            <div className="text-sm text-gray-600">Completed</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-purple-600">
-              {Math.round(
-                (tasks.reduce((sum, t) => sum + (t.completion_percentage || 0), 0) / (tasks.length || 1))
-              )}%
-            </div>
-            <div className="text-sm text-gray-600">Avg Progress</div>
-          </div>
-        </div>
+        <StatsGrid 
+          stats={[
+            {
+              value: tasks.length,
+              label: "Total Tasks",
+              color: "blue",
+              icon: CheckSquare
+            },
+            {
+              value: tasks.filter(t => t.status_name === 'In Progress').length,
+              label: "In Progress",
+              color: "yellow",
+              icon: Clock
+            },
+            {
+              value: tasks.filter(t => t.status_name === 'Done').length,
+              label: "Completed",
+              color: "green",
+              icon: TrendingUp
+            }
+          ]}
+        />
 
         <div className="flex-1 min-h-0">
           <DataTable

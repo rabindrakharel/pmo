@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { FolderOpen, Plus, Calendar, Users, TrendingUp, Clock, DollarSign } from 'lucide-react';
+import { FolderOpen, Calendar, Users, TrendingUp, Clock, DollarSign } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, Column } from '../components/ui/DataTable';
+import { StatsGrid } from '../components/common/StatsGrid';
 import { projectApi, taskApi, metaApi } from '../lib/api';
 
 // ViewMode type removed - only using table view now
@@ -243,51 +244,43 @@ export function ProjectPage() {
   );
 
   return (
-    <Layout>
+    <Layout createButton={{ label: "Create Project", href: "/project/new" }}>
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <FolderOpen className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-800">Projects</h1>
-              <p className="mt-1 text-gray-600">Manage and track all your projects and their progress</p>
-            </div>
+        <div className="flex items-center space-x-3">
+          <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+            <FolderOpen className="h-5 w-5 text-white" />
           </div>
-          
-          <button className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200">
-            <Plus className="h-4 w-4 mr-2" />
-            New Project
-          </button>
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-800">Projects</h1>
+            <p className="mt-1 text-gray-600">Manage and track all your projects and their progress</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-blue-600">{projects.length}</div>
-            <div className="text-sm text-gray-600">Total Projects</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-green-600">
-              {projects.filter(p => p.project_status === 'Active').length}
-            </div>
-            <div className="text-sm text-gray-600">Active Projects</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-yellow-600">
-              {projects.filter(p => p.project_status === 'Planning').length}
-            </div>
-            <div className="text-sm text-gray-600">In Planning</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <div className="text-2xl font-bold text-purple-600">
-              {Math.round(
+        <StatsGrid 
+          stats={[
+            {
+              value: projects.length,
+              label: "Total Projects",
+              color: "blue",
+              icon: FolderOpen
+            },
+            {
+              value: projects.filter(p => p.project_status === 'Active').length,
+              label: "Active Projects",
+              color: "green",
+              icon: TrendingUp
+            },
+            {
+              value: Math.round(
                 (projects.filter(p => p.project_status === 'Completed').length / (projects.length || 1)) * 100
-              )}%
-            </div>
-            <div className="text-sm text-gray-600">Completion Rate</div>
-          </div>
-        </div>
+              ),
+              label: "Completion Rate",
+              color: "purple",
+              icon: DollarSign,
+              format: "percentage"
+            }
+          ]}
+        />
 
         <div className="flex-1 min-h-0">
           {renderContent()}
