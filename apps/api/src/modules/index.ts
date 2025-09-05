@@ -8,6 +8,7 @@ import { formRoutes } from './form/routes.js';
 import { projectRoutes } from './project/routes.js';
 import { taskRoutes } from './task/routes.js';
 import { wikiRoutes } from './wiki/routes.js';
+import { artifactRoutes } from './artifact/routes.js';
 // import { taskActivityRoutes } from './task/activity-routes.js';
 import { metaRoutes } from './meta/routes.js';
 import { worksiteRoutes } from './scope-worksite/routes.js';
@@ -42,6 +43,7 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await roleRoutes(fastify);
   await formRoutes(fastify);
   await wikiRoutes(fastify);
+  await artifactRoutes(fastify);
   await worksiteRoutes(fastify);
   await clientRoutes(fastify);
   await projectRoutes(fastify);

@@ -178,6 +178,7 @@ declare -a DDL_FILES=(
     # APPLICATION & PERMISSIONS (Depends on all above)
     "10_forms.ddl|Dynamic Form System"
     "11_app_tables.ddl|UI Routes & Components"
+    "12_artifact.ddl|Artifacts (Business/Project Knowledge)"
     "13_permission_tables.ddl|RBAC Permission Engine"
 )
 

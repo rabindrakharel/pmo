@@ -1,6 +1,6 @@
-# PMO Platform Tools Index
+# PMO Platform Management Tools
 
-This directory contains all management tools for the PMO platform. This document serves as a comprehensive index for LLM reference, cataloging all available tools with their purposes, usage, and key features.
+**16 comprehensive management tools** for the PMO platform, providing complete **platform automation**, **API testing**, **RBAC debugging**, and **database management**. All tools are production-ready with enhanced logging, error handling, and colored output.
 
 ## 🚀 Platform Management Tools
 
@@ -87,47 +87,49 @@ This directory contains all management tools for the PMO platform. This document
 ## 🧪 API Testing Tools
 
 ### test-api-endpoints.sh
-**Purpose**: Comprehensive API endpoint testing with enhanced authentication and unified RBAC validation
+**Purpose**: **Complete API system validation** - tests all 11 API modules with enhanced authentication and unified RBAC
 **Usage**: `./tools/test-api-endpoints.sh [base_url] [email] [password]`
-**LLM Context**: Use when user needs complete API system validation or endpoint testing
-**Features**:
-- **Enhanced JWT Authentication**: Tests new auth endpoints with permission bundling
-- **Bearer Token Usage**: All API calls use proper Authorization headers
-- **Extended Endpoint Coverage**: 20+ endpoints including new auth endpoints (`/permissions`, `/scopes/:scopeType`, `/debug`)
-- **Unified RBAC Testing**: Tests permission system using `rel_employee_scope_unified` table
-- **Granular Permission Validation**: Validates app:page, app:api, app:component scopes
-- **Permission Bundling Testing**: Validates login response includes complete permission structure
-- **Enhanced Test Coverage**: James Miller with 113+ permissions across multiple scope types
-- **Real-time Permission Checks**: Tests new permission validation endpoints
-- **Detailed Test Results**: Pass/fail indicators with permission analysis
-- **Color-coded Output**: Enhanced readability with detailed permission debugging information
+**LLM Context**: Use when user needs comprehensive API testing or system validation after changes
+**Key Features**:
+- **✅ 11 API Modules Coverage**: All endpoints from auth to forms with complete CRUD testing
+- **✅ Enhanced JWT Authentication**: Tests login with permission bundling and token validation
+- **✅ Unified RBAC Validation**: Tests `rel_employee_scope_unified` with 9 scope types
+- **✅ Real Production Data**: James Miller with 113+ active permissions across all scopes
+- **✅ New Auth Endpoints**: `/permissions`, `/scopes/:scopeType`, `/debug` validation
+- **✅ Bearer Token Integration**: Proper Authorization headers for all API calls
+- **✅ Permission Matrix Testing**: Validates app:page, app:api, app:component scopes
+- **✅ Detailed Results**: Color-coded output with pass/fail indicators and permission analysis
+- **✅ Error Handling**: Comprehensive error reporting with debugging information
 
 ### debug-rbac.sh
-**Purpose**: Enhanced RBAC permissions analysis with unified permission system support
+**Purpose**: **Advanced RBAC permission debugging** - comprehensive analysis of unified permission system
 **Usage**: `./tools/debug-rbac.sh [email] [password]`  
-**LLM Context**: Use when user reports permission/access issues or RBAC debugging needed
-**Features**:
-- **Enhanced JWT Token Authentication**: Supports new auth endpoints with permission bundling
-- **Unified Permission Analysis**: Analyzes `rel_employee_scope_unified` table with direct table references
-- **Advanced Permission Endpoints**: Tests `/permissions`, `/scopes/:scopeType`, `/permissions/debug` endpoints
-- **Granular Scope Testing**: Validates app:page, app:api, app:component permissions
-- **Permission Matrix Analysis**: 113+ permission records across 8+ scope types
-- **Real-time Permission Validation**: Uses new auth API for comprehensive permission checking
-- **Step-by-step Debugging**: Enhanced SQL commands for unified permission model verification
+**LLM Context**: Use when user reports permission/access issues or needs detailed RBAC analysis
+**Key Features**:
+- **✅ Unified Permission Analysis**: Deep dive into `rel_employee_scope_unified` with 9 scope types
+- **✅ Enhanced Auth Endpoints**: Tests `/permissions`, `/scopes/:scopeType`, `/permissions/debug`
+- **✅ Complete Permission Matrix**: 113+ active permissions for James Miller across all scopes
+- **✅ Real-Time Validation**: Live permission checking with detailed scope breakdown
+- **✅ Direct Table References**: Validates scope_table_reference_id linkages
+- **✅ Multi-Dimensional Testing**: Business, location, HR, worksite, project, task, and app scopes
+- **✅ SQL Debugging Commands**: Step-by-step verification of permission model
+- **✅ Admin Debug Mode**: Access to detailed permission debugging endpoint
 
 ## 🗄️ Database Management Tools
 
 ### db-import.sh
-**Purpose**: Complete database import with correct DDL dependency order
+**Purpose**: **Complete database schema import** - resets and imports all 24 tables with production data
 **Usage**: `./tools/db-import.sh [--dry-run] [--verbose] [--skip-validation]`
-**LLM Context**: Use for any database initialization, reset, or re-import
-**Features**:
-- **Complete Schema Reset**: Drops and recreates app schema
-- **Dependency-Optimized Loading**: Processes 13 DDL files in correct order (00-13)
-- **Data Validation**: Validates schema structure and relationships post-import
-- **Enhanced Logging**: Comprehensive logging with timestamps
-- **Environment Variable Support**: Honors all database connection variables
-- **Dry-run Mode**: Test import process without making changes
+**LLM Context**: **Primary tool** for database initialization, reset, or re-import operations
+**Key Features**:
+- **✅ Complete Schema Reset**: Drops and recreates entire app schema safely
+- **✅ 13 DDL Files**: Dependency-optimized loading order (00-13) with foreign key validation
+- **✅ Production Data**: Huron Home Services with 15 employees, 7 projects, 20+ tasks
+- **✅ Permission System**: 113+ RBAC permissions across 9 scope types
+- **✅ Canadian Business Data**: Real postal codes, provinces, regulatory compliance
+- **✅ Comprehensive Validation**: Post-import schema integrity and relationship validation
+- **✅ Enhanced Logging**: Detailed progress reporting with timestamps and error handling
+- **✅ Environment Support**: Full database connection configuration via environment variables
 
 ### validate-schema.sh
 **Purpose**: Database schema validation and integrity checking

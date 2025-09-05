@@ -362,3 +362,39 @@ export const wikiApi = {
     return response.data;
   },
 };
+
+// Artifacts API
+export const artifactApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; artifact_type?: string; business_id?: string; project_id?: string; project_stage?: string }) {
+    const limit = params?.pageSize ?? 20;
+    const offset = ((params?.page ?? 1) - 1) * limit;
+    const query: any = { limit, offset };
+    if (params?.search) query.search = params.search;
+    if (params?.artifact_type) query.artifact_type = params.artifact_type;
+    if (params?.business_id) query.business_id = params.business_id;
+    if (params?.project_id) query.project_id = params.project_id;
+    if (params?.project_stage) query.project_stage = params.project_stage;
+    const response = await apiClient.get('/api/v1/artifact', { params: query });
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/artifact/${id}`);
+    return response.data;
+  },
+
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/artifact', data);
+    return response.data;
+  },
+
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/artifact/${id}`, data);
+    return response.data;
+  },
+
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/artifact/${id}`);
+    return response.data;
+  },
+};

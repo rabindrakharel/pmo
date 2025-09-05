@@ -1,11 +1,18 @@
 # PMO Enterprise Task Management Platform 🚀
 
-> **Navigation Hub** - This README serves as your central guide to all project documentation and resources.
+> **Navigation Hub** - Your comprehensive guide to the PMO platform with API-driven configuration, unified RBAC, and perfect naming consistency
 
-A comprehensive, enterprise-grade Project Management Office (PMO) platform built with modern web technologies. Features role-based task management, workflow automation, and comprehensive project oversight capabilities.
+A production-ready, enterprise-grade Project Management Office (PMO) platform built with **React 18 + Fastify**. Features sophisticated **Role-Based Access Control**, **API-driven UI configuration**, **multi-dimensional scoping**, and **comprehensive Canadian business compliance**.
 
-## 📋 Use this Readme for Quick Navigation Purpose only
-## This readme is index of several other readme, update this readme only when it's required to be updated.
+## 🎯 Current State (Latest: 2025-09-04)
+
+**✅ Complete Platform Ready** - All core systems operational:
+- **11 API Modules** with comprehensive CRUD and advanced RBAC
+- **API-Driven Configuration** - Dynamic UI generation from secure backend configs  
+- **Perfect Naming Consistency** - Unified camelCase across all layers (resolved routing issues)
+- **Production Authentication** - JWT with bundled permissions and 113+ active permissions
+- **24-Table Database Schema** - Canadian business context with temporal data patterns
+- **16 Management Tools** - Complete platform automation and monitoring
 
 ### 🏃‍♂️ Getting Started
 - **[Tech Stack Overview](#-tech-stack)** - Technologies used
@@ -16,11 +23,11 @@ A comprehensive, enterprise-grade Project Management Office (PMO) platform built
 
 | Document | Purpose | Key Topics |
 |----------|---------|------------|
-| **[⚙️ Tech Stack](./TECHSTACK.md)** | Complete technology overview | Frontend, backend, infrastructure, performance |
-| **[🗄️ Database Schema](./db/README.md)** | Data model and database guide | Tables, relationships, RBAC, installation |
-| **[🔧 Management Tools](./tools/README.md)** | Platform operation tools | Start/stop servers, database management, logs |
-| **[🌐 API Reference](./apps/api/README.md)** | Backend API documentation | RBAC endpoints, authentication, patterns |
-| **[💻 Frontend Guide](./apps/web/README.md)** | Web app development guide | RBAC components, data tables, permission hooks |
+| **[📖 User Guide](./userguide.md)** | Complete developer reference | Architecture, components, patterns, adding features |
+| **[🗄️ Database Schema](./db/README.md)** | 24-table data model with RBAC | Canadian business context, DDL files, relationships |
+| **[🔧 Management Tools](./tools/README.md)** | 16 platform operation tools | Start/stop, database import, API testing, RBAC debugging |
+| **[🌐 API Reference](./apps/api/README.md)** | 11-module backend with advanced RBAC | JWT auth, permissions, unified scoping, OpenAPI docs |
+| **[💻 Frontend Guide](./apps/web/README.md)** | React 18 app with API-driven config | Dynamic components, perfect consistency, multi-view tables |
 
 ---
 
@@ -55,102 +62,125 @@ make seed            # Initialize database
 
 ## 🏗️ Tech Stack
 
+### 🎯 Architecture Highlights
+- **Monorepo**: React (Vite + TS) web app and Fastify (TS) API
+- **API-Driven Configuration**: Backend-generated UI schemas with frontend-safe field mapping
+- **Perfect Naming Consistency**: Unified camelCase across API, routes, components, and configs
+- **Two-API Architecture**: Config API (🔧 UI schemas) + Data API (📊 business data)
+
 ### Backend
-- **Runtime**: Node.js 20+ with TypeScript
-- **Framework**: Fastify (high-performance)
-- **Database**: PostgreSQL 15+ with PostGIS
-- **ORM**: Drizzle (type-safe)
-- **Cache**: Redis
-- **Auth**: JWT with RBAC
+- **Runtime**: Node.js 20+ with TypeScript 5.0+
+- **Framework**: Fastify 5.0+ (high-performance HTTP server)
+- **Database**: PostgreSQL 16+ with PostGIS extensions
+- **ORM**: Drizzle ORM (type-safe SQL operations)
+- **Cache**: Redis for session and permission caching
+- **Auth**: JWT with @fastify/jwt + unified RBAC system
 
 ### Frontend  
-- **Framework**: React 18 with TypeScript
-- **Build**: Vite (fast development and building)
-- **UI**: Tailwind CSS + shadcn/ui components
-- **State**: TanStack Query + Zustand
-- **Forms**: React Hook Form + Zod validation
-- **DnD**: DnD Kit for drag-and-drop functionality
+- **Framework**: React 18 with TypeScript 5.0+
+- **Build**: Vite 5.0+ (fast development and building)
+- **UI**: Tailwind CSS + shadcn/ui + custom component library
+- **State**: Axios client with JWT interceptor + Context API
+- **Forms**: Dynamic form generation from API configs
+- **Routing**: React Router DOM with protected routes
 
 ### Infrastructure
-- **Containers**: Docker + Docker Compose
-- **Orchestration**: Kubernetes + Helm
-- **Storage**: MinIO/S3 compatible
-
-**[📖 Complete Tech Stack Details →](./TECHSTACK.md)**
+- **Containers**: Docker + Docker Compose for local development
+- **Orchestration**: Kubernetes + Helm charts for production
+- **Storage**: MinIO/S3 compatible object storage
 
 ---
 
-## 🛡️ Enterprise RBAC System
+## 🛡️ Unified RBAC System
 
-The PMO platform features a comprehensive Role-Based Access Control system with sophisticated UI component gating and permission-based data tables.
+The PMO platform implements a sophisticated **unified permission system** using `rel_employee_scope_unified` table, eliminating complex permission lookups and providing real-time access control across **9 scope types**.
 
-### 🎯 Key Features
+### 🎯 Core RBAC Features
 
-✅ **Advanced Data Management** - Comprehensive data tables with sticky headers, advanced filtering, and pagination  
-✅ **Professional UI Components** - Modern gradient design with sophisticated component library  
-✅ **RBAC Integration** - Permission-gated components with role-based access control  
-✅ **Multi-View Support** - DataTable, GridView, and TreeView components for different data presentation needs  
-✅ **Responsive Design** - Mobile-first design with elegant responsive layouts  
+✅ **Unified Permission Model** - Single `rel_employee_scope_unified` table with direct table references  
+✅ **Multi-Dimensional Scoping** - Business, location, HR, worksite, project, task, and app-level permissions  
+✅ **Real-Time Validation** - Dynamic permission checking with Redis caching  
+✅ **Granular Control** - Component, page, and API endpoint-level access control  
+✅ **Permission Bundling** - Login response includes complete permission structure  
 
-### 🔐 RBAC Integration Points
+### 🔐 Scope Types & Integration
 
-| Level | Integration | API Endpoints | Usage |
-|-------|-------------|---------------|-------|
-| **API** | Route protection | `/api/v1/auth/scopes/:scopeType` | Get accessible resources with permissions |
-| **Page** | Route guards | `/api/v1/rbac/page-permission` | Validate page access |
-| **Component** | UI gating | `/api/v1/rbac/component-permission` | Control component visibility |
-| **Data Table** | Action buttons | `/api/v1/rbac/employee-scopes` | Show/hide row-level actions |
+| Scope Type | Reference Table | Permission Levels | Usage Example |
+|------------|----------------|-------------------|---------------|
+| `project` | `ops_project_head` | [0:view, 1:modify, 2:share, 3:delete, 4:create] | Project management operations |
+| `task` | `ops_task_head` | [0:view, 1:modify, 2:share, 3:delete, 4:create] | Task assignment and tracking |
+| `business` | `d_scope_biz` | [0:view, 1:modify, 2:share, 3:delete, 4:create] | Business unit access control |
+| `app:page` | `d_scope_app` | [0:view] | Frontend route protection (`/employees`, `/projects`) |
+| `app:api` | `d_scope_app` | [0:view, 4:create] | API endpoint authorization (`/api/v1/project`, `/api/v1/task`) |
+| `app:component` | `d_scope_app` | [0:view, 1:modify] | UI component gating (`TaskBoard`, `DataTable`) |
 
-### 📊 Permission-Based Data Tables
+### 🚀 Enhanced Authentication APIs
 
-```tsx
-// Automatic permission-gated action buttons
-<RBACDataTable
-  scopeType="project"
-  data={projects}
-  getRowId={(row) => row.id}
-  enabledActions={['view', 'edit', 'share', 'delete']}
-/>
+```typescript
+// New authentication endpoints with permission bundling
+POST /api/v1/auth/login           // JWT + bundled permissions
+GET  /api/v1/auth/permissions     // User permission summary  
+GET  /api/v1/auth/scopes/:type    // Accessible resources by scope type
+GET  /api/v1/auth/permissions/debug // Admin-only permission debugging
 ```
 
-Each row displays only the actions the current employee has permission to perform on that specific resource.
+### 📊 Permission-Aware Components
 
-**[📖 Complete RBAC Documentation →](./apps/api/README.md#-rbac-system-architecture)**
+```tsx
+// API-driven configuration with automatic permission checking
+<MetaDataTable entityType="projectStatus" />  // Renders with user's permissions
+<DataTable data={projects} onEdit={canEdit} onDelete={canDelete} />
+```
+
+**[📖 Complete RBAC Documentation →](./apps/api/README.md#-advanced-rbac-system-architecture)**
 
 ---
 
-## 🏗️ Architecture Overview
+## 🏗️ Current Architecture (2025-09-04)
 
-> **Latest Update (2025-09-01)**: **🎯 Complete End-to-End Consistency Achieved** - All critical naming inconsistencies resolved. Perfect camelCase consistency across sidebar, routes, components, and API calls. Fixed base URL mismatches, auth token inconsistencies, and URL construction issues. MetaDataTable now properly integrates with both Config API (camelCase) and Data API (snake_case) with full authentication flow.
+### 🎯 System Design Principles
+- **API-Driven Configuration**: Backend-generated UI schemas with database schema protection
+- **Two-API Architecture**: Config API (🔧 UI metadata) + Data API (📊 business records)  
+- **Perfect Naming Consistency**: Unified camelCase across all layers (routing issues resolved)
+- **Unified RBAC**: Single permission table with direct table references
+- **Head/Records Pattern**: Temporal data tracking with complete audit trails
 
-### System Design Principles
-- **Domain-First**: UI mirrors database domains
-- **RBAC + Scope-Aware**: Role-based access control
-- **Policy-Gated Routes**: Unified permission enforcement
-- **Head/Records Pattern**: Temporal data for audit trails
-- **API-First Configuration**: Entity configs exposed via secure API
-- **Perfect Naming Consistency**: Unified camelCase across all layers
+### 🏢 Business Domain Coverage
 
-### Data Domains
-1. **META** - Reference vocabulary and configuration with 7 entity types
-   - `projectStatus` - Project workflow states
-   - `projectStage` - Project lifecycle stages
-   - `taskStatus` - Task workflow states  
-   - `taskStage` - Task workflow stages
-   - `businessLevel` - Organizational hierarchy levels
-   - `locationLevel` - Geographic hierarchy levels
-   - `hrLevel` - HR hierarchy with salary bands
-2. **LOC** - Hierarchical location management  
-3. **WORKSITE** - Physical service sites with geospatial data
-4. **BIZ** - Business organization hierarchy
-5. **HR** - Human resources and departments
-6. **EMP/ROLE** - Employee management with role assignments
-7. **CLIENT** - Client relationship management
-8. **PROJECT** - Project lifecycle tracking
-9. **TASK** - Task management with workflow stages
-10. **FORMS** - Dynamic form builder
+**Meta Data (7 entities)** - Configuration & reference data
+- `projectStatus`, `projectStage` - Project lifecycle management
+- `taskStatus`, `taskStage` - Task workflow and Kanban stages  
+- `businessLevel`, `locationLevel`, `hrLevel` - Organizational hierarchies
 
-**[📖 Complete Architecture Guide →](./architecture.md)**
+**Core Operations (6 entities)** - Business functionality
+- `Project` - Project lifecycle with multi-dimensional scoping
+- `Task` - Task management with head/records temporal tracking
+- `Employee` - Identity management with JWT authentication
+- `Client` - Client relationship management
+- `Forms` - Dynamic form builder with schema-driven generation
+- `Wiki` - Knowledge management system
+
+**Scope Hierarchy (4 entities)** - Multi-dimensional access control
+- `Business` - 6-level organizational structure
+- `Location` - 8-level Canadian geographic hierarchy
+- `HR` - 20-level position hierarchy with salary bands
+- `Worksite` - Physical locations with geospatial data
+
+### 🔄 Configuration Flow Example
+
+```
+1. User clicks: "Project Status" (camelCase)
+   ↓
+2. Route: /meta/projectStatus (camelCase)
+   ↓  
+3. Component: ProjectStatusPage loads
+   ↓
+4. Config API: GET /api/v1/config/entity/projectStatus (🔧 UI schema)
+   ↓
+5. Data API: GET /api/v1/meta?category=project_status (📊 records)
+   ↓
+6. Result: Dynamic page with permissions-filtered data
+```
 
 ---
 

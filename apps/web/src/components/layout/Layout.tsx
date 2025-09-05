@@ -90,6 +90,7 @@ export function Layout({ children, showFullscreenToggle = true, fullscreenHeader
     { name: 'Employee', href: '/employee', icon: Users },
     { name: 'Roles', href: '/roles', icon: UserCheck },
     { name: 'Forms', href: '/forms', icon: FileText },
+    { name: 'Artifacts', href: '/artifacts', icon: FileText },
     { name: 'Wiki', href: '/wiki', icon: BookOpen },
   ];
 

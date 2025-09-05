@@ -1,3 +1,19 @@
+│ > /home/rabin/projects/pmo/db/README.md                                                                                │
+│   /home/rabin/projects/pmo/db/userguide.md                                                                             │
+│   /home/rabin/projects/pmo/userguide.md\\                                                                              │
+│   Understand the design pattern, how we design and build something: \                                                  │
+│   I want to build a sidebar button for artifacts, button artificats, which will have page artifacts, reusable          │
+│   components, Will have database table d_artifacts,
+artifacts are design, rfp, proposals, sow documents, design, onboarding guide, 3 models, etc. 
+The artifacts will be scoped by project and business, 
+the artifacts can be only relevant to just 1 project stage, or entire project
+Design datamodel, generate api code, the design ui/ux for sidebar button, page and everything.
+First understand my design, and create a detailed plan. 
+What steps, or course of action will you take to achieve this? 
+
+
+
+
 api validation:
 apps/api/src/modules has all my route api, Please validate the api against my datamodel  │
 │   esp. that the rbac at api level has to happen through                                    │

@@ -75,7 +75,11 @@
       "Bash(./tools/restart-web.sh:*)",
       "Bash(npm i)",
       "Bash(pnpm:*)",
-      "Read(/home/rabin/Screenshots/**)"
+      "Read(/home/rabin/Screenshots/**)",
+      "Bash(for:*)",
+      "Bash(do grep -A 10 \"CREATE TABLE app\\.rel_\" \"$file\")",
+      "Bash(done)",
+      "Bash(do echo \"=== $file ===\")"
     ],
     "deny": [],
     "ask": [],

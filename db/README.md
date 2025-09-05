@@ -1,787 +1,497 @@
-# PMO Database Schema - Comprehensive Data Model Documentation
+# Huron Home Services Database Schema - Enterprise Data Architecture
 
-A sophisticated PostgreSQL database system designed for enterprise project management with comprehensive RBAC, temporal data patterns, and Canadian organizational compliance.
+A sophisticated **35-table PostgreSQL database** designed for **Canadian enterprise project management** with comprehensive RBAC, temporal data patterns, and real-world business operations.
 
-## 🏗️ Database Architecture Overview
+## 🏗️ Current Database State (2025-09-04)
 
-### System Specifications
-- **Database**: PostgreSQL 16+ with PostGIS and pgcrypto extensions
-- **Total Tables**: 24 tables across 6 logical categories
-- **Data Organization**: 13 DDL files in dependency-optimized loading order (00-13, excluding deleted 12_unified_scope.ddl)
-- **Permission Records**: 113+ comprehensive permission entries in unified table
-- **Hierarchical Relationships**: Multi-level parent-child structures across all scope types
+### 🎯 System Specifications
+- **Database Engine**: PostgreSQL 16+ with PostGIS, pgcrypto, uuid-ossp, and pg_trgm extensions
+- **Total Tables**: **35 tables** across **6 logical categories**  
+- **DDL Organization**: **35 DDL files** in dependency-optimized loading order (00-90)
+- **Sample Data**: **Real Canadian business context** - Huron Home Services operations
+- **Employee Records**: **20 employees** from CEO to seasonal workers with comprehensive profiles
+- **Geographic Coverage**: Complete Canadian administrative structure with GTA focus
 
-### Latest Updates (2025-08-30)
-- **🔄 Enhanced Permission System**: Unified `rel_employee_scope_unified` table with direct table references
-- **🔧 Auth API Integration**: New permission endpoints (`/permissions`, `/scopes/:scopeType`, `/debug`)
-- **📊 Granular Scope Types**: app:page, app:api, app:component for fine-grained access control
-- **🎯 Permission Bundling**: Login response includes complete user permission structure
-- **🔍 Advanced Debugging**: Admin-only debug endpoint for detailed permission analysis
+### 🚀 Latest Schema Updates (2025-09-04)
+- **✅ Organizational Structure Separation**: `location` → `org` (geographic), `business` → `biz` (organizational)
+- **✅ Normalized Relationship Tables**: Minimal column structures with proper foreign keys
+- **✅ Wiki Knowledge Base**: Comprehensive company documentation authored by James Miller
+- **✅ Artifact Management**: Design templates and documents with proper ownership
+- **✅ Role-Based Access Control**: Comprehensive role catalog with employee assignments
+- **✅ Dependency-Optimized Loading**: Fixed circular dependencies and proper load order
 
 ---
 
 ## 🏗️ Schema Overview
 
-### Core Design Philosophy
+### 🎯 Core Design Philosophy
 
-The PMO database represents a **comprehensive enterprise project management system** designed for Canadian organizational compliance. This schema demonstrates:
+The Huron Home Services database represents a **production-ready enterprise project management system** specifically designed for **Canadian home services operations**. Key architectural principles:
 
-- **Enterprise RBAC**: Sophisticated role-based access control with multi-dimensional scope hierarchies
-- **Unified Permission Model**: Single table (`rel_employee_scope_unified`) with direct table references eliminating intermediate lookups
-- **Temporal Data Patterns**: Complete audit trails with head/records pattern for project and task management
-- **Canadian Compliance**: Full integration with Canadian geographic, regulatory, and business structures
-- **API-First Design**: Direct integration with enhanced authentication endpoints for real-time permission validation
+- **🏢 Real Business Context**: Huron Home Services (Est. 2020, Mississauga) - landscaping, plumbing, HVAC, electrical, snow removal, solar installation
+- **🔐 Multi-Dimensional RBAC**: Separate business organizational and geographic hierarchies with role-based permissions
+- **⏰ Temporal Data Architecture**: SCD Type 2 patterns for complete audit trails and operational history
+- **🍁 Canadian Compliance Ready**: PIPEDA privacy, Ontario regulations, municipal permits, professional licensing
+- **🚀 API Integration**: Seamless integration with API modules and JWT authentication system
+- **📊 Normalized Relations**: Clean many-to-many relationships with minimal required columns
 
-### Entity Relationship Diagram - Foreign Key Relationships
+### Entity Relationship Diagram - Core Structure
 
 ```mermaid
 erDiagram
-    %% Meta Configuration Tables
-    meta_biz_level {
+    %% Meta Configuration Layer
+    meta_org_level {
         int level_id PK
-        text name
-        text descr
-        int sort_order
-        boolean is_leaf_level
+        text level_name
+        text slug
+        boolean is_root
+        boolean is_leaf
     }
     
-    meta_loc_level {
+    meta_biz_level {
         int level_id PK
-        text name
-        text descr  
-        text country_code
-        int sort_order
-        boolean is_leaf_level
+        text level_name
+        text slug
+        boolean is_root
+        boolean is_leaf
     }
     
     meta_hr_level {
         int level_id PK
-        text name
-        text descr
+        text level_name
         int salary_band_min
         int salary_band_max
         boolean is_management
         boolean is_executive
     }
-    
-    meta_project_status {
-        uuid id PK
-        text code
-        text name
-        text descr
-        int sort_id
-        boolean is_initial
-        boolean is_final
-        boolean is_active
-    }
-    
-    meta_task_status {
-        uuid id PK
-        text code
-        text name
-        text descr
-        int sort_id
-        boolean is_initial
-        boolean is_final
-        boolean is_blocked
-    }
-    
-    meta_task_stage {
-        uuid id PK
-        text code
-        text name
-        text descr
-        int sort_id
-        boolean is_default
-        boolean is_done
-        boolean is_blocked
-        int wip_limit
-    }
 
-    %% Core Scope Tables
-    d_scope_location {
+    %% Core Dimension Layer
+    d_scope_org {
         uuid id PK
         text name
         text descr
-        text addr
-        text postal_code
+        int level_id FK
+        uuid parent_id FK
+        text org_code
         text country_code
         text province_code
+        text postal_code
         text time_zone
-        text currency_code
-        text language_primary
-        text language_secondary
-        text regulatory_region
-        jsonb tax_jurisdiction
-        jsonb emergency_contacts
-        int level_id FK
-        uuid parent_id FK
         geometry geom
     }
     
-    d_scope_business {
+    d_scope_biz {
         uuid id PK
         text name
         text descr
-        text code
-        text business_type
-        text cost_center_code
+        int level_id FK
+        uuid parent_id FK
+        text org_code
         numeric budget_allocated
-        numeric fte_allocation
-        uuid manager_emp_id FK
-        text parent_cost_center
-        boolean is_profit_center
-        boolean is_cost_center
-        numeric approval_limit
-        text operational_status
-        date establishment_date
-        int level_id FK
-        uuid parent_id FK
-    }
-    
-    d_scope_worksite {
-        uuid id PK
-        text name
-        text descr
-        text worksite_code
-        text worksite_type
-        text operational_status
-        uuid loc_id FK
-        uuid biz_id FK
-        text security_level
-        jsonb access_hours
-        jsonb emergency_contacts
-        jsonb safety_protocols
-        geometry geom
-        text timezone
+        text cost_center_code
+        text biz_unit_type
+        boolean profit_center
     }
     
     d_scope_hr {
         uuid id PK
         text name
         text descr
-        text position_code
-        text job_family
-        text job_level
-        numeric salary_band_min
-        numeric salary_band_max
-        numeric bonus_target_pct
-        boolean equity_eligible
-        int direct_reports_max
-        numeric approval_limit
-        boolean bilingual_req
         int level_id FK
         uuid parent_id FK
+        text position_code
+        numeric salary_band_min
+        numeric salary_band_max
+        boolean bilingual_req
     }
 
-    %% Identity and Domain Tables
     d_employee {
         uuid id PK
         text name
-        text descr
-        text addr
         text email
-        text password_hash
-        text phone
-        text mobile
-        jsonb emergency_contact
-        text lang
-        date birth_date
-        text emp_code
+        text employee_number
+        text first_name
+        text last_name
         date hire_date
-        text status
-        text employment_type
-        text work_mode
-        text security_clearance
+        text employment_status
+        text employee_type
+        numeric salary_annual
+        numeric hourly_rate
         jsonb skills
         jsonb certifications
-        jsonb education
-        jsonb labels
+        uuid reports_to_employee_id FK
     }
 
-    %% Operational Tables
-    ops_project_head {
+    d_role {
         uuid id PK
-        uuid tenant_id
         text name
         text descr
-        text project_code
-        text project_type
-        text priority_level
-        text slug
-        numeric budget_allocated
-        text budget_currency
-        uuid business_id FK
-        uuid[] locations
-        uuid[] worksites
-        uuid[] project_managers
-        uuid[] project_sponsors
-        uuid[] project_leads
-        jsonb clients
-        uuid[] approvers
-        date planned_start_date
-        date planned_end_date
-        date actual_start_date
-        date actual_end_date
-        jsonb milestones
-        jsonb deliverables
-        numeric estimated_hours
-        numeric actual_hours
-        text project_stage
-        text project_status
-        text security_classification
-        jsonb compliance_requirements
-        jsonb risk_assessment
+        text role_code
+        text role_category
+        boolean is_management_role
+        boolean is_client_facing
+        boolean is_safety_critical
+        jsonb required_certifications
+        jsonb required_skills
     }
-    
-    ops_task_head {
+
+    d_artifact {
         uuid id PK
-        uuid proj_head_id FK
-        uuid parent_task_id FK
+        text name
+        text descr
+        text artifact_code
+        text artifact_type
+        text version
+        text uri
+        text confidentiality_level
+        text approval_status
+        uuid author_employee_id FK
+        uuid owner_employee_id FK
+    }
+
+    d_client {
+        uuid id PK
+        text name
+        text descr
+        int level_id FK
+        uuid client_parent_id FK
+        jsonb contact
+    }
+
+    d_wiki {
+        uuid id PK
         text title
-        text name
-        text descr
-        text task_code
-        text task_type
-        text priority
-        uuid assignee_id FK
-        uuid reporter_id FK
-        uuid[] reviewers
-        uuid[] approvers
-        uuid[] collaborators
-        uuid[] watchers
-        uuid client_group_id FK
-        uuid[] clients
-        uuid worksite_id FK
-        text location_context
-        numeric estimated_hours
-        int story_points
-        date planned_start_date
-        date planned_end_date
-        uuid[] depends_on_tasks
-        uuid[] blocks_tasks
-        uuid[] related_tasks
-    }
-    
-    ops_task_records {
-        uuid id PK
-        uuid head_id FK
-        text name
-        text descr
-        text status_name
-        text stage_name
-        numeric completion_percentage
-        date actual_start_date
-        date actual_end_date
-        numeric actual_hours
-        jsonb work_log
-        numeric time_spent
-        timestamptz start_ts
-        timestamptz end_ts
-        uuid log_owner_id FK
-        text log_type
-        jsonb log_content
-        jsonb attachments
-        uuid form_log_id
-        jsonb acceptance_criteria
-        text acceptance_status
-        text quality_gate_status
+        text slug
+        jsonb content
+        text content_html
+        boolean published
+        uuid owner_id FK
+        text owner_name
     }
 
     %% Relationship Tables
-    rel_hr_biz_loc {
+    rel_hr_biz_org {
         uuid id PK
         uuid hr_id FK
         uuid biz_id FK
-        uuid loc_id FK
+        uuid org_id FK
+        timestamptz from_ts
+        timestamptz to_ts
+        boolean active
+    }
+
+    rel_emp_role {
+        uuid id PK
+        uuid emp_id FK
+        uuid role_id FK
         text assignment_type
-        numeric assignment_pct
-        timestamptz effective_from
-        timestamptz effective_to
+        text authority_level
+        text assignment_context
+        timestamptz from_ts
+        timestamptz to_ts
+        boolean active
+    }
+
+    rel_artifact_biz {
+        uuid id PK
+        uuid artifact_id FK
+        uuid biz_id FK
+        text scope_level
+        text ownership_type
+        text access_level
+        boolean mandatory_compliance
+        boolean primary_owner
+        timestamptz from_ts
+        timestamptz to_ts
+        boolean active
+    }
+
+    rel_artifact_employee {
+        uuid id PK
+        uuid artifact_id FK
+        uuid employee_id FK
+        text relationship_type
+        text access_level
+        timestamptz from_ts
+        timestamptz to_ts
+        boolean active
     }
 
     %% Foreign Key Relationships
-    meta_biz_level ||--o{ d_scope_business : "level_id"
-    meta_loc_level ||--o{ d_scope_location : "level_id"
+    meta_org_level ||--o{ d_scope_org : "level_id"
+    meta_biz_level ||--o{ d_scope_biz : "level_id"
     meta_hr_level ||--o{ d_scope_hr : "level_id"
     
-    d_scope_business ||--o{ d_scope_business : "parent_id"
-    d_scope_location ||--o{ d_scope_location : "parent_id"
+    d_scope_org ||--o{ d_scope_org : "parent_id"
+    d_scope_biz ||--o{ d_scope_biz : "parent_id"
     d_scope_hr ||--o{ d_scope_hr : "parent_id"
+    d_client ||--o{ d_client : "client_parent_id"
     
-    d_scope_location ||--o{ d_scope_worksite : "loc_id"
-    d_scope_business ||--o{ d_scope_worksite : "biz_id"
+    d_employee ||--o{ d_employee : "reports_to_employee_id"
+    d_employee ||--o{ d_artifact : "author_employee_id"
+    d_employee ||--o{ d_artifact : "owner_employee_id"
+    d_employee ||--o{ d_wiki : "owner_id"
     
-    d_scope_hr ||--o{ rel_hr_biz_loc : "hr_id"
-    d_scope_business ||--o{ rel_hr_biz_loc : "biz_id"
-    d_scope_location ||--o{ rel_hr_biz_loc : "loc_id"
+    d_scope_hr ||--o{ rel_hr_biz_org : "hr_id"
+    d_scope_biz ||--o{ rel_hr_biz_org : "biz_id"
+    d_scope_org ||--o{ rel_hr_biz_org : "org_id"
     
-    ops_project_head ||--o{ ops_task_head : "proj_head_id"
-    ops_task_head ||--o{ ops_task_head : "parent_task_id"
-    ops_task_head ||--o{ ops_task_records : "head_id"
+    d_employee ||--o{ rel_emp_role : "emp_id"
+    d_role ||--o{ rel_emp_role : "role_id"
     
-    d_employee ||--o{ ops_task_head : "assignee_id"
-    d_employee ||--o{ ops_task_head : "reporter_id"
-    d_employee ||--o{ ops_task_records : "log_owner_id"
+    d_artifact ||--o{ rel_artifact_biz : "artifact_id"
+    d_scope_biz ||--o{ rel_artifact_biz : "biz_id"
     
-    d_scope_worksite ||--o{ ops_task_head : "worksite_id"
+    d_artifact ||--o{ rel_artifact_employee : "artifact_id"
+    d_employee ||--o{ rel_artifact_employee : "employee_id"
 ```
 
 ---
 
-## 📊 Complete Table Relationships & Data Model
+## 📊 Complete Table Structure & Naming Conventions
 
-### **Category 1: Meta Configuration Tables (7 tables)**
+### **Key Naming Changes**
+- **`location` → `org`**: Geographic organizational hierarchy (`d_scope_org`)
+- **`business` → `biz`**: Business organizational hierarchy (`d_scope_biz`)
+- **Normalized Relations**: All relationship tables use minimal required columns
+- **Clear Semantics**: Table names clearly indicate their purpose and relationships
 
-Meta tables define the reference vocabulary and configuration for the entire system.
+### **Category 1: Extensions & Meta Configuration (00-10)**
 
-#### 📋 **meta_biz_level** - Business Hierarchy Levels
-- **Purpose**: Defines 6-level organizational hierarchy structure
-- **Key Relationships**: Referenced by `d_scope_business.level_id`
-- **Data Coverage**: Corporation → Division → Department → Team → Squad → Sub-team
+| File | Table | Purpose | Records |
+|------|-------|---------|---------|
+| `00___extensions.ddl` | PostgreSQL Extensions | pgcrypto, uuid-ossp, PostGIS | N/A |
+| `01___extensions.ddl` | PostgreSQL Extensions | pg_trgm, btree_gin | N/A |
+| `02___meta_org_level.ddl` | `meta_org_level` | Business organizational levels (Corporation → Sub-team) | 6 levels |
+| `03___meta_biz_level.ddl` | `meta_biz_level` | Business function levels | 6 levels |
+| `04___meta_geo_level.ddl` | `meta_org_level` | Geographic levels (Corp-Region → Address) | 8 levels |
+| `05___meta_hr_level.ddl` | `meta_hr_level` | HR hierarchy levels | 8 levels |
+| `06___meta_client_level.ddl` | `meta_client_level` | Client organization levels | 5 levels |
+| `07___meta_project_status.ddl` | `meta_project_status` | Project lifecycle statuses | 16 statuses |
+| `08___meta_project_stage.ddl` | `meta_project_stage` | PMBOK project stages | 5 stages |
+| `09___meta_task_status.ddl` | `meta_task_status` | Task workflow statuses | 15 statuses |
+| `10___meta_task_stage.ddl` | `meta_task_stage` | Kanban task stages | 14 stages |
 
-#### 📋 **meta_loc_level** - Location Hierarchy Levels  
-- **Purpose**: Defines 8-level Canadian geographic structure
-- **Key Relationships**: Referenced by `d_scope_location.level_id`
-- **Data Coverage**: Corp-Region → Country → Province → Economic Region → Metro → City → District → Address
+### **Category 2: Core Dimensions (20-37)**
 
-#### 📋 **meta_hr_level** - HR Position Levels
-- **Purpose**: Defines 20-level human resources hierarchy
-- **Key Relationships**: Referenced by `d_scope_hr.level_id`
-- **Data Coverage**: CEO → C-Level → SVP/EVP → VP → Directors → Managers → Team Leads → Professionals → Interns
-- **Salary Bands**: CAD $18,000 - $600,000 with comprehensive benefits packages
+#### **Organizational Structure**
+| File | Table | Purpose | Hierarchy |
+|------|-------|---------|-----------|
+| `20___d_scope_biz.ddl` | `d_scope_biz` | Business organizational hierarchy | Corporation → Division → Department → Team → Squad → Sub-team |
+| `21___d_scope_org.ddl` | `d_scope_org` | Geographic organizational hierarchy | Corp-Region → Country → Province → Economic Region → Metro → City → District → Address |
+| `22___d_scope_hr.ddl` | `d_scope_hr` | HR position hierarchy | CEO → C-Level → SVP → VP → AVP → Senior Director → Director → Associate Director |
+| `23___d_scope_worksite.ddl` | `d_scope_worksite` | Physical worksite locations | Headquarters, Branch, Project, Storage, Seasonal |
 
-#### 📋 **meta_project_status** - Project Status Definitions
-- **Purpose**: Defines 16 comprehensive project statuses for lifecycle management
-- **Key Relationships**: Referenced by `ops_project_records.status_id`
-- **Data Coverage**: Draft → Submitted → Planning → Active → At Risk → Critical → Completed → Delivered → Archived
+#### **Master Data Entities**
+| File | Table | Purpose | Records |
+|------|-------|---------|---------|
+| `24___d_employee.ddl` | `d_employee` | Employee master data | 20 employees |
+| `25___d_role.ddl` | `d_role` | Role definitions | 15 roles |
+| `26___d_client.ddl` | `d_client` | Client organizations | Various clients |
+| `27___d_artifact.ddl` | `d_artifact` | Knowledge artifacts | Design templates, SOWs, RFPs |
 
-#### 📋 **meta_project_stage** - Project Stage Framework
-- **Purpose**: PMBOK-aligned 5-stage project management framework  
-- **Key Relationships**: Referenced by `ops_project_records.stage_id`
-- **Data Coverage**: Initiation → Planning → Execution → Monitoring & Controlling → Closure
+#### **Advanced Scope Tables**
+| File | Table | Purpose |
+|------|-------|---------|
+| `34___d_scope_unified.ddl` | `d_scope_unified` | Unified scope registry for RBAC |
+| `35___d_scope_project.ddl` | `d_scope_project` | Project definitions |
+| `36___d_scope_task.ddl` | `d_scope_task` | Task definitions |
+| `37___d_scope_app.ddl` | `d_scope_app` | Application components and routes |
 
-#### 📋 **meta_task_status** - Task Status Definitions
-- **Purpose**: Defines 15 development lifecycle statuses for comprehensive task tracking
-- **Key Relationships**: Referenced by `ops_task_records.status_id` 
-- **Data Coverage**: Open → Assigned → In Progress → Code Review → Testing → Done → Deployed → Verified
+### **Category 3: Relationship Tables (23, 26, 28-33, 55, 90)**
 
-#### 📋 **meta_task_stage** - Kanban Stage Framework
-- **Purpose**: Enhanced 14-stage Kanban workflow with WIP limits and deployment states
-- **Key Relationships**: Referenced by `ops_task_records.stage_id`
-- **Data Coverage**: Icebox → Backlog → Ready → In Progress → Code Review → Testing → UAT → Deployed → Done
+**Normalized Many-to-Many Relationships with Minimal Columns:**
 
-### **Category 2: Scope Hierarchy Tables (5 tables)**
+| File | Table | Relationship | Key Columns |
+|------|-------|--------------|-------------|
+| `23___rel_hr_biz_org.ddl` | `rel_hr_biz_org` | HR ↔ Business ↔ Geographic | `hr_id`, `biz_id`, `org_id`, `from_ts`, `to_ts`, `active` |
+| `26___rel_emp_role.ddl` | `rel_emp_role` | Employee ↔ Role | `emp_id`, `role_id`, `assignment_type`, `authority_level` |
+| `28___rel_artifact_project.ddl` | `rel_artifact_project` | Artifact ↔ Project | `artifact_id`, `project_id`, `relationship_type` |
+| `29___rel_artifact_biz.ddl` | `rel_artifact_biz` | Artifact ↔ Business Unit | `artifact_id`, `biz_id`, `scope_level`, `ownership_type` |
+| `30___rel_artifact_project_stage.ddl` | `rel_artifact_project_stage` | Artifact ↔ Project Stage | `artifact_id`, `project_stage_id`, `stage_context` |
+| `31___rel_artifact_employee.ddl` | `rel_artifact_employee` | Artifact ↔ Employee | `artifact_id`, `employee_id`, `relationship_type` |
+| `32___rel_artifact_role.ddl` | `rel_artifact_role` | Artifact ↔ Role | `artifact_id`, `role_id`, `access_level` |
+| `33___rel_project_client.ddl` | `rel_project_client` | Project ↔ Client | `project_id`, `client_id`, `relationship_type` |
+| `55___rel_task_employee.ddl` | `rel_task_employee` | Task ↔ Employee | `task_id`, `employee_id`, `assignment_type` |
+| `90___rel_employee_scope_unified.ddl` | `rel_employee_scope_unified` | Employee ↔ Unified Scope | `employee_id`, `scope_id`, `permission_level` |
 
-Scope tables define the organizational, geographic, and operational structure for permission-based access control.
+### **Category 4: Operational Tables (50-54)**
 
-#### 🏛️ **d_scope_business** - Organizational Structure
+| File | Table | Purpose |
+|------|-------|---------|
+| `50___ops_formlog_head.ddl` | `ops_formlog_head` | Dynamic form definitions |
+| `51___ops_formlog_records.ddl` | `ops_formlog_records` | Form submission records |
+| `52___ops_task_records.ddl` | `ops_task_records` | Task activity logs |
+| `53___ops_task_head.ddl` | `ops_task_head` | Task master records |
+| `54___d_wiki.ddl` | `d_wiki` | Wiki knowledge base |
+
+---
+
+## 🏢 Real-World Business Implementation
+
+### 🎯 Huron Home Services - Complete Business Model
+- **📍 Founded**: 2020 in Mississauga, Ontario with operations across GTA
+- **🛠️ Services Portfolio**: 
+  - **Landscaping**: Residential & commercial design, installation, maintenance
+  - **Snow Removal**: Commercial properties, municipal contracts, emergency response  
+  - **HVAC Services**: Installation, maintenance, emergency repair
+  - **Plumbing Services**: Installation, repair, water system management
+  - **Solar Installation**: Residential and commercial solar panel systems
+- **👥 Workforce**: **20 employees** across all levels and employment types
+- **🏢 Operations**: Multi-divisional structure with seasonal scaling
+
+### 📊 Production Data Examples
+
+#### **Executive Leadership**
+- **James Miller** (CEO) - `james.miller@huronhome.ca`
+  - Primary Role: CEO with strategic oversight
+  - Secondary Roles: Project Manager for strategic initiatives, System Administrator for setup
+  - Knowledge Artifacts: Company vision, project management best practices
+  - Wiki Content: Strategic documentation and leadership materials
+
+#### **Organizational Structure**
+```
+Huron Home Services (Corporation)
+├── Business Operations Division
+│   ├── Landscaping Department
+│   │   ├── Residential Landscaping Team
+│   │   │   ├── Garden Design Squad
+│   │   │   │   ├── Native Plant Specialists
+│   │   │   │   └── Water Feature Specialists
+│   │   │   └── Installation Squad
+│   │   └── Commercial Landscaping Team
+│   ├── Snow Removal Department
+│   ├── HVAC Services Department
+│   └── Plumbing Services Department
+└── Corporate Services Division
+```
+
+#### **Geographic Coverage**
+```
+North America Central (Corp-Region)
+└── Canada (Country)
+    └── Ontario (Province)
+        ├── Greater Toronto Area (Economic Region)
+        │   ├── Toronto CMA (Metropolitan Area)
+        │   │   ├── Mississauga (City) - HQ Location
+        │   │   ├── Toronto (City)
+        │   │   └── Oakville (City)
+        │   └── Hamilton CMA
+        └── Hamilton-Niagara Peninsula (Economic Region)
+```
+
+#### **Sample Artifacts**
+- **DESIGN-LAND-RES-001**: Residential Premium Landscape Design Template
+- **DESIGN-LAND-COM-001**: Commercial Plaza Design Standards
+- **POLICY-SAFETY-001**: Corporate Safety Policy
+- **MANUAL-QA-001**: Quality Assurance Manual
+
+---
+
+## 🔗 Key Design Patterns
+
+### **Multi-Dimensional Hierarchies**
+- **Business Organizational**: 6-level structure from Corporation to Sub-team
+- **Geographic Organizational**: 8-level structure from Corp-Region to Address
+- **HR Hierarchy**: 8-level structure from CEO to Associate Director
+- **Self-Referencing**: All hierarchies support unlimited depth via parent_id
+
+### **Normalized Relationship Tables**
+All relationship tables follow consistent patterns:
 ```sql
-CREATE TABLE app.d_scope_business (
+CREATE TABLE app.rel_[entity1]_[entity2] (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  descr text,
-  level_id smallint REFERENCES app.meta_biz_level(id),
-  parent_id uuid REFERENCES app.d_scope_business(id),
-  budget_allocated numeric(15,2),
-  cost_center text,
-  business_unit_code text UNIQUE,
-  -- Standard audit fields
-  tags jsonb DEFAULT '[]'::jsonb,
-  attr jsonb DEFAULT '{}'::jsonb,
-  from_ts timestamptz DEFAULT now(),
-  to_ts timestamptz,
-  active boolean DEFAULT true,
-  created timestamptz DEFAULT now(),
-  updated timestamptz DEFAULT now()
-);
-```
-
-**Relationships:**
-- **Parent Reference**: `parent_id → d_scope_business.id` (self-referencing hierarchy)
-- **Level Definition**: `level_id → meta_biz_level.id` (organizational level)
-- **Project Assignment**: `ops_project_head.business_scope_id ← id` (project scoping)
-- **Worksite Assignment**: `d_scope_worksite.biz_id ← id` (worksite business ownership)
-- **Permission Control**: `rel_employee_scope_unified.scope_table_reference_id ← id` (access permissions)
-
-**Data Examples:**
-- **Level 1 (Corporation)**: Huron Home Services Inc.
-- **Level 2 (Division)**: Operations Division, Technology Division  
-- **Level 3 (Department)**: Engineering Department, Quality Assurance Department
-- **Level 4 (Team)**: Backend Development Team, Frontend Development Team
-- **Level 5 (Squad)**: API Squad, Database Squad
-- **Level 6 (Sub-team)**: Authentication Sub-team, Reporting Sub-team
-
-### **Category 3: Application Scope Tables (1 table)**
-
-Application scope tables define UI components, API endpoints, and frontend routes for granular permission control.
-
-#### 🔧 **d_scope_app** - Application Component/Route/API Registry
-```sql
-CREATE TABLE app.d_scope_app (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  scope_type text NOT NULL,  -- 'page', 'api-path', 'component'
-  scope_name text NOT NULL,  -- Actual paths/routes/component names
-  descr text,
-  parent_id uuid REFERENCES app.d_scope_app(id) ON DELETE SET NULL,
-  is_protected boolean NOT NULL DEFAULT false,
-  props_schema jsonb NOT NULL DEFAULT '{}'::jsonb,
-  dependencies jsonb NOT NULL DEFAULT '[]'::jsonb,
-  -- Standard audit fields
-  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
-  attr jsonb NOT NULL DEFAULT '{}'::jsonb,
-  from_ts timestamptz NOT NULL DEFAULT now(),
-  to_ts timestamptz,
-  active boolean NOT NULL DEFAULT true,
-  created timestamptz NOT NULL DEFAULT now(),
-  updated timestamptz NOT NULL DEFAULT now()
-);
-```
-
-**Key Features:**
-- **scope_name contains actual identifiers**: Unlike other scope tables that use descriptive names, d_scope_app.scope_name contains the actual API paths, routes, and component names
-- **Three scope types**: 'page' (frontend routes), 'api-path' (backend endpoints), 'component' (UI elements)
-- **Hierarchical structure**: Parent-child relationships for nested components/routes
-- **Permission integration**: Direct integration with unified permission system via scope_name
-
-**Data Examples:**
-- **Pages**: scope_name="/dashboard", scope_name="/employees", scope_name="/projects/:id"
-- **API Paths**: scope_name="/api/v1/auth/login", scope_name="/api/v1/task", scope_name="/api/v1/emp/:id"
-- **Components**: scope_name="datatable:DataTable", scope_name="form:Button", scope_name="widget:TaskBoard"
-
-### **Category 4: Domain Tables (1 table) - Identity & Authentication**
-
-**Purpose**: Employee identity management and authentication backbone
-
-- **d_employee**: Complete employee repository with JWT authentication
-  - Real data: 15 employees across all employment types (full-time, part-time, contractor, co-op, intern, contingent)
-  - Features: Email/password authentication, emergency contacts, skills/certifications, education, work modes
-
-### **Category 5: Operational Tables (3 tables) - Project & Task Management**
-
-**Purpose**: Real-world project execution with comprehensive tracking
-
-- **ops_project_head**: Project definitions with multi-dimensional scoping
-  - Real data: 7 seasonal projects (Fall Landscaping, Winter Snow Removal, Water Heater Replacement, Solar Expansion)
-  - Features: Budget tracking, stakeholder management, compliance requirements, risk assessment
-
-- **ops_task_head**: Task definitions with assignment and collaboration
-  - Real data: 20+ tasks across seasonal operations, equipment management, staff training, client coordination
-  - Features: Multi-person assignments (reviewers, approvers, collaborators), dependencies, story points
-
-- **ops_task_records**: Task execution tracking with comprehensive logging
-  - Features: Status/stage tracking, time logging, work log entries, quality gates, acceptance criteria
-
-### **Category 6: Relationship Tables (1 table) - Multi-Dimensional Assignments**
-
-**Purpose**: Matrix organization support across business, location, and HR dimensions
-
-- **rel_hr_biz_loc**: HR position assignments across business units and locations
-  - Features: Assignment percentages, temporal validity, assignment types (primary, secondary, temporary)
-
----
-
-## 🔗 Key Relationships & Design Patterns
-
-### Hierarchical Self-Referencing Patterns
-- **Business**: Corporation → Division → Department (3 levels)
-- **Location**: Corp-Region → Country → Province → Region → City → District → Address (8 levels)  
-- **HR**: CEO → C-Level → VP → Director → Manager → Team Lead → Engineer (20 levels)
-- **Tasks**: Project → Task → Subtask → Sub-subtask (unlimited depth)
-
-### Cross-Dimensional Integration Patterns
-- **Worksite Context**: Physical locations linked to both geographic locations and business units
-- **Project Scoping**: Multi-dimensional scope assignments (business, location, worksite arrays)
-- **Task Assignment**: Employee assignments with worksite context and collaboration arrays
-- **Matrix Organizations**: HR positions spanning multiple business units and locations
-
-### Temporal Data Patterns
-- **Head/Records Pattern**: Immutable definitions (head) + mutable state tracking (records)
-- **SCD Type 2**: All scope tables support temporal validity with from_ts/to_ts
-- **Audit Trails**: Full lifecycle tracking with created/updated timestamps
-
----
-
-## 🚀 Real-World Business Context
-
-### Huron Home Services Company Profile
-- **Founded**: 2018 in Mississauga, Ontario
-- **Services**: Landscaping, Plumbing, HVAC, Electrical, Snow Removal, Solar Installation
-- **Coverage**: Greater Toronto Area and London, Ontario
-- **Team**: 125+ employees across all employment types
-- **Operations**: 3 offices, seasonal scaling, 24/7 emergency response
-
-### Sample Data Demonstrates
-- **Seasonal Operations**: Fall landscaping campaigns, winter snow removal with 24/7 dispatch
-- **Equipment Management**: Fleet preparation, maintenance schedules, safety protocols
-- **Staff Scaling**: Full-time core team + seasonal contractors + student co-ops
-- **Regulatory Compliance**: WSIB safety, TSSA gas licensing, ESA electrical, municipal permits
-- **Geographic Distribution**: Headquarters (Mississauga), Branch (Toronto), Regional (London)
-- **Service Delivery**: Emergency response (2-hour guarantee), scheduled maintenance, project installations
-
----
-
-## 🏗️ DDL File Structure
-
-### Standardized 3-Section Format
-
-Each DDL file follows this consistent structure:
-
-```sql
--- ============================================================================
--- SEMANTICS:
--- ============================================================================
--- Business context explanation with key features and integration points
-
--- ============================================================================
--- DDL:  
--- ============================================================================
--- Clean table definitions with standard field ordering
-
--- ============================================================================
--- DATA CURATION:
--- ============================================================================
--- Realistic sample data demonstrating operational scenarios
-```
-
-### Standard Field Ordering
-
-All dimension tables follow this consistent pattern:
-
-```sql
-CREATE TABLE app.d_dimension_table (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  -- Standard fields (audit, metadata, SCD type 2) - ALWAYS FIRST
-  name text NOT NULL,
-  "descr" text,
-  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
-  attr jsonb NOT NULL DEFAULT '{}'::jsonb,
+  [entity1]_id uuid NOT NULL REFERENCES app.d_[entity1](id) ON DELETE CASCADE,
+  [entity2]_id uuid NOT NULL REFERENCES app.d_[entity2](id) ON DELETE CASCADE,
+  -- Temporal fields
   from_ts timestamptz NOT NULL DEFAULT now(),
   to_ts timestamptz,
   active boolean NOT NULL DEFAULT true,
   created timestamptz NOT NULL DEFAULT now(),
   updated timestamptz NOT NULL DEFAULT now(),
-  -- Table-specific fields follow...
-)
+  -- Relationship-specific context fields (minimal)
+  [context_field] text
+);
 ```
 
-### Loading Order (Dependency-Optimized)
-
-Files must be loaded in strict dependency order:
-
-1. **00_extensions.ddl** - PostgreSQL extensions and schema setup
-2. **01_meta.ddl** - Meta configuration tables (7 tables)
-3. **02_location.ddl** - Geographic hierarchy (depends on meta_loc_level)
-4. **04_business.ddl** - Organizational structure (depends on meta_biz_level)
-5. **03_worksite.ddl** - Physical facilities (depends on location and business)
-6. **05_hr.ddl** - HR hierarchy and matrix (depends on meta_hr_level, business, location)
-7. **06_employee.ddl** - Employee identity and authentication
-8. **06_role.ddl** - Role definitions and assignments
-9. **07_client.ddl** - Client management (self-referencing)
-10. **09_project_task.ddl** - Project and task operations (depends on employee, worksite)
-11. **10_forms.ddl** - Dynamic forms system
-12. **11_app_tables.ddl** - Application component scopes (d_scope_app with scope_name field)
-13. **13_permission_tables.ddl** - Unified scope system and RBAC relationship tables
+### **Temporal Data Patterns**
+- **SCD Type 2**: All dimension tables support temporal validity with `from_ts`/`to_ts`
+- **Audit Trails**: Complete lifecycle tracking with `created`/`updated` timestamps
+- **Active Records**: `active` boolean for soft deletes and status management
 
 ---
 
-## 🔐 Security & Authentication
+## 🏗️ DDL Loading Order (Dependency-Optimized)
 
-### Employee Authentication System
-- **JWT Tokens**: Secure token-based authentication with bcrypt password hashing
-- **Email-Based Login**: Standard email/password authentication pattern
-- **Real Credentials**: 15 employees with realistic email addresses (@huronhome.ca)
+Files must be loaded in strict dependency order to avoid foreign key constraint violations:
 
-### Multi-Dimensional Access Control
-- **Scope-Based RBAC**: Hierarchical permissions across location, business, HR, and worksite scopes
-- **Permission Inheritance**: Parent scope permissions cascade to children
-- **Cross-Scope Validation**: Operations validate access across multiple scope dimensions
+### **Phase 1: Foundation (00-10)**
+Extensions and meta configuration tables that define system structure
 
-### Unified Scope Name System
-The current permission system uses a **scope_name** field that contains actual identifiers:
+### **Phase 2: Core Dimensions (20-27)**
+Master data entities and hierarchical structures:
+1. `20___d_scope_biz.ddl` - Business organizational hierarchy
+2. `21___d_scope_org.ddl` - Geographic organizational hierarchy  
+3. `22___d_scope_hr.ddl` - HR position hierarchy
+4. `23___d_scope_worksite.ddl` - Physical worksite locations
+5. `24___d_employee.ddl` - Employee master data
+6. `25___d_role.ddl` - Role definitions
+7. `26___d_client.ddl` - Client organizations
+8. `27___d_artifact.ddl` - Knowledge artifacts
 
-- **Business/Location/HR/Worksite Scopes**: `scope_name` contains descriptive names from the `name` field
-  - Examples: "Huron Home Services", "Operations Division", "Ontario", "Mississauga"
-  
-- **Application Scopes**: `scope_name` contains actual API paths, routes, and component names from d_scope_app
-  - **Pages**: "/dashboard", "/projects", "/employees"
-  - **API Endpoints**: "/api/v1/auth/login", "/api/v1/task", "/api/v1/emp"
-  - **Components**: "datatable:DataTable", "widget:TaskBoard", "form:Button"
-  
-- **Project/Task Scopes**: `scope_name` contains project/task names
-  - Examples: "ERP Implementation Phase 1", "Solar Panel Installation - Residential Q1"
+### **Phase 3: Artifact Relations (28-33)**
+Artifact relationship tables that depend on core dimensions
 
-**Key Changes from Previous System:**
-- ✅ **scope_name** field contains actual paths/routes/components (for app scopes) or descriptive names (for other scopes)
-- ❌ **scope_path** field has been completely removed
-- ✅ Direct reference to scope tables via `scope_table_reference_id` and `scope_reference_table`
-- ✅ Unified `rel_employee_scope_unified` table eliminates intermediate lookups
+### **Phase 4: Advanced Scopes (34-37)**
+Advanced scope tables for unified permission management
 
-### Canadian Compliance Integration
-- **Privacy**: PIPEDA-compliant personal information handling
-- **Provincial Jurisdiction**: Ontario regulatory framework integration
-- **Municipal Compliance**: City-specific permit and regulation support
-- **Professional Licensing**: TSSA, ESA, and trade certification tracking
+### **Phase 5: Operational Data (50-54)**
+Transaction and activity tables
+
+### **Phase 6: Final Relations (55, 90)**
+Relationship tables that depend on operational data
 
 ---
 
-## 📈 Performance & Architecture Considerations
+## 🔐 Security & Access Control
 
-### Database Optimization
-- **UUID Primary Keys**: Distributed system friendly with gen_random_uuid()
-- **PostGIS Integration**: Spatial queries for location-based operations
+### **Role-Based Access Control**
+- **15 Role Definitions**: From CEO to operational roles
+- **Normalized Assignments**: `rel_emp_role` table with assignment types and authority levels
+- **Temporal Role Tracking**: Track role changes over time with effective dates
+
+### **Knowledge Management Security**
+- **Artifact Ownership**: Clear ownership chains through employee references
+- **Confidentiality Levels**: Internal, confidential, restricted classifications
+- **Access Control**: Business unit and role-based access restrictions
+
+### **Canadian Compliance**
+- **PIPEDA Compliance**: Personal information protection patterns
+- **Professional Licensing**: Tracking of TSSA, ESA, and trade certifications
+- **Municipal Compliance**: Support for regional regulations and permits
+
+---
+
+## 📈 Schema Features
+
+### **Database Optimization**
+- **UUID Primary Keys**: Distributed-system friendly identifiers
 - **JSONB Storage**: Flexible metadata with query performance
-- **Temporal Queries**: Optimized for time-based data access patterns
+- **PostGIS Integration**: Spatial data support for geographic operations
+- **Audit Patterns**: Comprehensive tracking across all entities
 
-### Scalability Design
-- **Hierarchical Scoping**: Supports growth from startup to enterprise
-- **Matrix Organizations**: Complex reporting relationships without structural changes  
-- **Multi-Tenant Ready**: Tenant isolation patterns embedded
-- **Seasonal Scaling**: Handles temporary staff and equipment allocation
+### **Business Intelligence Ready**
+- **Financial Integration**: Cost centers, budgets, approval hierarchies
+- **Operational Metrics**: Project tracking, resource utilization
+- **Compliance Reporting**: Certification and regulatory tracking
+- **Knowledge Management**: Document workflow and version control
 
-### Real-World Integration Points
-- **Financial Systems**: Cost center codes and budget tracking
-- **Dispatch Systems**: GPS tracking and emergency response
-- **Regulatory Systems**: License tracking and compliance reporting
-- **Customer Systems**: Service delivery and quality tracking
-
----
-
-## 🎯 Schema Category Map (for API/React Middleware)
-
-The JSON below defines column categories that middleware can use to automate API contracts and UI behavior:
-
-```json
-{
-  "$defaults": {
-    "api:restrict": ["from_ts", "to_ts", "active", "created", "updated"],
-    "flexible": ["tags", "attr"],
-    "ui:invisible": ["id", "*_id"],
-    "api:pii_masking": ["addr", "birth_date", "ssn", "sin", "phone", "mobile", "emergency_contact"],
-    "ui:search": ["name", "descr"],
-    "ui:sort": ["name"]
-  },
-  "tables": {
-    "app.meta_biz_level": {
-      "ui:sort": ["sort_order", "name"]
-    },
-    "app.meta_loc_level": {
-      "ui:sort": ["sort_order", "name"]
-    },
-    "app.meta_hr_level": {
-      "ui:sort": ["sort_order", "name"],
-      "api:pii_masking": ["salary_band_min", "salary_band_max"]
-    },
-    "app.meta_project_status": {
-      "ui:search": ["code", "name", "descr"],
-      "ui:sort": ["sort_id", "name"],
-      "ui:color_field": "color_hex"
-    },
-    "app.meta_task_status": {
-      "ui:search": ["code", "name", "descr"],
-      "ui:sort": ["sort_id", "name"],
-      "ui:color_field": "color_hex"
-    },
-    "app.meta_task_stage": {
-      "ui:search": ["code", "name", "descr"],
-      "ui:sort": ["sort_id", "name"],
-      "ui:color_field": "color_hex",
-      "ui:wip_limit": "wip_limit"
-    },
-    "app.d_scope_location": {
-      "api:pii_masking": ["addr", "postal_code", "emergency_contacts"],
-      "ui:search": ["name", "descr", "postal_code"],
-      "ui:geographic": "geom",
-      "ui:timezone": "time_zone",
-      "ui:currency": "currency_code"
-    },
-    "app.d_scope_business": {
-      "ui:search": ["name", "descr", "code"],
-      "api:financial_masking": ["budget_allocated", "approval_limit"],
-      "ui:hierarchy": "parent_id",
-      "ui:cost_center": "cost_center_code"
-    },
-    "app.d_scope_worksite": {
-      "ui:search": ["name", "descr", "worksite_code"],
-      "ui:geographic": "geom",
-      "api:safety_info": "safety_protocols",
-      "ui:operational_hours": "access_hours"
-    },
-    "app.d_scope_hr": {
-      "ui:search": ["name", "descr", "position_code"],
-      "api:pii_masking": ["salary_band_min", "salary_band_max", "bonus_target_pct", "approval_limit"],
-      "ui:hierarchy": "parent_id",
-      "ui:job_info": ["job_family", "job_level"]
-    },
-    "app.d_employee": {
-      "api:pii_masking": ["addr", "birth_date", "phone", "mobile", "emergency_contact", "email"],
-      "ui:search": ["name", "descr", "emp_code"],
-      "ui:employment": ["employment_type", "work_mode", "status"],
-      "ui:skills": ["skills", "certifications", "education"],
-      "api:auth_field": "password_hash"
-    },
-    "app.ops_project_head": {
-      "ui:search": ["name", "descr", "project_code"],
-      "api:financial_masking": ["budget_allocated"],
-      "ui:timeline": ["planned_start_date", "planned_end_date", "actual_start_date", "actual_end_date"],
-      "ui:stakeholders": ["project_managers", "project_sponsors", "approvers"],
-      "ui:progress": ["estimated_hours", "actual_hours"]
-    },
-    "app.ops_task_head": {
-      "ui:search": ["title", "name", "descr", "task_code"],
-      "ui:assignment": ["assignee_id", "reporter_id", "reviewers", "approvers", "collaborators"],
-      "ui:planning": ["estimated_hours", "story_points", "planned_start_date", "planned_end_date"],
-      "ui:dependencies": ["depends_on_tasks", "blocks_tasks", "related_tasks"]
-    },
-    "app.ops_task_records": {
-      "ui:search": ["name", "descr", "status_name", "stage_name"],
-      "ui:progress": ["completion_percentage", "actual_hours", "time_spent"],
-      "ui:timeline": ["actual_start_date", "actual_end_date", "start_ts", "end_ts"],
-      "ui:quality": ["acceptance_criteria", "acceptance_status", "quality_gate_status"],
-      "ui:logs": ["work_log", "log_content", "attachments"]
-    },
-    "app.rel_hr_biz_loc": {
-      "ui:search": ["assignment_type"],
-      "ui:assignment": ["assignment_pct", "effective_from", "effective_to"]
-    }
-  }
-}
-```
-
-### Column Category Definitions
-
-- **api:restrict**: Hide or protect in write paths; expose via audit endpoints
-- **api:pii_masking**: Mask values unless requester owns record or has clearance
-- **api:financial_masking**: Restrict financial data based on authorization level
-- **flexible**: Treat as opaque JSON for storage; render as key-value in UI
-- **ui:invisible**: Hide by default; use for joins and references
-- **ui:search/ui:sort**: Default fields for list views and global search
-- **ui:color_field**: Field containing color codes for UI styling
-- **ui:geographic**: PostGIS geometry fields for mapping
-- **ui:hierarchy**: Self-referencing parent field for tree views
-- **ui:timeline**: Date/timestamp fields for Gantt charts and timelines
-- **ui:progress**: Numeric fields for progress bars and completion tracking
+### **Enterprise Scalability**
+- **Matrix Organizations**: Complex reporting relationships
+- **Seasonal Operations**: Support for temporary staff and equipment
+- **Multi-Jurisdictional**: Canadian federal, provincial, municipal compliance
+- **API Integration**: Clean data contracts for modern application architectures
 
 ---
 
-## 🎯 Key Design Features
-
-### Business Intelligence Ready
-- **Financial Integration**: Cost centers, budgets, and approval hierarchies
-- **Performance Metrics**: Time tracking, completion percentages, and quality gates
-- **Compliance Reporting**: Regulatory requirements and certification tracking
-- **Operational Dashboards**: Real-time project status and resource utilization
-
-### Canadian Business Integration
-- **Geographic Hierarchy**: Full Canadian administrative structure
-- **Tax Jurisdiction**: Federal, provincial, and municipal tax integration
-- **Regulatory Compliance**: Industry-specific licensing and certification
-- **Bilingual Support**: English/French language and regulatory requirements
-
-### Enterprise Scalability
-- **Multi-Dimensional Scoping**: Business, geographic, HR, and operational dimensions
-- **Temporal Data Management**: Full audit trails and historical analysis
-- **Matrix Organizations**: Complex reporting and assignment relationships
-- **Flexible Metadata**: JSONB fields for evolving business requirements
-
-This database schema represents a production-ready foundation for Canadian home services operations, demonstrating enterprise-level data architecture with real-world business context and comprehensive operational support.
+This database schema represents a production-ready foundation for Canadian home services operations, demonstrating enterprise-level data architecture with comprehensive business context, normalized relationships, and real operational data centered around James Miller as the primary user and CEO of Huron Home Services.

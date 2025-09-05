@@ -17,6 +17,7 @@ import { FormEditPage } from './pages/FormEditPage';
 import { WikiPage } from './pages/WikiPage';
 import { WikiEditorPage } from './pages/WikiEditorPage';
 import { WikiViewPage } from './pages/WikiViewPage';
+import { ArtifactsPage } from './pages/ArtifactsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SecurityPage } from './pages/SecurityPage';
@@ -213,6 +214,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <FormEditPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/artifacts"
+        element={
+          <ProtectedRoute>
+            <ArtifactsPage />
           </ProtectedRoute>
         }
       />
