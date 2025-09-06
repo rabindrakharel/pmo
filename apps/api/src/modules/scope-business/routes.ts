@@ -30,7 +30,6 @@ const UpdateScopeBusinessSchema = Type.Partial(CreateScopeBusinessSchema);
 export async function scopeBusinessRoutes(fastify: FastifyInstance) {
   // List business units with filtering
   fastify.get('/api/v1/scope/business', {
-    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         levelId: Type.Optional(Type.Number()),
@@ -52,11 +51,6 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { levelId, parentId, active, limit = 50, offset = 0 } = request.query as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
 
     try {
@@ -121,7 +115,6 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
 
   // Get single business unit
   fastify.get('/api/v1/scope/business/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -135,11 +128,6 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     // Permission check removed - allow all authenticated users
 
@@ -174,7 +162,6 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
 
   // Create business unit
   fastify.post('/api/v1/scope/business', {
-    preHandler: [fastify.authenticate],
     schema: {
       body: CreateScopeBusinessSchema,
       response: {
@@ -186,11 +173,6 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
 
     // Permission check removed - allow all authenticated users
@@ -228,7 +210,6 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
 
   // Update business unit
   fastify.put('/api/v1/scope/business/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -244,11 +225,6 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     // Permission check removed - allow all authenticated users
 
@@ -322,7 +298,6 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
 
   // Delete business unit (soft delete)
   fastify.delete('/api/v1/scope/business/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -336,11 +311,6 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     // Permission check removed - allow all authenticated users
 
@@ -379,7 +349,6 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
 
   // Get business hierarchy
   fastify.get('/api/v1/scope/business/:id/hierarchy', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -397,11 +366,6 @@ export async function scopeBusinessRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     // Permission check removed - allow all authenticated users
 

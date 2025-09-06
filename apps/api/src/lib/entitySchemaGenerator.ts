@@ -1,5 +1,6 @@
-import { Type, TSchema } from '@sinclair/typebox';
-import { ENTITY_CONFIG, FieldConfig } from '../../../../shared/entityConfig.js';
+import type { TSchema } from '@sinclair/typebox';
+import { Type } from '@sinclair/typebox';
+import { ENTITY_CONFIG, type FieldConfig } from './entityConfig.js';
 
 /**
  * Entity Schema Generator

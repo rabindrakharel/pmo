@@ -98,7 +98,6 @@ const UpdateProjectSchema = Type.Partial(CreateProjectSchema);
 export async function projectRoutes(fastify: FastifyInstance) {
   // List projects with filtering
   fastify.get('/api/v1/project', {
-    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         active: Type.Optional(Type.Boolean()),
@@ -127,11 +126,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
       active, search, project_type, priority_level, project_stage, 
       project_status, business_id, limit = 50, offset = 0 
     } = request.query as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
 
     try {
@@ -240,7 +234,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // Get project tasks - NEW ENDPOINT for navigation
   fastify.get('/api/v1/project/:id/tasks', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })
@@ -324,7 +317,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // Get single project
   fastify.get('/api/v1/project/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -338,11 +330,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
     // Check if employee has permission to view this specific project
     const hasViewAccess = await hasPermissionOnScopeId(userId, 'project', id, 'view');
@@ -385,7 +372,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // Create project
   fastify.post('/api/v1/project', {
-    preHandler: [fastify.authenticate],
     schema: {
       body: CreateProjectSchema,
       response: {
@@ -397,11 +383,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
 
     try {
@@ -506,7 +487,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // Update project
   fastify.put('/api/v1/project/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -522,11 +502,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
     // Check if employee has permission to modify this specific project
     const hasModifyAccess = await hasPermissionOnScopeId(userId, 'project', id, 'modify');
@@ -611,7 +586,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // Delete project (soft delete)
   fastify.delete('/api/v1/project/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -625,11 +599,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
     // Check if employee has permission to delete this specific project
     const hasDeleteAccess = await hasPermissionOnScopeId(userId, 'project', id, 'delete');

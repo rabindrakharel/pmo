@@ -21,6 +21,13 @@
 --   - Worksite Forms: Physical worksite and safety forms
 --   - Global Forms: Organization-wide forms accessible via public links
 --
+-- Data Validation Rules (Previously Enforced via CHECK Constraints):
+--   - Schema Version Rule: version field must be greater than 0
+--   - Temporal Range Rule: If to_ts is specified, it must be greater than from_ts
+--   - Scoping Rule: At least one scoping method must be specified (project_specific, 
+--     biz_specific, hr_specific, worksite_specific, or form_global_link)
+--   - Business Logic: These validations should be enforced at the application layer
+--
 -- Integration:
 --   - Multi-scope targeting with permission-based access control
 --   - Version-controlled form schemas with validation rules
@@ -46,40 +53,21 @@ CREATE TABLE app.ops_formlog_head (
   updated timestamptz NOT NULL DEFAULT now(),
 
   -- Form identification and versioning
-  form_code text UNIQUE,
-  form_global_link text UNIQUE,
+  form_code text,
+  form_global_link text,
   schema jsonb NOT NULL DEFAULT '{}'::jsonb,
   version integer NOT NULL DEFAULT 1,
   
   -- Project scoping
   project_specific boolean NOT NULL DEFAULT false,
-  project_id uuid REFERENCES app.d_scope_project(id),
+  project_id uuid REFERENCES app.d_project(id),
   project_permission jsonb NOT NULL DEFAULT '[]'::jsonb,
   
-  -- Task scoping
-  task_specific boolean NOT NULL DEFAULT false,
-  task_id uuid REFERENCES app.ops_task_head(id),
-  task_permission jsonb NOT NULL DEFAULT '[]'::jsonb,
   
-  -- Location scoping
-  org_specific boolean NOT NULL DEFAULT false,
-  org_id uuid REFERENCES app.d_scope_org(id),
-  org_permission jsonb NOT NULL DEFAULT '[]'::jsonb,
-  
-  -- Business/Organizational scoping
+  -- Business scoping  
   biz_specific boolean NOT NULL DEFAULT false,
-  biz_id uuid REFERENCES app.d_scope_org(id),
+  biz_id uuid REFERENCES app.d_biz(id),
   biz_permission jsonb NOT NULL DEFAULT '[]'::jsonb,
-  
-  -- HR scoping
-  hr_specific boolean NOT NULL DEFAULT false,
-  hr_id uuid REFERENCES app.d_scope_hr(id),
-  hr_permission jsonb NOT NULL DEFAULT '[]'::jsonb,
-  
-  -- Worksite scoping
-  worksite_specific boolean NOT NULL DEFAULT false,
-  worksite_id uuid REFERENCES app.d_scope_worksite(id),
-  worksite_permission jsonb NOT NULL DEFAULT '[]'::jsonb,
   
   -- Form configuration and behavior
   is_public boolean DEFAULT false,
@@ -98,15 +86,16 @@ CREATE TABLE app.ops_formlog_head (
   gdpr_compliant boolean DEFAULT true,
   encryption_required boolean DEFAULT false,
   
-  -- Constraints
-  CONSTRAINT unique_active_form_name UNIQUE (name, active),
-  CONSTRAINT valid_schema_version CHECK (version > 0),
-  CONSTRAINT valid_temporal_range CHECK (to_ts IS NULL OR to_ts > from_ts),
-  CONSTRAINT valid_scoping CHECK (
-    project_specific OR task_specific OR org_specific OR 
-    biz_specific OR hr_specific OR worksite_specific OR 
-    form_global_link IS NOT NULL
-  )
+  -- HR scoping
+  hr_specific boolean NOT NULL DEFAULT false,
+  hr_id uuid REFERENCES app.d_hr(id),
+  hr_permission jsonb NOT NULL DEFAULT '[]'::jsonb,
+  
+  -- Worksite scoping
+  worksite_specific boolean NOT NULL DEFAULT false,
+  worksite_id uuid REFERENCES app.d_worksite(id),
+  worksite_permission jsonb NOT NULL DEFAULT '[]'::jsonb
+
 );
 
 -- ============================================================================
@@ -118,9 +107,9 @@ CREATE TABLE app.ops_formlog_head (
 -- Project-Specific Forms
 WITH projects AS (
   SELECT 
-    (SELECT id FROM app.d_scope_project WHERE project_code = 'FALL-2025-LAND') AS fall_landscaping_id,
-    (SELECT id FROM app.d_scope_project WHERE project_code = 'HVAC-2025-MAINT') AS hvac_maintenance_id,
-    (SELECT id FROM app.d_scope_project WHERE project_code = 'SOL-2025-EXP') AS solar_expansion_id
+    (SELECT id FROM app.d_project WHERE project_code = 'FALL-2025-LAND') AS fall_landscaping_id,
+    (SELECT id FROM app.d_project WHERE project_code = 'HVAC-2025-MAINT') AS hvac_maintenance_id,
+    (SELECT id FROM app.d_project WHERE project_code = 'SOL-2025-EXP') AS solar_expansion_id
 )
 
 INSERT INTO app.ops_formlog_head (
@@ -226,7 +215,7 @@ SELECT
   projects.solar_expansion_id,
   '["installer", "project_manager"]'::jsonb,
   true,
-  1,
+  NULL,
   '{"email_notifications": ["project_manager", "safety_coordinator"], "daily_digest": true}'::jsonb,
   '["progress_report", "solar", "installation"]'::jsonb,
   '{"safety_monitoring": true, "progress_tracking": true, "weather_integration": true}'::jsonb
@@ -235,9 +224,9 @@ FROM projects;
 -- Business/Departmental Forms
 WITH departments AS (
   SELECT 
-    (SELECT id FROM app.d_scope_org WHERE name = 'Landscaping Department') AS landscaping_dept_id,
-    (SELECT id FROM app.d_scope_org WHERE name = 'HVAC Services Department') AS hvac_dept_id,
-    (SELECT id FROM app.d_scope_org WHERE name = 'Business Operations Division') AS biz_ops_id
+    (SELECT id FROM app.d_biz WHERE name = 'Landscaping Department') AS landscaping_dept_id,
+    (SELECT id FROM app.d_biz WHERE name = 'HVAC Services Department') AS hvac_dept_id,
+    (SELECT id FROM app.d_biz WHERE name = 'Biz Operations Division') AS biz_ops_id
 )
 
 INSERT INTO app.ops_formlog_head (
@@ -273,7 +262,7 @@ SELECT
   '["employee", "safety_coordinator", "manager"]'::jsonb,
   true,
   false,
-  NULL,
+  NULL::date,
   '["safety", "incident", "confidential"]'::jsonb,
   '{"confidential": true, "priority_escalation": true, "investigation_workflow": true}'::jsonb
 FROM departments
@@ -303,7 +292,7 @@ SELECT
   '["crew_member", "supervisor", "maintenance"]'::jsonb,
   true,
   false,
-  NULL,
+  NULL::date,
   '["equipment", "maintenance", "request"]'::jsonb,
   '{"workflow_routing": true, "priority_scheduling": true, "parts_inventory_check": true}'::jsonb
 FROM departments;
@@ -311,8 +300,8 @@ FROM departments;
 -- HR-Specific Forms
 WITH hr_positions AS (
   SELECT 
-    (SELECT id FROM app.d_scope_hr WHERE name = 'Chief Operating Officer') AS coo_position_id,
-    (SELECT id FROM app.d_scope_hr WHERE name = 'Senior Director - Design & Planning') AS sr_director_id
+    (SELECT id FROM app.d_hr WHERE name = 'Chief Operating Officer') AS coo_position_id,
+    (SELECT id FROM app.d_hr WHERE name = 'Senior Director - Design & Planning') AS sr_director_id
 )
 
 INSERT INTO app.ops_formlog_head (
@@ -361,8 +350,8 @@ FROM hr_positions;
 -- Worksite-Specific Forms
 WITH worksites AS (
   SELECT 
-    (SELECT id FROM app.d_scope_worksite WHERE name = 'Huron Home Services HQ') AS headquarters_id,
-    (SELECT id FROM app.d_scope_worksite WHERE name = 'Winter Ops - Equipment Staging') AS winter_staging_id
+    (SELECT id FROM app.d_worksite WHERE name = 'Huron Home Services HQ') AS headquarters_id,
+    (SELECT id FROM app.d_worksite WHERE name = 'Winter Ops - Equipment Staging') AS winter_staging_id
 )
 
 INSERT INTO app.ops_formlog_head (

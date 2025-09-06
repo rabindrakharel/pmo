@@ -159,27 +159,54 @@ echo "===================================================="
 
 # Define DDL files in correct dependency order
 declare -a DDL_FILES=(
-    # FOUNDATION LAYER (No Dependencies)
-    "00_extensions.ddl|Extensions & Schema Setup"
-    "01_meta.ddl|Meta Configuration Tables"
+    # FOUNDATION LAYER (Extensions & Schema Setup)
+    "00___extensions.ddl|Extensions & Schema Setup"
+    "01___extensions.ddl|Additional Extensions"
     
-    # SCOPE HIERARCHIES (Self-Referencing)
-    "02_location.ddl|Canadian Geographic Hierarchy"
-    "04_business.ddl|Organizational Hierarchy (Business)"
-    "03_worksite.ddl|Physical Facilities (Worksites)"
-    "05_hr.ddl|Human Resources Hierarchy"
+    # META LAYER (Configuration Tables)
+    "04___meta_entity_org_level.ddl|Organization Level Meta"
+    "05___meta_entity_hr_level.ddl|HR Level Meta"
+    "06___meta_entity_client_level.ddl|Client Level Meta"
+    "07___meta_entity_project_status.ddl|Project Status Meta"
+    "08___meta_entity_project_stage.ddl|Project Stage Meta"
+    "09___meta_entity_task_status.ddl|Task Status Meta"
+    "10___meta_entity_task_stage.ddl|Task Stage Meta"
     
-    # IDENTITY & OPERATIONS
-    "06_employee.ddl|Employee Master & Authentication"
-    "06_role.ddl|Role Definitions & Assignments"
-    "07_client.ddl|External Client Management"
-    "09_project_task.ddl|Project & Task Systems"
+    # DIMENSIONAL HIERARCHIES (must come before entities that reference them)
+    "20___d_biz.ddl|Business Organizational Hierarchy"
+    "21___d_org.ddl|Geographic Organizational Hierarchy"
+    "22___d_hr.ddl|HR Position Hierarchy"
     
-    # APPLICATION & PERMISSIONS (Depends on all above)
-    "10_forms.ddl|Dynamic Form System"
-    "11_app_tables.ddl|UI Routes & Components"
-    "12_artifact.ddl|Artifacts (Business/Project Knowledge)"
-    "13_permission_tables.ddl|RBAC Permission Engine"
+    # CORE ENTITIES (Foundation for RBAC system)
+    "12___d_employee.ddl|Employee Master Data"
+    "23___d_worksite.ddl|Worksite Locations"
+    "13___d_role.ddl|Role Definitions"
+    "14___d_client.ddl|Client Master Data"
+    
+    # EMPLOYEE-ROLE RELATIONSHIPS
+    "14___rel_emp_role.ddl|Employee-Role Assignments"
+    
+    # RBAC SYSTEM FOUNDATION
+    "15___meta_entity_types.ddl|Entity Types Foundation"
+    "16___meta_entity_hierarchy.ddl|Entity Hierarchy Rules"
+    
+    # CONTENT & ARTIFACTS (must come before entity relationships)
+    "27___d_artifact.ddl|Artifact Definitions"
+    "35___d_project.ddl|Project Management"
+    
+    # RBAC PERMISSION SYSTEM
+    "18___meta_entity_hierarchy_permission_mapping.ddl|Permission Matrix"
+    "17___entity_id_hierarchy_mapping.ddl|Entity Instance Relationships"
+    "19___rel_employee_entity_rbac.ddl|Employee RBAC Permissions"
+    "20___rel_role_entity_action_rbac.ddl|Role RBAC Permissions"
+    
+    # OPERATIONAL TABLES
+    "50___ops_formlog_head.ddl|Form Log Headers"
+    "51___ops_formlog_records.ddl|Form Log Records"
+    "52___ops_task_records.ddl|Task Operation Records"
+    "53___ops_task_head.ddl|Task Operation Headers"
+    "54___d_wiki.ddl|Wiki Knowledge Base"
+    "55___d_app.ddl|Application Management"
 )
 
 # Function to execute SQL file

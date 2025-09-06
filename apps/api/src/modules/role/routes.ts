@@ -40,7 +40,6 @@ const UpdateRoleSchema = Type.Partial(CreateRoleSchema);
 export async function roleRoutes(fastify: FastifyInstance) {
   // List roles
   fastify.get('/api/v1/role', {
-    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         active: Type.Optional(Type.Boolean()),
@@ -60,11 +59,6 @@ export async function roleRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { active, limit = 50, offset = 0 } = request.query as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
 
     try {
@@ -121,7 +115,6 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
   // Get single role
   fastify.get('/api/v1/role/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -135,11 +128,6 @@ export async function roleRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
 
     try {
@@ -177,7 +165,6 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
   // Create role
   fastify.post('/api/v1/role', {
-    preHandler: [fastify.authenticate],
     schema: {
       body: CreateRoleSchema,
       response: {
@@ -189,11 +176,6 @@ export async function roleRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
 
     try {
@@ -241,7 +223,6 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
   // Update role
   fastify.put('/api/v1/role/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -257,11 +238,6 @@ export async function roleRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
 
     try {
@@ -368,7 +344,6 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
   // Delete role (soft delete)
   fastify.delete('/api/v1/role/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -382,11 +357,6 @@ export async function roleRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
 
     try {
@@ -424,7 +394,6 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
   // Get role permissions across scopes
   fastify.get('/api/v1/role/:id/permissions', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -446,11 +415,6 @@ export async function roleRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
 
     try {

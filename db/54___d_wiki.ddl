@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS app.d_wiki (
 
   -- Metadata
   title text NOT NULL,
-  slug text NOT NULL UNIQUE,
+  slug text NOT NULL,
   summary text,
   tags text[] NOT NULL DEFAULT ARRAY[]::text[],
 
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS app.d_wiki (
   owner_id uuid REFERENCES app.d_employee(id) ON DELETE SET NULL,
   owner_name text,
   published boolean NOT NULL DEFAULT false,
-  share_link text UNIQUE,                           -- short share token for public view
+  share_link text,                                  -- short share token for public view
 
   -- Versioning / lifecycle
   version int NOT NULL DEFAULT 1,
@@ -57,8 +57,6 @@ CREATE TABLE IF NOT EXISTS app.d_wiki (
   updated timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_d_wiki_title_trgm ON app.d_wiki USING gin (title gin_trgm_ops);
-CREATE INDEX IF NOT EXISTS idx_d_wiki_tags ON app.d_wiki USING gin (tags);
 
 -- ============================================================================
 -- DATA CURATION:

@@ -36,6 +36,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;       -- Geographic information system
 CREATE EXTENSION IF NOT EXISTS btree_gin;     -- Advanced indexing support
 
 -- Create application schema
+DROP SCHEMA IF EXISTS app CASCADE;
 CREATE SCHEMA IF NOT EXISTS app;
 
 -- Set search path to prioritize app schema

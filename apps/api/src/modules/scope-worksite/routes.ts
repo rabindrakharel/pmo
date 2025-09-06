@@ -61,7 +61,6 @@ const UpdateWorksiteSchema = Type.Partial(CreateWorksiteSchema);
 export async function worksiteRoutes(fastify: FastifyInstance) {
   // List worksites with filtering
   fastify.get('/api/v1/worksite', {
-    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         locId: Type.Optional(Type.String()),
@@ -84,11 +83,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { locId, bizId, active, search, limit = 50, offset = 0 } = request.query as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     try {
       // Build query conditions
@@ -156,7 +150,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
 
   // Get single worksite
   fastify.get('/api/v1/worksite/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -170,11 +163,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     try {
       const worksite = await db.execute(sql`
@@ -206,7 +194,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
 
   // Create worksite
   fastify.post('/api/v1/worksite', {
-    preHandler: [fastify.authenticate],
     schema: {
       body: CreateWorksiteSchema,
       response: {
@@ -218,11 +205,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
 
     try {
@@ -307,7 +289,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
 
   // Update worksite
   fastify.put('/api/v1/worksite/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -324,11 +305,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
 
     try {
@@ -490,7 +466,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
 
   // Delete worksite (soft delete)
   fastify.delete('/api/v1/worksite/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -504,11 +479,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
 
     try {

@@ -140,8 +140,16 @@ export function transformConfigForFrontend(config: EntityPageConfig): FrontendEn
     ui: {
       sidebarIcon: config.ui.sidebarIcon,
       theme: { ...config.ui.theme },
-      layout: { ...config.ui.layout },
-      table: { ...config.ui.table },
+      layout: { 
+        enableMultiView: true,
+        showSummaryCards: true,
+        enableQuickActions: true,
+        ...config.ui.layout 
+      },
+      table: { 
+        stickyHeader: true,
+        ...config.ui.table 
+      },
       summaryCards: config.ui.summaryCards || [],
     },
     
@@ -208,7 +216,7 @@ export function transformConfigForFrontend(config: EntityPageConfig): FrontendEn
       placeholder: fieldConfig.placeholder,
       description: fieldConfig.description,
       defaultValue: fieldConfig.defaultValue,
-      options: fieldConfig.options,
+      options: typeof fieldConfig.options === 'string' ? fieldConfig.options : String(fieldConfig.options || ''),
       validation: fieldConfig.validation,
       uiBehavior: {
         sort: fieldConfig.uiBehavior.sort,

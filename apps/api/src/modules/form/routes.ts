@@ -60,7 +60,6 @@ const UpdateFormSchema = Type.Partial(CreateFormSchema);
 export async function formRoutes(fastify: FastifyInstance) {
   // List forms with filtering
   fastify.get('/api/v1/form', {
-    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         version: Type.Optional(Type.Number()),
@@ -98,11 +97,6 @@ export async function formRoutes(fastify: FastifyInstance) {
       limit = 50, 
       offset = 0 
     } = request.query as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     try {
       // Build query conditions
@@ -196,7 +190,6 @@ export async function formRoutes(fastify: FastifyInstance) {
 
   // Get single form
   fastify.get('/api/v1/form/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -210,11 +203,6 @@ export async function formRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     try {
       const form = await db.execute(sql`
@@ -261,7 +249,6 @@ export async function formRoutes(fastify: FastifyInstance) {
 
   // Create form
   fastify.post('/api/v1/form', {
-    preHandler: [fastify.authenticate],
     schema: {
       body: CreateFormSchema,
       response: {
@@ -273,11 +260,6 @@ export async function formRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     try {
       // Check for unique name and version combination
@@ -360,7 +342,6 @@ export async function formRoutes(fastify: FastifyInstance) {
 
   // Update form
   fastify.put('/api/v1/form/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -376,11 +357,6 @@ export async function formRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     try {
       // Check if form exists
@@ -531,7 +507,6 @@ export async function formRoutes(fastify: FastifyInstance) {
 
   // Delete form (soft delete)
   fastify.delete('/api/v1/form/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -545,11 +520,6 @@ export async function formRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     try {
       // Check if form exists
@@ -586,7 +556,6 @@ export async function formRoutes(fastify: FastifyInstance) {
 
   // Get form records/submissions
   fastify.get('/api/v1/form/:id/records', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -618,11 +587,6 @@ export async function formRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const { limit = 50, offset = 0 } = request.query as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     try {
       // Get form

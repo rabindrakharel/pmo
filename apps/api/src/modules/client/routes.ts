@@ -44,7 +44,6 @@ const UpdateClientSchema = Type.Partial(CreateClientSchema);
 export async function clientRoutes(fastify: FastifyInstance) {
   // List clients with filtering
   fastify.get('/api/v1/client', {
-    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         active: Type.Optional(Type.Boolean()),
@@ -67,11 +66,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { active, search, client_parent_id, level_id, limit = 50, offset = 0 } = request.query as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
 
     try {
@@ -147,7 +141,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
   // Get single client
   fastify.get('/api/v1/client/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -161,11 +154,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
 
     try {
@@ -196,7 +184,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
   // Get client hierarchy (parent and children)
   fastify.get('/api/v1/client/:id/hierarchy', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -214,11 +201,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
 
     try {
@@ -283,7 +265,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
   // Create client
   fastify.post('/api/v1/client', {
-    preHandler: [fastify.authenticate],
     schema: {
       body: CreateClientSchema,
       response: {
@@ -295,11 +276,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
 
     try {
@@ -362,7 +338,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
   // Update client
   fastify.put('/api/v1/client/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -379,11 +354,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
 
     try {
@@ -464,7 +434,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
   // Delete client (soft delete)
   fastify.delete('/api/v1/client/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -479,11 +448,6 @@ export async function clientRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
 
     try {

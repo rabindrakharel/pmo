@@ -1,18 +1,189 @@
-# PMO Enterprise Task Management Platform 🚀
+# Huron Home Services - PMO Enterprise Platform 🏡
 
-> **Navigation Hub** - Your comprehensive guide to the PMO platform with API-driven configuration, unified RBAC, and perfect naming consistency
+> **Complete Canadian Home Services Management System** - Production-ready PMO platform with comprehensive data model, unified RBAC, and industry-specific business intelligence
 
-A production-ready, enterprise-grade Project Management Office (PMO) platform built with **React 18 + Fastify**. Features sophisticated **Role-Based Access Control**, **API-driven UI configuration**, **multi-dimensional scoping**, and **comprehensive Canadian business compliance**.
+A fully-integrated Project Management Office (PMO) platform built for **Huron Home Services**, Ontario's premier home services company. Features **25+ employees**, **12+ diverse clients**, **10+ strategic projects**, **comprehensive worksites**, and **complete business operations** across landscaping, snow removal, HVAC, plumbing, and solar energy services.
 
-## 🎯 Current State (Latest: 2025-09-04)
+## 🗺️ Schema Navigation & ER Relationships Guide
 
-**✅ Complete Platform Ready** - All core systems operational:
-- **11 API Modules** with comprehensive CRUD and advanced RBAC
-- **API-Driven Configuration** - Dynamic UI generation from secure backend configs  
-- **Perfect Naming Consistency** - Unified camelCase across all layers (resolved routing issues)
-- **Production Authentication** - JWT with bundled permissions and 113+ active permissions
-- **24-Table Database Schema** - Canadian business context with temporal data patterns
-- **16 Management Tools** - Complete platform automation and monitoring
+### 📊 5-Layer RBAC Architecture Overview
+
+The PMO system implements a sophisticated **5-layer permission architecture** that provides comprehensive entity management and fine-grained access control:
+
+```
+🏗️ RBAC ARCHITECTURE FLOW
+meta_entity_types (12 entity types) → Foundation Layer
+    ↓ 
+meta_entity_hierarchy (parent→child creation rules) → Rules Layer
+    ↓ 
+meta_entity_hierarchy_permission_mapping (permission matrix) → Permission Layer
+    ↓
+entity_id_hierarchy_mapping (actual instance relationships) → Instance Layer
+    ↓
+rel_employee_entity_action_rbac (specific user grants) → Access Control Layer
+```
+
+### 🎯 James Miller CEO - Comprehensive Access Matrix
+
+**✅ Complete Implementation Status**: James Miller has been granted comprehensive access across **ALL entity types** and **ALL actions** as requested:
+
+#### **Self-Permissions** (view/edit/share) on ALL entity types:
+- ✅ **All business units** (biz → biz) - Full business hierarchy access
+- ✅ **All projects** (project → project) - Complete project portfolio management
+- ✅ **All employees** (employee → employee) - Full personnel management
+- ✅ **All roles** (role → role) - Complete role administration
+- ✅ **All clients** (client → client) - Full client relationship management
+- ✅ **All content entities** - wikis, forms, tasks, artifacts with full management permissions
+
+#### **Creation Permissions** from parent entities to child entities:
+- ✅ **Business units** → wiki, form, task, project, artifact creation rights
+- ✅ **Projects** → wiki, form, task, artifact creation within project scope
+- ✅ **Clients** → project, task creation for client engagement
+- ✅ **All hierarchical relationships** supported with proper parent-child validation
+
+### 📋 Database Schema Navigation Index
+
+| **Layer** | **DDL File** | **Table Name** | **Purpose** | **Key Relationships** |
+|-----------|-------------|----------------|-------------|---------------------|
+| **🏗️ Foundation** | `15___meta_entity_types.ddl` | `meta_entity_types` | 12 entity type definitions | → Validates all entity references |
+| **📐 Rules** | `16___meta_entity_hierarchy.ddl` | `meta_entity_hierarchy` | Parent→child creation rules | ← Uses entity_types → Feeds permission mapping |
+| **🔑 Permissions** | `18___meta_entity_hierarchy_permission_mapping.ddl` | `meta_entity_hierarchy_permission_mapping` | Permission matrix (create/view/edit/share) | ← Uses hierarchy rules → Validates RBAC grants |
+| **🔗 Instances** | `17___entity_id_hierarchy_mapping.ddl` | `entity_id_hierarchy_mapping` | Actual entity instance relationships | ← Conforms to hierarchy → Provides RBAC scope |
+| **👤 Access Control** | `19___rel_employee_entity_rbac.ddl` | `rel_employee_entity_action_rbac` | Individual user permissions | ← Validates against all layers |
+
+### 🎯 Core Business Entity Tables
+
+| **Category** | **DDL File** | **Table Name** | **Entity Type** | **Business Purpose** |
+|-------------|-------------|----------------|----------------|-------------------|
+| **👥 Personnel** | `12___d_employee.ddl` | `d_employee` | `employee` | 25+ employees from CEO to seasonal workers |
+| **🏷️ Roles** | `13___d_role.ddl` | `d_role` | `role` | Executive to field worker role definitions |
+| **🤝 Relationships** | `14___rel_emp_role.ddl` | `rel_emp_role` | - | Employee-role assignments with temporal tracking |
+| **🏢 Organization** | `20___d_biz.ddl` | `d_biz` | `biz` | 3-level business hierarchy (Corp→Division→Dept) |
+| **🎯 Projects** | `35___d_project.ddl` | `d_project` | `project` | 10+ strategic projects with full lifecycle management |
+| **👥 Clients** | `14___d_client.ddl` | `d_client` | `client` | 12+ diverse client portfolio |
+
+### 🔍 Entity Relationship Patterns
+
+#### **Hierarchical Relationships**
+```
+Corporation (Level 0)
+    ├── Business Operations Division (Level 1)
+    │   ├── Landscaping Department (Level 2)
+    │   ├── Snow Removal Department (Level 2)
+    │   ├── HVAC Services Department (Level 2)
+    │   ├── Plumbing Services Department (Level 2)
+    │   └── Solar Energy Department (Level 2)
+    └── Corporate Services Division (Level 1)
+        ├── Human Resources Department (Level 2)
+        ├── Finance & Accounting Department (Level 2)
+        ├── Information Technology Department (Level 2)
+        └── Legal & Compliance Department (Level 2)
+```
+
+#### **Permission Flow Example**
+```
+James Miller (CEO) →
+    ✅ Self-Permission: biz(Huron Home Services) → view/edit/share
+    ✅ Creation Permission: biz(Landscaping Dept) → create(wiki, form, task, project, artifact)
+    ✅ Instance Mapping: entity_id_hierarchy_mapping validates relationships
+    ✅ Permission Matrix: meta_entity_hierarchy_permission_mapping confirms allowed actions
+    ✅ RBAC Grant: rel_employee_entity_action_rbac stores specific permissions
+```
+
+### 📊 Quick Reference - Key Tables by Use Case
+
+#### **For User Management**
+- `d_employee` + `d_role` + `rel_emp_role` = Complete personnel system
+- `rel_employee_entity_action_rbac` = Individual user permissions
+
+#### **For Organization Management**  
+- `d_biz` + `entity_id_hierarchy_mapping` = Business hierarchy with relationships
+- `meta_entity_hierarchy_permission_mapping` = What can be created where
+
+#### **For Project Management**
+- `d_project` + `d_client` + `entity_id_hierarchy_mapping` = Project-client relationships
+- `rel_employee_entity_action_rbac` = Project access permissions
+
+#### **For Permission Management**
+- All 5 RBAC layers work together for comprehensive access control
+- James Miller has **comprehensive access** across all entity types and actions
+
+## 🎯 Current State (Latest: 2025-01-30)
+
+**✅ Complete Business System Ready** - Comprehensive home services platform:
+- **🏢 Complete Organization**: 9 departments across 2 divisions with full cost center tracking
+- **👥 25+ Employee Profiles**: From C-suite executives to seasonal workers with multilingual support  
+- **🏘️ 12+ Diverse Clients**: Residential estates, commercial complexes, municipal contracts, industrial facilities
+- **📊 10+ Strategic Projects**: Seasonal campaigns, market expansion, digital transformation, safety compliance
+- **🏭 Comprehensive Worksites**: Corporate HQ, regional centers, seasonal facilities, project sites
+- **🔐 Advanced RBAC**: 113+ permissions across entity types with Canadian regulatory compliance
+- **🛠️ Complete Technical Stack**: React 18 + Fastify + PostgreSQL with 27 DDL files
+
+## 🏢 Business Data Overview
+
+### Organizational Structure
+**Huron Home Services** - Mississauga, ON headquarters serving GTA, Hamilton, London markets
+
+#### Executive Leadership
+- **James Miller** (CEO) - Strategic leadership, bilingual (EN/FR), MBA Queens University
+- **Sarah Chen** (CFO) - Corporate finance expertise, bilingual (EN/ZH), CPA Ontario  
+- **David Kumar** (CTO) - Technology leadership, bilingual (EN/HI), P.Eng license
+- **Maria Rodriguez** (COO) - Operations excellence, trilingual (EN/ES/FR), Lean Six Sigma
+
+#### Service Departments
+- **🌿 Landscaping** - Design, installation, maintenance, seasonal cleanup (Manager: Carlos Martinez)
+- **❄️ Snow Removal** - 24/7 winter operations, municipal contracts (Manager: David Kowalski) 
+- **🔥 HVAC Services** - Installation, maintenance, emergency repairs (Manager: Amanda Foster)
+- **🔧 Plumbing** - Full-service plumbing, emergency response (Manager: Tony Ricci)
+- **☀️ Solar Energy** - Residential/commercial solar systems (Manager: Sarah Kim)
+
+#### Support Functions
+- **HR Department** - Talent management (VP: Lisa Wang, CHRP designation)
+- **Finance & Accounting** - Financial planning and analysis (Director: Michael O'Connor, CPA)
+- **Information Technology** - Enterprise systems and security (Director: Jennifer Park, PMP)
+- **Legal & Compliance** - Regulatory compliance and risk management
+
+### Client Portfolio (12+ Active Clients)
+
+#### Premium Residential
+- **Thompson Family Residence** (Oakville) - $85K lifetime value, premium garden specialty
+- **The Chen Estate** (Mississauga) - $120K lifetime value, Japanese garden design with pool/tennis
+
+#### Major Commercial Contracts  
+- **Square One Shopping Centre** - $500K lifetime, 85-acre retail complex with high foot traffic
+- **Sheridan College** (Brampton) - $450K lifetime, 125-acre campus with 23,000 students
+- **Trillium Health Partners** - $520K lifetime, healing gardens and accessibility focus
+- **Ontario Power Generation** - $650K lifetime, nuclear-grade environmental compliance
+
+#### Municipal & Industrial
+- **City of Mississauga** - $750K lifetime, 45 parks and 2,500 acres of public spaces
+- **Magna International** - $890K industrial contract, 35 facilities with 15,000 employees
+
+### Strategic Project Portfolio (10+ Active Projects)
+
+#### Seasonal Operations
+- **Fall 2025 Landscaping Campaign** - $450K budget, 1,800 hours, comprehensive fall services
+- **Winter 2025 Snow Removal** - $520K budget, critical 24/7 operations across GTA
+
+#### Service Expansion  
+- **Residential Solar Expansion** - $285K investment, targeting 85 installations with 25-year warranties
+- **HVAC Maintenance Contracts** - $240K program, developing 200+ annual/quarterly maintenance contracts
+
+#### Strategic Initiatives
+- **Digital Transformation** - $750K enterprise modernization (CRM, FSM, customer portals)
+- **Hamilton Market Expansion** - $485K expansion into Hamilton-Burlington market
+- **Safety Training Program** - $120K WSIB compliance and certification for 150+ staff
+
+### Comprehensive Worksite Network
+
+#### Corporate Facilities
+- **Huron Home Services HQ** (Mississauga) - 25,000 sq ft indoor, 50,000 sq ft outdoor, 150 workers
+- **Toronto Service Center** - Regional hub with equipment storage and crew coordination
+- **Equipment Storage - Meadowvale** - Secure compound with maintenance facilities
+
+#### Operational Sites
+- **Winter Ops - Equipment Staging** (Hamilton) - Seasonal facility with 200-ton salt capacity
+- **Project Sites** - Solar installations, landscaping projects at client locations
 
 ### 🏃‍♂️ Getting Started
 - **[Tech Stack Overview](#-tech-stack)** - Technologies used
@@ -206,6 +377,73 @@ GET  /api/v1/auth/permissions/debug // Admin-only permission debugging
 ```
 
 **[📖 Complete Database Guide →](./db/README.md)**
+
+### 🏗️ Database Architecture & Table Inter-Relationships
+
+The PMO platform implements a sophisticated **5-layer data architecture** that provides comprehensive entity management, hierarchical permissions, and fine-grained access control across the entire application ecosystem.
+
+#### **📊 System Architecture Flow**
+```
+meta_entity_types (12 entity types)
+    ↓ Foundation Layer
+meta_entity_hierarchy (parent→child creation rules)
+    ↓ Rules Layer  
+meta_entity_hierarchy_permission_mapping (permission matrix expansion)
+    ↓ Permission Layer
+entity_id_hierarchy_mapping (actual instance relationships)
+    ↓ Instance Layer
+rel_employee_entity_action_rbac (specific user grants)
+    ↓ Access Control Layer
+```
+
+#### **🔄 Table Inter-Relationships**
+
+**meta_entity_types (Foundation Layer)**
+- **FOUNDATION**: Provides entity type validation for all other tables
+- **HIERARCHY LAYER**: Feeds into meta_entity_hierarchy with entity_type_code values
+- **PERMISSION LAYER**: Referenced by meta_entity_hierarchy_permission_mapping for parent_entity/action_entity validation
+- **INSTANCE LAYER**: Used by entity_id_hierarchy_mapping to track actual entity instance relationships 
+- **ACCESS CONTROL**: Referenced by rel_employee_entity_action_rbac for specific permission grants
+- **UI INTEGRATION**: Controls 12-entity sidebar structure with dedicated management pages
+
+**meta_entity_hierarchy (Rules Layer)**
+- Uses entity_type_code values from meta_entity_types for validation
+- Feeds into meta_entity_hierarchy_permission_mapping to define permission_action possibilities
+- Works with entity_id_hierarchy_mapping for instance tracking and parent-child relationships
+- Enables rel_employee_entity_action_rbac creation rights within parent scopes
+- Determines "Create Child Entity" buttons in UI management pages
+
+**entity_id_hierarchy_mapping (Instance Layer)**
+- Uses entity types from meta_entity_types for action_entity_type/parent_entity_type validation
+- Conforms to hierarchy rules from meta_entity_hierarchy (what can be created where)
+- Referenced by rel_employee_entity_action_rbac to ensure permissions apply to valid entity instances
+- Provides parent_entity_id/action_entity_id pairs that define permission boundaries
+- Enables breadcrumb navigation, hierarchical filtering, and scope-based data access
+
+**meta_entity_hierarchy_permission_mapping (Permission Layer)**
+- Uses parent_entity/action_entity values from meta_entity_types for validation
+- Expands hierarchy rules into granular permission_action possibilities (create/view/edit/share)
+- Serves as validation layer for rel_employee_entity_action_rbac (ensures only valid permissions)
+- Determines UI button visibility (Create/Edit/Share) and API authorization patterns
+- TWO-LAYER DESIGN: Defines "what's possible", RBAC defines "who can do what on which entities"
+
+**rel_employee_entity_action_rbac (Access Control Layer)**
+- Final enforcement layer using all previous tables for validation
+- Validates against meta_entity_hierarchy_permission_mapping for permission combinations
+- Validates against entity_id_hierarchy_mapping for entity relationship compliance
+- Provides specific user permissions on specific entity instances
+- Enables real-time access control across UI components and API endpoints
+
+#### **🎯 Entity Categories & UI Structure**
+
+The system manages **12 entity types** across **4 categories**, each with dedicated sidebar entries and management pages:
+
+- **Organizational (4)**: hr, biz, org, client - structural/hierarchical entities
+- **Operational (3)**: project, task, worksite - execution/workflow entities  
+- **Personnel (2)**: employee, role - human resources entities
+- **Content (3)**: wiki, form, artifact - information/knowledge entities
+
+This architecture ensures **consistent permissions**, **hierarchical data integrity**, and **scalable access control** across the entire platform while supporting dynamic UI generation and role-based functionality.
 
 ---
 

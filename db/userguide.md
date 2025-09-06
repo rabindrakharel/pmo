@@ -1,27 +1,468 @@
-# Database Table Creation User Guide
-## PMO Enterprise PostgreSQL Schema Standards
+# PMO Database Development Guide
+## Complete Onboarding for Data Modelers & API Developers
 
 ### 📋 Table of Contents
 
-1. [Overview](#overview)
-2. [Mandatory Standards](#mandatory-standards)
-3. [File Structure Requirements](#file-structure-requirements)
-4. [Table Design Patterns](#table-design-patterns)
-5. [Field Standards](#field-standards)
-6. [Naming Conventions](#naming-conventions)
-7. [Data Types & Constraints](#data-types--constraints)
-8. [Relationship Patterns](#relationship-patterns)
-9. [Indexing Guidelines](#indexing-guidelines)
-10. [Data Curation Requirements](#data-curation-requirements)
-11. [Integration Requirements](#integration-requirements)
-12. [Common Mistakes to Avoid](#common-mistakes-to-avoid)
-13. [Approval Checklist](#approval-checklist)
+1. [🚀 New Developer Onboarding](#new-developer-onboarding)
+2. [🏗️ Understanding the 5-Layer RBAC Architecture](#understanding-the-5-layer-rbac-architecture)
+3. [📊 Step-by-Step: Adding a New Entity](#step-by-step-adding-a-new-entity)
+4. [🔧 Complete Example: Adding Equipment Entity](#complete-example-adding-equipment-entity)
+5. [⚡ API Integration for New Entities](#api-integration-for-new-entities)
+6. [📋 Mandatory Standards](#mandatory-standards)
+7. [🗂️ File Structure Requirements](#file-structure-requirements)
+8. [🔷 Table Design Patterns](#table-design-patterns)
+9. [📝 Field Standards](#field-standards)
+10. [🏷️ Naming Conventions](#naming-conventions)
+11. [🔢 Data Types & Constraints](#data-types--constraints)
+12. [🔗 Relationship Patterns](#relationship-patterns)
+13. [📊 Indexing Guidelines](#indexing-guidelines)
+14. [💾 Data Curation Requirements](#data-curation-requirements)
+15. [🔧 Integration Requirements](#integration-requirements)
+16. [❌ Common Mistakes to Avoid](#common-mistakes-to-avoid)
+17. [✅ Approval Checklist](#approval-checklist)
 
 ---
 
-## Overview
+## 🚀 New Developer Onboarding
 
-This guide defines the **mandatory standards and patterns** for creating new database tables in the PMO Enterprise PostgreSQL schema. All tables must follow these conventions to ensure consistency, maintainability, and integration with the existing 25-table enterprise architecture.
+Welcome to the **Huron Home Services PMO Platform**! This guide will get you up to speed with our sophisticated 5-layer RBAC architecture and show you exactly how to add new entities to the system.
+
+### 🎯 What You're Working With
+
+The PMO system is a **production-ready enterprise platform** managing:
+- **25+ employees** (CEO to seasonal workers)
+- **12+ diverse clients** (residential, commercial, municipal)  
+- **10+ strategic projects** (seasonal campaigns, market expansion)
+- **Complete business operations** (landscaping, snow removal, HVAC, plumbing, solar)
+- **Comprehensive RBAC system** with 5 architectural layers
+
+### 🗺️ System Architecture Overview
+
+Our database implements a **5-layer permission architecture** that provides comprehensive entity management and fine-grained access control:
+
+```
+🏗️ RBAC ARCHITECTURE FLOW
+Layer 1: meta_entity_types (12 entity types) → Foundation Layer
+    ↓ 
+Layer 2: meta_entity_hierarchy (parent→child creation rules) → Rules Layer
+    ↓ 
+Layer 3: meta_entity_hierarchy_permission_mapping (permission matrix) → Permission Layer
+    ↓
+Layer 4: entity_id_hierarchy_mapping (actual instance relationships) → Instance Layer
+    ↓
+Layer 5: rel_employee_entity_action_rbac (specific user grants) → Access Control Layer
+```
+
+### 📚 Essential Files to Understand
+
+Before you start, examine these key files to understand our patterns:
+
+| **File** | **Purpose** | **Study For** |
+|----------|-------------|---------------|
+| `15___meta_entity_types.ddl` | Foundation layer | Entity type definitions |
+| `18___meta_entity_hierarchy_permission_mapping.ddl` | Permission matrix | How permissions work |
+| `12___d_employee.ddl` | Business entity example | Standard table structure |
+| `19___rel_employee_entity_rbac.ddl` | Access control | How user permissions are granted |
+
+---
+
+## 🏗️ Understanding the 5-Layer RBAC Architecture
+
+### **Layer 1: Entity Types Foundation** (`meta_entity_types`)
+**Purpose**: Defines the 12 core entity types in the system
+```sql
+-- Existing types: biz, project, hr, worksite, client, org, role, employee, wiki, form, task, artifact
+INSERT INTO app.meta_entity_types (entity_type_code, entity_category, name) VALUES
+('asset', 'operational', 'Asset Management'); -- Your new entity goes here
+```
+
+### **Layer 2: Hierarchy Rules** (`meta_entity_hierarchy`) 
+**Purpose**: Defines what entities can create/contain other entities
+```sql
+-- Examples: "biz can create projects", "projects can create tasks"  
+INSERT INTO app.meta_entity_hierarchy (parent_entity, action_entity, hierarchy_level) VALUES
+('biz', 'asset', 1), -- Business units can create assets
+('project', 'asset', 1); -- Projects can contain assets
+```
+
+### **Layer 3: Permission Matrix** (`meta_entity_hierarchy_permission_mapping`)
+**Purpose**: Expands hierarchy rules into granular permissions (create/view/edit/share)
+```sql  
+-- Self-permissions: asset managers can view/edit/share assets
+('Asset View Permission', 'asset', 'asset', 'view'),
+('Asset Edit Permission', 'asset', 'asset', 'edit'),
+-- Creation permissions: business can create assets  
+('Business Asset Creation', 'biz', 'asset', 'create');
+```
+
+### **Layer 4: Instance Relationships** (`entity_id_hierarchy_mapping`)
+**Purpose**: Tracks actual parent-child relationships between specific entity instances
+```sql
+-- Links actual asset instances to their parent business units/projects
+INSERT INTO app.entity_id_hierarchy_mapping (action_entity_id, action_entity, parent_entity_id, parent_entity)
+SELECT asset.id, 'asset', biz.id, 'biz'
+FROM app.d_asset asset
+JOIN app.d_biz biz ON asset.biz_id = biz.id;
+```
+
+### **Layer 5: User Permissions** (`rel_employee_entity_action_rbac`)
+**Purpose**: Grants specific users permissions on specific entity instances
+```sql
+-- James Miller gets full asset management permissions
+INSERT INTO app.rel_employee_entity_action_rbac (
+  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id
+) VALUES (
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'view', 'asset', asset.id, 'asset', asset.id
+);
+```
+
+---
+
+## 📊 Step-by-Step: Adding a New Entity
+
+Follow this **exact process** when adding any new entity to the system:
+
+### **Step 1: Plan Your Entity** 🎯
+**Questions to Answer:**
+- What business purpose does this entity serve?
+- What other entities should it relate to?
+- Who should have permissions to manage it?
+- Is it hierarchical (can contain other instances of itself)?
+
+**Example Planning for a hypothetical "Asset" entity:**
+- **Purpose**: Track company assets like equipment or tools  
+- **Relationships**: Belongs to business units, assigned to projects
+- **Permissions**: Asset managers can view/edit, business managers can create
+- **Hierarchical**: Yes (parent assets with sub-components)
+
+### **Step 2: Add Entity Type to Foundation Layer** 📋
+**File**: `15___meta_entity_types.ddl`
+```sql
+-- Add to the existing INSERT statement (use actual structure from meta_entity_types.ddl)
+('Asset Management', 'Company assets and equipment tracking including tools, vehicles, and infrastructure', 'Asset', 'asset', 'operational', 'Asset', false, true, true, 1300, '["asset", "equipment", "operational", "tracking"]', '{"asset_management": true, "depreciation_tracking": true, "maintenance_scheduling": true}');
+```
+
+### **Step 3: Define Hierarchy Rules** 🔗  
+**File**: `16___meta_entity_hierarchy.ddl`
+```sql
+-- Add hierarchy relationships
+('Business Asset Management', 'Business units can create and manage asset relationships', 'biz', 'asset', 1),
+('Project Asset Assignment', 'Projects can be assigned assets for specific tasks', 'project', 'asset', 1),
+('Asset Self-Hierarchy', 'Assets can have component relationships (equipment with parts)', 'asset', 'asset', 1);
+```
+
+### **Step 4: Create Permission Matrix** 🔑
+**File**: `18___meta_entity_hierarchy_permission_mapping.ddl`
+```sql
+-- Self-permissions (view/edit/share on same entity type)
+('Asset View Permission', 'Asset managers can view asset details and maintenance records', 'asset', 'asset', 'view'),
+('Asset Edit Permission', 'Asset managers can edit asset configuration and maintenance data', 'asset', 'asset', 'edit'),
+('Asset Share Permission', 'Asset managers can share asset access with team members', 'asset', 'asset', 'share'),
+
+-- Creation permissions (parent creates child)
+('Business Asset Creation', 'Business managers can create new asset records', 'biz', 'asset', 'create'),
+('Project Asset Assignment', 'Project managers can assign assets to projects', 'project', 'asset', 'create');
+```
+
+### **Step 5: Create the Main Entity Table** 🏗️
+**File**: `XX___d_asset.ddl` (use next available number)
+```sql
+-- ============================================================================
+-- ASSET DIMENSION
+-- ============================================================================
+
+-- ============================================================================
+-- SEMANTICS:
+-- ============================================================================
+-- Purpose: Company asset and equipment management
+-- Covers tools, vehicles, equipment, and infrastructure
+
+-- ============================================================================
+-- DDL:
+-- ============================================================================
+
+CREATE TABLE app.d_asset (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  -- Standard fields (audit, metadata, SCD type 2) - ALWAYS FIRST
+  name text NOT NULL,
+  "descr" text,
+  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
+  attr jsonb NOT NULL DEFAULT '{}'::jsonb,
+  from_ts timestamptz NOT NULL DEFAULT now(),
+  to_ts timestamptz,
+  active boolean NOT NULL DEFAULT true,
+  created timestamptz NOT NULL DEFAULT now(),
+  updated timestamptz NOT NULL DEFAULT now(),
+
+  -- Asset identification
+  asset_code text NOT NULL,
+  asset_type text NOT NULL DEFAULT 'tool',
+  
+  -- Business relationships
+  biz_id uuid NOT NULL REFERENCES app.d_biz(id) ON DELETE RESTRICT,
+  parent_asset_id uuid REFERENCES app.d_asset(id) ON DELETE SET NULL,
+  
+  -- Asset details
+  acquisition_date date,
+  acquisition_cost numeric(12,2),
+  current_value numeric(12,2),
+  asset_status text DEFAULT 'active'
+);
+```
+
+### **Step 6: Add Instance Relationships** 🔗
+**File**: `17___entity_id_hierarchy_mapping.ddl`
+```sql
+-- Asset to business unit assignments
+INSERT INTO app.entity_id_hierarchy_mapping (action_entity_id, action_entity, parent_entity_id, parent_entity)
+SELECT 
+  asset.id, 'asset',
+  asset.biz_id, 'biz'
+FROM app.d_asset asset
+WHERE asset.active = true AND asset.biz_id IS NOT NULL;
+
+-- Asset hierarchical relationships (equipment with components)
+INSERT INTO app.entity_id_hierarchy_mapping (action_entity_id, action_entity, parent_entity_id, parent_entity)
+SELECT 
+  child.id, 'asset',
+  child.parent_asset_id, 'asset'
+FROM app.d_asset child
+WHERE child.active = true AND child.parent_asset_id IS NOT NULL;
+```
+
+### **Step 7: Grant User Permissions** 👤
+**File**: `19___rel_employee_entity_rbac.ddl`
+```sql
+-- Grant James Miller (CEO) full asset permissions
+INSERT INTO app.rel_employee_entity_action_rbac (
+  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+  granted_by_employee_id, grant_reason
+)
+SELECT 
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  unnest(ARRAY['view', 'edit', 'share']) AS permission_action,
+  'asset', asset.id, 'asset', asset.id,
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'CEO - Full asset management permissions'
+FROM app.d_asset asset
+WHERE asset.active = true;
+```
+
+### **Step 8: Test the Implementation** ✅
+Run these queries to verify your implementation:
+```sql
+-- Verify entity type was added
+SELECT * FROM app.meta_entity_types WHERE entity_type_code = 'asset';
+
+-- Verify hierarchy rules
+SELECT * FROM app.meta_entity_hierarchy WHERE action_entity = 'asset';
+
+-- Verify permission matrix  
+SELECT * FROM app.meta_entity_hierarchy_permission_mapping WHERE action_entity = 'asset';
+
+-- Verify instance relationships
+SELECT * FROM app.entity_id_hierarchy_mapping WHERE action_entity = 'asset';
+
+-- Verify user permissions
+SELECT * FROM app.rel_employee_entity_action_rbac WHERE action_entity = 'asset';
+```
+
+---
+
+## 🔧 Summary
+
+Following the 8-step process above allows you to add any new entity to the 5-layer RBAC architecture while maintaining consistency with existing patterns and ensuring proper integration across all system layers.
+
+---
+
+## ⚡ API Integration for New Entities
+
+Once you've added your entity to the database, you need to create the API module to expose it to the frontend.
+
+### **Step 1: Create API Module** 
+**File**: `apps/api/src/modules/asset/routes.ts`
+
+```typescript
+import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
+import { db } from '../../lib/db';
+import { dAsset } from '../../db/schema/dimensions';
+import { eq, and } from 'drizzle-orm';
+import { authenticateRequest, checkScope } from '../../lib/authz';
+
+// Asset schema for validation
+const AssetSchema = z.object({
+  name: z.string().min(1),
+  descr: z.string().optional(),
+  assetCode: z.string().min(1),
+  assetType: z.enum(['tool', 'vehicle', 'equipment', 'infrastructure']),
+  bizId: z.string().uuid(),
+  tags: z.array(z.string()).default([]),
+  attr: z.record(z.any()).default({})
+});
+
+export async function assetRoutes(fastify: FastifyInstance) {
+  // List assets
+  fastify.get('/', async (request, reply) => {
+    const user = await authenticateRequest(request);
+    
+    // Check if user has access to asset data
+    const hasAccess = await checkScope(user.userId, 'asset', ['view']);
+    if (!hasAccess) {
+      return reply.code(403).send({ error: 'Insufficient permissions' });
+    }
+
+    const assets = await db
+      .select()
+      .from(dAsset)
+      .where(eq(dAsset.active, true));
+
+    return assets;
+  });
+
+  // Get specific asset
+  fastify.get('/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const user = await authenticateRequest(request);
+
+    const asset = await db
+      .select()
+      .from(dAsset)
+      .where(and(
+        eq(dAsset.id, id),
+        eq(dAsset.active, true)
+      ))
+      .limit(1);
+
+    if (asset.length === 0) {
+      return reply.code(404).send({ error: 'Asset not found' });
+    }
+
+    return asset[0];
+  });
+
+  // Create asset
+  fastify.post('/', async (request, reply) => {
+    const user = await authenticateRequest(request);
+    
+    // Check creation permissions
+    const hasCreateAccess = await checkScope(user.userId, 'asset', ['create']);
+    if (!hasCreateAccess) {
+      return reply.code(403).send({ error: 'Insufficient permissions to create asset' });
+    }
+
+    const assetData = AssetSchema.parse(request.body);
+
+    const [newAsset] = await db
+      .insert(dAsset)
+      .values(assetData)
+      .returning();
+
+    return newAsset;
+  });
+
+  // Update asset
+  fastify.put('/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const user = await authenticateRequest(request);
+    
+    const hasEditAccess = await checkScope(user.userId, 'asset', ['edit']);
+    if (!hasEditAccess) {
+      return reply.code(403).send({ error: 'Insufficient permissions to edit asset' });
+    }
+
+    const assetData = AssetSchema.partial().parse(request.body);
+
+    const [updatedAsset] = await db
+      .update(dAsset)
+      .set({
+        ...assetData,
+        updated: new Date()
+      })
+      .where(eq(dAsset.id, id))
+      .returning();
+
+    return updatedAsset;
+  });
+
+  // Delete asset (soft delete)
+  fastify.delete('/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const user = await authenticateRequest(request);
+    
+    const hasDeleteAccess = await checkScope(user.userId, 'asset', ['delete']);
+    if (!hasDeleteAccess) {
+      return reply.code(403).send({ error: 'Insufficient permissions to delete asset' });
+    }
+
+    await db
+      .update(dAsset)
+      .set({ 
+        active: false, 
+        updated: new Date() 
+      })
+      .where(eq(dAsset.id, id));
+
+    return { message: 'Asset deleted successfully' };
+  });
+}
+```
+
+### **Step 2: Register API Module**
+**File**: `apps/api/src/modules/index.ts`
+
+```typescript
+// Add to existing imports
+import { assetRoutes } from './asset/routes';
+
+// Add to route registration
+export async function registerRoutes(fastify: FastifyInstance) {
+  // ... existing routes ...
+  
+  await fastify.register(assetRoutes, { prefix: '/asset' });
+}
+```
+
+### **Step 3: Add Drizzle Schema**
+**File**: `apps/api/src/db/schema/dimensions.ts`
+
+```typescript
+// Add asset table schema
+export const dAsset = pgTable('d_asset', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  descr: text('descr'),
+  tags: jsonb('tags').notNull().default([]),
+  attr: jsonb('attr').notNull().default({}),
+  fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
+  toTs: timestamp('to_ts', { withTimezone: true }),
+  active: boolean('active').notNull().default(true),
+  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
+  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+  
+  // Asset-specific fields
+  assetCode: text('asset_code').notNull(),
+  assetType: text('asset_type').notNull().default('tool'),
+  
+  // Relationships
+  bizId: uuid('biz_id').notNull().references(() => dBiz.id),
+  parentAssetId: uuid('parent_asset_id').references(() => dAsset.id),
+  
+  // Asset details
+  acquisitionDate: date('acquisition_date'),
+  acquisitionCost: numeric('acquisition_cost', { precision: 12, scale: 2 }),
+  currentValue: numeric('current_value', { precision: 12, scale: 2 }),
+  assetStatus: text('asset_status').default('active')
+});
+```
+
+---
+
+## 📋 Mandatory Standards
+
+This guide defines the **mandatory standards and patterns** for creating new database tables in the PMO Enterprise PostgreSQL schema. All tables must follow these conventions to ensure consistency, maintainability, and integration with the existing enterprise architecture.
 
 ### 🎯 Core Design Principles
 - **Consistency**: Every table follows identical patterns for audit, metadata, and temporal data

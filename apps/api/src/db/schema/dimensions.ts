@@ -1,129 +1,174 @@
-import { pgTable, uuid, text, boolean, timestamp, jsonb, integer } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, boolean, timestamp, jsonb, integer, date, numeric } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { metaBizLevel, metaLocLevel, metaHrLevel } from './meta.js';
 
-// Location
-export const dLocation = pgTable('d_location', {
+// Scope Organization (unified business and location hierarchy)
+export const dScopeOrg = pgTable('d_scope_org', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
-  desc: text('desc'),
+  descr: text('descr'),
   tags: jsonb('tags').notNull().default('[]'),
-  fromTs: timestamp('from_ts', { withTimezone: true }).notNull(),
+  fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
   active: boolean('active').notNull().default(true),
-  levelId: integer('level_id').notNull().references(() => metaLocLevel.levelId),
+  levelId: integer('level_id').notNull(),
   parentId: uuid('parent_id'),
-  // geom: geometry('geom', { type: 'geometry', srid: 4326 }), // PostGIS - simplified for now
+  levelName: text('level_name').notNull(),
+  hierarchyType: text('hierarchy_type').notNull(), // 'business', 'location'
   attr: jsonb('attr').notNull().default('{}'),
   created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
   updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// Business
-export const dBusiness = pgTable('d_business', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  name: text('name').notNull(),
-  desc: text('desc'),
-  tags: jsonb('tags').notNull().default('[]'),
-  fromTs: timestamp('from_ts', { withTimezone: true }).notNull(),
-  toTs: timestamp('to_ts', { withTimezone: true }),
-  active: boolean('active').notNull().default(true),
-  levelId: integer('level_id').notNull().references(() => metaBizLevel.levelId),
-  parentId: uuid('parent_id'),
-  attr: jsonb('attr').notNull().default('{}'),
-  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
-});
 
-// HR
-export const dHr = pgTable('d_hr', {
+// Scope HR
+export const dScopeHr = pgTable('d_scope_hr', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
-  desc: text('desc'),
+  descr: text('descr'),
   tags: jsonb('tags').notNull().default('[]'),
-  fromTs: timestamp('from_ts', { withTimezone: true }).notNull(),
+  fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
   active: boolean('active').notNull().default(true),
   levelId: integer('level_id').notNull().references(() => metaHrLevel.levelId),
   parentId: uuid('parent_id'),
+  levelName: text('level_name').notNull(),
   attr: jsonb('attr').notNull().default('{}'),
   created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
   updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// Worksite
-export const dWorksite = pgTable('d_worksite', {
+// Scope Worksite
+export const dScopeWorksite = pgTable('d_scope_worksite', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
-  desc: text('desc'),
-  locId: uuid('loc_id').references(() => dLocation.id, { onDelete: 'set null' }),
-  bizId: uuid('biz_id'), // FK added later
-  fromTs: timestamp('from_ts', { withTimezone: true }).notNull(),
+  descr: text('descr'),
+  tags: jsonb('tags').notNull().default('[]'),
+  fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
   active: boolean('active').notNull().default(true),
+  worksiteType: text('worksite_type').notNull(),
+  locId: uuid('loc_id'),
+  bizId: uuid('biz_id'),
+  attr: jsonb('attr').notNull().default('{}'),
+  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
+  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Scope Project
+export const dScopeProject = pgTable('d_scope_project', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  descr: text('descr'),
   tags: jsonb('tags').notNull().default('[]'),
-  // geom: geometry('geom', { type: 'geometry', srid: 4326 }), // PostGIS - simplified for now
+  fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
+  toTs: timestamp('to_ts', { withTimezone: true }),
+  active: boolean('active').notNull().default(true),
+  projectType: text('project_type').notNull(),
+  projectCode: text('project_code').unique(),
+  attr: jsonb('attr').notNull().default('{}'),
+  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
+  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Scope Task
+export const dScopeTask = pgTable('d_scope_task', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  descr: text('descr'),
+  tags: jsonb('tags').notNull().default('[]'),
+  fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
+  toTs: timestamp('to_ts', { withTimezone: true }),
+  active: boolean('active').notNull().default(true),
+  taskType: text('task_type').notNull(),
+  taskHeadId: uuid('task_head_id'),
+  attr: jsonb('attr').notNull().default('{}'),
+  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
+  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Scope App
+export const dScopeApp = pgTable('d_scope_app', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  descr: text('descr'),
+  tags: jsonb('tags').notNull().default('[]'),
+  fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
+  toTs: timestamp('to_ts', { withTimezone: true }),
+  active: boolean('active').notNull().default(true),
+  appType: text('app_type').notNull(), // 'page', 'component', 'api'
+  appPath: text('app_path').notNull(),
   attr: jsonb('attr').notNull().default('{}'),
   created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
   updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
 });
 
 // Employee
-export const dEmp = pgTable('d_emp', {
+export const dEmployee = pgTable('d_employee', {
   id: uuid('id').primaryKey().defaultRandom(),
-  username: text('username').unique(),
-  name: text('name'),
-  email: text('email').unique(),
-  phone: text('phone'),
-  passwordHash: text('password_hash'),
-  isActive: boolean('is_active').notNull().default(true),
-  roleId: uuid('role_id'), // FK added later
+  
+  // Standard fields (audit, metadata, SCD type 2)
+  name: text('name').notNull(),
+  descr: text('descr'),
   tags: jsonb('tags').notNull().default('[]'),
   attr: jsonb('attr').notNull().default('{}'),
+  fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
+  toTs: timestamp('to_ts', { withTimezone: true }),
+  active: boolean('active').notNull().default(true),
   created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
   updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+  
+  // Employee identification
+  employeeNumber: text('employee_number').unique().notNull(),
+  email: text('email').unique().notNull(),
+  phone: text('phone'),
+  
+  // Personal information
+  firstName: text('first_name').notNull(),
+  lastName: text('last_name').notNull(),
+  preferredName: text('preferred_name'),
+  dateOfBirth: date('date_of_birth'),
+  
+  // Employment details
+  hireDate: date('hire_date').notNull(),
+  terminationDate: date('termination_date'),
+  employmentStatus: text('employment_status').notNull().default('active'),
+  employeeType: text('employee_type').notNull().default('full-time'),
+  
+  // Organizational assignment
+  hrPositionId: uuid('hr_position_id'),
+  primaryOrgId: uuid('primary_org_id'),
+  reportsToEmployeeId: uuid('reports_to_employee_id'),
+  
+  // Compensation and benefits
+  salaryAnnual: numeric('salary_annual', { precision: 10, scale: 2 }),
+  hourlyRate: numeric('hourly_rate', { precision: 6, scale: 2 }),
+  overtimeEligible: boolean('overtime_eligible').default(true),
+  benefitsEligible: boolean('benefits_eligible').default(true),
+  
+  // Skills and qualifications
+  certifications: jsonb('certifications').default('[]'),
+  skills: jsonb('skills').default('[]'),
+  languages: jsonb('languages').default('["en"]'),
+  educationLevel: text('education_level'),
+  
+  // Work preferences and attributes
+  remoteEligible: boolean('remote_eligible').default(false),
+  travelRequired: boolean('travel_required').default(false),
+  securityClearance: text('security_clearance'),
+  emergencyContact: jsonb('emergency_contact').default('{}'),
 });
 
-// Role (complex scoping)
+// Role (deprecated - use unified scope system)
 export const dRole = pgTable('d_role', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
-  desc: text('desc'),
+  descr: text('descr'),
   tags: jsonb('tags').notNull().default('[]'),
-  fromTs: timestamp('from_ts', { withTimezone: true }).notNull(),
+  fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
   active: boolean('active').notNull().default(true),
-
-  // Project scoping
-  projectSpecific: boolean('project_specific').notNull().default(false),
-  projectId: uuid('project_id'), // FK added later
-  projectPermission: jsonb('project_permission').notNull().default('[]'),
-
-  // Task scoping
-  taskSpecific: boolean('task_specific').notNull().default(false),
-  taskId: uuid('task_id'), // FK added later
-  taskPermission: jsonb('task_permission').notNull().default('[]'),
-
-  // Location scoping
-  locationSpecific: boolean('location_specific').notNull().default(false),
-  locationId: uuid('location_id').references(() => dLocation.id, { onDelete: 'set null' }),
-  locationPermission: jsonb('location_permission').notNull().default('[]'),
-
-  // Business scoping
-  businessSpecific: boolean('business_specific').notNull().default(false),
-  bizId: uuid('biz_id').references(() => dBusiness.id, { onDelete: 'set null' }),
-  businessPermission: jsonb('business_permission').notNull().default('[]'),
-
-  // HR scoping
-  hrSpecific: boolean('hr_specific').notNull().default(false),
-  hrId: uuid('hr_id').references(() => dHr.id, { onDelete: 'set null' }),
-  hrPermission: jsonb('hr_permission').notNull().default('[]'),
-
-  // Worksite scoping
-  worksiteSpecific: boolean('worksite_specific').notNull().default(false),
-  worksiteId: uuid('worksite_id').references(() => dWorksite.id, { onDelete: 'set null' }),
-  worksitePermission: jsonb('worksite_permission').notNull().default('[]'),
-
+  permissions: jsonb('permissions').notNull().default('[]'),
   attr: jsonb('attr').notNull().default('{}'),
   created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
   updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
@@ -132,79 +177,265 @@ export const dRole = pgTable('d_role', {
 // Client
 export const dClient = pgTable('d_client', {
   id: uuid('id').primaryKey().defaultRandom(),
+  
+  // Standard fields
   name: text('name').notNull(),
-  contact: jsonb('contact').notNull().default('{}'),
+  descr: text('descr'),
   tags: jsonb('tags').notNull().default('[]'),
   attr: jsonb('attr').notNull().default('{}'),
+  fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
+  toTs: timestamp('to_ts', { withTimezone: true }),
+  active: boolean('active').notNull().default(true),
   created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
   updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+  
+  // Client identification
+  clientNumber: text('client_number').unique(),
+  clientType: text('client_type').notNull().default('residential'), // residential, commercial, municipal, property_management
+  
+  // Contact and location
+  primaryContact: jsonb('primary_contact').default('{}'),
+  billingContact: jsonb('billing_contact').default('{}'),
+  serviceAddress: text('service_address'),
+  billingAddress: text('billing_address'),
+  
+  // Business information
+  companyName: text('company_name'),
+  industry: text('industry'),
+  businessNumber: text('business_number'),
+  taxId: text('tax_id'),
+  
+  // Relationship management
+  accountManager: uuid('account_manager'),
+  clientSince: date('client_since'),
+  clientStatus: text('client_status').default('active'), // active, inactive, prospect, suspended
+  
+  // Hierarchy support (for corporate clients)
+  parentClientId: uuid('parent_client_id'),
+  
+  // Service preferences
+  preferredServiceDays: jsonb('preferred_service_days').default('[]'),
+  serviceNotes: text('service_notes'),
+  specialRequirements: jsonb('special_requirements').default('[]'),
+  
+  // Financial information
+  creditLimit: numeric('credit_limit', { precision: 10, scale: 2 }),
+  paymentTerms: text('payment_terms'),
+  billingFrequency: text('billing_frequency'),
+  
+  // Performance tracking
+  satisfactionScore: numeric('satisfaction_score', { precision: 3, scale: 1 }),
+  totalRevenue: numeric('total_revenue', { precision: 12, scale: 2 }),
+  lastServiceDate: date('last_service_date'),
 });
 
-// Client Group
-export const dClientGrp = pgTable('d_client_grp', {
+
+
+// Unified Scope System
+export const dScopeUnified = pgTable('d_scope_unified', {
   id: uuid('id').primaryKey().defaultRandom(),
-  name: text('name').notNull(),
-  taskHeadId: uuid('task_head_id'), // FK added later
-  clients: jsonb('clients').notNull().default('[]'), // uuid[] as jsonb array
+  
+  // Standard fields
+  scopeName: text('scope_name').notNull(),
+  descr: text('descr'),
   tags: jsonb('tags').notNull().default('[]'),
   attr: jsonb('attr').notNull().default('{}'),
+  fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
+  toTs: timestamp('to_ts', { withTimezone: true }),
+  active: boolean('active').notNull().default(true),
   created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
   updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+  
+  // Unified scope identification
+  scopeType: text('scope_type').notNull(),
+  scopeReferenceTable: text('scope_reference_table').notNull(),
+  scopeTableReferenceId: uuid('scope_table_reference_id').notNull(),
+  scopeLevelId: integer('scope_level_id'),
+  
+  // Hierarchy and relationships
+  parentScopeId: uuid('parent_scope_id'),
+  tenantId: uuid('tenant_id'),
+  
+  // Scope attributes
+  isSystemScope: boolean('is_system_scope').notNull().default(false),
+  isInherited: boolean('is_inherited').notNull().default(false),
+  isLeafScope: boolean('is_leaf_scope').default(false),
+  
+  // Permission and access control
+  resourcePermission: jsonb('resource_permission').notNull().default('[]'),
+  permissionInheritance: boolean('permission_inheritance').default(true),
+  accessControlEnabled: boolean('access_control_enabled').default(true),
+  
+  // Metadata and governance
+  scopePath: text('scope_path'),
+  scopeWeight: integer('scope_weight').default(0),
+  auditEnabled: boolean('audit_enabled').default(true),
 });
+
+// Employee-Scope Unified Relationship
+export const relEmployeeScopeUnified = pgTable('rel_employee_scope_unified', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  
+  // Relationship fields
+  empId: uuid('emp_id').notNull().references(() => dEmployee.id, { onDelete: 'cascade' }),
+  scopeUnifiedId: uuid('scope_unified_id').notNull().references(() => dScopeUnified.id, { onDelete: 'cascade' }),
+  
+  // Temporal and audit fields
+  fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
+  toTs: timestamp('to_ts', { withTimezone: true }),
+  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
+  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+  active: boolean('active').notNull().default(true),
+  
+  // Scope context (for direct reference without joins)
+  scopeType: text('scope_type').notNull(),
+  scopeReferenceTable: text('scope_reference_table').notNull(),
+  scopeTableReferenceId: uuid('scope_table_reference_id').notNull(),
+  
+  // Permission matrix [0=Read, 1=Create, 2=Update, 3=Delete, 4=Execute]
+  resourcePermission: jsonb('resource_permission').notNull().default('[]'),
+  
+  // Additional context and governance
+  resourceType: text('resource_type'),
+  resourceId: uuid('resource_id'),
+  tenantId: uuid('tenant_id'),
+  permissionSource: text('permission_source').default('direct'),
+  
+  // Assignment metadata
+  assignedByEmployeeId: uuid('assigned_by_employee_id'),
+  assignmentReason: text('assignment_reason'),
+  expiryDate: date('expiry_date'),
+  conditionalAccess: boolean('conditional_access').default(false),
+  
+  // Performance and auditing
+  usageTracking: boolean('usage_tracking').default(true),
+  lastAccessedDate: date('last_accessed_date'),
+  accessCount: integer('access_count').default(0),
+});
+
+// Employee Relations
+export const dEmployeeRelations = relations(dEmployee, ({ one, many }) => ({
+  reportsTo: one(dEmployee, {
+    fields: [dEmployee.reportsToEmployeeId],
+    references: [dEmployee.id],
+  }),
+  directReports: many(dEmployee),
+  scopes: many(relEmployeeScopeUnified),
+}));
+
+// Scope Relations
+export const dScopeUnifiedRelations = relations(dScopeUnified, ({ one, many }) => ({
+  parent: one(dScopeUnified, {
+    fields: [dScopeUnified.parentScopeId],
+    references: [dScopeUnified.id],
+  }),
+  children: many(dScopeUnified),
+  employeePermissions: many(relEmployeeScopeUnified),
+}));
+
+export const relEmployeeScopeUnifiedRelations = relations(relEmployeeScopeUnified, ({ one }) => ({
+  employee: one(dEmployee, {
+    fields: [relEmployeeScopeUnified.empId],
+    references: [dEmployee.id],
+  }),
+  scope: one(dScopeUnified, {
+    fields: [relEmployeeScopeUnified.scopeUnifiedId],
+    references: [dScopeUnified.id],
+  }),
+  assignedBy: one(dEmployee, {
+    fields: [relEmployeeScopeUnified.assignedByEmployeeId],
+    references: [dEmployee.id],
+  }),
+}));
 
 // Relations
-export const dLocationRelations = relations(dLocation, ({ one, many }) => ({
-  level: one(metaLocLevel, {
-    fields: [dLocation.levelId],
-    references: [metaLocLevel.levelId],
+export const dScopeOrgRelations = relations(dScopeOrg, ({ one, many }) => ({
+  parent: one(dScopeOrg, {
+    fields: [dScopeOrg.parentId],
+    references: [dScopeOrg.id],
   }),
-  // parent: one(dLocation, {
-  //   fields: [dLocation.parentId],
-  //   references: [dLocation.id],
-  // }),
-  // children: many(dLocation),
-  worksites: many(dWorksite),
+  children: many(dScopeOrg),
 }));
 
-export const dBusinessRelations = relations(dBusiness, ({ one, many }) => ({
-  level: one(metaBizLevel, {
-    fields: [dBusiness.levelId],
-    references: [metaBizLevel.levelId],
-  }),
-  // parent: one(dBusiness, {
-  //   fields: [dBusiness.parentId],
-  //   references: [dBusiness.id],
-  // }),
-  // children: many(dBusiness),
-  worksites: many(dWorksite),
-}));
-
-export const dHrRelations = relations(dHr, ({ one, many }) => ({
+export const dScopeHrRelations = relations(dScopeHr, ({ one, many }) => ({
   level: one(metaHrLevel, {
-    fields: [dHr.levelId],
+    fields: [dScopeHr.levelId],
     references: [metaHrLevel.levelId],
   }),
-  // parent: one(dHr, {
-  //   fields: [dHr.parentId],
-  //   references: [dHr.id],
-  // }),
-  // children: many(dHr),
+  parent: one(dScopeHr, {
+    fields: [dScopeHr.parentId],
+    references: [dScopeHr.id],
+  }),
+  children: many(dScopeHr),
 }));
 
-export const dWorksiteRelations = relations(dWorksite, ({ one }) => ({
-  location: one(dLocation, {
-    fields: [dWorksite.locId],
-    references: [dLocation.id],
+export const dClientRelations = relations(dClient, ({ one, many }) => ({
+  parent: one(dClient, {
+    fields: [dClient.parentClientId],
+    references: [dClient.id],
   }),
-  business: one(dBusiness, {
-    fields: [dWorksite.bizId],
-    references: [dBusiness.id],
+  children: many(dClient),
+  accountManagerEmp: one(dEmployee, {
+    fields: [dClient.accountManager],
+    references: [dEmployee.id],
   }),
 }));
 
-export const dEmpRelations = relations(dEmp, ({ one }) => ({
-  role: one(dRole, {
-    fields: [dEmp.roleId],
-    references: [dRole.id],
-  }),
-}));
+// Wiki table (from DDL)
+export const dWiki = pgTable('d_wiki', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  
+  // Standard fields
+  name: text('name').notNull(),
+  descr: text('descr'),
+  tags: jsonb('tags').notNull().default('[]'),
+  attr: jsonb('attr').notNull().default('{}'),
+  fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
+  toTs: timestamp('to_ts', { withTimezone: true }),
+  active: boolean('active').notNull().default(true),
+  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
+  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+  
+  // Wiki-specific fields
+  wikiType: text('wiki_type').notNull().default('page'),
+  contentFormat: text('content_format').notNull().default('markdown'),
+  slug: text('slug').unique(),
+  
+  // Content and organization
+  content: text('content'),
+  summary: text('summary'),
+  keywords: jsonb('keywords').default('[]'),
+  category: text('category'),
+  
+  // Hierarchy and relationships
+  parentWikiId: uuid('parent_wiki_id'),
+  sortOrder: integer('sort_order').default(0),
+  
+  // Authorship and collaboration
+  authorId: uuid('author_id').references(() => dEmployee.id),
+  lastModifiedBy: uuid('last_modified_by').references(() => dEmployee.id),
+  
+  // Access control and workflow
+  visibility: text('visibility').notNull().default('internal'), // public, internal, restricted
+  publishStatus: text('publish_status').notNull().default('draft'), // draft, published, archived
+  reviewRequired: boolean('review_required').default(false),
+  approvedBy: uuid('approved_by'),
+  approvedAt: timestamp('approved_at', { withTimezone: true }),
+  
+  // Version control
+  version: text('version').default('1.0'),
+  isLatestVersion: boolean('is_latest_version').default(true),
+  
+  // Performance tracking
+  viewCount: integer('view_count').default(0),
+  lastViewedAt: timestamp('last_viewed_at', { withTimezone: true }),
+  
+  // Content metadata
+  wordCount: integer('word_count'),
+  readingTimeMinutes: integer('reading_time_minutes'),
+  
+  // External references
+  externalUrl: text('external_url'),
+  attachments: jsonb('attachments').default('[]'),
+});
+

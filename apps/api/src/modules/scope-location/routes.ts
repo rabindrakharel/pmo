@@ -32,7 +32,6 @@ const UpdateScopeLocationSchema = Type.Partial(CreateScopeLocationSchema);
 export async function scopeLocationRoutes(fastify: FastifyInstance) {
   // List locations with filtering
   fastify.get('/api/v1/scope/location', {
-    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         levelId: Type.Optional(Type.Number()),
@@ -54,11 +53,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { levelId, parentId, active, limit = 50, offset = 0 } = request.query as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
 
     try {
@@ -124,7 +118,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
 
   // Get single location
   fastify.get('/api/v1/scope/location/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -138,11 +131,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     try {
       const location = await db.execute(sql`
@@ -176,7 +164,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
 
   // Create location
   fastify.post('/api/v1/scope/location', {
-    preHandler: [fastify.authenticate],
     schema: {
       body: CreateScopeLocationSchema,
       response: {
@@ -188,11 +175,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
 
     try {
@@ -229,7 +211,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
 
   // Update location
   fastify.put('/api/v1/scope/location/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -245,11 +226,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     try {
       // Check if location exists
@@ -333,7 +309,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
 
   // Delete location (soft delete)
   fastify.delete('/api/v1/scope/location/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -347,11 +322,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     try {
       // Check if location exists
@@ -388,7 +358,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
 
   // Get location hierarchy
   fastify.get('/api/v1/scope/location/:id/hierarchy', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -406,11 +375,6 @@ export async function scopeLocationRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     try {
       // Get the location

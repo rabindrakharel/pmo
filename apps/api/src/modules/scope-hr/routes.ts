@@ -31,7 +31,6 @@ const UpdateScopeHRSchema = Type.Partial(CreateScopeHRSchema);
 export async function scopeHRRoutes(fastify: FastifyInstance) {
   // List HR hierarchy with filtering
   fastify.get('/api/v1/scope/hr', {
-    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         levelId: Type.Optional(Type.Number()),
@@ -53,11 +52,6 @@ export async function scopeHRRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { levelId, parentId, active, limit = 50, offset = 0 } = request.query as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
 
     try {
@@ -121,7 +115,6 @@ export async function scopeHRRoutes(fastify: FastifyInstance) {
 
   // Get single HR unit
   fastify.get('/api/v1/scope/hr/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -135,11 +128,6 @@ export async function scopeHRRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     const scopeAccess = await hasPermissionOnScopeId(userId, 'hr', id, 'view');
     if (!scopeAccess.allowed) {
@@ -176,7 +164,6 @@ export async function scopeHRRoutes(fastify: FastifyInstance) {
 
   // Create HR unit
   fastify.post('/api/v1/scope/hr', {
-    preHandler: [fastify.authenticate],
     schema: {
       body: CreateScopeHRSchema,
       response: {
@@ -188,11 +175,6 @@ export async function scopeHRRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     // Check if user can create in this scope
     if (data.parentId) {
@@ -234,7 +216,6 @@ export async function scopeHRRoutes(fastify: FastifyInstance) {
 
   // Update HR unit
   fastify.put('/api/v1/scope/hr/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -250,11 +231,6 @@ export async function scopeHRRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     const scopeAccess = await hasPermissionOnScopeId(userId, 'hr', id, 'modify');
     if (!scopeAccess.allowed) {
@@ -330,7 +306,6 @@ export async function scopeHRRoutes(fastify: FastifyInstance) {
 
   // Delete HR unit (soft delete)
   fastify.delete('/api/v1/scope/hr/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -344,11 +319,6 @@ export async function scopeHRRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     const scopeAccess = await hasPermissionOnScopeId(userId, 'hr', id, 'delete');
     if (!scopeAccess.allowed) {
@@ -390,7 +360,6 @@ export async function scopeHRRoutes(fastify: FastifyInstance) {
 
   // Get HR unit hierarchy
   fastify.get('/api/v1/scope/hr/:id/hierarchy', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -408,11 +377,6 @@ export async function scopeHRRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    };
 
     const scopeAccess = await hasPermissionOnScopeId(userId, 'hr', id, 'view');
     if (!scopeAccess.allowed) {

@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { Type } from '@sinclair/typebox';
-import { ENTITY_CONFIG, EntityConfig, FieldConfig } from './entityConfig.js';
+import { ENTITY_CONFIG, type EntityConfig, type FieldConfig } from './entityConfig.js';
 
 /**
  * Entity Query Builder
@@ -175,7 +175,9 @@ export class EntityQueryBuilder {
     }
 
     const setClause = Object.entries(updateData).map(([column, value]) => {
-      return sql.raw(`"${column}" = `) + (value === sql`NOW()` ? sql`NOW()` : sql`${value}`);
+      return value === sql`NOW()` ? 
+        sql.raw(`"${column}" = NOW()`) : 
+        sql.raw(`"${column}" = ${value}`);
     });
     
     return sql`

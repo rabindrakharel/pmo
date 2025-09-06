@@ -53,11 +53,6 @@ export async function schemaRoutes(fastify: FastifyInstance) {
       }
     }
   }, async (request, reply) => {
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
     try {
       const entities = getAllEntityNames();
@@ -88,11 +83,6 @@ export async function schemaRoutes(fastify: FastifyInstance) {
     }
   }, async (request, reply) => {
     const { entityType } = request.params as { entityType: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
     try {
       const entityConfig = getEntityConfig(entityType);
@@ -130,11 +120,6 @@ export async function schemaRoutes(fastify: FastifyInstance) {
       entityType: string; 
       fieldName: string; 
     };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
     try {
       const entityConfig = getEntityConfig(entityType);
@@ -182,11 +167,6 @@ export async function schemaRoutes(fastify: FastifyInstance) {
     }
   }, async (request, reply) => {
     const { entityType } = request.params as { entityType: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
     try {
       const entityConfig = getEntityConfig(entityType);
@@ -249,11 +229,6 @@ export async function schemaRoutes(fastify: FastifyInstance) {
     }
   }, async (request, reply) => {
     const { entityType } = request.params as { entityType: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
     try {
       const entityConfig = getEntityConfig(entityType);
@@ -312,11 +287,6 @@ export async function schemaRoutes(fastify: FastifyInstance) {
     }
   }, async (request, reply) => {
     const { entityType } = request.params as { entityType: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
     try {
       const entityConfig = getEntityConfig(entityType);

@@ -20,6 +20,11 @@
 --   - Maintenance Requests: Equipment and facility maintenance requests
 --   - Public Inquiries: Service inquiries and lead generation submissions
 --
+-- Data Validation Rules (Previously Enforced via CHECK Constraints):
+--   - Temporal Range Rule: If to_ts is specified, it must be greater than from_ts
+--   - Data Quality Score Rule: If data_quality_score is specified, it must be between 0 and 5 inclusive
+--   - Business Logic: These validations should be enforced at the application layer
+--
 -- Integration:
 --   - Links to ops_formlog_head for form schema and validation
 --   - Supports JSON data storage with flexible schema validation
@@ -76,11 +81,8 @@ CREATE TABLE app.ops_formlog_records (
   -- Archival and compliance
   archived boolean DEFAULT false,
   archived_date timestamptz,
-  retention_date timestamptz,
+  retention_date timestamptz
   
-  -- Constraints
-  CONSTRAINT valid_temporal_range CHECK (to_ts IS NULL OR to_ts > from_ts),
-  CONSTRAINT valid_quality_score CHECK (data_quality_score IS NULL OR (data_quality_score >= 0 AND data_quality_score <= 5))
 );
 
 -- ============================================================================

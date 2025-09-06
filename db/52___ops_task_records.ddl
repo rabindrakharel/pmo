@@ -37,7 +37,7 @@
 -- Task Records Table (Task Status, Progress Tracking, and Activity Logging)
 CREATE TABLE app.ops_task_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  head_id uuid NOT NULL REFERENCES app.d_scope_task(id) ON DELETE CASCADE,
+  head_id uuid NOT NULL REFERENCES app.ops_task_head(id) ON DELETE CASCADE,
   
   -- Task status and workflow state
   status_name text,
@@ -92,7 +92,7 @@ INSERT INTO app.ops_task_records
   (head_id, name, descr, status_name, stage_name, completion_percentage, actual_start_date, actual_end_date, actual_hours, time_spent, log_owner_id, log_type, log_content, acceptance_status, quality_gate_status, tags, attr)
 VALUES
   -- Fall 2025 Landscaping Campaign Task Records
-  ((SELECT id FROM app.d_scope_task WHERE task_code = 'FALL-EQ-001'), 
+  ((SELECT id FROM app.ops_task_head WHERE task_number = 'FALL-EQ-001'), 
    'Equipment Maintenance Completion Log', 'Final equipment maintenance completion record for fall 2025 landscaping campaign', 
    'completed', 'maintenance_complete', 100.0, '2025-08-15', '2025-08-29', 78.5, 78.5,
    (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
@@ -102,7 +102,7 @@ VALUES
    '["equipment", "maintenance", "completed", "approved"]',
    '{"maintenance_checklist": "completed", "service_technician": "Mike Rodriguez", "supervisor_approval": "James Miller", "warranty_updates": "recorded"}'),
 
-  ((SELECT id FROM app.d_scope_task WHERE task_code = 'FALL-TR-002'),
+  ((SELECT id FROM app.ops_task_head WHERE task_number = 'FALL-TR-002'),
    'Seasonal Staff Training Progress - Week 2', 'Training progress report for seasonal landscaping staff - safety and equipment modules completed',
    'in_progress', 'training_delivery', 75.0, '2025-08-20', null, 45.0, 45.0,
    (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
@@ -112,7 +112,7 @@ VALUES
    '["training", "seasonal", "in_progress", "safety"]',
    '{"training_location": "mississauga_headquarters", "instructor": "Safety Training Corp", "next_session": "2025-08-27", "certification_deadline": "2025-09-05"}'),
 
-  ((SELECT id FROM app.d_scope_task WHERE task_code = 'FALL-SCH-003'),
+  ((SELECT id FROM app.ops_task_head WHERE task_number = 'FALL-SCH-003'),
    'Route Optimization Analysis Complete', 'Completed route optimization analysis for 850 clients across three service areas',
    'completed', 'optimization_complete', 100.0, '2025-09-01', '2025-09-12', 38.0, 38.0,
    (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
@@ -123,7 +123,7 @@ VALUES
    '{"optimization_software": "RouteXpert Pro", "analyst": "Operations Team", "implementation_date": "2025-09-15", "driver_training_required": true}'),
 
   -- Winter 2025 Snow Removal Task Records
-  ((SELECT id FROM app.d_scope_task WHERE task_code = 'WIN-FL-001'),
+  ((SELECT id FROM app.ops_task_head WHERE task_number = 'WIN-FL-001'),
    'Snow Plow Fleet Preparation - Phase 1', 'Initial fleet preparation phase covering vehicle maintenance and plow attachment installation',
    'in_progress', 'vehicle_maintenance', 60.0, '2025-10-15', null, 96.0, 96.0,
    (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
@@ -133,7 +133,7 @@ VALUES
    '["fleet", "maintenance", "snow_removal", "in_progress"]',
    '{"service_location": "equipment_yard_mississauga", "lead_mechanic": "Tony Silva", "estimated_completion": "2025-11-05", "critical_path": "hydraulic_system_upgrades"}'),
 
-  ((SELECT id FROM app.d_scope_task WHERE task_code = 'WIN-SALT-002'),
+  ((SELECT id FROM app.ops_task_head WHERE task_number = 'WIN-SALT-002'),
    'Salt Supply Contracts Finalized', 'Completed salt supply procurement with locked-in pricing for winter 2025-2026 season',
    'completed', 'procurement_complete', 100.0, '2025-09-01', '2025-10-15', 52.0, 52.0,
    (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
@@ -144,7 +144,7 @@ VALUES
    '{"contract_manager": "Procurement Team", "budget_under": "$3,200", "quality_specifications": "road_salt_grade_1", "delivery_guarantee": "24_hours"}'),
 
   -- Water Heater Replacement Task Records  
-  ((SELECT id FROM app.d_scope_task WHERE task_code = 'WHR-SUP-001'),
+  ((SELECT id FROM app.ops_task_head WHERE task_number = 'WHR-SUP-001'),
    'Manufacturer Partnership Agreements', 'Established partnerships with three major water heater manufacturers with volume discounting',
    'completed', 'partnerships_established', 100.0, '2025-01-01', '2025-01-25', 35.0, 35.0,
    (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
@@ -154,7 +154,7 @@ VALUES
    '["suppliers", "partnerships", "water_heaters", "completed"]',
    '{"negotiation_lead": "Procurement Manager", "legal_review": "completed", "first_delivery": "2025-02-01", "payment_terms": "net_30"}'),
 
-  ((SELECT id FROM app.d_scope_task WHERE task_code = 'WHR-ASSESS-002'),
+  ((SELECT id FROM app.ops_task_head WHERE task_number = 'WHR-ASSESS-002'),
    'Customer Assessment Process Development', 'Developed comprehensive customer assessment workflow for water heater replacement needs',
    'completed', 'process_documented', 100.0, '2025-02-01', '2025-02-22', 58.0, 58.0,
    (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
@@ -165,7 +165,7 @@ VALUES
    '{"process_designer": "Operations Team", "quality_review": "passed", "pilot_testing": "scheduled_march_2025", "training_materials": "created"}'),
 
   -- Emergency Plumbing Enhancement Task Records
-  ((SELECT id FROM app.d_scope_task WHERE task_code = 'EMER-GPS-001'),
+  ((SELECT id FROM app.ops_task_head WHERE task_number = 'EMER-GPS-001'),
    'GPS Dispatch System Implementation', 'Successfully implemented real-time GPS dispatch system for emergency plumbing response optimization',
    'completed', 'system_deployed', 100.0, '2025-01-01', '2025-02-15', 72.0, 72.0,
    (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
@@ -175,7 +175,7 @@ VALUES
    '["gps", "dispatch", "technology", "implemented"]',
    '{"project_manager": "IT Operations", "go_live_date": "2025-02-15", "user_feedback": "excellent", "roi_projection": "18_months"}'),
 
-  ((SELECT id FROM app.d_scope_task WHERE task_code = 'EMER-CONT-002'),
+  ((SELECT id FROM app.ops_task_head WHERE task_number = 'EMER-CONT-002'),
    'Contractor Network Expansion - Phase 1', 'Added 3 new emergency plumbing contractors to London region network with full qualification verification',
    'in_progress', 'contractor_onboarding', 60.0, '2025-02-01', null, 36.0, 36.0,
    (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),

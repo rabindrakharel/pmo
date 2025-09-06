@@ -79,7 +79,8 @@
       "Bash(for:*)",
       "Bash(do grep -A 10 \"CREATE TABLE app\\.rel_\" \"$file\")",
       "Bash(done)",
-      "Bash(do echo \"=== $file ===\")"
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": [],

@@ -48,7 +48,6 @@ const UpdateArtifactSchema = Type.Partial(CreateArtifactSchema);
 export async function artifactRoutes(fastify: FastifyInstance) {
   // List artifacts
   fastify.get('/api/v1/artifact', {
-    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         search: Type.Optional(Type.String()),
@@ -70,11 +69,9 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { search, artifact_type, business_id, project_id, project_stage, limit = 50, offset = 0 } = request.query as any;
-    const userId = (request as any).user?.sub;
-    if (!userId) return reply.status(401).send({ error: 'Invalid token' });
-
+    
     try {
-      const conditions: any[] = [sql`a.active = true`];
+      const conditions = [];
       if (artifact_type) conditions.push(sql`a.artifact_type = ${artifact_type}`);
       if (business_id) conditions.push(sql`a.business_id = ${business_id}`);
       if (project_id) conditions.push(sql`a.project_id = ${project_id}`);
@@ -130,18 +127,12 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
   // Get artifact
   fastify.get('/api/v1/artifact/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
       response: { 200: ArtifactSchema },
     },
   }, async (request, reply) => {
     const { id } = request.params as any;
-    const userId = (request as any).user?.sub;
-    if (!userId) return reply.status(401).send({ error: 'Invalid token' });
-    try {
-      const rows = await db.execute(sql`
-        SELECT
           a.id,
           a.name,
           a.descr,
@@ -178,18 +169,12 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
   // Create artifact
   fastify.post('/api/v1/artifact', {
-    preHandler: [fastify.authenticate],
     schema: {
       body: CreateArtifactSchema,
       response: { 201: ArtifactSchema },
     },
   }, async (request, reply) => {
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-    if (!userId) return reply.status(401).send({ error: 'Invalid token' });
-    try {
-      const inserted = await db.execute(sql`
-        INSERT INTO app.d_artifact (
           name, "descr", tags, attr, artifact_type, model_type,
           business_id, project_id, project_stage,
           source_type, uri, attachments, owner_emp_id, active, from_ts
@@ -250,7 +235,6 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
   // Update artifact
   fastify.put('/api/v1/artifact/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
       body: UpdateArtifactSchema,
@@ -259,11 +243,6 @@ export async function artifactRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as any;
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-    if (!userId) return reply.status(401).send({ error: 'Invalid token' });
-    try {
-      const updated = await db.execute(sql`
-        UPDATE app.d_artifact SET
           name = COALESCE(${data.name}, name),
           "descr" = COALESCE(${data.descr}, "descr"),
           tags = COALESCE(${JSON.stringify(data.tags ?? null)}::jsonb, tags),
@@ -319,14 +298,8 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
   // Delete artifact (soft delete)
   fastify.delete('/api/v1/artifact/:id', {
-    preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     const { id } = request.params as any;
-    const userId = (request as any).user?.sub;
-    if (!userId) return reply.status(401).send({ error: 'Invalid token' });
-    try {
-      await db.execute(sql`UPDATE app.d_artifact SET active = false, to_ts = NOW(), updated = NOW() WHERE id = ${id}`);
-      return reply.status(204).send();
     } catch (error) {
       fastify.log.error('Error deleting artifact:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

@@ -21,7 +21,7 @@
 --   - Administrative: Administrative and coordination tasks
 --
 -- Integration:
---   - Parent relationship to d_scope_project for project hierarchy
+--   - Parent relationship to d_project for project hierarchy
 --   - Links to d_employee for task assignment and ownership
 --   - Supports detailed project execution and resource tracking
 --   - Enables time tracking and performance measurement
@@ -45,7 +45,7 @@ CREATE TABLE app.ops_task_head (
   updated timestamptz NOT NULL DEFAULT now(),
 
   -- Task identification
-  task_number text UNIQUE NOT NULL,
+  task_number text NOT NULL,
   task_type text NOT NULL DEFAULT 'installation',
   task_category text NOT NULL DEFAULT 'operational',
   
@@ -74,6 +74,7 @@ CREATE TABLE app.ops_task_head (
   actual_hours numeric(6,2),
   
   -- Location and site information
+  biz_id uuid REFERENCES app.d_biz(id) ON DELETE SET NULL,
   worksite_id uuid,
   client_id uuid,
   service_address text,
@@ -117,7 +118,7 @@ CREATE TABLE app.ops_task_head (
 
 -- Fall 2025 Landscaping Campaign Tasks
 WITH campaign_project AS (
-  SELECT id, name, project_code FROM app.d_scope_project WHERE project_code = 'FALL-2025-LAND'
+  SELECT id, name, project_code FROM app.d_project WHERE project_code = 'FALL-2025-LAND'
 ),
 employees AS (
   SELECT 
@@ -239,7 +240,7 @@ FROM campaign_project, employees, clients;
 
 -- Winter 2025 Snow Operations Tasks
 WITH winter_project AS (
-  SELECT id, name, project_code FROM app.d_scope_project WHERE project_code = 'WIN-2025-SNOW'
+  SELECT id, name, project_code FROM app.d_project WHERE project_code = 'WIN-2025-SNOW'
 ),
 employees AS (
   SELECT 
@@ -330,7 +331,7 @@ FROM winter_project, employees, commercial_clients;
 
 -- HVAC Maintenance Contract Tasks
 WITH hvac_project AS (
-  SELECT id, name, project_code FROM app.d_scope_project WHERE project_code = 'HVAC-2025-MAINT'
+  SELECT id, name, project_code FROM app.d_project WHERE project_code = 'HVAC-2025-MAINT'
 ),
 technicians AS (
   SELECT 
@@ -421,7 +422,7 @@ FROM hvac_project, technicians, hvac_clients;
 
 -- Solar Installation Project Tasks  
 WITH solar_project AS (
-  SELECT id, name, project_code FROM app.d_scope_project WHERE project_code = 'SOL-2025-EXP'
+  SELECT id, name, project_code FROM app.d_project WHERE project_code = 'SOL-2025-EXP'
 ),
 solar_team AS (
   SELECT 

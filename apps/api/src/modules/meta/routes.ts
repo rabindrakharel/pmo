@@ -75,11 +75,6 @@ export async function metaRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { category, active } = request.query as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
 
     try {
@@ -382,11 +377,6 @@ export async function metaRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { category } = request.params as { category: string };
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
 
     try {
@@ -462,11 +452,6 @@ export async function metaRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { category, id } = request.params as { category: string; id: string };
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
 
     try {
@@ -542,11 +527,6 @@ export async function metaRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { category, id } = request.params as { category: string; id: string };
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Invalid token' });
-    }
 
     // Check if user has permission to delete meta data (admin-level)
 

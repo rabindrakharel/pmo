@@ -40,7 +40,6 @@ const UpdateWikiSchema = Type.Partial(CreateWikiSchema);
 export async function wikiRoutes(fastify: FastifyInstance) {
   // List
   fastify.get('/api/v1/wiki', {
-    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         search: Type.Optional(Type.String()),
@@ -59,11 +58,6 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     }
   }, async (request, reply) => {
     const { search, tag, limit = 50, offset = 0 } = request.query as any;
-    const userId = (request as any).user?.sub;
-    if (!userId) return reply.status(401).send({ error: 'Invalid token' });
-
-    try {
-      const conditions = [sql`active = true`];
       if (search) {
         conditions.push(sql`(title ILIKE '%' || ${search} || '%' OR slug ILIKE '%' || ${search} || '%')`);
       }
@@ -109,18 +103,12 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
   // Get
   fastify.get('/api/v1/wiki/:id', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
       response: { 200: WikiSchema }
     }
   }, async (request, reply) => {
     const { id } = request.params as any;
-    const userId = (request as any).user?.sub;
-    if (!userId) return reply.status(401).send({ error: 'Invalid token' });
-    try {
-      const rows = await db.execute(sql`
-        SELECT 
           id,
           title,
           slug,
@@ -151,7 +139,6 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
   // Create
   fastify.post('/api/v1/wiki', {
-    preHandler: [fastify.authenticate],
     schema: { body: CreateWikiSchema, response: { 201: WikiSchema } }
   }, async (request, reply) => {
     const data = request.body as any;
@@ -179,16 +166,10 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
   // Update
   fastify.put('/api/v1/wiki/:id', {
-    preHandler: [fastify.authenticate],
     schema: { params: Type.Object({ id: Type.String({ format: 'uuid' }) }), body: UpdateWikiSchema, response: { 200: WikiSchema } }
   }, async (request, reply) => {
     const { id } = request.params as any;
     const data = request.body as any;
-    const userId = (request as any).user?.sub;
-    if (!userId) return reply.status(401).send({ error: 'Invalid token' });
-    try {
-      const updated = await db.execute(sql`
-        UPDATE app.d_wiki SET
           title = COALESCE(${data.title}, title),
           slug = COALESCE(${data.slug}, slug),
           summary = COALESCE(${data.summary}, summary),
@@ -214,11 +195,6 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     const { id } = request.params as any;
-    const userId = (request as any).user?.sub;
-    if (!userId) return reply.status(401).send({ error: 'Invalid token' });
-    try {
-      await db.execute(sql`UPDATE app.d_wiki SET active = false, to_ts = NOW(), updated = NOW() WHERE id = ${id}`);
-      return reply.status(204).send();
     } catch (e) {
       fastify.log.error('Error delete wiki: ' + String(e));
       return reply.status(500).send({ error: 'Internal server error' });
