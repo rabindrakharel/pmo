@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Users, UserCheck, Building2 } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, Column } from '../components/ui/DataTable';
+import { StatsGrid } from '../components/common/StatsGrid';
 import { employeeApi } from '../lib/api';
 
 interface Employee {
@@ -22,6 +24,7 @@ interface Employee {
 }
 
 export function EmployeePage() {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({
@@ -204,11 +207,21 @@ export function EmployeePage() {
             rowKey="id"
             filterable={true}
             columnSelection={true}
-            onRowClick={(employee) => console.log('Navigate to employee:', employee.id)}
-            onView={(employee) => console.log('View employee:', employee.id)}
-            onEdit={(employee) => console.log('Edit employee:', employee.id)}
+            onRowClick={(employee) => navigate(`/employee/${employee.id}`)}
+            onView={(employee) => navigate(`/employee/${employee.id}`)}
+            onEdit={(employee) => navigate(`/employee/${employee.id}/edit`)}
             onShare={(employee) => console.log('Share employee:', employee.id)}
-            onDelete={(employee) => console.log('Delete employee:', employee.id)}
+            onDelete={async (employee) => {
+              if (window.confirm(`Are you sure you want to delete "${employee.name}"?`)) {
+                try {
+                  await employeeApi.delete(employee.id);
+                  loadEmployees(); // Reload the list
+                } catch (error) {
+                  console.error('Failed to delete employee:', error);
+                  alert('Failed to delete employee. Please try again.');
+                }
+              }
+            }}
           />
         </div>
       </div>

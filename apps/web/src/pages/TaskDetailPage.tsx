@@ -1,23 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
-import { HeaderTabNavigation } from '../components/common/HeaderTabNavigation';
+import { HeaderTabNavigation, useHeaderTabs } from '../components/common/HeaderTabNavigation';
 import { ActionBar } from '../components/common/RBACButton';
 import { FileText, MessageSquare, Activity, Users, Clock } from 'lucide-react';
 
 export function TaskDetailPage() {
-  const { projectId, taskId } = useParams<{ projectId: string; taskId: string }>();
+  const { taskId } = useParams<{ taskId: string }>();
+  const { tabs, loading: tabsLoading } = useHeaderTabs('task', taskId!);
   const [taskData, setTaskData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('details');
-
-  const tabs = [
-    { id: 'details', label: 'Details', icon: FileText, path: `/project/${projectId}/task/${taskId}` },
-    { id: 'notes', label: 'Case Notes', icon: MessageSquare, path: `/project/${projectId}/task/${taskId}/notes` },
-    { id: 'forms', label: 'Forms', icon: FileText, path: `/project/${projectId}/task/${taskId}/forms` },
-    { id: 'artifacts', label: 'Artifacts', icon: FileText, path: `/project/${projectId}/task/${taskId}/artifacts` },
-    { id: 'activity', label: 'Activity', icon: Activity, path: `/project/${projectId}/task/${taskId}/activity` },
-  ];
 
   useEffect(() => {
     const fetchTaskData = async () => {
@@ -45,7 +37,7 @@ export function TaskDetailPage() {
     }
   }, [taskId]);
 
-  if (loading) {
+  if (loading || tabsLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
@@ -169,56 +161,40 @@ export function TaskDetailPage() {
               </div>
             )}
 
-            {/* Conditional Content Based on Active Tab */}
-            {activeTab === 'details' && (
-              <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900">Task Details</h3>
-                </div>
-                <div className="px-6 py-4">
-                  <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Task Number</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{taskData?.task_number || 'N/A'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Task Type</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{taskData?.task_type || 'N/A'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Category</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{taskData?.task_category || 'N/A'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Project</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{taskData?.project_name || 'N/A'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Estimated Hours</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{taskData?.estimated_hours || 'N/A'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Actual Hours</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{taskData?.actual_hours || 'N/A'}</dd>
-                    </div>
-                  </dl>
-                </div>
+            {/* Task Details */}
+            <div className="bg-white rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">Task Details</h3>
               </div>
-            )}
-
-            {/* Placeholder for other tabs */}
-            {activeTab !== 'details' && (
-              <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4">
-                  <p className="text-gray-500">
-                    {activeTab === 'notes' && 'Case notes with rich editor would go here...'}
-                    {activeTab === 'forms' && 'Attached forms would go here...'}
-                    {activeTab === 'artifacts' && 'Task artifacts would go here...'}
-                    {activeTab === 'activity' && 'Activity timeline would go here...'}
-                  </p>
-                </div>
+              <div className="px-6 py-4">
+                <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Task Number</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{taskData?.task_number || 'N/A'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Task Type</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{taskData?.task_type || 'N/A'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Category</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{taskData?.task_category || 'N/A'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Project</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{taskData?.project_name || 'N/A'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Estimated Hours</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{taskData?.estimated_hours || 'N/A'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Actual Hours</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{taskData?.actual_hours || 'N/A'}</dd>
+                  </div>
+                </dl>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

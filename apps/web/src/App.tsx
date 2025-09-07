@@ -26,6 +26,9 @@ import { BillingPage } from './pages/BillingPage';
 // Parent/Action Page Components
 import { ProjectDetailPage, ProjectTasksPage, ProjectArtifactsPage, ProjectWikiPage, ProjectFormsPage } from './pages/project';
 import { BusinessDetailPage, BusinessProjectsPage, BusinessArtifactsPage } from './pages/business';
+import { EmployeeDetailPage } from './pages/employee/EmployeeDetailPage';
+import { OrgDetailPage } from './pages/org/OrgDetailPage';
+import { RoleDetailPage } from './pages/role/RoleDetailPage';
 import { TaskDetailPage } from './pages/TaskDetailPage';
 import { 
   ProjectStatusPage,
@@ -269,6 +272,41 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
+      {/* Entity Detail Routes */}
+      <Route
+        path="/employee/:employeeId"
+        element={
+          <ProtectedRoute>
+            <EmployeeDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/org/:orgId"
+        element={
+          <ProtectedRoute>
+            <OrgDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/roles/:roleId"
+        element={
+          <ProtectedRoute>
+            <RoleDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/task/:taskId"
+        element={
+          <ProtectedRoute>
+            <TaskDetailPage />
+          </ProtectedRoute>
+        }
+      />
+
       <Route
         path="/forms"
         element={

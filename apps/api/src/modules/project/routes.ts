@@ -12,7 +12,6 @@ import {
 // Schema based on actual ops_project_head table structure from db/09_project_task.ddl
 const ProjectSchema = Type.Object({
   id: Type.String(),
-  tenant_id: Type.String(),
   // Project identification and metadata
   project_code: Type.Optional(Type.String()),
   project_type: Type.String(),
@@ -22,7 +21,7 @@ const ProjectSchema = Type.Object({
   budget_allocated: Type.Optional(Type.Number()),
   budget_currency: Type.String(),
   // Scope relationships
-  business_id: Type.Optional(Type.String()),
+  biz_id: Type.Optional(Type.String()),
   locations: Type.Array(Type.String()),
   worksites: Type.Array(Type.String()),
   // Project team and stakeholders
@@ -67,7 +66,7 @@ const CreateProjectSchema = Type.Object({
   slug: Type.Optional(Type.String()),
   budget_allocated: Type.Optional(Type.Number()),
   budget_currency: Type.Optional(Type.String()),
-  business_id: Type.Optional(Type.String({ format: 'uuid' })),
+  biz_id: Type.Optional(Type.String({ format: 'uuid' })),
   locations: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
   worksites: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
   project_managers: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
@@ -98,6 +97,7 @@ const UpdateProjectSchema = Type.Partial(CreateProjectSchema);
 export async function projectRoutes(fastify: FastifyInstance) {
   // List projects with filtering
   fastify.get('/api/v1/project', {
+    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         active: Type.Optional(Type.Boolean()),
@@ -106,7 +106,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         priority_level: Type.Optional(Type.String()),
         project_stage: Type.Optional(Type.String()),
         project_status: Type.Optional(Type.String()),
-        business_id: Type.Optional(Type.String()),
+        biz_id: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
@@ -124,9 +124,13 @@ export async function projectRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { 
       active, search, project_type, priority_level, project_stage, 
-      project_status, business_id, limit = 50, offset = 0 
+      project_status, biz_id, limit = 50, offset = 0 
     } = request.query as any;
 
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
 
     try {
       // Get employee's allowed project IDs for filtering
@@ -168,8 +172,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
         conditions.push(sql`project_status = ${project_status}`);
       }
       
-      if (business_id) {
-        conditions.push(sql`business_id = ${business_id}`);
+      if (biz_id) {
+        conditions.push(sql`biz_id = ${biz_id}`);
       }
       
       if (search) {
@@ -195,8 +199,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       const projects = await db.execute(sql`
         SELECT 
-          id, tenant_id, project_code, project_type, priority_level, slug,
-          budget_allocated, budget_currency, business_id, locations, worksites,
+          id, project_code, project_type, priority_level, slug,
+          budget_allocated, budget_currency, biz_id, locations, worksites,
           project_managers, project_sponsors, project_leads, clients, approvers,
           planned_start_date, planned_end_date, actual_start_date, actual_end_date,
           milestones, deliverables, estimated_hours, actual_hours, 
@@ -331,6 +335,11 @@ export async function projectRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
     // Check if employee has permission to view this specific project
     const hasViewAccess = await hasPermissionOnEntityId(userId, 'project', id, 'view');
     if (!hasViewAccess) {
@@ -340,8 +349,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
     try {
       const project = await db.execute(sql`
         SELECT 
-          id, tenant_id, project_code, project_type, priority_level, slug,
-          budget_allocated, budget_currency, business_id, locations, worksites,
+          id, project_code, project_type, priority_level, slug,
+          budget_allocated, budget_currency, biz_id, locations, worksites,
           project_managers, project_sponsors, project_leads, clients, approvers,
           planned_start_date, planned_end_date, actual_start_date, actual_end_date,
           milestones, deliverables, estimated_hours, actual_hours, 
@@ -384,6 +393,10 @@ export async function projectRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const data = request.body as any;
 
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
 
     try {
       // Check for unique project code if provided
@@ -420,8 +433,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       const result = await db.execute(sql`
         INSERT INTO app.d_project (
-          tenant_id, project_code, project_type, priority_level, slug,
-          budget_allocated, budget_currency, business_id, locations, worksites,
+          project_code, project_type, priority_level, slug,
+          budget_allocated, budget_currency, biz_id, locations, worksites,
           project_managers, project_sponsors, project_leads, clients, approvers,
           planned_start_date, planned_end_date, actual_start_date, actual_end_date,
           milestones, deliverables, estimated_hours, actual_hours, 
@@ -430,14 +443,13 @@ export async function projectRoutes(fastify: FastifyInstance) {
           name, "descr", tags, attr, active
         )
         VALUES (
-          ${tenantId},
           ${data.project_code || null}, 
           ${data.project_type || 'development'}, 
           ${data.priority_level || 'medium'}, 
           ${data.slug || null},
           ${data.budget_allocated || null}, 
           ${data.budget_currency || 'CAD'}, 
-          ${data.business_id || null}, 
+          ${data.biz_id || null}, 
           ${data.locations ? JSON.stringify(data.locations) : '[]'}::uuid[],
           ${data.worksites ? JSON.stringify(data.worksites) : '[]'}::uuid[],
           ${data.project_managers ? JSON.stringify(data.project_managers) : '[]'}::uuid[],
@@ -503,6 +515,11 @@ export async function projectRoutes(fastify: FastifyInstance) {
     const { id } = request.params as { id: string };
     const data = request.body as any;
 
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
     // Check if employee has permission to modify this specific project
     const hasModifyAccess = await hasPermissionOnEntityId(userId, 'project', id, 'modify');
     if (!hasModifyAccess) {
@@ -528,7 +545,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       if (data.slug !== undefined) updateFields.push(sql`slug = ${data.slug}`);
       if (data.budget_allocated !== undefined) updateFields.push(sql`budget_allocated = ${data.budget_allocated}`);
       if (data.budget_currency !== undefined) updateFields.push(sql`budget_currency = ${data.budget_currency}`);
-      if (data.business_id !== undefined) updateFields.push(sql`business_id = ${data.business_id}`);
+      if (data.biz_id !== undefined) updateFields.push(sql`biz_id = ${data.biz_id}`);
       if (data.locations !== undefined) updateFields.push(sql`locations = ${JSON.stringify(data.locations)}::uuid[]`);
       if (data.worksites !== undefined) updateFields.push(sql`worksites = ${JSON.stringify(data.worksites)}::uuid[]`);
       if (data.project_managers !== undefined) updateFields.push(sql`project_managers = ${JSON.stringify(data.project_managers)}::uuid[]`);
@@ -599,6 +616,11 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
+
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
 
     // Check if employee has permission to delete this specific project
     const hasDeleteAccess = await hasPermissionOnEntityId(userId, 'project', id, 'delete');

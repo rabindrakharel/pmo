@@ -1,12 +1,19 @@
 import React from 'react';
+import { Layout } from '../../components/layout/Layout';
 import { MetaDataTable } from '../../components/MetaDataTable';
 
 export const HrLevelPage: React.FC = () => {
   return (
-    <div className="flex flex-col h-full">
+    <Layout
+      createButton={{
+        label: "Add HR Level",
+        href: "/meta/hrLevel/new"
+      }}
+    >
+      <div className="flex flex-col h-full">
       <div className="flex-shrink-0 p-6 border-b border-gray-200">
         <h1 className="text-2xl font-semibold text-gray-900">
-          hrLevel
+          HR Level
         </h1>
         <p className="mt-1 text-sm text-gray-600">
           Human resources hierarchy levels with salary bands and management indicators
@@ -17,6 +24,7 @@ export const HrLevelPage: React.FC = () => {
         <MetaDataTable entityType="hrLevel" />
       </div>
     </div>
+    </Layout>
   );
 };
 

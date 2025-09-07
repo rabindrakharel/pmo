@@ -101,20 +101,6 @@
 - **✅ Detailed Results**: Color-coded output with pass/fail indicators and permission analysis
 - **✅ Error Handling**: Comprehensive error reporting with debugging information
 
-### debug-rbac.sh
-**Purpose**: **Advanced RBAC permission debugging** - comprehensive analysis of unified permission system
-**Usage**: `./tools/debug-rbac.sh [email] [password]`  
-**LLM Context**: Use when user reports permission/access issues or needs detailed RBAC analysis
-**Key Features**:
-- **✅ Unified Permission Analysis**: Deep dive into `rel_employee_scope_unified` with 9 scope types
-- **✅ Enhanced Auth Endpoints**: Tests `/permissions`, `/scopes/:scopeType`, `/permissions/debug`
-- **✅ Complete Permission Matrix**: 113+ active permissions for James Miller across all scopes
-- **✅ Real-Time Validation**: Live permission checking with detailed scope breakdown
-- **✅ Direct Table References**: Validates scope_table_reference_id linkages
-- **✅ Multi-Dimensional Testing**: Business, location, HR, worksite, project, task, and app scopes
-- **✅ SQL Debugging Commands**: Step-by-step verification of permission model
-- **✅ Admin Debug Mode**: Access to detailed permission debugging endpoint
-
 ## 🗄️ Database Management Tools
 
 ### db-import.sh
@@ -131,16 +117,7 @@
 - **✅ Enhanced Logging**: Detailed progress reporting with timestamps and error handling
 - **✅ Environment Support**: Full database connection configuration via environment variables
 
-### validate-schema.sh
-**Purpose**: Database schema validation and integrity checking
-**Usage**: `./tools/validate-schema.sh [--fix-permissions] [--verbose]`
-**LLM Context**: Use when user reports database issues or wants to verify schema integrity
-**Features**:
-- **Schema Structure Validation**: Checks all expected tables and relationships
-- **Foreign Key Integrity**: Validates referential integrity
-- **Permission System Validation**: Checks RBAC permission structure
-- **Auto-fix Capabilities**: Can repair common permission issues
-- **Comprehensive Coverage**: Tests core tables across all functional categories
+*Database validation tools have been removed from the system*
 
 
 
@@ -150,14 +127,11 @@
 - **"Start the platform"** → `./tools/start-all.sh`
 - **"Check what's running"** → `./tools/status.sh`  
 - **"Import/Reset the database"** → `./tools/db-import.sh`
-- **"Validate database schema"** → `./tools/validate-schema.sh`
 - **"Stop everything"** → `./tools/stop-all.sh`
 - **"Restart after changes"** → `./tools/restart-all.sh`
 - **"Check API logs"** → `./tools/logs-api.sh`
 - **"API development only"** → `./tools/start-api.sh`
 - **"Test all API endpoints"** → `./tools/test-api-endpoints.sh`
-- **"Debug RBAC permissions"** → `./tools/debug-rbac.sh`
-- **"Database issues/corruption"** → `./tools/validate-schema.sh`
 
 ### Service Ports & URLs:
 - API Server: `http://localhost:4000` (with `/docs` for OpenAPI)
@@ -204,9 +178,7 @@ tools/
 ├── restart-web.sh
 ├── logs-web.sh
 ├── test-api-endpoints.sh # API endpoint testing
-├── debug-rbac.sh       # RBAC debugging
-├── db-import.sh        # Database import/reset
-└── validate-schema.sh  # Database validation
+└── db-import.sh        # Database import/reset
 ```
 
 ## 💡 LLM Usage Guidelines

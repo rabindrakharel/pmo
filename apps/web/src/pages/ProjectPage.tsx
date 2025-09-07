@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FolderOpen, Calendar, Users, TrendingUp, Clock, DollarSign } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, Column } from '../components/ui/DataTable';
@@ -46,6 +47,7 @@ interface Task {
 }
 
 export function ProjectPage() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({
@@ -224,6 +226,36 @@ export function ProjectPage() {
 
   // Tree and Grid view logic removed - only using table view now
 
+  // Navigation handlers
+  const handleRowClick = (project: Project) => {
+    navigate(`/project/${project.id}`);
+  };
+
+  const handleView = (project: Project) => {
+    navigate(`/project/${project.id}`);
+  };
+
+  const handleEdit = (project: Project) => {
+    navigate(`/project/${project.id}/edit`);
+  };
+
+  const handleShare = (project: Project) => {
+    console.log('Share project:', project.id);
+    // TODO: Implement share functionality
+  };
+
+  const handleDelete = async (project: Project) => {
+    if (window.confirm(`Are you sure you want to delete "${project.name}"?`)) {
+      try {
+        await projectApi.delete(project.id);
+        loadProjects(); // Reload the list
+      } catch (error) {
+        console.error('Failed to delete project:', error);
+        alert('Failed to delete project. Please try again.');
+      }
+    }
+  };
+
   // Simplified to only render table view
   const renderContent = () => (
     <DataTable
@@ -235,11 +267,11 @@ export function ProjectPage() {
         onChange: handlePaginationChange,
       }}
       rowKey="id"
-      onRowClick={(project) => console.log('Navigate to project:', project.id)}
-      onView={(project) => console.log('View project:', project.id)}
-      onEdit={(project) => console.log('Edit project:', project.id)}
-      onShare={(project) => console.log('Share project:', project.id)}
-      onDelete={(project) => console.log('Delete project:', project.id)}
+      onRowClick={handleRowClick}
+      onView={handleView}
+      onEdit={handleEdit}
+      onShare={handleShare}
+      onDelete={handleDelete}
     />
   );
 

@@ -359,8 +359,6 @@ elif [ $loaded_count -gt 0 ]; then
     echo -e "${CYAN}   - Start API server: ./tools/start-api.sh${NC}"
     echo -e "${CYAN}   - Test API endpoints: ./tools/test-api-endpoints.sh${NC}"
     echo -e "${CYAN}   - View API logs: ./tools/logs-api.sh${NC}"
-    echo -e "${CYAN}   - Debug permissions: ./tools/debug-rbac.sh${NC}"
-    echo -e "${CYAN}   - Validate schema: ./tools/validate-schema.sh${NC}"
 else
     echo -e "${YELLOW}⚠️  No DDL files were processed. Check file paths and permissions.${NC}"
     echo -e "${YELLOW}Expected DDL files in: $DDL_DIR${NC}"

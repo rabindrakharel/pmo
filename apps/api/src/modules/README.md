@@ -32,17 +32,9 @@ This document provides complete documentation for the PMO API system, covering t
 
 ### **Automated Testing Scripts**
 
-#### **`debug-rbac.sh` - Enhanced Permission Analysis**
-- **Purpose**: Comprehensive analysis of unified permission system for James Miller  
-- **Database Coverage**: 113 permission records from `rel_employee_scope_unified` table
-- **Enhanced Scope Types**: Includes app:page, app:api, app:component granular permissions
-- **Direct Table Resolution**: Permission names resolved from actual reference tables (d_business, d_location, etc.)
-- **Advanced Debugging**: New `/permissions/debug` endpoint provides detailed permission analysis
-- **Output**: Complete permission matrix with scope names, types, and access levels
-
 #### **`test-api-endpoints.sh` - Comprehensive API Testing**
 - **Coverage**: 15 endpoints across all route modules
-- **Authentication**: JWT token-based testing with John Smith credentials
+- **Authentication**: JWT token-based testing with James Miller credentials
 - **Test Categories**:
   - **3 Public Endpoints**: Health check, OpenAPI docs, auth login (no auth required)
   - **2 Authenticated Endpoints**: Auth profile, logout (requires valid JWT)
@@ -100,9 +92,6 @@ POST /api/v1/task                   → 201 Created (project-scope validated)
 ### **Test Execution Commands**
 
 ```bash
-# Run RBAC permission analysis
-./tools/debug-rbac.sh
-
 # Run comprehensive API endpoint testing
 ./tools/test-api-endpoints.sh
 
@@ -115,11 +104,10 @@ tail -f logs/api.log
 
 ### **Development Testing Workflow**
 
-1. **Permission Verification**: Run `./tools/debug-rbac.sh` to verify user permissions in database
-2. **API Testing**: Execute `./tools/test-api-endpoints.sh` to verify endpoint functionality
-3. **Log Analysis**: Monitor `logs/api.log` for permission checking and error details
-4. **RBAC Debug**: Focus on `scope-auth.ts` permission matching logic
-5. **Validation**: Confirm expected 200 responses after RBAC fixes
+1. **API Testing**: Execute `./tools/test-api-endpoints.sh` to verify endpoint functionality
+2. **Log Analysis**: Monitor `logs/api.log` for permission checking and error details
+3. **RBAC Debug**: Focus on `scope-auth.ts` permission matching logic  
+4. **Validation**: Confirm expected 200 responses after RBAC fixes
 
 ## 🏗️ Architecture Overview
 

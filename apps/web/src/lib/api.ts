@@ -185,81 +185,81 @@ export const clientApi = {
 
 export const businessApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; level?: string }) {
-    const response = await apiClient.get('/api/v1/scope/business', { params });
+    const response = await apiClient.get('/api/v1/entity/biz', { params });
     return response.data;
   },
   
   async get(id: string) {
-    const response = await apiClient.get(`/api/v1/scope/business/${id}`);
+    const response = await apiClient.get(`/api/v1/entity/biz/${id}`);
     return response.data;
   },
   
   async create(data: any) {
-    const response = await apiClient.post('/api/v1/scope/business', data);
+    const response = await apiClient.post('/api/v1/entity/biz', data);
     return response.data;
   },
   
   async update(id: string, data: any) {
-    const response = await apiClient.put(`/api/v1/scope/business/${id}`, data);
+    const response = await apiClient.put(`/api/v1/entity/biz/${id}`, data);
     return response.data;
   },
   
   async delete(id: string) {
-    const response = await apiClient.delete(`/api/v1/scope/business/${id}`);
+    const response = await apiClient.delete(`/api/v1/entity/biz/${id}`);
     return response.data;
   },
 };
 
 export const locationApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; level?: string }) {
-    const response = await apiClient.get('/api/v1/scope/location', { params });
+    const response = await apiClient.get('/api/v1/entity/org', { params });
     return response.data;
   },
   
   async get(id: string) {
-    const response = await apiClient.get(`/api/v1/scope/location/${id}`);
+    const response = await apiClient.get(`/api/v1/entity/org/${id}`);
     return response.data;
   },
   
   async create(data: any) {
-    const response = await apiClient.post('/api/v1/scope/location', data);
+    const response = await apiClient.post('/api/v1/entity/org', data);
     return response.data;
   },
   
   async update(id: string, data: any) {
-    const response = await apiClient.put(`/api/v1/scope/location/${id}`, data);
+    const response = await apiClient.put(`/api/v1/entity/org/${id}`, data);
     return response.data;
   },
   
   async delete(id: string) {
-    const response = await apiClient.delete(`/api/v1/scope/location/${id}`);
+    const response = await apiClient.delete(`/api/v1/entity/org/${id}`);
     return response.data;
   },
 };
 
 export const worksiteApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; location?: string }) {
-    const response = await apiClient.get('/api/v1/worksite', { params });
+    const response = await apiClient.get('/api/v1/entity/worksite', { params });
     return response.data;
   },
   
   async get(id: string) {
-    const response = await apiClient.get(`/api/v1/worksite/${id}`);
+    const response = await apiClient.get(`/api/v1/entity/worksite/${id}`);
     return response.data;
   },
   
   async create(data: any) {
-    const response = await apiClient.post('/api/v1/worksite', data);
+    const response = await apiClient.post('/api/v1/entity/worksite', data);
     return response.data;
   },
   
   async update(id: string, data: any) {
-    const response = await apiClient.put(`/api/v1/worksite/${id}`, data);
+    const response = await apiClient.put(`/api/v1/entity/worksite/${id}`, data);
     return response.data;
   },
   
   async delete(id: string) {
-    const response = await apiClient.delete(`/api/v1/worksite/${id}`);
+    const response = await apiClient.delete(`/api/v1/entity/worksite/${id}`);
     return response.data;
   },
 };

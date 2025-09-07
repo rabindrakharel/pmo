@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Building2, TrendingUp, Users } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, Column } from '../components/ui/DataTable';
@@ -20,6 +21,7 @@ interface BusinessUnit {
 }
 
 export function BusinessPage() {
+  const navigate = useNavigate();
   const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({
@@ -144,6 +146,36 @@ export function BusinessPage() {
     },
   ];
 
+  // Navigation handlers
+  const handleRowClick = (unit: BusinessUnit) => {
+    navigate(`/biz/${unit.id}`);
+  };
+
+  const handleView = (unit: BusinessUnit) => {
+    navigate(`/biz/${unit.id}`);
+  };
+
+  const handleEdit = (unit: BusinessUnit) => {
+    navigate(`/biz/${unit.id}/edit`);
+  };
+
+  const handleShare = (unit: BusinessUnit) => {
+    console.log('Share business unit:', unit.id);
+    // TODO: Implement share functionality
+  };
+
+  const handleDelete = async (unit: BusinessUnit) => {
+    if (window.confirm(`Are you sure you want to delete "${unit.name}"?`)) {
+      try {
+        await businessApi.delete(unit.id);
+        loadBusinessUnits(); // Reload the list
+      } catch (error) {
+        console.error('Failed to delete business unit:', error);
+        alert('Failed to delete business unit. Please try again.');
+      }
+    }
+  };
+
   return (
     <Layout createButton={{ label: "Create Business Unit", href: "/business/new" }}>
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
@@ -192,11 +224,11 @@ export function BusinessPage() {
             rowKey="id"
             filterable={true}
             columnSelection={true}
-            onRowClick={(unit) => console.log('Navigate to unit:', unit.id)}
-            onView={(unit) => console.log('View unit:', unit.id)}
-            onEdit={(unit) => console.log('Edit unit:', unit.id)}
-            onShare={(unit) => console.log('Share unit:', unit.id)}
-            onDelete={(unit) => console.log('Delete unit:', unit.id)}
+            onRowClick={handleRowClick}
+            onView={handleView}
+            onEdit={handleEdit}
+            onShare={handleShare}
+            onDelete={handleDelete}
           />
         </div>
       </div>

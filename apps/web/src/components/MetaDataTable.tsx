@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { DataTable, Column, RowAction } from './ui/DataTable';
+import { DataTable } from './ui/DataTable';
+import type { Column, RowAction } from './ui/DataTable';
 import type { FrontendEntityConfig } from '../types/config';
 import { configService } from '../services/configService';
 
@@ -54,17 +55,17 @@ export const MetaDataTable: React.FC<MetaDataTableProps> = ({ entityType }) => {
   const columns: Column[] = useMemo(() => {
     if (!config) return [];
     
-    const visibleFields = Object.entries(config.fields)
+    return Object.entries(config.fields)
       .filter(([_, fieldConfig]) => fieldConfig.uiBehavior.visible)
       .sort((a, b) => (a[1].uiBehavior.priority || 999) - (b[1].uiBehavior.priority || 999))
-      .map(([fieldKey, fieldConfig]) => {
+      .map(([_, fieldConfig]) => {
         const column: Column = {
           key: fieldConfig.apiField,
           title: fieldConfig.label,
           sortable: fieldConfig.uiBehavior.sort || false,
           filterable: fieldConfig.uiBehavior.filter || false,
           width: fieldConfig.uiBehavior.width,
-          align: fieldConfig.uiBehavior.align || 'left',
+          align: (fieldConfig.uiBehavior.align as 'left' | 'center' | 'right') || 'left',
         };
 
         if (fieldConfig.uiBehavior.renderAs) {
@@ -108,8 +109,6 @@ export const MetaDataTable: React.FC<MetaDataTableProps> = ({ entityType }) => {
 
         return column;
       });
-
-    return columns;
   }, [config]);
 
   const rowActions: RowAction[] = useMemo(() => {

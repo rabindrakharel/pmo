@@ -1,12 +1,19 @@
 import React from 'react';
+import { Layout } from '../../components/layout/Layout';
 import { MetaDataTable } from '../../components/MetaDataTable';
 
 export const TaskStagePage: React.FC = () => {
   return (
-    <div className="flex flex-col h-full">
+    <Layout
+      createButton={{
+        label: "Add Task Stage",
+        href: "/meta/taskStage/new"
+      }}
+    >
+      <div className="flex flex-col h-full">
       <div className="flex-shrink-0 p-6 border-b border-gray-200">
         <h1 className="text-2xl font-semibold text-gray-900">
-          taskStage
+          Task Stage
         </h1>
         <p className="mt-1 text-sm text-gray-600">
           Task workflow stages for task lifecycle management
@@ -17,6 +24,7 @@ export const TaskStagePage: React.FC = () => {
         <MetaDataTable entityType="taskStage" />
       </div>
     </div>
+    </Layout>
   );
 };
 

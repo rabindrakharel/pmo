@@ -162,7 +162,6 @@ GROUP BY rbac.parent_entity, rbac.parent_entity_id, rbac.action_entity, rbac.act
 
 -- Sample data insertions commented out - enable after all dependent tables are created
 
-/*
 -- CEO James Miller: Full access to all business units (self-permissions)
 INSERT INTO app.rel_employee_entity_action_rbac (
   employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
@@ -200,6 +199,8 @@ FROM app.d_project proj
 WHERE proj.active = true;
 
 -- CEO James Miller: Creation permissions from all projects to all child entities
+-- DEFERRED: Complex query with table dependencies - enable after all tables exist
+/*
 INSERT INTO app.rel_employee_entity_action_rbac (
   employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
   granted_by_employee_id, grant_reason
@@ -231,6 +232,7 @@ LEFT JOIN app.d_artifact artifact ON mapping.action_entity = 'artifact' AND arti
 LEFT JOIN app.d_project sub_proj ON mapping.action_entity = 'project' AND sub_proj.id != proj.id AND sub_proj.active = true
 WHERE proj.active = true
   AND (wiki.id IS NOT NULL OR form_head.id IS NOT NULL OR task.id IS NOT NULL OR artifact.id IS NOT NULL OR sub_proj.id IS NOT NULL);
+*/
 
 -- CEO James Miller: Full access to all employees (self-permissions)
 INSERT INTO app.rel_employee_entity_action_rbac (
@@ -284,10 +286,7 @@ SELECT
   'create',
   'client', client.id,
   mapping.action_entity,
-  CASE 
-    WHEN mapping.action_entity = 'project' THEN proj.id
-    WHEN mapping.action_entity = 'task' THEN task.id
-  END,
+  proj.id,
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
   'CEO - Client creation permissions for ' || mapping.action_entity
 FROM app.d_client client
@@ -296,53 +295,52 @@ CROSS JOIN (
   FROM app.meta_entity_hierarchy_permission_mapping 
   WHERE parent_entity = 'client' AND permission_action = 'create' AND active = true
 ) mapping
-LEFT JOIN app.d_project proj ON mapping.action_entity = 'project' AND proj.client_id = client.id AND proj.active = true
-LEFT JOIN app.ops_task_head task ON mapping.action_entity = 'task' AND task.client_id = client.id AND task.active = true
+LEFT JOIN app.d_project proj ON mapping.action_entity = 'project' AND proj.clients ? client.id::text AND proj.active = true
 WHERE client.active = true
-  AND (proj.id IS NOT NULL OR task.id IS NOT NULL);
+  AND mapping.action_entity = 'project' AND proj.id IS NOT NULL;
 
 -- Additional comprehensive permissions for James Miller on all content entities
--- Wiki permissions (self-permissions)
-INSERT INTO app.rel_employee_entity_action_rbac (
-  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
-  granted_by_employee_id, grant_reason
-)
-SELECT 
-  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
-  unnest(ARRAY['view', 'edit', 'share']) AS permission_action,
-  'wiki', wiki.id, 'wiki', wiki.id,
-  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
-  'CEO - Full wiki content management permissions'
-FROM app.d_wiki wiki
-WHERE wiki.active = true;
+-- TODO: Wiki permissions (self-permissions) - uncomment when d_wiki table is created
+-- INSERT INTO app.rel_employee_entity_action_rbac (
+--   employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+--   granted_by_employee_id, grant_reason
+-- )
+-- SELECT 
+--   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+--   unnest(ARRAY['view', 'edit', 'share']) AS permission_action,
+--   'wiki', wiki.id, 'wiki', wiki.id,
+--   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+--   'CEO - Full wiki content management permissions'
+-- FROM app.d_wiki wiki
+-- WHERE wiki.active = true;
 
--- Form permissions (self-permissions)
-INSERT INTO app.rel_employee_entity_action_rbac (
-  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
-  granted_by_employee_id, grant_reason
-)
-SELECT 
-  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
-  unnest(ARRAY['view', 'edit', 'share']) AS permission_action,
-  'form', form_head.id, 'form', form_head.id,
-  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
-  'CEO - Full form management permissions'
-FROM app.ops_formlog_head form_head
-WHERE form_head.active = true;
+-- TODO: Form permissions (self-permissions) - uncomment when ops_formlog_head table is created
+-- INSERT INTO app.rel_employee_entity_action_rbac (
+--   employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+--   granted_by_employee_id, grant_reason
+-- )
+-- SELECT 
+--   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+--   unnest(ARRAY['view', 'edit', 'share']) AS permission_action,
+--   'form', form_head.id, 'form', form_head.id,
+--   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+--   'CEO - Full form management permissions'
+-- FROM app.ops_formlog_head form_head
+-- WHERE form_head.active = true;
 
--- Task permissions (self-permissions)
-INSERT INTO app.rel_employee_entity_action_rbac (
-  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
-  granted_by_employee_id, grant_reason
-)
-SELECT 
-  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
-  unnest(ARRAY['view', 'edit', 'share']) AS permission_action,
-  'task', task.id, 'task', task.id,
-  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
-  'CEO - Full task management permissions'
-FROM app.ops_task_head task
-WHERE task.active = true;
+-- TODO: Task permissions (self-permissions) - uncomment when ops_task_head table is created
+-- INSERT INTO app.rel_employee_entity_action_rbac (
+--   employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+--   granted_by_employee_id, grant_reason
+-- )
+-- SELECT 
+--   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+--   unnest(ARRAY['view', 'edit', 'share']) AS permission_action,
+--   'task', task.id, 'task', task.id,
+--   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+--   'CEO - Full task management permissions'
+-- FROM app.ops_task_head task
+-- WHERE task.active = true;
 
 -- Artifact permissions (self-permissions)
 INSERT INTO app.rel_employee_entity_action_rbac (
@@ -357,6 +355,5 @@ SELECT
   'CEO - Full artifact management permissions'
 FROM app.d_artifact artifact
 WHERE artifact.active = true;
-*/
 
 -- End of deferred RBAC data insertions

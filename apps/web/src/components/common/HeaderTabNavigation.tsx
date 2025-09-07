@@ -148,6 +148,70 @@ export function HeaderTabNavigation({
   );
 }
 
+// Default action entity configuration for fallback
+const getDefaultTabs = (parentType: string, parentId: string): HeaderTab[] => {
+  const entityConfig: Record<string, Array<{ id: string; label: string; icon?: React.ComponentType<any> }>> = {
+    project: [
+      { id: 'wiki', label: 'Wiki', icon: BookOpen },
+      { id: 'forms', label: 'Forms', icon: FileText },
+      { id: 'task', label: 'Tasks', icon: CheckSquare },
+      { id: 'artifact', label: 'Artifacts', icon: FileText },
+    ],
+    biz: [
+      { id: 'wiki', label: 'Wiki', icon: BookOpen },
+      { id: 'forms', label: 'Forms', icon: FileText },
+      { id: 'task', label: 'Tasks', icon: CheckSquare },
+      { id: 'project', label: 'Projects', icon: FolderOpen },
+      { id: 'artifact', label: 'Artifacts', icon: FileText },
+    ],
+    org: [
+      { id: 'worksite', label: 'Worksites', icon: Building2 },
+      { id: 'employee', label: 'Employees', icon: Users },
+    ],
+    hr: [
+      { id: 'employee', label: 'Employees', icon: Users },
+      { id: 'role', label: 'Roles', icon: UserCheck },
+    ],
+    client: [
+      { id: 'project', label: 'Projects', icon: FolderOpen },
+      { id: 'task', label: 'Tasks', icon: CheckSquare },
+    ],
+    worksite: [
+      { id: 'task', label: 'Tasks', icon: CheckSquare },
+      { id: 'forms', label: 'Forms', icon: FileText },
+    ],
+    role: [
+      { id: 'employee', label: 'Employees', icon: Users },
+    ],
+    task: [
+      { id: 'forms', label: 'Forms', icon: FileText },
+      { id: 'artifact', label: 'Artifacts', icon: FileText },
+    ],
+    employee: [], // Employee typically has no child entities
+  };
+
+  const actionEntities = entityConfig[parentType] || [];
+  
+  const tabs: HeaderTab[] = [
+    // Overview tab
+    {
+      id: 'overview',
+      label: 'Overview',
+      path: `/${parentType}/${parentId}`,
+      icon: getEntityIcon(parentType),
+    },
+    // Action entity tabs
+    ...actionEntities.map(entity => ({
+      id: entity.id,
+      label: entity.label,
+      path: `/${parentType}/${parentId}/${entity.id}`,
+      icon: entity.icon,
+    }))
+  ];
+
+  return tabs;
+};
+
 // Hook for generating tabs from API data
 export function useHeaderTabs(parentType: string, parentId: string) {
   const [tabs, setTabs] = React.useState<HeaderTab[]>([]);
@@ -191,10 +255,14 @@ export function useHeaderTabs(parentType: string, parentId: string) {
             ...generatedTabs
           ]);
         } else {
-          console.error('Failed to fetch action summaries');
+          // Fallback to default tabs if API call fails
+          console.warn('API call failed, using default tabs');
+          setTabs(getDefaultTabs(parentType, parentId));
         }
       } catch (error) {
-        console.error('Error fetching action summaries:', error);
+        // Fallback to default tabs if API call fails
+        console.warn('Error fetching action summaries, using default tabs:', error);
+        setTabs(getDefaultTabs(parentType, parentId));
       } finally {
         setLoading(false);
       }

@@ -178,6 +178,10 @@ export async function wikiRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as any;
     const data = request.body as any;
+    
+    try {
+      const updated = await db.execute(sql`
+        UPDATE app.d_wiki SET
           title = COALESCE(${data.title}, title),
           slug = COALESCE(${data.slug}, slug),
           summary = COALESCE(${data.summary}, summary),
@@ -203,6 +207,14 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     const { id } = request.params as any;
+    
+    try {
+      const deleted = await db.execute(sql`
+        UPDATE app.d_wiki SET active = false WHERE id = ${id} AND active = true
+        RETURNING id
+      `);
+      if (!deleted.length) return reply.status(404).send({ error: 'Not found' });
+      return reply.status(200).send({ message: 'Wiki deleted successfully' });
     } catch (e) {
       fastify.log.error('Error delete wiki: ' + String(e));
       return reply.status(500).send({ error: 'Internal server error' });

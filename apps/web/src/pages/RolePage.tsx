@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { UserCheck, Shield, Users } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, Column } from '../components/ui/DataTable';
@@ -24,6 +25,7 @@ interface Role {
 }
 
 export function RolePage() {
+  const navigate = useNavigate();
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({
@@ -230,11 +232,21 @@ export function RolePage() {
             rowKey="id"
             filterable={true}
             columnSelection={true}
-            onRowClick={(role) => console.log('Navigate to role:', role.id)}
-            onView={(role) => console.log('View role:', role.id)}
-            onEdit={(role) => console.log('Edit role:', role.id)}
+            onRowClick={(role) => navigate(`/roles/${role.id}`)}
+            onView={(role) => navigate(`/roles/${role.id}`)}
+            onEdit={(role) => navigate(`/roles/${role.id}/edit`)}
             onShare={(role) => console.log('Share role:', role.id)}
-            onDelete={(role) => console.log('Delete role:', role.id)}
+            onDelete={async (role) => {
+              if (window.confirm(`Are you sure you want to delete "${role.name}"?`)) {
+                try {
+                  await roleApi.delete(role.id);
+                  loadRoles(); // Reload the list
+                } catch (error) {
+                  console.error('Failed to delete role:', error);
+                  alert('Failed to delete role. Please try again.');
+                }
+              }
+            }}
           />
         </div>
       </div>

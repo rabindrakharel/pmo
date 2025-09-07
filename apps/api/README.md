@@ -19,7 +19,9 @@ A **comprehensive, high-performance REST API** built with **Fastify 5.0+ and Typ
 - **Cache**: Redis integration for session management and permission caching
 
 ### 🌟 Production Features (All Implemented)
-- **✅ 11 API Modules** - Auth, Employee, Project, Task, Client, Scope (4 types), Meta (7 entities), Forms, Config
+- **✅ 15+ API Modules** - Auth, Employee, Project, Task, Client, Business, Role, Form, Wiki, Artifact, Entity, Meta, Config, Schema, Hierarchy
+- **✅ Parent-Action Entity Routes** - Hierarchical CRUD operations with `/api/v1/:parentEntity/:parentId/:actionEntity` pattern
+- **✅ Universal Entity Management** - Dynamic entity handling with `/api/v1/entity/:entityType` endpoints
 - **✅ Unified RBAC System** - Single `rel_employee_scope_unified` table with 9 scope types
 - **✅ API-Driven Configuration** - Secure entity config endpoints with frontend-safe field mapping  
 - **✅ Real-Time Permissions** - Dynamic permission checking with Redis caching (113+ active permissions)
@@ -153,9 +155,19 @@ Authorization: Bearer <jwt-token>
 
 ## 🌐 Complete API Reference
 
+All endpoints require JWT authentication unless otherwise specified.
+
 ### 🔑 Authentication & User Management
 
-#### Login & Authentication
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| `POST` | `/api/v1/auth/login` | User authentication and JWT token generation | ❌ |
+| `GET` | `/api/v1/auth/me` | Current employee profile | ✅ |
+| `GET` | `/api/v1/auth/permissions` | Employee permissions summary | ✅ |
+| `GET` | `/api/v1/auth/scopes/:scopeType` | Scopes by type for current user | ✅ |
+| `GET` | `/api/v1/auth/permissions/debug` | Detailed permission debugging (admin only) | ✅ |
+
+**Login Example:**
 ```http
 POST /api/v1/auth/login
 Content-Type: application/json
@@ -179,36 +191,32 @@ Content-Type: application/json
 }
 ```
 
-#### User Profile & Permissions
-- **`GET /api/v1/auth/me`** - Current employee profile
-- **`GET /api/v1/auth/permissions`** - Employee permissions summary
-- **`GET /api/v1/auth/scopes/:scopeType`** - Scopes by type for current user
-- **`GET /api/v1/auth/permissions/debug`** - Detailed permission debugging (admin only)
+### 👥 Employee Management
 
-### 👥 Employee Management (`/api/v1/employee`)
-
-#### Core Operations
-- **`GET /api/v1/employee`** - List employees with RBAC filtering
-- **`GET /api/v1/employee/:id`** - Get employee details
-- **`POST /api/v1/employee`** - Create new employee
-- **`PUT /api/v1/employee/:id`** - Update employee information
-- **`DELETE /api/v1/employee/:id`** - Soft delete employee
+| Method | Endpoint | Description | Features |
+|--------|----------|-------------|----------|
+| `GET` | `/api/v1/employee` | List employees with RBAC filtering | Pagination, search, role filtering |
+| `GET` | `/api/v1/employee/:id` | Get employee details | PII masking based on permissions |
+| `POST` | `/api/v1/employee` | Create new employee | Validation, RBAC checking |
+| `PUT` | `/api/v1/employee/:id` | Update employee information | Audit trail, permission validation |
+| `DELETE` | `/api/v1/employee/:id` | Soft delete employee | Maintains referential integrity |
 
 **Features:**
 - Automatic RBAC filtering based on user permissions
-- PII masking for sensitive employee data
+- PII masking for sensitive employee data  
 - Support for all employment types (full-time, contractor, co-op, intern)
 - Skills, certifications, and education tracking
 
-### 📊 Project Management (`/api/v1/project`)
+### 📊 Project Management
 
-#### Project Lifecycle Operations
-- **`GET /api/v1/project`** - List projects with scope filtering
-- **`GET /api/v1/project/:id`** - Get project with full details
-- **`GET /api/v1/project/:id/tasks`** - Get all project tasks
-- **`POST /api/v1/project`** - Create new project
-- **`PUT /api/v1/project/:id`** - Update project
-- **`DELETE /api/v1/project/:id`** - Soft delete project
+| Method | Endpoint | Description | Features |
+|--------|----------|-------------|----------|
+| `GET` | `/api/v1/project` | List projects with scope filtering | Multi-scope filtering, budget tracking |
+| `GET` | `/api/v1/project/:id` | Get project with full details | Complete project data with relationships |
+| `GET` | `/api/v1/project/:id/tasks` | Get all project tasks | Task hierarchy and dependencies |
+| `POST` | `/api/v1/project` | Create new project | Stakeholder validation, budget setup |
+| `PUT` | `/api/v1/project/:id` | Update project | Timeline tracking, milestone updates |
+| `DELETE` | `/api/v1/project/:id` | Soft delete project | Cascade handling for dependent entities |
 
 **Features:**
 - Multi-dimensional scoping (business, location, worksite)
@@ -218,78 +226,161 @@ Content-Type: application/json
 - Milestone and deliverable tracking
 - Risk assessment and compliance requirements
 
-### ✅ Task Management (`/api/v1/task`)
+### ✅ Task Management
 
-#### Task Operations with Head/Records Pattern
-- **`GET /api/v1/task`** - List tasks (head + current records)
-- **`GET /api/v1/task/:id`** - Get task with current record
-- **`POST /api/v1/task`** - Create task (head + initial record)
-- **`PUT /api/v1/task/:id/record`** - Update task (creates new record)
-- **`DELETE /api/v1/task/:id`** - Soft delete task
+| Method | Endpoint | Description | Features |
+|--------|----------|-------------|----------|
+| `GET` | `/api/v1/task` | List tasks (head + current records) | Status filtering, assignment tracking |
+| `GET` | `/api/v1/task/:id` | Get task with current record | Complete task details with history |
+| `POST` | `/api/v1/task` | Create task (head + initial record) | Dependency validation, assignment setup |
+| `PUT` | `/api/v1/task/:id/record` | Update task (creates new record) | Audit trail, temporal data tracking |
+| `DELETE` | `/api/v1/task/:id` | Soft delete task | Dependency checking, cascade handling |
 
 **Features:**
 - Temporal data tracking with complete audit trail
 - Multi-person assignment (assignee, reviewers, approvers, collaborators)
-- Task dependencies and relationships
+- Task dependencies and relationships  
 - Status and stage workflow management
 - Time tracking and work logging
 - Story points and agile development support
 - Quality gates and acceptance criteria
 
-### 🏢 Scope Management
+### 👔 Client Management
 
-#### Business Units (`/api/v1/scope/business`)
-- **Hierarchical Operations**: CRUD for 6-level business hierarchy
-- **Cost Center Management**: Budget allocation and cost center tracking
-- **Manager Assignment**: Employee assignment to business units
+| Method | Endpoint | Description | Features |
+|--------|----------|-------------|----------|
+| `GET` | `/api/v1/client` | List clients with filtering | Hierarchical organization support |
+| `GET` | `/api/v1/client/:id` | Client details | Contact management integration |
+| `GET` | `/api/v1/client/:id/hierarchy` | Client organizational structure | Self-referencing hierarchy |
+| `POST` | `/api/v1/client` | Create new client | Contact validation, hierarchy setup |
+| `PUT` | `/api/v1/client/:id` | Update client | Service history tracking |
+| `DELETE` | `/api/v1/client/:id` | Soft delete client | Relationship preservation |
 
-#### Geographic Locations (`/api/v1/scope/location`)  
-- **Canadian Geography**: 8-level location hierarchy (Corp-Region → Address)
-- **Timezone Support**: Time zone and currency management
-- **Regulatory Context**: Tax jurisdiction and compliance tracking
+### 🏗️ Business Management
 
-#### HR Hierarchy (`/api/v1/scope/hr`)
-- **Position Management**: 20-level HR hierarchy with salary bands
-- **Approval Limits**: Position-based approval authority
-- **Skills Tracking**: Job families and competency management
+| Method | Endpoint | Description | Features |
+|--------|----------|-------------|----------|
+| `GET` | `/api/v1/biz` | List business units | 6-level hierarchy support |
+| `GET` | `/api/v1/biz/:id` | Business unit details | Cost center integration |
+| `POST` | `/api/v1/biz` | Create business unit | Manager assignment validation |
+| `PUT` | `/api/v1/biz/:id` | Update business unit | Budget allocation tracking |
+| `DELETE` | `/api/v1/biz/:id` | Soft delete business unit | Hierarchy integrity maintenance |
 
-#### Worksite Management (`/api/v1/worksite`)
-- **Physical Locations**: Site-specific operational management
-- **Safety Protocols**: Access hours and emergency contacts
-- **Geographic Integration**: PostGIS geospatial data support
+### 👤 Role Management
 
-### 👔 Client Management (`/api/v1/client`)
+| Method | Endpoint | Description | Features |
+|--------|----------|-------------|----------|
+| `GET` | `/api/v1/role` | List roles | Permission bundling |
+| `GET` | `/api/v1/role/:id` | Role details | Complete permission mapping |
+| `POST` | `/api/v1/role` | Create role | Permission validation |
+| `PUT` | `/api/v1/role/:id` | Update role | Permission impact analysis |
+| `DELETE` | `/api/v1/role/:id` | Soft delete role | Employee assignment checking |
 
-#### Client Relationship Operations
-- **`GET /api/v1/client`** - List clients with filtering
-- **`GET /api/v1/client/:id`** - Client details
-- **`GET /api/v1/client/:id/hierarchy`** - Client organizational structure
-- **`POST /api/v1/client`** - Create new client
-- **`PUT /api/v1/client/:id`** - Update client
-- **`DELETE /api/v1/client/:id`** - Soft delete client
+### 📝 Form Management
+
+| Method | Endpoint | Description | Features |
+|--------|----------|-------------|----------|
+| `GET` | `/api/v1/form` | List forms | Template and instance management |
+| `GET` | `/api/v1/form/:id` | Form details | Dynamic form schema |
+| `POST` | `/api/v1/form` | Create form | Schema validation |
+| `PUT` | `/api/v1/form/:id` | Update form | Version tracking |
+| `DELETE` | `/api/v1/form/:id` | Soft delete form | Instance preservation |
+
+### 📚 Wiki Management  
+
+| Method | Endpoint | Description | Features |
+|--------|----------|-------------|----------|
+| `GET` | `/api/v1/wiki` | List wiki pages | Content versioning |
+| `GET` | `/api/v1/wiki/:id` | Wiki page details | Markdown support |
+| `POST` | `/api/v1/wiki` | Create wiki page | Template system |
+| `PUT` | `/api/v1/wiki/:id` | Update wiki page | Edit history tracking |
+| `DELETE` | `/api/v1/wiki/:id` | Soft delete wiki page | Link integrity checking |
+
+### 📎 Artifact Management
+
+| Method | Endpoint | Description | Features |
+|--------|----------|-------------|----------|
+| `GET` | `/api/v1/artifact` | List artifacts | File type filtering |
+| `GET` | `/api/v1/artifact/:id` | Artifact details | Metadata and versioning |
+| `POST` | `/api/v1/artifact` | Create artifact | File upload handling |
+| `PUT` | `/api/v1/artifact/:id` | Update artifact | Version control |
+| `DELETE` | `/api/v1/artifact/:id` | Soft delete artifact | Storage cleanup |
+
+### 🔗 Universal Entity Management
+
+| Method | Endpoint | Description | Features |
+|--------|----------|-------------|----------|
+| `GET` | `/api/v1/entity/:entityType` | List entities by type | Dynamic entity handling |
+| `GET` | `/api/v1/entity/:entityType/:id` | Get entity details | Universal schema support |
+| `POST` | `/api/v1/entity/:entityType` | Create entity | Type-specific validation |
+| `PUT` | `/api/v1/entity/:entityType/:id` | Update entity | Schema evolution support |
+| `DELETE` | `/api/v1/entity/:entityType/:id` | Soft delete entity | Relationship management |
+
+**Supported Entity Types:**
+- `biz`, `project`, `hr`, `org`, `client`, `worksite`, `employee`, `role`, `wiki`, `form`, `task`, `artifact`
+
+### 🌳 Parent-Action Entity Routes (Hierarchical Operations)
+
+| Method | Endpoint | Description | Use Case |
+|--------|----------|-------------|----------|
+| `GET` | `/api/v1/:parentEntity/:parentId/:actionEntity` | List action entities within parent | Get all tasks in a project |
+| `GET` | `/api/v1/:parentEntity/:parentId/:actionEntity/:actionId` | Get action entity in parent context | Get specific task within project |
+| `POST` | `/api/v1/:parentEntity/:parentId/:actionEntity` | Create action entity within parent | Create task in specific project |
+| `PUT` | `/api/v1/:parentEntity/:parentId/:actionEntity/:actionId` | Update action entity in parent context | Update task within project scope |
+| `DELETE` | `/api/v1/:parentEntity/:parentId/:actionEntity/:actionId` | Delete action entity from parent | Remove task from project |
+
+**Supported Parent-Action Relationships:**
+- **Business → Wiki**: `/api/v1/biz/{id}/wiki`
+- **Project → Task**: `/api/v1/project/{id}/task`
+- **Project → Wiki**: `/api/v1/project/{id}/wiki`
+- **Project → Artifact**: `/api/v1/project/{id}/artifact`
+- **HR → Employee**: `/api/v1/hr/{id}/employee`
+- **Organization → Worksite**: `/api/v1/org/{id}/worksite`
+- **Client → Project**: `/api/v1/client/{id}/project`
 
 **Features:**
-- Self-referencing hierarchy for client organizations
-- Contact management and communication tracking
-- Service history and relationship management
+- **RBAC Validation**: Both parent and action entity permissions checked
+- **Relationship Validation**: Enforces valid parent-child relationships
+- **Hierarchy Mapping**: Automatic hierarchy relationship creation/updates
+- **Context Preservation**: All operations maintain parent context
+- **Audit Trail**: Complete audit trail for hierarchical operations
 
-### 🎛️ System Metadata (`/api/v1/meta`)
+**Example Usage:**
+```http
+# Get all tasks for a specific project
+GET /api/v1/project/a1b2c3d4-e5f6-7890-abcd-ef1234567890/task
 
-#### Configuration Management
-- **`GET /api/v1/meta?category=project_status`** - Project status definitions
-- **`GET /api/v1/meta?category=task_status`** - Task status workflow
-- **`GET /api/v1/meta?category=task_stage`** - Kanban stage definitions  
-- **`GET /api/v1/meta?category=biz_level`** - Business hierarchy levels
-- **`GET /api/v1/meta?category=loc_level`** - Location hierarchy levels
-- **`GET /api/v1/meta?category=hr_level`** - HR position levels
+# Create a new task within a project
+POST /api/v1/project/a1b2c3d4-e5f6-7890-abcd-ef1234567890/task
+Content-Type: application/json
+{
+  "name": "Setup Development Environment",
+  "description": "Configure local development environment",
+  "priority_level": "high"
+}
 
-### 🔧 Entity Configuration API (`/api/v1/config`) - **PRODUCTION READY**
+# Update a task within project context
+PUT /api/v1/project/a1b2c3d4-e5f6-7890-abcd-ef1234567890/task/task-uuid-here
+```
 
-#### **✅ API-Driven Configuration System (Fully Implemented)**
-- **`GET /api/v1/config/entity/:entityType`** - Get entity page configuration with UI schema
-- **`GET /api/v1/config/entities`** - List all available entity types and their capabilities
+### 🎛️ System Metadata
 
-**🎯 Perfect Naming Consistency Flow (RESOLVED):**
+| Method | Endpoint | Description | Categories Available |
+|--------|----------|-------------|---------------------|
+| `GET` | `/api/v1/meta` | Get metadata by category | `project_status`, `task_status`, `task_stage`, `biz_level`, `loc_level`, `hr_level` |
+| `GET` | `/api/v1/meta/:id` | Get specific metadata item | Individual metadata record |
+| `POST` | `/api/v1/meta` | Create metadata item | Category-specific validation |
+| `PUT` | `/api/v1/meta/:id` | Update metadata item | Impact analysis on dependent entities |
+| `DELETE` | `/api/v1/meta/:id` | Soft delete metadata | Usage checking before deletion |
+
+### 🔧 Entity Configuration API
+
+| Method | Endpoint | Description | Features |
+|--------|----------|-------------|----------|
+| `GET` | `/api/v1/config/entity/:entityType` | Get entity configuration | UI schema generation, field mapping |
+| `GET` | `/api/v1/config/entities` | List all entity types | Available entities and capabilities |
+
+**🎯 Perfect Naming Consistency:**
 ```http
 # ✅ Config API (camelCase entity names) - UI Schema Generation
 GET /api/v1/config/entity/projectStatus    # UI schema: fields, forms, validation
@@ -302,18 +393,21 @@ GET /api/v1/meta?category=task_stage       # Task stage data for dropdown/table
 GET /api/v1/meta?category=biz_level        # Business level hierarchy records
 ```
 
-**🚀 Production Features:**
-- **✅ Database Schema Protection**: DDL field names never exposed to frontend
-- **✅ Frontend-Safe Field Mapping**: Only `apiField` names sent to client
-- **✅ Configuration Caching**: 5-minute cache with automatic refresh and error handling
-- **✅ Complete Type Safety**: Full TypeScript coverage with validation
-- **✅ JWT Authentication**: Bearer token required with RBAC permission checking
-- **✅ Error Handling**: Comprehensive error responses with logging
+### 🏗️ Hierarchical Metadata Routes
 
-**📊 Available Entity Types (All Implemented):**
-- **Meta Entities**: `projectStatus`, `projectStage`, `taskStatus`, `taskStage`, `businessLevel`, `locationLevel`, `hrLevel`
-- **Core Entities**: `project`, `task`, `employee`, `client`, `forms`
-- **Scope Entities**: `business`, `location`, `hr`, `worksite`
+| Method | Endpoint | Description | Features |
+|--------|----------|-------------|----------|
+| `GET` | `/api/v1/hierarchy/entity-types` | Get all entity types with hierarchy info | Parent-child relationship mapping |
+| `GET` | `/api/v1/hierarchy/permissions` | Get entity hierarchy permission mappings | Action permissions per relationship |
+| `GET` | `/api/v1/hierarchy/relationships/:parentEntity` | Get valid child entities for parent | Dynamic relationship discovery |
+
+### 📊 Schema Management
+
+| Method | Endpoint | Description | Features |
+|--------|----------|-------------|----------|
+| `GET` | `/api/v1/schema/tables` | List all database tables | Schema introspection |
+| `GET` | `/api/v1/schema/table/:tableName` | Get table schema details | Column metadata, constraints |
+| `GET` | `/api/v1/schema/relationships` | Get table relationships | Foreign key mappings |
 
 ---
 
@@ -440,9 +534,6 @@ pnpm typecheck
 ```bash
 # Test all endpoints
 ./tools/test-api-endpoints.sh
-
-# Debug RBAC permissions  
-./tools/debug-rbac.sh
 
 # Check API health
 curl http://localhost:4000/api/health

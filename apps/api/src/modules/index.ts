@@ -12,7 +12,7 @@ import { projectRoutes } from './project/routes.js';
 import { roleRoutes } from './role/routes.js';
 import { clientRoutes } from './client/routes.js';
 import { formRoutes } from './form/routes.js';
-// import { wikiRoutes } from './wiki/routes.js';
+import { wikiRoutes } from './wiki/routes.js';
 import { artifactRoutes } from './artifact/routes.js';
 import { bizRoutes } from './biz/routes.js';
 
@@ -50,6 +50,7 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   
   // Nested parent/action entity routes
   await nestedEntityRoutes(fastify);
+  
 
   // Entity-based API routes (all require entity-based RBAC)
   await empRoutes(fastify);
@@ -58,7 +59,7 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await roleRoutes(fastify);
   await clientRoutes(fastify);
   await formRoutes(fastify);
-  // await wikiRoutes(fastify); // Temporarily disabled due to syntax errors
+  await wikiRoutes(fastify);
   await artifactRoutes(fastify);
   await bizRoutes(fastify);
 
