@@ -58,6 +58,10 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     }
   }, async (request, reply) => {
     const { search, tag, limit = 50, offset = 0 } = request.query as any;
+    
+    try {
+      const conditions = [];
+      
       if (search) {
         conditions.push(sql`(title ILIKE '%' || ${search} || '%' OR slug ILIKE '%' || ${search} || '%')`);
       }
@@ -109,6 +113,10 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     }
   }, async (request, reply) => {
     const { id } = request.params as any;
+    
+    try {
+      const result = await db.execute(sql`
+        SELECT
           id,
           title,
           slug,
@@ -129,8 +137,8 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           attr
         FROM app.d_wiki WHERE id = ${id} AND active = true
       `);
-      if (!rows.length) return reply.status(404).send({ error: 'Not found' });
-      return rows[0];
+      if (!result.length) return reply.status(404).send({ error: 'Not found' });
+      return result[0];
     } catch (e) {
       fastify.log.error('Error get wiki: ' + String(e));
       return reply.status(500).send({ error: 'Internal server error' });

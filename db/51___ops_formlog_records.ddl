@@ -199,6 +199,19 @@ SELECT
 FROM form_heads, employees;
 
 -- HVAC Service Reports
+WITH form_heads AS (
+  SELECT 
+    (SELECT id FROM app.ops_formlog_head WHERE form_code = 'FORM-FALL-CLIENT-FB') AS fall_feedback_form_id,
+    (SELECT id FROM app.ops_formlog_head WHERE form_code = 'FORM-HVAC-MAINT-RPT') AS hvac_report_form_id,
+    (SELECT id FROM app.ops_formlog_head WHERE form_code = 'FORM-SOLAR-PROG') AS solar_progress_form_id
+),
+employees AS (
+  SELECT 
+    (SELECT id FROM app.d_employee WHERE employee_number = 'EMP-014') AS carlos_santos_id,
+    (SELECT id FROM app.d_employee WHERE employee_number = 'EMP-012') AS kevin_obrien_id,
+    (SELECT id FROM app.d_employee WHERE employee_number = 'EMP-006') AS jennifer_walsh_id
+)
+
 INSERT INTO app.ops_formlog_records (
   head_id, name, "descr", data, submitted_by_employee_id, submission_source,
   status, assigned_to_employee_id, validation_status, data_quality_score,
@@ -263,6 +276,19 @@ SELECT
 FROM form_heads, employees;
 
 -- Solar Installation Progress Reports
+WITH form_heads AS (
+  SELECT 
+    (SELECT id FROM app.ops_formlog_head WHERE form_code = 'FORM-FALL-CLIENT-FB') AS fall_feedback_form_id,
+    (SELECT id FROM app.ops_formlog_head WHERE form_code = 'FORM-HVAC-MAINT-RPT') AS hvac_report_form_id,
+    (SELECT id FROM app.ops_formlog_head WHERE form_code = 'FORM-SOLAR-PROG') AS solar_progress_form_id
+),
+employees AS (
+  SELECT 
+    (SELECT id FROM app.d_employee WHERE employee_number = 'EMP-014') AS carlos_santos_id,
+    (SELECT id FROM app.d_employee WHERE employee_number = 'EMP-012') AS kevin_obrien_id,
+    (SELECT id FROM app.d_employee WHERE employee_number = 'EMP-006') AS jennifer_walsh_id
+)
+
 INSERT INTO app.ops_formlog_records (
   head_id, name, "descr", data, submitted_by_employee_id, submission_source,
   status, processed_by_employee_id, validation_status, data_quality_score,
@@ -337,7 +363,8 @@ field_staff AS (
   SELECT 
     (SELECT id FROM app.d_employee WHERE employee_number = 'EMP-016') AS mike_wilson_id,
     (SELECT id FROM app.d_employee WHERE employee_number = 'EMP-018') AS john_macdonald_id,
-    (SELECT id FROM app.d_employee WHERE employee_number = 'EMP-011') AS tom_richardson_id
+    (SELECT id FROM app.d_employee WHERE employee_number = 'EMP-011') AS tom_richardson_id,
+    (SELECT id FROM app.d_employee WHERE employee_number = 'EMP-014') AS carlos_santos_id
 )
 
 INSERT INTO app.ops_formlog_records (
@@ -390,7 +417,7 @@ SELECT
     "requested_by": "Carlos Santos",
     "preferred_date": "2025-02-01"
   }'::jsonb,
-  employees.carlos_santos_id,
+  field_staff.carlos_santos_id,
   'web',
   'approved',
   field_staff.john_macdonald_id,

@@ -20,6 +20,7 @@ CREATE TABLE app.d_employee (
   employee_number text NOT NULL,
   email text NOT NULL,
   phone text,
+  password_hash text, -- For development authentication
   
   -- Personal information
   first_name text NOT NULL,
@@ -62,12 +63,12 @@ CREATE TABLE app.d_employee (
 INSERT INTO app.d_employee (
   name, employee_number, email, first_name, last_name, hire_date, employment_status,
   employee_type, salary_annual, benefits_eligible, certifications, skills, languages,
-  education_level, remote_eligible, travel_required, reports_to_employee_id, tags, attr
+  education_level, remote_eligible, travel_required, reports_to_employee_id, tags, attr, password_hash
 ) VALUES
-('James Miller', 'EMP-001', 'james.miller@huronhome.ca', 'James', 'Miller', '2020-01-15', 'active', 'executive', 450000.00, true, '["MBA", "PMP", "Strategic Leadership"]', '["strategic_planning", "board_governance", "mergers_acquisitions", "public_speaking"]', '["en", "fr"]', 'MBA', true, true, NULL, '["executive", "ceo", "leadership", "bilingual"]', '{"linkedin": "james-miller-ceo", "board_positions": 2, "industry_experience": 20, "previous_companies": ["Home Depot Canada", "Loblaws"], "education": "MBA Queens University"}'),
-('Sarah Chen', 'EMP-002', 'sarah.chen@huronhome.ca', 'Sarah', 'Chen', '2020-02-01', 'active', 'executive', 380000.00, true, '["CPA", "CFA", "Advanced Finance"]', '["financial_reporting", "investor_relations", "risk_management", "mergers_acquisitions"]', '["en", "zh"]', 'MBA', true, true, NULL, '["executive", "cfo", "finance", "bilingual"]', '{"cpa_designation": "CPA Ontario", "previous_role": "VP Finance Rogers", "specialization": "corporate_finance", "audit_experience": true}'),
-('David Kumar', 'EMP-003', 'david.kumar@huronhome.ca', 'David', 'Kumar', '2020-03-15', 'active', 'executive', 370000.00, true, '["P.Eng", "AWS Solutions Architect", "Agile Master"]', '["enterprise_architecture", "digital_transformation", "team_leadership", "vendor_management"]', '["en", "hi"]', 'Masters Engineering', true, true, NULL, '["executive", "cto", "technology", "engineering"]', '{"engineering_license": "PEO", "previous_companies": ["Shopify", "TD Bank"], "specialization": "enterprise_systems", "patents": 3}'),
-('Maria Rodriguez', 'EMP-004', 'maria.rodriguez@huronhome.ca', 'Maria', 'Rodriguez', '2020-02-15', 'active', 'executive', 390000.00, true, '["Operations Management", "Lean Six Sigma Black Belt", "Safety Management"]', '["operations_excellence", "process_optimization", "safety_management", "customer_service"]', '["en", "es", "fr"]', 'MBA', true, true, NULL, '["executive", "coo", "operations", "trilingual"]', '{"lean_certification": "ASQ Black Belt", "safety_certifications": ["WSIB", "OHSA"], "previous_role": "VP Operations Canadian Tire", "specialization": "service_operations"}');
+('James Miller', 'EMP-001', 'james.miller@huronhome.ca', 'James', 'Miller', '2020-01-15', 'active', 'executive', 450000.00, true, '["MBA", "PMP", "Strategic Leadership"]', '["strategic_planning", "board_governance", "mergers_acquisitions", "public_speaking"]', '["en", "fr"]', 'MBA', true, true, NULL, '["executive", "ceo", "leadership", "bilingual"]', '{"linkedin": "james-miller-ceo", "board_positions": 2, "industry_experience": 20, "previous_companies": ["Home Depot Canada", "Loblaws"], "education": "MBA Queens University"}', '$2b$10$ntX9sbd4rHC3vmVpSCJYreflE0uOhRJJbBPvr1AI6Z1ePz2LtQnqW'),
+('Sarah Chen', 'EMP-002', 'sarah.chen@huronhome.ca', 'Sarah', 'Chen', '2020-02-01', 'active', 'executive', 380000.00, true, '["CPA", "CFA", "Advanced Finance"]', '["financial_reporting", "investor_relations", "risk_management", "mergers_acquisitions"]', '["en", "zh"]', 'MBA', true, true, NULL, '["executive", "cfo", "finance", "bilingual"]', '{"cpa_designation": "CPA Ontario", "previous_role": "VP Finance Rogers", "specialization": "corporate_finance", "audit_experience": true}', NULL),
+('David Kumar', 'EMP-003', 'david.kumar@huronhome.ca', 'David', 'Kumar', '2020-03-15', 'active', 'executive', 370000.00, true, '["P.Eng", "AWS Solutions Architect", "Agile Master"]', '["enterprise_architecture", "digital_transformation", "team_leadership", "vendor_management"]', '["en", "hi"]', 'Masters Engineering', true, true, NULL, '["executive", "cto", "technology", "engineering"]', '{"engineering_license": "PEO", "previous_companies": ["Shopify", "TD Bank"], "specialization": "enterprise_systems", "patents": 3}', NULL),
+('Maria Rodriguez', 'EMP-004', 'maria.rodriguez@huronhome.ca', 'Maria', 'Rodriguez', '2020-02-15', 'active', 'executive', 390000.00, true, '["Operations Management", "Lean Six Sigma Black Belt", "Safety Management"]', '["operations_excellence", "process_optimization", "safety_management", "customer_service"]', '["en", "es", "fr"]', 'MBA', true, true, NULL, '["executive", "coo", "operations", "trilingual"]', '{"lean_certification": "ASQ Black Belt", "safety_certifications": ["WSIB", "OHSA"], "previous_role": "VP Operations Canadian Tire", "specialization": "service_operations"}', NULL);
 
 -- Senior Vice Presidents
 INSERT INTO app.d_employee (

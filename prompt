@@ -12,6 +12,51 @@ First understand my design, and create a detailed plan.
 What steps, or course of action will you take to achieve this? 
 
 
+[Pasted text #1 +36 lines]\                                                                                                                                                       │
+│   \                                                                                                                                                                                 │
+│   Each of the entity type become a sidebar button in the webportal, each sidebar button has page, each page will have action entity: \                                              │
+│   action entity will always have create buttons, but you must keep current dataTable as it is. Do not touch existing dataTable, But I want you to work on:\                         │
+│   create reusable component for each page: headerTabNavigation which has a list of menu items which are action entity type in each of the page, so each page will have:             │
+│   headerTabNavigation, grid, dataTable. grid and dataTable are existing so don't touch them. \                                                                                      │
+│   \                                                                                                                                                                                 │
+│   headerTabNavigation will have menu buttons for each of the action entity within the parent entity which is the sidebar button or page. \                                          │
+│   \                                                                                                                                                                                 │
+│   Each menu button can be clicked which leads to another page view which is parent-action page, eg. project/artifact page, if artifact is clicked inside of project page. \         │
+│   project/task page if task is clicked inside of project. \                                                                                                                         │
+│   \                                                                                                                                                                                 │
+│   each of such parent/action page will have: \                                                                                                                                      │
+│   \                                                                                                                                                                                 │
+│   Create New button, \                                                                                                                                                              │
+│   Grid\                                                                                                                                                                             │
+│   dataTable component \                                                                                                                                                             │
+│   These all exist today and they function well. \                                                                                                                                   │
+│   \                                                                                                                                                                                 │
+│   So basically, each root parent entity needs extra headerTabNavigation\                                                                                                            │
+│   \                                                                                                                                                                                 │
+│   Given this context, I want you to just work on API, the api are all outdated with old datamodel, I want you to build API that's closely tied to datamodel I have now. Work on     │
+│   api only! Not the uiux for now, Create api endpoint to view, update, delete, create each parent entity, or create each action entity inside parent entity. Each entity in itself  │
+│   will live in data model, but they can have relation to one another too, eg. a wiki can be part of project or business, a task can be part of project, a form can be part of       │
+│   business or project or task. \                                                                                                                                                    │
+│   \                                                                                                                                                                                 │
+│   Datamodel: /home/rabin/projects/pmo/db\                                                                                                                                           │
+│   \                                                                                                                                                                                 │
+│   Please work on api: \                                                                                                                                                             │
+│   /home/rabin/projects/pmo/apps/api\                                                                                                                                                │
+│   \                                                                                                                                                                                 │
+│   Please create api so as to support this nature of ui request!   - Entity Types: biz, project, hr, worksite, client, org, role, employee, wiki, form, task, artifact               │
+│     - Permission Actions: create, view, edit, share                                                                                                                                 │
+│     - Hierarchical Structure: parent_entity → action_entity with specific permission actions                                                                                        │
+│     - Employee Access: James Miller has comprehensive permissions across 97 entities with admin-level access There is no such thing alled admin level access, but there's           │
+│   something about relationship of:\                                                                                                                                                 │
+│   parent and action entity, \                                                                                                                                                       │
+│   permission on parent entity, \                                                                                                                                                    │
+│   permission on action entity inside parent entity. \                                                                                                                               │
+│   \                                                                                                                                                                                 │
+│   Understand the relation from datamodel, and then update the api    
+
+
+
+
 
 
 api validation:

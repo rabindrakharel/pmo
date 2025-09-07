@@ -11,11 +11,10 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { config } from '@/lib/config.js';
 import { 
-  resolveUnifiedAbilities, 
-  getEmployeePermissionsSummary,
-  getAccessibleScopeIds,
-  type ScopeType 
-} from '@/lib/authz.js';
+  getEmployeeEntityIds,
+  hasPermissionOnEntityId,
+  type EntityAction
+} from '../rbac/ui-api-permission-rbac-gate.js';
 
 // Login request schema
 const LoginRequestSchema = Type.Object({
@@ -205,23 +204,46 @@ export async function authRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      const summary = await getEmployeePermissionsSummary(employeeId);
-      return summary;
+      // Get entity-based permissions summary
+      const entityTypes = ['biz', 'hr', 'org', 'client', 'project', 'task', 'worksite', 'employee', 'role', 'wiki', 'form', 'artifact'];
+      const actions = ['view', 'create', 'edit', 'share'];
+      
+      const permissions: any = {};
+      let totalEntities = 0;
+      let entityCounts: any = {};
+      
+      for (const entityType of entityTypes) {
+        const entityIds = await getEmployeeEntityIds(employeeId, entityType, 'view');
+        entityCounts[entityType] = entityIds.length;
+        totalEntities += entityIds.length;
+        
+        if (entityIds.length > 0) {
+          permissions[entityType] = actions;
+        }
+      }
+      
+      return {
+        employeeId,
+        isAdmin: totalEntities > 20, // Simple admin check based on permission count
+        totalScopes: totalEntities,
+        scopesByType: entityCounts,
+        permissions
+      };
     } catch (error) {
       fastify.log.error('Get permissions error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Get accessible scopes by type
-  fastify.get('/scopes/:scopeType', {
+  // Get accessible entities by type
+  fastify.get('/scopes/:entityType', {
     preHandler: [fastify.authenticate],
     schema: {
       tags: ['auth', 'permissions'],
-      summary: 'Get accessible scopes by type',
-      description: 'Get all scopes of a specific type that the user has access to',
+      summary: 'Get accessible entities by type',
+      description: 'Get all entities of a specific type that the user has access to',
       params: Type.Object({
-        scopeType: Type.String(),
+        entityType: Type.String(),
       }),
       querystring: Type.Object({
         action: Type.Optional(Type.String()),
@@ -236,47 +258,48 @@ export async function authRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
-      const { scopeType } = request.params as { scopeType: string };
+      const { entityType } = request.params as { entityType: string };
       const { action = 'view' } = request.query as { action?: string };
       
       if (!employeeId) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      // Validate scope type
-      const validScopeTypes: ScopeType[] = [
-        'business', 'location', 'hr', 'worksite', 'project', 'task',
-        'app:page', 'app:api', 'app:component'
+      // Validate entity type
+      const validEntityTypes = [
+        'biz', 'hr', 'org', 'client', 'project', 'task', 
+        'worksite', 'employee', 'role', 'wiki', 'form', 'artifact'
       ];
       
-      if (!validScopeTypes.includes(scopeType as ScopeType)) {
-        return reply.status(400).send({ error: `Invalid scope type: ${scopeType}` });
+      if (!validEntityTypes.includes(entityType)) {
+        return reply.status(400).send({ error: `Invalid entity type: ${entityType}` });
       }
 
       // Validate action
-      const validActions = ['view', 'create', 'modify', 'delete', 'execute'];
+      const validActions = ['view', 'create', 'edit', 'share'];
       if (!validActions.includes(action)) {
         return reply.status(400).send({ error: `Invalid action: ${action}` });
       }
 
-      const accessibleIds = await getAccessibleScopeIds(
+      const accessibleIds = await getEmployeeEntityIds(
         employeeId,
-        scopeType as ScopeType,
-        action as any
+        entityType,
+        action as EntityAction
       );
 
       return {
-        scopeType,
+        scopeType: entityType,
         accessibleIds,
         total: accessibleIds.length,
       };
     } catch (error) {
-      fastify.log.error('Get scopes error:', error);
+      fastify.log.error('Get entities error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Debug permissions endpoint (admin only)
+  // Debug permissions endpoint (admin only) - TEMPORARILY DISABLED
+  /*
   fastify.get('/permissions/debug', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -339,6 +362,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
+  */
 
   // Logout endpoint (for cleanup purposes)
   fastify.post('/logout', {

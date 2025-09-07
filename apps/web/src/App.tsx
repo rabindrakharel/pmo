@@ -22,6 +22,11 @@ import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { BillingPage } from './pages/BillingPage';
+
+// Parent/Action Page Components
+import { ProjectDetailPage, ProjectTasksPage, ProjectArtifactsPage, ProjectWikiPage, ProjectFormsPage } from './pages/project';
+import { BusinessDetailPage, BusinessProjectsPage, BusinessArtifactsPage } from './pages/business';
+import { TaskDetailPage } from './pages/TaskDetailPage';
 import { 
   ProjectStatusPage,
   ProjectStagePage,
@@ -137,8 +142,9 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      {/* Entity List Routes */}
       <Route
-        path="/business"
+        path="/biz"
         element={
           <ProtectedRoute>
             <BusinessPage />
@@ -146,7 +152,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/location"
+        path="/org"
         element={
           <ProtectedRoute>
             <LocationPage />
@@ -166,6 +172,84 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <TaskPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Parent/Action Routes - Project Context */}
+      <Route
+        path="/project/:projectId"
+        element={
+          <ProtectedRoute>
+            <ProjectDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/project/:projectId/tasks"
+        element={
+          <ProtectedRoute>
+            <ProjectTasksPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/project/:projectId/artifacts"
+        element={
+          <ProtectedRoute>
+            <ProjectArtifactsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/project/:projectId/wiki"
+        element={
+          <ProtectedRoute>
+            <ProjectWikiPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/project/:projectId/forms"
+        element={
+          <ProtectedRoute>
+            <ProjectFormsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Parent/Action Routes - Business Context */}
+      <Route
+        path="/biz/:bizId"
+        element={
+          <ProtectedRoute>
+            <BusinessDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/biz/:bizId/projects"
+        element={
+          <ProtectedRoute>
+            <BusinessProjectsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/biz/:bizId/artifacts"
+        element={
+          <ProtectedRoute>
+            <BusinessArtifactsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Task Detail Routes */}
+      <Route
+        path="/project/:projectId/task/:taskId"
+        element={
+          <ProtectedRoute>
+            <TaskDetailPage />
           </ProtectedRoute>
         }
       />

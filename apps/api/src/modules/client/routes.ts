@@ -20,20 +20,28 @@ const ClientSchema = Type.Object({
   active: Type.Boolean(),
   created: Type.String(),
   updated: Type.String(),
-  // Client-specific fields
-  client_parent_id: Type.Optional(Type.String()),
-  contact: Type.Object({}),
-  level_id: Type.Optional(Type.Number()),
-  level_name: Type.Optional(Type.String()),
+  // Client-specific fields - match actual d_client table
+  client_number: Type.String(),
+  client_type: Type.String(),
+  client_status: Type.String(),
+  primary_contact_name: Type.Optional(Type.String()),
+  primary_email: Type.Optional(Type.String()),
+  primary_phone: Type.Optional(Type.String()),
+  biz_id: Type.Optional(Type.String()),
+  org_id: Type.Optional(Type.String()),
 });
 
 const CreateClientSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
-  client_parent_id: Type.Optional(Type.String({ format: 'uuid' })),
-  contact: Type.Optional(Type.Object({})),
-  level_id: Type.Optional(Type.Number()),
-  level_name: Type.Optional(Type.String()),
+  client_number: Type.String({ minLength: 1 }),
+  client_type: Type.Optional(Type.String()),
+  client_status: Type.Optional(Type.String()),
+  primary_contact_name: Type.Optional(Type.String()),
+  primary_email: Type.Optional(Type.String()),
+  primary_phone: Type.Optional(Type.String()),
+  biz_id: Type.Optional(Type.String({ format: 'uuid' })),
+  org_id: Type.Optional(Type.String({ format: 'uuid' })),
   tags: Type.Optional(Type.Array(Type.String())),
   attr: Type.Optional(Type.Object({})),
   active: Type.Optional(Type.Boolean()),
@@ -48,8 +56,8 @@ export async function clientRoutes(fastify: FastifyInstance) {
       querystring: Type.Object({
         active: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
-        client_parent_id: Type.Optional(Type.String()),
-        level_id: Type.Optional(Type.Number()),
+        client_type: Type.Optional(Type.String()),
+        biz_id: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
@@ -65,7 +73,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { active, search, client_parent_id, level_id, limit = 50, offset = 0 } = request.query as any;
+    const { active, search, client_type, biz_id, limit = 50, offset = 0 } = request.query as any;
 
 
     try {
@@ -75,29 +83,14 @@ export async function clientRoutes(fastify: FastifyInstance) {
         conditions.push(sql`active = ${active}`);
       }
       
-      if (client_parent_id) {
-        conditions.push(sql`client_parent_id = ${client_parent_id}`);
-      }
-      
-      if (level_id !== undefined) {
-        conditions.push(sql`level_id = ${level_id}`);
-      }
-      
       if (search) {
-        const searchableColumns = getColumnsByMetadata([
-          'name', 'descr', 'level_name'
-        ], 'ui:search');
-        
-        const searchConditions = searchableColumns.map(col => 
-          sql`COALESCE(${sql.identifier(col)}, '') ILIKE ${`%${search}%`}`
-        );
-        
-        // Also search in contact JSON
-        searchConditions.push(sql`COALESCE(contact::text, '') ILIKE ${`%${search}%`}`);
-        
-        if (searchConditions.length > 0) {
-          conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
-        }
+        conditions.push(sql`(
+          name ILIKE ${`%${search}%`} OR 
+          "descr" ILIKE ${`%${search}%`} OR
+          client_number ILIKE ${`%${search}%`} OR
+          primary_contact_name ILIKE ${`%${search}%`} OR
+          primary_email ILIKE ${`%${search}%`}
+        )`);
       }
 
       const countResult = await db.execute(sql`
@@ -110,7 +103,8 @@ export async function clientRoutes(fastify: FastifyInstance) {
       const clients = await db.execute(sql`
         SELECT 
           id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-          client_parent_id, contact, level_id, level_name
+          client_number, client_type, client_status, primary_contact_name, 
+          primary_email, primary_phone, biz_id, org_id
         FROM app.d_client 
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY name ASC NULLS LAST, created DESC
@@ -160,7 +154,8 @@ export async function clientRoutes(fastify: FastifyInstance) {
       const client = await db.execute(sql`
         SELECT 
           id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-          client_parent_id, contact, level_id, level_name
+          client_number, client_type, client_status, primary_contact_name, 
+          primary_email, primary_phone, biz_id, org_id
         FROM app.d_client 
         WHERE id = ${id}
       `);
@@ -208,7 +203,8 @@ export async function clientRoutes(fastify: FastifyInstance) {
       const clientResult = await db.execute(sql`
         SELECT 
           id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-          client_parent_id, contact, level_id, level_name
+          client_number, client_type, client_status, primary_contact_name, 
+          primary_email, primary_phone, biz_id, org_id
         FROM app.d_client 
         WHERE id = ${id}
       `);
@@ -229,7 +225,8 @@ export async function clientRoutes(fastify: FastifyInstance) {
         const parentResult = await db.execute(sql`
           SELECT 
             id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-            client_parent_id, contact, level_id, level_name
+            client_number, client_type, client_status, primary_contact_name, 
+          primary_email, primary_phone, biz_id, org_id
           FROM app.d_client 
           WHERE id = ${client.client_parent_id}
         `);
@@ -240,7 +237,8 @@ export async function clientRoutes(fastify: FastifyInstance) {
       const children = await db.execute(sql`
         SELECT 
           id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-          client_parent_id, contact, level_id, level_name
+          client_number, client_type, client_status, primary_contact_name, 
+          primary_email, primary_phone, biz_id, org_id
         FROM app.d_client 
         WHERE client_parent_id = ${id}
         ORDER BY name ASC

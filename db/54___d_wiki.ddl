@@ -54,7 +54,9 @@ CREATE TABLE IF NOT EXISTS app.d_wiki (
   to_ts timestamptz,
   active boolean NOT NULL DEFAULT true,
   created timestamptz NOT NULL DEFAULT now(),
-  updated timestamptz NOT NULL DEFAULT now()
+  updated timestamptz NOT NULL DEFAULT now(),
+  
+  CONSTRAINT unique_wiki_slug UNIQUE (slug)
 );
 
 
@@ -83,8 +85,8 @@ VALUES (
   'company-vision',
   'Huron Home Services corporate vision, mission, and strategic priorities as defined by leadership',
   ARRAY['strategy','vision','leadership','company'],
-  '{"type":"html","html":"<h1>Company Vision & Strategy</h1><h2>Our Mission</h2><p>To be Ontario\'s premier integrated home services provider, delivering exceptional value through innovation, sustainability, and customer excellence.</p><h2>Strategic Priorities 2024-2025</h2><ul><li>Geographic expansion into Hamilton-Niagara region</li><li>Technology integration and digital transformation</li><li>Sustainable service offerings and environmental stewardship</li><li>Workforce development and employee satisfaction</li></ul><h2>Core Values</h2><ul><li>Customer Excellence</li><li>Safety First</li><li>Environmental Responsibility</li><li>Team Collaboration</li><li>Continuous Innovation</li></ul>"}',
-  '<h1>Company Vision & Strategy</h1><h2>Our Mission</h2><p>To be Ontario\'s premier integrated home services provider, delivering exceptional value through innovation, sustainability, and customer excellence.</p><h2>Strategic Priorities 2024-2025</h2><ul><li>Geographic expansion into Hamilton-Niagara region</li><li>Technology integration and digital transformation</li><li>Sustainable service offerings and environmental stewardship</li><li>Workforce development and employee satisfaction</li></ul><h2>Core Values</h2><ul><li>Customer Excellence</li><li>Safety First</li><li>Environmental Responsibility</li><li>Team Collaboration</li><li>Continuous Innovation</li></ul>',
+  '{"type":"html","html":"<h1>Company Vision & Strategy</h1><h2>Our Mission</h2><p>To be Ontario''s premier integrated home services provider, delivering exceptional value through innovation, sustainability, and customer excellence.</p><h2>Strategic Priorities 2024-2025</h2><ul><li>Geographic expansion into Hamilton-Niagara region</li><li>Technology integration and digital transformation</li><li>Sustainable service offerings and environmental stewardship</li><li>Workforce development and employee satisfaction</li></ul><h2>Core Values</h2><ul><li>Customer Excellence</li><li>Safety First</li><li>Environmental Responsibility</li><li>Team Collaboration</li><li>Continuous Innovation</li></ul>"}',
+  '<h1>Company Vision & Strategy</h1><h2>Our Mission</h2><p>To be Ontario''s premier integrated home services provider, delivering exceptional value through innovation, sustainability, and customer excellence.</p><h2>Strategic Priorities 2024-2025</h2><ul><li>Geographic expansion into Hamilton-Niagara region</li><li>Technology integration and digital transformation</li><li>Sustainable service offerings and environmental stewardship</li><li>Workforce development and employee satisfaction</li></ul><h2>Core Values</h2><ul><li>Customer Excellence</li><li>Safety First</li><li>Environmental Responsibility</li><li>Team Collaboration</li><li>Continuous Innovation</li></ul>',
   true,
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
   'James Miller'

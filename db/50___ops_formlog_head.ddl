@@ -147,7 +147,7 @@ SELECT
   projects.fall_landscaping_id,
   '["client_feedback", "post_service"]'::jsonb,
   false,
-  NULL,
+  NULL::integer,
   '{"email_notifications": ["project_manager", "client_success"], "trigger_threshold": 3}'::jsonb,
   '["client_feedback", "satisfaction", "fall_campaign"]'::jsonb,
   '{"auto_followup": true, "satisfaction_threshold": 4, "escalation_enabled": true}'::jsonb
@@ -181,7 +181,7 @@ SELECT
   projects.hvac_maintenance_id,
   '["technician", "service_report"]'::jsonb,
   true,
-  NULL,
+  NULL::integer,
   '{"email_notifications": ["project_manager", "client"], "sms_client": true}'::jsonb,
   '["service_report", "hvac", "maintenance"]'::jsonb,
   '{"invoice_integration": true, "parts_inventory_update": true, "scheduling_integration": true}'::jsonb
@@ -215,7 +215,7 @@ SELECT
   projects.solar_expansion_id,
   '["installer", "project_manager"]'::jsonb,
   true,
-  NULL,
+  NULL::integer,
   '{"email_notifications": ["project_manager", "safety_coordinator"], "daily_digest": true}'::jsonb,
   '["progress_report", "solar", "installation"]'::jsonb,
   '{"safety_monitoring": true, "progress_tracking": true, "weather_integration": true}'::jsonb

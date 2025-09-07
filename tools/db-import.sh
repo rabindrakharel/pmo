@@ -203,8 +203,8 @@ declare -a DDL_FILES=(
     # OPERATIONAL TABLES
     "50___ops_formlog_head.ddl|Form Log Headers"
     "51___ops_formlog_records.ddl|Form Log Records"
-    "52___ops_task_records.ddl|Task Operation Records"
     "53___ops_task_head.ddl|Task Operation Headers"
+    "52___ops_task_records.ddl|Task Operation Records"
     "54___d_wiki.ddl|Wiki Knowledge Base"
     "55___d_app.ddl|Application Management"
 )

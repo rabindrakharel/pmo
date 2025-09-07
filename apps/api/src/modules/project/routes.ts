@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { getEmployeeScopeIds, hasPermissionOnScopeId } from '../rbac/ui-api-permission-rbac-gate.js';
+import { getEmployeeEntityIds, hasPermissionOnEntityId } from '../rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import { 
@@ -130,7 +130,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
     try {
       // Get employee's allowed project IDs for filtering
-      const allowedProjectIds = await getEmployeeScopeIds(userId, 'project');
+      const allowedProjectIds = await getEmployeeEntityIds(userId, 'project');
 
       const conditions = [];
       
@@ -188,7 +188,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total 
-        FROM app.ops_project_head 
+        FROM app.d_project 
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
@@ -203,7 +203,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           project_stage, project_status, security_classification, 
           compliance_requirements, risk_assessment,
           name, "descr", tags, attr, from_ts, to_ts, active, created, updated
-        FROM app.ops_project_head
+        FROM app.d_project
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY name ASC NULLS LAST, created DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -257,7 +257,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
 
       // Get employee's allowed project IDs for filtering
-      const allowedProjectIds = await getEmployeeScopeIds(userId, 'project');
+      const allowedProjectIds = await getEmployeeEntityIds(userId, 'project');
 
       if (!allowedProjectIds.includes(projectId)) {
         return reply.status(403).send({ error: 'Access denied for this project' });
@@ -332,7 +332,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     const { id } = request.params as { id: string };
 
     // Check if employee has permission to view this specific project
-    const hasViewAccess = await hasPermissionOnScopeId(userId, 'project', id, 'view');
+    const hasViewAccess = await hasPermissionOnEntityId(userId, 'project', id, 'view');
     if (!hasViewAccess) {
       return reply.status(403).send({ error: 'Insufficient permissions to view this project' });
     }
@@ -348,7 +348,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           project_stage, project_status, security_classification, 
           compliance_requirements, risk_assessment,
           name, "descr", tags, attr, from_ts, to_ts, active, created, updated
-        FROM app.ops_project_head 
+        FROM app.d_project 
         WHERE id = ${id}
       `);
 
@@ -389,7 +389,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // Check for unique project code if provided
       if (data.project_code) {
         const existingProject = await db.execute(sql`
-          SELECT id FROM app.ops_project_head WHERE project_code = ${data.project_code} AND active = true
+          SELECT id FROM app.d_project WHERE project_code = ${data.project_code} AND active = true
         `);
         if (existingProject.length > 0) {
           return reply.status(400).send({ error: 'Project with this code already exists' });
@@ -399,7 +399,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // Check for unique slug if provided
       if (data.slug) {
         const existingSlug = await db.execute(sql`
-          SELECT id FROM app.ops_project_head WHERE slug = ${data.slug} AND active = true
+          SELECT id FROM app.d_project WHERE slug = ${data.slug} AND active = true
         `);
         if (existingSlug.length > 0) {
           return reply.status(400).send({ error: 'Project with this slug already exists' });
@@ -419,7 +419,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const tenantId = '00000000-0000-0000-0000-000000000000';
 
       const result = await db.execute(sql`
-        INSERT INTO app.ops_project_head (
+        INSERT INTO app.d_project (
           tenant_id, project_code, project_type, priority_level, slug,
           budget_allocated, budget_currency, business_id, locations, worksites,
           project_managers, project_sponsors, project_leads, clients, approvers,
@@ -504,14 +504,14 @@ export async function projectRoutes(fastify: FastifyInstance) {
     const data = request.body as any;
 
     // Check if employee has permission to modify this specific project
-    const hasModifyAccess = await hasPermissionOnScopeId(userId, 'project', id, 'modify');
+    const hasModifyAccess = await hasPermissionOnEntityId(userId, 'project', id, 'modify');
     if (!hasModifyAccess) {
       return reply.status(403).send({ error: 'Insufficient permissions to modify this project' });
     }
 
     try {
       const existing = await db.execute(sql`
-        SELECT id FROM app.ops_project_head WHERE id = ${id}
+        SELECT id FROM app.d_project WHERE id = ${id}
       `);
       
       if (existing.length === 0) {
@@ -560,7 +560,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.ops_project_head 
+        UPDATE app.d_project 
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -601,14 +601,14 @@ export async function projectRoutes(fastify: FastifyInstance) {
     const { id } = request.params as { id: string };
 
     // Check if employee has permission to delete this specific project
-    const hasDeleteAccess = await hasPermissionOnScopeId(userId, 'project', id, 'delete');
+    const hasDeleteAccess = await hasPermissionOnEntityId(userId, 'project', id, 'delete');
     if (!hasDeleteAccess) {
       return reply.status(403).send({ error: 'Insufficient permissions to delete this project' });
     }
 
     try {
       const existing = await db.execute(sql`
-        SELECT id FROM app.ops_project_head WHERE id = ${id}
+        SELECT id FROM app.d_project WHERE id = ${id}
       `);
       
       if (existing.length === 0) {
@@ -617,7 +617,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       // Soft delete (using SCD Type 2 pattern)
       await db.execute(sql`
-        UPDATE app.ops_project_head 
+        UPDATE app.d_project 
         SET active = false, to_ts = NOW(), updated = NOW()
         WHERE id = ${id}
       `);

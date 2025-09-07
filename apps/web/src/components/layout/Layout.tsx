@@ -30,6 +30,7 @@ import { useFullscreen } from '../../contexts/FullscreenContext';
 import { FullscreenToggle } from '../common/FullscreenToggle';
 import { FloatingFullscreenToggle } from '../common/FloatingFullscreenToggle';
 import { CreateButton } from '../common/CreateButton';
+import { GlobalSearchCompact } from '../common/GlobalSearch';
 
 interface CreateButtonConfig {
   label: string;
@@ -83,15 +84,23 @@ export function Layout({ children, showFullscreenToggle = true, fullscreenHeader
   ];
 
   const mainNavigationItems = [
-    { name: 'Business', href: '/business', icon: Building2 },
-    { name: 'Location', href: '/location', icon: MapPin },
-    { name: 'Project', href: '/project', icon: FolderOpen },
-    { name: 'Task', href: '/task', icon: CheckSquare },
-    { name: 'Employee', href: '/employee', icon: Users },
-    { name: 'Roles', href: '/roles', icon: UserCheck },
-    { name: 'Forms', href: '/forms', icon: FileText },
-    { name: 'Artifacts', href: '/artifacts', icon: FileText },
-    { name: 'Wiki', href: '/wiki', icon: BookOpen },
+    // Organizational Entities (4)
+    { name: 'Business', href: '/biz', icon: Building2, category: 'organizational' },
+    { name: 'Projects', href: '/project', icon: FolderOpen, category: 'operational' },
+    { name: 'HR', href: '/hr', icon: Crown, category: 'organizational' },
+    { name: 'Worksite', href: '/worksite', icon: Building2, category: 'operational' },
+    { name: 'Clients', href: '/client', icon: Star, category: 'organizational' },
+    { name: 'Organization', href: '/org', icon: MapPin, category: 'organizational' },
+    
+    // Personnel Entities (2)
+    { name: 'Roles', href: '/role', icon: UserCheck, category: 'personnel' },
+    { name: 'Employees', href: '/employee', icon: Users, category: 'personnel' },
+    
+    // Content Entities (3)
+    { name: 'Wiki', href: '/wiki', icon: BookOpen, category: 'content' },
+    { name: 'Forms', href: '/form', icon: FileText, category: 'content' },
+    { name: 'Tasks', href: '/task', icon: CheckSquare, category: 'operational' },
+    { name: 'Artifacts', href: '/artifact', icon: FileText, category: 'content' },
   ];
 
   const profileNavigationItems = [
@@ -381,18 +390,27 @@ export function Layout({ children, showFullscreenToggle = true, fullscreenHeader
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Page content */}
-        <main className={`flex-1 overflow-hidden bg-gray-50 ${showFullscreenToggle ? 'p-4' : 'p-4'}`}>
-          {/* Create Button in Content Area */}
-          {createButton && (
-            <div className="flex justify-end mb-4">
-              <CreateButton 
-                label={createButton.label} 
-                href={createButton.href} 
-                size="sm"
-              />
+        {/* Header Bar */}
+        <header className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex-1 max-w-lg">
+              <GlobalSearchCompact />
             </div>
-          )}
+            <div className="flex items-center space-x-4">
+              {showFullscreenToggle && <FullscreenToggle />}
+              {createButton && (
+                <CreateButton 
+                  label={createButton.label} 
+                  href={createButton.href} 
+                  size="sm"
+                />
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 overflow-hidden bg-gray-50 p-4">
           {children}
         </main>
       </div>

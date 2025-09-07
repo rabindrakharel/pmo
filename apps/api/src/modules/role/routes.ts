@@ -83,11 +83,11 @@ export async function roleRoutes(fastify: FastifyInstance) {
           id,
           name,
           "descr",
-          role_type as "roleType",
+          role_code as "roleType",
           role_category as "roleCategory",
-          authority_level as "authorityLevel",
-          approval_limit as "approvalLimit",
-          delegation_allowed as "delegationAllowed",
+          reporting_level as "authorityLevel",
+          required_experience_years as "approvalLimit",
+          is_management_role as "delegationAllowed",
           active,
           from_ts as "fromTs",
           to_ts as "toTs",
@@ -136,11 +136,11 @@ export async function roleRoutes(fastify: FastifyInstance) {
           id,
           name,
           "descr",
-          role_type as "roleType",
+          role_code as "roleType",
           role_category as "roleCategory",
-          authority_level as "authorityLevel",
-          approval_limit as "approvalLimit",
-          delegation_allowed as "delegationAllowed",
+          reporting_level as "authorityLevel",
+          required_experience_years as "approvalLimit",
+          is_management_role as "delegationAllowed",
           active,
           from_ts as "fromTs",
           to_ts as "toTs",
@@ -190,17 +190,17 @@ export async function roleRoutes(fastify: FastifyInstance) {
       const fromTs = data.fromTs || new Date().toISOString();
       
       const result = await db.execute(sql`
-        INSERT INTO app.d_role (name, "descr", role_type, role_category, authority_level, approval_limit, delegation_allowed, active, from_ts, tags, attr)
+        INSERT INTO app.d_role (name, "descr", role_code, role_category, reporting_level, required_experience_years, is_management_role, active, from_ts, tags, attr)
         VALUES (${data.name}, ${data.descr || null}, ${data.roleType || 'functional'}, ${data.roleCategory || null}, ${data.authorityLevel || 'standard'}, ${data.approvalLimit || null}, ${data.delegationAllowed !== undefined ? data.delegationAllowed : false}, ${data.active !== false}, ${fromTs}, ${JSON.stringify(data.tags || [])}, ${JSON.stringify(data.attr || {})})
         RETURNING 
           id,
           name,
           "descr",
-          role_type as "roleType",
+          role_code as "roleType",
           role_category as "roleCategory",
-          authority_level as "authorityLevel",
-          approval_limit as "approvalLimit",
-          delegation_allowed as "delegationAllowed",
+          reporting_level as "authorityLevel",
+          required_experience_years as "approvalLimit",
+          is_management_role as "delegationAllowed",
           active,
           from_ts as "fromTs",
           to_ts as "toTs",
@@ -272,7 +272,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       }
       
       if (data.roleType !== undefined) {
-        updateFields.push(sql`role_type = ${data.roleType}`);
+        updateFields.push(sql`role_code = ${data.roleType}`);
       }
       
       if (data.roleCategory !== undefined) {
@@ -280,15 +280,15 @@ export async function roleRoutes(fastify: FastifyInstance) {
       }
       
       if (data.authorityLevel !== undefined) {
-        updateFields.push(sql`authority_level = ${data.authorityLevel}`);
+        updateFields.push(sql`reporting_level = ${data.authorityLevel}`);
       }
       
       if (data.approvalLimit !== undefined) {
-        updateFields.push(sql`approval_limit = ${data.approvalLimit}`);
+        updateFields.push(sql`required_experience_years = ${data.approvalLimit}`);
       }
       
       if (data.delegationAllowed !== undefined) {
-        updateFields.push(sql`delegation_allowed = ${data.delegationAllowed}`);
+        updateFields.push(sql`is_management_role = ${data.delegationAllowed}`);
       }
       
       if (data.tags !== undefined) {
@@ -317,11 +317,11 @@ export async function roleRoutes(fastify: FastifyInstance) {
           id,
           name,
           "descr",
-          role_type as "roleType",
+          role_code as "roleType",
           role_category as "roleCategory",
-          authority_level as "authorityLevel",
-          approval_limit as "approvalLimit",
-          delegation_allowed as "delegationAllowed",
+          reporting_level as "authorityLevel",
+          required_experience_years as "approvalLimit",
+          is_management_role as "delegationAllowed",
           active,
           from_ts as "fromTs",
           to_ts as "toTs",
@@ -424,11 +424,11 @@ export async function roleRoutes(fastify: FastifyInstance) {
           id,
           name,
           "descr",
-          role_type as "roleType",
+          role_code as "roleType",
           role_category as "roleCategory",
-          authority_level as "authorityLevel",
-          approval_limit as "approvalLimit",
-          delegation_allowed as "delegationAllowed",
+          reporting_level as "authorityLevel",
+          required_experience_years as "approvalLimit",
+          is_management_role as "delegationAllowed",
           active,
           from_ts as "fromTs",
           to_ts as "toTs",
@@ -444,16 +444,16 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Role not found' });
       }
 
-      // Get role permissions
+      // Get role permissions from entity-based RBAC
       const permissions = await db.execute(sql`
         SELECT 
-          scope_type as "scopeType",
-          scope_id as "scopeId",
-          scope_name as "scopeName",
-          scope_permission as "permissions"
-        FROM app.rel_role_scope_unified 
-        WHERE role_id = ${id} AND active = true
-        ORDER BY scope_type, scope_name
+          'role' as "scopeType",
+          r.id as "scopeId",
+          r.name as "scopeName",
+          ARRAY['view'] as "permissions"
+        FROM app.d_role r
+        WHERE r.id = ${id} AND r.active = true
+        ORDER BY r.name
       `);
 
       return {

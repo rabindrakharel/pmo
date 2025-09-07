@@ -80,7 +80,14 @@
       "Bash(do grep -A 10 \"CREATE TABLE app\\.rel_\" \"$file\")",
       "Bash(done)",
       "Bash(do echo \"=== $file ===\")",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(rm:*)",
+      "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" REDIS_URL=\"redis://localhost:6379\" JWT_SECRET=\"your-super-secret-jwt-key-change-in-production\" DEV_BYPASS_OIDC=true PORT=4001 pnpm dev)",
+      "Bash(JWT_TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzU3MTkzMjc0LCJleHAiOjE3NTcyNzk2NzR9.4RX7km1mcO6GmcIHMYV6YErvWqnZV-Hn6TmWVPO_bfw\")",
+      "Bash(echo:*)",
+      "Bash(JWT_TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzU3MTkzNzQwLCJleHAiOjE3NTcyODAxNDB9.Z4_nfVLN-Tgu-BNpBFVhYM48LWVlGaYBar-8M4hfOXU\")",
+      "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" REDIS_URL=\"redis://localhost:6379\" JWT_SECRET=\"your-super-secret-jwt-key-change-in-production\" DEV_BYPASS_OIDC=true PORT=4002 pnpm dev --dir apps/api)",
+      "Bash(JWT_TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzU3MTk3NjUxLCJleHAiOjE3NTcyODQwNTF9.8mUpXT5Q6OYbRjgnLH2leYuGpvYN4u6Q7EHnuFZyhlc\")"
     ],
     "deny": [],
     "ask": [],

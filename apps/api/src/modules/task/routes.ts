@@ -661,4 +661,447 @@ export async function taskRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
+
+  // Kanban status update endpoint (for drag-drop operations)
+  fastify.patch('/api/v1/task/:id/status', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['task', 'kanban'],
+      summary: 'Update task status (Kanban)',
+      description: 'Updates task status for Kanban drag-drop operations with optimistic UI support',
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' }),
+      }),
+      body: Type.Object({
+        task_status: Type.String({ enum: ['backlog', 'in_progress', 'blocked', 'done', 'completed'] }),
+        position: Type.Optional(Type.Number()),
+        moved_by: Type.Optional(Type.String()),
+      }),
+      response: {
+        200: Type.Object({
+          id: Type.String(),
+          task_status: Type.String(),
+          updated: Type.String(),
+        }),
+        400: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const { task_status, position, moved_by } = request.body as any;
+      const employeeId = (request as any).user?.sub;
+
+      // Validate task exists and user has permission
+      const existingTask = await db.execute(sql`
+        SELECT id, name, task_status FROM app.ops_task_head 
+        WHERE id = ${id} AND active = true
+      `);
+      
+      if (existingTask.length === 0) {
+        return reply.status(404).send({ error: 'Task not found' });
+      }
+
+      // Update task status with audit info
+      const updateResult = await db.execute(sql`
+        UPDATE app.ops_task_head 
+        SET 
+          task_status = ${task_status},
+          updated = NOW(),
+          attr = COALESCE(attr, '{}'::jsonb) || jsonb_build_object(
+            'kanban_moved_at', NOW()::text,
+            'kanban_moved_by', ${moved_by || employeeId},
+            'kanban_position', ${position || 0}
+          )
+        WHERE id = ${id}
+        RETURNING id, task_status, updated
+      `);
+
+      if (updateResult.length === 0) {
+        return reply.status(404).send({ error: 'Failed to update task' });
+      }
+
+      return {
+        id: String(updateResult[0].id),
+        task_status: String(updateResult[0].task_status),
+        updated: String(updateResult[0].updated),
+      };
+    } catch (error) {
+      fastify.log.error('Error updating task status:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get Kanban view data for project
+  fastify.get('/api/v1/project/:projectId/tasks/kanban', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['task', 'kanban', 'project'],
+      summary: 'Get tasks for Kanban view',
+      description: 'Returns tasks grouped by status for Kanban board display',
+      params: Type.Object({
+        projectId: Type.String({ format: 'uuid' }),
+      }),
+      querystring: Type.Object({
+        assignee: Type.Optional(Type.String()),
+        priority: Type.Optional(Type.String()),
+      }),
+      response: {
+        200: Type.Object({
+          project: Type.Object({
+            id: Type.String(),
+            name: Type.String(),
+          }),
+          columns: Type.Object({
+            backlog: Type.Array(TaskSchema),
+            in_progress: Type.Array(TaskSchema),
+            blocked: Type.Array(TaskSchema),
+            done: Type.Array(TaskSchema),
+          }),
+          stats: Type.Object({
+            total: Type.Number(),
+            by_status: Type.Record(Type.String(), Type.Number()),
+          }),
+        }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const { projectId } = request.params as { projectId: string };
+      const { assignee, priority } = request.query as any;
+      const employeeId = (request as any).user?.sub;
+
+      // Get project info
+      const project = await db.execute(sql`
+        SELECT id, name FROM app.d_project 
+        WHERE id = ${projectId} AND active = true
+      `);
+
+      if (project.length === 0) {
+        return reply.status(404).send({ error: 'Project not found' });
+      }
+
+      // Build filter conditions
+      const filters = [sql`project_id = ${projectId}`, sql`active = true`];
+      if (assignee) filters.push(sql`assigned_to_employee_id = ${assignee}`);
+      if (priority) filters.push(sql`priority_level = ${priority}`);
+
+      // Get all tasks for the project
+      const tasks = await db.execute(sql`
+        SELECT * FROM app.ops_task_head
+        WHERE ${sql.join(filters, sql` AND `)}
+        ORDER BY 
+          CASE task_status 
+            WHEN 'backlog' THEN 1 
+            WHEN 'in_progress' THEN 2 
+            WHEN 'blocked' THEN 3 
+            WHEN 'done' THEN 4 
+            ELSE 5 
+          END,
+          (attr->>'kanban_position')::int NULLS LAST,
+          created
+      `);
+
+      // Group tasks by status
+      const columns = {
+        backlog: tasks.filter(t => t.task_status === 'backlog'),
+        in_progress: tasks.filter(t => t.task_status === 'in_progress'),
+        blocked: tasks.filter(t => t.task_status === 'blocked'),
+        done: tasks.filter(t => ['done', 'completed'].includes(String(t.task_status))),
+      };
+
+      // Calculate stats
+      const stats = {
+        total: tasks.length,
+        by_status: {
+          backlog: columns.backlog.length,
+          in_progress: columns.in_progress.length,
+          blocked: columns.blocked.length,
+          done: columns.done.length,
+        },
+      };
+
+      return {
+        project: {
+          id: String(project[0].id),
+          name: String(project[0].name),
+        },
+        columns,
+        stats,
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching Kanban data:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Case notes for tasks (rich editor support)
+  fastify.get('/api/v1/task/:taskId/case-notes', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['task', 'case-notes'],
+      summary: 'Get task case notes',
+      description: 'Returns case notes timeline with rich content for task detail view',
+      params: Type.Object({
+        taskId: Type.String({ format: 'uuid' }),
+      }),
+      response: {
+        200: Type.Object({
+          task_id: Type.String(),
+          notes: Type.Array(Type.Object({
+            id: Type.String(),
+            content: Type.String(),
+            content_type: Type.String(),
+            author_id: Type.String(),
+            author_name: Type.String(),
+            created_at: Type.String(),
+            updated_at: Type.String(),
+            mentions: Type.Array(Type.String()),
+            attachments: Type.Array(Type.Object({
+              id: Type.String(),
+              filename: Type.String(),
+              size: Type.Number(),
+              mime_type: Type.String(),
+            })),
+          })),
+        }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const { taskId } = request.params as { taskId: string };
+      const employeeId = (request as any).user?.sub;
+
+      // Verify task access
+      const hasAccess = await hasPermissionOnEntityId(employeeId, 'task', taskId, 'view');
+      if (!hasAccess) {
+        return reply.status(404).send({ error: 'Task not found or access denied' });
+      }
+
+      // Get case notes from task records table
+      const notes = await db.execute(sql`
+        SELECT 
+          tr.id,
+          tr.record_content as content,
+          tr.record_type as content_type,
+          tr.created_by_employee_id as author_id,
+          e.name as author_name,
+          tr.created as created_at,
+          tr.updated as updated_at,
+          COALESCE(tr.attr->>'mentions', '[]')::jsonb as mentions,
+          COALESCE(tr.attr->>'attachments', '[]')::jsonb as attachments
+        FROM app.ops_task_records tr
+        LEFT JOIN app.d_employee e ON e.id = tr.created_by_employee_id
+        WHERE tr.task_head_id = ${taskId}
+          AND tr.record_type IN ('case_note', 'rich_note')
+          AND tr.active = true
+        ORDER BY tr.created DESC
+      `);
+
+      const formattedNotes = notes.map(note => ({
+        id: String(note.id),
+        content: String(note.content),
+        content_type: String(note.content_type),
+        author_id: String(note.author_id),
+        author_name: String(note.author_name || 'Unknown'),
+        created_at: String(note.created_at),
+        updated_at: String(note.updated_at),
+        mentions: Array.isArray(note.mentions) ? note.mentions.map(String) : [],
+        attachments: Array.isArray(note.attachments) ? note.attachments : [],
+      }));
+
+      return {
+        task_id: taskId,
+        notes: formattedNotes,
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching case notes:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Add case note to task
+  fastify.post('/api/v1/task/:taskId/case-notes', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['task', 'case-notes'],
+      summary: 'Add case note to task',
+      description: 'Adds a new case note with rich content and mentions to task',
+      params: Type.Object({
+        taskId: Type.String({ format: 'uuid' }),
+      }),
+      body: Type.Object({
+        content: Type.String({ minLength: 1 }),
+        content_type: Type.Optional(Type.String({ enum: ['case_note', 'rich_note', 'log_entry'] })),
+        mentions: Type.Optional(Type.Array(Type.String())),
+        attachments: Type.Optional(Type.Array(Type.Object({
+          filename: Type.String(),
+          size: Type.Number(),
+          mime_type: Type.String(),
+          data: Type.Optional(Type.String()),
+        }))),
+      }),
+      response: {
+        201: Type.Object({
+          id: Type.String(),
+          content: Type.String(),
+          author_name: Type.String(),
+          created_at: Type.String(),
+        }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const { taskId } = request.params as { taskId: string };
+      const { content, content_type = 'case_note', mentions = [], attachments = [] } = request.body as any;
+      const employeeId = (request as any).user?.sub;
+
+      // Verify task edit access
+      const hasAccess = await hasPermissionOnEntityId(employeeId, 'task', taskId, 'edit');
+      if (!hasAccess) {
+        return reply.status(404).send({ error: 'Task not found or access denied' });
+      }
+
+      // Get author name
+      const authorResult = await db.execute(sql`
+        SELECT name FROM app.d_employee WHERE id = ${employeeId}
+      `);
+      const authorName = authorResult[0]?.name || 'Unknown';
+
+      // Insert case note
+      const noteResult = await db.execute(sql`
+        INSERT INTO app.ops_task_records (
+          task_head_id,
+          record_type,
+          record_content,
+          created_by_employee_id,
+          attr,
+          active
+        ) VALUES (
+          ${taskId},
+          ${content_type},
+          ${content},
+          ${employeeId},
+          ${JSON.stringify({ mentions, attachments })},
+          true
+        )
+        RETURNING id, created
+      `);
+
+      return reply.status(201).send({
+        id: String(noteResult[0].id),
+        content,
+        author_name: String(authorName),
+        created_at: String(noteResult[0].created),
+      });
+    } catch (error) {
+      fastify.log.error('Error adding case note:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Activity timeline for task
+  fastify.get('/api/v1/task/:taskId/activity', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['task', 'activity'],
+      summary: 'Get task activity timeline',
+      description: 'Returns chronological activity feed for task with system and user events',
+      params: Type.Object({
+        taskId: Type.String({ format: 'uuid' }),
+      }),
+      response: {
+        200: Type.Object({
+          task_id: Type.String(),
+          activities: Type.Array(Type.Object({
+            id: Type.String(),
+            activity_type: Type.String(),
+            description: Type.String(),
+            actor_id: Type.Optional(Type.String()),
+            actor_name: Type.Optional(Type.String()),
+            timestamp: Type.String(),
+            changes: Type.Optional(Type.Object({})),
+            metadata: Type.Optional(Type.Object({})),
+          })),
+        }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const { taskId } = request.params as { taskId: string };
+      const employeeId = (request as any).user?.sub;
+
+      // Verify task access
+      const hasAccess = await hasPermissionOnEntityId(employeeId, 'task', taskId, 'view');
+      if (!hasAccess) {
+        return reply.status(404).send({ error: 'Task not found or access denied' });
+      }
+
+      // Get all task records for activity feed
+      const activities = await db.execute(sql`
+        SELECT 
+          tr.id,
+          tr.record_type as activity_type,
+          tr.record_content as description,
+          tr.created_by_employee_id as actor_id,
+          e.name as actor_name,
+          tr.created as timestamp,
+          tr.attr as metadata
+        FROM app.ops_task_records tr
+        LEFT JOIN app.d_employee e ON e.id = tr.created_by_employee_id
+        WHERE tr.task_head_id = ${taskId}
+          AND tr.active = true
+        
+        UNION ALL
+        
+        -- Add system events from task updates
+        SELECT 
+          gen_random_uuid() as id,
+          'system_update' as activity_type,
+          CASE 
+            WHEN th.created = th.updated THEN 'Task created'
+            ELSE 'Task updated'
+          END as description,
+          NULL as actor_id,
+          'System' as actor_name,
+          th.updated as timestamp,
+          th.attr as metadata
+        FROM app.ops_task_head th
+        WHERE th.id = ${taskId}
+          AND th.active = true
+          
+        ORDER BY timestamp DESC
+        LIMIT 50
+      `);
+
+      const formattedActivities = activities.map(activity => ({
+        id: String(activity.id),
+        activity_type: String(activity.activity_type),
+        description: String(activity.description),
+        actor_id: activity.actor_id ? String(activity.actor_id) : undefined,
+        actor_name: String(activity.actor_name || 'Unknown'),
+        timestamp: String(activity.timestamp),
+        changes: undefined, // TODO: Implement change tracking
+        metadata: activity.metadata ? JSON.parse(String(activity.metadata)) : undefined,
+      }));
+
+      return {
+        task_id: taskId,
+        activities: formattedActivities,
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching task activity:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
 }

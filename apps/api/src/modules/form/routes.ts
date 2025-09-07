@@ -2,57 +2,60 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm';
+import { 
+  getEmployeeEntityIds,
+  hasPermissionOnEntityId,
+  type EntityAction
+} from '../rbac/ui-api-permission-rbac-gate.js';
 
 const FormSchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  formGlobalLink: Type.Optional(Type.String()),
-  projectSpecific: Type.Optional(Type.Boolean()),
-  projectId: Type.Optional(Type.String()),
-  taskSpecific: Type.Optional(Type.Boolean()),
-  taskId: Type.Optional(Type.String()),
-  locationSpecific: Type.Optional(Type.Boolean()),
-  locationId: Type.Optional(Type.String()),
-  businessSpecific: Type.Optional(Type.Boolean()),
-  businessId: Type.Optional(Type.String()),
-  hrSpecific: Type.Optional(Type.Boolean()),
-  hrId: Type.Optional(Type.String()),
-  worksiteSpecific: Type.Optional(Type.Boolean()),
-  worksiteId: Type.Optional(Type.String()),
+  form_code: Type.Optional(Type.String()),
+  form_global_link: Type.Optional(Type.String()),
+  project_specific: Type.Optional(Type.Boolean()),
+  project_id: Type.Optional(Type.String()),
+  biz_specific: Type.Optional(Type.Boolean()),
+  biz_id: Type.Optional(Type.String()),
+  hr_specific: Type.Optional(Type.Boolean()),
+  hr_id: Type.Optional(Type.String()),
+  worksite_specific: Type.Optional(Type.Boolean()),
+  worksite_id: Type.Optional(Type.String()),
   version: Type.Optional(Type.Number()),
   active: Type.Boolean(),
-  fromTs: Type.String(),
-  toTs: Type.Optional(Type.String()),
+  from_ts: Type.String(),
+  to_ts: Type.Optional(Type.String()),
   created: Type.String(),
   updated: Type.String(),
   tags: Type.Optional(Type.Array(Type.String())),
   schema: Type.Optional(Type.Any()),
   attr: Type.Optional(Type.Any()),
+  is_public: Type.Optional(Type.Boolean()),
+  requires_authentication: Type.Optional(Type.Boolean()),
 });
 
 const CreateFormSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
-  formGlobalLink: Type.Optional(Type.String()),
-  projectSpecific: Type.Optional(Type.Boolean()),
-  projectId: Type.Optional(Type.String()),
-  taskSpecific: Type.Optional(Type.Boolean()),
-  taskId: Type.Optional(Type.String()),
-  locationSpecific: Type.Optional(Type.Boolean()),
-  locationId: Type.Optional(Type.String()),
-  businessSpecific: Type.Optional(Type.Boolean()),
-  businessId: Type.Optional(Type.String()),
-  hrSpecific: Type.Optional(Type.Boolean()),
-  hrId: Type.Optional(Type.String()),
-  worksiteSpecific: Type.Optional(Type.Boolean()),
-  worksiteId: Type.Optional(Type.String()),
+  form_code: Type.Optional(Type.String()),
+  form_global_link: Type.Optional(Type.String()),
+  project_specific: Type.Optional(Type.Boolean()),
+  project_id: Type.Optional(Type.String()),
+  biz_specific: Type.Optional(Type.Boolean()),
+  biz_id: Type.Optional(Type.String()),
+  hr_specific: Type.Optional(Type.Boolean()),
+  hr_id: Type.Optional(Type.String()),
+  worksite_specific: Type.Optional(Type.Boolean()),
+  worksite_id: Type.Optional(Type.String()),
   version: Type.Optional(Type.Number()),
   active: Type.Optional(Type.Boolean()),
-  fromTs: Type.Optional(Type.String({ format: 'date-time' })),
+  from_ts: Type.Optional(Type.String({ format: 'date-time' })),
   tags: Type.Optional(Type.Array(Type.String())),
   schema: Type.Optional(Type.Any()),
   attr: Type.Optional(Type.Any()),
+  is_public: Type.Optional(Type.Boolean()),
+  requires_authentication: Type.Optional(Type.Boolean()),
 });
 
 const UpdateFormSchema = Type.Partial(CreateFormSchema);
@@ -64,12 +67,10 @@ export async function formRoutes(fastify: FastifyInstance) {
       querystring: Type.Object({
         version: Type.Optional(Type.Number()),
         active: Type.Optional(Type.Boolean()),
-        projectSpecific: Type.Optional(Type.Boolean()),
-        taskSpecific: Type.Optional(Type.Boolean()),
-        locationSpecific: Type.Optional(Type.Boolean()),
-        businessSpecific: Type.Optional(Type.Boolean()),
-        hrSpecific: Type.Optional(Type.Boolean()),
-        worksiteSpecific: Type.Optional(Type.Boolean()),
+        project_specific: Type.Optional(Type.Boolean()),
+        biz_specific: Type.Optional(Type.Boolean()),
+        hr_specific: Type.Optional(Type.Boolean()),
+        worksite_specific: Type.Optional(Type.Boolean()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
@@ -88,12 +89,10 @@ export async function formRoutes(fastify: FastifyInstance) {
     const { 
       version, 
       active, 
-      projectSpecific,
-      taskSpecific,
-      locationSpecific,
-      businessSpecific,
-      hrSpecific,
-      worksiteSpecific,
+      project_specific,
+      biz_specific,
+      hr_specific,
+      worksite_specific,
       limit = 50, 
       offset = 0 
     } = request.query as any;
@@ -110,28 +109,32 @@ export async function formRoutes(fastify: FastifyInstance) {
         conditions.push(sql`active = ${active}`);
       }
       
-      if (projectSpecific !== undefined) {
-        conditions.push(sql`project_specific = ${projectSpecific}`);
+      if (project_specific !== undefined) {
+        conditions.push(sql`project_specific = ${project_specific}`);
       }
       
-      if (taskSpecific !== undefined) {
-        conditions.push(sql`task_specific = ${taskSpecific}`);
+      if (biz_specific !== undefined) {
+        conditions.push(sql`biz_specific = ${biz_specific}`);
       }
       
-      if (locationSpecific !== undefined) {
-        conditions.push(sql`location_specific = ${locationSpecific}`);
+      if (hr_specific !== undefined) {
+        conditions.push(sql`hr_specific = ${hr_specific}`);
       }
       
-      if (businessSpecific !== undefined) {
-        conditions.push(sql`business_specific = ${businessSpecific}`);
+      if (worksite_specific !== undefined) {
+        conditions.push(sql`worksite_specific = ${worksite_specific}`);
       }
-      
-      if (hrSpecific !== undefined) {
-        conditions.push(sql`hr_specific = ${hrSpecific}`);
-      }
-      
-      if (worksiteSpecific !== undefined) {
-        conditions.push(sql`worksite_specific = ${worksiteSpecific}`);
+
+      // RBAC: Filter forms user can access
+      const employeeId = (request as any).user?.sub;
+      if (employeeId) {
+        const accessibleFormIds = await getEmployeeEntityIds(employeeId, 'form', 'view');
+        if (accessibleFormIds.length > 0) {
+          conditions.push(sql`id = ANY(${accessibleFormIds}::uuid[])`);
+        } else {
+          // User has no form access
+          return { data: [], total: 0, limit, offset };
+        }
       }
 
       // Get total count
@@ -148,28 +151,27 @@ export async function formRoutes(fastify: FastifyInstance) {
           id,
           name,
           "descr",
-          form_global_link as "formGlobalLink",
-          project_specific as "projectSpecific",
-          project_id as "projectId",
-          task_specific as "taskSpecific",
-          task_id as "taskId",
-          location_specific as "locationSpecific",
-          location_id as "locationId",
-          business_specific as "businessSpecific",
-          business_id as "businessId",
-          hr_specific as "hrSpecific",
-          hr_id as "hrId",
-          worksite_specific as "worksiteSpecific",
-          worksite_id as "worksiteId",
+          form_code,
+          form_global_link,
+          project_specific,
+          project_id,
+          biz_specific,
+          biz_id,
+          hr_specific,
+          hr_id,
+          worksite_specific,
+          worksite_id,
           version,
           active,
-          from_ts as "fromTs",
-          to_ts as "toTs",
+          from_ts,
+          to_ts,
           created,
           updated,
           tags,
           schema,
-          attr
+          attr,
+          is_public,
+          requires_authentication
         FROM app.ops_formlog_head 
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY name ASC, version DESC

@@ -1,336 +1,283 @@
 
 /**
- * UI Permission RBAC System
+ * Entity-Based RBAC System
  * 
- * This module provides a comprehensive, employee-focused RBAC system for frontend 
- * component, page, and API gating. All functions use employee_id instead of user_id 
- * to align with the application's employee-centric data model.
+ * This module provides a comprehensive, employee-focused RBAC system based on the new
+ * entity-action permission model. Uses rel_employee_entity_action_rbac table for
+ * fine-grained permissions on specific entity instances.
  * 
  * Architecture Overview:
- * 1. Fine-grained App-level Functions (Component/Page/API gating)
- * 2. Resource-specific Permission Functions (Project/Task/HR/Business/etc.)
- * 3. Bulk Permission Retrieval Functions (All scopes for a type)
+ * 1. Entity-specific Permission Functions (Biz, HR, Org, Client, Project, Task, etc.)
+ * 2. Action-based Permission Checking (create, view, edit, share)
+ * 3. Bulk Permission Retrieval Functions (All entities of a type accessible to employee)
  * 
- * Scope Name vs Scope ID:
- * - scope_name: Human-readable identifiers like "/employees", "TaskBoard", "/api/v1/auth"
- * - scope_table_reference_id: UUID references to actual data records in reference tables
+ * Entity Types:
+ * - Organizational: biz, hr, org, client
+ * - Operational: project, task, worksite
+ * - Personnel: employee, role  
+ * - Content: wiki, form, artifact
  */
 
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 
 /**
- * Permission levels as defined in rel_employee_scope_unified.resource_permission
- * 0: view, 1: modify, 2: share, 3: delete, 4: create
+ * Permission actions as defined in rel_employee_entity_action_rbac.permission_action
  */
-export enum Permission {
-  VIEW = 0,
-  MODIFY = 1, 
-  SHARE = 2,
-  DELETE = 3,
-  CREATE = 4,
+export enum PermissionAction {
+  CREATE = 'create',
+  VIEW = 'view', 
+  EDIT = 'edit',
+  SHARE = 'share',
 }
 
 /**
- * Standard scope action mappings for consistent permission checking
+ * Standard entity action mappings for consistent permission checking
  */
-export type ScopeAction = 'view' | 'modify' | 'share' | 'delete' | 'create';
+export type EntityAction = 'create' | 'view' | 'edit' | 'share' | 'modify' | 'delete';
 
 /**
- * Result structure for employee scope queries
+ * Map legacy actions to new permission system
  */
-export interface EmployeeScope {
-  scopeId: string;
-  scopeName: string;
-  permissions: Permission[];
-}
+const mapActionToPermission = (action: EntityAction): PermissionAction => {
+  switch (action) {
+    case 'modify':
+    case 'edit':
+      return PermissionAction.EDIT;
+    case 'delete':
+      return PermissionAction.EDIT; // Delete requires edit permission
+    case 'create':
+      return PermissionAction.CREATE;
+    case 'share':
+      return PermissionAction.SHARE;
+    case 'view':
+    default:
+      return PermissionAction.VIEW;
+  }
+};
 
 /**
- * 🔐 APP-LEVEL PERMISSION FUNCTIONS
- * These functions handle application-level gating (components, pages, APIs)
- * using scope_name for identification
+ * 🔐 ENTITY-BASED PERMISSION FUNCTIONS
+ * Core functions for checking permissions on specific entity instances
  */
 
 /**
- * FUNCTION 1A: hasPermissionOnComponent - Frontend Component Gating
- * 
- * 🎯 WHO CALLS: React/Vue components, UI libraries, conditional rendering logic
- * 🔍 PATTERN: Component-level show/hide, feature toggles, UI element gating
- * 📍 SCOPE: Always uses scope_type = 'app:component'
- * 
- * Use Cases:
- * - Show/hide buttons: hasPermissionOnComponent(empId, "app:component", "TaskBoard", "view")
- * - Conditional rendering: hasPermissionOnComponent(empId, "app:component", "datatable:DataTable", "modify")
- * - Feature flags: hasPermissionOnComponent(empId, "app:component", "AdminPanel", "create")
- * 
- * Scope Name Examples:
- * - "TaskBoard" (Main task management component)
- * - "datatable:DataTable" (Reusable data table component)
- * - "ProjectForm" (Project creation/editing form)
- * - "UserProfile" (User profile management component)
- * 
- * @param employeeId - The employee's unique identifier  
- * @param scopeType - Must be 'app:component' for component-level checks
- * @param scopeName - Component identifier from d_scope_app.scope_name
- * @param action - The action being attempted ('view', 'modify', 'share', 'delete', 'create')
- * @returns Promise<boolean> - True if employee can perform action on component
- */
-export async function hasPermissionOnComponent(
-  employeeId: string,
-  scopeType: string,
-  scopeName: string,
-  action: ScopeAction
-): Promise<boolean> {
-  return await hasPermissionByName(employeeId, scopeType, scopeName, action);
-}
-
-/**
- * FUNCTION 1B: hasPermissionOnPage - Frontend Page Access Control
- * 
- * 🎯 WHO CALLS: Router guards, navigation middleware, page-level components
- * 🔍 PATTERN: Route protection, page access control, navigation menu filtering
- * 📍 SCOPE: Always uses scope_type = 'app:page'
- * 
- * Use Cases:
- * - Route guards: hasPermissionOnPage(empId, "app:page", "/employees", "view")
- * - Menu visibility: hasPermissionOnPage(empId, "app:page", "/projects", "view")
- * - Page redirection: hasPermissionOnPage(empId, "app:page", "/reports/analytics", "view")
- * 
- * Scope Name Examples:
- * - "/employees" (Employee management page)
- * - "/projects" (Project listing/management page)
- * - "/reports/analytics" (Analytics dashboard)
- * - "/settings/permissions" (Permission management page)
+ * Check if employee has permission on a specific entity instance
  * 
  * @param employeeId - The employee's unique identifier
- * @param scopeType - Must be 'app:page' for page-level checks
- * @param scopeName - Page route/path from d_scope_app.scope_name
- * @param action - The action being attempted ('view', 'modify', 'share', 'delete', 'create')
- * @returns Promise<boolean> - True if employee can access the page
- */
-export async function hasPermissionOnPage(
-  employeeId: string,
-  scopeType: string,
-  scopeName: string,
-  action: ScopeAction
-): Promise<boolean> {
-  return await hasPermissionByName(employeeId, scopeType, scopeName, action);
-}
-
-/**
- * FUNCTION 1C: hasPermissionOnAPI - Backend API Endpoint Authorization
- * 
- * 🎯 WHO CALLS: API route handlers, middleware, authentication guards
- * 🔍 PATTERN: API endpoint protection, operation authorization, service access control
- * 📍 SCOPE: Always uses scope_type = 'app:api'
- * 
- * Use Cases:
- * - API middleware: hasPermissionOnAPI(empId, "app:api", "/api/v1/auth/logout", "create")
- * - Endpoint protection: hasPermissionOnAPI(empId, "app:api", "/api/v1/task", "view")
- * - Operation gating: hasPermissionOnAPI(empId, "app:api", "/api/v1/projects", "modify")
- * 
- * Scope Name Examples:
- * - "/api/v1/auth/logout" (Authentication logout endpoint)
- * - "/api/v1/task" (Task management API endpoints)
- * - "/api/v1/projects" (Project CRUD operations)
- * - "/api/v1/reports/generate" (Report generation endpoint)
- * 
- * @param employeeId - The employee's unique identifier
- * @param scopeType - Must be 'app:api' for API-level checks
- * @param scopeName - API endpoint path from d_scope_app.scope_name
- * @param action - The action being attempted ('view', 'modify', 'share', 'delete', 'create')
- * @returns Promise<boolean> - True if employee can access the API endpoint
- */
-export async function hasPermissionOnAPI(
-  employeeId: string,
-  scopeType: string,
-  scopeName: string,
-  action: ScopeAction
-): Promise<boolean> {
-  return await hasPermissionByName(employeeId, scopeType, scopeName, action);
-}
-
-/**
- * CORE HELPER: hasPermissionByName - Internal function for scope_name-based checks
- * 
- * This is the underlying implementation used by all app-level permission functions.
- * It checks permissions using scope_name (human-readable identifiers) rather than UUIDs.
- * 
- * @param employeeId - The employee's unique identifier
- * @param scopeType - The scope type ('app:component', 'app:page', 'app:api')
- * @param scopeName - The human-readable scope identifier
+ * @param entityType - The entity type (biz, project, task, etc.)
+ * @param entityId - The specific entity instance UUID
  * @param action - The action being attempted
  * @returns Promise<boolean> - True if employee has the required permission
  */
-async function hasPermissionByName(
+export async function hasPermissionOnEntityId(
   employeeId: string,
-  scopeType: string,
-  scopeName: string,
-  action: ScopeAction
+  entityType: string,
+  entityId: string,
+  action: EntityAction
 ): Promise<boolean> {
-  
-  if (!employeeId) {
+  if (!employeeId || !entityId) {
     return false;
   }
 
-  // Map action to permission level
-  const actionToPermission: Record<ScopeAction, Permission> = {
-    view: Permission.VIEW,
-    modify: Permission.MODIFY,
-    share: Permission.SHARE,
-    delete: Permission.DELETE,
-    create: Permission.CREATE,
-  };
-
-  const requiredPermission = actionToPermission[action];
-  
+  const permissionAction = mapActionToPermission(action);
   
   try {
     const result = await db.execute(sql`
       SELECT COUNT(*) as count
-      FROM app.rel_employee_scope_unified 
-      WHERE emp_id = ${employeeId} 
-        AND scope_type = ${scopeType} 
-        AND scope_name = ${scopeName}
+      FROM app.rel_employee_entity_action_rbac 
+      WHERE employee_id = ${employeeId} 
+        AND action_entity = ${entityType} 
+        AND action_entity_id = ${entityId}
+        AND permission_action = ${permissionAction}
         AND active = true
-        AND ${requiredPermission} = ANY(resource_permission)
+        AND emergency_revoked = false
+        AND (expiry_date IS NULL OR expiry_date > NOW())
+        AND (to_ts IS NULL OR to_ts > NOW())
     `);
+    
     return Number(result[0]?.count || 0) > 0;
     
   } catch (error) {
-    console.error('Error checking employee permission:', error);
+    console.error('Error checking permission on entity:', error);
     return false;
   }
 }
 
 /**
- * FUNCTION 2: getEmployeeScopes - Page-level Scope Access
- * 
- * Usage: Frontend pages use this to get all accessible scopes for data filtering
- * Example: getEmployeeScopes(employeeId, 'project', 'view') -> EmployeeScope[] gives the list of project ids that are 
- * viewable by this employee
- * 
- * Use cases:
- * - Populate dropdown lists with accessible scopes
- * - Filter data tables based on employee access
- * - Build dynamic navigation menus
- * - Implement scope-based data pagination
+ * Get all entity IDs of a specific type that the employee has permission to access
  * 
  * @param employeeId - The employee's unique identifier
- * @param scopeType - The resource scope type to query
- * @param minPermission - Minimum permission level required (defaults to VIEW)
- * @returns Promise<EmployeeScope[]> - Array of accessible scopes with their permissions
+ * @param entityType - The entity type (biz, project, task, etc.)
+ * @param action - The minimum action required (defaults to 'view')
+ * @returns Promise<string[]> - Array of entity IDs the employee can access
  */
-export async function getEmployeeScopeIdsByScopeType(
+export async function getEmployeeEntityIds(
   employeeId: string,
-  scopeType: string,
-  minPermission: Permission = Permission.VIEW
-): Promise<EmployeeScope[]> {
-  
+  entityType: string,
+  action: EntityAction = 'view'
+): Promise<string[]> {
   if (!employeeId) {
     return [];
   }
 
+  const permissionAction = mapActionToPermission(action);
   
   try {
-    const scopes = await db.execute(sql`
-      SELECT 
-        scope_table_reference_id, 
-        resource_permission,
-        scope_name
-      FROM app.rel_employee_scope_unified
-      WHERE emp_id = ${employeeId} 
-        AND scope_type = ${scopeType} 
+    const result = await db.execute(sql`
+      SELECT DISTINCT action_entity_id
+      FROM app.rel_employee_entity_action_rbac 
+      WHERE employee_id = ${employeeId} 
+        AND action_entity = ${entityType}
+        AND permission_action = ${permissionAction}
         AND active = true
-        AND ${minPermission} = ANY(resource_permission)
-      ORDER BY scope_name
+        AND emergency_revoked = false
+        AND (expiry_date IS NULL OR expiry_date > NOW())
+        AND (to_ts IS NULL OR to_ts > NOW())
+      ORDER BY action_entity_id
     `);
+    
+    return result.map(row => row.action_entity_id as string).filter(Boolean);
+    
+  } catch (error) {
+    console.error('Error getting employee entity access:', error);
+    return [];
+  }
+}
 
-    return scopes.map(scope => ({
-      scopeId: (scope.scope_table_reference_id as string | null) || '',
-      scopeName: (scope.scope_name as string) || 'Unknown',
-      permissions: (Array.isArray(scope.resource_permission) ? scope.resource_permission : []) as Permission[],
+/**
+ * Check if employee can create entities within a parent entity
+ * 
+ * @param employeeId - The employee's unique identifier
+ * @param parentEntityType - The parent entity type (biz, project, etc.)
+ * @param parentEntityId - The parent entity instance UUID
+ * @param targetEntityType - The type of entity to create (task, wiki, etc.)
+ * @returns Promise<boolean> - True if employee can create the target entity type within the parent
+ */
+export async function hasCreatePermissionInEntity(
+  employeeId: string,
+  parentEntityType: string,
+  parentEntityId: string,
+  targetEntityType: string
+): Promise<boolean> {
+  if (!employeeId || !parentEntityId) {
+    return false;
+  }
+  
+  try {
+    // Check if employee has create permission in the parent scope for the target entity type
+    const result = await db.execute(sql`
+      SELECT COUNT(*) as count
+      FROM app.rel_employee_entity_action_rbac 
+      WHERE employee_id = ${employeeId} 
+        AND parent_entity = ${parentEntityType}
+        AND parent_entity_id = ${parentEntityId}
+        AND action_entity = ${targetEntityType}
+        AND permission_action = ${PermissionAction.CREATE}
+        AND active = true
+        AND emergency_revoked = false
+        AND (expiry_date IS NULL OR expiry_date > NOW())
+        AND (to_ts IS NULL OR to_ts > NOW())
+    `);
+    
+    return Number(result[0]?.count || 0) > 0;
+    
+  } catch (error) {
+    console.error('Error checking create permission in scope:', error);
+    return false;
+  }
+}
+
+/**
+ * Get all entities that can be created within a parent entity
+ * 
+ * @param employeeId - The employee's unique identifier
+ * @param parentEntityType - The parent entity type
+ * @param parentEntityId - The parent entity instance UUID
+ * @returns Promise<string[]> - Array of entity types that can be created
+ */
+export async function getCreatableEntityTypes(
+  employeeId: string,
+  parentEntityType: string,
+  parentEntityId: string
+): Promise<string[]> {
+  if (!employeeId || !parentEntityId) {
+    return [];
+  }
+  
+  try {
+    const result = await db.execute(sql`
+      SELECT DISTINCT action_entity
+      FROM app.rel_employee_entity_action_rbac 
+      WHERE employee_id = ${employeeId} 
+        AND parent_entity = ${parentEntityType}
+        AND parent_entity_id = ${parentEntityId}
+        AND permission_action = ${PermissionAction.CREATE}
+        AND active = true
+        AND emergency_revoked = false
+        AND (expiry_date IS NULL OR expiry_date > NOW())
+        AND (to_ts IS NULL OR to_ts > NOW())
+      ORDER BY action_entity
+    `);
+    
+    return result.map(row => row.action_entity as string).filter(Boolean);
+    
+  } catch (error) {
+    console.error('Error getting creatable entity types:', error);
+    return [];
+  }
+}
+
+/**
+ * Get comprehensive permissions summary for an employee on a specific entity type
+ * 
+ * @param employeeId - The employee's unique identifier
+ * @param entityType - The entity type to check
+ * @returns Promise<{ entityId: string, permissions: string[] }[]> - Array of entities with their permissions
+ */
+export async function getEmployeeEntityPermissions(
+  employeeId: string,
+  entityType: string
+): Promise<{ entityId: string, permissions: string[] }[]> {
+  if (!employeeId) {
+    return [];
+  }
+  
+  try {
+    const result = await db.execute(sql`
+      SELECT 
+        action_entity_id,
+        array_agg(DISTINCT permission_action) as permissions
+      FROM app.rel_employee_entity_action_rbac 
+      WHERE employee_id = ${employeeId} 
+        AND action_entity = ${entityType}
+        AND active = true
+        AND emergency_revoked = false
+        AND (expiry_date IS NULL OR expiry_date > NOW())
+        AND (to_ts IS NULL OR to_ts > NOW())
+      GROUP BY action_entity_id
+      ORDER BY action_entity_id
+    `);
+    
+    return result.map(row => ({
+      entityId: row.action_entity_id as string,
+      permissions: (Array.isArray(row.permissions) ? row.permissions : []) as string[],
     }));
     
   } catch (error) {
-    console.error('Error getting employee scopes:', error);
+    console.error('Error getting employee entity permissions:', error);
     return [];
   }
 }
 
 /**
- * FUNCTION 3: hasPermissionOnScopeId - Quick Permission Check by Scope ID
- * 
- * 🎯 WHO CALLS: API middleware, quick authorization checks, component guards
- * 🔍 PATTERN: Fast boolean checks for specific resource access
- * 📍 SCOPE: Works with any scope_type using UUID reference IDs
- * 
- * Use cases:
- * - Quick API checks: hasPermissionOnScopeId(empId, 'project', 'uuid-of-project', 'modify') -> boolean
- * - Component guards: hasPermissionOnScopeId(empId, 'task', 'uuid-of-task', 'view') -> boolean
- * - Middleware validation: hasPermissionOnScopeId(empId, 'business', 'uuid-of-business', 'delete') -> boolean
- * 
- * @param employeeId - The employee's unique identifier
- * @param scopeType - The resource scope type being accessed
- * @param scopeId - The specific scope UUID (scope_table_reference_id)
- * @param action - The action being attempted
- * @returns Promise<boolean> - True if employee has the required permission on this specific scope
+ * Legacy compatibility functions - maintaining same interface for existing code
  */
-export async function hasPermissionOnScopeId(
-  employeeId: string,
-  scopeType: string,
-  scopeId: string,
-  action: ScopeAction
-): Promise<boolean> {
-  
-  if (!employeeId || !scopeId) {
-    return false;
-  }
 
-  // Map action to permission level
-  const actionToPermission: Record<ScopeAction, Permission> = {
-    view: Permission.VIEW,
-    modify: Permission.MODIFY,
-    share: Permission.SHARE,
-    delete: Permission.DELETE,
-    create: Permission.CREATE,
-  };
+// Maintain backward compatibility for existing API calls
+export type ScopeAction = EntityAction;
 
-  const requiredPermission = actionToPermission[action];
-
-  
-  try {
-    const result = await db.execute(sql`
-      SELECT COUNT(*) as count
-      FROM app.rel_employee_scope_unified 
-      WHERE emp_id = ${employeeId} 
-        AND scope_type = ${scopeType} 
-        AND scope_table_reference_id = ${scopeId}
-        AND active = true
-        AND ${requiredPermission} = ANY(resource_permission)
-    `);
-    
-    return Number(result[0]?.count || 0) > 0;
-    
-  } catch (error) {
-    console.error('Error checking permission on scope ID:', error);
-    return false;
-  }
-}
-
-
-/**
- * UTILITY: Get just scope IDs for database query filtering
- * 
- * Helper function that returns just the scope IDs for building 
- * database WHERE clauses and query filters.
- */
-export async function getEmployeeScopeIds(
-  employeeId: string,
-  scopeType: string,
-  minPermission: Permission = Permission.VIEW
-): Promise<string[]> {
-  
-  const scopes = await getEmployeeScopeIdsByScopeType(employeeId, scopeType, minPermission);
-  return scopes.map(scope => scope.scopeId).filter(Boolean);
-}
+// For backward compatibility with existing project routes
+export const hasPermissionOnScopeId = hasPermissionOnEntityId;
+export const getEmployeeScopeIds = getEmployeeEntityIds;
+export const hasCreatePermissionInScope = hasCreatePermissionInEntity;
