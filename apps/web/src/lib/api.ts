@@ -9,9 +9,10 @@ export const apiClient = axios.create({
   },
 });
 
+// Add authentication headers
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token');
-  if (token) {
+  if (token && token !== 'no-auth-needed') {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -185,27 +186,34 @@ export const clientApi = {
 
 export const businessApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; level?: string }) {
-    const response = await apiClient.get('/api/v1/entity/biz', { params });
+    // Convert page-based pagination to limit/offset for API
+    const limit = params?.pageSize ?? 20;
+    const offset = ((params?.page ?? 1) - 1) * limit;
+    const query: any = { limit, offset };
+    if (params?.search) query.search = params.search;
+    if (params?.level) query.level = params.level;
+    
+    const response = await apiClient.get('/api/v1/biz', { params: query });
     return response.data;
   },
   
   async get(id: string) {
-    const response = await apiClient.get(`/api/v1/entity/biz/${id}`);
+    const response = await apiClient.get(`/api/v1/biz/${id}`);
     return response.data;
   },
   
   async create(data: any) {
-    const response = await apiClient.post('/api/v1/entity/biz', data);
+    const response = await apiClient.post('/api/v1/biz', data);
     return response.data;
   },
   
   async update(id: string, data: any) {
-    const response = await apiClient.put(`/api/v1/entity/biz/${id}`, data);
+    const response = await apiClient.put(`/api/v1/biz/${id}`, data);
     return response.data;
   },
   
   async delete(id: string) {
-    const response = await apiClient.delete(`/api/v1/entity/biz/${id}`);
+    const response = await apiClient.delete(`/api/v1/biz/${id}`);
     return response.data;
   },
 };

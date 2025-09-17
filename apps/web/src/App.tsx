@@ -26,8 +26,18 @@ import { BillingPage } from './pages/BillingPage';
 // Parent/Action Page Components
 import { ProjectDetailPage, ProjectTasksPage, ProjectArtifactsPage, ProjectWikiPage, ProjectFormsPage } from './pages/project';
 import { BusinessDetailPage, BusinessProjectsPage, BusinessArtifactsPage } from './pages/business';
+import { BusinessWikiPage } from './pages/business/BusinessWikiPage';
+import { BusinessFormsPage } from './pages/business/BusinessFormsPage';
+import { BusinessTasksPage } from './pages/business/BusinessTasksPage';
 import { EmployeeDetailPage } from './pages/employee/EmployeeDetailPage';
 import { OrgDetailPage } from './pages/org/OrgDetailPage';
+import { OrgWorksitesPage } from './pages/org/OrgWorksitesPage';
+import { OrgEmployeesPage } from './pages/org/OrgEmployeesPage';
+import { WorksiteDetailPage } from './pages/worksite/WorksiteDetailPage';
+import { WorksiteTasksPage } from './pages/worksite/WorksiteTasksPage';
+import { WorksiteFormsPage } from './pages/worksite/WorksiteFormsPage';
+import { TaskFormsPage } from './pages/task/TaskFormsPage';
+import { TaskArtifactsPage } from './pages/task/TaskArtifactsPage';
 import { RoleDetailPage } from './pages/role/RoleDetailPage';
 import { TaskDetailPage } from './pages/TaskDetailPage';
 import { 
@@ -231,7 +241,31 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/biz/:bizId/projects"
+        path="/biz/:bizId/wiki"
+        element={
+          <ProtectedRoute>
+            <BusinessWikiPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/biz/:bizId/forms"
+        element={
+          <ProtectedRoute>
+            <BusinessFormsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/biz/:bizId/task"
+        element={
+          <ProtectedRoute>
+            <BusinessTasksPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/biz/:bizId/project"
         element={
           <ProtectedRoute>
             <BusinessProjectsPage />
@@ -239,7 +273,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/biz/:bizId/artifacts"
+        path="/biz/:bizId/artifact"
         element={
           <ProtectedRoute>
             <BusinessArtifactsPage />
@@ -303,6 +337,68 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <TaskDetailPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Organization Routes */}
+      <Route
+        path="/org/:orgId/worksite"
+        element={
+          <ProtectedRoute>
+            <OrgWorksitesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/org/:orgId/employee"
+        element={
+          <ProtectedRoute>
+            <OrgEmployeesPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Worksite Routes */}
+      <Route
+        path="/worksite/:worksiteId"
+        element={
+          <ProtectedRoute>
+            <WorksiteDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/worksite/:worksiteId/task"
+        element={
+          <ProtectedRoute>
+            <WorksiteTasksPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/worksite/:worksiteId/forms"
+        element={
+          <ProtectedRoute>
+            <WorksiteFormsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Task Action Routes */}
+      <Route
+        path="/task/:taskId/forms"
+        element={
+          <ProtectedRoute>
+            <TaskFormsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/task/:taskId/artifact"
+        element={
+          <ProtectedRoute>
+            <TaskArtifactsPage />
           </ProtectedRoute>
         }
       />

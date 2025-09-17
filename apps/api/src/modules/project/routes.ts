@@ -238,6 +238,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // Get project tasks - NEW ENDPOINT for navigation
   fastify.get('/api/v1/project/:id/tasks', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })
@@ -321,6 +322,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // Get single project
   fastify.get('/api/v1/project/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -381,6 +383,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // Create project
   fastify.post('/api/v1/project', {
+    preHandler: [fastify.authenticate],
     schema: {
       body: CreateProjectSchema,
       response: {
@@ -499,6 +502,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // Update project
   fastify.put('/api/v1/project/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -603,6 +607,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // Delete project (soft delete)
   fastify.delete('/api/v1/project/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),

@@ -10,12 +10,12 @@ interface BusinessUnit {
   id: string;
   name: string;
   descr?: string;
-  levelId: number;
-  levelName?: string;
-  parentId?: string;
+  level_id: number;
+  level_name?: string;
+  parent_id?: string;
   active?: boolean;
-  fromTs?: string;
-  toTs?: string;
+  from_ts?: string;
+  to_ts?: string;
   created?: string;
   updated?: string;
 }
@@ -103,7 +103,7 @@ export function BusinessPage() {
       ),
     },
     {
-      key: 'levelName',
+      key: 'level_name',
       title: 'Level',
       sortable: true,
       filterable: true,
@@ -128,7 +128,7 @@ export function BusinessPage() {
       render: (value) => getStatusBadge(value),
     },
     {
-      key: 'levelId',
+      key: 'level_id',
       title: 'Level ID',
       sortable: true,
       align: 'center',
@@ -204,7 +204,7 @@ export function BusinessPage() {
               icon: TrendingUp
             },
             {
-              value: new Set(businessUnits.map(u => u.levelName).filter(Boolean)).size,
+              value: new Set(businessUnits.map(u => u.level_name).filter(Boolean)).size,
               label: "Hierarchy Levels",
               color: "purple",
               icon: Users

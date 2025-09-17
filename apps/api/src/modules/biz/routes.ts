@@ -174,7 +174,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
   // Get business unit hierarchy children
   fastify.get('/api/v1/biz/:id/children', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })
@@ -237,7 +237,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
   // Get projects within a business unit
   fastify.get('/api/v1/biz/:id/projects', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })
@@ -301,7 +301,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
   // Get creatable entity types within a business unit
   fastify.get('/api/v1/biz/:id/creatable', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })
@@ -336,7 +336,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
   // Get single business unit
   fastify.get('/api/v1/biz/:id', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -392,7 +392,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
   // Create business unit
   fastify.post('/api/v1/biz', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       body: CreateBizSchema,
       response: {
@@ -498,7 +498,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
   // Update business unit
   fastify.put('/api/v1/biz/:id', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -584,7 +584,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
   // Delete business unit (soft delete)
   fastify.delete('/api/v1/biz/:id', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),

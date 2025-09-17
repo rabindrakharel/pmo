@@ -54,7 +54,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
   
   // Get action entity summaries for parent context (for HeaderTabNavigation)
   fastify.get('/api/v1/:parentEntity/:parentId/action-summaries', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['meta', 'hierarchy'],
       summary: 'Get action entity summaries for parent context',
@@ -218,7 +218,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
   // Get all entity types (for sidebar generation)
   fastify.get('/api/v1/meta/entity-types', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['meta', 'hierarchy'],
       summary: 'Get all entity types',
@@ -257,7 +257,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
   // Get entity hierarchy relationships (what can be created where)
   fastify.get('/api/v1/meta/entity-hierarchy', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['meta', 'hierarchy'],
       summary: 'Get entity hierarchy relationships',
@@ -295,7 +295,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
   // Get complete navigation structure for user (combines entity types + permissions)
   fastify.get('/api/v1/meta/navigation', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['meta', 'hierarchy'],
       summary: 'Get complete navigation structure',
@@ -370,7 +370,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
   // Get action entities available within a specific parent entity (for headerTabNavigation)
   fastify.get('/api/v1/meta/parent-entity/:parentEntity/action-entities', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['meta', 'hierarchy'],
       summary: 'Get available action entities for parent entity',
@@ -450,7 +450,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
   // Get entity instance hierarchy (breadcrumb data)
   fastify.get('/api/v1/meta/entity/:entityType/:entityId/hierarchy', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['meta', 'hierarchy'],
       summary: 'Get entity instance hierarchy',
@@ -548,7 +548,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
   // Global omnibox search endpoint (⌘K functionality)
   fastify.get('/api/v1/search/global', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['search', 'global'],
       summary: 'Global omnibox search',
@@ -735,7 +735,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
   // Scope filters endpoint (for action bar filtering)
   fastify.get('/api/v1/filters/scopes', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['filters', 'scopes'],
       summary: 'Get available scope filters',

@@ -13,7 +13,6 @@ export async function configRoutes(fastify: FastifyInstance): Promise<void> {
   // GET /api/v1/config/entity/:entityType
   // Returns frontend-safe entity configuration
   fastify.get('/api/v1/config/entity/:entityType', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: EntityTypeParams,
       response: {
@@ -69,7 +68,6 @@ export async function configRoutes(fastify: FastifyInstance): Promise<void> {
   // GET /api/v1/config/entities
   // Returns list of available entity types
   fastify.get('/api/v1/config/entities', {
-    preHandler: [fastify.authenticate],
     schema: {
       response: {
         200: Type.Object({
@@ -124,7 +122,6 @@ export async function configRoutes(fastify: FastifyInstance): Promise<void> {
   // GET /api/v1/config/schema/:entityType (backend only - includes DDL info)
   // This endpoint is for backend use and includes database schema information
   fastify.get('/api/v1/config/schema/:entityType', {
-    preHandler: [fastify.authenticate],
     schema: {
       params: EntityTypeParams,
       response: {

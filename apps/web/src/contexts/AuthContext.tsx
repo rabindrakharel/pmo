@@ -96,39 +96,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const token = localStorage.getItem('auth_token');
-        if (token) {
-          setState(prev => ({ ...prev, token }));
-          const user = await authApi.getProfile();
-          setState({
-            user,
-            token,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-        } else {
-          setState({
-            user: null,
-            token: null,
-            isAuthenticated: false,
-            isLoading: false,
-          });
-        }
-      } catch (error) {
-        console.error('Auth initialization failed:', error);
-        localStorage.removeItem('auth_token');
-        setState({
-          user: null,
-          token: null,
-          isAuthenticated: false,
-          isLoading: false,
-        });
-      }
-    };
-    
-    initAuth();
+    // Check for stored authentication on app load
+    refreshUser();
   }, []);
 
   const value: AuthContextType = {

@@ -120,7 +120,7 @@ const UpdateEmployeeSchema = Type.Partial(CreateEmployeeSchema);
 export async function empRoutes(fastify: FastifyInstance) {
   // List employees
   fastify.get('/api/v1/employee', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       querystring: Type.Object({
         active: Type.Optional(Type.Boolean()),
@@ -243,7 +243,7 @@ export async function empRoutes(fastify: FastifyInstance) {
 
   // Get single employee
   fastify.get('/api/v1/employee/:id', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -291,7 +291,7 @@ export async function empRoutes(fastify: FastifyInstance) {
 
   // Create employee
   fastify.post('/api/v1/employee', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       body: CreateEmployeeSchema,
       response: {
@@ -392,7 +392,7 @@ export async function empRoutes(fastify: FastifyInstance) {
 
   // Update employee  
   fastify.put('/api/v1/employee/:id', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -487,7 +487,7 @@ export async function empRoutes(fastify: FastifyInstance) {
 
   // Delete employee (soft delete)
   fastify.delete('/api/v1/employee/:id', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),

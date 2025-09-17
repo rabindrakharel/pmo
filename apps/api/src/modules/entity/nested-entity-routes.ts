@@ -123,7 +123,7 @@ export async function nestedEntityRoutes(fastify: FastifyInstance) {
 
   // List action entities within a parent entity
   fastify.get('/api/v1/:parentEntity/:parentId/:actionEntity', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['nested-entity'],
       summary: 'List action entities within parent entity',
@@ -293,7 +293,7 @@ export async function nestedEntityRoutes(fastify: FastifyInstance) {
 
   // Get single action entity within parent entity context
   fastify.get('/api/v1/:parentEntity/:parentId/:actionEntity/:actionId', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['nested-entity'],
       summary: 'Get action entity within parent context',
@@ -396,7 +396,7 @@ export async function nestedEntityRoutes(fastify: FastifyInstance) {
 
   // Create action entity within parent entity context
   fastify.post('/api/v1/:parentEntity/:parentId/:actionEntity', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['nested-entity'],
       summary: 'Create action entity within parent context',
@@ -528,7 +528,7 @@ export async function nestedEntityRoutes(fastify: FastifyInstance) {
 
   // Update action entity within parent context
   fastify.put('/api/v1/:parentEntity/:parentId/:actionEntity/:actionId', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['nested-entity'],
       summary: 'Update action entity within parent context',
@@ -651,7 +651,7 @@ export async function nestedEntityRoutes(fastify: FastifyInstance) {
 
   // Delete action entity within parent context
   fastify.delete('/api/v1/:parentEntity/:parentId/:actionEntity/:actionId', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['nested-entity'],
       summary: 'Delete action entity within parent context',

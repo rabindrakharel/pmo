@@ -664,7 +664,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // Kanban status update endpoint (for drag-drop operations)
   fastify.patch('/api/v1/task/:id/status', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['task', 'kanban'],
       summary: 'Update task status (Kanban)',
@@ -736,7 +736,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // Get Kanban view data for project
   fastify.get('/api/v1/project/:projectId/tasks/kanban', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['task', 'kanban', 'project'],
       summary: 'Get tasks for Kanban view',

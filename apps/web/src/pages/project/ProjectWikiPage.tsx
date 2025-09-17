@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
+import { FilteredDataTable } from '../../components/FilteredDataTable';
 
 export function ProjectWikiPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -36,11 +37,11 @@ export function ProjectWikiPage() {
           }}
         />
 
-        <div className="flex-1 p-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-gray-500">Project wiki content would go here...</p>
-          </div>
-        </div>
+        <FilteredDataTable
+          entityType="wiki"
+          parentEntityType="project"
+          parentEntityId={projectId!}
+        />
       </div>
     </Layout>
   );

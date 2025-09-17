@@ -4,6 +4,7 @@ import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
 import { ScopeFilters, FilterChips } from '../../components/common/ScopeFilters';
+import { FilteredDataTable } from '../../components/FilteredDataTable';
 
 export function BusinessArtifactsPage() {
   const { bizId } = useParams<{ bizId: string }>();
@@ -37,14 +38,11 @@ export function BusinessArtifactsPage() {
           }}
         />
 
-        <div className="flex-1 p-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-gray-500">Business unit artifacts would go here...</p>
-            <p className="text-sm text-gray-400 mt-2">
-              This would show artifacts organized by projects within this business unit.
-            </p>
-          </div>
-        </div>
+        <FilteredDataTable
+          entityType="artifact"
+          parentEntityType="biz"
+          parentEntityId={bizId!}
+        />
       </div>
     </Layout>
   );

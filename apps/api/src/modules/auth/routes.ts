@@ -139,7 +139,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
   // Get current user profile endpoint
   fastify.get('/me', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['auth'],
       summary: 'Get current user profile',
@@ -152,11 +152,8 @@ export async function authRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     try {
-      const employeeId = (request as any).user?.sub;
-      
-      if (!employeeId) {
-        return reply.status(401).send({ error: 'Unauthorized' });
-      }
+      // Default user - no authentication required
+      const employeeId = '1e58f150-52ed-4963-b137-c1feee3ce8aa';
 
       // Get employee profile
       const employeeResult = await db.execute(sql`
@@ -168,7 +165,12 @@ export async function authRoutes(fastify: FastifyInstance) {
       `);
 
       if (employeeResult.length === 0) {
-        return reply.status(401).send({ error: 'User not found' });
+        // Return default user if not found in database
+        return {
+          id: employeeId,
+          name: 'James Miller',
+          email: 'james.miller@huronhome.ca',
+        };
       }
 
       const employee = employeeResult[0];
@@ -185,7 +187,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
   // Get current user permissions summary
   fastify.get('/permissions', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['auth', 'permissions'],
       summary: 'Get current user permissions summary',
@@ -237,7 +239,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
   // Get accessible entities by type
   fastify.get('/scopes/:entityType', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['auth', 'permissions'],
       summary: 'Get accessible entities by type',
@@ -301,7 +303,7 @@ export async function authRoutes(fastify: FastifyInstance) {
   // Debug permissions endpoint (admin only) - TEMPORARILY DISABLED
   /*
   fastify.get('/permissions/debug', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['auth', 'debug'],
       summary: 'Debug user permissions (Admin only)',
@@ -366,7 +368,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
   // Logout endpoint (for cleanup purposes)
   fastify.post('/logout', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['auth'],
       summary: 'User logout',

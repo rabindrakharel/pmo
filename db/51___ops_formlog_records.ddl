@@ -81,7 +81,31 @@ CREATE TABLE app.ops_formlog_records (
   -- Archival and compliance
   archived boolean DEFAULT false,
   archived_date timestamptz,
-  retention_date timestamptz
+  retention_date timestamptz,
+  
+  -- Multi-step form support
+  current_step_index integer DEFAULT 0,
+  completed_steps jsonb DEFAULT '[]'::jsonb,
+  step_data jsonb DEFAULT '{}'::jsonb,
+  
+  -- Form state persistence
+  form_state jsonb DEFAULT '{}'::jsonb,
+  auto_saved_at timestamptz,
+  submission_draft boolean DEFAULT false,
+  
+  -- Enhanced validation and progress tracking
+  field_completion_status jsonb DEFAULT '{}'::jsonb,
+  validation_warnings jsonb DEFAULT '[]'::jsonb,
+  completion_percentage numeric(5,2) DEFAULT 0.00,
+  
+  -- User experience tracking
+  time_spent_seconds integer DEFAULT 0,
+  form_interactions jsonb DEFAULT '[]'::jsonb,
+  device_info jsonb DEFAULT '{}'::jsonb,
+  
+  -- Version compatibility
+  form_version_at_submission text,
+  schema_version_compatibility boolean DEFAULT true
   
 );
 

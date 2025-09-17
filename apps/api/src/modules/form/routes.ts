@@ -217,10 +217,8 @@ export async function formRoutes(fastify: FastifyInstance) {
           project_id as "projectId",
           task_specific as "taskSpecific",
           task_id as "taskId",
-          location_specific as "locationSpecific",
-          location_id as "locationId",
-          business_specific as "businessSpecific",
-          business_id as "businessId",
+          biz_specific as "businessSpecific",
+          biz_id as "businessId",
           hr_specific as "hrSpecific",
           hr_id as "hrId",
           worksite_specific as "worksiteSpecific",
@@ -233,7 +231,17 @@ export async function formRoutes(fastify: FastifyInstance) {
           updated,
           tags,
           schema,
-          attr
+          attr,
+          form_builder_state as "formBuilderState",
+          is_draft as "isDraft",
+          draft_saved_at as "draftSavedAt",
+          is_multi_step as "isMultiStep",
+          total_steps as "totalSteps",
+          step_configuration as "stepConfiguration",
+          field_sequence as "fieldSequence",
+          validation_rules as "validationRules",
+          form_version_hash as "formVersionHash",
+          last_modified_by as "lastModifiedBy"
         FROM app.ops_formlog_head 
         WHERE id = ${id} AND active = true
       `);
@@ -392,50 +400,43 @@ export async function formRoutes(fastify: FastifyInstance) {
         updateFields.push(sql`"descr" = ${data.descr}`);
       }
       
-      if (data.formGlobalLink !== undefined) {
-        updateFields.push(sql`form_global_link = ${data.formGlobalLink}`);
+      if (data.form_global_link !== undefined) {
+        updateFields.push(sql`form_global_link = ${data.form_global_link}`);
       }
       
-      if (data.projectSpecific !== undefined) {
-        updateFields.push(sql`project_specific = ${data.projectSpecific}`);
+      if (data.project_specific !== undefined) {
+        updateFields.push(sql`project_specific = ${data.project_specific}`);
       }
-      if (data.projectId !== undefined) {
-        updateFields.push(sql`project_id = ${data.projectId}`);
-      }
-      
-      if (data.taskSpecific !== undefined) {
-        updateFields.push(sql`task_specific = ${data.taskSpecific}`);
-      }
-      if (data.taskId !== undefined) {
-        updateFields.push(sql`task_id = ${data.taskId}`);
+      if (data.project_id !== undefined) {
+        updateFields.push(sql`project_id = ${data.project_id}`);
       }
       
-      if (data.locationSpecific !== undefined) {
-        updateFields.push(sql`location_specific = ${data.locationSpecific}`);
+      if (data.task_specific !== undefined) {
+        updateFields.push(sql`task_specific = ${data.task_specific}`);
       }
-      if (data.locationId !== undefined) {
-        updateFields.push(sql`location_id = ${data.locationId}`);
-      }
-      
-      if (data.businessSpecific !== undefined) {
-        updateFields.push(sql`business_specific = ${data.businessSpecific}`);
-      }
-      if (data.businessId !== undefined) {
-        updateFields.push(sql`business_id = ${data.businessId}`);
+      if (data.task_id !== undefined) {
+        updateFields.push(sql`task_id = ${data.task_id}`);
       }
       
-      if (data.hrSpecific !== undefined) {
-        updateFields.push(sql`hr_specific = ${data.hrSpecific}`);
+      if (data.biz_specific !== undefined) {
+        updateFields.push(sql`biz_specific = ${data.biz_specific}`);
       }
-      if (data.hrId !== undefined) {
-        updateFields.push(sql`hr_id = ${data.hrId}`);
+      if (data.biz_id !== undefined) {
+        updateFields.push(sql`biz_id = ${data.biz_id}`);
       }
       
-      if (data.worksiteSpecific !== undefined) {
-        updateFields.push(sql`worksite_specific = ${data.worksiteSpecific}`);
+      if (data.hr_specific !== undefined) {
+        updateFields.push(sql`hr_specific = ${data.hr_specific}`);
       }
-      if (data.worksiteId !== undefined) {
-        updateFields.push(sql`worksite_id = ${data.worksiteId}`);
+      if (data.hr_id !== undefined) {
+        updateFields.push(sql`hr_id = ${data.hr_id}`);
+      }
+      
+      if (data.worksite_specific !== undefined) {
+        updateFields.push(sql`worksite_specific = ${data.worksite_specific}`);
+      }
+      if (data.worksite_id !== undefined) {
+        updateFields.push(sql`worksite_id = ${data.worksite_id}`);
       }
       
       if (data.version !== undefined) {
@@ -456,6 +457,47 @@ export async function formRoutes(fastify: FastifyInstance) {
       
       if (data.active !== undefined) {
         updateFields.push(sql`active = ${data.active}`);
+      }
+
+      // Form builder state and multi-step form fields
+      if (data.form_builder_state !== undefined) {
+        updateFields.push(sql`form_builder_state = ${JSON.stringify(data.form_builder_state)}`);
+      }
+      
+      if (data.is_draft !== undefined) {
+        updateFields.push(sql`is_draft = ${data.is_draft}`);
+      }
+      
+      if (data.draft_saved_at !== undefined) {
+        updateFields.push(sql`draft_saved_at = ${data.draft_saved_at}`);
+      }
+      
+      if (data.is_multi_step !== undefined) {
+        updateFields.push(sql`is_multi_step = ${data.is_multi_step}`);
+      }
+      
+      if (data.total_steps !== undefined) {
+        updateFields.push(sql`total_steps = ${data.total_steps}`);
+      }
+      
+      if (data.step_configuration !== undefined) {
+        updateFields.push(sql`step_configuration = ${JSON.stringify(data.step_configuration)}`);
+      }
+      
+      if (data.field_sequence !== undefined) {
+        updateFields.push(sql`field_sequence = ${JSON.stringify(data.field_sequence)}`);
+      }
+      
+      if (data.validation_rules !== undefined) {
+        updateFields.push(sql`validation_rules = ${JSON.stringify(data.validation_rules)}`);
+      }
+      
+      if (data.form_version_hash !== undefined) {
+        updateFields.push(sql`form_version_hash = ${data.form_version_hash}`);
+      }
+      
+      if (data.last_modified_by !== undefined) {
+        updateFields.push(sql`last_modified_by = ${data.last_modified_by}`);
       }
 
       if (updateFields.length === 0) {
@@ -602,10 +644,8 @@ export async function formRoutes(fastify: FastifyInstance) {
           project_id as "projectId",
           task_specific as "taskSpecific",
           task_id as "taskId",
-          location_specific as "locationSpecific",
-          location_id as "locationId",
-          business_specific as "businessSpecific",
-          business_id as "businessId",
+          biz_specific as "businessSpecific",
+          biz_id as "businessId",
           hr_specific as "hrSpecific",
           hr_id as "hrId",
           worksite_specific as "worksiteSpecific",

@@ -7,12 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import { 
-  getEmployeeEntityIds,
-  hasPermissionOnEntityId,
-  hasCreatePermissionInEntity,
-  type EntityAction
-} from '../rbac/ui-api-permission-rbac-gate.js';
+// RBAC imports removed - no authentication required
 
 // Universal entity schema (common fields)
 const UniversalEntitySchema = Type.Object({
@@ -71,7 +66,7 @@ export async function universalEntityRoutes(fastify: FastifyInstance) {
 
   // List entities of a specific type
   fastify.get('/api/v1/entity/:entityType', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['entity'],
       summary: 'List entities of specific type',
@@ -101,7 +96,6 @@ export async function universalEntityRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     try {
-      const employeeId = (request as any).user?.sub;
       const { entityType } = request.params as { entityType: string };
       const { 
         active, 
@@ -112,22 +106,12 @@ export async function universalEntityRoutes(fastify: FastifyInstance) {
         sortOrder = 'asc'
       } = request.query as any;
 
-      if (!employeeId) {
-        return reply.status(401).send({ error: 'Unauthorized' });
-      }
-
       if (!validateEntityType(entityType)) {
         return reply.status(400).send({ error: `Invalid entity type: ${entityType}` });
       }
 
-      // Get accessible entity IDs for this user
-      const accessibleIds = await getEmployeeEntityIds(employeeId, entityType, 'view');
-      if (accessibleIds.length === 0) {
-        return { data: [], total: 0, limit, offset };
-      }
-
       const tableName = getTableName(entityType);
-      const conditions = [`id = ANY(ARRAY[${accessibleIds.map(id => `'${id}'`).join(',')}]::uuid[])`];
+      const conditions = [];
 
       // Add filters
       if (active !== undefined) {
@@ -170,7 +154,7 @@ export async function universalEntityRoutes(fastify: FastifyInstance) {
 
   // Get single entity by ID
   fastify.get('/api/v1/entity/:entityType/:id', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['entity'],
       summary: 'Get single entity by ID',
@@ -189,21 +173,10 @@ export async function universalEntityRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     try {
-      const employeeId = (request as any).user?.sub;
       const { entityType, id } = request.params as { entityType: string; id: string };
-
-      if (!employeeId) {
-        return reply.status(401).send({ error: 'Unauthorized' });
-      }
 
       if (!validateEntityType(entityType)) {
         return reply.status(400).send({ error: `Invalid entity type: ${entityType}` });
-      }
-
-      // Check RBAC permission
-      const hasAccess = await hasPermissionOnEntityId(employeeId, entityType, id, 'view');
-      if (!hasAccess) {
-        return reply.status(404).send({ error: 'Entity not found or access denied' });
       }
 
       const tableName = getTableName(entityType);
@@ -223,7 +196,7 @@ export async function universalEntityRoutes(fastify: FastifyInstance) {
 
   // Create new entity (root level)
   fastify.post('/api/v1/entity/:entityType', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['entity'],
       summary: 'Create new root entity',
@@ -242,13 +215,8 @@ export async function universalEntityRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     try {
-      const employeeId = (request as any).user?.sub;
       const { entityType } = request.params as { entityType: string };
       const data = request.body as any;
-
-      if (!employeeId) {
-        return reply.status(401).send({ error: 'Unauthorized' });
-      }
 
       if (!validateEntityType(entityType)) {
         return reply.status(400).send({ error: `Invalid entity type: ${entityType}` });
@@ -269,14 +237,6 @@ export async function universalEntityRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ 
           error: `Entity type '${entityType}' requires a parent entity. Use parent-scoped creation endpoint instead.` 
         });
-      }
-
-      // For root entities, check if user has general create permission for this entity type
-      // This would typically be checked against a system-level permission
-      // For now, we'll allow creation if user has any access to this entity type
-      const userEntityAccess = await getEmployeeEntityIds(employeeId, entityType, 'view');
-      if (userEntityAccess.length === 0) {
-        return reply.status(403).send({ error: 'Insufficient permissions to create entities of this type' });
       }
 
       const tableName = getTableName(entityType);
@@ -333,7 +293,7 @@ export async function universalEntityRoutes(fastify: FastifyInstance) {
 
   // Update entity
   fastify.put('/api/v1/entity/:entityType/:id', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['entity'],
       summary: 'Update entity',
@@ -353,22 +313,11 @@ export async function universalEntityRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     try {
-      const employeeId = (request as any).user?.sub;
       const { entityType, id } = request.params as { entityType: string; id: string };
       const data = request.body as any;
 
-      if (!employeeId) {
-        return reply.status(401).send({ error: 'Unauthorized' });
-      }
-
       if (!validateEntityType(entityType)) {
         return reply.status(400).send({ error: `Invalid entity type: ${entityType}` });
-      }
-
-      // Check RBAC permission
-      const hasAccess = await hasPermissionOnEntityId(employeeId, entityType, id, 'edit');
-      if (!hasAccess) {
-        return reply.status(404).send({ error: 'Entity not found or access denied' });
       }
 
       const tableName = getTableName(entityType);
@@ -432,7 +381,7 @@ export async function universalEntityRoutes(fastify: FastifyInstance) {
 
   // Delete entity (soft delete)
   fastify.delete('/api/v1/entity/:entityType/:id', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['entity'],
       summary: 'Delete entity',
@@ -451,21 +400,10 @@ export async function universalEntityRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     try {
-      const employeeId = (request as any).user?.sub;
       const { entityType, id } = request.params as { entityType: string; id: string };
-
-      if (!employeeId) {
-        return reply.status(401).send({ error: 'Unauthorized' });
-      }
 
       if (!validateEntityType(entityType)) {
         return reply.status(400).send({ error: `Invalid entity type: ${entityType}` });
-      }
-
-      // Check RBAC permission (using edit permission for delete)
-      const hasAccess = await hasPermissionOnEntityId(employeeId, entityType, id, 'edit');
-      if (!hasAccess) {
-        return reply.status(404).send({ error: 'Entity not found or access denied' });
       }
 
       const tableName = getTableName(entityType);

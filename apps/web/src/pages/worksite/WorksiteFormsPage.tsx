@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
+import { FilteredDataTable } from '../../components/FilteredDataTable';
 
 export function WorksiteFormsPage() {
   const { worksiteId } = useParams<{ worksiteId: string }>();
@@ -67,14 +68,11 @@ export function WorksiteFormsPage() {
           }}
         />
 
-        <div className="flex-1 p-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-gray-500">Worksite forms would go here...</p>
-            <p className="text-sm text-gray-400 mt-2">
-              This would show safety reports, maintenance logs, and operational forms for this worksite.
-            </p>
-          </div>
-        </div>
+        <FilteredDataTable
+          entityType="form"
+          parentEntityType="worksite"
+          parentEntityId={worksiteId!}
+        />
       </div>
     </Layout>
   );

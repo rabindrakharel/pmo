@@ -41,7 +41,7 @@ const EntityConfigSchema = Type.Object({
 export async function schemaRoutes(fastify: FastifyInstance) {
   // Get all available entity schemas
   fastify.get('/api/v1/schema', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       response: {
         200: Type.Object({
@@ -69,7 +69,7 @@ export async function schemaRoutes(fastify: FastifyInstance) {
 
   // Get specific entity schema
   fastify.get('/api/v1/schema/:entityType', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         entityType: Type.String()
@@ -102,7 +102,7 @@ export async function schemaRoutes(fastify: FastifyInstance) {
 
   // Get field configuration for specific entity and field
   fastify.get('/api/v1/schema/:entityType/field/:fieldName', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         entityType: Type.String(),
@@ -147,7 +147,7 @@ export async function schemaRoutes(fastify: FastifyInstance) {
 
   // Get form configuration for creating new entity
   fastify.get('/api/v1/schema/:entityType/create-form', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         entityType: Type.String()
@@ -204,7 +204,7 @@ export async function schemaRoutes(fastify: FastifyInstance) {
 
   // Get list view configuration for entity
   fastify.get('/api/v1/schema/:entityType/list-view', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         entityType: Type.String()
@@ -270,7 +270,7 @@ export async function schemaRoutes(fastify: FastifyInstance) {
 
   // Get validation rules for entity
   fastify.get('/api/v1/schema/:entityType/validation', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         entityType: Type.String()

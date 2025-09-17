@@ -67,7 +67,7 @@ const UpdateArtifactSchema = Type.Partial(CreateArtifactSchema);
 export async function artifactRoutes(fastify: FastifyInstance) {
   // List artifacts
   fastify.get('/api/v1/artifact', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['artifact'],
       summary: 'List artifacts',
@@ -129,7 +129,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
   // Get artifact
   fastify.get('/api/v1/artifact/:id', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['artifact'],
       summary: 'Get artifact by ID',
@@ -162,7 +162,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
   // Create artifact  
   fastify.post('/api/v1/artifact', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['artifact'],
       summary: 'Create artifact',
@@ -218,7 +218,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
   // Update artifact
   fastify.put('/api/v1/artifact/:id', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['artifact'],
       summary: 'Update artifact',
@@ -279,7 +279,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
   // Delete artifact (soft delete)
   fastify.delete('/api/v1/artifact/:id', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       tags: ['artifact'],
       summary: 'Delete artifact',

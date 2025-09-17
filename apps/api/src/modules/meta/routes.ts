@@ -59,7 +59,7 @@ const UpdateMetaItemSchema = Type.Partial(CreateMetaItemSchema);
 export async function metaRoutes(fastify: FastifyInstance) {
   // Get all meta data or filter by category
   fastify.get('/api/v1/meta', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       querystring: Type.Object({
         category: Type.Optional(Type.String()),
@@ -288,7 +288,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
 
   // Get specific meta item
   fastify.get('/api/v1/meta/:category/:id', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         category: Type.String(),
@@ -361,7 +361,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
 
   // Create meta item (admin only)
   fastify.post('/api/v1/meta/:category', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         category: Type.String(),
@@ -435,7 +435,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
 
   // Update meta item (admin only)
   fastify.put('/api/v1/meta/:category/:id', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         category: Type.String(),
@@ -512,7 +512,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
 
   // Delete meta item (admin only)
   fastify.delete('/api/v1/meta/:category/:id', {
-    preHandler: [fastify.authenticate],
+    
     schema: {
       params: Type.Object({
         category: Type.String(),

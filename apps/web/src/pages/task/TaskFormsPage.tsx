@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
+import { FilteredDataTable } from '../../components/FilteredDataTable';
 
 export function TaskFormsPage() {
   const { taskId } = useParams<{ taskId: string }>();
@@ -67,14 +68,11 @@ export function TaskFormsPage() {
           }}
         />
 
-        <div className="flex-1 p-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-gray-500">Task forms would go here...</p>
-            <p className="text-sm text-gray-400 mt-2">
-              This would show data collection forms, status reports, and task-specific documentation.
-            </p>
-          </div>
-        </div>
+        <FilteredDataTable
+          entityType="form"
+          parentEntityType="task"
+          parentEntityId={taskId!}
+        />
       </div>
     </Layout>
   );

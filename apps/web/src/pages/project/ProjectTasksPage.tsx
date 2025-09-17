@@ -4,6 +4,7 @@ import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
 import { ScopeFilters, FilterChips } from '../../components/common/ScopeFilters';
+import { FilteredDataTable } from '../../components/FilteredDataTable';
 import { LayoutGrid, List, Kanban } from 'lucide-react';
 
 // Kanban Component
@@ -277,13 +278,12 @@ export function ProjectTasksPage() {
           {viewMode === 'kanban' ? (
             <KanbanBoard projectId={projectId!} />
           ) : (
-            <div className="bg-white rounded-lg shadow h-full">
-              <div className="p-6">
-                <p className="text-gray-500">Task grid view would go here...</p>
-                <p className="text-sm text-gray-400 mt-2">
-                  This would show the existing DataTable component with task data filtered by project.
-                </p>
-              </div>
+            <div className="bg-white rounded-lg shadow h-full flex flex-col">
+              <FilteredDataTable
+                entityType="task"
+                parentEntityType="project"
+                parentEntityId={projectId!}
+              />
             </div>
           )}
         </div>

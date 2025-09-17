@@ -94,7 +94,30 @@ CREATE TABLE app.ops_formlog_head (
   -- Worksite scoping
   worksite_specific boolean NOT NULL DEFAULT false,
   worksite_id uuid REFERENCES app.d_worksite(id),
-  worksite_permission jsonb NOT NULL DEFAULT '[]'::jsonb
+  worksite_permission jsonb NOT NULL DEFAULT '[]'::jsonb,
+
+  -- Form builder state persistence
+  form_builder_state jsonb DEFAULT '{}'::jsonb,
+  is_draft boolean DEFAULT false,
+  draft_saved_at timestamptz,
+  edit_lock_id uuid,
+  edit_lock_user_id uuid REFERENCES app.d_employee(id),
+  edit_lock_expires_at timestamptz,
+  
+  -- Multi-step form configuration
+  is_multi_step boolean DEFAULT false,
+  total_steps integer DEFAULT 1,
+  step_configuration jsonb DEFAULT '[]'::jsonb,
+  
+  -- Form element sequence and validation
+  field_sequence jsonb DEFAULT '[]'::jsonb,
+  validation_rules jsonb DEFAULT '{}'::jsonb,
+  field_dependencies jsonb DEFAULT '{}'::jsonb,
+  
+  -- Form state tracking
+  form_version_hash text,
+  last_modified_by uuid REFERENCES app.d_employee(id),
+  modification_reason text
 
 );
 

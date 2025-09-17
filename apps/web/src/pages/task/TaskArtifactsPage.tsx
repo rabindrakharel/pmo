@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
+import { FilteredDataTable } from '../../components/FilteredDataTable';
 
 export function TaskArtifactsPage() {
   const { taskId } = useParams<{ taskId: string }>();
@@ -67,14 +68,11 @@ export function TaskArtifactsPage() {
           }}
         />
 
-        <div className="flex-1 p-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-gray-500">Task artifacts would go here...</p>
-            <p className="text-sm text-gray-400 mt-2">
-              This would show deliverables, outputs, files, and documentation produced by this task.
-            </p>
-          </div>
-        </div>
+        <FilteredDataTable
+          entityType="artifact"
+          parentEntityType="task"
+          parentEntityId={taskId!}
+        />
       </div>
     </Layout>
   );

@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/layout/Layout';
 import { useParams, useNavigate } from 'react-router-dom';
 import { formApi } from '../lib/api';
-import { ArrowLeft, Eye } from 'lucide-react';
+import { ArrowLeft, Eye, Edit3, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
+import { FormPreview } from '../components/forms/FormPreview';
+import { BuilderField, FormStep } from '../components/forms/FormBuilder';
 
 interface FormHead {
   id: string;
@@ -12,60 +14,9 @@ interface FormHead {
   created?: string;
   updated?: string;
   attr?: any;
-}
-
-function FormPreview({ schema }: { schema: any }) {
-  if (!schema || !Array.isArray(schema.fields)) {
-    return (
-      <div className="p-6 text-gray-500">No schema found. This form has no fields yet.</div>
-    );
-  }
-
-  return (
-    <form className="space-y-4 p-6">
-      {schema.fields.map((field: any, idx: number) => {
-        const label = field.label || field.name || `Field ${idx + 1}`;
-        const type = field.type || 'text';
-        const required = !!field.required;
-        if (type === 'select' && Array.isArray(field.options)) {
-          return (
-            <div key={idx} className="flex flex-col">
-              <label className="text-sm font-medium text-gray-700 mb-1">{label}{required && ' *'}</label>
-              <select disabled className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
-                <option>{field.options[0] || '—'}</option>
-              </select>
-              {field.descr && <span className="text-xs text-gray-500 mt-1">{field.descr}</span>}
-            </div>
-          );
-        }
-        if (type === 'number') {
-          return (
-            <div key={idx} className="flex flex-col">
-              <label className="text-sm font-medium text-gray-700 mb-1">{label}{required && ' *'}</label>
-              <input disabled type="number" className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700" />
-              {field.descr && <span className="text-xs text-gray-500 mt-1">{field.descr}</span>}
-            </div>
-          );
-        }
-        if (type === 'datetime') {
-          return (
-            <div key={idx} className="flex flex-col">
-              <label className="text-sm font-medium text-gray-700 mb-1">{label}{required && ' *'}</label>
-              <input disabled type="datetime-local" className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700" />
-              {field.descr && <span className="text-xs text-gray-500 mt-1">{field.descr}</span>}
-            </div>
-          );
-        }
-        return (
-          <div key={idx} className="flex flex-col">
-            <label className="text-sm font-medium text-gray-700 mb-1">{label}{required && ' *'}</label>
-            <input disabled type="text" className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700" />
-            {field.descr && <span className="text-xs text-gray-500 mt-1">{field.descr}</span>}
-          </div>
-        );
-      })}
-    </form>
-  );
+  isMultiStep?: boolean;
+  totalSteps?: number;
+  stepConfiguration?: FormStep[];
 }
 
 export function FormViewPage() {
@@ -73,6 +24,9 @@ export function FormViewPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState<FormHead | null>(null);
   const [loading, setLoading] = useState(false);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [fields, setFields] = useState<BuilderField[]>([]);
+  const [steps, setSteps] = useState<FormStep[]>([]);
 
   useEffect(() => {
     const load = async () => {
@@ -81,6 +35,53 @@ export function FormViewPage() {
       try {
         const data = await formApi.get(id);
         setForm(data);
+        
+        const schema = data?.schema || {};
+        
+        // Handle multi-step forms
+        if (schema.steps && Array.isArray(schema.steps)) {
+          const formSteps = schema.steps.map((step: any, index: number) => ({
+            id: step.id || crypto.randomUUID(),
+            name: step.name || `step_${index + 1}`,
+            title: step.title || `Step ${index + 1}`,
+            description: step.description || `Step ${index + 1} of the form`
+          }));
+          setSteps(formSteps);
+          setCurrentStepIndex(schema.currentStepIndex || 0);
+          
+          // Rebuild fields with step associations
+          const allFields: BuilderField[] = [];
+          formSteps.forEach((step: FormStep) => {
+            const stepFromSchema = schema.steps.find((s: any) => s.id === step.id);
+            if (stepFromSchema && stepFromSchema.fields) {
+              stepFromSchema.fields.forEach((f: any) => {
+                allFields.push({
+                  ...f,
+                  id: crypto.randomUUID(),
+                  stepId: step.id
+                });
+              });
+            }
+          });
+          setFields(allFields);
+        } else {
+          // Handle legacy single-step forms
+          const schemaFields: any[] = Array.isArray(schema.fields) ? schema.fields : [];
+          const defaultStep = {
+            id: crypto.randomUUID(),
+            name: 'step_1',
+            title: 'Form Fields',
+            description: 'Single-step form'
+          };
+          setSteps([defaultStep]);
+          
+          const formFields = schemaFields.map((f: any) => ({
+            ...f,
+            id: crypto.randomUUID(),
+            stepId: defaultStep.id
+          }));
+          setFields(formFields);
+        }
       } catch (e) {
         console.error('Failed to load form', e);
       } finally {
@@ -89,6 +90,15 @@ export function FormViewPage() {
     };
     load();
   }, [id]);
+
+  const navigateToStep = (index: number) => {
+    if (index >= 0 && index < steps.length) {
+      setCurrentStepIndex(index);
+    }
+  };
+
+  const currentStep = steps[currentStepIndex];
+  const currentStepFields = fields.filter(f => f.stepId === currentStep?.id);
 
   return (
     <Layout>
@@ -104,16 +114,33 @@ export function FormViewPage() {
             </button>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{form?.name || 'Form'}</h1>
-              <p className="mt-1 text-gray-600">{form?.descr || 'Form design preview'}</p>
+              <p className="mt-1 text-gray-600">
+                {form?.descr || 'Form design preview'}
+                {steps.length > 1 && (
+                  <span className="ml-2 text-sm text-blue-600">
+                    • Multi-step form ({steps.length} steps)
+                  </span>
+                )}
+              </p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-500">ID</span>
-            <code className="text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded">{form?.id?.slice(0, 8)}…</code>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => navigate(`/forms/${id}/edit`)}
+              className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              title="Edit form"
+            >
+              <Edit3 className="h-4 w-4 mr-2" />
+              Edit
+            </button>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-500">ID</span>
+              <code className="text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded">{form?.id?.slice(0, 8)}…</code>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
             <div className="text-xs text-gray-500">Creator</div>
             <div className="text-sm text-gray-900">{form?.attr?.createdByName || form?.attr?.createdBy || '—'}</div>
@@ -126,7 +153,66 @@ export function FormViewPage() {
             <div className="text-xs text-gray-500">Updated</div>
             <div className="text-sm text-gray-900">{form?.updated ? new Date(form.updated).toLocaleString('en-CA') : '—'}</div>
           </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="text-xs text-gray-500">Total Fields</div>
+            <div className="text-sm text-gray-900">{fields.length} field{fields.length !== 1 ? 's' : ''}</div>
+          </div>
         </div>
+
+        {/* Step Navigation */}
+        {steps.length > 1 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <Layers className="h-5 w-5 text-gray-600" />
+                <h3 className="text-sm font-semibold text-gray-700">Form Steps</h3>
+                <span className="text-xs text-gray-500">Navigate through the form</span>
+              </div>
+              <div className="text-xs text-gray-500">
+                Step {currentStepIndex + 1} of {steps.length}
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2 overflow-x-auto pb-2">
+              <button
+                onClick={() => navigateToStep(currentStepIndex - 1)}
+                disabled={currentStepIndex === 0}
+                className="p-1.5 rounded-md border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Previous step"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              
+              <div className="flex space-x-1 min-w-0 flex-1">
+                {steps.map((step, index) => (
+                  <button
+                    key={step.id}
+                    onClick={() => navigateToStep(index)}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors min-w-0 flex items-center space-x-2 ${
+                      index === currentStepIndex
+                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                        : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
+                    }`}
+                  >
+                    <span className="truncate">{step.title}</span>
+                    <span className="text-xs bg-white bg-opacity-70 px-1.5 py-0.5 rounded">
+                      {fields.filter(f => f.stepId === step.id).length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              
+              <button
+                onClick={() => navigateToStep(currentStepIndex + 1)}
+                disabled={currentStepIndex === steps.length - 1}
+                className="p-1.5 rounded-md border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Next step"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-gray-50/70">
@@ -135,12 +221,28 @@ export function FormViewPage() {
                 <Eye className="h-4 w-4 text-white" />
               </div>
               Form Preview
+              {steps.length > 1 && currentStep && (
+                <span className="ml-2 text-xs text-gray-500">
+                  • {currentStep.title} ({currentStepIndex + 1}/{steps.length})
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-gray-500">
+              {currentStepFields.length} field{currentStepFields.length !== 1 ? 's' : ''} in this step
             </div>
           </div>
           {loading ? (
             <div className="p-6 text-gray-600">Loading…</div>
           ) : (
-            <FormPreview schema={form?.schema} />
+            <div className="p-6">
+              <FormPreview 
+                fields={currentStepFields}
+                steps={steps}
+                currentStepIndex={currentStepIndex}
+                showStepProgress={steps.length > 1}
+                onStepClick={navigateToStep}
+              />
+            </div>
           )}
         </div>
       </div>
