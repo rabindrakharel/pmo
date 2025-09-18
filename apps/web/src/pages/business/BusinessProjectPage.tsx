@@ -3,11 +3,12 @@ import { useParams } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
+import { ScopeFilters, FilterChips } from '../../components/common/ScopeFilters';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 
-export function ProjectFormsPage() {
-  const { projectId } = useParams<{ projectId: string }>();
-  const { tabs, loading } = useHeaderTabs('project', projectId!);
+export function BusinessProjectPage() {
+  const { bizId } = useParams<{ bizId: string }>();
+  const { tabs, loading } = useHeaderTabs('biz', bizId!);
 
   if (loading) {
     return (
@@ -23,24 +24,24 @@ export function ProjectFormsPage() {
     <Layout>
       <div className="h-full flex flex-col">
         <HeaderTabNavigation
-          title="Project Forms"
-          parentType="project"
-          parentId={projectId!}
+          title="Business Unit Project"
+          parentType="biz"
+          parentId={bizId!}
           tabs={tabs}
         />
 
         <ActionBar
           createButton={{
-            entityType: 'form',
-            parentEntityType: 'project',
-            parentEntityId: projectId!,
+            entityType: 'project',
+            parentEntityType: 'biz',
+            parentEntityId: bizId!,
           }}
         />
 
         <FilteredDataTable
-          entityType="form"
-          parentEntityType="project"
-          parentEntityId={projectId!}
+          entityType="project"
+          parentEntityType="biz"
+          parentEntityId={bizId!}
         />
       </div>
     </Layout>

@@ -34,13 +34,19 @@ interface HeaderTabNavigationProps {
 
 const getEntityIcon = (entityType: string) => {
   const iconMap = {
+    task: CheckSquare,
     tasks: CheckSquare,
+    artifact: FileText,
     artifacts: FileText,
     wiki: BookOpen,
+    form: FileText,
     forms: FileText,
+    project: FolderOpen,
     projects: FolderOpen,
     biz: Building2,
+    employee: Users,
     employees: Users,
+    role: UserCheck,
     roles: UserCheck,
     org: MapPin,
     hr: Crown,
@@ -150,48 +156,92 @@ export function HeaderTabNavigation({
 
 // Default action entity configuration for fallback
 const getDefaultTabs = (parentType: string, parentId: string): HeaderTab[] => {
+  // Helper function to get the correct route path for each entity type
+  const getEntityRoutePath = (parentType: string, parentId: string, entityType: string): string => {
+    const routeMapping: Record<string, Record<string, string>> = {
+      project: {
+        wiki: `/${parentType}/${parentId}/wiki`,
+        form: `/${parentType}/${parentId}/form`,
+        task: `/${parentType}/${parentId}/task`,
+        artifact: `/${parentType}/${parentId}/artifact`,
+      },
+      biz: {
+        wiki: `/${parentType}/${parentId}/wiki`,
+        form: `/${parentType}/${parentId}/form`,
+        task: `/${parentType}/${parentId}/task`,
+        project: `/${parentType}/${parentId}/project`,
+        artifact: `/${parentType}/${parentId}/artifact`,
+      },
+      org: {
+        worksite: `/${parentType}/${parentId}/worksite`,
+        employee: `/${parentType}/${parentId}/employee`,
+      },
+      hr: {
+        employee: `/${parentType}/${parentId}/employee`,
+        role: `/${parentType}/${parentId}/role`,
+      },
+      client: {
+        project: `/${parentType}/${parentId}/project`,
+        task: `/${parentType}/${parentId}/task`,
+      },
+      worksite: {
+        task: `/${parentType}/${parentId}/task`,
+        form: `/${parentType}/${parentId}/form`,
+      },
+      role: {
+        employee: `/${parentType}/${parentId}/employee`,
+      },
+      task: {
+        form: `/${parentType}/${parentId}/form`,
+        artifact: `/${parentType}/${parentId}/artifact`,
+      },
+    };
+
+    return routeMapping[parentType]?.[entityType] || `/${parentType}/${parentId}/${entityType}`;
+  };
+
   const entityConfig: Record<string, Array<{ id: string; label: string; icon?: React.ComponentType<any> }>> = {
     project: [
       { id: 'wiki', label: 'Wiki', icon: BookOpen },
-      { id: 'forms', label: 'Forms', icon: FileText },
-      { id: 'task', label: 'Tasks', icon: CheckSquare },
-      { id: 'artifact', label: 'Artifacts', icon: FileText },
+      { id: 'form', label: 'Form', icon: FileText },
+      { id: 'task', label: 'Task', icon: CheckSquare },
+      { id: 'artifact', label: 'Artifact', icon: FileText },
     ],
     biz: [
       { id: 'wiki', label: 'Wiki', icon: BookOpen },
-      { id: 'forms', label: 'Forms', icon: FileText },
-      { id: 'task', label: 'Tasks', icon: CheckSquare },
-      { id: 'project', label: 'Projects', icon: FolderOpen },
-      { id: 'artifact', label: 'Artifacts', icon: FileText },
+      { id: 'form', label: 'Form', icon: FileText },
+      { id: 'task', label: 'Task', icon: CheckSquare },
+      { id: 'project', label: 'Project', icon: FolderOpen },
+      { id: 'artifact', label: 'Artifact', icon: FileText },
     ],
     org: [
-      { id: 'worksite', label: 'Worksites', icon: Building2 },
-      { id: 'employee', label: 'Employees', icon: Users },
+      { id: 'worksite', label: 'Worksite', icon: Building2 },
+      { id: 'employee', label: 'Employee', icon: Users },
     ],
     hr: [
-      { id: 'employee', label: 'Employees', icon: Users },
-      { id: 'role', label: 'Roles', icon: UserCheck },
+      { id: 'employee', label: 'Employee', icon: Users },
+      { id: 'role', label: 'Role', icon: UserCheck },
     ],
     client: [
-      { id: 'project', label: 'Projects', icon: FolderOpen },
-      { id: 'task', label: 'Tasks', icon: CheckSquare },
+      { id: 'project', label: 'Project', icon: FolderOpen },
+      { id: 'task', label: 'Task', icon: CheckSquare },
     ],
     worksite: [
-      { id: 'task', label: 'Tasks', icon: CheckSquare },
-      { id: 'forms', label: 'Forms', icon: FileText },
+      { id: 'task', label: 'Task', icon: CheckSquare },
+      { id: 'form', label: 'Form', icon: FileText },
     ],
     role: [
-      { id: 'employee', label: 'Employees', icon: Users },
+      { id: 'employee', label: 'Employee', icon: Users },
     ],
     task: [
-      { id: 'forms', label: 'Forms', icon: FileText },
-      { id: 'artifact', label: 'Artifacts', icon: FileText },
+      { id: 'form', label: 'Form', icon: FileText },
+      { id: 'artifact', label: 'Artifact', icon: FileText },
     ],
     employee: [], // Employee typically has no child entities
   };
 
   const actionEntities = entityConfig[parentType] || [];
-  
+
   const tabs: HeaderTab[] = [
     // Overview tab
     {
@@ -200,11 +250,11 @@ const getDefaultTabs = (parentType: string, parentId: string): HeaderTab[] => {
       path: `/${parentType}/${parentId}`,
       icon: getEntityIcon(parentType),
     },
-    // Action entity tabs
+    // Action entity tabs with corrected paths
     ...actionEntities.map(entity => ({
       id: entity.id,
       label: entity.label,
-      path: `/${parentType}/${parentId}/${entity.id}`,
+      path: getEntityRoutePath(parentType, parentId, entity.id),
       icon: entity.icon,
     }))
   ];
@@ -231,16 +281,60 @@ export function useHeaderTabs(parentType: string, parentId: string) {
 
         if (response.ok) {
           const data = await response.json();
-          
-          // Convert API data to tabs
+
+          // Helper function to get the correct route path for API-generated tabs
+          const getApiEntityRoutePath = (parentType: string, parentId: string, entityTypeCode: string): string => {
+            const routeMapping: Record<string, Record<string, string>> = {
+              project: {
+                wiki: `/${parentType}/${parentId}/wiki`,
+                form: `/${parentType}/${parentId}/form`,
+                task: `/${parentType}/${parentId}/task`,
+                artifact: `/${parentType}/${parentId}/artifact`,
+              },
+              biz: {
+                wiki: `/${parentType}/${parentId}/wiki`,
+                form: `/${parentType}/${parentId}/form`,
+                task: `/${parentType}/${parentId}/task`,
+                project: `/${parentType}/${parentId}/project`,
+                artifact: `/${parentType}/${parentId}/artifact`,
+              },
+              org: {
+                worksite: `/${parentType}/${parentId}/worksite`,
+                employee: `/${parentType}/${parentId}/employee`,
+              },
+              hr: {
+                employee: `/${parentType}/${parentId}/employee`,
+                role: `/${parentType}/${parentId}/role`,
+              },
+              client: {
+                project: `/${parentType}/${parentId}/project`,
+                task: `/${parentType}/${parentId}/task`,
+              },
+              worksite: {
+                task: `/${parentType}/${parentId}/task`,
+                form: `/${parentType}/${parentId}/form`,
+              },
+              role: {
+                employee: `/${parentType}/${parentId}/employee`,
+              },
+              task: {
+                form: `/${parentType}/${parentId}/form`,
+                artifact: `/${parentType}/${parentId}/artifact`,
+              },
+            };
+
+            return routeMapping[parentType]?.[entityTypeCode] || `/${parentType}/${parentId}/${entityTypeCode}`;
+          };
+
+          // Convert API data to tabs with corrected paths
           const generatedTabs: HeaderTab[] = data.action_entities.map((entity: any) => ({
             id: entity.entity_type_code,
             label: entity.display_name,
             count: entity.total_accessible,
-            path: `/${parentType}/${parentId}/${entity.entity_type_code}`,
+            path: getApiEntityRoutePath(parentType, parentId, entity.entity_type_code),
             disabled: !entity.permission_actions.includes('view'),
-            tooltip: entity.permission_actions.includes('view') 
-              ? undefined 
+            tooltip: entity.permission_actions.includes('view')
+              ? undefined
               : `You need view permission on ${entity.display_name}`,
           }));
 

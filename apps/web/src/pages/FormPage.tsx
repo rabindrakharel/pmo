@@ -28,7 +28,7 @@ interface Form {
   attr?: any;
 }
 
-export function FormsPage() {
+export function FormPage() {
   const navigate = useNavigate();
   const [forms, setForms] = useState<Form[]>([]);
   const [loading, setLoading] = useState(false);
@@ -114,7 +114,7 @@ export function FormsPage() {
   ];
 
   return (
-    <Layout createButton={{ label: "Create Form", href: "/forms/new" }}>
+    <Layout createButton={{ label: "Create Form", href: "/form/new" }}>
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
         <div className="flex items-center space-x-3">
           <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
@@ -161,9 +161,9 @@ export function FormsPage() {
             rowKey="id"
             filterable={true}
             columnSelection={true}
-            onRowClick={(form) => navigate(`/forms/${form.id}`)}
-            onView={(form) => navigate(`/forms/${form.id}`)}
-            onEdit={(form) => navigate(`/forms/${form.id}/edit`)}
+            onRowClick={(form) => navigate(`/form/${form.id}`)}
+            onView={(form) => navigate(`/form/${form.id}`)}
+            onEdit={(form) => navigate(`/form/${form.id}/edit`)}
             onShare={(form) => console.log('Share form:', form.id)}
             onDelete={(form) => console.log('Delete form:', form.id)}
           />

@@ -203,7 +203,7 @@ function ArtifactPreview({ artifact, onClose }: { artifact: Artifact; onClose: (
   );
 }
 
-export function ProjectArtifactsPage() {
+export function ProjectArtifactPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { tabs, loading } = useHeaderTabs('project', projectId!);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);

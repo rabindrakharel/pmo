@@ -169,10 +169,10 @@ export function GlobalSearch({ className = '' }: GlobalSearchProps) {
       task: `/task/${result.entity_id}`,
       biz: `/business/${result.entity_id}`,
       employee: `/employee/${result.entity_id}`,
-      role: `/roles/${result.entity_id}`,
+      role: `/role/${result.entity_id}`,
       wiki: `/wiki/${result.entity_id}`,
-      form: `/forms/${result.entity_id}`,
-      artifact: `/artifacts/${result.entity_id}`,
+      form: `/form/${result.entity_id}`,
+      artifact: `/artifact/${result.entity_id}`,
     };
 
     const path = entityPaths[result.entity_type as keyof typeof entityPaths] || `/${result.entity_type}/${result.entity_id}`;

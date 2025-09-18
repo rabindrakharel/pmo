@@ -86,18 +86,18 @@ export function Layout({ children, showFullscreenToggle = true, fullscreenHeader
   const mainNavigationItems = [
     // Organizational Entities (4)
     { name: 'Business', href: '/biz', icon: Building2, category: 'organizational' },
-    { name: 'Projects', href: '/project', icon: FolderOpen, category: 'operational' },
+    { name: 'Project', href: '/project', icon: FolderOpen, category: 'operational' },
     { name: 'Organization', href: '/org', icon: MapPin, category: 'organizational' },
     
     // Personnel Entities (2)
-    { name: 'Roles', href: '/roles', icon: UserCheck, category: 'personnel' },
-    { name: 'Employees', href: '/employee', icon: Users, category: 'personnel' },
+    { name: 'Role', href: '/role', icon: UserCheck, category: 'personnel' },
+    { name: 'Employee', href: '/employee', icon: Users, category: 'personnel' },
     
     // Content Entities (3)
     { name: 'Wiki', href: '/wiki', icon: BookOpen, category: 'content' },
-    { name: 'Forms', href: '/forms', icon: FileText, category: 'content' },
-    { name: 'Tasks', href: '/task', icon: CheckSquare, category: 'operational' },
-    { name: 'Artifacts', href: '/artifacts', icon: FileText, category: 'content' },
+    { name: 'Form', href: '/form', icon: FileText, category: 'content' },
+    { name: 'Task', href: '/task', icon: CheckSquare, category: 'operational' },
+    { name: 'Artifact', href: '/artifact', icon: FileText, category: 'content' },
   ];
 
   const profileNavigationItems = [

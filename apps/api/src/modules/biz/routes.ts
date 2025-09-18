@@ -236,8 +236,8 @@ export async function bizRoutes(fastify: FastifyInstance) {
   });
 
   // Get projects within a business unit
-  fastify.get('/api/v1/biz/:id/projects', {
-    
+  fastify.get('/api/v1/biz/:id/project', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })
@@ -270,7 +270,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       }
 
       const projects = await db.execute(sql`
-        SELECT 
+        SELECT
           id, name, "descr", project_type, priority_level, project_status, project_stage,
           planned_start_date, planned_end_date, budget_allocated, budget_currency,
           created, updated
@@ -281,7 +281,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       `);
 
       const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total 
+        SELECT COUNT(*) as total
         FROM app.d_project
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
@@ -295,6 +295,267 @@ export async function bizRoutes(fastify: FastifyInstance) {
       };
     } catch (error) {
       fastify.log.error('Error fetching business unit projects:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get tasks within a business unit
+  fastify.get('/api/v1/biz/:id/task', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      querystring: Type.Object({
+        active: Type.Optional(Type.Boolean()),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
+        offset: Type.Optional(Type.Number({ minimum: 0 })),
+      }),
+    },
+  }, async function (request, reply) {
+    try {
+      const { id: bizId } = request.params as { id: string };
+      const { active = true, limit = 50, offset = 0 } = request.query as any;
+      const userId = request.user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Check if user has access to this business unit
+      const hasAccess = await hasPermissionOnEntityId(userId, 'biz', bizId, 'view');
+      if (!hasAccess) {
+        return reply.status(403).send({ error: 'Access denied for this business unit' });
+      }
+
+      // Get tasks associated with business unit (via projects or direct assignment)
+      const conditions = [];
+      if (active !== undefined) {
+        conditions.push(sql`t.active = ${active}`);
+      }
+
+      const tasks = await db.execute(sql`
+        SELECT DISTINCT
+          t.id, t.name, t."descr", t.task_type, t.priority_level, t.task_status, t.task_stage,
+          t.planned_start_date, t.planned_end_date, t.estimated_hours, t.actual_hours,
+          t.created, t.updated, t.project_id,
+          p.name as project_name
+        FROM app.d_task t
+        LEFT JOIN app.d_project p ON t.project_id = p.id
+        WHERE (p.business_id = ${bizId} OR t.business_id = ${bizId})
+        ${conditions.length > 0 ? sql`AND ${sql.join(conditions, sql` AND `)}` : sql``}
+        ORDER BY t.created DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      const countResult = await db.execute(sql`
+        SELECT COUNT(DISTINCT t.id) as total
+        FROM app.d_task t
+        LEFT JOIN app.d_project p ON t.project_id = p.id
+        WHERE (p.business_id = ${bizId} OR t.business_id = ${bizId})
+        ${conditions.length > 0 ? sql`AND ${sql.join(conditions, sql` AND `)}` : sql``}
+      `);
+
+      return {
+        data: tasks,
+        total: Number(countResult[0]?.total || 0),
+        limit,
+        offset,
+        business_id: bizId,
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching business unit tasks:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get forms within a business unit
+  fastify.get('/api/v1/biz/:id/form', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      querystring: Type.Object({
+        active: Type.Optional(Type.Boolean()),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
+        offset: Type.Optional(Type.Number({ minimum: 0 })),
+      }),
+    },
+  }, async function (request, reply) {
+    try {
+      const { id: bizId } = request.params as { id: string };
+      const { active = true, limit = 50, offset = 0 } = request.query as any;
+      const userId = request.user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Check if user has access to this business unit
+      const hasAccess = await hasPermissionOnEntityId(userId, 'biz', bizId, 'view');
+      if (!hasAccess) {
+        return reply.status(403).send({ error: 'Access denied for this business unit' });
+      }
+
+      const conditions = [sql`business_id = ${bizId}`];
+      if (active !== undefined) {
+        conditions.push(sql`active = ${active}`);
+      }
+
+      const forms = await db.execute(sql`
+        SELECT
+          id, name, "descr", form_type, form_status, form_category,
+          created, updated, form_schema, form_ui_schema
+        FROM app.d_form
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        ORDER BY created DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as total
+        FROM app.d_form
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+      `);
+
+      return {
+        data: forms,
+        total: Number(countResult[0]?.total || 0),
+        limit,
+        offset,
+        business_id: bizId,
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching business unit forms:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get artifacts within a business unit
+  fastify.get('/api/v1/biz/:id/artifact', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      querystring: Type.Object({
+        active: Type.Optional(Type.Boolean()),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
+        offset: Type.Optional(Type.Number({ minimum: 0 })),
+      }),
+    },
+  }, async function (request, reply) {
+    try {
+      const { id: bizId } = request.params as { id: string };
+      const { active = true, limit = 50, offset = 0 } = request.query as any;
+      const userId = request.user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Check if user has access to this business unit
+      const hasAccess = await hasPermissionOnEntityId(userId, 'biz', bizId, 'view');
+      if (!hasAccess) {
+        return reply.status(403).send({ error: 'Access denied for this business unit' });
+      }
+
+      const conditions = [sql`business_id = ${bizId}`];
+      if (active !== undefined) {
+        conditions.push(sql`active = ${active}`);
+      }
+
+      const artifacts = await db.execute(sql`
+        SELECT
+          id, name, "descr", artifact_type, file_name, file_size, mime_type,
+          storage_url, version_number, is_current_version,
+          created, updated
+        FROM app.d_artifact
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        ORDER BY created DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as total
+        FROM app.d_artifact
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+      `);
+
+      return {
+        data: artifacts,
+        total: Number(countResult[0]?.total || 0),
+        limit,
+        offset,
+        business_id: bizId,
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching business unit artifacts:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get wiki pages within a business unit
+  fastify.get('/api/v1/biz/:id/wiki', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      querystring: Type.Object({
+        active: Type.Optional(Type.Boolean()),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
+        offset: Type.Optional(Type.Number({ minimum: 0 })),
+      }),
+    },
+  }, async function (request, reply) {
+    try {
+      const { id: bizId } = request.params as { id: string };
+      const { active = true, limit = 50, offset = 0 } = request.query as any;
+      const userId = request.user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Check if user has access to this business unit
+      const hasAccess = await hasPermissionOnEntityId(userId, 'biz', bizId, 'view');
+      if (!hasAccess) {
+        return reply.status(403).send({ error: 'Access denied for this business unit' });
+      }
+
+      const conditions = [sql`business_id = ${bizId}`];
+      if (active !== undefined) {
+        conditions.push(sql`active = ${active}`);
+      }
+
+      const wikis = await db.execute(sql`
+        SELECT
+          id, title, slug, content_preview, wiki_category, wiki_status,
+          tags, is_published, view_count,
+          created, updated, author_id
+        FROM app.d_wiki
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        ORDER BY created DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as total
+        FROM app.d_wiki
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+      `);
+
+      return {
+        data: wikis,
+        total: Number(countResult[0]?.total || 0),
+        limit,
+        offset,
+        business_id: bizId,
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching business unit wiki pages:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

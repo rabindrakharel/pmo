@@ -6,7 +6,16 @@ import { businessLevelConfig } from './businessLevelConfig';
 import { locationLevelConfig } from './locationLevelConfig';
 import { hrLevelConfig } from './hrLevelConfig';
 
+// Import main entity configs
+import { projectConfig } from './projectConfig';
+import { taskConfig } from './taskConfig';
+import { formConfig } from './formConfig';
+import { artifactConfig } from './artifactConfig';
+import { wikiConfig } from './wikiConfig';
+import { bizConfig } from './bizConfig';
+
 export const META_CONFIGS = {
+  // Meta/lookup entities
   'projectStatus': projectStatusConfig,
   'projectStage': projectStageConfig,
   'taskStatus': taskStatusConfig,
@@ -14,6 +23,14 @@ export const META_CONFIGS = {
   'businessLevel': businessLevelConfig,
   'locationLevel': locationLevelConfig,
   'hrLevel': hrLevelConfig,
+
+  // Main entities
+  'project': projectConfig,
+  'task': taskConfig,
+  'form': formConfig,
+  'artifact': artifactConfig,
+  'wiki': wikiConfig,
+  'biz': bizConfig,
 } as const;
 
 export type MetaEntityType = keyof typeof META_CONFIGS;

@@ -6,7 +6,7 @@ import { ActionBar } from '../../components/common/RBACButton';
 import { ScopeFilters, FilterChips } from '../../components/common/ScopeFilters';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 
-export function BusinessProjectsPage() {
+export function BusinessArtifactPage() {
   const { bizId } = useParams<{ bizId: string }>();
   const { tabs, loading } = useHeaderTabs('biz', bizId!);
 
@@ -24,7 +24,7 @@ export function BusinessProjectsPage() {
     <Layout>
       <div className="h-full flex flex-col">
         <HeaderTabNavigation
-          title="Business Unit Projects"
+          title="Business Unit Artifact"
           parentType="biz"
           parentId={bizId!}
           tabs={tabs}
@@ -32,14 +32,14 @@ export function BusinessProjectsPage() {
 
         <ActionBar
           createButton={{
-            entityType: 'project',
+            entityType: 'artifact',
             parentEntityType: 'biz',
             parentEntityId: bizId!,
           }}
         />
 
         <FilteredDataTable
-          entityType="project"
+          entityType="artifact"
           parentEntityType="biz"
           parentEntityId={bizId!}
         />

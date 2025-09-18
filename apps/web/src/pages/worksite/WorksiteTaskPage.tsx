@@ -5,19 +5,19 @@ import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/Head
 import { ActionBar } from '../../components/common/RBACButton';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 
-export function TaskArtifactsPage() {
-  const { taskId } = useParams<{ taskId: string }>();
-  const { tabs, loading } = useHeaderTabs('task', taskId!);
+export function WorksiteTaskPage() {
+  const { worksiteId } = useParams<{ worksiteId: string }>();
+  const { tabs, loading } = useHeaderTabs('worksite', worksiteId!);
 
-  // Mock task data - replace with actual API call
-  const [taskData, setTaskData] = React.useState<any>(null);
-  const [taskLoading, setTaskLoading] = React.useState(true);
+  // Mock worksite data - replace with actual API call
+  const [worksiteData, setWorksiteData] = React.useState<any>(null);
+  const [worksiteLoading, setWorksiteLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const fetchTask = async () => {
+    const fetchWorksite = async () => {
       try {
         const token = localStorage.getItem('accessToken');
-        const response = await fetch(`/api/v1/task/${taskId}`, {
+        const response = await fetch(`/api/v1/worksite/${worksiteId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -25,21 +25,21 @@ export function TaskArtifactsPage() {
         
         if (response.ok) {
           const data = await response.json();
-          setTaskData(data);
+          setWorksiteData(data);
         }
       } catch (error) {
-        console.error('Error fetching task:', error);
+        console.error('Error fetching worksite:', error);
       } finally {
-        setTaskLoading(false);
+        setWorksiteLoading(false);
       }
     };
 
-    if (taskId) {
-      fetchTask();
+    if (worksiteId) {
+      fetchWorksite();
     }
-  }, [taskId]);
+  }, [worksiteId]);
 
-  if (taskLoading || loading) {
+  if (worksiteLoading || loading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
@@ -53,25 +53,25 @@ export function TaskArtifactsPage() {
     <Layout>
       <div className="h-full flex flex-col">
         <HeaderTabNavigation
-          title={`${taskData?.name || 'Task'} - Artifacts`}
-          parentType="task"
-          parentId={taskId!}
-          parentName={taskData?.name}
+          title={`${worksiteData?.name || 'Worksite'} - Tasks`}
+          parentType="worksite"
+          parentId={worksiteId!}
+          parentName={worksiteData?.name}
           tabs={tabs}
         />
 
         <ActionBar
           createButton={{
-            entityType: 'artifact',
-            parentEntityType: 'task',
-            parentEntityId: taskId!,
+            entityType: 'task',
+            parentEntityType: 'worksite',
+            parentEntityId: worksiteId!,
           }}
         />
 
         <FilteredDataTable
-          entityType="artifact"
-          parentEntityType="task"
-          parentEntityId={taskId!}
+          entityType="task"
+          parentEntityType="worksite"
+          parentEntityId={worksiteId!}
         />
       </div>
     </Layout>

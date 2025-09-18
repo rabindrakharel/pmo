@@ -5,19 +5,19 @@ import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/Head
 import { ActionBar } from '../../components/common/RBACButton';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 
-export function WorksiteTasksPage() {
-  const { worksiteId } = useParams<{ worksiteId: string }>();
-  const { tabs, loading } = useHeaderTabs('worksite', worksiteId!);
+export function BusinessTaskPage() {
+  const { bizId } = useParams<{ bizId: string }>();
+  const { tabs, loading } = useHeaderTabs('biz', bizId!);
 
-  // Mock worksite data - replace with actual API call
-  const [worksiteData, setWorksiteData] = React.useState<any>(null);
-  const [worksiteLoading, setWorksiteLoading] = React.useState(true);
+  // Mock business data - replace with actual API call
+  const [businessData, setBusinessData] = React.useState<any>(null);
+  const [businessLoading, setBusinessLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const fetchWorksite = async () => {
+    const fetchBusiness = async () => {
       try {
         const token = localStorage.getItem('accessToken');
-        const response = await fetch(`/api/v1/worksite/${worksiteId}`, {
+        const response = await fetch(`/api/v1/biz/${bizId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -25,21 +25,21 @@ export function WorksiteTasksPage() {
         
         if (response.ok) {
           const data = await response.json();
-          setWorksiteData(data);
+          setBusinessData(data);
         }
       } catch (error) {
-        console.error('Error fetching worksite:', error);
+        console.error('Error fetching business:', error);
       } finally {
-        setWorksiteLoading(false);
+        setBusinessLoading(false);
       }
     };
 
-    if (worksiteId) {
-      fetchWorksite();
+    if (bizId) {
+      fetchBusiness();
     }
-  }, [worksiteId]);
+  }, [bizId]);
 
-  if (worksiteLoading || loading) {
+  if (businessLoading || loading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
@@ -53,25 +53,25 @@ export function WorksiteTasksPage() {
     <Layout>
       <div className="h-full flex flex-col">
         <HeaderTabNavigation
-          title={`${worksiteData?.name || 'Worksite'} - Tasks`}
-          parentType="worksite"
-          parentId={worksiteId!}
-          parentName={worksiteData?.name}
+          title={`${businessData?.name || 'Business Unit'} - Task`}
+          parentType="biz"
+          parentId={bizId!}
+          parentName={businessData?.name}
           tabs={tabs}
         />
 
         <ActionBar
           createButton={{
             entityType: 'task',
-            parentEntityType: 'worksite',
-            parentEntityId: worksiteId!,
+            parentEntityType: 'biz',
+            parentEntityId: bizId!,
           }}
         />
 
         <FilteredDataTable
           entityType="task"
-          parentEntityType="worksite"
-          parentEntityId={worksiteId!}
+          parentEntityType="biz"
+          parentEntityId={bizId!}
         />
       </div>
     </Layout>

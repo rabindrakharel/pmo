@@ -93,7 +93,12 @@
       "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" REDIS_URL=\"redis://localhost:6379\" JWT_SECRET=\"your-super-secret-jwt-key-change-in-production\" NODE_ENV=development npx tsx src/server.ts)",
       "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" REDIS_URL=\"redis://localhost:6379\" JWT_SECRET=\"your-super-secret-jwt-key-change-in-production\" DEV_BYPASS_OIDC=true PORT=4000 pnpm dev)",
       "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" REDIS_URL=\"redis://localhost:6379\" JWT_SECRET=\"your-super-secret-jwt-key-change-in-production\" DEV_BYPASS_OIDC=true PORT=4000 pnpm dev --dir apps/api)",
-      "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" REDIS_URL=\"redis://localhost:6379\" JWT_SECRET=\"your-super-secret-jwt-key-change-in-production\" DEV_BYPASS_OIDC=true PORT=4000 npx tsx src/server.ts)"
+      "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" REDIS_URL=\"redis://localhost:6379\" JWT_SECRET=\"your-super-secret-jwt-key-change-in-production\" DEV_BYPASS_OIDC=true PORT=4000 npx tsx src/server.ts)",
+      "Bash(npm run typecheck:*)",
+      "Bash(do echo \"=== $file.tsx ===\")",
+      "Bash(head:*)",
+      "Bash(do echo \"=== $file.tsx FilteredDataTable usage ===\")",
+      "Bash(do echo \"=== $entity ===\")"
     ],
     "deny": [],
     "ask": [],

@@ -5,7 +5,7 @@ import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/Head
 import { ActionBar } from '../../components/common/RBACButton';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 
-export function OrgWorksitesPage() {
+export function OrgWorksitePage() {
   const { orgId } = useParams<{ orgId: string }>();
   const { tabs, loading } = useHeaderTabs('org', orgId!);
 

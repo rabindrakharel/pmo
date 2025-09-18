@@ -1,6 +1,6 @@
 import React from 'react';
 import { Layout } from '../../components/layout/Layout';
-import { MetaDataTable } from '../../components/MetaDataTable';
+import { FilteredDataTable } from '../../components/FilteredDataTable';
 
 export const ProjectStatusPage: React.FC = () => {
   return (
@@ -21,7 +21,7 @@ export const ProjectStatusPage: React.FC = () => {
         </div>
         
         <div className="flex-1 overflow-hidden">
-          <MetaDataTable entityType="projectStatus" />
+          <FilteredDataTable entityType="projectStatus" />
         </div>
       </div>
     </Layout>

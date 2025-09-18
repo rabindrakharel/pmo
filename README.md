@@ -107,6 +107,392 @@
 
 ---
 
+## 🧩 Reusable Components & Props
+
+### **🗂️ Core UI Components**
+
+#### **DataTable Component**
+**Location**: `apps/web/src/components/ui/DataTable.tsx`
+
+**Purpose**: Comprehensive data table with sorting, filtering, pagination, and actions
+
+**Props Interface**:
+```typescript
+interface DataTableProps<T = any> {
+  data: T[];                              // Array of records to display
+  columns: Column<T>[];                   // Column definitions
+  loading?: boolean;                      // Show loading state
+  pagination?: PaginationConfig;          // Pagination settings
+  rowKey?: string | ((record: T) => string); // Unique identifier
+  onRowClick?: (record: T) => void;       // Row click handler
+  searchable?: boolean;                   // Enable global search
+  filterable?: boolean;                   // Enable column filters
+  columnSelection?: boolean;              // Allow column show/hide
+  className?: string;                     // Additional CSS classes
+  rowActions?: RowAction<T>[];           // Custom row actions
+  showDefaultActions?: boolean;           // Include default CRUD actions
+  onView?: (record: T) => void;          // View action handler
+  onEdit?: (record: T) => void;          // Edit action handler
+  onShare?: (record: T) => void;         // Share action handler
+  onDelete?: (record: T) => void;        // Delete action handler
+}
+
+interface Column<T = any> {
+  key: string;                            // Data field key
+  title: string;                          // Column header text
+  sortable?: boolean;                     // Enable sorting
+  filterable?: boolean;                   // Enable filtering
+  render?: (value: any, record: T) => React.ReactNode; // Custom renderer
+  width?: string | number;                // Column width
+  align?: 'left' | 'center' | 'right';   // Text alignment
+}
+
+interface RowAction<T = any> {
+  key: string;                            // Action identifier
+  label: string;                          // Action tooltip
+  icon: React.ReactNode;                  // Action icon
+  onClick: (record: T) => void;           // Action handler
+  disabled?: (record: T) => boolean;      // Disable condition
+  variant?: 'default' | 'primary' | 'danger'; // Style variant
+}
+```
+
+**Usage Example**:
+```typescript
+<DataTable
+  data={projects}
+  columns={projectColumns}
+  loading={loading}
+  pagination={{ current: 1, pageSize: 20, total: 100 }}
+  onRowClick={(project) => navigate(`/project/${project.id}`)}
+  onEdit={(project) => openEditModal(project)}
+  onDelete={(project) => confirmDelete(project)}
+  filterable={true}
+  columnSelection={true}
+/>
+```
+
+#### **FilteredDataTable Component**
+**Location**: `apps/web/src/components/FilteredDataTable.tsx`
+
+**Purpose**: Universal data table with RBAC integration and parent-child filtering
+
+**Props Interface**:
+```typescript
+interface FilteredDataTableProps {
+  entityType: string;                     // Entity to display (project, task, etc.)
+  parentEntityType?: string;              // Parent context (e.g., 'project')
+  parentEntityId?: string;                // Parent UUID for filtered data
+  onRowClick?: (record: any) => void;     // Row click handler
+}
+```
+
+**Features**:
+- Dynamic configuration via `ConfigService`
+- RBAC-aware data fetching
+- Parent-child entity filtering
+- Server-side pagination and sorting
+- Automatic API endpoint resolution
+
+**Usage Example**:
+```typescript
+// Show tasks within a project context
+<FilteredDataTable
+  entityType="task"
+  parentEntityType="project"
+  parentEntityId={projectId}
+  onRowClick={(task) => navigate(`/project/${projectId}/task/${task.id}`)}
+/>
+```
+
+#### **StatsGrid Component**
+**Location**: `apps/web/src/components/common/StatsGrid.tsx`
+
+**Purpose**: Display three statistical cards in a responsive grid
+
+**Props Interface**:
+```typescript
+interface StatsGridProps {
+  stats: [StatCard, StatCard, StatCard];  // Exactly 3 stat cards
+  className?: string;                     // Additional CSS classes
+}
+
+interface StatCard {
+  value: number | string;                 // Display value
+  label: string;                          // Description text
+  color?: 'blue' | 'green' | 'yellow' | 'purple' | 'red' | 'gray'; // Color theme
+  icon?: LucideIcon;                      // Optional icon
+  format?: 'number' | 'percentage' | 'currency' | 'large'; // Value formatting
+}
+```
+
+**Usage Example**:
+```typescript
+<StatsGrid
+  stats={[
+    {
+      value: projects.length,
+      label: "Total Projects",
+      color: "blue",
+      icon: FolderOpen,
+      format: "number"
+    },
+    {
+      value: completionRate,
+      label: "Completion Rate",
+      color: "green",
+      icon: TrendingUp,
+      format: "percentage"
+    },
+    {
+      value: totalBudget,
+      label: "Total Budget",
+      color: "purple",
+      icon: DollarSign,
+      format: "currency"
+    }
+  ]}
+/>
+```
+
+---
+
+### **🔐 RBAC Components**
+
+#### **RBACButton Component**
+**Location**: `apps/web/src/components/common/RBACButton.tsx`
+
+**Purpose**: Permission-aware button with automatic enable/disable based on user permissions
+
+**Props Interface**:
+```typescript
+interface RBACButtonProps {
+  children: React.ReactNode;              // Button content
+  permission: RBACPermission;             // Permission requirement
+  onClick?: () => void;                   // Click handler
+  href?: string;                          // Navigation URL
+  className?: string;                     // Additional CSS classes
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost'; // Style variant
+  size?: 'sm' | 'md' | 'lg';             // Size variant
+  icon?: LucideIcon;                      // Optional icon
+  loading?: boolean;                      // Show loading state
+  disabled?: boolean;                     // Force disabled state
+  tooltip?: string;                       // Custom tooltip
+}
+
+interface RBACPermission {
+  entityType: string;                     // Entity type (project, task, etc.)
+  entityId?: string;                      // Specific entity UUID
+  action: 'create' | 'view' | 'edit' | 'share' | 'delete'; // Required action
+  parentEntityType?: string;              // Parent context
+  parentEntityId?: string;                // Parent UUID
+}
+```
+
+**Usage Example**:
+```typescript
+<RBACButton
+  permission={{
+    entityType: 'task',
+    action: 'create',
+    parentEntityType: 'project',
+    parentEntityId: projectId
+  }}
+  onClick={() => createTask()}
+  variant="primary"
+  icon={Plus}
+>
+  Create Task
+</RBACButton>
+```
+
+#### **ActionBar Component**
+**Location**: `apps/web/src/components/common/RBACButton.tsx`
+
+**Purpose**: Page-level action bar with RBAC-aware create buttons and filters
+
+**Props Interface**:
+```typescript
+interface ActionBarProps {
+  title?: string;                         // Optional title
+  createButton?: {
+    entityType: string;                   // What to create
+    parentEntityType?: string;            // Parent context
+    parentEntityId?: string;              // Parent UUID
+    onCreateClick?: () => void;           // Create handler
+  };
+  scopeFilters?: React.ReactNode;         // Filter components
+  additionalActions?: React.ReactNode;    // Extra action buttons
+  className?: string;                     // Additional CSS classes
+}
+```
+
+---
+
+### **🧭 Navigation Components**
+
+#### **HeaderTabNavigation Component**
+**Location**: `apps/web/src/components/common/HeaderTabNavigation.tsx`
+
+**Purpose**: Dynamic tab navigation for parent-child entity relationships
+
+**Props Interface**:
+```typescript
+interface HeaderTabNavigationProps {
+  title: string;                          // Page title
+  parentType: string;                     // Entity type (project, biz, etc.)
+  parentId: string;                       // Parent entity UUID
+  parentName?: string;                    // Display name for breadcrumb
+  tabs: HeaderTab[];                      // Tab configuration
+  className?: string;                     // Additional CSS classes
+}
+
+interface HeaderTab {
+  id: string;                             // Tab identifier
+  label: string;                          // Display text
+  count?: number;                         // Entity count badge
+  icon?: React.ComponentType<any>;        // Tab icon
+  path: string;                           // Navigation path
+  disabled?: boolean;                     // RBAC-controlled
+  tooltip?: string;                       // Permission tooltip
+}
+```
+
+**Usage Example**:
+```typescript
+const { tabs, loading } = useHeaderTabs('project', projectId);
+
+<HeaderTabNavigation
+  title="Project Dashboard"
+  parentType="project"
+  parentId={projectId}
+  parentName={project?.name}
+  tabs={tabs}
+/>
+```
+
+#### **GlobalSearch Component**
+**Location**: `apps/web/src/components/common/GlobalSearch.tsx`
+
+**Purpose**: Command palette-style global search with keyboard shortcuts
+
+**Props Interface**:
+```typescript
+interface GlobalSearchProps {
+  className?: string;                     // Additional CSS classes
+}
+
+interface SearchResult {
+  entity_type: string;                    // Entity type
+  entity_id: string;                      // Entity UUID
+  name: string;                           // Display name
+  description?: string;                   // Optional description
+  context?: string;                       // Contextual information
+  match_score: number;                    // Relevance score
+  breadcrumb: string[];                   // Navigation breadcrumb
+}
+```
+
+**Features**:
+- **Keyboard Shortcut**: ⌘K or Ctrl+K to open
+- **Typeahead Search**: Real-time search across entities
+- **RBAC Filtered**: Only shows accessible entities
+- **Keyboard Navigation**: Arrow keys + Enter selection
+- **Entity Icons**: Visual entity type identification
+
+---
+
+### **🎨 Utility Components**
+
+#### **CreateButton Component**
+**Location**: `apps/web/src/components/common/CreateButton.tsx`
+
+**Purpose**: Standardized create button with gradient styling
+
+**Props Interface**:
+```typescript
+interface CreateButtonProps {
+  label: string;                          // Button text
+  href: string;                           // Navigation URL
+  size?: 'sm' | 'md' | 'lg';             // Size variant
+  className?: string;                     // Additional CSS classes
+}
+```
+
+**Usage Example**:
+```typescript
+<CreateButton
+  label="Create Project"
+  href="/project/new"
+  size="md"
+/>
+```
+
+#### **Layout Component**
+**Location**: `apps/web/src/components/layout/Layout.tsx`
+
+**Purpose**: Main application layout with sidebar, header, and content areas
+
+**Props Interface**:
+```typescript
+interface LayoutProps {
+  children: ReactNode;                    // Page content
+  showFullscreenToggle?: boolean;         // Show fullscreen toggle
+  fullscreenHeader?: ReactNode;           // Fullscreen header content
+  hideFloatingToggle?: boolean;           // Hide floating toggle
+  createButton?: CreateButtonConfig;      // Header create button
+}
+
+interface CreateButtonConfig {
+  label: string;                          // Button text
+  href: string;                           // Navigation URL
+}
+```
+
+**Features**:
+- **Collapsible Sidebar**: 12 entity types organized by category
+- **Global Search**: Integrated ⌘K search in header
+- **User Profile Menu**: Profile, settings, security, billing
+- **Fullscreen Mode**: Toggle for distraction-free views
+- **RBAC Integration**: Menu items respect user permissions
+
+---
+
+### **📊 Specialized Components**
+
+#### **KanbanBoard Component** (in ProjectTasksPage)
+**Purpose**: Drag-and-drop task status management
+
+**Features**:
+- Visual columns for task statuses (Backlog, In Progress, Blocked, Done)
+- Drag-and-drop status updates with API synchronization
+- Task priority indicators and assignee information
+- Real-time count badges per column
+
+#### **FormBuilder Component**
+**Location**: `apps/web/src/components/forms/FormBuilder.tsx`
+
+**Purpose**: Dynamic form creation and editing
+
+**Features**:
+- Drag-and-drop field types
+- Field validation rules
+- Conditional logic support
+- Preview mode toggle
+
+#### **WikiEditor Component** (BlockEditor)
+**Location**: `apps/web/src/components/wiki/BlockEditor.tsx`
+
+**Purpose**: Rich text editing for wiki content
+
+**Features**:
+- Block-based editing interface
+- Markdown support
+- Media embedding
+- Version control integration
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites

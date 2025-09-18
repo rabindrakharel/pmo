@@ -432,6 +432,59 @@ export interface ConfigContext {
 }
 
 // ============================================================================
+// SIMPLIFIED ENTITY CONFIG (for meta configurations)
+// ============================================================================
+
+export interface EntityConfig {
+  entityType: string;
+  displayName: string;
+  displayNamePlural: string;
+  description: string;
+
+  api: {
+    endpoints: {
+      list: string;
+      create: string;
+      read: string;
+      update: string;
+      delete: string;
+    };
+  };
+
+  fields: Record<string, {
+    apiField: string;
+    label: string;
+    uiBehavior: {
+      visible: boolean;
+      priority?: number;
+      sort?: boolean;
+      filter?: boolean;
+      width?: number | string;
+      renderAs?: string;
+    };
+  }>;
+
+  ui: {
+    sidebarIcon: string;
+    table: {
+      enableSearch: boolean;
+      enableFilters: boolean;
+      defaultPageSize: number;
+    };
+  };
+
+  actions: {
+    row: Array<{
+      key: string;
+      label: string;
+      icon: string;
+      action: string;
+      style: string;
+    }>;
+  };
+}
+
+// ============================================================================
 // HELPER FUNCTIONS TYPES
 // ============================================================================
 

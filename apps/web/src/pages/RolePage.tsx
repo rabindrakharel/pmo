@@ -185,7 +185,7 @@ export function RolePage() {
   ];
 
   return (
-    <Layout createButton={{ label: "Create Role", href: "/roles/new" }}>
+    <Layout createButton={{ label: "Create Role", href: "/role/new" }}>
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
         <div className="flex items-center space-x-3">
           <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
@@ -232,9 +232,9 @@ export function RolePage() {
             rowKey="id"
             filterable={true}
             columnSelection={true}
-            onRowClick={(role) => navigate(`/roles/${role.id}`)}
-            onView={(role) => navigate(`/roles/${role.id}`)}
-            onEdit={(role) => navigate(`/roles/${role.id}/edit`)}
+            onRowClick={(role) => navigate(`/role/${role.id}`)}
+            onView={(role) => navigate(`/role/${role.id}`)}
+            onEdit={(role) => navigate(`/role/${role.id}/edit`)}
             onShare={(role) => console.log('Share role:', role.id)}
             onDelete={async (role) => {
               if (window.confirm(`Are you sure you want to delete "${role.name}"?`)) {

@@ -83,161 +83,161 @@ export async function metaRoutes(fastify: FastifyInstance) {
 
       if (category === 'task_status' || category === 'task-status') {
         query = sql`
-          SELECT 
+          SELECT
             id::text,
-            name,
-            "descr",
-            code,
-            sort_id,
-            color_hex as color,
-            is_initial,
-            is_final,
-            is_blocked,
-            icon,
-            tags,
-            attr,
+            level_name as name,
+            null as descr,
+            slug as code,
+            level_id as sort_id,
+            null as color,
+            is_root as is_initial,
+            is_leaf as is_final,
+            false as is_blocked,
+            null as icon,
+            null as tags,
+            null as attr,
             from_ts,
             to_ts,
             active,
             created,
             updated
-          FROM app.meta_task_status
+          FROM app.meta_entity_task_status
           ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
-          ORDER BY sort_id ASC, name ASC
+          ORDER BY level_id ASC, level_name ASC
         `;
         categoryName = 'task_status';
       } else if (category === 'task_stage' || category === 'task-stage') {
         query = sql`
-          SELECT 
+          SELECT
             id::text,
-            name,
-            "descr",
-            code,
-            sort_id,
-            color_hex as color,
-            is_default,
-            is_done,
-            is_blocked,
-            wip_limit,
-            icon,
-            tags,
-            attr,
+            level_name as name,
+            null as descr,
+            slug as code,
+            level_id as sort_id,
+            null as color,
+            is_root as is_default,
+            is_leaf as is_done,
+            false as is_blocked,
+            null as wip_limit,
+            null as icon,
+            null as tags,
+            null as attr,
             from_ts,
             to_ts,
             active,
             created,
             updated
-          FROM app.meta_task_stage
+          FROM app.meta_entity_task_stage
           ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
-          ORDER BY sort_id ASC, name ASC
+          ORDER BY level_id ASC, level_name ASC
         `;
         categoryName = 'task_stage';
       } else if (category === 'project_status' || category === 'project-status') {
         query = sql`
-          SELECT 
+          SELECT
             id::text,
-            name,
-            "descr",
-            code,
-            sort_id,
-            color,
-            workflow_sequence,
-            is_terminal_state,
-            is_success_state,
-            tags,
-            attr,
+            level_name as name,
+            null as descr,
+            slug as code,
+            level_id as sort_id,
+            null as color,
+            level_id as workflow_sequence,
+            is_leaf as is_terminal_state,
+            is_leaf as is_success_state,
+            null as tags,
+            null as attr,
             from_ts,
             to_ts,
             active,
             created,
             updated
-          FROM app.meta_project_status
+          FROM app.meta_entity_project_status
           ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
-          ORDER BY sort_id ASC, name ASC
+          ORDER BY level_id ASC, level_name ASC
         `;
         categoryName = 'project_status';
       } else if (category === 'project_stage' || category === 'project-stage') {
         query = sql`
-          SELECT 
+          SELECT
             id::text,
-            name,
-            "descr",
+            level_name as name,
+            null as descr,
             level_id,
-            duration_weeks,
-            sort_order,
-            tags,
-            attr,
+            null as duration_weeks,
+            level_id as sort_order,
+            null as tags,
+            null as attr,
             from_ts,
             to_ts,
             active,
             created,
             updated
-          FROM app.meta_project_stage
+          FROM app.meta_entity_project_stage
           ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
-          ORDER BY level_id ASC, name ASC
+          ORDER BY level_id ASC, level_name ASC
         `;
         categoryName = 'project_stage';
       } else if (category === 'biz_level' || category === 'business-level') {
         query = sql`
-          SELECT 
+          SELECT
             id::text,
-            name,
-            "descr",
+            level_name as name,
+            null as descr,
             level_id,
-            sort_order,
-            tags,
-            attr,
+            level_id as sort_order,
+            null as tags,
+            null as attr,
             from_ts,
             to_ts,
             active,
             created,
             updated
-          FROM app.meta_biz_level
+          FROM app.meta_entity_org_level
           ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
           ORDER BY level_id ASC
         `;
         categoryName = 'biz_level';
       } else if (category === 'loc_level' || category === 'location-level') {
         query = sql`
-          SELECT 
+          SELECT
             id::text,
-            name,
-            "descr",
+            level_name as name,
+            null as descr,
             level_id,
-            country_code,
-            sort_order,
-            tags,
-            attr,
+            null as country_code,
+            level_id as sort_order,
+            null as tags,
+            null as attr,
             from_ts,
             to_ts,
             active,
             created,
             updated
-          FROM app.meta_loc_level
+          FROM app.meta_entity_org_level
           ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
           ORDER BY level_id ASC
         `;
         categoryName = 'loc_level';
       } else if (category === 'hr_level' || category === 'hr-level') {
         query = sql`
-          SELECT 
+          SELECT
             id::text,
-            name,
-            "descr",
+            level_name as name,
+            null as descr,
             level_id,
-            salary_band_min,
-            salary_band_max,
-            is_management_level,
-            is_executive_level,
-            sort_order,
-            tags,
-            attr,
+            null as salary_band_min,
+            null as salary_band_max,
+            false as is_management_level,
+            false as is_executive_level,
+            level_id as sort_order,
+            null as tags,
+            null as attr,
             from_ts,
             to_ts,
             active,
             created,
             updated
-          FROM app.meta_hr_level
+          FROM app.meta_entity_hr_level
           ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
           ORDER BY level_id ASC
         `;

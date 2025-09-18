@@ -298,7 +298,7 @@ export function FormBuilderPage() {
       
       if (taskId) payload.taskId = taskId;
       const created = await formApi.create(payload);
-      navigate(`/forms/${created.id}`);
+      navigate(`/form/${created.id}`);
     } catch (e) {
       console.error('Failed to save form', e);
       alert('Failed to save form');
@@ -314,7 +314,7 @@ export function FormBuilderPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <button
-              onClick={() => navigate('/forms')}
+              onClick={() => navigate('/form')}
               className="h-10 w-10 bg-white border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50"
               title="Back"
             >

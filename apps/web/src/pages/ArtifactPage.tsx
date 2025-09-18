@@ -25,7 +25,7 @@ interface Artifact {
   active?: boolean;
 }
 
-export function ArtifactsPage() {
+export function ArtifactPage() {
   const [rows, setRows] = useState<Artifact[]>([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
@@ -122,7 +122,7 @@ export function ArtifactsPage() {
   ];
 
   return (
-    <Layout createButton={{ label: 'Create Artifact', href: '/artifacts/new' }}>
+    <Layout createButton={{ label: 'Create Artifact', href: '/artifact/new' }}>
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
         <div className="flex items-center space-x-3">
           <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
@@ -195,5 +195,5 @@ export function ArtifactsPage() {
   );
 }
 
-export default ArtifactsPage;
+export default ArtifactPage;
 

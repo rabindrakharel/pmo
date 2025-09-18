@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { META_CONFIGS } from '../entityConfig/meta/index.js';
 import type { MetaEntityType } from '../entityConfig/meta/index.js';
-import { transformConfigForFrontend } from '../lib/configTransformer.js';
+import { transformSimpleConfigForFrontend } from '../lib/simpleConfigTransformer.js';
 
 const EntityTypeParams = Type.Object({
   entityType: Type.String()
@@ -47,7 +47,7 @@ export async function configRoutes(fastify: FastifyInstance): Promise<void> {
       }
 
       const config = META_CONFIGS[entityType as MetaEntityType];
-      const frontendConfig = transformConfigForFrontend(config);
+      const frontendConfig = transformSimpleConfigForFrontend(config);
 
       return {
         success: true,

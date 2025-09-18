@@ -106,7 +106,7 @@ export function FormViewPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <button
-              onClick={() => navigate('/forms')}
+              onClick={() => navigate('/form')}
               className="h-10 w-10 bg-white border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50"
               title="Back"
             >
@@ -126,7 +126,7 @@ export function FormViewPage() {
           </div>
           <div className="flex items-center space-x-3">
             <button
-              onClick={() => navigate(`/forms/${id}/edit`)}
+              onClick={() => navigate(`/form/${id}/edit`)}
               className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               title="Edit form"
             >

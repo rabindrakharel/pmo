@@ -5,19 +5,19 @@ import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/Head
 import { ActionBar } from '../../components/common/RBACButton';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 
-export function OrgEmployeesPage() {
-  const { orgId } = useParams<{ orgId: string }>();
-  const { tabs, loading } = useHeaderTabs('org', orgId!);
+export function TaskArtifactPage() {
+  const { taskId } = useParams<{ taskId: string }>();
+  const { tabs, loading } = useHeaderTabs('task', taskId!);
 
-  // Mock organization data - replace with actual API call
-  const [orgData, setOrgData] = React.useState<any>(null);
-  const [orgLoading, setOrgLoading] = React.useState(true);
+  // Mock task data - replace with actual API call
+  const [taskData, setTaskData] = React.useState<any>(null);
+  const [taskLoading, setTaskLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const fetchOrganization = async () => {
+    const fetchTask = async () => {
       try {
         const token = localStorage.getItem('accessToken');
-        const response = await fetch(`/api/v1/org/${orgId}`, {
+        const response = await fetch(`/api/v1/task/${taskId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -25,21 +25,21 @@ export function OrgEmployeesPage() {
         
         if (response.ok) {
           const data = await response.json();
-          setOrgData(data);
+          setTaskData(data);
         }
       } catch (error) {
-        console.error('Error fetching organization:', error);
+        console.error('Error fetching task:', error);
       } finally {
-        setOrgLoading(false);
+        setTaskLoading(false);
       }
     };
 
-    if (orgId) {
-      fetchOrganization();
+    if (taskId) {
+      fetchTask();
     }
-  }, [orgId]);
+  }, [taskId]);
 
-  if (orgLoading || loading) {
+  if (taskLoading || loading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
@@ -53,25 +53,25 @@ export function OrgEmployeesPage() {
     <Layout>
       <div className="h-full flex flex-col">
         <HeaderTabNavigation
-          title={`${orgData?.name || 'Organization'} - Employees`}
-          parentType="org"
-          parentId={orgId!}
-          parentName={orgData?.name}
+          title={`${taskData?.name || 'Task'} - Artifacts`}
+          parentType="task"
+          parentId={taskId!}
+          parentName={taskData?.name}
           tabs={tabs}
         />
 
         <ActionBar
           createButton={{
-            entityType: 'employee',
-            parentEntityType: 'org',
-            parentEntityId: orgId!,
+            entityType: 'artifact',
+            parentEntityType: 'task',
+            parentEntityId: taskId!,
           }}
         />
 
         <FilteredDataTable
-          entityType="employee"
-          parentEntityType="org"
-          parentEntityId={orgId!}
+          entityType="artifact"
+          parentEntityType="task"
+          parentEntityId={taskId!}
         />
       </div>
     </Layout>

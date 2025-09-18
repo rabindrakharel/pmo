@@ -5,7 +5,7 @@ import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/Head
 import { ActionBar } from '../../components/common/RBACButton';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 
-export function WorksiteFormsPage() {
+export function WorksiteFormPage() {
   const { worksiteId } = useParams<{ worksiteId: string }>();
   const { tabs, loading } = useHeaderTabs('worksite', worksiteId!);
 

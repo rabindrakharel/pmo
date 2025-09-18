@@ -335,7 +335,7 @@ export function FormEditPage() {
       }
       
       await formApi.update(id, payload);
-      navigate(`/forms/${id}`);
+      navigate(`/form/${id}`);
     } catch (e) {
       console.error('Failed to update form', e);
       alert('Failed to update form');
@@ -363,7 +363,7 @@ export function FormEditPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <button
-              onClick={() => navigate('/forms')}
+              onClick={() => navigate('/form')}
               className="h-10 w-10 bg-white border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50"
               title="Back"
             >

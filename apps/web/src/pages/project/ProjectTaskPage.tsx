@@ -136,7 +136,7 @@ function KanbanBoard({ projectId }: { projectId: string }) {
   );
 }
 
-export function ProjectTasksPage() {
+export function ProjectTaskPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { tabs, loading } = useHeaderTabs('project', projectId!);
   const [viewMode, setViewMode] = useState<'grid' | 'kanban'>('grid');

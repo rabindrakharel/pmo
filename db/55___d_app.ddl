@@ -190,3 +190,6 @@ INSERT INTO app.d_app (scope_name, descr, gate_scope_type, is_protected, tags, a
 -- UI Components (Layout)
 ('form:Label', 'Form label component', 'component', false, '["ui", "form", "label"]', '{"type": "form", "helper": true}'),
 ('layout:Separator', 'Visual separator component', 'component', false, '["ui", "layout", "separator"]', '{"type": "layout", "divider": true}');
+
+
+
