@@ -15,7 +15,7 @@ function KanbanBoard({ projectId }: { projectId: string }) {
   React.useEffect(() => {
     const fetchKanbanData = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('auth_token');
         const response = await fetch(`/api/v1/project/${projectId}/tasks/kanban`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -38,7 +38,7 @@ function KanbanBoard({ projectId }: { projectId: string }) {
 
   const handleTaskStatusUpdate = async (taskId: string, newStatus: string) => {
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`/api/v1/task/${taskId}/status`, {
         method: 'PATCH',
         headers: {
@@ -154,7 +154,7 @@ export function ProjectTaskPage() {
   React.useEffect(() => {
     const fetchProject = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('auth_token');
         const response = await fetch(`/api/v1/project/${projectId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,

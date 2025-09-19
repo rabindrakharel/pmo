@@ -140,7 +140,7 @@ export function GlobalSearch({ className = '' }: GlobalSearchProps) {
   const performSearch = async (searchQuery: string) => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`/api/v1/search/global?q=${encodeURIComponent(searchQuery)}&limit=20`, {
         headers: {
           'Authorization': `Bearer ${token}`,

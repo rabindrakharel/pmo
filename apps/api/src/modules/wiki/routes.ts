@@ -208,7 +208,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     
     try {
       const deleted = await db.execute(sql`
-        UPDATE app.d_wiki SET active = false WHERE id = ${id} AND active = true
+        UPDATE app.d_wiki SET active = false, to_ts = NOW(), updated = NOW() WHERE id = ${id} AND active = true
         RETURNING id
       `);
       if (!deleted.length) return reply.status(404).send({ error: 'Not found' });

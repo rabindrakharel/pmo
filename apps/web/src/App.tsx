@@ -25,6 +25,7 @@ import { BillingPage } from './pages/BillingPage';
 
 // Parent/Action Page Components
 import { ProjectDetailPage } from './pages/project/ProjectDetailPage';
+import { ProjectEditPage } from './pages/project/ProjectEditPage';
 import { ProjectWikiPage } from './pages/project/ProjectWikiPage';
 import { ProjectTaskPage } from './pages/project/ProjectTaskPage';
 import { ProjectArtifactPage } from './pages/project/ProjectArtifactPage';
@@ -201,6 +202,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ProjectDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/project/:projectId/edit"
+        element={
+          <ProtectedRoute>
+            <ProjectEditPage />
           </ProtectedRoute>
         }
       />

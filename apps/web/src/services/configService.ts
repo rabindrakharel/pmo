@@ -7,7 +7,7 @@ class ConfigService {
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   private async fetchWithAuth(url: string): Promise<Response> {
-    const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem('auth_token');
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };

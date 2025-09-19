@@ -98,7 +98,10 @@
       "Bash(do echo \"=== $file.tsx ===\")",
       "Bash(head:*)",
       "Bash(do echo \"=== $file.tsx FilteredDataTable usage ===\")",
-      "Bash(do echo \"=== $entity ===\")"
+      "Bash(do echo \"=== $entity ===\")",
+      "Bash(jq:*)",
+      "Bash(ss:*)",
+      "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" REDIS_URL=\"redis://localhost:6379\" JWT_SECRET=\"your-super-secret-jwt-key-change-in-production\" PORT=4000 pnpm dev)"
     ],
     "deny": [],
     "ask": [],

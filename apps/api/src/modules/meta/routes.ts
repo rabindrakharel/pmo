@@ -102,7 +102,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             created,
             updated
           FROM app.meta_entity_task_status
-          ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
+          WHERE active = ${active !== false}
           ORDER BY level_id ASC, level_name ASC
         `;
         categoryName = 'task_status';
@@ -128,7 +128,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             created,
             updated
           FROM app.meta_entity_task_stage
-          ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
+          WHERE active = ${active !== false}
           ORDER BY level_id ASC, level_name ASC
         `;
         categoryName = 'task_stage';
@@ -152,7 +152,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             created,
             updated
           FROM app.meta_entity_project_status
-          ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
+          WHERE active = ${active !== false}
           ORDER BY level_id ASC, level_name ASC
         `;
         categoryName = 'project_status';
@@ -173,7 +173,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             created,
             updated
           FROM app.meta_entity_project_stage
-          ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
+          WHERE active = ${active !== false}
           ORDER BY level_id ASC, level_name ASC
         `;
         categoryName = 'project_stage';
@@ -193,7 +193,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             created,
             updated
           FROM app.meta_entity_org_level
-          ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
+          WHERE active = ${active !== false}
           ORDER BY level_id ASC
         `;
         categoryName = 'biz_level';
@@ -214,7 +214,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             created,
             updated
           FROM app.meta_entity_org_level
-          ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
+          WHERE active = ${active !== false}
           ORDER BY level_id ASC
         `;
         categoryName = 'loc_level';
@@ -238,7 +238,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             created,
             updated
           FROM app.meta_entity_hr_level
-          ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
+          WHERE active = ${active !== false}
           ORDER BY level_id ASC
         `;
         categoryName = 'hr_level';
@@ -269,7 +269,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             created,
             updated
           FROM app.meta_task_status
-          ${active !== undefined ? sql`WHERE active = ${active}` : sql``}
+          WHERE active = ${active !== false}
           ORDER BY level_id ASC, name ASC
         `;
       }
@@ -512,7 +512,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
 
   // Delete meta item (admin only)
   fastify.delete('/api/v1/meta/:category/:id', {
-    
+
     schema: {
       params: Type.Object({
         category: Type.String(),
@@ -532,29 +532,53 @@ export async function metaRoutes(fastify: FastifyInstance) {
 
     try {
       let tableName = '';
-      
+
       switch (category) {
         case 'task_status':
         case 'task-status':
-          tableName = 'app.meta_task_status';
+          tableName = 'app.meta_entity_task_status';
           break;
         case 'task_stage':
         case 'task-stage':
-          tableName = 'app.meta_task_stage';
+          tableName = 'app.meta_entity_task_stage';
+          break;
+        case 'project_status':
+        case 'project-status':
+          tableName = 'app.meta_entity_project_status';
+          break;
+        case 'project_stage':
+        case 'project-stage':
+          tableName = 'app.meta_entity_project_stage';
+          break;
+        case 'biz_level':
+        case 'business-level':
+          tableName = 'app.meta_entity_org_level';
+          break;
+        case 'loc_level':
+        case 'location-level':
+          tableName = 'app.meta_entity_org_level';
+          break;
+        case 'hr_level':
+        case 'hr-level':
+          tableName = 'app.meta_entity_hr_level';
           break;
         default:
           return reply.status(400).send({ error: 'Invalid meta category' });
       }
 
-      // Soft delete by setting active = false
+      // Soft delete by setting active = false and closing SCD record with to_ts
       const result = await db.execute(sql`
         UPDATE ${sql.raw(tableName)}
-        SET active = false, updated = NOW()
-        WHERE id = ${id}
+        SET
+          active = false,
+          to_ts = NOW(),
+          updated = NOW()
+        WHERE id = ${id} AND active = true
+        RETURNING id
       `);
 
       if (result.length === 0) {
-        return reply.status(404).send({ error: 'Meta item not found' });
+        return reply.status(404).send({ error: 'Meta item not found or already deleted' });
       }
 
       return reply.status(204).send();

@@ -103,7 +103,7 @@ function ArtifactPreview({ artifact, onClose }: { artifact: Artifact; onClose: (
   useEffect(() => {
     const fetchPreview = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('auth_token');
         const response = await fetch(`/api/v1/artifact/${artifact.id}/preview`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -221,7 +221,7 @@ export function ProjectArtifactPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('auth_token');
         
         // Fetch project data and artifacts in parallel
         const [projectResponse, artifactsResponse] = await Promise.all([

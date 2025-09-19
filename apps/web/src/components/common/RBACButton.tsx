@@ -31,7 +31,7 @@ export function useRBACPermission(permission: RBACPermission) {
   useEffect(() => {
     const checkPermission = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('auth_token');
         if (!token) {
           setHasPermission(false);
           setLoading(false);

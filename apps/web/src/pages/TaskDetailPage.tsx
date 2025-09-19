@@ -14,7 +14,7 @@ export function TaskDetailPage() {
   useEffect(() => {
     const fetchTaskData = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('auth_token');
         const response = await fetch(`/api/v1/task/${taskId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,

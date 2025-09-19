@@ -31,7 +31,7 @@ export function ScopeFilters({
     const fetchScopes = async () => {
       setLoading(true);
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('auth_token');
         const response = await fetch(`/api/v1/filters/scopes?entity_type=${entityType}`, {
           headers: {
             'Authorization': `Bearer ${token}`,

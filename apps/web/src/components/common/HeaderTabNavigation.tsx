@@ -271,7 +271,7 @@ export function useHeaderTabs(parentType: string, parentId: string) {
     const fetchActionSummaries = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('auth_token');
         const response = await fetch(`/api/v1/${parentType}/${parentId}/action-summaries`, {
           headers: {
             'Authorization': `Bearer ${token}`,

@@ -15,7 +15,7 @@ export function RoleDetailPage() {
   React.useEffect(() => {
     const fetchRole = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('auth_token');
         const response = await fetch(`/api/v1/role/${roleId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,

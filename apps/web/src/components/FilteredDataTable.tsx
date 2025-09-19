@@ -162,7 +162,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     
     setLoading(true);
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = localStorage.getItem('auth_token');
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
@@ -183,8 +183,10 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         endpoint = listEndpoint;
       }
       
+      // Properly handle query parameters
+      const separator = endpoint.includes('?') ? '&' : '?';
       const response = await fetch(
-        `${API_BASE_URL}${endpoint}?page=${currentPage}&limit=${pageSize}`,
+        `${API_BASE_URL}${endpoint}${separator}page=${currentPage}&limit=${pageSize}`,
         { headers }
       );
       
@@ -228,7 +230,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     if (!config) return;
     
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = localStorage.getItem('auth_token');
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };

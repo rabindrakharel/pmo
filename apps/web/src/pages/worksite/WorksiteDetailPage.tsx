@@ -15,7 +15,7 @@ export function WorksiteDetailPage() {
   React.useEffect(() => {
     const fetchWorksite = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('auth_token');
         const response = await fetch(`/api/v1/worksite/${worksiteId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
