@@ -6,8 +6,8 @@ interface FloatingFullscreenToggleProps {
   position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
 }
 
-export function FloatingFullscreenToggle({ 
-  position = 'top-right' 
+export function FloatingFullscreenToggle({
+  position = 'bottom-right'
 }: FloatingFullscreenToggleProps) {
   const { isFullscreen, toggleFullscreen } = useFullscreen();
 

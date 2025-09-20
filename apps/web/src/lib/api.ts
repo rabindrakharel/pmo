@@ -218,27 +218,27 @@ export const businessApi = {
   },
 };
 
-export const locationApi = {
+export const orgApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; level?: string }) {
     const response = await apiClient.get('/api/v1/entity/org', { params });
     return response.data;
   },
-  
+
   async get(id: string) {
     const response = await apiClient.get(`/api/v1/entity/org/${id}`);
     return response.data;
   },
-  
+
   async create(data: any) {
     const response = await apiClient.post('/api/v1/entity/org', data);
     return response.data;
   },
-  
+
   async update(id: string, data: any) {
     const response = await apiClient.put(`/api/v1/entity/org/${id}`, data);
     return response.data;
   },
-  
+
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/entity/org/${id}`);
     return response.data;

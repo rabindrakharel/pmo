@@ -101,7 +101,14 @@
       "Bash(do echo \"=== $entity ===\")",
       "Bash(jq:*)",
       "Bash(ss:*)",
-      "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" REDIS_URL=\"redis://localhost:6379\" JWT_SECRET=\"your-super-secret-jwt-key-change-in-production\" PORT=4000 pnpm dev)"
+      "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" REDIS_URL=\"redis://localhost:6379\" JWT_SECRET=\"your-super-secret-jwt-key-change-in-production\" PORT=4000 pnpm dev)",
+      "Read(//home/rabin/Screenshots/**)",
+      "Bash(ps:*)",
+      "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" REDIS_URL=\"redis://localhost:6379\" JWT_SECRET=\"your-super-secret-jwt-key-change-in-production\" PORT=4000 npx tsx src/server.ts)",
+      "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" REDIS_URL=\"redis://localhost:6379\" JWT_SECRET=\"your-super-secret-jwt-key-change-in-production\" PORT=4000 npx tsx apps/api/src/server.ts)",
+      "Bash(JWT_TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzU3MTk3NjUxLCJleHAiOjE3NTcyODQwNTF9.8mUpXT5Q6OYbRjgnLH2leYuGpvYN4u6Q7EHnuFZyhlc\" ./tools/test-api-endpoints.sh)",
+      "Read(//home/rabin/**)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": [],

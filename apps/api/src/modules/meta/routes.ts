@@ -197,7 +197,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
           ORDER BY level_id ASC
         `;
         categoryName = 'biz_level';
-      } else if (category === 'loc_level' || category === 'location-level') {
+      } else if (category === 'org_level' || category === 'orgLevel') {
         query = sql`
           SELECT
             id::text,
@@ -217,7 +217,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
           WHERE active = ${active !== false}
           ORDER BY level_id ASC
         `;
-        categoryName = 'loc_level';
+        categoryName = 'org_level';
       } else if (category === 'hr_level' || category === 'hr-level') {
         query = sql`
           SELECT
@@ -554,8 +554,8 @@ export async function metaRoutes(fastify: FastifyInstance) {
         case 'business-level':
           tableName = 'app.meta_entity_org_level';
           break;
-        case 'loc_level':
-        case 'location-level':
+        case 'org_level':
+        case 'orgLevel':
           tableName = 'app.meta_entity_org_level';
           break;
         case 'hr_level':

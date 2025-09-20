@@ -4,38 +4,37 @@ import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
-import { businessApi } from '../../lib/api';
+import { orgApi } from '../../lib/api';
 
-export function BusinessFormPage() {
-  const { bizId } = useParams<{ bizId: string }>();
+export function OrgFormPage() {
+  const { orgId } = useParams<{ orgId: string }>();
   const navigate = useNavigate();
-  const { tabs, loading } = useHeaderTabs('biz', bizId!);
-
-  // Mock business data - replace with actual API call
-  const [businessData, setBusinessData] = React.useState<any>(null);
-  const [businessLoading, setBusinessLoading] = React.useState(true);
+  const { tabs, loading } = useHeaderTabs('org', orgId!);
+  const [orgData, setOrgData] = React.useState<any>(null);
+  const [orgLoading, setOrgLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const fetchBusiness = async () => {
-      if (!bizId) return;
+    const fetchOrg = async () => {
+      if (!orgId) return;
 
       try {
-        setBusinessLoading(true);
-        const response = await businessApi.get(bizId);
+        setOrgLoading(true);
+        const response = await orgApi.get(orgId);
         if (response) {
-          setBusinessData(response);
+          console.log('Organization data received:', response);
+          setOrgData(response);
         }
       } catch (error) {
-        console.error('Error fetching business:', error);
+        console.error('Error fetching organization:', error);
       } finally {
-        setBusinessLoading(false);
+        setOrgLoading(false);
       }
     };
 
-    fetchBusiness();
-  }, [bizId]);
+    fetchOrg();
+  }, [orgId]);
 
-  if (businessLoading || loading) {
+  if (loading || orgLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
@@ -49,27 +48,27 @@ export function BusinessFormPage() {
     <Layout>
       <div className="h-full flex flex-col">
         <HeaderTabNavigation
-          title={businessData?.name || 'Business Unit'}
-          parentType="biz"
-          parentId={bizId!}
-          parentName={businessData?.name}
+          title={orgData?.name || 'Organization'}
+          parentType="org"
+          parentId={orgId!}
+          parentName={orgData?.name}
           tabs={tabs}
           showBackButton={true}
-          onBackClick={() => navigate('/biz')}
+          onBackClick={() => navigate('/org')}
         />
 
         <ActionBar
           createButton={{
             entityType: 'form',
-            parentEntityType: 'biz',
-            parentEntityId: bizId!,
+            parentEntityType: 'org',
+            parentEntityId: orgId!,
           }}
         />
 
         <FilteredDataTable
           entityType="form"
-          parentEntityType="biz"
-          parentEntityId={bizId!}
+          parentEntityType="org"
+          parentEntityId={orgId!}
         />
       </div>
     </Layout>

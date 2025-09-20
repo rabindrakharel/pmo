@@ -236,7 +236,7 @@ export function ProjectPage() {
   };
 
   const handleEdit = (project: Project) => {
-    navigate(`/project/${project.id}/edit`);
+    navigate(`/project/${project.id}`);
   };
 
   const handleShare = (project: Project) => {

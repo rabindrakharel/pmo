@@ -3,7 +3,7 @@ import { projectStageConfig } from './projectStage';
 import { taskStatusConfig } from './taskStatus';
 import { taskStageConfig } from './taskStage';
 import { businessLevelConfig } from './businessLevelConfig';
-import { locationLevelConfig } from './locationLevelConfig';
+import { orgLevelConfig } from './orgLevelConfig';
 import { hrLevelConfig } from './hrLevelConfig';
 
 // Import main entity configs
@@ -21,7 +21,7 @@ export const META_CONFIGS = {
   'taskStatus': taskStatusConfig,
   'taskStage': taskStageConfig,
   'businessLevel': businessLevelConfig,
-  'locationLevel': locationLevelConfig,
+  'orgLevel': orgLevelConfig,
   'hrLevel': hrLevelConfig,
 
   // Main entities

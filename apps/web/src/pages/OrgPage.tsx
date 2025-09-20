@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MapPin, TrendingUp, Building2 } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, Column } from '../components/ui/DataTable';
 import { StatsGrid } from '../components/common/StatsGrid';
-import { locationApi } from '../lib/api';
+import { orgApi } from '../lib/api';
 
-interface Location {
+interface Org {
   id: string;
   name: string;
   descr?: string;
@@ -18,10 +19,13 @@ interface Location {
   toTs?: string;
   created?: string;
   updated?: string;
+  worksite_count?: number;
+  employee_count?: number;
 }
 
-export function LocationPage() {
-  const [locations, setLocations] = useState<Location[]>([]);
+export function OrgPage() {
+  const navigate = useNavigate();
+  const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({
     current: 1,
@@ -30,21 +34,21 @@ export function LocationPage() {
   });
 
   useEffect(() => {
-    loadLocations();
+    loadOrgs();
   }, [pagination.current, pagination.pageSize]);
 
-  const loadLocations = async () => {
+  const loadOrgs = async () => {
     try {
       setLoading(true);
-      const response = await locationApi.list({
+      const response = await orgApi.list({
         page: pagination.current,
         pageSize: pagination.pageSize,
       });
-      setLocations(response.data || []);
+      setOrgs(response.data || []);
       setPagination(prev => ({ ...prev, total: response.total || 0 }));
     } catch (error) {
-      console.error('Failed to load locations:', error);
-      setLocations([]);
+      console.error('Failed to load orgs:', error);
+      setOrgs([]);
     } finally {
       setLoading(false);
     }
@@ -84,10 +88,10 @@ export function LocationPage() {
     );
   };
 
-  const tableColumns: Column<Location>[] = [
+  const tableColumns: Column<Org>[] = [
     {
       key: 'name',
-      title: 'Location Name',
+      title: 'Organization Name',
       sortable: true,
       filterable: true,
       render: (value, record) => (
@@ -152,35 +156,65 @@ export function LocationPage() {
     },
   ];
 
+  // Navigation handlers
+  const handleRowClick = (org: Org) => {
+    navigate(`/org/${org.id}`);
+  };
+
+  const handleView = (org: Org) => {
+    navigate(`/org/${org.id}`);
+  };
+
+  const handleEdit = (org: Org) => {
+    navigate(`/org/${org.id}/edit`);
+  };
+
+  const handleShare = (org: Org) => {
+    console.log('Share organization:', org.id);
+    // TODO: Implement share functionality
+  };
+
+  const handleDelete = async (org: Org) => {
+    if (window.confirm(`Are you sure you want to delete "${org.name}"?`)) {
+      try {
+        await orgApi.delete(org.id);
+        loadOrgs(); // Reload the list
+      } catch (error) {
+        console.error('Failed to delete organization:', error);
+        alert('Failed to delete organization. Please try again.');
+      }
+    }
+  };
+
   return (
-    <Layout createButton={{ label: "Create Location", href: "/location/new" }}>
+    <Layout createButton={{ label: "Create Organization", href: "/org/new" }}>
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
         <div className="flex items-center space-x-3">
           <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
             <MapPin className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-gray-800">Locations</h1>
-            <p className="mt-1 text-gray-600">Manage geographic locations and regional hierarchies</p>
+            <h1 className="text-2xl font-semibold text-gray-800">Organizations</h1>
+            <p className="mt-1 text-gray-600">Manage organizations and regional hierarchies</p>
           </div>
         </div>
 
-        <StatsGrid 
+        <StatsGrid
           stats={[
             {
-              value: locations.length,
-              label: "Total Locations",
+              value: orgs.length,
+              label: "Total Organizations",
               color: "blue",
               icon: MapPin
             },
             {
-              value: locations.filter(l => l.active !== false).length,
-              label: "Active Locations",
+              value: orgs.filter(l => l.active !== false).length,
+              label: "Active Organizations",
               color: "green",
               icon: TrendingUp
             },
             {
-              value: locations.filter(l => l.levelName === 'City').length,
+              value: orgs.filter(l => l.levelName === 'City').length,
               label: "Cities",
               color: "purple",
               icon: Building2
@@ -190,7 +224,7 @@ export function LocationPage() {
 
         <div className="flex-1 min-h-0">
           <DataTable
-            data={locations}
+            data={orgs}
             columns={tableColumns}
             loading={loading}
             pagination={{
@@ -200,11 +234,11 @@ export function LocationPage() {
             rowKey="id"
             filterable={true}
             columnSelection={true}
-            onRowClick={(location) => console.log('Navigate to location:', location.id)}
-            onView={(location) => console.log('View location:', location.id)}
-            onEdit={(location) => console.log('Edit location:', location.id)}
-            onShare={(location) => console.log('Share location:', location.id)}
-            onDelete={(location) => console.log('Delete location:', location.id)}
+            onRowClick={handleRowClick}
+            onView={handleView}
+            onEdit={handleEdit}
+            onShare={handleShare}
+            onDelete={handleDelete}
           />
         </div>
       </div>

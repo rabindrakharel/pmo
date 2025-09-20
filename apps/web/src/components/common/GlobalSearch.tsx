@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+
 interface SearchResult {
   entity_type: string;
   entity_id: string;
@@ -141,7 +143,7 @@ export function GlobalSearch({ className = '' }: GlobalSearchProps) {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/v1/search/global?q=${encodeURIComponent(searchQuery)}&limit=20`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/search/global?q=${encodeURIComponent(searchQuery)}&limit=20`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',

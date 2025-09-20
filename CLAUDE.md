@@ -1,4 +1,4 @@
-# PMO Web Application - Complete Architecture Guide
+- # PMO Web Application - Complete Architecture Guide
 
 ## 🗂️ Entity Relationship (ER) Diagram
 
@@ -1259,4 +1259,4 @@ This PMO web application provides a **complete, production-ready frontend** with
 ●FOr each detail page, each "Get single detailed record", 
 example. 
   endpoint (/api/v1/biz/:id) must not miss preHandler: 
-  [fastify.authenticate] 
+  [fastify.authenticate]

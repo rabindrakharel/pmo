@@ -5,7 +5,7 @@ import { FullscreenProvider } from './contexts/FullscreenContext';
 import { LoginForm } from './components/auth/LoginForm';
 import { MetaPage } from './pages/MetaPage';
 import { BusinessPage } from './pages/BusinessPage';
-import { LocationPage } from './pages/LocationPage';
+import { OrgPage } from './pages/OrgPage';
 import { ProjectPage } from './pages/ProjectPage';
 import { TaskPage } from './pages/TaskPage';
 import { EmployeePage } from './pages/EmployeePage';
@@ -25,7 +25,6 @@ import { BillingPage } from './pages/BillingPage';
 
 // Parent/Action Page Components
 import { ProjectDetailPage } from './pages/project/ProjectDetailPage';
-import { ProjectEditPage } from './pages/project/ProjectEditPage';
 import { ProjectWikiPage } from './pages/project/ProjectWikiPage';
 import { ProjectTaskPage } from './pages/project/ProjectTaskPage';
 import { ProjectArtifactPage } from './pages/project/ProjectArtifactPage';
@@ -40,6 +39,10 @@ import { EmployeeDetailPage } from './pages/employee/EmployeeDetailPage';
 import { OrgDetailPage } from './pages/org/OrgDetailPage';
 import { OrgWorksitePage } from './pages/org/OrgWorksitePage';
 import { OrgEmployeePage } from './pages/org/OrgEmployeePage';
+import { OrgWikiPage } from './pages/org/OrgWikiPage';
+import { OrgTaskPage } from './pages/org/OrgTaskPage';
+import { OrgArtifactPage } from './pages/org/OrgArtifactPage';
+import { OrgFormPage } from './pages/org/OrgFormPage';
 import { WorksiteDetailPage } from './pages/worksite/WorksiteDetailPage';
 import { WorksiteTaskPage } from './pages/worksite/WorksiteTaskPage';
 import { WorksiteFormPage } from './pages/worksite/WorksiteFormPage';
@@ -53,7 +56,7 @@ import {
   TaskStatusPage,
   TaskStagePage,
   BusinessLevelPage,
-  LocationLevelPage,
+  OrgLevelPage,
   HrLevelPage
 } from './pages/meta';
 
@@ -147,10 +150,10 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/meta/locationLevel"
+        path="/meta/orgLevel"
         element={
           <ProtectedRoute>
-            <LocationLevelPage />
+            <OrgLevelPage />
           </ProtectedRoute>
         }
       />
@@ -175,7 +178,7 @@ function AppRoutes() {
         path="/org"
         element={
           <ProtectedRoute>
-            <LocationPage />
+            <OrgPage />
           </ProtectedRoute>
         }
       />
@@ -206,15 +209,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/project/:projectId/edit"
-        element={
-          <ProtectedRoute>
-            <ProjectEditPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/project/:projectId/tasks"
+        path="/project/:projectId/task"
         element={
           <ProtectedRoute>
             <ProjectTaskPage />
@@ -357,6 +352,38 @@ function AppRoutes() {
       />
 
       {/* Organization Routes */}
+      <Route
+        path="/org/:orgId/wiki"
+        element={
+          <ProtectedRoute>
+            <OrgWikiPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/org/:orgId/task"
+        element={
+          <ProtectedRoute>
+            <OrgTaskPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/org/:orgId/artifact"
+        element={
+          <ProtectedRoute>
+            <OrgArtifactPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/org/:orgId/form"
+        element={
+          <ProtectedRoute>
+            <OrgFormPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/org/:orgId/worksite"
         element={

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
 import { ScopeFilters, FilterChips } from '../../components/common/ScopeFilters';
+import { FilteredDataTable } from '../../components/FilteredDataTable';
 import { FileText, Eye, Download, MoreVertical, Image, FileVideo, FileArchive } from 'lucide-react';
+import { projectApi } from '../../lib/api';
 
 interface Artifact {
   id: string;
@@ -104,7 +106,7 @@ function ArtifactPreview({ artifact, onClose }: { artifact: Artifact; onClose: (
     const fetchPreview = async () => {
       try {
         const token = localStorage.getItem('auth_token');
-        const response = await fetch(`/api/v1/artifact/${artifact.id}/preview`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/artifact/${artifact.id}/preview`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -205,6 +207,7 @@ function ArtifactPreview({ artifact, onClose }: { artifact: Artifact; onClose: (
 
 export function ProjectArtifactPage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const { tabs, loading } = useHeaderTabs('project', projectId!);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [artifactsLoading, setArtifactsLoading] = useState(true);
@@ -225,17 +228,15 @@ export function ProjectArtifactPage() {
         
         // Fetch project data and artifacts in parallel
         const [projectResponse, artifactsResponse] = await Promise.all([
-          fetch(`/api/v1/project/${projectId}`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          }),
-          fetch(`/api/v1/project/${projectId}/artifacts`, {
+          projectApi.get(projectId),
+          fetch(`${API_BASE_URL}/api/v1/project/${projectId}/artifacts`, {
             headers: { 'Authorization': `Bearer ${token}` },
           }),
         ]);
-        
-        if (projectResponse.ok) {
-          const projectData = await projectResponse.json();
-          setProjectData(projectData);
+
+        if (projectResponse) {
+          console.log('Project data received:', projectResponse);
+          setProjectData(projectResponse);
         }
         
         if (artifactsResponse.ok) {
@@ -299,11 +300,13 @@ export function ProjectArtifactPage() {
       <div className="h-full flex flex-col">
         {/* Header Tab Navigation */}
         <HeaderTabNavigation
-          title={`${projectData?.name || 'Project'} - Artifacts`}
+          title={projectData?.name || 'Digital Transformation Initiative'}
           parentType="project"
           parentId={projectId!}
           parentName={projectData?.name}
           tabs={tabs}
+          showBackButton={true}
+          onBackClick={() => navigate('/project')}
         />
 
         {/* Action Bar */}
@@ -331,25 +334,13 @@ export function ProjectArtifactPage() {
           }
         />
 
-        {/* Artifacts Grid */}
+        {/* Artifacts Table */}
         <div className="flex-1 p-6 overflow-y-auto">
-          {artifacts.length === 0 ? (
-            <div className="text-center py-12">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No artifacts found</h3>
-              <p className="text-gray-500 mb-6">Upload your first artifact to get started.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {artifacts.map((artifact) => (
-                <ArtifactCard
-                  key={artifact.id}
-                  artifact={artifact}
-                  onPreview={setPreviewArtifact}
-                />
-              ))}
-            </div>
-          )}
+          <FilteredDataTable
+            entityType="artifact"
+            parentEntityType="project"
+            parentEntityId={projectId!}
+          />
         </div>
         
         {/* Preview Modal */}

@@ -243,7 +243,7 @@ export async function empRoutes(fastify: FastifyInstance) {
 
   // Get single employee
   fastify.get('/api/v1/employee/:id', {
-    
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -390,9 +390,9 @@ export async function empRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update employee  
+  // Update employee
   fastify.put('/api/v1/employee/:id', {
-    
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -487,7 +487,7 @@ export async function empRoutes(fastify: FastifyInstance) {
 
   // Delete employee (soft delete)
   fastify.delete('/api/v1/employee/:id', {
-    
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),

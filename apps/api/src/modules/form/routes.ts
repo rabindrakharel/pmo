@@ -192,6 +192,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
   // Get single form
   fastify.get('/api/v1/form/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -352,6 +353,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
   // Update form
   fastify.put('/api/v1/form/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -551,6 +553,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
   // Delete form (soft delete)
   fastify.delete('/api/v1/form/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -600,6 +603,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
   // Get form records/submissions
   fastify.get('/api/v1/form/:id/records', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),

@@ -2,30 +2,30 @@ import React from 'react';
 import { Layout } from '../../components/layout/Layout';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 
-export const LocationLevelPage: React.FC = () => {
+export const OrgLevelPage: React.FC = () => {
   return (
     <Layout
       createButton={{
-        label: "Add Location Level",
-        href: "/meta/locationLevel/new"
+        label: "Add Org Level",
+        href: "/meta/orgLevel/new"
       }}
     >
       <div className="flex flex-col h-full">
       <div className="flex-shrink-0 p-6 border-b border-gray-200">
         <h1 className="text-2xl font-semibold text-gray-900">
-          Location Level
+          Organization Level
         </h1>
         <p className="mt-1 text-sm text-gray-600">
-          Geographic hierarchy levels for location organization structure
+          Geographic hierarchy levels for organization structure
         </p>
       </div>
       
       <div className="flex-1 overflow-hidden">
-        <FilteredDataTable entityType="locationLevel" />
+        <FilteredDataTable entityType="orgLevel" />
       </div>
     </div>
     </Layout>
   );
 };
 
-export default LocationLevelPage;
+export default OrgLevelPage;

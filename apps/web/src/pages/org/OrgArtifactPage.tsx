@@ -6,23 +6,22 @@ import { ActionBar } from '../../components/common/RBACButton';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 import { orgApi } from '../../lib/api';
 
-export function OrgEmployeePage() {
+export function OrgArtifactPage() {
   const { orgId } = useParams<{ orgId: string }>();
   const navigate = useNavigate();
   const { tabs, loading } = useHeaderTabs('org', orgId!);
-
-  // Mock organization data - replace with actual API call
   const [orgData, setOrgData] = React.useState<any>(null);
   const [orgLoading, setOrgLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const fetchOrganization = async () => {
+    const fetchOrg = async () => {
       if (!orgId) return;
 
       try {
         setOrgLoading(true);
         const response = await orgApi.get(orgId);
         if (response) {
+          console.log('Organization data received:', response);
           setOrgData(response);
         }
       } catch (error) {
@@ -32,10 +31,10 @@ export function OrgEmployeePage() {
       }
     };
 
-    fetchOrganization();
+    fetchOrg();
   }, [orgId]);
 
-  if (orgLoading || loading) {
+  if (loading || orgLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
@@ -60,14 +59,14 @@ export function OrgEmployeePage() {
 
         <ActionBar
           createButton={{
-            entityType: 'employee',
+            entityType: 'artifact',
             parentEntityType: 'org',
             parentEntityId: orgId!,
           }}
         />
 
         <FilteredDataTable
-          entityType="employee"
+          entityType="artifact"
           parentEntityType="org"
           parentEntityId={orgId!}
         />

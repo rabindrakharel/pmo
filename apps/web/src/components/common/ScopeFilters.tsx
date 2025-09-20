@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, X, Filter } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+
 interface ScopeOption {
   scope_type: string;
   scope_id: string;
@@ -32,7 +34,7 @@ export function ScopeFilters({
       setLoading(true);
       try {
         const token = localStorage.getItem('auth_token');
-        const response = await fetch(`/api/v1/filters/scopes?entity_type=${entityType}`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/filters/scopes?entity_type=${entityType}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',

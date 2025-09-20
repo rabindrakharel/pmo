@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { LucideIcon, Lock } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+
 interface RBACPermission {
   entityType: string;
   entityId?: string;
@@ -40,7 +42,7 @@ export function useRBACPermission(permission: RBACPermission) {
 
         // For entity-specific permissions
         if (permission.entityId) {
-          const response = await fetch(`/api/v1/rbac/check-permission`, {
+          const response = await fetch(`${API_BASE_URL}/api/v1/rbac/check-permission`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -62,7 +64,7 @@ export function useRBACPermission(permission: RBACPermission) {
         }
         // For creation permissions within parent scope
         else if (permission.parentEntityType && permission.parentEntityId) {
-          const response = await fetch(`/api/v1/rbac/check-creation`, {
+          const response = await fetch(`${API_BASE_URL}/api/v1/rbac/check-creation`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -85,7 +87,7 @@ export function useRBACPermission(permission: RBACPermission) {
         // For general entity type permissions
         else {
           // Check if user has any entities of this type they can perform the action on
-          const response = await fetch(`/api/v1/${permission.entityType}?limit=1`, {
+          const response = await fetch(`${API_BASE_URL}/api/v1/${permission.entityType}?limit=1`, {
             headers: {
               'Authorization': `Bearer ${token}`,
             },

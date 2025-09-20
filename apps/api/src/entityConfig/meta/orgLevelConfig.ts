@@ -1,14 +1,14 @@
 // ============================================================================
-// LOCATION LEVEL META CONFIGURATION
+// ORGANIZATION LEVEL META CONFIGURATION
 // ============================================================================
 
 import type { EntityPageConfig } from '../types';
 
-export const locationLevelConfig: EntityPageConfig = {
-  entityName: 'locationLevel',
-  displayName: 'Location Level',
-  displayNamePlural: 'Location Levels',
-  description: 'Geographic hierarchy levels for location organization structure',
+export const orgLevelConfig: EntityPageConfig = {
+  entityName: 'orgLevel',
+  displayName: 'Organization Level',
+  displayNamePlural: 'Organization Levels',
+  description: 'Geographic hierarchy levels for organization structure',
   
   schema: {
     schemaName: 'app',
@@ -17,13 +17,13 @@ export const locationLevelConfig: EntityPageConfig = {
   },
 
   api: {
-    baseEndpoint: '/api/v1/meta/location-level',
+    baseEndpoint: '/api/v1/meta/org-level',
     endpoints: {
-      list: 'GET /api/v1/meta?category=loc_level',
-      get: 'GET /api/v1/meta/location-level/:id',
-      create: 'POST /api/v1/meta/location-level',
-      update: 'PUT /api/v1/meta/location-level/:id',
-      delete: 'DELETE /api/v1/meta/location-level/:id',
+      list: 'GET /api/v1/meta?category=org_level',
+      get: 'GET /api/v1/meta/org-level/:id',
+      create: 'POST /api/v1/meta/org-level',
+      update: 'PUT /api/v1/meta/org-level/:id',
+      delete: 'DELETE /api/v1/meta/org-level/:id',
     },
   },
 
@@ -118,7 +118,7 @@ export const locationLevelConfig: EntityPageConfig = {
       dataType: 'text',
       inputType: 'textarea',
       label: 'Description',
-      placeholder: 'Describe this location level',
+      placeholder: 'Describe this organization level',
       pii: false,
       validation: {},
       uiBehavior: {
@@ -222,7 +222,7 @@ export const locationLevelConfig: EntityPageConfig = {
 
   forms: {
     create: {
-      title: 'Create Location Level',
+      title: 'Create Organization Level',
       sections: [
         {
           title: 'Basic Information',
@@ -240,7 +240,7 @@ export const locationLevelConfig: EntityPageConfig = {
     },
 
     edit: {
-      title: 'Edit Location Level',
+      title: 'Edit Organization Level',
       sections: [
         {
           title: 'Basic Information',
@@ -258,7 +258,7 @@ export const locationLevelConfig: EntityPageConfig = {
     },
 
     view: {
-      title: 'Location Level Details',
+      title: 'Organization Level Details',
       readonly: true,
       sections: [
         {
@@ -287,7 +287,7 @@ export const locationLevelConfig: EntityPageConfig = {
   navigation: {
     breadcrumbs: [
       { label: 'Meta Data', path: '/meta' },
-      { label: 'Location Levels', path: '/meta/locationLevel' },
+      { label: 'Organization Levels', path: '/meta/orgLevel' },
     ],
   },
 
@@ -319,10 +319,10 @@ export const locationLevelConfig: EntityPageConfig = {
         permissions: ['delete'],
         style: 'danger',
         confirmRequired: true,
-        confirmMessage: 'Are you sure you want to delete this location level?',
+        confirmMessage: 'Are you sure you want to delete this organization level?',
       },
     ],
   },
 };
 
-export default locationLevelConfig;
+export default orgLevelConfig;

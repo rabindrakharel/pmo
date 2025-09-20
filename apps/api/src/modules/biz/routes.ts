@@ -597,7 +597,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
   // Get single business unit
   fastify.get('/api/v1/biz/:id', {
-    
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),

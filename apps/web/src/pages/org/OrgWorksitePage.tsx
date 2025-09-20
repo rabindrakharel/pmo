@@ -1,12 +1,14 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
+import { orgApi } from '../../lib/api';
 
 export function OrgWorksitePage() {
   const { orgId } = useParams<{ orgId: string }>();
+  const navigate = useNavigate();
   const { tabs, loading } = useHeaderTabs('org', orgId!);
 
   // Mock organization data - replace with actual API call
@@ -15,17 +17,13 @@ export function OrgWorksitePage() {
 
   React.useEffect(() => {
     const fetchOrganization = async () => {
+      if (!orgId) return;
+
       try {
-        const token = localStorage.getItem('auth_token');
-        const response = await fetch(`/api/v1/org/${orgId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setOrgData(data);
+        setOrgLoading(true);
+        const response = await orgApi.get(orgId);
+        if (response) {
+          setOrgData(response);
         }
       } catch (error) {
         console.error('Error fetching organization:', error);
@@ -34,9 +32,7 @@ export function OrgWorksitePage() {
       }
     };
 
-    if (orgId) {
-      fetchOrganization();
-    }
+    fetchOrganization();
   }, [orgId]);
 
   if (orgLoading || loading) {
@@ -53,11 +49,13 @@ export function OrgWorksitePage() {
     <Layout>
       <div className="h-full flex flex-col">
         <HeaderTabNavigation
-          title={`${orgData?.name || 'Organization'} - Worksites`}
+          title={orgData?.name || 'Organization'}
           parentType="org"
           parentId={orgId!}
           parentName={orgData?.name}
           tabs={tabs}
+          showBackButton={true}
+          onBackClick={() => navigate('/org')}
         />
 
         <ActionBar

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
 import { ScopeFilters, FilterChips } from '../../components/common/ScopeFilters';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 import { LayoutGrid, List, Kanban } from 'lucide-react';
+import { projectApi } from '../../lib/api';
 
 // Kanban Component
 function KanbanBoard({ projectId }: { projectId: string }) {
@@ -16,7 +17,7 @@ function KanbanBoard({ projectId }: { projectId: string }) {
     const fetchKanbanData = async () => {
       try {
         const token = localStorage.getItem('auth_token');
-        const response = await fetch(`/api/v1/project/${projectId}/tasks/kanban`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/project/${projectId}/tasks/kanban`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -39,7 +40,7 @@ function KanbanBoard({ projectId }: { projectId: string }) {
   const handleTaskStatusUpdate = async (taskId: string, newStatus: string) => {
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/v1/task/${taskId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/task/${taskId}/status`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -138,6 +139,7 @@ function KanbanBoard({ projectId }: { projectId: string }) {
 
 export function ProjectTaskPage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const { tabs, loading } = useHeaderTabs('project', projectId!);
   const [viewMode, setViewMode] = useState<'grid' | 'kanban'>('grid');
   const [selectedScopes, setSelectedScopes] = useState<string[]>([]);
@@ -154,25 +156,17 @@ export function ProjectTaskPage() {
   React.useEffect(() => {
     const fetchProject = async () => {
       try {
-        const token = localStorage.getItem('auth_token');
-        const response = await fetch(`/api/v1/project/${projectId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setProjectData(data);
+        const response = await projectApi.get(projectId);
+        if (response) {
+          console.log('Project data received:', response);
+          setProjectData(response);
         }
       } catch (error) {
         console.error('Error fetching project:', error);
       }
     };
 
-    if (projectId) {
-      fetchProject();
-    }
+    fetchProject();
   }, [projectId]);
 
   const filterChips = [
@@ -218,11 +212,13 @@ export function ProjectTaskPage() {
       <div className="h-full flex flex-col">
         {/* Header Tab Navigation */}
         <HeaderTabNavigation
-          title={`${projectData?.name || 'Project'} - Tasks`}
+          title={projectData?.name || 'Digital Transformation Initiative'}
           parentType="project"
           parentId={projectId!}
           parentName={projectData?.name}
           tabs={tabs}
+          showBackButton={true}
+          onBackClick={() => navigate('/project')}
         />
 
         {/* Action Bar */}

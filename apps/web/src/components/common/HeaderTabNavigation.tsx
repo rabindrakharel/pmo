@@ -1,16 +1,19 @@
 import React from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { 
-  FileText, 
-  CheckSquare, 
-  BookOpen, 
-  FolderOpen, 
-  Building2, 
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+import {
+  FileText,
+  CheckSquare,
+  BookOpen,
+  FolderOpen,
+  Building2,
   Users,
   UserCheck,
   MapPin,
   Crown,
-  Star
+  Star,
+  ArrowLeft
 } from 'lucide-react';
 
 export interface HeaderTab {
@@ -30,6 +33,8 @@ interface HeaderTabNavigationProps {
   parentName?: string;
   tabs: HeaderTab[];
   className?: string;
+  showBackButton?: boolean;
+  onBackClick?: () => void;
 }
 
 const getEntityIcon = (entityType: string) => {
@@ -63,6 +68,8 @@ export function HeaderTabNavigation({
   parentName,
   tabs,
   className = '',
+  showBackButton = false,
+  onBackClick,
 }: HeaderTabNavigationProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -73,10 +80,8 @@ export function HeaderTabNavigation({
     navigate(tab.path);
   };
 
-  // Determine active tab
-  const activeTab = tabs.find(tab => 
-    currentPath === tab.path || currentPath.startsWith(tab.path + '/')
-  );
+  // Determine active tab - exact path match only
+  const activeTab = tabs.find(tab => currentPath === tab.path);
 
   return (
     <div className={`bg-white border-b border-gray-200 ${className}`}>
@@ -84,6 +89,15 @@ export function HeaderTabNavigation({
       <div className="px-6 py-4 border-b border-gray-100">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
+            {showBackButton && (
+              <button
+                onClick={onBackClick}
+                className="h-8 w-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                title="Go back"
+              >
+                <ArrowLeft className="h-4 w-4 text-gray-600" />
+              </button>
+            )}
             <div className="h-8 w-8 rounded-lg bg-gray-100 flex items-center justify-center">
               {React.createElement(getEntityIcon(parentType), {
                 className: "h-4 w-4 text-gray-600"
@@ -114,34 +128,33 @@ export function HeaderTabNavigation({
                 onClick={() => handleTabClick(tab)}
                 disabled={tab.disabled}
                 title={tab.tooltip}
-                className={`
-                  group inline-flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200
-                  ${isActive
+                className={[
+                  'group inline-flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200',
+                  isActive
                     ? 'border-blue-500 text-blue-600'
                     : tab.disabled
                     ? 'border-transparent text-gray-400 cursor-not-allowed'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 cursor-pointer'
-                  }
-                `}
+                ].join(' ')}
               >
-                <IconComponent className={`h-4 w-4 transition-colors duration-200 ${
+                <IconComponent className={[
+                  'h-4 w-4 transition-colors duration-200',
                   isActive
                     ? 'text-blue-500'
                     : tab.disabled
                     ? 'text-gray-400'
                     : 'text-gray-400 group-hover:text-gray-500'
-                }`} />
+                ].join(' ')} />
                 <span>{tab.label}</span>
                 {tab.count !== undefined && (
-                  <span className={`
-                    inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors duration-200
-                    ${isActive
+                  <span className={[
+                    'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors duration-200',
+                    isActive
                       ? 'bg-blue-100 text-blue-600'
                       : tab.disabled
                       ? 'bg-gray-100 text-gray-400'
                       : 'bg-gray-100 text-gray-600 group-hover:bg-gray-200'
-                    }
-                  `}>
+                  ].join(' ')}>
                     {tab.count}
                   </span>
                 )}
@@ -158,46 +171,27 @@ export function HeaderTabNavigation({
 const getDefaultTabs = (parentType: string, parentId: string): HeaderTab[] => {
   // Helper function to get the correct route path for each entity type
   const getEntityRoutePath = (parentType: string, parentId: string, entityType: string): string => {
-    const routeMapping: Record<string, Record<string, string>> = {
-      project: {
-        wiki: `/${parentType}/${parentId}/wiki`,
-        form: `/${parentType}/${parentId}/form`,
-        task: `/${parentType}/${parentId}/task`,
-        artifact: `/${parentType}/${parentId}/artifact`,
-      },
-      biz: {
-        wiki: `/${parentType}/${parentId}/wiki`,
-        form: `/${parentType}/${parentId}/form`,
-        task: `/${parentType}/${parentId}/task`,
-        project: `/${parentType}/${parentId}/project`,
-        artifact: `/${parentType}/${parentId}/artifact`,
-      },
-      org: {
-        worksite: `/${parentType}/${parentId}/worksite`,
-        employee: `/${parentType}/${parentId}/employee`,
-      },
-      hr: {
-        employee: `/${parentType}/${parentId}/employee`,
-        role: `/${parentType}/${parentId}/role`,
-      },
-      client: {
-        project: `/${parentType}/${parentId}/project`,
-        task: `/${parentType}/${parentId}/task`,
-      },
-      worksite: {
-        task: `/${parentType}/${parentId}/task`,
-        form: `/${parentType}/${parentId}/form`,
-      },
-      role: {
-        employee: `/${parentType}/${parentId}/employee`,
-      },
-      task: {
-        form: `/${parentType}/${parentId}/form`,
-        artifact: `/${parentType}/${parentId}/artifact`,
-      },
+    // Handle entity type to route mapping with singular naming
+    const entityRouteMap: Record<string, string> = {
+      'task': 'task',
+      'tasks': 'task',
+      'wiki': 'wiki',
+      'form': 'form',
+      'forms': 'form',
+      'artifact': 'artifact',
+      'artifacts': 'artifact',
+      'project': 'project',
+      'projects': 'project',
+      'employee': 'employee',
+      'employees': 'employee',
+      'worksite': 'worksite',
+      'worksites': 'worksite',
+      'role': 'role',
+      'roles': 'role',
     };
 
-    return routeMapping[parentType]?.[entityType] || `/${parentType}/${parentId}/${entityType}`;
+    const routeSegment = entityRouteMap[entityType] || entityType;
+    return `/${parentType}/${parentId}/${routeSegment}`;
   };
 
   const entityConfig: Record<string, Array<{ id: string; label: string; icon?: React.ComponentType<any> }>> = {
@@ -272,7 +266,7 @@ export function useHeaderTabs(parentType: string, parentId: string) {
       try {
         setLoading(true);
         const token = localStorage.getItem('auth_token');
-        const response = await fetch(`/api/v1/${parentType}/${parentId}/action-summaries`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/${parentType}/${parentId}/action-summaries`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -284,59 +278,62 @@ export function useHeaderTabs(parentType: string, parentId: string) {
 
           // Helper function to get the correct route path for API-generated tabs
           const getApiEntityRoutePath = (parentType: string, parentId: string, entityTypeCode: string): string => {
-            const routeMapping: Record<string, Record<string, string>> = {
-              project: {
-                wiki: `/${parentType}/${parentId}/wiki`,
-                form: `/${parentType}/${parentId}/form`,
-                task: `/${parentType}/${parentId}/task`,
-                artifact: `/${parentType}/${parentId}/artifact`,
-              },
-              biz: {
-                wiki: `/${parentType}/${parentId}/wiki`,
-                form: `/${parentType}/${parentId}/form`,
-                task: `/${parentType}/${parentId}/task`,
-                project: `/${parentType}/${parentId}/project`,
-                artifact: `/${parentType}/${parentId}/artifact`,
-              },
-              org: {
-                worksite: `/${parentType}/${parentId}/worksite`,
-                employee: `/${parentType}/${parentId}/employee`,
-              },
-              hr: {
-                employee: `/${parentType}/${parentId}/employee`,
-                role: `/${parentType}/${parentId}/role`,
-              },
-              client: {
-                project: `/${parentType}/${parentId}/project`,
-                task: `/${parentType}/${parentId}/task`,
-              },
-              worksite: {
-                task: `/${parentType}/${parentId}/task`,
-                form: `/${parentType}/${parentId}/form`,
-              },
-              role: {
-                employee: `/${parentType}/${parentId}/employee`,
-              },
-              task: {
-                form: `/${parentType}/${parentId}/form`,
-                artifact: `/${parentType}/${parentId}/artifact`,
-              },
+            // Handle entity type code to route mapping with singular naming
+            const entityRouteMap: Record<string, string> = {
+              'task': 'task',
+              'tasks': 'task',
+              'wiki': 'wiki',
+              'form': 'form',
+              'forms': 'form',
+              'artifact': 'artifact',
+              'artifacts': 'artifact',
+              'project': 'project',
+              'projects': 'project',
+              'employee': 'employee',
+              'employees': 'employee',
+              'worksite': 'worksite',
+              'worksites': 'worksite',
+              'role': 'role',
+              'roles': 'role',
             };
 
-            return routeMapping[parentType]?.[entityTypeCode] || `/${parentType}/${parentId}/${entityTypeCode}`;
+            const routeSegment = entityRouteMap[entityTypeCode] || entityTypeCode;
+            return `/${parentType}/${parentId}/${routeSegment}`;
           };
 
           // Convert API data to tabs with corrected paths
-          const generatedTabs: HeaderTab[] = data.action_entities.map((entity: any) => ({
-            id: entity.entity_type_code,
-            label: entity.display_name,
-            count: entity.total_accessible,
-            path: getApiEntityRoutePath(parentType, parentId, entity.entity_type_code),
-            disabled: !entity.permission_actions.includes('view'),
-            tooltip: entity.permission_actions.includes('view')
-              ? undefined
-              : `You need view permission on ${entity.display_name}`,
-          }));
+          const generatedTabs: HeaderTab[] = data.action_entities.map((entity: any) => {
+            const entityRouteMap: Record<string, string> = {
+              'task': 'task',
+              'tasks': 'task',
+              'wiki': 'wiki',
+              'form': 'form',
+              'forms': 'form',
+              'artifact': 'artifact',
+              'artifacts': 'artifact',
+              'project': 'project',
+              'projects': 'project',
+              'employee': 'employee',
+              'employees': 'employee',
+              'worksite': 'worksite',
+              'worksites': 'worksite',
+              'role': 'role',
+              'roles': 'role',
+            };
+
+            const routeSegment = entityRouteMap[entity.entity_type_code] || entity.entity_type_code;
+
+            return {
+              id: routeSegment, // Use consistent route segment as ID
+              label: entity.display_name,
+              count: entity.total_accessible,
+              path: getApiEntityRoutePath(parentType, parentId, entity.entity_type_code),
+              disabled: !entity.permission_actions.includes('view'),
+              tooltip: entity.permission_actions.includes('view')
+                ? undefined
+                : `You need view permission on ${entity.display_name}`,
+            };
+          });
 
           // Add overview tab at the beginning
           setTabs([

@@ -3,5 +3,5 @@ export { ProjectStagePage } from './projectStage';
 export { TaskStatusPage } from './taskStatus';
 export { TaskStagePage } from './taskStage';
 export { BusinessLevelPage } from './businessLevel';
-export { LocationLevelPage } from './locationLevel';
+export { OrgLevelPage } from './orgLevel';
 export { HrLevelPage } from './hrLevel';

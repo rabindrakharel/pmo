@@ -27,7 +27,6 @@ import {
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFullscreen } from '../../contexts/FullscreenContext';
-import { FullscreenToggle } from '../common/FullscreenToggle';
 import { FloatingFullscreenToggle } from '../common/FloatingFullscreenToggle';
 import { CreateButton } from '../common/CreateButton';
 import { GlobalSearchCompact } from '../common/GlobalSearch';
@@ -39,13 +38,12 @@ interface CreateButtonConfig {
 
 interface LayoutProps {
   children: ReactNode;
-  showFullscreenToggle?: boolean;
   fullscreenHeader?: ReactNode;
   hideFloatingToggle?: boolean;
   createButton?: CreateButtonConfig;
 }
 
-export function Layout({ children, showFullscreenToggle = true, fullscreenHeader, hideFloatingToggle = false, createButton }: LayoutProps) {
+export function Layout({ children, fullscreenHeader, hideFloatingToggle = false, createButton }: LayoutProps) {
   const { user, logout } = useAuth();
   const { isFullscreen } = useFullscreen();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -79,7 +77,7 @@ export function Layout({ children, showFullscreenToggle = true, fullscreenHeader
     { name: 'taskStatus', href: '/meta/taskStatus', icon: ListChecks },
     { name: 'taskStage', href: '/meta/taskStage', icon: KanbanSquare },
     { name: 'businessLevel', href: '/meta/businessLevel', icon: Building2 },
-    { name: 'locationLevel', href: '/meta/locationLevel', icon: MapPin },
+    { name: 'orgLevel', href: '/meta/orgLevel', icon: MapPin },
     { name: 'hrLevel', href: '/meta/hrLevel', icon: Crown },
   ];
 
@@ -394,11 +392,10 @@ export function Layout({ children, showFullscreenToggle = true, fullscreenHeader
               <GlobalSearchCompact />
             </div>
             <div className="flex items-center space-x-4">
-              {showFullscreenToggle && <FullscreenToggle />}
               {createButton && (
-                <CreateButton 
-                  label={createButton.label} 
-                  href={createButton.href} 
+                <CreateButton
+                  label={createButton.label}
+                  href={createButton.href}
                   size="sm"
                 />
               )}

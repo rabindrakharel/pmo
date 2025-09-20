@@ -17,7 +17,7 @@ export function TaskArtifactPage() {
     const fetchTask = async () => {
       try {
         const token = localStorage.getItem('auth_token');
-        const response = await fetch(`/api/v1/task/${taskId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/task/${taskId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },

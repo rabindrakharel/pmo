@@ -1,29 +1,40 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
+import { Edit3, Check, X } from 'lucide-react';
+import { useActionEntityPermission } from '../../hooks/useActionEntityPermission';
+import { InlineEditField } from '../../components/common/InlineEditField';
 
 export function EmployeeDetailPage() {
   const { employeeId } = useParams<{ employeeId: string }>();
+  const navigate = useNavigate();
   const { tabs, loading } = useHeaderTabs('employee', employeeId!);
+  const { canEdit, permissionLoading } = useActionEntityPermission('employee', employeeId, 'edit');
 
-  // Mock employee data - replace with actual API call
   const [employeeData, setEmployeeData] = React.useState<any>(null);
   const [employeeLoading, setEmployeeLoading] = React.useState(true);
+  const [editingField, setEditingField] = React.useState<string | null>(null);
+  const [editValue, setEditValue] = React.useState<string>('');
+  const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
     const fetchEmployee = async () => {
+      if (!employeeId) return;
+
       try {
+        setEmployeeLoading(true);
         const token = localStorage.getItem('auth_token');
-        const response = await fetch(`/api/v1/employee/${employeeId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/employee/${employeeId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
         });
-        
+
         if (response.ok) {
           const data = await response.json();
+          console.log('Employee data received:', data);
           setEmployeeData(data);
         }
       } catch (error) {
@@ -33,12 +44,53 @@ export function EmployeeDetailPage() {
       }
     };
 
-    if (employeeId) {
-      fetchEmployee();
-    }
+    fetchEmployee();
   }, [employeeId]);
 
-  if (employeeLoading || loading) {
+  const handleEditField = (fieldName: string, currentValue: string) => {
+    if (!canEdit) return;
+    setEditingField(fieldName);
+    setEditValue(currentValue);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingField(null);
+    setEditValue('');
+  };
+
+  const handleSaveField = async (fieldName: string) => {
+    if (!employeeId) return;
+
+    try {
+      setSaving(true);
+      const updateData = { [fieldName]: editValue };
+
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${API_BASE_URL}/api/v1/employee/${employeeId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      if (response.ok) {
+        setEmployeeData(prev => ({ ...prev, [fieldName]: editValue }));
+        setEditingField(null);
+        setEditValue('');
+      } else {
+        console.error('Failed to update employee');
+      }
+    } catch (error) {
+      console.error('Error updating employee:', error);
+      alert('Failed to update employee. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (employeeLoading || loading || permissionLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
@@ -53,11 +105,12 @@ export function EmployeeDetailPage() {
       <div className="h-full flex flex-col">
         {/* Header Tab Navigation */}
         <HeaderTabNavigation
-          title={employeeData?.name || 'Employee Details'}
+          title={employeeData?.name || 'Employee'}
           parentType="employee"
           parentId={employeeId!}
-          parentName={employeeData?.name}
           tabs={tabs}
+          showBackButton={true}
+          onBackClick={() => navigate('/')}
         />
 
         {/* Action Bar */}
@@ -86,48 +139,169 @@ export function EmployeeDetailPage() {
                       {employeeData?.name?.split(' ').map((n: string) => n[0]).join('') || 'U'}
                     </span>
                   </div>
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900">{employeeData?.name || 'Employee'}</h3>
+                  <div className="flex-1 group">
+                    {editingField === 'name' ? (
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          className="text-xl font-semibold text-gray-900 bg-transparent border border-blue-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveField('name');
+                            if (e.key === 'Escape') handleCancelEdit();
+                          }}
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => handleSaveField('name')}
+                          disabled={saving}
+                          className="p-1 text-green-600 hover:text-green-700"
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="p-1 text-red-600 hover:text-red-700"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <h3 className="text-xl font-semibold text-gray-900">{employeeData?.name || 'Employee'}</h3>
+                        {canEdit && (
+                          <button
+                            onClick={() => handleEditField('name', employeeData?.name || '')}
+                            className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Edit employee name"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                     <p className="text-sm text-gray-600">{employeeData?.email}</p>
                     <p className="text-sm text-gray-500">{employeeData?.job_title || 'Position not set'}</p>
                   </div>
                 </div>
               </div>
               <div className="px-6 py-4">
-                <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Employee ID</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{employeeData?.employee_id || employeeData?.id}</dd>
+                    <dt className="text-sm font-medium text-gray-500 mb-1">Employee ID</dt>
+                    <dd className="text-sm text-gray-900">{employeeData?.employee_id || employeeData?.id}</dd>
                   </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Status</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        employeeData?.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {employeeData?.active ? 'Active' : 'Inactive'}
-                      </span>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Department</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{employeeData?.department || 'Not assigned'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Manager</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{employeeData?.manager_name || 'Not assigned'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Start Date</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {employeeData?.start_date ? new Date(employeeData.start_date).toLocaleDateString() : 'Not set'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Phone</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{employeeData?.phone || 'Not provided'}</dd>
-                  </div>
-                </dl>
+                  <InlineEditField
+                    fieldName="active"
+                    label="Status"
+                    displayValue={employeeData?.active ? 'Active' : 'Inactive'}
+                    canEdit={canEdit}
+                    isEditing={editingField === 'active'}
+                    editValue={editValue}
+                    saving={saving}
+                    onEdit={handleEditField}
+                    onSave={handleSaveField}
+                    onCancel={handleCancelEdit}
+                    onValueChange={setEditValue}
+                    options={{
+                      type: 'select',
+                      options: ['Active', 'Inactive'],
+                      renderValue: (value) => (
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          value === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {value}
+                        </span>
+                      )
+                    }}
+                  />
+                  <InlineEditField
+                    fieldName="department"
+                    label="Department"
+                    displayValue={employeeData?.department || 'Not assigned'}
+                    canEdit={canEdit}
+                    isEditing={editingField === 'department'}
+                    editValue={editValue}
+                    saving={saving}
+                    onEdit={handleEditField}
+                    onSave={handleSaveField}
+                    onCancel={handleCancelEdit}
+                    onValueChange={setEditValue}
+                  />
+                  <InlineEditField
+                    fieldName="manager_name"
+                    label="Manager"
+                    displayValue={employeeData?.manager_name || 'Not assigned'}
+                    canEdit={canEdit}
+                    isEditing={editingField === 'manager_name'}
+                    editValue={editValue}
+                    saving={saving}
+                    onEdit={handleEditField}
+                    onSave={handleSaveField}
+                    onCancel={handleCancelEdit}
+                    onValueChange={setEditValue}
+                  />
+                  <InlineEditField
+                    fieldName="start_date"
+                    label="Start Date"
+                    displayValue={employeeData?.start_date ? new Date(employeeData.start_date).toLocaleDateString() : 'Not set'}
+                    canEdit={canEdit}
+                    isEditing={editingField === 'start_date'}
+                    editValue={editValue}
+                    saving={saving}
+                    onEdit={handleEditField}
+                    onSave={handleSaveField}
+                    onCancel={handleCancelEdit}
+                    onValueChange={setEditValue}
+                    options={{
+                      type: 'date',
+                      rawValue: employeeData?.start_date?.split('T')[0] || ''
+                    }}
+                  />
+                  <InlineEditField
+                    fieldName="phone"
+                    label="Phone"
+                    displayValue={employeeData?.phone || 'Not provided'}
+                    canEdit={canEdit}
+                    isEditing={editingField === 'phone'}
+                    editValue={editValue}
+                    saving={saving}
+                    onEdit={handleEditField}
+                    onSave={handleSaveField}
+                    onCancel={handleCancelEdit}
+                    onValueChange={setEditValue}
+                  />
+                  <InlineEditField
+                    fieldName="job_title"
+                    label="Job Title"
+                    displayValue={employeeData?.job_title || 'Not set'}
+                    canEdit={canEdit}
+                    isEditing={editingField === 'job_title'}
+                    editValue={editValue}
+                    saving={saving}
+                    onEdit={handleEditField}
+                    onSave={handleSaveField}
+                    onCancel={handleCancelEdit}
+                    onValueChange={setEditValue}
+                  />
+                  <InlineEditField
+                    fieldName="email"
+                    label="Email"
+                    displayValue={employeeData?.email || 'Not set'}
+                    canEdit={canEdit}
+                    isEditing={editingField === 'email'}
+                    editValue={editValue}
+                    saving={saving}
+                    onEdit={handleEditField}
+                    onSave={handleSaveField}
+                    onCancel={handleCancelEdit}
+                    onValueChange={setEditValue}
+                    options={{
+                      type: 'text'
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>

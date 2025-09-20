@@ -115,6 +115,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
   // Get single role
   fastify.get('/api/v1/role/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -223,6 +224,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
   // Update role
   fastify.put('/api/v1/role/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -344,6 +346,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
   // Delete role (soft delete)
   fastify.delete('/api/v1/role/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -394,6 +397,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
   // Get role permissions across scopes
   fastify.get('/api/v1/role/:id/permissions', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),

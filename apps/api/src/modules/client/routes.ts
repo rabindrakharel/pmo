@@ -135,6 +135,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
   // Get single client
   fastify.get('/api/v1/client/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -179,6 +180,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
   // Get client hierarchy (parent and children)
   fastify.get('/api/v1/client/:id/hierarchy', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -336,6 +338,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
   // Update client
   fastify.put('/api/v1/client/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -432,6 +435,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
   // Delete client (soft delete)
   fastify.delete('/api/v1/client/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),

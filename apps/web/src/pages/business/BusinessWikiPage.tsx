@@ -1,12 +1,14 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
+import { businessApi } from '../../lib/api';
 
 export function BusinessWikiPage() {
   const { bizId } = useParams<{ bizId: string }>();
+  const navigate = useNavigate();
   const { tabs, loading } = useHeaderTabs('biz', bizId!);
 
   // Mock business data - replace with actual API call
@@ -15,17 +17,14 @@ export function BusinessWikiPage() {
 
   React.useEffect(() => {
     const fetchBusiness = async () => {
+      if (!bizId) return;
+
       try {
-        const token = localStorage.getItem('auth_token');
-        const response = await fetch(`/api/v1/biz/${bizId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setBusinessData(data);
+        setBusinessLoading(true);
+        const response = await businessApi.get(bizId);
+        if (response) {
+          console.log('Business data received:', response);
+          setBusinessData(response);
         }
       } catch (error) {
         console.error('Error fetching business:', error);
@@ -34,9 +33,7 @@ export function BusinessWikiPage() {
       }
     };
 
-    if (bizId) {
-      fetchBusiness();
-    }
+    fetchBusiness();
   }, [bizId]);
 
   if (businessLoading || loading) {
@@ -53,11 +50,13 @@ export function BusinessWikiPage() {
     <Layout>
       <div className="h-full flex flex-col">
         <HeaderTabNavigation
-          title={`${businessData?.name || 'Business Unit'} - Wiki`}
+          title={businessData?.name || 'Business Unit'}
           parentType="biz"
           parentId={bizId!}
           parentName={businessData?.name}
           tabs={tabs}
+          showBackButton={true}
+          onBackClick={() => navigate('/biz')}
         />
 
         <ActionBar

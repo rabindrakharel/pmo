@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Block, BlockEditor, renderBlocksToHtml } from '../components/wiki/BlockEditor';
+import { FloatingFullscreenToggle } from '../components/common/FloatingFullscreenToggle';
 import { wikiApi } from '../lib/api';
 import { 
   Bold, Italic, Underline, List, ListOrdered, Image, Link, Code, 
@@ -487,6 +488,9 @@ export function WikiEditorPage() {
           />
         </div>
       </div>
+
+      {/* Floating Fullscreen Toggle */}
+      <FloatingFullscreenToggle />
     </div>
   );
 }

@@ -1,12 +1,14 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
+import { worksiteApi } from '../../lib/api';
 
 export function WorksiteTaskPage() {
   const { worksiteId } = useParams<{ worksiteId: string }>();
+  const navigate = useNavigate();
   const { tabs, loading } = useHeaderTabs('worksite', worksiteId!);
 
   // Mock worksite data - replace with actual API call
@@ -15,17 +17,13 @@ export function WorksiteTaskPage() {
 
   React.useEffect(() => {
     const fetchWorksite = async () => {
+      if (!worksiteId) return;
+
       try {
-        const token = localStorage.getItem('auth_token');
-        const response = await fetch(`/api/v1/worksite/${worksiteId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setWorksiteData(data);
+        setWorksiteLoading(true);
+        const response = await worksiteApi.get(worksiteId);
+        if (response) {
+          setWorksiteData(response);
         }
       } catch (error) {
         console.error('Error fetching worksite:', error);
@@ -34,9 +32,7 @@ export function WorksiteTaskPage() {
       }
     };
 
-    if (worksiteId) {
-      fetchWorksite();
-    }
+    fetchWorksite();
   }, [worksiteId]);
 
   if (worksiteLoading || loading) {
@@ -53,11 +49,13 @@ export function WorksiteTaskPage() {
     <Layout>
       <div className="h-full flex flex-col">
         <HeaderTabNavigation
-          title={`${worksiteData?.name || 'Worksite'} - Tasks`}
+          title={worksiteData?.name || 'Worksite'}
           parentType="worksite"
           parentId={worksiteId!}
           parentName={worksiteData?.name}
           tabs={tabs}
+          showBackButton={true}
+          onBackClick={() => navigate('/worksite')}
         />
 
         <ActionBar

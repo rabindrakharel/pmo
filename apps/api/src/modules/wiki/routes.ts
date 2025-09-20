@@ -107,6 +107,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
   // Get
   fastify.get('/api/v1/wiki/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
       response: { 200: WikiSchema }
@@ -173,6 +174,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
   // Update
   fastify.put('/api/v1/wiki/:id', {
+    preHandler: [fastify.authenticate],
     schema: { params: Type.Object({ id: Type.String({ format: 'uuid' }) }), body: UpdateWikiSchema, response: { 200: WikiSchema } }
   }, async (request, reply) => {
     const { id } = request.params as any;
@@ -203,6 +205,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
   // Delete (soft)
   fastify.delete('/api/v1/wiki/:id', {
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     const { id } = request.params as any;
     

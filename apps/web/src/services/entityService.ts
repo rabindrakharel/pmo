@@ -33,8 +33,8 @@ export const STANDARD_COLUMNS = [
   { key: 'id', title: 'ID', width: 280, sortable: true },
   { key: 'name', title: 'Name', sortable: true, filterable: true },
   { key: 'descr', title: 'Description', filterable: true },
-  { key: 'active', title: 'Status', width: 100, render: (value: boolean) => 
-    value ? <span className="text-green-600">Active</span> : <span className="text-gray-400">Inactive</span>
+  { key: 'active', title: 'Status', width: 100, render: (value: boolean) =>
+    value ? 'Active' : 'Inactive'
   },
   { key: 'created', title: 'Created', width: 120, sortable: true },
 ] as const;

@@ -264,7 +264,8 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     } else {
       // Default navigation based on entity type
       const entityPath = entityType === 'biz' ? '/biz' : `/${entityType}`;
-      navigate(`${entityPath}/${record.id}`);
+      const targetPath = `${entityPath}/${record.id}`;
+      navigate(targetPath);
     }
   };
 
