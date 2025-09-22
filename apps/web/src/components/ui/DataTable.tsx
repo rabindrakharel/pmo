@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Search, Filter, Columns, ChevronLeft, ChevronRight, Eye, Edit, Share, Trash2, X } from 'lucide-react';
+import { useUnifiedRBACPermissions } from '../common/RBACButton';
 
 export interface Column<T = any> {
   key: string;
@@ -45,6 +46,13 @@ export interface DataTableProps<T = any> {
   onEdit?: (record: T) => void;
   onShare?: (record: T) => void;
   onDelete?: (record: T) => void;
+  // RBAC Configuration
+  rbacConfig?: {
+    entityType: string;
+    enablePermissionChecking?: boolean;
+    parentEntity?: string;
+    parentEntityId?: string;
+  };
 }
 
 export function DataTable<T = any>({
@@ -64,6 +72,7 @@ export function DataTable<T = any>({
   onEdit,
   onShare,
   onDelete,
+  rbacConfig,
 }: DataTableProps<T>) {
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -77,6 +86,40 @@ export function DataTable<T = any>({
   const [showFilterDropdown, setShowFilterDropdown] = useState<boolean>(false);
   const filterContainerRef = useRef<HTMLDivElement | null>(null);
   const columnSelectorRef = useRef<HTMLDivElement | null>(null);
+
+  // RBAC permission checking for action buttons
+  const shouldCheckPermissions = rbacConfig?.enablePermissionChecking && rbacConfig?.entityType;
+  const actionsToCheck = useMemo(() => {
+    const actions: string[] = [];
+
+    // Check individual action handlers
+    if (onView) actions.push('view');
+    if (onEdit) actions.push('edit');
+    if (onShare) actions.push('share');
+    if (onDelete) actions.push('delete');
+
+    // Also check rowActions for additional actions
+    if (rowActions && rowActions.length > 0) {
+      rowActions.forEach(action => {
+        // Map common action keys to standard RBAC actions
+        if (action.key === 'view' && !actions.includes('view')) actions.push('view');
+        if (action.key === 'edit' && !actions.includes('edit')) actions.push('edit');
+        if (action.key === 'share' && !actions.includes('share')) actions.push('share');
+        if (action.key === 'delete' && !actions.includes('delete')) actions.push('delete');
+      });
+    }
+
+    return actions;
+  }, [onView, onEdit, onShare, onDelete, rowActions]);
+
+  // Use unified RBAC hook for both TIER 1 and TIER 3 scenarios
+  const { permissions, loading: permissionsLoading } = useUnifiedRBACPermissions(
+    shouldCheckPermissions ? rbacConfig.entityType : '',
+    shouldCheckPermissions ? data : [],
+    shouldCheckPermissions ? actionsToCheck : [],
+    rbacConfig?.parentEntity,
+    rbacConfig?.parentEntityId
+  );
 
   const getRowKey = (record: T, index: number): string => {
     if (typeof rowKey === 'function') {
@@ -178,39 +221,68 @@ export function DataTable<T = any>({
         title: 'Actions',
         width: allActions.length > 3 ? 120 : allActions.length * 40,
         align: 'center',
-        render: (_, record) => (
-          <div className="flex items-center justify-center space-x-1">
-            {allActions.map((action) => {
-              const isDisabled = action.disabled ? action.disabled(record) : false;
-              const buttonVariants = {
-                default: 'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
-                primary: 'text-blue-600 hover:text-blue-900 hover:bg-blue-50',
-                danger: 'text-red-600 hover:text-red-900 hover:bg-red-50',
-              };
-              
-              return (
-                <button
-                  key={action.key}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!isDisabled) {
-                      action.onClick(record);
+        render: (_, record) => {
+          const recordId = getRowKey(record, 0);
+          const recordPermissions = shouldCheckPermissions ? permissions[recordId] || {} : {};
+
+          return (
+            <div className="flex items-center justify-center space-x-1">
+              {allActions.map((action) => {
+                const isDisabled = action.disabled ? action.disabled(record) : false;
+
+                // Check RBAC permission if enabled
+                const hasPermission = shouldCheckPermissions
+                  ? recordPermissions[action.key] !== false // Default to true if not checked yet
+                  : true;
+
+                // Hide button if user doesn't have permission
+                if (shouldCheckPermissions && recordPermissions[action.key] === false) {
+                  return null;
+                }
+
+                const buttonVariants = {
+                  default: 'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
+                  primary: 'text-blue-600 hover:text-blue-900 hover:bg-blue-50',
+                  danger: 'text-red-600 hover:text-red-900 hover:bg-red-50',
+                };
+
+                // Show loading state while permissions are being checked
+                const isLoading = shouldCheckPermissions && permissionsLoading && recordPermissions[action.key] === undefined;
+
+                return (
+                  <button
+                    key={action.key}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isDisabled && hasPermission && !isLoading) {
+                        action.onClick(record);
+                      }
+                    }}
+                    disabled={isDisabled || !hasPermission || isLoading}
+                    className={`p-1.5 rounded transition-colors ${
+                      isDisabled || !hasPermission || isLoading
+                        ? 'text-gray-300 cursor-not-allowed'
+                        : buttonVariants[action.variant || 'default']
+                    } ${action.className || ''}`}
+                    title={
+                      isLoading
+                        ? 'Checking permissions...'
+                        : !hasPermission
+                        ? `You don't have ${action.key} permission`
+                        : action.label
                     }
-                  }}
-                  disabled={isDisabled}
-                  className={`p-1.5 rounded transition-colors ${
-                    isDisabled 
-                      ? 'text-gray-300 cursor-not-allowed' 
-                      : buttonVariants[action.variant || 'default']
-                  } ${action.className || ''}`}
-                  title={action.label}
-                >
-                  {action.icon}
-                </button>
-              );
-            })}
-          </div>
-        ),
+                  >
+                    {isLoading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+                    ) : (
+                      action.icon
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        },
       };
       
       return [...filteredColumns, actionsColumn];

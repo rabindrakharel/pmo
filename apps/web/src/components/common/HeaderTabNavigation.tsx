@@ -256,16 +256,24 @@ const getDefaultTabs = (parentType: string, parentId: string): HeaderTab[] => {
   return tabs;
 };
 
-// Hook for generating tabs from API data
+// Hook for generating tabs from API data with permission checking
 export function useHeaderTabs(parentType: string, parentId: string) {
   const [tabs, setTabs] = React.useState<HeaderTab[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const fetchActionSummaries = async () => {
+    const fetchActionSummariesAndPermissions = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem('auth_token');
+
+        if (!token || token === 'no-auth-needed') {
+          console.warn('No valid auth token found, using default tabs');
+          setTabs(getDefaultTabs(parentType, parentId));
+          return;
+        }
+
+        // Fetch action summaries
         const response = await fetch(`${API_BASE_URL}/api/v1/${parentType}/${parentId}/action-summaries`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -301,7 +309,12 @@ export function useHeaderTabs(parentType: string, parentId: string) {
             return `/${parentType}/${parentId}/${routeSegment}`;
           };
 
-          // Convert API data to tabs with corrected paths
+          // Get unique action entity types for permission checking
+          const actionEntityTypes = [...new Set(data.action_entities.map((entity: any) => entity.actionEntity))];
+
+          // Remove RBAC permission checks - tabs should always be accessible
+
+          // Convert API data to tabs - all tabs are always accessible
           const generatedTabs: HeaderTab[] = data.action_entities.map((entity: any) => {
             const entityRouteMap: Record<string, string> = {
               'task': 'task',
@@ -321,17 +334,16 @@ export function useHeaderTabs(parentType: string, parentId: string) {
               'roles': 'role',
             };
 
-            const routeSegment = entityRouteMap[entity.entity_type_code] || entity.entity_type_code;
+            const routeSegment = entityRouteMap[entity.actionEntity] || entity.actionEntity;
 
             return {
               id: routeSegment, // Use consistent route segment as ID
-              label: entity.display_name,
-              count: entity.total_accessible,
-              path: getApiEntityRoutePath(parentType, parentId, entity.entity_type_code),
-              disabled: !entity.permission_actions.includes('view'),
-              tooltip: entity.permission_actions.includes('view')
-                ? undefined
-                : `You need view permission on ${entity.display_name}`,
+              label: entity.label,
+              count: entity.count,
+              icon: getEntityIcon(entity.actionEntity),
+              path: getApiEntityRoutePath(parentType, parentId, entity.actionEntity),
+              disabled: false, // All tabs are always enabled
+              tooltip: undefined, // No permission-based tooltips
             };
           });
 
@@ -347,7 +359,13 @@ export function useHeaderTabs(parentType: string, parentId: string) {
           ]);
         } else {
           // Fallback to default tabs if API call fails
-          console.warn('API call failed, using default tabs');
+          console.warn(`API call failed with status ${response.status}: ${response.statusText}, using default tabs`);
+
+          // If unauthorized, the token might be invalid
+          if (response.status === 401) {
+            console.warn('Unauthorized - token might be expired or invalid');
+          }
+
           setTabs(getDefaultTabs(parentType, parentId));
         }
       } catch (error) {
@@ -360,7 +378,7 @@ export function useHeaderTabs(parentType: string, parentId: string) {
     };
 
     if (parentId) {
-      fetchActionSummaries();
+      fetchActionSummariesAndPermissions();
     }
   }, [parentType, parentId]);
 

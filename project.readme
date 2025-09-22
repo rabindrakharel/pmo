@@ -1,0 +1,737 @@
+# 🎯 Project Management System - User Journey Architecture Guide
+
+## 📖 Overview
+
+This guide follows the complete user journey through the Project Management System, tracing each interaction from UI components through API calls to database operations. Each section maps the full dependency chain: **User Action → Component → Props → Route → API → Database**.
+
+ Architecture Overview
+
+  Sidebar → Page → Layout/Components → Hooks → API → Database
+     ↓        ↓         ↓                ↓      ↓       ↓
+  Navigation → Route → RBAC/DataTable → Cache → REST → PostgreSQL
+
+  ---
+  1. 📋 PROJECT MAIN PAGE (/project)
+
+  🔄 User Interaction Flow
+
+  Step 1: Sidebar Navigation
+
+  User Action: Click "Projects" in sidebar
+  ├── Component: Sidebar Navigation
+  ├── Route: Navigate to "/project"
+  └── Page Load: ProjectPage.tsx
+
+  Step 2: Page Layout Initialization
+
+  Component Hierarchy:
+  ├── Layout.tsx
+  │   ├── CreateButton (entityType: "project")
+  │   └── Sidebar + Header
+  └── ProjectPage.tsx
+      ├── StatsGrid (summary cards)
+      └── DataTable (main content)
+
+  Step 3: RBAC Hook Execution
+
+  Hook: useUnifiedRBACPermissions
+  ├── Input Arguments:
+  │   ├── entityType: "project"
+  │   ├── records: Project[] (from projectApi.list)
+  │   ├── actions: ["view", "edit", "share", "delete"]
+  │   ├── parentEntity: undefined
+  │   └── parentEntityId: undefined
+  ├── Cache Key: "tier1:project"
+  └── Detection: TIER 1 (no parent context)
+
+  Step 4: API Request (TIER 1)
+
+  HTTP Request:
+  ├── Method: POST
+  ├── URL: /api/v1/rbac/get-permissions-by-entityType
+  ├── Headers:
+  │   ├── Authorization: Bearer <jwt_token>
+  │   └── Content-Type: application/json
+  └── Body:
+      {
+        "entityType": "project"
+      }
+
+  Step 5: Database Query (Backend)
+
+  SQL Operations:
+  ├── Authentication: Verify JWT token → Extract userId
+  ├── Permission Query:
+  │   SELECT e.action_entity_id, array_agg(e.action) as actions
+  │   FROM app.rel_employee_entity_action_rbac e
+  │   WHERE e.employee_id = $userId
+  │     AND e.entity_type = 'project'
+  │     AND e.active = true
+  │   GROUP BY e.action_entity_id
+  └── Result: User's project permissions by entity ID
+
+  Step 6: API Response
+
+  HTTP Response:
+  ├── Status: 200 OK
+  ├── Content-Type: application/json
+  └── Body:
+      {
+        "entityType": "project",
+        "permissions": [
+          {
+            "actionEntityId": "uuid-1",
+            "actions": ["view", "edit", "delete"]
+          },
+          {
+            "actionEntityId": "uuid-2",
+            "actions": ["view", "share"]
+          },
+          {
+            "actionEntityId": "",
+            "actions": ["create"]  // Global permission
+          }
+        ]
+      }
+
+  Step 7: Hook Processing & Caching
+
+  Frontend Processing:
+  ├── Cache Storage: rbacCache.set("tier1:project", response)
+  ├── Permission Mapping:
+  │   └── For each record in DataTable:
+  │       projects.forEach(project => {
+  │         permissions[project.id] = {
+  │           view: checkPermission(project.id, "view"),
+  │           edit: checkPermission(project.id, "edit"),
+  │           share: checkPermission(project.id, "share"),
+  │           delete: checkPermission(project.id, "delete")
+  │         }
+  │       })
+  └── Result: Record<projectId, Record<action, boolean>>
+
+  Step 8: DataTable Rendering
+
+  Component Rendering:
+  ├── Table Rows: Project list with computed permissions
+  ├── Action Buttons (per row):
+  │   ├── View: Always visible (routes to detail)
+  │   ├── Edit: permissions[project.id].edit
+  │   ├── Share: permissions[project.id].share
+  │   └── Delete: permissions[project.id].delete
+  └── Create Button: permissions[""].create (global)
+
+  ---
+  2. 🔍 PROJECT DETAIL PAGE (/project/{id})
+
+  🔄 User Interaction Flow
+
+  Step 1: Navigation from Main Page
+
+  User Action: Click project row or "View" button
+  ├── Route: Navigate to "/project/{projectId}"
+  ├── Page Load: ProjectDetailPage.tsx
+  └── URL Params: { projectId: "uuid" }
+
+  Step 2: Page Layout with Tabs
+
+  Component Hierarchy:
+  ├── Layout.tsx
+  └── ProjectDetailPage.tsx
+      ├── HeaderTabNavigation
+      │   ├── useHeaderTabs hook
+      │   └── Dynamic tab generation
+      ├── ActionBar (share button)
+      └── Project detail content
+          ├── Stats cards
+          ├── Editable fields
+          └── Information sections
+
+  Step 3: Tab Generation (Action Summaries)
+
+  Hook: useHeaderTabs("project", projectId)
+  ├── API Request:
+  │   ├── URL: /api/v1/project/{projectId}/action-summaries
+  │   ├── Method: GET
+  │   └── Purpose: Get tab counts and labels
+  ├── Response:
+  │   {
+  │     "action_entities": [
+  │       {
+  │         "actionEntity": "task",
+  │         "label": "Tasks",
+  │         "count": 15
+  │       },
+  │       {
+  │         "actionEntity": "wiki", 
+  │         "label": "Wiki",
+  │         "count": 3
+  │       }
+  │     ]
+  │   }
+  └── Result: Tab navigation with counts
+
+  Step 4: RBAC Hook for Detail Page (TIER 2)
+
+  Hook: useActionEntityPermission("project", projectId)
+  ├── API Request:
+  │   ├── URL: /api/v1/rbac/check-permission-of-entity
+  │   ├── Method: POST
+  │   └── Body:
+  │       {
+  │         "entityType": "project",
+  │         "entityId": "cbb0d7af-7cf0-4dff-8b97-114097883307"
+  │       }
+  ├── Database Query:
+  │   SELECT action_entity_id, array_agg(action) as actions
+  │   FROM app.rel_employee_entity_action_rbac
+  │   WHERE employee_id = $userId
+  │     AND entity_type = 'project'
+  │     AND action_entity_id = $projectId
+  │     AND active = true
+  │   GROUP BY action_entity_id
+  └── Response:
+      {
+        "entityType": "project",
+        "entityId": "cbb0d7af-7cf0-4dff-8b97-114097883307",
+        "permissions": [
+          {
+            "actionEntityId": "cbb0d7af-7cf0-4dff-8b97-114097883307",
+            "actions": ["edit", "share", "view"]
+          }
+        ]
+      }
+
+  Step 5: Permission-Based Rendering
+
+  UI Rendering:
+  ├── Inline Edit Buttons: Show if canEdit = true
+  ├── Share Button: Show if canShare = true
+  ├── Field Editing:
+  │   └── onClick handlers enabled based on permissions
+  └── Action Bar: Conditional action visibility
+
+  Step 6: Inline Editing Flow
+
+  User Action: Click edit button on field
+  ├── Validation: Check canEdit permission
+  ├── UI State: Show input field + save/cancel buttons
+  ├── User Input: Modify field value
+  ├── Save Action:
+  │   ├── API Request:
+  │   │   ├── URL: /api/v1/project/{projectId}
+  │   │   ├── Method: PUT
+  │   │   └── Body: { fieldName: newValue }
+  │   ├── Database Update:
+  │   │   UPDATE app.d_project 
+  │   │   SET fieldName = $newValue, updated = NOW()
+  │   │   WHERE id = $projectId
+  │   └── UI Update: Refresh local state
+  └── Cancel Action: Revert to original value
+
+  ---
+  3. 📝 PROJECT ACTION ENTITY PAGES (/project/{id}/task)
+
+  🔄 User Interaction Flow
+
+  Step 1: Tab Navigation
+
+  User Action: Click "Tasks" tab in HeaderTabNavigation
+  ├── Route: Navigate to "/project/{projectId}/task"
+  ├── Page Load: ProjectTaskPage.tsx
+  └── Parent Context: Maintained (project entity)
+
+  Step 2: Page Layout with Parent Context
+
+  Component Hierarchy:
+  ├── Layout.tsx
+  └── ProjectTaskPage.tsx
+      ├── HeaderTabNavigation (same as detail page)
+      ├── ActionBar
+      │   ├── CreateButton (for tasks within project)
+      │   ├── FilterChips
+      │   └── View toggle (Grid/Kanban)
+      └── Content Area
+          ├── KanbanBoard (if kanban view)
+          └── FilteredDataTable (if grid view)
+
+  Step 3: RBAC Hook for Action Entity (TIER 3)
+
+  Hook: useUnifiedRBACPermissions (via FilteredDataTable)
+  ├── Input Arguments:
+  │   ├── entityType: "task"
+  │   ├── records: Task[] (from API)
+  │   ├── actions: ["view", "edit", "delete"] (from rowActions)
+  │   ├── parentEntity: "project"
+  │   └── parentEntityId: "cbb0d7af-7cf0-4dff-8b97-114097883307"
+  ├── Cache Key: "tier3:project:cbb0d7af-7cf0-4dff-8b97-114097883307:task"
+  └── Detection: TIER 3 (has parent context)
+
+  Step 4: API Request (TIER 3)
+
+  HTTP Request:
+  ├── Method: POST
+  ├── URL: /api/v1/rbac/get-permissions-by-parentEntity-actionEntity
+  ├── Headers:
+  │   ├── Authorization: Bearer <jwt_token>
+  │   └── Content-Type: application/json
+  └── Body:
+      {
+        "parentEntity": "project",
+        "parentEntityId": "cbb0d7af-7cf0-4dff-8b97-114097883307",
+        "actionEntity": "task"
+      }
+
+  Step 5: Database Query (TIER 3 Backend)
+
+  SQL Operations:
+  ├── Parent Access Check:
+  │   SELECT 1 FROM app.rel_employee_entity_action_rbac
+  │   WHERE employee_id = $userId 
+  │     AND entity_type = 'project'
+  │     AND action_entity_id = $parentEntityId
+  │     AND action = 'view'
+  │     AND active = true
+  ├── Child Entity Discovery:
+  │   -- Try hierarchy mapping first
+  │   SELECT DISTINCT action_entity_id
+  │   FROM app.entity_id_hierarchy_mapping
+  │   WHERE parent_entity = 'project'
+  │     AND parent_entity_id = $parentEntityId
+  │     AND action_entity = 'task'
+  │     AND active = true
+  │   
+  │   -- Fallback to direct FK relationship
+  │   SELECT DISTINCT id
+  │   FROM app.ops_task_head
+  │   WHERE project_id = $parentEntityId
+  └── Permission Query:
+      SELECT e.action_entity_id, array_agg(e.action) as actions
+      FROM app.rel_employee_entity_action_rbac e
+      WHERE e.employee_id = $userId
+        AND e.entity_type = 'task'
+        AND (e.action_entity_id IN (childEntityIds) OR e.action_entity_id = '')
+        AND e.active = true
+      GROUP BY e.action_entity_id
+
+  Step 6: API Response (TIER 3)
+
+  HTTP Response:
+  ├── Status: 200 OK
+  ├── Content-Type: application/json
+  └── Body:
+      {
+        "parentEntity": "project",
+        "parentEntityId": "cbb0d7af-7cf0-4dff-8b97-114097883307",
+        "actionEntity": "task",
+        "permissions": [
+          {
+            "actionEntityId": "task-uuid-1",
+            "actions": ["view", "edit"]
+          },
+          {
+            "actionEntityId": "task-uuid-2",
+            "actions": ["view", "delete"]
+          },
+          {
+            "actionEntityId": "",
+            "actions": ["create"]  // Can create tasks in this project
+          }
+        ]
+      }
+
+  Step 7: FilteredDataTable Processing
+
+  Component Flow:
+  ├── Data Loading:
+  │   ├── API: /api/v1/project/{projectId}/task
+  │   ├── Query: Tasks filtered by project_id
+  │   └── Result: Task records for this project
+  ├── RBAC Processing:
+  │   ├── Permission mapping per task record
+  │   └── Action button visibility calculation
+  └── Rendering:
+      ├── Table rows with task data
+      ├── Action buttons (conditional)
+      └── Create button (if global create permission)
+
+  Step 8: Action Execution Flow
+
+  User Actions:
+  ├── Create Task:
+  │   ├── Permission: Check create permission
+  │   ├── Navigation: To task creation form
+  │   └── Context: Pre-filled with project relationship
+  ├── Edit Task:
+  │   ├── Permission: Check edit permission for specific task
+  │   ├── Navigation: To task edit form
+  │   └── Context: Task ID + project context
+  ├── Delete Task:
+  │   ├── Permission: Check delete permission for specific task
+  │   ├── Confirmation: User confirmation dialog
+  │   ├── API: DELETE /api/v1/task/{taskId}
+  │   └── Refresh: Reload task list
+  └── View Task:
+      ├── Permission: Check view permission
+      ├── Navigation: To task detail page
+      └── Context: Task ID + project breadcrumb
+
+  ---
+  4. 🔄 Cross-Page State Management
+
+  Caching Strategy
+
+  RBAC Cache Structure:
+  ├── Key Format: "tier{1|3}:{entityType}[:{parentType}:{parentId}]"
+  ├── Cache Duration: 5 minutes
+  ├── Cache Scope: Browser session
+  └── Cache Benefits:
+      ├── Prevents repeated API calls
+      ├── Faster page navigation
+      └── Consistent permission state
+
+  Navigation Context Preservation
+
+  Context Flow:
+  ├── Main → Detail: Project ID preserved
+  ├── Detail → Action: Parent context maintained
+  ├── Action → Action: Tab switching (same parent)
+  └── Breadcrumbs: Project > Tasks > Individual Task
+
+  Performance Optimizations
+
+  Frontend Optimizations:
+  ├── API call deduplication via cache
+  ├── Stable hook dependencies
+  ├── Memoized permission calculations
+  └── Lazy loading of tab content
+
+  Backend Optimizations:
+  ├── Efficient RBAC queries with indexes
+  ├── Single-pass permission aggregation
+  ├── Direct FK relationship fallbacks
+  └── Minimal data transfer
+
+  ---
+  5. 📊 Data Flow Summary
+
+  ┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────────┐
+  │   Sidebar   │───▶│    Route     │───▶│    Page     │───▶│  Component   │
+  │ Navigation  │    │  /project/*  │    │ Project*.tsx│    │  DataTable   │
+  └─────────────┘    └──────────────┘    └─────────────┘    └──────────────┘
+                                                                     │
+                                                                     ▼
+  ┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────────┐
+  │  Database   │◀───│     API      │◀───│   Hook      │◀───│     RBAC     │
+  │ PostgreSQL  │    │   Routes     │    │ useUnified* │    │    Config    │
+  └─────────────┘    └──────────────┘    └─────────────┘    └──────────────┘
+         │                   │                   │                   │
+         │                   │                   │                   │
+         ▼                   ▼                   ▼                   ▼
+   Permission           REST Response      Cached State        UI Rendering
+    Queries              Structure         Management          Conditional
+
+  This documentation provides the complete technical journey from user interaction to database query execution across all three project page types, showing how the unified
+  RBAC system seamlessly handles different contexts while maintaining performance and security.
+
+
+🎯 TIER 1: Main Page Data Table RBAC Buttons
+
+  Backend API
+
+  // File: apps/api/src/modules/rbac/routes.ts:54-94
+  POST /api/v1/rbac/get-permissions-by-entityType
+
+  Request: { entityType: "project" }
+  Response: {
+    entityType: "project",
+    permissions: [
+      { actionEntityId: "project-uuid-1", actions: ["view", "edit", "delete"] },
+      { actionEntityId: "project-uuid-2", actions: ["view", "share"] },
+      { actionEntityId: "", actions: ["create"] } // Global permissions
+    ]
+  }
+
+  UI Hook
+
+  // File: apps/web/src/components/common/RBACButton.tsx:34-138
+  export function useBatchRBACPermissions(
+    entityType: string, 
+    records: any[], 
+    actions: string[]
+  ) {
+    // Returns: { permissions: Record<string, Record<string, boolean>>, loading: boolean }
+  }
+
+  // Usage Example:
+  const { permissions, loading } = useBatchRBACPermissions(
+    'project',
+    projectRecords,
+    ['view', 'edit', 'delete', 'share']
+  );
+
+  Components Using TIER 1
+
+  1. Main Project List Page
+
+  // File: apps/web/src/pages/ProjectPage.tsx:276-279
+  <DataTable
+    data={projects}
+    columns={tableColumns}
+    rbacConfig={{
+      entityType: 'project',           // Triggers TIER 1 API
+      enablePermissionChecking: true,
+    }}
+    onView={handleView}
+    onEdit={handleEdit}
+    onShare={handleShare}
+    onDelete={handleDelete}
+  />
+
+  2. DataTable Component
+
+  // File: apps/web/src/components/ui/DataTable.tsx:105-109
+  const directPermissions = useBatchRBACPermissions(
+    shouldCheckPermissions && !isParentActionContext ? rbacConfig.entityType : '',
+    shouldCheckPermissions && !isParentActionContext ? data : [],
+    shouldCheckPermissions && !isParentActionContext ? actionsToCheck : []
+  );
+
+  3. Create Button (Layout)
+
+  // File: apps/web/src/components/layout/Layout.tsx
+  <Layout createButton={{
+    label: "Create Project",
+    href: "/project/new",
+    entityType: "project"    // Uses global create permission from TIER 1
+  }}>
+
+  ---
+  🎯 TIER 2: Detail Page Inline Edit & Share
+
+  Backend API
+
+  // File: apps/api/src/modules/rbac/routes.ts:98-145
+  POST /api/v1/rbac/check-permission-of-entity
+
+  Request: {
+    entityType: "project",
+    entityId: "cbb0d7af-7cf0-4dff-8b97-114097883307"
+  }
+  Response: {
+    entityType: "project",
+    entityId: "cbb0d7af-7cf0-4dff-8b97-114097883307",
+    permissions: [
+      { actionEntityId: "cbb0d7af-7cf0-4dff-8b97-114097883307", actions: ["edit", "share", "view"] }
+    ]
+  }
+
+  UI Hook
+
+  // File: apps/web/src/hooks/useActionEntityPermission.ts:16-98
+  export function useActionEntityPermission(
+    entityType: string,
+    entityId: string | undefined
+  ): ActionEntityPermissionHookResult {
+    // Returns: { permissions, canEdit, canShare, canDelete, canView, permissionLoading }
+  }
+
+  // Usage Example:
+  const { canEdit, canShare, permissionLoading } = useActionEntityPermission('project', projectId);
+
+  Components Using TIER 2
+
+  1. Project Detail Page
+
+  // File: apps/web/src/pages/project/ProjectDetailPage.tsx:24
+  // TIER 2: Use useActionEntityPermission hook for detail page inline edit and share
+  const { canEdit, canShare, permissionLoading } = useActionEntityPermission('project', projectId);
+
+  // Inline edit fields (lines 219, 311, 478)
+  {canEdit && (
+    <button onClick={() => handleEditField('name', projectData?.name || '')}>
+      <Edit3 className="h-4 w-4" />
+    </button>
+  )}
+
+  // Share button (lines 202-207)
+  {canShare && (
+    <ShareButton
+      onClick={() => console.log('Share project')}
+      variant="secondary"
+    />
+  )}
+
+  2. Editable Field Renderer
+
+  // File: apps/web/src/pages/project/ProjectDetailPage.tsx:140-233
+  const renderEditableField = (fieldName: string, label: string, displayValue: string) => {
+    return (
+      <div className="group">
+        {/* Display value with conditional edit button */}
+        {canEdit && (
+          <button onClick={() => handleEditField(fieldName, currentValue)}>
+            <Edit3 className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  ---
+  🎯 TIER 3: Action Entity Tab Data Tables
+
+  Backend API
+
+  // File: apps/api/src/modules/rbac/routes.ts:149-248
+  POST /api/v1/rbac/get-permissions-by-parentEntity-actionEntity
+
+  Request: {
+    parentEntity: "project",
+    parentEntityId: "cbb0d7af-7cf0-4dff-8b97-114097883307",
+    actionEntity: "task"
+  }
+  Response: {
+    parentEntity: "project",
+    parentEntityId: "cbb0d7af-7cf0-4dff-8b97-114097883307",
+    actionEntity: "task",
+    permissions: [
+      { actionEntityId: "task-uuid-1", actions: ["view", "edit"] },
+      { actionEntityId: "task-uuid-2", actions: ["view", "delete"] },
+      { actionEntityId: "", actions: ["create"] } // Can create new tasks in this project
+    ]
+  }
+
+  UI Hook
+
+  // File: apps/web/src/components/common/RBACButton.tsx:142-200
+  export function useBatchParentActionRBACPermissions(
+    parentEntity: string,
+    parentEntityId: string,
+    actionEntity: string,
+    records: any[],
+    actions: string[]
+  ) {
+    // Returns: { permissions: Record<string, Record<string, boolean>>, loading: boolean }
+  }
+
+  // Usage Example:
+  const { permissions, loading } = useBatchParentActionRBACPermissions(
+    'project',
+    projectId,
+    'task',
+    taskRecords,
+    ['view', 'edit', 'delete']
+  );
+
+  Components Using TIER 3
+
+  1. Project Task Page
+
+  // File: apps/web/src/pages/project/ProjectTaskPage.tsx:272-277
+  <FilteredDataTable
+    entityType="task"
+    parentEntity="project"        // Triggers TIER 3 API
+    parentEntityId={projectId}    // Specific project context
+  />
+
+  2. Project Wiki Page
+
+  // File: apps/web/src/pages/project/ProjectWikiPage.tsx:68-72
+  <FilteredDataTable
+    entityType="wiki"
+    parentEntity="project"        // Triggers TIER 3 API  
+    parentEntityId={projectId}    // Specific project context
+  />
+
+  3. FilteredDataTable Component
+
+  // File: apps/web/src/components/FilteredDataTable.tsx:348-353
+  <DataTable
+    rbacConfig={{
+      entityType: entityType,           // Action entity (task, wiki, artifact)
+      enablePermissionChecking: true,
+      parentEntity: parentEntity,       // Parent entity (project)
+      parentEntityId: parentEntityId,   // Specific parent ID
+    }}
+  />
+
+  4. DataTable with Parent Context
+
+  // File: apps/web/src/components/ui/DataTable.tsx:102-117
+  const isParentActionContext = shouldCheckPermissions && rbacConfig?.parentEntity && rbacConfig?.parentEntityId;
+
+  const parentActionPermissions = useBatchParentActionRBACPermissions(
+    isParentActionContext ? rbacConfig.parentEntity! : '',
+    isParentActionContext ? rbacConfig.parentEntityId! : '',
+    isParentActionContext ? rbacConfig.entityType : '',
+    isParentActionContext ? data : [],
+    isParentActionContext ? actionsToCheck : []
+  );
+
+  // Use parent-action permissions when in parent context
+  const { permissions, loading: permissionsLoading } = isParentActionContext
+    ? parentActionPermissions
+    : directPermissions;
+
+  5. Action Bar with Create Button
+
+  // File: apps/web/src/pages/project/ProjectTaskPage.tsx:224-230
+  <ActionBar
+    createButton={{
+      entityType: 'task',              // Action entity
+      parentEntity: 'project',         // Parent entity  
+      parentEntityId: projectId,       // Uses TIER 3 create permission
+      onCreateClick: () => console.log('Create task in project'),
+    }}
+  />
+
+  ---
+  🔄 Context Flow & Integration
+
+  1. Navigation Context
+
+  // Header Tab Navigation determines parent context
+  // File: apps/web/src/components/common/HeaderTabNavigation.tsx
+  <HeaderTabNavigation
+    parentType="project"           // Sets parent entity context
+    parentId={projectId}          // Sets parent entity ID context
+    tabs={tabs}                   // Dynamic tabs based on permissions
+  />
+
+  2. Permission Context Switching
+
+  // DataTable automatically switches between TIER 1 and TIER 3 based on context
+  // File: apps/web/src/components/ui/DataTable.tsx:102
+  const isParentActionContext = shouldCheckPermissions &&
+    rbacConfig?.parentEntity &&
+    rbacConfig?.parentEntityId;
+
+  // Uses TIER 1 for main pages, TIER 3 for parent-child relationships
+
+  3. API Context Resolution
+
+  // Backend resolves relationships via hierarchy mapping or direct foreign keys
+  // File: apps/api/src/modules/rbac/routes.ts:211-233
+  if (parentEntity === 'project' && actionEntity === 'task') {
+    // Direct FK: app.ops_task_head.project_id
+  } else if (parentEntity === 'project' && actionEntity === 'wiki') {
+    // Direct FK: app.d_wiki.project_id  
+  } else if (parentEntity === 'project' && actionEntity === 'artifact') {
+    // Direct FK: app.d_artifact.project_id
+  }
+
+
+
+different entities use join table: entity_id_hierarchy_mapping for join purposes, no foreign key is required for parent-action 
+entity types. 
+
+assignment box needs a simple checkbox of :\
+  parent entity type, parent entity name  that are current parent of current action entity under scope. \
+  \ It's a simple vizualization of table
+  by parent entity type. Once you have multiple tables in the same table allow removing or adding new entry for parent entity
+  name which is backend mapped to the parent entity type and parent entity id, to current action entity type and action
+  entity id. You can keep the table empty if certain eligible parent entity mapping not found in table
+  /home/rabin/projects/pmo/db/16___meta_entity_hierarchy.ddl
+  /home/rabin/projects/pmo/db/17___entity_id_hierarchy_mapping.ddl\
+  Make the component name entityAssignmentDataTable  

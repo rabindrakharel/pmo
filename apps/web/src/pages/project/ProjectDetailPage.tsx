@@ -3,11 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
-import { ScopeFilters, FilterChips } from '../../components/common/ScopeFilters';
 import { ShareButton } from '../../components/common/ActionButtons';
+import { EntityAssignmentDataTable } from '../../components/common/EntityAssignmentDataTable';
 import { Edit3, Check, X } from 'lucide-react';
 import { projectApi } from '../../lib/api';
-import { useRBACPermission } from '../../components/common/RBACButton';
+import { useActionEntityPermission } from '../../hooks/useActionEntityPermission';
 
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -20,84 +20,8 @@ export function ProjectDetailPage() {
   const [editValue, setEditValue] = React.useState<string>('');
   const [saving, setSaving] = React.useState(false);
 
-  // Check if user can edit this project as an action entity under any parent
-  const [canEdit, setCanEdit] = React.useState<boolean>(false);
-  const [permissionLoading, setPermissionLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    const checkActionEntityPermission = async () => {
-      if (!projectId) return;
-
-      try {
-        setPermissionLoading(true);
-        const token = localStorage.getItem('auth_token');
-        if (!token) {
-          setCanEdit(false);
-          return;
-        }
-
-        // Check if this project is an action entity for any parent and user has edit permission
-        console.log('Checking action entity permission for project:', projectId);
-        const response = await fetch(`${API_BASE_URL}/api/v1/rbac/check-action-entity-permission`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action_entity_type: 'project',
-            action_entity_id: projectId,
-            action: 'edit'
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Action entity permission response:', data);
-          setCanEdit(data.hasPermission || false);
-        } else {
-          console.log('Action entity permission API not available, trying fallback');
-          console.log('Response status:', response.status, response.statusText);
-          // Fallback: check direct project edit permission
-          const fallbackResponse = await fetch(`${API_BASE_URL}/api/v1/rbac/check-permission`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              entity_type: 'project',
-              entity_id: projectId,
-              action: 'edit',
-            }),
-          });
-
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            console.log('Fallback permission response:', fallbackData);
-            setCanEdit(fallbackData.hasPermission || false);
-          } else {
-            console.log('Fallback permission failed:', fallbackResponse.status, fallbackResponse.statusText);
-            setCanEdit(false);
-          }
-        }
-      } catch (error) {
-        console.error('Permission check error:', error);
-        setCanEdit(false);
-      } finally {
-        setPermissionLoading(false);
-      }
-    };
-
-    checkActionEntityPermission();
-  }, [projectId]);
-
-  // Log when permission state changes
-  React.useEffect(() => {
-    if (!permissionLoading) {
-      console.log('Final canEdit permission for project', projectId, ':', canEdit);
-    }
-  }, [permissionLoading, canEdit, projectId]);
+  // TIER 2: Use useActionEntityPermission hook for detail page inline edit and share
+  const { canEdit, canShare, permissionLoading } = useActionEntityPermission('project', projectId);
 
   React.useEffect(() => {
     const fetchProject = async () => {
@@ -275,10 +199,12 @@ export function ProjectDetailPage() {
         <ActionBar
           additionalActions={
             <div className="flex items-center space-x-3">
-              <ShareButton
-                onClick={() => console.log('Share project')}
-                variant="secondary"
-              />
+              {canShare && (
+                <ShareButton
+                  onClick={() => console.log('Share project')}
+                  variant="secondary"
+                />
+              )}
             </div>
           }
         />
@@ -504,6 +430,15 @@ export function ProjectDetailPage() {
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Entity Assignment Data Table - Show parent entity assignments */}
+            <div className="mt-6">
+              <EntityAssignmentDataTable
+                actionEntityId={projectId!}
+                actionEntityType="project"
+                actionEntityName={projectData?.name || 'Unnamed Project'}
+              />
             </div>
           </div>
         </div>

@@ -3,93 +3,96 @@ import React from 'react';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 interface ActionEntityPermissionHookResult {
+  permissions: string[];
   canEdit: boolean;
+  canShare: boolean;
+  canDelete: boolean;
+  canView: boolean;
   permissionLoading: boolean;
 }
 
+// TIER 2: Get permissions for specific entity (for detail page inline edit and share)
+// Case II: Detail page inline edit and share permissions - returns permissions JSON for specific entity
 export function useActionEntityPermission(
   entityType: string,
-  entityId: string | undefined,
-  action: string = 'edit'
+  entityId: string | undefined
 ): ActionEntityPermissionHookResult {
-  const [canEdit, setCanEdit] = React.useState<boolean>(false);
+  const [permissions, setPermissions] = React.useState<string[]>([]);
   const [permissionLoading, setPermissionLoading] = React.useState(true);
 
   React.useEffect(() => {
     const checkActionEntityPermission = async () => {
-      if (!entityId) return;
+      if (!entityId) {
+        setPermissions([]);
+        setPermissionLoading(false);
+        return;
+      }
 
       try {
         setPermissionLoading(true);
         const token = localStorage.getItem('auth_token');
         if (!token) {
-          setCanEdit(false);
+          setPermissions([]);
+          setPermissionLoading(false);
           return;
         }
 
-        // Check if this entity is an action entity for any parent and user has edit permission
-        console.log(`Checking action entity permission for ${entityType}:`, entityId);
-        const response = await fetch(`${API_BASE_URL}/api/v1/rbac/check-action-entity-permission`, {
+        // Use TIER 2 API - get permissions JSON for specific entity
+        console.log(`Getting entity permissions for ${entityType}:${entityId}`);
+        const response = await fetch(`${API_BASE_URL}/api/v1/rbac/check-permission-of-entity`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            action_entity_type: entityType,
-            action_entity_id: entityId,
-            action: action
+            entityType: entityType,
+            entityId: entityId,
           }),
         });
 
         if (response.ok) {
           const data = await response.json();
-          console.log(`Action entity permission response for ${entityType}:`, data);
-          setCanEdit(data.hasPermission || false);
+          console.log(`Entity permission response for ${entityType}:${entityId}:`, data);
+
+          // Extract permissions from the consistent format: permissions[0].actions
+          const permissions = data.permissions && data.permissions.length > 0
+            ? data.permissions[0].actions || []
+            : [];
+          setPermissions(permissions);
         } else {
-          console.log(`Action entity permission API not available for ${entityType}, trying fallback`);
-          console.log('Response status:', response.status, response.statusText);
-
-          // Fallback: check direct entity edit permission
-          const fallbackResponse = await fetch(`${API_BASE_URL}/api/v1/rbac/check-permission`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              entity_type: entityType,
-              entity_id: entityId,
-              action: action,
-            }),
-          });
-
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            console.log(`Fallback permission response for ${entityType}:`, fallbackData);
-            setCanEdit(fallbackData.hasPermission || false);
-          } else {
-            console.log(`Fallback permission failed for ${entityType}:`, fallbackResponse.status, fallbackResponse.statusText);
-            setCanEdit(false);
-          }
+          console.log(`Entity permission check failed for ${entityType}:${entityId}:`, response.status, response.statusText);
+          setPermissions([]);
         }
       } catch (error) {
-        console.error(`Permission check error for ${entityType}:`, error);
-        setCanEdit(false);
+        console.error(`Permission check error for ${entityType}:${entityId}:`, error);
+        setPermissions([]);
       } finally {
         setPermissionLoading(false);
       }
     };
 
     checkActionEntityPermission();
-  }, [entityType, entityId, action]);
+  }, [entityType, entityId]);
+
+  // Derive boolean helpers from permissions array
+  const canEdit = permissions.includes('edit');
+  const canShare = permissions.includes('share');
+  const canDelete = permissions.includes('delete');
+  const canView = permissions.includes('view');
 
   // Log when permission state changes
   React.useEffect(() => {
     if (!permissionLoading) {
-      console.log(`Final canEdit permission for ${entityType}`, entityId, ':', canEdit);
+      console.log(`Final permissions for ${entityType}:${entityId}:`, {
+        permissions,
+        canEdit,
+        canShare,
+        canDelete,
+        canView,
+      });
     }
-  }, [permissionLoading, canEdit, entityType, entityId]);
+  }, [permissionLoading, permissions, entityType, entityId, canEdit, canShare, canDelete, canView]);
 
-  return { canEdit, permissionLoading };
+  return { permissions, canEdit, canShare, canDelete, canView, permissionLoading };
 }

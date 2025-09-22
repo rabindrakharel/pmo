@@ -63,14 +63,14 @@ export function TaskFormPage() {
         <ActionBar
           createButton={{
             entityType: 'form',
-            parentEntityType: 'task',
+            parentEntity: 'task',
             parentEntityId: taskId!,
           }}
         />
 
         <FilteredDataTable
           entityType="form"
-          parentEntityType="task"
+          parentEntity="task"
           parentEntityId={taskId!}
         />
       </div>

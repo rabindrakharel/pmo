@@ -71,7 +71,7 @@ export const projectApi = {
   },
   
   async getTasks(id: string) {
-    const response = await apiClient.get(`/api/v1/project/${id}/tasks`);
+    const response = await apiClient.get(`/api/v1/project/${id}/task`);
     return response.data;
   },
   

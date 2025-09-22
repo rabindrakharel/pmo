@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FolderOpen, Calendar, Users, TrendingUp, Clock, DollarSign } from 'lucide-react';
+import { FolderOpen, TrendingUp, DollarSign } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, Column } from '../components/ui/DataTable';
 import { StatsGrid } from '../components/common/StatsGrid';
-import { projectApi, taskApi, metaApi } from '../lib/api';
+import { projectApi } from '../lib/api';
 
-// ViewMode type removed - only using table view now
 
 interface Project {
   id: string;
@@ -31,20 +30,6 @@ interface Project {
   updated?: string;
 }
 
-interface Task {
-  id: string;
-  title: string;
-  name: string;
-  descr?: string;
-  proj_head_id?: string;
-  parent_task_id?: string;
-  assignee_id?: string;
-  estimated_hours?: number;
-  story_points?: number;
-  status_name?: string;
-  stage_name?: string;
-  completion_percentage?: number;
-}
 
 export function ProjectPage() {
   const navigate = useNavigate();
@@ -77,7 +62,6 @@ export function ProjectPage() {
     }
   };
 
-  // loadTasks removed - no longer needed for table-only view
 
   const handlePaginationChange = (page: number, pageSize: number) => {
     setPagination(prev => ({ ...prev, current: page, pageSize }));
@@ -224,7 +208,6 @@ export function ProjectPage() {
     },
   ];
 
-  // Tree and Grid view logic removed - only using table view now
 
   // Navigation handlers
   const handleRowClick = (project: Project) => {
@@ -256,7 +239,6 @@ export function ProjectPage() {
     }
   };
 
-  // Simplified to only render table view
   const renderContent = () => (
     <DataTable
       data={projects}
@@ -272,11 +254,15 @@ export function ProjectPage() {
       onEdit={handleEdit}
       onShare={handleShare}
       onDelete={handleDelete}
+      rbacConfig={{
+        entityType: 'project',
+        enablePermissionChecking: true,
+      }}
     />
   );
 
   return (
-    <Layout createButton={{ label: "Create Project", href: "/project/new" }}>
+    <Layout createButton={{ label: "Create Project", href: "/project/new", entityType: "project" }}>
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
         <div className="flex items-center space-x-3">
           <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">

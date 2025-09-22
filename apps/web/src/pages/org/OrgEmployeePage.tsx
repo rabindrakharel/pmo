@@ -61,14 +61,14 @@ export function OrgEmployeePage() {
         <ActionBar
           createButton={{
             entityType: 'employee',
-            parentEntityType: 'org',
+            parentEntity: 'org',
             parentEntityId: orgId!,
           }}
         />
 
         <FilteredDataTable
           entityType="employee"
-          parentEntityType="org"
+          parentEntity="org"
           parentEntityId={orgId!}
         />
       </div>

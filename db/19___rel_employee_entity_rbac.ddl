@@ -15,7 +15,7 @@
 --
 -- DDL Structure:
 --   - employee_id: References app.d_employee(id) for the user being granted permissions
---   - permission_action: The specific permission granted ('create', 'view', 'edit', 'share')
+--   - permission_action: The specific permission granted ('create', 'view', 'edit', 'share','delete')
 --   - parent_entity: Entity type that provides the scope (from meta_entity_types.entity_type_code)
 --   - parent_entity_id: Specific instance UUID of the parent entity
 --   - action_entity: Entity type that the permission applies to (from meta_entity_types.entity_type_code)
@@ -36,6 +36,7 @@
 --   - view: Read access to entity data within scope
 --   - edit: Modify access to entity properties within scope
 --   - share: Permission to grant access to other users within scope
+--   - delete: Remove entities from the system within scope
 --
 -- Target Entity Types (from meta_entity_types):
 --   - biz, hr, org, project, task, worksite, client, employee, artifact, wiki, form, role
@@ -67,7 +68,7 @@ CREATE TABLE app.rel_employee_entity_action_rbac (
   
   -- Target/Action entity (what the permission applies to)
   action_entity text NOT NULL,
-  action_entity_id uuid NOT NULL,
+  action_entity_id uuid,  -- Nullable for create permissions
   
   -- Permission metadata
   granted_by_employee_id uuid REFERENCES app.d_employee(id),
@@ -90,7 +91,7 @@ CREATE TABLE app.rel_employee_entity_action_rbac (
   
   CONSTRAINT valid_parent_entity CHECK (parent_entity IN ('biz', 'project', 'hr', 'worksite', 'client', 'org', 'role', 'employee', 'wiki', 'form', 'task', 'artifact')),
   CONSTRAINT valid_action_entity CHECK (action_entity IN ('biz', 'project', 'hr', 'worksite', 'client', 'org', 'role', 'employee', 'wiki', 'form', 'task', 'artifact')),
-  CONSTRAINT valid_permission_action CHECK (permission_action IN ('create', 'view', 'edit', 'share'))
+  CONSTRAINT valid_permission_action CHECK (permission_action IN ('create', 'view', 'edit', 'share', 'delete'))
 );
 
 
@@ -167,9 +168,9 @@ INSERT INTO app.rel_employee_entity_action_rbac (
   employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
   granted_by_employee_id, grant_reason
 )
-SELECT 
+SELECT
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
-  unnest(ARRAY['view', 'edit', 'share']) AS permission_action,
+  unnest(ARRAY['view', 'edit', 'share', 'delete']) AS permission_action,
   'biz', biz.id, 'biz', biz.id,
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
   'CEO - Full business unit self-permissions'
@@ -189,59 +190,44 @@ INSERT INTO app.rel_employee_entity_action_rbac (
   employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
   granted_by_employee_id, grant_reason
 )
-SELECT 
+SELECT
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
-  unnest(ARRAY['view', 'edit', 'share']) AS permission_action,
+  unnest(ARRAY['view', 'edit', 'share', 'delete']) AS permission_action,
   'project', proj.id, 'project', proj.id,
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
   'CEO - Full project self-permissions'
 FROM app.d_project proj
 WHERE proj.active = true;
 
--- CEO James Miller: Creation permissions from all projects to all child entities
--- DEFERRED: Complex query with table dependencies - enable after all tables exist
-/*
+-- CEO James Miller: Creation permissions from all projects to all child entities (simplified)
 INSERT INTO app.rel_employee_entity_action_rbac (
   employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
   granted_by_employee_id, grant_reason
 )
-SELECT 
+SELECT
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
   'create',
   'project', proj.id,
   mapping.action_entity,
-  CASE 
-    WHEN mapping.action_entity = 'wiki' THEN wiki.id
-    WHEN mapping.action_entity = 'form' THEN form_head.id
-    WHEN mapping.action_entity = 'task' THEN task.id
-    WHEN mapping.action_entity = 'artifact' THEN artifact.id
-    WHEN mapping.action_entity = 'project' AND sub_proj.id IS NOT NULL THEN sub_proj.id
-  END,
+  NULL,  -- No specific action entity ID for creation permissions
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
   'CEO - Project creation permissions for ' || mapping.action_entity
 FROM app.d_project proj
 CROSS JOIN (
   SELECT DISTINCT parent_entity, action_entity
-  FROM app.meta_entity_hierarchy_permission_mapping 
+  FROM app.meta_entity_hierarchy_permission_mapping
   WHERE parent_entity = 'project' AND permission_action = 'create' AND active = true
 ) mapping
-LEFT JOIN app.d_wiki wiki ON mapping.action_entity = 'wiki' AND wiki.project_id = proj.id AND wiki.active = true
-LEFT JOIN app.ops_formlog_head form_head ON mapping.action_entity = 'form' AND form_head.project_id = proj.id AND form_head.active = true
-LEFT JOIN app.ops_task_head task ON mapping.action_entity = 'task' AND task.project_id = proj.id AND task.active = true
-LEFT JOIN app.d_artifact artifact ON mapping.action_entity = 'artifact' AND artifact.project_id = proj.id AND artifact.active = true
-LEFT JOIN app.d_project sub_proj ON mapping.action_entity = 'project' AND sub_proj.id != proj.id AND sub_proj.active = true
-WHERE proj.active = true
-  AND (wiki.id IS NOT NULL OR form_head.id IS NOT NULL OR task.id IS NOT NULL OR artifact.id IS NOT NULL OR sub_proj.id IS NOT NULL);
-*/
+WHERE proj.active = true;
 
 -- CEO James Miller: Full access to all employees (self-permissions)
 INSERT INTO app.rel_employee_entity_action_rbac (
   employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
   granted_by_employee_id, grant_reason
 )
-SELECT 
+SELECT
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
-  unnest(ARRAY['view', 'edit', 'share']) AS permission_action,
+  unnest(ARRAY['view', 'edit', 'share', 'delete']) AS permission_action,
   'employee', emp.id, 'employee', emp.id,
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
   'CEO - Full employee management permissions'
@@ -253,9 +239,9 @@ INSERT INTO app.rel_employee_entity_action_rbac (
   employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
   granted_by_employee_id, grant_reason
 )
-SELECT 
+SELECT
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
-  unnest(ARRAY['view', 'edit', 'share']) AS permission_action,
+  unnest(ARRAY['view', 'edit', 'share', 'delete']) AS permission_action,
   'role', role.id, 'role', role.id,
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
   'CEO - Full role management permissions'
@@ -267,9 +253,9 @@ INSERT INTO app.rel_employee_entity_action_rbac (
   employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
   granted_by_employee_id, grant_reason
 )
-SELECT 
+SELECT
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
-  unnest(ARRAY['view', 'edit', 'share']) AS permission_action,
+  unnest(ARRAY['view', 'edit', 'share', 'delete']) AS permission_action,
   'client', client.id, 'client', client.id,
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
   'CEO - Full client management permissions'
@@ -314,19 +300,19 @@ WHERE client.active = true
 -- FROM app.d_wiki wiki
 -- WHERE wiki.active = true;
 
--- TODO: Form permissions (self-permissions) - uncomment when ops_formlog_head table is created
--- INSERT INTO app.rel_employee_entity_action_rbac (
---   employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
---   granted_by_employee_id, grant_reason
--- )
--- SELECT 
---   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
---   unnest(ARRAY['view', 'edit', 'share']) AS permission_action,
---   'form', form_head.id, 'form', form_head.id,
---   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
---   'CEO - Full form management permissions'
--- FROM app.ops_formlog_head form_head
--- WHERE form_head.active = true;
+-- Form permissions (self-permissions)
+INSERT INTO app.rel_employee_entity_action_rbac (
+  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+  granted_by_employee_id, grant_reason
+)
+SELECT
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  unnest(ARRAY['view', 'edit', 'share', 'delete']) AS permission_action,
+  'form', form_head.id, 'form', form_head.id,
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'CEO - Full form management permissions'
+FROM app.ops_formlog_head form_head
+WHERE form_head.active = true;
 
 -- TODO: Task permissions (self-permissions) - uncomment when ops_task_head table is created
 -- INSERT INTO app.rel_employee_entity_action_rbac (
@@ -347,13 +333,369 @@ INSERT INTO app.rel_employee_entity_action_rbac (
   employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
   granted_by_employee_id, grant_reason
 )
-SELECT 
+SELECT
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
-  unnest(ARRAY['view', 'edit', 'share']) AS permission_action,
+  unnest(ARRAY['view', 'edit', 'share', 'delete']) AS permission_action,
   'artifact', artifact.id, 'artifact', artifact.id,
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
   'CEO - Full artifact management permissions'
 FROM app.d_artifact artifact
 WHERE artifact.active = true;
 
+-- ============================================================================
+-- LANDSCAPING DEPARTMENT SPECIFIC RBAC PERMISSIONS
+-- ============================================================================
+
+-- James Miller (CEO): Full access to Landscaping Department (self-permissions)
+INSERT INTO app.rel_employee_entity_action_rbac (
+  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+  granted_by_employee_id, grant_reason
+)
+SELECT
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  unnest(ARRAY['view', 'edit', 'share', 'delete']) AS permission_action,
+  'biz', biz.id, 'biz', biz.id,
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'CEO - Full access to Landscaping Department'
+FROM app.d_biz biz
+WHERE biz.name = 'Landscaping Department' AND biz.active = true;
+
+-- Carlos Martinez (Landscaping Manager): Full access to Landscaping Department (self-permissions)
+INSERT INTO app.rel_employee_entity_action_rbac (
+  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+  granted_by_employee_id, grant_reason
+)
+SELECT
+  (SELECT id FROM app.d_employee WHERE email = 'carlos.martinez@huronhome.ca'),
+  unnest(ARRAY['view', 'edit', 'share', 'delete']) AS permission_action,
+  'biz', biz.id, 'biz', biz.id,
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'Landscaping Manager - Full departmental access'
+FROM app.d_biz biz
+WHERE biz.name = 'Landscaping Department' AND biz.active = true;
+
+-- James Miller (CEO): Creation permissions from Landscaping Department to projects
+INSERT INTO app.rel_employee_entity_action_rbac (
+  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+  granted_by_employee_id, grant_reason
+)
+SELECT
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'create',
+  'biz', biz.id,
+  'project', proj.id,
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'CEO - Project creation permissions for Landscaping Department'
+FROM app.d_biz biz
+CROSS JOIN app.d_project proj
+WHERE biz.name = 'Landscaping Department' AND biz.active = true
+  AND proj.biz_id = biz.id AND proj.active = true;
+
+-- Carlos Martinez (Landscaping Manager): Creation permissions from Landscaping Department to projects
+INSERT INTO app.rel_employee_entity_action_rbac (
+  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+  granted_by_employee_id, grant_reason
+)
+SELECT
+  (SELECT id FROM app.d_employee WHERE email = 'carlos.martinez@huronhome.ca'),
+  'create',
+  'biz', biz.id,
+  'project', proj.id,
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'Landscaping Manager - Project creation and management permissions'
+FROM app.d_biz biz
+CROSS JOIN app.d_project proj
+WHERE biz.name = 'Landscaping Department' AND biz.active = true
+  AND proj.biz_id = biz.id AND proj.active = true;
+
+-- James Miller (CEO): Full access to all Landscaping Department projects (self-permissions)
+INSERT INTO app.rel_employee_entity_action_rbac (
+  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+  granted_by_employee_id, grant_reason
+)
+SELECT
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  unnest(ARRAY['view', 'edit', 'share', 'delete']) AS permission_action,
+  'project', proj.id, 'project', proj.id,
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'CEO - Full access to Landscaping Department projects'
+FROM app.d_project proj
+JOIN app.d_biz biz ON proj.biz_id = biz.id
+WHERE biz.name = 'Landscaping Department' AND biz.active = true AND proj.active = true;
+
+-- Carlos Martinez (Landscaping Manager): Full access to all Landscaping Department projects (self-permissions)
+INSERT INTO app.rel_employee_entity_action_rbac (
+  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+  granted_by_employee_id, grant_reason
+)
+SELECT
+  (SELECT id FROM app.d_employee WHERE email = 'carlos.martinez@huronhome.ca'),
+  unnest(ARRAY['view', 'edit', 'share', 'delete']) AS permission_action,
+  'project', proj.id, 'project', proj.id,
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
+  'Landscaping Manager - Full project management permissions'
+FROM app.d_project proj
+JOIN app.d_biz biz ON proj.biz_id = biz.id
+WHERE biz.name = 'Landscaping Department' AND biz.active = true AND proj.active = true;
+
 -- End of deferred RBAC data insertions
+
+-- ============================================================================
+-- FALL 2025 LANDSCAPING CAMPAIGN RBAC PERMISSIONS
+-- ============================================================================
+
+-- Comprehensive RBAC permissions for James Miller on Fall 2025 Landscaping Campaign entities
+-- These permissions ensure James Miller has full oversight and management capability
+
+WITH campaign_project AS (
+  SELECT id FROM app.d_project WHERE project_code = 'FALL-2025-LAND'
+),
+james_miller AS (
+  SELECT id FROM app.d_employee WHERE name = 'James Miller'
+),
+landscaping_biz AS (
+  SELECT id FROM app.d_biz WHERE name = 'Landscaping & Grounds Maintenance'
+)
+
+-- James Miller: Full access to Fall 2025 Landscaping Campaign project
+INSERT INTO app.rel_employee_entity_action_rbac (
+  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+  granted_by_employee_id, grant_reason
+)
+SELECT
+  james_miller.id,
+  unnest(ARRAY['view', 'edit', 'share', 'delete']) AS permission_action,
+  'project', campaign_project.id, 'project', campaign_project.id,
+  james_miller.id,
+  'CEO - Full access to Fall 2025 Landscaping Campaign project'
+FROM campaign_project, james_miller
+
+UNION ALL
+
+-- James Miller: Full access to all Fall 2025 campaign tasks
+SELECT
+  james_miller.id,
+  unnest(ARRAY['view', 'edit', 'share', 'delete']) AS permission_action,
+  'task', t.id, 'task', t.id,
+  james_miller.id,
+  'CEO - Full access to Fall 2025 Landscaping Campaign task: ' || t.name
+FROM app.ops_task_head t, james_miller
+WHERE t.task_number LIKE 'FALL-2025-LAND-%' AND t.active = true
+
+UNION ALL
+
+-- James Miller: Full access to all Fall 2025 campaign wiki entries
+SELECT
+  james_miller.id,
+  unnest(ARRAY['view', 'edit', 'share', 'delete']) AS permission_action,
+  'wiki', w.id, 'wiki', w.id,
+  james_miller.id,
+  'CEO - Full access to Fall 2025 Landscaping Campaign wiki: ' || w.title
+FROM app.d_wiki w, james_miller
+WHERE w.slug IN (
+  'fall-2025-landscaping-overview',
+  'fall-soil-preparation-guide',
+  'cool-season-grass-seeding',
+  'seasonal-plant-installation',
+  'client-communication-standards'
+) AND w.active = true
+
+UNION ALL
+
+-- James Miller: Full access to all Fall 2025 campaign artifacts
+SELECT
+  james_miller.id,
+  unnest(ARRAY['view', 'edit', 'share', 'delete']) AS permission_action,
+  'artifact', a.id, 'artifact', a.id,
+  james_miller.id,
+  'CEO - Full access to Fall 2025 Landscaping Campaign artifact: ' || a.name
+FROM app.d_artifact a, james_miller
+WHERE a.artifact_code IN (
+  'CHARTER-FALL-2025-LAND-001',
+  'PROTOCOL-SOIL-TEST-001',
+  'INVENTORY-FALL-EQUIP-001',
+  'CHECKLIST-SITE-ASSESS-001',
+  'GUIDE-GRASS-SEED-001',
+  'TEMPLATE-PLANT-DESIGN-001',
+  'FORM-QC-INSPECT-001',
+  'TEMPLATE-COMM-TIMELINE-001',
+  'SCHEDULE-FERTILIZER-001',
+  'GUIDE-WINTER-PROTECT-001',
+  'DASHBOARD-PROGRESS-001',
+  'PROTOCOL-SAFETY-FALL-001'
+) AND a.active = true
+
+UNION ALL
+
+-- James Miller: Full access to all Fall 2025 campaign forms
+SELECT
+  james_miller.id,
+  unnest(ARRAY['view', 'edit', 'share', 'delete']) AS permission_action,
+  'form', f.id, 'form', f.id,
+  james_miller.id,
+  'CEO - Full access to Fall 2025 Landscaping Campaign form: ' || f.name
+FROM app.ops_formlog_head f, james_miller
+WHERE f.form_code IN (
+  'FORM-FALL-SITE-ASSESS',
+  'FORM-FALL-DAILY-PROGRESS',
+  'FORM-FALL-CLIENT-CONSULT',
+  'FORM-FALL-QC-INSPECT',
+  'FORM-FALL-MATERIAL-TRACK'
+) AND f.active = true;
+
+-- James Miller: Creation permissions from Fall 2025 project to all action entities
+WITH campaign_project AS (
+  SELECT id FROM app.d_project WHERE project_code = 'FALL-2025-LAND'
+),
+james_miller AS (
+  SELECT id FROM app.d_employee WHERE name = 'James Miller'
+)
+INSERT INTO app.rel_employee_entity_action_rbac (
+  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+  granted_by_employee_id, grant_reason
+)
+SELECT
+  james_miller.id,
+  'create',
+  'project', campaign_project.id,
+  mapping.action_entity,
+  NULL,  -- No specific action entity ID for creation permissions
+  james_miller.id,
+  'CEO - Creation permissions from Fall 2025 project for ' || mapping.action_entity
+FROM campaign_project, james_miller
+CROSS JOIN (
+  SELECT DISTINCT parent_entity, action_entity
+  FROM app.meta_entity_hierarchy_permission_mapping
+  WHERE parent_entity = 'project' AND permission_action = 'create' AND active = true
+) mapping;
+
+-- James Miller: Creation permissions from Landscaping business unit to Fall 2025 project
+WITH campaign_project AS (
+  SELECT id FROM app.d_project WHERE project_code = 'FALL-2025-LAND'
+),
+james_miller AS (
+  SELECT id FROM app.d_employee WHERE name = 'James Miller'
+),
+landscaping_biz AS (
+  SELECT id FROM app.d_biz WHERE name = 'Landscaping & Grounds Maintenance'
+)
+INSERT INTO app.rel_employee_entity_action_rbac (
+  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+  granted_by_employee_id, grant_reason
+)
+SELECT
+  james_miller.id,
+  'create',
+  'biz', landscaping_biz.id,
+  'project', campaign_project.id,
+  james_miller.id,
+  'CEO - Creation permissions from Landscaping Biz to Fall 2025 project'
+FROM campaign_project, james_miller, landscaping_biz;
+
+-- James Miller: View permissions on all team member employees assigned to Fall 2025 tasks
+WITH james_miller AS (
+  SELECT id FROM app.d_employee WHERE name = 'James Miller'
+)
+INSERT INTO app.rel_employee_entity_action_rbac (
+  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+  granted_by_employee_id, grant_reason
+)
+SELECT DISTINCT
+  james_miller.id,
+  unnest(ARRAY['view', 'edit', 'share']) AS permission_action,
+  'employee', emp.id, 'employee', emp.id,
+  james_miller.id,
+  'CEO - Team management permissions for Fall 2025 campaign team member: ' || emp.name
+FROM app.d_employee emp, james_miller
+WHERE emp.name IN ('Amanda Foster', 'Tom Richardson', 'Carlos Santos', 'Patricia Lee')
+  AND emp.active = true;
+
+-- James Miller: Task assignment permissions (employee to task relationships)
+WITH james_miller AS (
+  SELECT id FROM app.d_employee WHERE name = 'James Miller'
+)
+INSERT INTO app.rel_employee_entity_action_rbac (
+  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+  granted_by_employee_id, grant_reason
+)
+SELECT
+  james_miller.id,
+  unnest(ARRAY['view', 'edit', 'share']) AS permission_action,
+  'task', t.id,
+  'employee', t.assigned_to_employee_id,
+  james_miller.id,
+  'CEO - Task assignment management for Fall 2025 task: ' || t.name
+FROM app.ops_task_head t, james_miller
+WHERE t.task_number LIKE 'FALL-2025-LAND-%'
+  AND t.assigned_to_employee_id IS NOT NULL
+  AND t.active = true;
+
+-- Additional team member permissions for Fall 2025 campaign
+
+-- Team member task-specific permissions
+WITH james_miller AS (
+  SELECT id FROM app.d_employee WHERE name = 'James Miller'
+)
+INSERT INTO app.rel_employee_entity_action_rbac (
+  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+  granted_by_employee_id, grant_reason
+)
+SELECT
+  emp.id,
+  unnest(ARRAY['view', 'edit']) AS permission_action,
+  'task', t.id, 'task', t.id,
+  james_miller.id,
+  'Task assignment - ' || emp.name || ' permissions for: ' || t.name
+FROM app.d_employee emp, app.ops_task_head t, james_miller
+WHERE (emp.name = 'Amanda Foster' AND t.task_number IN ('FALL-2025-LAND-001', 'FALL-2025-LAND-008'))
+   OR (emp.name = 'Tom Richardson' AND t.task_number IN ('FALL-2025-LAND-002', 'FALL-2025-LAND-006'))
+   OR (emp.name = 'Carlos Santos' AND t.task_number IN ('FALL-2025-LAND-003', 'FALL-2025-LAND-005', 'FALL-2025-LAND-009'))
+   OR (emp.name = 'Patricia Lee' AND t.task_number IN ('FALL-2025-LAND-004', 'FALL-2025-LAND-007'))
+  AND t.active = true;
+
+-- All Fall 2025 team members: View access to project-level wiki and artifacts
+WITH james_miller AS (
+  SELECT id FROM app.d_employee WHERE name = 'James Miller'
+)
+INSERT INTO app.rel_employee_entity_action_rbac (
+  employee_id, permission_action, parent_entity, parent_entity_id, action_entity, action_entity_id,
+  granted_by_employee_id, grant_reason
+)
+SELECT
+  emp.id,
+  'view',
+  'wiki', w.id, 'wiki', w.id,
+  james_miller.id,
+  'Team access - Fall 2025 team wiki viewing for: ' || emp.name
+FROM app.d_employee emp, app.d_wiki w, james_miller
+WHERE emp.name IN ('Amanda Foster', 'Tom Richardson', 'Carlos Santos', 'Patricia Lee')
+  AND w.slug IN (
+    'fall-2025-landscaping-overview',
+    'fall-soil-preparation-guide',
+    'cool-season-grass-seeding',
+    'seasonal-plant-installation',
+    'client-communication-standards'
+  )
+  AND emp.active = true
+  AND w.active = true
+
+UNION ALL
+
+SELECT
+  emp.id,
+  'view',
+  'artifact', a.id, 'artifact', a.id,
+  james_miller.id,
+  'Team access - Fall 2025 team artifact viewing for: ' || emp.name
+FROM app.d_employee emp, app.d_artifact a, james_miller
+WHERE emp.name IN ('Amanda Foster', 'Tom Richardson', 'Carlos Santos', 'Patricia Lee')
+  AND a.artifact_code IN (
+    'CHECKLIST-SITE-ASSESS-001',
+    'GUIDE-GRASS-SEED-001',
+    'TEMPLATE-PLANT-DESIGN-001',
+    'SCHEDULE-FERTILIZER-001',
+    'GUIDE-WINTER-PROTECT-001',
+    'PROTOCOL-SAFETY-FALL-001'
+  )
+  AND emp.active = true
+  AND a.active = true;

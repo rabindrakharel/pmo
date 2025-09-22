@@ -26,9 +26,10 @@ import { sql } from 'drizzle-orm';
  */
 export enum PermissionAction {
   CREATE = 'create',
-  VIEW = 'view', 
+  VIEW = 'view',
   EDIT = 'edit',
   SHARE = 'share',
+  DELETE = 'delete',
 }
 
 /**
@@ -45,7 +46,7 @@ const mapActionToPermission = (action: EntityAction): PermissionAction => {
     case 'edit':
       return PermissionAction.EDIT;
     case 'delete':
-      return PermissionAction.EDIT; // Delete requires edit permission
+      return PermissionAction.DELETE; // Delete requires explicit delete permission
     case 'create':
       return PermissionAction.CREATE;
     case 'share':
@@ -238,7 +239,7 @@ export async function getCreatableEntityTypes(
 export async function getEmployeeEntityPermissions(
   employeeId: string,
   entityType: string
-): Promise<{ entityId: string, permissions: string[] }[]> {
+): Promise<{ actionEntityId: string, permissions: string[] }[]> {
   if (!employeeId) {
     return [];
   }
@@ -260,7 +261,7 @@ export async function getEmployeeEntityPermissions(
     `);
     
     return result.map(row => ({
-      entityId: row.action_entity_id as string,
+      actionEntityId: (row.action_entity_id as string) || '',
       permissions: (Array.isArray(row.permissions) ? row.permissions : []) as string[],
     }));
     

@@ -34,6 +34,7 @@ import { GlobalSearchCompact } from '../common/GlobalSearch';
 interface CreateButtonConfig {
   label: string;
   href: string;
+  entityType: string;  // Added for RBAC
 }
 
 interface LayoutProps {
@@ -129,9 +130,10 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
           {/* Create Button in Content Area */}
           {createButton && (
             <div className="flex justify-end mb-4">
-              <CreateButton 
-                label={createButton.label} 
-                href={createButton.href} 
+              <CreateButton
+                label={createButton.label}
+                href={createButton.href}
+                entityType={createButton.entityType}
                 size="sm"
               />
             </div>
@@ -396,6 +398,7 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                 <CreateButton
                   label={createButton.label}
                   href={createButton.href}
+                  entityType={createButton.entityType}
                   size="sm"
                 />
               )}

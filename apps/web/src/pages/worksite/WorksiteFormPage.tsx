@@ -61,14 +61,14 @@ export function WorksiteFormPage() {
         <ActionBar
           createButton={{
             entityType: 'form',
-            parentEntityType: 'worksite',
+            parentEntity: 'worksite',
             parentEntityId: worksiteId!,
           }}
         />
 
         <FilteredDataTable
           entityType="form"
-          parentEntityType="worksite"
+          parentEntity="worksite"
           parentEntityId={worksiteId!}
         />
       </div>

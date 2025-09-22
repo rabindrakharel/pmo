@@ -62,14 +62,14 @@ export function BusinessWikiPage() {
         <ActionBar
           createButton={{
             entityType: 'wiki',
-            parentEntityType: 'biz',
+            parentEntity: 'biz',
             parentEntityId: bizId!,
           }}
         />
 
         <FilteredDataTable
           entityType="wiki"
-          parentEntityType="biz"
+          parentEntity="biz"
           parentEntityId={bizId!}
         />
       </div>

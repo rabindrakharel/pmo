@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
-import { ScopeFilters, FilterChips } from '../../components/common/ScopeFilters';
+import { FilterChips } from '../../components/common/ScopeFilters';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 import { LayoutGrid, List, Kanban } from 'lucide-react';
 import { projectApi } from '../../lib/api';
@@ -142,7 +142,6 @@ export function ProjectTaskPage() {
   const navigate = useNavigate();
   const { tabs, loading } = useHeaderTabs('project', projectId!);
   const [viewMode, setViewMode] = useState<'grid' | 'kanban'>('grid');
-  const [selectedScopes, setSelectedScopes] = useState<string[]>([]);
   const [filterState, setFilterState] = useState({
     all: true,
     mine: false,
@@ -225,18 +224,13 @@ export function ProjectTaskPage() {
         <ActionBar
           createButton={{
             entityType: 'task',
-            parentEntityType: 'project',
+            parentEntity: 'project',
             parentEntityId: projectId!,
             onCreateClick: () => console.log('Create task in project'),
           }}
           scopeFilters={
             <div className="flex items-center space-x-4">
               <FilterChips filters={filterChips} />
-              <ScopeFilters
-                entityType="task"
-                selectedScopes={selectedScopes}
-                onScopeChange={setSelectedScopes}
-              />
             </div>
           }
           additionalActions={
@@ -277,7 +271,7 @@ export function ProjectTaskPage() {
             <div className="bg-white rounded-lg shadow h-full flex flex-col">
               <FilteredDataTable
                 entityType="task"
-                parentEntityType="project"
+                parentEntity="project"
                 parentEntityId={projectId!}
               />
             </div>

@@ -3,10 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
-import { ScopeFilters, FilterChips } from '../../components/common/ScopeFilters';
+import { FilterChips } from '../../components/common/ScopeFilters';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 import { FileText, Eye, Download, MoreVertical, Image, FileVideo, FileArchive } from 'lucide-react';
 import { projectApi } from '../../lib/api';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 interface Artifact {
   id: string;
@@ -213,7 +215,6 @@ export function ProjectArtifactPage() {
   const [artifactsLoading, setArtifactsLoading] = useState(true);
   const [projectData, setProjectData] = useState<any>(null);
   const [previewArtifact, setPreviewArtifact] = useState<Artifact | null>(null);
-  const [selectedScopes, setSelectedScopes] = useState<string[]>([]);
   const [filterState, setFilterState] = useState({
     all: true,
     design: false,
@@ -229,7 +230,7 @@ export function ProjectArtifactPage() {
         // Fetch project data and artifacts in parallel
         const [projectResponse, artifactsResponse] = await Promise.all([
           projectApi.get(projectId),
-          fetch(`${API_BASE_URL}/api/v1/project/${projectId}/artifacts`, {
+          fetch(`${API_BASE_URL}/api/v1/project/${projectId}/artifact`, {
             headers: { 'Authorization': `Bearer ${token}` },
           }),
         ]);
@@ -313,18 +314,13 @@ export function ProjectArtifactPage() {
         <ActionBar
           createButton={{
             entityType: 'artifact',
-            parentEntityType: 'project',
+            parentEntity: 'project',
             parentEntityId: projectId!,
             onCreateClick: () => console.log('Upload artifact to project'),
           }}
           scopeFilters={
             <div className="flex items-center space-x-4">
               <FilterChips filters={filterChips} />
-              <ScopeFilters
-                entityType="artifact"
-                selectedScopes={selectedScopes}
-                onScopeChange={setSelectedScopes}
-              />
             </div>
           }
           additionalActions={
@@ -338,7 +334,7 @@ export function ProjectArtifactPage() {
         <div className="flex-1 p-6 overflow-y-auto">
           <FilteredDataTable
             entityType="artifact"
-            parentEntityType="project"
+            parentEntity="project"
             parentEntityId={projectId!}
           />
         </div>

@@ -269,7 +269,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       }
 
       // Build conditions for task filtering
-      const conditions = [sql`th.proj_head_id = ${projectId}`, sql`th.active = true`];
+      const conditions = [sql`th.project_id = ${projectId}`, sql`th.active = true`];
       
       if (status) {
         conditions.push(sql`tr.status_name = ${status}`);
@@ -281,7 +281,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const tasks = await db.execute(sql`
         SELECT 
           th.id, th.title, th.task_code, th.task_type, th.priority,
-          th.assignee_id, th.reporter_id, th.proj_head_id,
+          th.assignee_id, th.reporter_id, th.project_id,
           th.estimated_hours, th.story_points,
           th.planned_start_date, th.planned_end_date,
           th.name, th.descr, th.tags, th.created, th.updated,
@@ -316,6 +316,322 @@ export async function projectRoutes(fastify: FastifyInstance) {
       };
     } catch (error) {
       fastify.log.error('Error fetching project tasks:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get project action summaries - for tab navigation
+  fastify.get('/api/v1/project/:id/action-summaries', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      response: {
+        200: Type.Object({
+          action_entities: Type.Array(Type.Object({
+            actionEntity: Type.String(),
+            count: Type.Number(),
+            label: Type.String(),
+            icon: Type.Optional(Type.String())
+          })),
+          project_id: Type.String()
+        }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async function (request, reply) {
+    try {
+      const { id: projectId } = request.params as { id: string };
+      const userId = request.user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Check if user has access to this project
+      const hasViewAccess = await hasPermissionOnEntityId(userId, 'project', projectId, 'view');
+      if (!hasViewAccess) {
+        return reply.status(403).send({ error: 'Insufficient permissions to view this project' });
+      }
+
+      // Check if project exists
+      const project = await db.execute(sql`
+        SELECT id FROM app.d_project WHERE id = ${projectId} AND active = true
+      `);
+
+      if (project.length === 0) {
+        return reply.status(404).send({ error: 'Project not found' });
+      }
+
+      // Get action summaries for this project
+      const actionSummaries = [];
+
+      // Count tasks using join table
+      const taskCount = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM app.ops_task_head t
+        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = t.id
+        WHERE eh.parent_entity_id = ${projectId}
+          AND eh.parent_entity = 'project'
+          AND eh.action_entity = 'task'
+          AND eh.active = true
+          AND t.active = true
+      `);
+      actionSummaries.push({
+        actionEntity: 'task',
+        count: Number(taskCount[0]?.count || 0),
+        label: 'Tasks',
+        icon: 'CheckSquare'
+      });
+
+      // Count artifacts using join table
+      const artifactCount = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM app.d_artifact a
+        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = a.id
+        WHERE eh.parent_entity_id = ${projectId}
+          AND eh.parent_entity = 'project'
+          AND eh.action_entity = 'artifact'
+          AND eh.active = true
+          AND a.active = true
+      `);
+      actionSummaries.push({
+        actionEntity: 'artifact',
+        count: Number(artifactCount[0]?.count || 0),
+        label: 'Artifacts',
+        icon: 'FileText'
+      });
+
+      // Count wiki entries using join table
+      const wikiCount = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM app.d_wiki w
+        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = w.id
+        WHERE eh.parent_entity_id = ${projectId}
+          AND eh.parent_entity = 'project'
+          AND eh.action_entity = 'wiki'
+          AND eh.active = true
+          AND w.active = true
+      `);
+      actionSummaries.push({
+        actionEntity: 'wiki',
+        count: Number(wikiCount[0]?.count || 0),
+        label: 'Wiki',
+        icon: 'BookOpen'
+      });
+
+      // Count forms using join table
+      const formCount = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM app.ops_formlog_head f
+        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = f.id
+        WHERE eh.parent_entity_id = ${projectId}
+          AND eh.parent_entity = 'project'
+          AND eh.action_entity = 'form'
+          AND eh.active = true
+          AND f.active = true
+      `);
+      actionSummaries.push({
+        actionEntity: 'form',
+        count: Number(formCount[0]?.count || 0),
+        label: 'Forms',
+        icon: 'FileText'
+      });
+
+      return {
+        action_entities: actionSummaries,
+        project_id: projectId
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching project action summaries:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get project wiki entries
+  fastify.get('/api/v1/project/:id/wiki', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      querystring: Type.Object({
+        page: Type.Optional(Type.Integer({ minimum: 1 })),
+        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+      })
+    }
+  }, async function (request, reply) {
+    try {
+      const { id: projectId } = request.params as { id: string };
+      const { page = 1, limit = 20 } = request.query as any;
+      const userId = request.user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Check if user has access to this project
+      const hasViewAccess = await hasPermissionOnEntityId(userId, 'project', projectId, 'view');
+      if (!hasViewAccess) {
+        return reply.status(403).send({ error: 'Access denied for this project' });
+      }
+
+      const offset = (page - 1) * limit;
+      const wiki = await db.execute(sql`
+        SELECT w.id, w.title as name, w.summary as descr, w.tags, w.created, w.updated
+        FROM app.d_wiki w
+        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = w.id
+        WHERE eh.parent_entity_id = ${projectId}
+          AND eh.parent_entity = 'project'
+          AND eh.action_entity = 'wiki'
+          AND eh.active = true
+          AND w.active = true
+        ORDER BY w.created DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as total
+        FROM app.d_wiki w
+        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = w.id
+        WHERE eh.parent_entity_id = ${projectId}
+          AND eh.parent_entity = 'project'
+          AND eh.action_entity = 'wiki'
+          AND eh.active = true
+          AND w.active = true
+      `);
+
+      return {
+        data: wiki,
+        total: Number(countResult[0]?.total || 0),
+        page,
+        limit
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching project wiki:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get project forms
+  fastify.get('/api/v1/project/:id/forms', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      querystring: Type.Object({
+        page: Type.Optional(Type.Integer({ minimum: 1 })),
+        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+      })
+    }
+  }, async function (request, reply) {
+    try {
+      const { id: projectId } = request.params as { id: string };
+      const { page = 1, limit = 20 } = request.query as any;
+      const userId = request.user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Check if user has access to this project
+      const hasViewAccess = await hasPermissionOnEntityId(userId, 'project', projectId, 'view');
+      if (!hasViewAccess) {
+        return reply.status(403).send({ error: 'Access denied for this project' });
+      }
+
+      const offset = (page - 1) * limit;
+      const forms = await db.execute(sql`
+        SELECT id, name, descr, tags, created, updated
+        FROM app.ops_formlog_head
+        WHERE project_id = ${projectId} AND active = true
+        ORDER BY created DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as total
+        FROM app.ops_formlog_head
+        WHERE project_id = ${projectId} AND active = true
+      `);
+
+      return {
+        data: forms,
+        total: Number(countResult[0]?.total || 0),
+        page,
+        limit
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching project forms:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get project artifacts
+  fastify.get('/api/v1/project/:id/artifacts', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      querystring: Type.Object({
+        page: Type.Optional(Type.Integer({ minimum: 1 })),
+        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+      })
+    }
+  }, async function (request, reply) {
+    try {
+      const { id: projectId } = request.params as { id: string };
+      const { page = 1, limit = 20 } = request.query as any;
+      const userId = request.user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Check if user has access to this project
+      const hasViewAccess = await hasPermissionOnEntityId(userId, 'project', projectId, 'view');
+      if (!hasViewAccess) {
+        return reply.status(403).send({ error: 'Access denied for this project' });
+      }
+
+      const offset = (page - 1) * limit;
+      const artifacts = await db.execute(sql`
+        SELECT a.id, a.name, a.descr, a.tags, a.created, a.updated
+        FROM app.d_artifact a
+        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = a.id
+        WHERE eh.parent_entity_id = ${projectId}
+          AND eh.parent_entity = 'project'
+          AND eh.action_entity = 'artifact'
+          AND eh.active = true
+          AND a.active = true
+        ORDER BY a.created DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as total
+        FROM app.d_artifact a
+        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = a.id
+        WHERE eh.parent_entity_id = ${projectId}
+          AND eh.parent_entity = 'project'
+          AND eh.action_entity = 'artifact'
+          AND eh.active = true
+          AND a.active = true
+      `);
+
+      return {
+        data: artifacts,
+        total: Number(countResult[0]?.total || 0),
+        page,
+        limit
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching project artifacts:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -652,6 +968,213 @@ export async function projectRoutes(fastify: FastifyInstance) {
       return reply.status(204).send();
     } catch (error) {
       fastify.log.error('Error deleting project:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Add singular endpoint aliases for frontend compatibility
+  fastify.get('/api/v1/project/:id/task', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      querystring: Type.Object({
+        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+        offset: Type.Optional(Type.Integer({ minimum: 0 })),
+        status: Type.Optional(Type.String()),
+        assignee: Type.Optional(Type.String())
+      }),
+    },
+  }, async function (request, reply) {
+    try {
+      const { id: projectId } = request.params as { id: string };
+      const { limit = 50, offset = 0, status, assignee } = request.query as any;
+      const userId = request.user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Get employee's allowed project IDs for filtering
+      const allowedProjectIds = await getEmployeeEntityIds(userId, 'project');
+
+      if (!allowedProjectIds.includes(projectId)) {
+        return reply.status(403).send({ error: 'Access denied for this project' });
+      }
+
+      // Use entity_id_hierarchy_mapping to get tasks for this project
+      let query = sql`
+        SELECT t.*, COALESCE(t.name, 'Untitled Task') as name, t.descr
+        FROM app.ops_task_head t
+        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = t.id
+        WHERE eh.parent_entity_id = ${projectId}
+          AND eh.parent_entity = 'project'
+          AND eh.action_entity = 'task'
+          AND eh.active = true
+          AND t.active = true
+      `;
+
+      if (status) {
+        query = sql`${query} AND t.status = ${status}`;
+      }
+
+      if (assignee) {
+        query = sql`${query} AND t.assignee = ${assignee}`;
+      }
+
+      query = sql`${query} ORDER BY t.created DESC LIMIT ${limit} OFFSET ${offset}`;
+
+      const tasks = await db.execute(query);
+
+      // Get total count
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as total
+        FROM app.ops_task_head t
+        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = t.id
+        WHERE eh.parent_entity_id = ${projectId}
+          AND eh.parent_entity = 'project'
+          AND eh.action_entity = 'task'
+          AND eh.active = true
+          AND t.active = true
+      `);
+
+      return {
+        data: tasks,
+        total: Number(countResult[0]?.total || 0),
+        limit,
+        offset
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching project tasks:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  fastify.get('/api/v1/project/:id/form', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      querystring: Type.Object({
+        page: Type.Optional(Type.Integer({ minimum: 1 })),
+        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+      })
+    }
+  }, async function (request, reply) {
+    try {
+      const { id: projectId } = request.params as { id: string };
+      const { page = 1, limit = 20 } = request.query as any;
+      const userId = request.user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Check if user has access to this project
+      const hasViewAccess = await hasPermissionOnEntityId(userId, 'project', projectId, 'view');
+      if (!hasViewAccess) {
+        return reply.status(403).send({ error: 'Access denied for this project' });
+      }
+
+      const offset = (page - 1) * limit;
+      const forms = await db.execute(sql`
+        SELECT f.*, COALESCE(f.name, 'Untitled Form') as name, f.descr
+        FROM app.ops_formlog_head f
+        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = f.id
+        WHERE eh.parent_entity_id = ${projectId}
+          AND eh.parent_entity = 'project'
+          AND eh.action_entity = 'form'
+          AND eh.active = true
+          AND f.active = true
+        ORDER BY f.created DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as total
+        FROM app.ops_formlog_head f
+        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = f.id
+        WHERE eh.parent_entity_id = ${projectId}
+          AND eh.parent_entity = 'project'
+          AND eh.action_entity = 'form'
+          AND eh.active = true
+          AND f.active = true
+      `);
+
+      return {
+        data: forms,
+        total: Number(countResult[0]?.total || 0),
+        page,
+        limit
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching project forms:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  fastify.get('/api/v1/project/:id/artifact', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      querystring: Type.Object({
+        page: Type.Optional(Type.Integer({ minimum: 1 })),
+        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+      })
+    }
+  }, async function (request, reply) {
+    try {
+      const { id: projectId } = request.params as { id: string };
+      const { page = 1, limit = 20 } = request.query as any;
+      const userId = request.user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Check if user has access to this project
+      const hasViewAccess = await hasPermissionOnEntityId(userId, 'project', projectId, 'view');
+      if (!hasViewAccess) {
+        return reply.status(403).send({ error: 'Access denied for this project' });
+      }
+
+      const offset = (page - 1) * limit;
+      const artifacts = await db.execute(sql`
+        SELECT a.*, COALESCE(a.name, 'Untitled Artifact') as name, a.descr
+        FROM app.d_artifact a
+        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = a.id
+        WHERE eh.parent_entity_id = ${projectId}
+          AND eh.parent_entity = 'project'
+          AND eh.action_entity = 'artifact'
+          AND eh.active = true
+          AND a.active = true
+        ORDER BY a.created DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as total
+        FROM app.d_artifact a
+        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = a.id
+        WHERE eh.parent_entity_id = ${projectId}
+          AND eh.parent_entity = 'project'
+          AND eh.action_entity = 'artifact'
+          AND eh.active = true
+          AND a.active = true
+      `);
+
+      return {
+        data: artifacts,
+        total: Number(countResult[0]?.total || 0),
+        page,
+        limit
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching project artifacts:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

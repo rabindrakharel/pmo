@@ -132,7 +132,7 @@ echo -e "${BLUE}🔧 Starting API development server on port $API_PORT...${NC}"
 export DATABASE_URL="postgresql://app:app@localhost:5434/app"
 export REDIS_URL="redis://localhost:6379"  
 export JWT_SECRET="your-super-secret-jwt-key-change-in-production"
-export DEV_BYPASS_OIDC="true"
+# DEV_BYPASS_OIDC removed - using production-grade auth only
 
 # Start the API server in background and capture PID
 cd apps/api

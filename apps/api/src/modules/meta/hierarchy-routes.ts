@@ -51,10 +51,57 @@ const ActionEntitySummarySchema = Type.Object({
 });
 
 export async function hierarchyRoutes(fastify: FastifyInstance) {
-  
+
+  // Get eligible parent entity types for an action entity type
+  fastify.get('/api/v1/meta/entity-hierarchy/eligible-parents', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['meta', 'hierarchy'],
+      summary: 'Get eligible parent entity types',
+      description: 'Returns valid parent entity types for the specified action entity type',
+      querystring: Type.Object({
+        action_entity: Type.String(),
+      }),
+      response: {
+        200: Type.Object({
+          data: Type.Array(Type.String()),
+        }),
+        401: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const employeeId = (request as any).user?.sub;
+      const { action_entity } = request.query as { action_entity: string };
+
+      if (!employeeId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      // Get eligible parent entity types from meta hierarchy
+      const parentTypes = await db.execute(sql`
+        SELECT DISTINCT parent_entity
+        FROM app.meta_entity_hierarchy
+        WHERE action_entity = ${action_entity}
+          AND active = true
+        ORDER BY parent_entity
+      `);
+
+      const eligibleParentTypes = parentTypes.map(row => String(row.parent_entity));
+
+      return {
+        data: eligibleParentTypes,
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching eligible parent types:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
   // Get action entity summaries for parent context (for HeaderTabNavigation)
   fastify.get('/api/v1/:parentEntity/:parentId/action-summaries', {
-    
+    preHandler: [fastify.authenticate],
     schema: {
       tags: ['meta', 'hierarchy'],
       summary: 'Get action entity summaries for parent context',
@@ -295,7 +342,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
   // Get complete navigation structure for user (combines entity types + permissions)
   fastify.get('/api/v1/meta/navigation', {
-    
+    preHandler: [fastify.authenticate],
     schema: {
       tags: ['meta', 'hierarchy'],
       summary: 'Get complete navigation structure',
@@ -370,7 +417,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
   // Get action entities available within a specific parent entity (for headerTabNavigation)
   fastify.get('/api/v1/meta/parent-entity/:parentEntity/action-entities', {
-    
+    preHandler: [fastify.authenticate],
     schema: {
       tags: ['meta', 'hierarchy'],
       summary: 'Get available action entities for parent entity',
@@ -450,7 +497,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
   // Get entity instance hierarchy (breadcrumb data)
   fastify.get('/api/v1/meta/entity/:entityType/:entityId/hierarchy', {
-    
+    preHandler: [fastify.authenticate],
     schema: {
       tags: ['meta', 'hierarchy'],
       summary: 'Get entity instance hierarchy',
@@ -548,7 +595,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
   // Global omnibox search endpoint (⌘K functionality)
   fastify.get('/api/v1/search/global', {
-    
+    preHandler: [fastify.authenticate],
     schema: {
       tags: ['search', 'global'],
       summary: 'Global omnibox search',
@@ -735,7 +782,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
   // Scope filters endpoint (for action bar filtering)
   fastify.get('/api/v1/filters/scopes', {
-    
+    preHandler: [fastify.authenticate],
     schema: {
       tags: ['filters', 'scopes'],
       summary: 'Get available scope filters',
@@ -766,18 +813,104 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
       const scopes = [];
 
-      // Get business unit scopes
-      const bizIds = await getEmployeeEntityIds(employeeId, 'biz', 'view');
-      if (bizIds.length > 0) {
-        const bizScopes = await db.execute(sql`
-          SELECT id, name, 
-            (SELECT COUNT(*) FROM app.${sql.raw(entity_type === 'project' ? 'd_project' : 'ops_task_head')} 
-             WHERE biz_id = d_biz.id AND active = true) as entity_count
-          FROM app.d_biz 
-          WHERE id = ANY(${bizIds}) AND active = true
+      // Get project scopes (parent entities for action entities like task, wiki, artifact, form)
+      const projectIds = await getEmployeeEntityIds(employeeId, 'project', 'view');
+      if (projectIds.length > 0) {
+        // Map action entity types to their counting queries
+        const getEntityCountQuery = (entityType: string) => {
+          switch (entityType) {
+            case 'task':
+              return sql`(SELECT COUNT(*) FROM app.ops_task_head WHERE project_id = d_project.id AND active = true)`;
+            case 'wiki':
+              return sql`(SELECT COUNT(*) FROM app.d_wiki w
+                         INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = w.id
+                         WHERE eh.parent_entity_id = d_project.id
+                           AND eh.action_entity = 'wiki'
+                           AND eh.parent_entity = 'project'
+                           AND eh.active = true
+                           AND w.active = true)`;
+            case 'artifact':
+              return sql`(SELECT COUNT(*) FROM app.d_artifact a
+                         INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = a.id
+                         WHERE eh.parent_entity_id = d_project.id
+                           AND eh.action_entity = 'artifact'
+                           AND eh.parent_entity = 'project'
+                           AND eh.active = true
+                           AND a.active = true)`;
+            case 'form':
+              return sql`(SELECT COUNT(*) FROM app.ops_formlog_head f
+                         WHERE f.project_id = d_project.id AND f.active = true)`;
+            default:
+              return sql`0`;
+          }
+        };
+
+        const projectUuids = projectIds.map(id => sql`${id}::uuid`);
+        const projectScopes = await db.execute(sql`
+          SELECT id, name, ${getEntityCountQuery(entity_type)} as entity_count
+          FROM app.d_project
+          WHERE id IN (${sql.join(projectUuids, sql`, `)}) AND active = true
           ORDER BY name
         `);
-        
+
+        projectScopes.forEach(project => {
+          scopes.push({
+            scope_type: 'project',
+            scope_id: String(project.id),
+            scope_name: String(project.name),
+            entity_count: Number(project.entity_count),
+          });
+        });
+      }
+
+      // Get business unit scopes (secondary filtering)
+      const bizIds = await getEmployeeEntityIds(employeeId, 'biz', 'view');
+      if (bizIds.length > 0) {
+        const getBusinessEntityCountQuery = (entityType: string) => {
+          switch (entityType) {
+            case 'task':
+              return sql`(SELECT COUNT(*) FROM app.ops_task_head t
+                         INNER JOIN app.d_project p ON p.id = t.project_id
+                         WHERE p.biz_id = d_biz.id AND t.active = true AND p.active = true)`;
+            case 'wiki':
+              return sql`(SELECT COUNT(*) FROM app.d_wiki w
+                         INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = w.id
+                         INNER JOIN app.d_project p ON p.id = eh.parent_entity_id
+                         WHERE p.biz_id = d_biz.id
+                           AND eh.action_entity = 'wiki'
+                           AND eh.parent_entity = 'project'
+                           AND eh.active = true
+                           AND w.active = true
+                           AND p.active = true)`;
+            case 'artifact':
+              return sql`(SELECT COUNT(*) FROM app.d_artifact a
+                         INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = a.id
+                         INNER JOIN app.d_project p ON p.id = eh.parent_entity_id
+                         WHERE p.biz_id = d_biz.id
+                           AND eh.action_entity = 'artifact'
+                           AND eh.parent_entity = 'project'
+                           AND eh.active = true
+                           AND a.active = true
+                           AND p.active = true)`;
+            case 'form':
+              return sql`(SELECT COUNT(*) FROM app.ops_formlog_head f
+                         INNER JOIN app.d_project p ON p.id = f.project_id
+                         WHERE p.biz_id = d_biz.id AND f.active = true AND p.active = true)`;
+            case 'project':
+              return sql`(SELECT COUNT(*) FROM app.d_project WHERE biz_id = d_biz.id AND active = true)`;
+            default:
+              return sql`0`;
+          }
+        };
+
+        const bizUuids = bizIds.map(id => sql`${id}::uuid`);
+        const bizScopes = await db.execute(sql`
+          SELECT id, name, ${getBusinessEntityCountQuery(entity_type)} as entity_count
+          FROM app.d_biz
+          WHERE id IN (${sql.join(bizUuids, sql`, `)}) AND active = true
+          ORDER BY name
+        `);
+
         bizScopes.forEach(biz => {
           scopes.push({
             scope_type: 'biz',
@@ -786,30 +919,6 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
             entity_count: Number(biz.entity_count),
           });
         });
-      }
-
-      // Get project scopes (for tasks)
-      if (entity_type === 'task') {
-        const projectIds = await getEmployeeEntityIds(employeeId, 'project', 'view');
-        if (projectIds.length > 0) {
-          const projectScopes = await db.execute(sql`
-            SELECT id, name,
-              (SELECT COUNT(*) FROM app.ops_task_head 
-               WHERE project_id = d_project.id AND active = true) as entity_count
-            FROM app.d_project 
-            WHERE id = ANY(${projectIds}) AND active = true
-            ORDER BY name
-          `);
-          
-          projectScopes.forEach(project => {
-            scopes.push({
-              scope_type: 'project',
-              scope_id: String(project.id),
-              scope_name: String(project.name),
-              entity_count: Number(project.entity_count),
-            });
-          });
-        }
       }
 
       return { scopes };

@@ -119,7 +119,7 @@ function getParentIdColumn(actionEntity: string, parentEntity: string): string |
   return parentIdMap[actionEntity]?.[parentEntity] || null;
 }
 
-export async function nestedEntityRoutes(fastify: FastifyInstance) {
+export async function parentActionEntityRoutes(fastify: FastifyInstance) {
 
   // List action entities within a parent entity
   fastify.get('/api/v1/:parentEntity/:parentId/:actionEntity', {

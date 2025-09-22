@@ -50,7 +50,7 @@ CREATE TABLE app.ops_task_head (
   task_category text NOT NULL DEFAULT 'operational',
   
   -- Project relationship (parent)
-  project_id uuid NOT NULL,
+  project_id uuid NOT NULL REFERENCES app.d_project(id) ON DELETE CASCADE,
   project_name text,
   project_code text,
   
@@ -477,3 +477,364 @@ SELECT
 FROM solar_project, solar_team, residential_clients;
 
 -- Indexes removed for simplified import
+
+-- ============================================================================
+-- ENHANCED TASK DATA FOR FALL 2025 LANDSCAPING CAMPAIGN
+-- ============================================================================
+
+-- Additional comprehensive tasks for Fall 2025 Landscaping Campaign
+WITH campaign_project AS (
+  SELECT id, name, project_code FROM app.d_project WHERE project_code = 'FALL-2025-LAND'
+),
+james_miller AS (
+  SELECT id, name FROM app.d_employee WHERE name = 'James Miller'
+),
+employees AS (
+  SELECT
+    (SELECT id FROM app.d_employee WHERE employee_number = 'EMP-010') AS amanda_foster_id,
+    (SELECT id FROM app.d_employee WHERE employee_number = 'EMP-011') AS tom_richardson_id,
+    (SELECT id FROM app.d_employee WHERE employee_number = 'EMP-014') AS carlos_santos_id,
+    (SELECT id FROM app.d_employee WHERE employee_number = 'EMP-015') AS patricia_lee_id
+)
+
+INSERT INTO app.ops_task_head (
+  name, "descr", tags, attr,
+  project_id, task_number, priority_level, task_type,
+  task_status, planned_start_date, planned_end_date,
+  estimated_hours, actual_hours, assigned_to_employee_id, assigned_to_employee_name,
+  work_scope, materials_required, equipment_required, safety_requirements,
+  estimated_cost, billable_hours, billing_rate, service_address
+)
+SELECT
+  'Site Survey and Assessment',
+  'Comprehensive site evaluation including soil testing, drainage assessment, and existing landscape analysis for optimal fall landscaping preparation',
+  '["site_prep", "assessment", "soil_testing", "drainage", "landscaping"]'::jsonb,
+  '{"task_category": "preparation", "equipment_needed": ["soil_testing_kit", "measuring_tools", "camera"], "safety_requirements": ["safety_vest", "hard_hat"], "weather_dependent": true, "client_coordination": true}'::jsonb,
+  campaign_project.id,
+  'FALL-2025-LAND-001',
+  'high',
+  'planning',
+  'completed',
+  '2025-09-01'::date,
+  '2025-09-03'::date,
+  16.0,
+  18.0,
+  employees.amanda_foster_id,
+  'Amanda Foster',
+  'Comprehensive site evaluation including soil testing, drainage assessment, landscape analysis, and preparation planning',
+  '["soil_testing_kit", "measuring_tools", "camera", "documentation_forms"]'::jsonb,
+  '["measuring_tape", "soil_auger", "pH_meter", "moisture_meter", "camera"]'::jsonb,
+  '["safety_vest", "hard_hat", "proper_lifting", "site_awareness"]'::jsonb,
+  1280.00,
+  16.0,
+  80.00,
+  'Multiple client properties - Greater Toronto Area'
+FROM campaign_project, employees, james_miller
+
+UNION ALL
+
+SELECT
+  'Property Boundary Marking',
+  'Mark property boundaries and establish work zones for landscaping activities, ensuring compliance with municipal requirements',
+  '["boundaries", "marking", "compliance", "zoning", "municipal"]'::jsonb,
+  '{"task_category": "preparation", "equipment_needed": ["surveying_equipment", "boundary_markers", "measuring_tape"], "permits_required": true, "municipal_compliance": true}'::jsonb,
+  campaign_project.id,
+  'FALL-2025-LAND-002',
+  'high',
+  'planning',
+  'completed',
+  '2025-09-04'::date,
+  '2025-09-05'::date,
+  12.0,
+  14.0,
+  employees.tom_richardson_id,
+  'Tom Richardson',
+  'Mark property boundaries and establish safe work zones with municipal compliance verification',
+  '["boundary_markers", "survey_flags", "measuring_tape", "compliance_documentation"]'::jsonb,
+  '["surveying_equipment", "GPS_unit", "measuring_tools", "marking_spray"]'::jsonb,
+  '["safety_vest", "hard_hat", "proper_procedures", "municipal_coordination"]'::jsonb,
+  960.00,
+  12.0,
+  80.00,
+  'Multiple client properties - Greater Toronto Area'
+FROM campaign_project, employees, james_miller
+
+UNION ALL
+
+SELECT
+  'Equipment Procurement and Setup',
+  'Acquire and set up all necessary landscaping equipment including excavators, aerators, seeders, and hand tools',
+  '["equipment", "procurement", "setup", "tools", "machinery"]'::jsonb,
+  '{"task_category": "logistics", "equipment_list": ["excavator", "aerator", "seeder", "rakes", "shovels", "wheelbarrows"], "rental_coordination": true, "maintenance_check": true}'::jsonb,
+  campaign_project.id,
+  'FALL-2025-LAND-003',
+  'medium',
+  'logistics',
+  'completed',
+  '2025-08-28'::date,
+  '2025-08-30'::date,
+  20.0,
+  22.0,
+  employees.carlos_santos_id,
+  'Carlos Santos',
+  'Acquire, inspect, and set up all landscaping equipment for fall campaign operations',
+  '["equipment_rental", "maintenance_supplies", "fuel", "safety_equipment"]'::jsonb,
+  '["excavator", "aerator", "seeder", "hand_tools", "wheelbarrows", "safety_gear"]'::jsonb,
+  '["equipment_safety", "maintenance_protocols", "proper_operation", "storage_security"]'::jsonb,
+  1600.00,
+  20.0,
+  80.00,
+  'Equipment depot - Mississauga, ON'
+FROM campaign_project, employees, james_miller
+
+UNION ALL
+
+SELECT
+  'Material Delivery Coordination',
+  'Coordinate delivery of soil amendments, mulch, fertilizers, and seasonal plants for fall installation',
+  '["materials", "delivery", "coordination", "soil", "plants", "mulch"]'::jsonb,
+  '{"task_category": "logistics", "materials_list": ["topsoil", "compost", "fall_fertilizer", "mulch", "seasonal_plants", "bulbs"], "supplier_coordination": true, "quality_inspection": true}'::jsonb,
+  campaign_project.id,
+  'FALL-2025-LAND-004',
+  'medium',
+  'logistics',
+  'completed',
+  '2025-09-06'::date,
+  '2025-09-08'::date,
+  18.0,
+  20.0,
+  employees.patricia_lee_id,
+  'Patricia Lee',
+  'Coordinate and quality-check delivery of all landscaping materials including soil, plants, and amendments',
+  '["topsoil", "compost", "fall_fertilizer", "mulch", "seasonal_plants", "spring_bulbs"]'::jsonb,
+  '["delivery_truck", "quality_testing_tools", "storage_containers", "handling_equipment"]'::jsonb,
+  '["material_handling", "quality_verification", "proper_storage", "inventory_management"]'::jsonb,
+  1440.00,
+  18.0,
+  80.00,
+  'Multiple delivery locations - GTA'
+FROM campaign_project, employees, james_miller
+
+UNION ALL
+
+SELECT
+  'Soil Preparation and Amendment',
+  'Prepare soil through aeration, amendment addition, and pH balancing for optimal fall planting conditions',
+  '["soil", "preparation", "aeration", "amendment", "ph_balancing"]'::jsonb,
+  '{"task_category": "soil_work", "processes": ["soil_testing", "aeration", "amendment_application", "ph_adjustment"], "weather_dependent": true, "quality_standards": true}'::jsonb,
+  campaign_project.id,
+  'FALL-2025-LAND-005',
+  'high',
+  'field_work',
+  'in_progress',
+  '2025-09-09'::date,
+  '2025-09-12'::date,
+  28.0,
+  15.0,
+  employees.carlos_santos_id,
+  'Carlos Santos',
+  'Comprehensive soil preparation including aeration, pH balancing, and organic amendment application',
+  '["compost", "soil_amendments", "pH_adjusters", "fertilizer", "testing_supplies"]'::jsonb,
+  '["aerator", "spreader", "tiller", "pH_meter", "soil_testing_kit", "wheelbarrow"]'::jsonb,
+  '["dust_protection", "proper_lifting", "equipment_safety", "chemical_handling"]'::jsonb,
+  2240.00,
+  28.0,
+  80.00,
+  'Multiple client properties - GTA'
+FROM campaign_project, employees, james_miller
+
+UNION ALL
+
+SELECT
+  'Fall Seeding and Overseeding',
+  'Apply grass seed and overseed existing lawn areas with cool-season varieties optimal for fall establishment',
+  '["seeding", "overseeding", "grass", "cool_season", "establishment"]'::jsonb,
+  '{"task_category": "planting", "seed_types": ["tall_fescue", "perennial_ryegrass", "fine_fescue"], "application_method": "broadcast_seeding", "weather_dependent": true}'::jsonb,
+  campaign_project.id,
+  'FALL-2025-LAND-006',
+  'high',
+  'field_work',
+  'planned',
+  '2025-09-13'::date,
+  '2025-09-16'::date,
+  24.0,
+  0.0,
+  employees.tom_richardson_id,
+  'Tom Richardson',
+  'Professional seeding and overseeding using premium cool-season grass varieties for optimal fall establishment',
+  '["grass_seed", "starter_fertilizer", "straw_mulch", "watering_supplies"]'::jsonb,
+  '["broadcast_seeder", "rake", "roller", "irrigation_equipment", "marking_flags"]'::jsonb,
+  '["seed_handling", "proper_application", "weather_monitoring", "irrigation_safety"]'::jsonb,
+  1920.00,
+  24.0,
+  80.00,
+  'Multiple residential properties - GTA'
+FROM campaign_project, employees, james_miller
+
+UNION ALL
+
+SELECT
+  'Seasonal Plant Installation',
+  'Install fall flowering plants, bulbs, and seasonal decorative elements for autumn and spring displays',
+  '["planting", "bulbs", "seasonal", "flowers", "decorative"]'::jsonb,
+  '{"task_category": "planting", "plant_types": ["mums", "asters", "spring_bulbs", "ornamental_kale"], "design_coordination": true, "client_preferences": true}'::jsonb,
+  campaign_project.id,
+  'FALL-2025-LAND-007',
+  'medium',
+  'field_work',
+  'planned',
+  '2025-09-17'::date,
+  '2025-09-20'::date,
+  32.0,
+  0.0,
+  employees.patricia_lee_id,
+  'Patricia Lee',
+  'Artistic installation of seasonal plants, spring bulbs, and decorative elements for extended seasonal beauty',
+  '["seasonal_plants", "spring_bulbs", "planting_soil", "mulch", "decorative_elements"]'::jsonb,
+  '["planting_tools", "wheelbarrow", "watering_equipment", "design_templates"]'::jsonb,
+  '["plant_handling", "proper_planting", "ergonomic_techniques", "client_coordination"]'::jsonb,
+  2560.00,
+  32.0,
+  80.00,
+  'Premium residential properties - GTA'
+FROM campaign_project, employees, james_miller
+
+UNION ALL
+
+SELECT
+  'Fertilizer Application Program',
+  'Apply fall-specific fertilizer program to promote root development and winter hardiness',
+  '["fertilizer", "application", "root_development", "winter_prep", "nutrition"]'::jsonb,
+  '{"task_category": "maintenance", "fertilizer_types": ["fall_blend", "root_stimulator", "potassium_boost"], "application_schedule": "staged_approach", "weather_monitoring": true}'::jsonb,
+  campaign_project.id,
+  'FALL-2025-LAND-008',
+  'medium',
+  'field_work',
+  'planned',
+  '2025-09-21'::date,
+  '2025-09-23'::date,
+  16.0,
+  0.0,
+  employees.amanda_foster_id,
+  'Amanda Foster',
+  'Strategic fertilizer application program designed for root development and winter plant preparation',
+  '["fall_fertilizer", "root_stimulator", "potassium_supplement", "application_equipment"]'::jsonb,
+  '["spreader", "calibration_tools", "weather_meter", "protective_equipment"]'::jsonb,
+  '["chemical_safety", "application_accuracy", "weather_monitoring", "equipment_calibration"]'::jsonb,
+  1280.00,
+  16.0,
+  80.00,
+  'All landscaping project sites - GTA'
+FROM campaign_project, employees, james_miller
+
+UNION ALL
+
+SELECT
+  'Mulching and Ground Cover',
+  'Apply mulch and establish ground cover in landscaped areas for winter protection and weed suppression',
+  '["mulching", "ground_cover", "winter_protection", "weed_suppression"]'::jsonb,
+  '{"task_category": "maintenance", "mulch_types": ["shredded_hardwood", "leaf_mold", "pine_needles"], "coverage_depth": "3_inches", "edge_definition": true}'::jsonb,
+  campaign_project.id,
+  'FALL-2025-LAND-009',
+  'medium',
+  'field_work',
+  'planned',
+  '2025-09-24'::date,
+  '2025-09-27'::date,
+  28.0,
+  0.0,
+  employees.carlos_santos_id,
+  'Carlos Santos',
+  'Professional mulching and ground cover installation for winter protection and aesthetic enhancement',
+  '["hardwood_mulch", "ground_cover_plants", "edge_materials", "installation_tools"]'::jsonb,
+  '["wheelbarrow", "rake", "edging_tools", "measuring_equipment", "spreading_tools"]'::jsonb,
+  '["proper_lifting", "edge_safety", "plant_protection", "uniform_application"]'::jsonb,
+  2240.00,
+  28.0,
+  80.00,
+  'All landscaped areas - GTA'
+FROM campaign_project, employees, james_miller
+
+UNION ALL
+
+SELECT
+  'Quality Inspection and Documentation',
+  'Conduct comprehensive quality inspection and document all work completed with photo documentation',
+  '["quality_control", "inspection", "documentation", "photography", "standards"]'::jsonb,
+  '{"task_category": "quality_assurance", "inspection_areas": ["seeding_coverage", "plant_health", "edge_definition", "cleanup"], "documentation_required": true, "client_walkthrough": true}'::jsonb,
+  campaign_project.id,
+  'FALL-2025-LAND-010',
+  'high',
+  'administrative',
+  'planned',
+  '2025-09-28'::date,
+  '2025-09-30'::date,
+  12.0,
+  0.0,
+  james_miller.id,
+  james_miller.name,
+  'Comprehensive quality inspection with detailed documentation and client presentation of completed work',
+  '["inspection_forms", "camera", "documentation_supplies", "client_materials"]'::jsonb,
+  '["inspection_tools", "camera", "measuring_equipment", "documentation_software"]'::jsonb,
+  '["thorough_inspection", "accurate_documentation", "client_communication", "professional_presentation"]'::jsonb,
+  960.00,
+  12.0,
+  80.00,
+  'All project sites - GTA'
+FROM campaign_project, employees, james_miller
+
+UNION ALL
+
+SELECT
+  'Client Communication and Updates',
+  'Maintain regular client communication with progress updates, schedule adjustments, and completion notifications',
+  '["client_communication", "updates", "progress", "schedule", "notifications"]'::jsonb,
+  '{"task_category": "communication", "communication_schedule": "weekly_updates", "methods": ["email", "phone", "site_visits"], "documentation": true}'::jsonb,
+  campaign_project.id,
+  'FALL-2025-LAND-011',
+  'medium',
+  'administrative',
+  'in_progress',
+  '2025-09-01'::date,
+  '2025-09-30'::date,
+  8.0,
+  5.0,
+  james_miller.id,
+  james_miller.name,
+  'Ongoing client communication including progress updates, schedule coordination, and satisfaction management',
+  '["communication_templates", "progress_photos", "schedule_updates", "client_materials"]'::jsonb,
+  '["phone", "email", "project_management_software", "camera", "documentation_tools"]'::jsonb,
+  '["professional_communication", "timely_updates", "client_satisfaction", "clear_documentation"]'::jsonb,
+  640.00,
+  8.0,
+  80.00,
+  'Client offices and project sites - GTA'
+FROM campaign_project, employees, james_miller
+
+UNION ALL
+
+SELECT
+  'Weather Monitoring and Schedule Adjustment',
+  'Monitor weather conditions and adjust work schedule to optimize results and avoid weather-related delays',
+  '["weather_monitoring", "schedule_adjustment", "optimization", "planning"]'::jsonb,
+  '{"task_category": "project_management", "monitoring_tools": ["weather_apps", "soil_temperature"], "adjustment_criteria": ["precipitation", "temperature", "wind"], "contingency_planning": true}'::jsonb,
+  campaign_project.id,
+  'FALL-2025-LAND-012',
+  'high',
+  'administrative',
+  'in_progress',
+  '2025-09-01'::date,
+  '2025-09-30'::date,
+  6.0,
+  4.0,
+  james_miller.id,
+  james_miller.name,
+  'Continuous weather monitoring and proactive schedule adjustment to optimize work quality and efficiency',
+  '["weather_monitoring_tools", "schedule_templates", "communication_materials"]'::jsonb,
+  '["weather_apps", "soil_thermometer", "planning_software", "communication_tools"]'::jsonb,
+  '["weather_awareness", "schedule_flexibility", "team_communication", "client_notification"]'::jsonb,
+  480.00,
+  6.0,
+  80.00,
+  'Project management office and field sites'
+FROM campaign_project, employees, james_miller;

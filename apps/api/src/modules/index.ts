@@ -15,11 +15,14 @@ import { formRoutes } from './form/routes.js';
 import { wikiRoutes } from './wiki/routes.js';
 import { artifactRoutes } from './artifact/routes.js';
 import { bizRoutes } from './biz/routes.js';
+import { orgRoutes } from './org/routes.js';
 
 // New hierarchical API modules
 import { hierarchyRoutes } from './meta/hierarchy-routes.js';
-import { universalEntityRoutes } from './entity/universal-entity-routes.js';
-import { nestedEntityRoutes } from './entity/nested-entity-routes.js';
+import { singleEntityRoutes } from './entity/single-entity-routes.js';
+import { parentActionEntityRoutes } from './entity/parent-action-entity-routes.js';
+import { entityHierarchyMappingRoutes } from './entity/entity-hierarchy-mapping-routes.js';
+import { rbacRoutes } from './rbac/routes.js';
 
 /**
  * Register all API route modules with entity-based RBAC functionality
@@ -45,12 +48,17 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   // Hierarchical metadata routes
   await hierarchyRoutes(fastify);
   
-  // Universal entity routes
-  await universalEntityRoutes(fastify);
-  
-  // Nested parent/action entity routes
-  await nestedEntityRoutes(fastify);
-  
+  // Single entity routes
+  await singleEntityRoutes(fastify);
+
+  // Parent/action entity routes
+  await parentActionEntityRoutes(fastify);
+
+  // Entity hierarchy mapping routes
+  await entityHierarchyMappingRoutes(fastify);
+
+  // RBAC permission checking routes
+  await rbacRoutes(fastify);
 
   // Entity-based API routes (all require entity-based RBAC)
   await empRoutes(fastify);
@@ -62,9 +70,9 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await wikiRoutes(fastify);
   await artifactRoutes(fastify);
   await bizRoutes(fastify);
+  await orgRoutes(fastify);
 
   // TODO: Add new entity routes as they are implemented
   // await hrRoutes(fastify);       // HR positions and hierarchy
-  // await orgRoutes(fastify);      // Geographic organization
   // await worksiteRoutes(fastify); // Physical worksites
 }

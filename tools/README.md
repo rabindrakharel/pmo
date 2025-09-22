@@ -1,6 +1,6 @@
 # PMO Platform Management Tools
 
-**16 comprehensive management tools** for the PMO platform, providing complete **platform automation**, **API testing**, **RBAC debugging**, and **database management**. All tools are production-ready with enhanced logging, error handling, and colored output.
+**8 comprehensive management tools** for the PMO platform, providing complete **platform automation**, **API testing**, and **database management**. All tools are production-ready with enhanced logging, error handling, and colored output.
 
 ## 🚀 Platform Management Tools
 
@@ -26,32 +26,15 @@
 - Docker container status for infrastructure services
 - Service URLs and management command suggestions
 
-### restart-all.sh
-**Purpose**: Restarts all platform services in correct order
-**Usage**: `./tools/restart-all.sh`
-**LLM Context**: Use when user needs to restart everything (e.g., after configuration changes)
-
-### stop-all.sh
-**Purpose**: Stops all platform services (API, web, and infrastructure)
-**Usage**: `./tools/stop-all.sh`
-**LLM Context**: Use when user wants to completely shut down the platform
-
-## 🔧 API Service Tools
-
-### start-api.sh
-**Purpose**: Starts only the API server (backend)
-**Usage**: `./tools/start-api.sh`
-**LLM Context**: Use when user only needs backend services or for API development
-
-### restart-api.sh
-**Purpose**: Restarts only the API server
-**Usage**: `./tools/restart-api.sh`  
-**LLM Context**: Use when user has made backend changes and needs to restart API only
-
-### stop-api.sh  
+### stop-api.sh
 **Purpose**: Stops only the API server
 **Usage**: `./tools/stop-api.sh`
 **LLM Context**: Use when user wants to stop just the backend service
+
+### stop-web.sh
+**Purpose**: Stops only the web application
+**Usage**: `./tools/stop-web.sh`
+**LLM Context**: Use when user wants to stop just the frontend service
 
 ### logs-api.sh
 **Purpose**: Views API server logs
@@ -62,26 +45,9 @@
 - Follow logs in real-time with `-f` flag
 - Colored output for better readability
 
-## 🌐 Web Service Tools
-
-### start-web.sh
-**Purpose**: Starts only the web application (frontend)
-**Usage**: `./tools/start-web.sh`
-**LLM Context**: Use when user only needs frontend services or for UI development
-
-### restart-web.sh
-**Purpose**: Restarts only the web application
-**Usage**: `./tools/restart-web.sh`
-**LLM Context**: Use when user has made frontend changes and needs to restart web only
-
-### stop-web.sh
-**Purpose**: Stops only the web application  
-**Usage**: `./tools/stop-web.sh`
-**LLM Context**: Use when user wants to stop just the frontend service
-
 ### logs-web.sh
 **Purpose**: Views web application logs
-**Usage**: `./tools/logs-web.sh [lines]` or `./tools/logs-web.sh -f`  
+**Usage**: `./tools/logs-web.sh [lines]` or `./tools/logs-web.sh -f`
 **LLM Context**: Use when user needs to debug frontend issues or check web server activity
 
 ## 🧪 API Testing Tools
@@ -125,12 +91,12 @@
 
 ### Most Common User Requests & Tool Mapping:
 - **"Start the platform"** → `./tools/start-all.sh`
-- **"Check what's running"** → `./tools/status.sh`  
+- **"Check what's running"** → `./tools/status.sh`
 - **"Import/Reset the database"** → `./tools/db-import.sh`
-- **"Stop everything"** → `./tools/stop-all.sh`
-- **"Restart after changes"** → `./tools/restart-all.sh`
+- **"Stop API server"** → `./tools/stop-api.sh`
+- **"Stop web server"** → `./tools/stop-web.sh`
 - **"Check API logs"** → `./tools/logs-api.sh`
-- **"API development only"** → `./tools/start-api.sh`
+- **"Check web logs"** → `./tools/logs-web.sh`
 - **"Test all API endpoints"** → `./tools/test-api-endpoints.sh`
 
 ### Service Ports & URLs:
@@ -164,21 +130,15 @@ Database tools support these environment variables:
 
 ```
 tools/
-├── README.md           # This tool index
-├── start-all.sh        # Complete platform startup
-├── stop-all.sh         # Complete platform shutdown  
-├── restart-all.sh      # Complete platform restart
-├── status.sh           # Service status checker
-├── start-api.sh        # API server management
-├── stop-api.sh
-├── restart-api.sh
-├── logs-api.sh
-├── start-web.sh        # Web server management
-├── stop-web.sh
-├── restart-web.sh
-├── logs-web.sh
+├── README.md             # This tool index
+├── start-all.sh          # Complete platform startup
+├── status.sh             # Service status checker
+├── stop-api.sh           # Stop API server
+├── stop-web.sh           # Stop web server
+├── logs-api.sh           # View API logs
+├── logs-web.sh           # View web logs
 ├── test-api-endpoints.sh # API endpoint testing
-└── db-import.sh        # Database import/reset
+└── db-import.sh          # Database import/reset
 ```
 
 ## 💡 LLM Usage Guidelines
@@ -186,6 +146,6 @@ tools/
 1. **Always check service status first** if user reports issues
 2. **Use db-import.sh** for any database reset or import
 3. **Prefer start-all.sh** for initial platform setup
-4. **Use specific service tools** only when user specifies partial operations
-5. **Check logs** when debugging service issues
+4. **Use stop-api.sh/stop-web.sh** for stopping individual services
+5. **Check logs** when debugging service issues (logs-api.sh/logs-web.sh)
 6. **All tools have colored output** for better user experience

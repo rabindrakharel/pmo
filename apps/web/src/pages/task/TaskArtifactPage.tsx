@@ -63,14 +63,14 @@ export function TaskArtifactPage() {
         <ActionBar
           createButton={{
             entityType: 'artifact',
-            parentEntityType: 'task',
+            parentEntity: 'task',
             parentEntityId: taskId!,
           }}
         />
 
         <FilteredDataTable
           entityType="artifact"
-          parentEntityType="task"
+          parentEntity="task"
           parentEntityId={taskId!}
         />
       </div>

@@ -36,50 +36,35 @@ export function BusinessDetailPage() {
           return;
         }
 
-        // Check if this business is an action entity for any parent and user has edit permission
-        console.log('Checking action entity permission for business:', bizId);
-        const response = await fetch(`${API_BASE_URL}/api/v1/rbac/check-action-entity-permission`, {
+        // Check if user has edit permission on this business
+        console.log('Checking edit permission for business:', bizId);
+        const response = await fetch(`${API_BASE_URL}/api/v1/rbac/check-permission-of-entity`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            action_entity_type: 'biz',
-            action_entity_id: bizId,
-            action: 'edit'
+            entityType: 'biz',
+            entityId: bizId,
           }),
         });
 
         if (response.ok) {
           const data = await response.json();
           console.log('Action entity permission response:', data);
-          setCanEdit(data.hasPermission || false);
-        } else {
-          console.log('Action entity permission API not available, trying fallback');
-          console.log('Response status:', response.status, response.statusText);
-          // Fallback: check direct business edit permission
-          const fallbackResponse = await fetch(`${API_BASE_URL}/api/v1/rbac/check-permission`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              entity_type: 'biz',
-              entity_id: bizId,
-              action: 'edit',
-            }),
-          });
 
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            console.log('Fallback permission response:', fallbackData);
-            setCanEdit(fallbackData.hasPermission || false);
+          if (data.permissions && Array.isArray(data.permissions)) {
+            // Find permissions for the specific business
+            const entityPerm = data.permissions.find((p: any) => p.actionEntityId === bizId);
+            const hasEditAction = entityPerm?.actions?.includes('edit') || false;
+            setCanEdit(hasEditAction);
           } else {
-            console.log('Fallback permission failed:', fallbackResponse.status, fallbackResponse.statusText);
             setCanEdit(false);
           }
+        } else {
+          console.log('Permission check failed:', response.status, response.statusText);
+          setCanEdit(false);
         }
       } catch (error) {
         console.error('Permission check error:', error);

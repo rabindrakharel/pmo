@@ -62,7 +62,7 @@ function getTableName(entityType: string): string {
   return ENTITY_TABLE_MAP[entityType];
 }
 
-export async function universalEntityRoutes(fastify: FastifyInstance) {
+export async function singleEntityRoutes(fastify: FastifyInstance) {
 
   // List entities of a specific type
   fastify.get('/api/v1/entity/:entityType', {

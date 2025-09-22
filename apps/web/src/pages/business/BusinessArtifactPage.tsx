@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
 import { ActionBar } from '../../components/common/RBACButton';
-import { ScopeFilters, FilterChips } from '../../components/common/ScopeFilters';
+import { FilterChips } from '../../components/common/ScopeFilters';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 import { businessApi } from '../../lib/api';
 
@@ -62,14 +62,14 @@ export function BusinessArtifactPage() {
         <ActionBar
           createButton={{
             entityType: 'artifact',
-            parentEntityType: 'biz',
+            parentEntity: 'biz',
             parentEntityId: bizId!,
           }}
         />
 
         <FilteredDataTable
           entityType="artifact"
-          parentEntityType="biz"
+          parentEntity="biz"
           parentEntityId={bizId!}
         />
       </div>

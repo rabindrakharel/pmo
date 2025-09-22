@@ -1,0 +1,1437 @@
+🎯 PMO PLATFORM - TECHNICAL RUNDOWN
+=====================================
+
+## 📖 EXECUTIVE SUMMARY
+
+The Enterprise PMO Task Management Platform is a full-stack TypeScript application implementing a sophisticated 5-layer RBAC system for Canadian business operations. Built on modern web technologies with PostgreSQL and React, it provides comprehensive project management capabilities for Huron Home Services operations.
+
+## 🏗️ ARCHITECTURE OVERVIEW
+
+### Technology Stack
+- **Frontend**: React 19 + TypeScript + Vite + TailwindCSS
+- **Backend**: Fastify + TypeScript + PostgreSQL + Redis
+- **Database**: PostgreSQL 16+ with PostGIS, pgcrypto, uuid-ossp
+- **Infrastructure**: Docker Compose (PostgreSQL, Redis, MinIO, MailHog)
+- **Tooling**: pnpm workspaces, ESLint, Prettier, tsx
+- **Authentication**: JWT with fastify-jwt
+- **Package Manager**: pnpm 8.15.1+
+
+### System Components
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   React Web     │───▶│   Fastify API   │───▶│  PostgreSQL DB  │
+│   Port: 5173    │    │   Port: 4000    │    │   Port: 5434    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       ▼                       │
+         │              ┌─────────────────┐              │
+         │              │   Redis Cache   │              │
+         │              │   Port: 6379    │              │
+         │              └─────────────────┘              │
+         │                                               │
+         ▼                                               ▼
+┌─────────────────┐                           ┌─────────────────┐
+│   TailwindCSS   │                           │   5-Layer RBAC  │
+│   Styling       │                           │   Architecture  │
+└─────────────────┘                           └─────────────────┘
+```
+
+## 🗄️ DATABASE SCHEMA - 5-LAYER RBAC ARCHITECTURE
+
+### Layer 1: Foundation (Entity Types)
+```sql
+-- File: db/15___meta_entity_types.ddl
+CREATE TABLE app.meta_entity_types (
+  entity_type text PRIMARY KEY,
+  category text NOT NULL, -- organizational, operational, personnel, content
+  active boolean DEFAULT true
+);
+
+-- 12 Core Entity Types:
+-- Organizational: hr, biz, org, client
+-- Operational: project, task, worksite
+-- Personnel: employee, role
+-- Content: wiki, form, artifact
+```
+
+### Layer 2: Rules (Hierarchy Definitions)
+```sql
+-- File: db/16___meta_entity_hierarchy.ddl
+CREATE TABLE app.meta_entity_hierarchy (
+  parent_entity text REFERENCES app.meta_entity_types(entity_type),
+  action_entity text REFERENCES app.meta_entity_types(entity_type),
+  active boolean DEFAULT true
+);
+
+-- Examples:
+-- biz → project, wiki, form, task, artifact
+-- project → task, wiki, form, artifact
+-- client → project, task
+```
+
+### Layer 3: Permission Matrix
+```sql
+-- File: db/18___meta_entity_hierarchy_permission_mapping.ddl
+CREATE TABLE app.meta_entity_hierarchy_permission_mapping (
+  parent_entity text,
+  action_entity text,
+  permission_action text, -- view, edit, share, delete, create
+  active boolean DEFAULT true
+);
+```
+
+### Layer 4: Instance Relationships
+```sql
+-- File: db/17___entity_id_hierarchy_mapping.ddl
+CREATE TABLE app.entity_id_hierarchy_mapping (
+  parent_entity text NOT NULL,
+  parent_entity_id uuid NOT NULL,
+  action_entity text NOT NULL,
+  action_entity_id uuid NOT NULL,
+  active boolean DEFAULT true,
+  from_ts timestamptz DEFAULT now(),
+  to_ts timestamptz
+);
+
+-- Purpose: Maps actual parent-child relationships
+-- Example: project 'uuid-123' contains task 'uuid-456'
+```
+
+### Layer 5: User Access Control
+```sql
+-- File: db/19___rel_employee_entity_rbac.ddl
+CREATE TABLE app.rel_employee_entity_action_rbac (
+  employee_id uuid REFERENCES app.d_employee(id),
+  entity_type text REFERENCES app.meta_entity_types(entity_type),
+  action_entity_id uuid, -- Specific entity ID or empty for global
+  action text NOT NULL, -- view, edit, share, delete, create
+  active boolean DEFAULT true
+);
+
+-- James Miller (CEO) Example:
+-- Comprehensive permissions across all entity types
+-- 113+ active permissions across all scopes
+```
+
+### Core Entity Tables (20+ Tables)
+```sql
+-- Personnel System
+d_employee (25+ employees: CEO to seasonal workers)
+d_role (Executive to field worker roles)
+rel_emp_role (Employee-role assignments with temporal tracking)
+
+-- Business Operations
+d_biz (3-level hierarchy: Corp→Division→Dept)
+d_project (10+ strategic projects with lifecycle management)
+d_client (12+ diverse client portfolio)
+ops_task_head (Task management with project relationships)
+
+-- Content Management
+d_wiki (Knowledge base and documentation)
+d_artifact (Design templates and business documents)
+ops_formlog_head (Dynamic form definitions)
+
+-- Geographic & Organization
+d_org (Geographic organizational units)
+d_hr (HR position hierarchy)
+d_worksite (Physical work locations)
+```
+
+## 🚀 FRONTEND ARCHITECTURE
+
+### Project Structure
+```
+apps/web/
+├── src/
+│   ├── components/
+│   │   ├── common/              # Shared components
+│   │   │   ├── HeaderTabNavigation.tsx
+│   │   │   ├── RBACButton.tsx
+│   │   │   └── CreateButton.tsx
+│   │   ├── layout/              # Layout components
+│   │   │   └── Layout.tsx
+│   │   └── ui/                  # UI primitives
+│   │       └── DataTable.tsx
+│   ├── hooks/                   # Custom hooks
+│   │   └── useActionEntityPermission.ts
+│   ├── lib/                     # Utilities
+│   │   └── api.ts
+│   └── pages/                   # Page components
+│       ├── ProjectPage.tsx      # Main project list
+│       ├── project/             # Project detail pages
+│       │   ├── ProjectDetailPage.tsx
+│       │   ├── ProjectTaskPage.tsx
+│       │   ├── ProjectWikiPage.tsx
+│       │   └── ProjectArtifactPage.tsx
+│       ├── business/            # Business entity pages
+│       ├── task/                # Task management pages
+│       └── org/                 # Organization pages
+```
+
+### Key Frontend Components
+
+#### HeaderTabNavigation Component
+```typescript
+// File: apps/web/src/components/common/HeaderTabNavigation.tsx
+// Purpose: Dynamic tab generation for action entities
+// Features:
+// - Uses useHeaderTabs hook to fetch action summaries
+// - Maps entity types to icons and routes
+// - Permission-based tab population
+// - Fallback system for API failures
+
+interface HeaderTabNavigationProps {
+  parentType: string;     // e.g., "project"
+  parentId: string;       // e.g., project UUID
+  tabs?: TabConfig[];     // Optional static tabs
+}
+```
+
+#### FilteredDataTable Component
+```typescript
+// File: apps/web/src/components/FilteredDataTable.tsx
+// Purpose: Configuration-driven data table with RBAC
+// Features:
+// - Uses configService.getEntityConfig() for field definitions
+// - Parent-child relationship filtering
+// - Dynamic column rendering based on entity configuration
+// - Row actions (edit, delete, view) based on permissions
+
+interface FilteredDataTableProps {
+  entityType: string;           // Action entity type
+  parentEntity?: string;        // Parent entity type
+  parentEntityId?: string;      // Parent entity ID for filtering
+}
+```
+
+#### RBAC Hook System
+```typescript
+// File: apps/web/src/hooks/useActionEntityPermission.ts
+// TIER 2: Detail page permissions for specific entities
+export function useActionEntityPermission(
+  entityType: string,
+  entityId: string | undefined
+): {
+  permissions: Record<string, string[]>;
+  canEdit: boolean;
+  canShare: boolean;
+  canDelete: boolean;
+  canView: boolean;
+  permissionLoading: boolean;
+}
+
+// File: apps/web/src/components/common/RBACButton.tsx
+// TIER 1: Batch permissions for entity lists
+export function useBatchRBACPermissions(
+  entityType: string,
+  records: any[],
+  actions: string[]
+): {
+  permissions: Record<string, Record<string, boolean>>;
+  loading: boolean;
+}
+
+// TIER 3: Parent-action relationship permissions
+export function useBatchParentActionRBACPermissions(
+  parentEntity: string,
+  parentEntityId: string,
+  actionEntity: string,
+  records: any[],
+  actions: string[]
+): {
+  permissions: Record<string, Record<string, boolean>>;
+  loading: boolean;
+}
+```
+
+### User Journey Flow
+```
+Sidebar Navigation → Route → Page Component → RBAC Hook → API Call → Database Query
+       ↓               ↓           ↓               ↓          ↓            ↓
+   Click "Projects" → /project → ProjectPage → useBatchRBACPermissions → GET /api/v1/rbac/get-permissions-by-entityType
+       ↓               ↓           ↓               ↓          ↓            ↓
+   DataTable Render → Button States → Permission Checks → Conditional UI → User Actions
+```
+
+## 🔌 BACKEND API ARCHITECTURE
+
+### Project Structure
+```
+apps/api/
+├── src/
+│   ├── modules/                 # Feature modules
+│   │   ├── auth/               # Authentication & JWT
+│   │   ├── rbac/               # RBAC system (3-tier API)
+│   │   ├── project/            # Project CRUD & relations
+│   │   ├── biz/                # Business entity management
+│   │   ├── entity/             # Universal entity operations
+│   │   ├── meta/               # Metadata & hierarchy
+│   │   └── org/                # Organization management
+│   ├── plugins/                # Fastify plugins
+│   ├── db/                     # Database configuration
+│   └── server.ts               # Main server entry
+```
+
+### RBAC API System (3-Tier Architecture)
+
+#### TIER 1: Main Page Data Table RBAC
+```typescript
+// File: apps/api/src/modules/rbac/routes.ts:54-94
+POST /api/v1/rbac/get-permissions-by-entityType
+// Purpose: Batch permissions for entity lists
+// Request: { entityType: "project" }
+// Response: {
+//   entityType: "project",
+//   permissions: [
+//     { actionEntityId: "uuid-1", actions: ["view", "edit", "delete"] },
+//     { actionEntityId: "uuid-2", actions: ["view", "share"] },
+//     { actionEntityId: "", actions: ["create"] } // Global
+//   ]
+// }
+```
+
+#### TIER 2: Detail Page Inline Edit & Share
+```typescript
+// File: apps/api/src/modules/rbac/routes.ts:98-145
+POST /api/v1/rbac/check-permission-of-entity
+// Purpose: Single entity permissions for detail pages
+// Request: { entityType: "project", entityId: "uuid" }
+// Response: {
+//   entityType: "project",
+//   entityId: "uuid",
+//   permissions: [
+//     { actionEntityId: "uuid", actions: ["edit", "share", "view"] }
+//   ]
+// }
+```
+
+#### TIER 3: Action Entity Tab Data Tables
+```typescript
+// File: apps/api/src/modules/rbac/routes.ts:149-248
+POST /api/v1/rbac/get-permissions-by-parentEntity-actionEntity
+// Purpose: Parent-child relationship permissions
+// Request: {
+//   parentEntity: "project",
+//   parentEntityId: "uuid",
+//   actionEntity: "task"
+// }
+// Response: {
+//   parentEntity: "project",
+//   parentEntityId: "uuid",
+//   actionEntity: "task",
+//   permissions: [
+//     { actionEntityId: "task-uuid-1", actions: ["view", "edit"] },
+//     { actionEntityId: "task-uuid-2", actions: ["view", "delete"] },
+//     { actionEntityId: "", actions: ["create"] }
+//   ]
+// }
+```
+
+### Core API Modules
+
+#### Project Routes
+```typescript
+// File: apps/api/src/modules/project/routes.ts
+GET    /api/v1/project                    // List projects with RBAC
+GET    /api/v1/project/:id               // Get single project
+POST   /api/v1/project                   // Create project
+PUT    /api/v1/project/:id               // Update project
+DELETE /api/v1/project/:id               // Soft delete project
+
+// Action Entity Endpoints
+GET /api/v1/project/:id/action-summaries  // Tab navigation data
+GET /api/v1/project/:id/task             // Project tasks
+GET /api/v1/project/:id/wiki             // Project wiki entries
+GET /api/v1/project/:id/artifact         // Project artifacts
+GET /api/v1/project/:id/form             // Project forms
+```
+
+#### Authentication System
+```typescript
+// File: apps/api/src/modules/auth/routes.ts
+POST /api/v1/auth/login                  // JWT authentication
+POST /api/v1/auth/refresh                // Token refresh
+GET  /api/v1/auth/me                     // Current user info
+GET  /api/v1/auth/permissions            // User permissions
+```
+
+### Database Integration Pattern
+```typescript
+// SQL Query Example: TIER 3 Permissions
+const getParentActionPermissions = async (
+  userId: string,
+  parentEntity: string,
+  parentEntityId: string,
+  actionEntity: string
+) => {
+  // 1. Verify parent access
+  const parentAccess = await db.query(`
+    SELECT 1 FROM app.rel_employee_entity_action_rbac
+    WHERE employee_id = $1
+      AND entity_type = $2
+      AND action_entity_id = $3
+      AND action = 'view'
+      AND active = true
+  `, [userId, parentEntity, parentEntityId]);
+
+  // 2. Find child entities via hierarchy mapping
+  const childEntities = await db.query(`
+    SELECT DISTINCT action_entity_id
+    FROM app.entity_id_hierarchy_mapping
+    WHERE parent_entity = $1
+      AND parent_entity_id = $2
+      AND action_entity = $3
+      AND active = true
+  `, [parentEntity, parentEntityId, actionEntity]);
+
+  // 3. Get user permissions on child entities
+  const permissions = await db.query(`
+    SELECT e.action_entity_id, array_agg(e.action) as actions
+    FROM app.rel_employee_entity_action_rbac e
+    WHERE e.employee_id = $1
+      AND e.entity_type = $2
+      AND (e.action_entity_id = ANY($3) OR e.action_entity_id = '')
+      AND e.active = true
+    GROUP BY e.action_entity_id
+  `, [userId, actionEntity, childEntityIds]);
+
+  return permissions;
+};
+```
+
+
+## 🎯 UX/UI DESIGN PATTERNS
+
+### Navigation Architecture
+```
+Sidebar Navigation → Main Entity Pages → Detail Pages → Action Entity Tabs
+       ↓                    ↓                ↓                    ↓
+   Entity Lists     →   Single Entity  →  Related Entities → CRUD Operations
+   (DataTable)         (Detail View)      (FilteredDataTable)   (Forms)
+```
+
+### Page Structure Pattern
+```typescript
+// All pages follow consistent structure:
+interface PageStructure {
+  layout: "Layout.tsx";                    // Common layout with sidebar
+  header: "HeaderTabNavigation";           // Dynamic tabs for action entities
+  actionBar: "CreateButton + Filters";     // RBAC-controlled actions
+  content: "DataTable | DetailView";       // Main content area
+  permissions: "RBAC Hook Integration";     // Permission-based UI
+}
+```
+
+### RBAC UI Integration
+```typescript
+// Permission-based rendering pattern:
+{canEdit && (
+  <button onClick={() => handleEdit()}>
+    <Edit3 className="h-4 w-4" />
+  </button>
+)}
+
+{canShare && (
+  <ShareButton onClick={() => handleShare()} />
+)}
+
+{canDelete && (
+  <DeleteButton onClick={() => handleDelete()} />
+)}
+```
+
+### Component Design System
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Layout.tsx (Common Shell)                                   │
+│ ┌─────────────┐ ┌─────────────────────────────────────────┐ │
+│ │   Sidebar   │ │ HeaderTabNavigation                     │ │
+│ │ Navigation  │ │ ┌─────────┐ ┌─────────┐ ┌─────────────┐ │ │
+│ │             │ │ │ Tasks   │ │  Wiki   │ │ Artifacts   │ │ │
+│ │ • Projects  │ │ │   (15)  │ │   (3)   │ │     (8)     │ │ │
+│ │ • Tasks     │ │ └─────────┘ └─────────┘ └─────────────┘ │ │
+│ │ • Business  │ │                                         │ │
+│ │ • Employees │ │ ActionBar (Create + Filters)            │ │
+│ │             │ │ ┌─────────────┐ ┌─────────────────────┐ │ │
+│ │             │ │ │ Create Task │ │ Status: [Active ▼] │ │ │
+│ │             │ │ └─────────────┘ └─────────────────────┘ │ │
+│ │             │ │                                         │ │
+│ │             │ │ Content Area                            │ │
+│ │             │ │ ┌─────────────────────────────────────┐ │ │
+│ │             │ │ │ FilteredDataTable                   │ │ │
+│ │             │ │ │ [✓] [✏️] [🗑️] Task Name | Status    │ │ │
+│ │             │ │ │ [✓] [✏️] [🗑️] Task Name | Status    │ │ │
+│ │             │ │ │ [✓] [✏️] [🗑️] Task Name | Status    │ │ │
+│ │             │ │ └─────────────────────────────────────┘ │ │
+│ └─────────────┘ └─────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 🔒 SECURITY & RBAC IMPLEMENTATION
+
+### JWT Authentication Flow
+```
+1. User Login → POST /api/v1/auth/login
+2. Backend validates credentials against d_employee
+3. JWT token generated with user claims
+4. Frontend stores token in memory/localStorage
+5. All API requests include Authorization: Bearer <token>
+6. Backend validates token on protected routes
+7. User context extracted for RBAC evaluation
+```
+
+### Permission Evaluation Pipeline
+```
+Request → JWT Validation → User ID Extract → RBAC Query → Permission Check → Response
+    ↓           ↓              ↓              ↓              ↓             ↓
+  API Call → Token Valid → James Miller → Query RBAC → Can Edit? → 200/403
+```
+
+### Canadian Business Context Data
+```sql
+-- Sample Employee: James Miller (CEO)
+INSERT INTO app.d_employee (
+  id, name, email, employee_number, role_level,
+  postal_code, province, department
+) VALUES (
+  gen_random_uuid(),
+  'James Miller',
+  'james.miller@huronhome.ca',
+  'EMP-001',
+  'executive',
+  'N0M 2T0', -- Port Elgin, Ontario
+  'ON',
+  'Executive Leadership'
+);
+
+-- 113+ RBAC Permissions for James Miller
+-- Comprehensive access across all entity types:
+-- - Business units (view, edit, share, create)
+-- - Projects (view, edit, share, delete, create)
+-- - Employees (view, edit, share)
+-- - All content entities (wiki, forms, artifacts)
+```
+
+## 📊 PERFORMANCE & SCALABILITY
+
+### Caching Strategy
+```typescript
+// Frontend RBAC Cache
+const rbacCache = new Map();
+const cacheKey = `tier${tier}:${entityType}:${parentId || ''}`;
+cache.set(cacheKey, permissions, 300); // 5-minute TTL
+
+// Backend Redis Cache (Future)
+// - Query result caching
+// - Session management
+// - Rate limiting data
+```
+
+### Database Optimization
+```sql
+-- Indexes for RBAC Performance
+CREATE INDEX idx_rbac_employee_entity ON app.rel_employee_entity_action_rbac
+  (employee_id, entity_type, active);
+
+CREATE INDEX idx_hierarchy_mapping ON app.entity_id_hierarchy_mapping
+  (parent_entity, parent_entity_id, action_entity, active);
+
+-- Partial indexes for active records
+CREATE INDEX idx_active_employees ON app.d_employee (id) WHERE active = true;
+CREATE INDEX idx_active_projects ON app.d_project (id) WHERE active = true;
+```
+
+### API Performance Patterns
+```typescript
+// Batch permission loading
+const permissions = await Promise.all([
+  getRBACPermissions(entityType, records),
+  getEntityMetadata(entityType),
+  getActionSummaries(parentId)
+]);
+
+// Single-query permission aggregation
+const permissionQuery = `
+  SELECT e.action_entity_id, array_agg(e.action) as actions
+  FROM app.rel_employee_entity_action_rbac e
+  WHERE e.employee_id = $1 AND e.entity_type = $2 AND e.active = true
+  GROUP BY e.action_entity_id
+`;
+```
+
+## 🚀 DEPLOYMENT & INFRASTRUCTURE
+
+### Docker Infrastructure
+```yaml
+# docker-compose.yml
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    ports: ["5434:5432"]
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  minio:
+    image: minio/minio
+    ports: ["9000:9000", "9001:9001"]
+
+  mailhog:
+    image: mailhog/mailhog
+    ports: ["8025:8025"]
+```
+
+### Production Configuration
+```typescript
+// Environment-based configuration
+const config = {
+  database: {
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '5434'),
+    username: process.env.DB_USER || 'app',
+    password: process.env.DB_PASSWORD || 'app',
+    database: process.env.DB_NAME || 'app'
+  },
+  jwt: {
+    secret: process.env.JWT_SECRET || 'change-in-production',
+    expiresIn: '24h'
+  },
+  redis: {
+    url: process.env.REDIS_URL || 'redis://localhost:6379'
+  }
+};
+```
+
+## 📈 BUSINESS CONTEXT & DATA MODEL
+
+### Huron Home Services Operations
+```
+Corporate Structure:
+├── Huron Home Services Inc. (Parent Company)
+│   ├── Landscaping Division
+│   │   ├── Grounds Maintenance Department
+│   │   ├── Snow Removal Operations
+│   │   └── Seasonal Services
+│   ├── Energy Services Division
+│   │   ├── Solar Panel Installation
+│   │   ├── HVAC Services
+│   │   └── Electrical Systems
+│   └── Property Services Division
+│       ├── Plumbing Services
+│       ├── General Maintenance
+│       └── Emergency Response
+```
+
+### Sample Project Data
+```sql
+-- Fall 2025 Landscaping Campaign
+INSERT INTO app.d_project (
+  name, project_type, status, budget_allocated,
+  client_id, start_date, target_end_date
+) VALUES (
+  'Fall 2025 Landscaping Campaign',
+  'seasonal',
+  'planning',
+  50000.00,
+  'residential-client-uuid',
+  '2025-09-01',
+  '2025-11-30'
+);
+
+-- Associated Tasks (12 tasks)
+-- Site preparation, equipment procurement, soil work,
+-- seeding, planting, maintenance, quality control
+```
+
+### Employee Hierarchy
+```
+C-Level: James Miller (CEO)
+Directors: Sarah Johnson (Operations), Michael Chen (Technology)
+Managers: Jennifer Davis (Project), Robert Wilson (Field Operations)
+Specialists: Lisa Anderson (Safety), David Brown (Equipment)
+Coordinators: Emily Thompson (Admin), Mark Davis (Logistics)
+Field Workers: Alex Johnson, Maria Rodriguez, Chris Wilson
+Seasonal: Various temporary and contract workers
+```
+
+## 🔄 INTEGRATION PATTERNS
+
+### API Integration Pattern
+```typescript
+// Frontend API Client
+// File: apps/web/src/lib/api.ts
+class ApiClient {
+  private baseURL = 'http://localhost:4000/api/v1';
+  private token: string | null = null;
+
+  async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(this.token && { Authorization: `Bearer ${this.token}` }),
+      ...options?.headers
+    };
+
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      ...options,
+      headers
+    });
+
+    if (!response.ok) {
+      throw new ApiError(response.status, await response.text());
+    }
+
+    return response.json();
+  }
+}
+```
+
+### Entity Configuration System
+```typescript
+// Dynamic entity configuration for UI generation
+interface EntityConfig {
+  entityType: string;
+  displayName: string;
+  fields: FieldConfig[];
+  actions: ActionConfig[];
+  relationships: RelationshipConfig[];
+}
+
+// Example: Project Entity Configuration
+const projectConfig: EntityConfig = {
+  entityType: 'project',
+  displayName: 'Project',
+  fields: [
+    { name: 'name', type: 'text', required: true, editable: true },
+    { name: 'status', type: 'select', options: projectStatuses },
+    { name: 'budget_allocated', type: 'currency', editable: true }
+  ],
+  actions: ['view', 'edit', 'share', 'delete', 'create'],
+  relationships: [
+    { actionEntity: 'task', route: '/project/:id/task' },
+    { actionEntity: 'wiki', route: '/project/:id/wiki' },
+    { actionEntity: 'artifact', route: '/project/:id/artifact' }
+  ]
+};
+```
+
+## 📋 DEVELOPMENT WORKFLOW
+
+### Local Development Setup
+```bash
+# 1. Install dependencies
+pnpm install
+
+# 2. Start infrastructure
+./tools/start-all.sh
+
+# 3. Import database schema
+./tools/db-import.sh
+
+# 4. Verify services
+./tools/status.sh
+
+# 5. Test API endpoints
+./tools/test-api-endpoints.sh
+
+# 6. Access applications
+# Web: http://localhost:5173
+# API: http://localhost:4000
+# API Docs: http://localhost:4000/docs
+```
+
+### Code Quality & Standards
+```typescript
+// TypeScript configuration for type safety
+{
+  "compilerOptions": {
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true
+  }
+}
+
+// ESLint rules for code consistency
+{
+  "extends": [
+    "@typescript-eslint/recommended",
+    "react-hooks/recommended"
+  ],
+  "rules": {
+    "@typescript-eslint/no-unused-vars": "error",
+    "react-hooks/exhaustive-deps": "warn"
+  }
+}
+```
+
+### Testing Strategy
+```typescript
+// Unit Testing (Vitest)
+// File: apps/api/src/modules/rbac/__tests__/rbac.test.ts
+describe('RBAC Permission System', () => {
+  test('should return correct permissions for CEO', async () => {
+    const permissions = await getRBACPermissions('james-uuid', 'project');
+    expect(permissions).toContain(['view', 'edit', 'share', 'delete']);
+  });
+});
+
+// Integration Testing
+// File: tools/test-api-endpoints.sh
+# Tests all API endpoints with real authentication
+# Validates RBAC responses and data integrity
+```
+
+## 🎯 KEY SUCCESS FACTORS
+
+### 1. Unified RBAC System
+- **Single Source of Truth**: All permissions flow through 5-layer architecture
+- **Granular Control**: Entity-level and action-level permissions
+- **Performance Optimized**: Batch queries and intelligent caching
+- **Audit Ready**: Complete permission trail and temporal tracking
+
+### 2. Type-Safe Development
+- **End-to-End TypeScript**: Frontend, backend, and database schemas
+- **Runtime Validation**: Zod schemas for API contracts
+- **IDE Integration**: Full intellisense and error detection
+- **Compile-Time Safety**: Catches errors before deployment
+
+### 3. Canadian Business Compliance
+- **Data Localization**: PostgreSQL with Canadian business context
+- **Privacy Ready**: GDPR/PIPEDA compliant data structures
+- **Regulatory Support**: Audit trails and data retention policies
+- **Business Context**: Real-world Canadian operational data
+
+### 4. Developer Experience
+- **One-Command Setup**: Complete platform via ./tools/start-all.sh
+- **Comprehensive Tooling**: 8 management scripts for all operations
+- **Real-Time Feedback**: Hot reload, logging, and debugging tools
+- **Production Parity**: Docker-based development environment
+
+### 5. Enterprise Scalability
+- **Modular Architecture**: Independent API modules and UI components
+- **Database Optimization**: Indexed queries and efficient relationships
+- **Caching Strategy**: Multi-layer caching for performance
+- **Monitoring Ready**: Structured logging and health checks
+
+## 📝 CONCLUSION
+
+The Enterprise PMO Task Management Platform represents a comprehensive, production-ready solution for Canadian business operations. With its sophisticated 5-layer RBAC architecture, modern TypeScript stack, and comprehensive tooling ecosystem, it provides a solid foundation for enterprise project management while maintaining security, performance, and developer experience standards.
+
+The platform successfully demonstrates:
+- **Complex RBAC Implementation**: 5-layer permission architecture
+- **Real-World Business Context**: Canadian business operations and compliance
+- **Modern Development Practices**: TypeScript, React, Fastify, PostgreSQL
+- **Comprehensive Tooling**: Complete development and deployment pipeline
+- **Enterprise Readiness**: Security, scalability, and maintainability
+
+This technical rundown serves as both architectural documentation and implementation guide for future development and system expansion.
+
+## 🛠️ DEVELOPMENT TOOLING & PLATFORM MANAGEMENT
+
+The PMO platform includes a comprehensive suite of 8 management tools that provide complete automation for platform operations, database management, and API testing. All tools are production-ready with enhanced logging, error handling, and colored output.
+
+### Platform Management Tools
+
+#### 🚀 start-all.sh
+**Complete Platform Startup - Infrastructure, Database, API, and Web Services**
+```bash
+./tools/start-all.sh
+```
+**Purpose**: Single-command complete platform initialization
+**Features**:
+- Starts Docker infrastructure services (PostgreSQL, Redis, MinIO, MailHog)
+- Recreates database schema with fresh production data
+- Starts API server on port 4000 with hot reload
+- Starts web application on port 5173 with Vite dev server
+- Provides service status verification and quick access links
+- Automatic readiness checks with error handling
+- Creates PID files for process management
+
+**Use Cases**:
+- Initial development environment setup
+- Platform reset after system changes
+- Clean slate development sessions
+- Demo environment preparation
+
+#### 📊 status.sh
+**Service Status & Health Monitoring**
+```bash
+./tools/status.sh
+```
+**Purpose**: Real-time status of all platform services
+**Features**:
+- API server status with PID and port information
+- Web server status with PID and port information
+- Docker container health for infrastructure services
+- Service URLs for quick access
+- Process tree visualization
+- Memory and CPU usage indicators
+- Management command suggestions
+
+**Output Example**:
+```
+🟢 API Server: Running (PID: 12345) - http://localhost:4000
+🟢 Web Server: Running (PID: 12346) - http://localhost:5173
+🟢 PostgreSQL: Running - localhost:5434
+🟢 Redis: Running - localhost:6379
+🟢 MinIO: Running - http://localhost:9001
+🟢 MailHog: Running - http://localhost:8025
+```
+
+#### 🛑 stop-api.sh / stop-web.sh
+**Granular Service Control**
+```bash
+./tools/stop-api.sh    # Stop only API server
+./tools/stop-web.sh    # Stop only web application
+```
+**Purpose**: Independent service lifecycle management
+**Features**:
+- Graceful process termination with SIGTERM
+- PID file cleanup and validation
+- Force termination with SIGKILL as fallback
+- Port release verification
+- Status confirmation after shutdown
+
+### Logging & Debugging Tools
+
+#### 📋 logs-api.sh / logs-web.sh
+**Real-time Log Monitoring**
+```bash
+./tools/logs-api.sh [lines]     # View last N lines (default 100)
+./tools/logs-api.sh -f          # Follow logs in real-time
+./tools/logs-web.sh [lines]     # View web server logs
+./tools/logs-web.sh -f          # Follow web logs in real-time
+```
+**Purpose**: Development debugging and monitoring
+**Features**:
+- Colored output for better readability (errors in red, warnings in yellow)
+- Timestamp formatting and log level indicators
+- Pattern filtering for specific log types
+- Real-time streaming with `-f` flag
+- Integration with development workflow
+
+**Log Categories**:
+- **API Logs**: Request/response cycles, RBAC evaluations, database queries, JWT validation
+- **Web Logs**: Component rendering, route changes, API calls, error boundaries
+- **Infrastructure Logs**: Database connections, Redis operations, Docker events
+
+### Database Management Tools
+
+#### 🗄️ db-import.sh
+**Complete Database Schema Management**
+```bash
+./tools/db-import.sh [--dry-run] [--verbose] [--skip-validation]
+```
+**Purpose**: Primary tool for database initialization, reset, and data import
+**Features**:
+- **Complete Schema Reset**: Safely drops and recreates entire app schema
+- **24 DDL Files**: Dependency-optimized loading order with foreign key validation
+- **Production Data**: Huron Home Services with 25+ employees, 10+ projects, 12+ tasks
+- **RBAC System**: 113+ permissions across 9 scope types for James Miller (CEO)
+- **Canadian Business Context**: Real postal codes, provinces, regulatory compliance
+- **Comprehensive Validation**: Post-import schema integrity and relationship checks
+- **Enhanced Logging**: Detailed progress with timestamps and error reporting
+- **Environment Support**: Full database connection configuration
+
+**DDL Loading Sequence**:
+```
+01_extensions.ddl → 15_meta_entity_types.ddl → 16_meta_entity_hierarchy.ddl
+→ 17_entity_id_hierarchy_mapping.ddl → 18_meta_entity_hierarchy_permission_mapping.ddl
+→ 12_d_employee.ddl → 19_rel_employee_entity_rbac.ddl → Business entities
+→ Project management → Content management → Sample data insertion
+```
+
+**Sample Data Included**:
+- **Employees**: James Miller (CEO) to seasonal field workers
+- **Business Units**: 3-level hierarchy (Corporate → Division → Department)
+- **Projects**: Fall 2025 Landscaping Campaign, HVAC modernization, Solar installations
+- **Tasks**: Site preparation, equipment procurement, quality control
+- **RBAC Permissions**: Complete permission matrix for all entity relationships
+
+**Command Options**:
+```bash
+./tools/db-import.sh --dry-run      # Validate DDL files without execution
+./tools/db-import.sh --verbose      # Detailed progress reporting
+./tools/db-import.sh --skip-validation  # Skip post-import validation checks
+```
+
+### API Testing & Validation Tools
+
+#### 🧪 test-api-endpoints.sh
+**Comprehensive API System Validation**
+```bash
+./tools/test-api-endpoints.sh [base_url] [email] [password]
+```
+**Purpose**: Complete API system validation with authentication and RBAC testing
+**Features**:
+- **11 API Modules Coverage**: Tests all endpoints from authentication to forms
+- **Enhanced JWT Authentication**: Login with permission bundling and token validation
+- **Unified RBAC Validation**: Tests 3-tier permission system (TIER 1, 2, 3)
+- **Real Production Data**: James Miller with 113+ active permissions
+- **Bearer Token Integration**: Proper Authorization headers for all API calls
+- **Permission Matrix Testing**: Validates entity-level and action-level permissions
+- **Detailed Results**: Color-coded output with pass/fail indicators
+- **Error Handling**: Comprehensive error reporting with debugging information
+
+**API Modules Tested**:
+1. **Authentication**: Login, token validation, user permissions
+2. **RBAC System**: All 3 tiers of permission checking
+3. **Project Management**: CRUD operations with parent-child relationships
+4. **Business Entities**: Business units, organizations, clients
+5. **Task Management**: Task operations within project context
+6. **Employee System**: Personnel management with role assignments
+7. **Content Management**: Wiki, artifacts, forms with access control
+8. **Metadata**: Entity types, hierarchy definitions, permission mappings
+
+**Test Execution Flow**:
+```bash
+# 1. Authentication Test
+POST /api/v1/auth/login → Extract JWT token
+
+# 2. Permission Validation
+POST /api/v1/rbac/get-permissions-by-entityType → Validate TIER 1
+POST /api/v1/rbac/check-permission-of-entity → Validate TIER 2
+POST /api/v1/rbac/get-permissions-by-parentEntity-actionEntity → Validate TIER 3
+
+# 3. CRUD Operations
+GET /api/v1/project → List projects with RBAC filtering
+GET /api/v1/project/{id} → Single project with permissions
+GET /api/v1/project/{id}/task → Parent-child relationships
+POST /api/v1/project → Create with permission validation
+
+# 4. Data Integrity
+Validate response structures, data types, relationships
+Check permission enforcement and access control
+Verify Canadian business context data
+```
+
+### Environment Configuration
+
+#### 🔧 Environment Variables
+```bash
+# Database Configuration
+DB_HOST=localhost              # Database host
+DB_PORT=5434                  # Database port
+DB_USER=app                   # Database user
+DB_PASSWORD=app               # Database password
+DB_NAME=app                   # Database name
+
+# Application Configuration
+DATABASE_URL="postgresql://app:app@localhost:5434/app"
+REDIS_URL="redis://localhost:6379"
+JWT_SECRET="your-super-secret-jwt-key-change-in-production"
+
+# Development Configuration
+NODE_ENV=development
+DEV_BYPASS_OIDC=false         # Never use true in production
+```
+
+#### 🌐 Service Ports & URLs
+```bash
+# Core Services
+API Server:     http://localhost:4000
+API Documentation: http://localhost:4000/docs
+Web Application: http://localhost:5173
+
+# Infrastructure Services
+PostgreSQL:     localhost:5434 (app/app)
+Redis:          localhost:6379
+MinIO Console:  http://localhost:9001 (minio/minio123)
+MailHog:        http://localhost:8025
+
+# Development Tools
+Vite Dev Server: http://localhost:5173
+Fastify Server:  http://localhost:4000
+OpenAPI Docs:    http://localhost:4000/docs
+```
+
+### Tool Dependencies & Execution Order
+
+#### 🔄 Recommended Workflow
+```bash
+# 1. Infrastructure Setup
+./tools/start-all.sh           # Starts everything including Docker services
+
+# 2. Development Workflow
+./tools/status.sh              # Check service health
+./tools/logs-api.sh -f         # Monitor API logs
+./tools/logs-web.sh -f         # Monitor web logs (separate terminal)
+
+# 3. Database Operations
+./tools/db-import.sh           # Reset/import schema when needed
+./tools/db-import.sh --dry-run # Validate before executing
+
+# 4. API Validation
+./tools/test-api-endpoints.sh  # Full system validation
+./tools/test-api-endpoints.sh http://localhost:4000 james.miller@huronhome.ca password123
+
+# 5. Service Management
+./tools/stop-api.sh            # Stop API for updates
+./tools/stop-web.sh            # Stop web for updates
+./tools/start-all.sh           # Restart everything
+```
+
+#### 📁 Tool Files Structure
+```
+tools/
+├── README.md                  # Comprehensive tool documentation
+├── start-all.sh              # Complete platform startup
+├── status.sh                 # Service status checker
+├── stop-api.sh               # Stop API server
+├── stop-web.sh               # Stop web server
+├── logs-api.sh               # View API logs
+├── logs-web.sh               # View web logs
+├── db-import.sh              # Database import/reset
+└── test-api-endpoints.sh     # API endpoint testing
+
+.pids/                         # Process ID files
+├── api.pid                   # API server process ID
+└── web.pid                   # Web server process ID
+```
+
+### Production Considerations
+
+#### 🔒 Security Features
+- **Environment Variable Validation**: All tools validate required environment variables
+- **Process Isolation**: Each service runs independently with proper PID management
+- **Graceful Shutdown**: SIGTERM followed by SIGKILL for clean termination
+- **Port Validation**: Ensures ports are available before service startup
+- **Connection Testing**: Validates database and Redis connectivity
+
+#### 📊 Monitoring & Logging
+- **Structured Logging**: JSON format for production log aggregation
+- **Error Handling**: Comprehensive error reporting with stack traces
+- **Performance Metrics**: Request timing and database query performance
+- **Health Checks**: Automated service health validation
+- **Resource Monitoring**: Memory and CPU usage tracking
+
+#### 🚀 Deployment Pipeline
+```bash
+# Development Environment
+./tools/start-all.sh           # Local development setup
+./tools/test-api-endpoints.sh  # Pre-deployment validation
+
+# Staging Environment
+./tools/db-import.sh --verbose # Schema deployment
+./tools/test-api-endpoints.sh staging.example.com
+
+# Production Environment
+./tools/db-import.sh --skip-validation  # Production data migration
+./tools/test-api-endpoints.sh api.production.com
+```
+
+This comprehensive tooling ecosystem ensures reliable, repeatable, and efficient development workflow while maintaining production-grade operational capabilities.
+
+
+
+  ┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────────┐
+  │   Sidebar   │───▶│    Route     │───▶│    Page     │───▶│  Component   │
+  │ Navigation  │    │  /project/*  │    │ Project*.tsx│    │  DataTable   │
+  └─────────────┘    └──────────────┘    └─────────────┘    └──────────────┘
+                                                                     │
+                                                                     ▼
+  ┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────────┐
+  │  Database   │◀───│     API      │◀───│   Hook      │◀───│     RBAC     │
+  │ PostgreSQL  │    │   Routes     │    │ useUnified* │    │    Config    │
+  └─────────────┘    └──────────────┘    └─────────────┘    └──────────────┘
+         │                   │                   │                   │
+         │                   │                   │                   │
+         ▼                   ▼                   ▼                   ▼
+   Permission           REST Response      Cached State        UI Rendering
+    Queries              Structure         Management          Conditional
+
+  This documentation provides the complete technical journey from user interaction to database query execution across all three project page types, showing how the unified
+  RBAC system seamlessly handles different contexts while maintaining performance and security.
+
+
+🎯 TIER 1: Main Page Data Table RBAC Buttons
+
+  Backend API
+
+  // File: apps/api/src/modules/rbac/routes.ts:54-94
+  POST /api/v1/rbac/get-permissions-by-entityType
+
+  Request: { entityType: "project" }
+  Response: {
+    entityType: "project",
+    permissions: [
+      { actionEntityId: "project-uuid-1", actions: ["view", "edit", "delete"] },
+      { actionEntityId: "project-uuid-2", actions: ["view", "share"] },
+      { actionEntityId: "", actions: ["create"] } // Global permissions
+    ]
+  }
+
+  UI Hook
+
+  // File: apps/web/src/components/common/RBACButton.tsx:34-138
+  export function useBatchRBACPermissions(
+    entityType: string, 
+    records: any[], 
+    actions: string[]
+  ) {
+    // Returns: { permissions: Record<string, Record<string, boolean>>, loading: boolean }
+  }
+
+  // Usage Example:
+  const { permissions, loading } = useBatchRBACPermissions(
+    'project',
+    projectRecords,
+    ['view', 'edit', 'delete', 'share']
+  );
+
+  Components Using TIER 1
+
+  1. Main Project List Page
+
+  // File: apps/web/src/pages/ProjectPage.tsx:276-279
+  <DataTable
+    data={projects}
+    columns={tableColumns}
+    rbacConfig={{
+      entityType: 'project',           // Triggers TIER 1 API
+      enablePermissionChecking: true,
+    }}
+    onView={handleView}
+    onEdit={handleEdit}
+    onShare={handleShare}
+    onDelete={handleDelete}
+  />
+
+  2. DataTable Component
+
+  // File: apps/web/src/components/ui/DataTable.tsx:105-109
+  const directPermissions = useBatchRBACPermissions(
+    shouldCheckPermissions && !isParentActionContext ? rbacConfig.entityType : '',
+    shouldCheckPermissions && !isParentActionContext ? data : [],
+    shouldCheckPermissions && !isParentActionContext ? actionsToCheck : []
+  );
+
+  3. Create Button (Layout)
+
+  // File: apps/web/src/components/layout/Layout.tsx
+  <Layout createButton={{
+    label: "Create Project",
+    href: "/project/new",
+    entityType: "project"    // Uses global create permission from TIER 1
+  }}>
+
+  ---
+  🎯 TIER 2: Detail Page Inline Edit & Share
+
+  Backend API
+
+  // File: apps/api/src/modules/rbac/routes.ts:98-145
+  POST /api/v1/rbac/check-permission-of-entity
+
+  Request: {
+    entityType: "project",
+    entityId: "cbb0d7af-7cf0-4dff-8b97-114097883307"
+  }
+  Response: {
+    entityType: "project",
+    entityId: "cbb0d7af-7cf0-4dff-8b97-114097883307",
+    permissions: [
+      { actionEntityId: "cbb0d7af-7cf0-4dff-8b97-114097883307", actions: ["edit", "share", "view"] }
+    ]
+  }
+
+  UI Hook
+
+  // File: apps/web/src/hooks/useActionEntityPermission.ts:16-98
+  export function useActionEntityPermission(
+    entityType: string,
+    entityId: string | undefined
+  ): ActionEntityPermissionHookResult {
+    // Returns: { permissions, canEdit, canShare, canDelete, canView, permissionLoading }
+  }
+
+  // Usage Example:
+  const { canEdit, canShare, permissionLoading } = useActionEntityPermission('project', projectId);
+
+  Components Using TIER 2
+
+  1. Project Detail Page
+
+  // File: apps/web/src/pages/project/ProjectDetailPage.tsx:24
+  // TIER 2: Use useActionEntityPermission hook for detail page inline edit and share
+  const { canEdit, canShare, permissionLoading } = useActionEntityPermission('project', projectId);
+
+  // Inline edit fields (lines 219, 311, 478)
+  {canEdit && (
+    <button onClick={() => handleEditField('name', projectData?.name || '')}>
+      <Edit3 className="h-4 w-4" />
+    </button>
+  )}
+
+  // Share button (lines 202-207)
+  {canShare && (
+    <ShareButton
+      onClick={() => console.log('Share project')}
+      variant="secondary"
+    />
+  )}
+
+  2. Editable Field Renderer
+
+  // File: apps/web/src/pages/project/ProjectDetailPage.tsx:140-233
+  const renderEditableField = (fieldName: string, label: string, displayValue: string) => {
+    return (
+      <div className="group">
+        {/* Display value with conditional edit button */}
+        {canEdit && (
+          <button onClick={() => handleEditField(fieldName, currentValue)}>
+            <Edit3 className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  ---
+  🎯 TIER 3: Action Entity Tab Data Tables
+
+  Backend API
+
+  // File: apps/api/src/modules/rbac/routes.ts:149-248
+  POST /api/v1/rbac/get-permissions-by-parentEntity-actionEntity
+
+  Request: {
+    parentEntity: "project",
+    parentEntityId: "cbb0d7af-7cf0-4dff-8b97-114097883307",
+    actionEntity: "task"
+  }
+  Response: {
+    parentEntity: "project",
+    parentEntityId: "cbb0d7af-7cf0-4dff-8b97-114097883307",
+    actionEntity: "task",
+    permissions: [
+      { actionEntityId: "task-uuid-1", actions: ["view", "edit"] },
+      { actionEntityId: "task-uuid-2", actions: ["view", "delete"] },
+      { actionEntityId: "", actions: ["create"] } // Can create new tasks in this project
+    ]
+  }
+
+  UI Hook
+
+  // File: apps/web/src/components/common/RBACButton.tsx:142-200
+  export function useBatchParentActionRBACPermissions(
+    parentEntity: string,
+    parentEntityId: string,
+    actionEntity: string,
+    records: any[],
+    actions: string[]
+  ) {
+    // Returns: { permissions: Record<string, Record<string, boolean>>, loading: boolean }
+  }
+
+  // Usage Example:
+  const { permissions, loading } = useBatchParentActionRBACPermissions(
+    'project',
+    projectId,
+    'task',
+    taskRecords,
+    ['view', 'edit', 'delete']
+  );
+
+  Components Using TIER 3
+
+  1. Project Task Page
+
+  // File: apps/web/src/pages/project/ProjectTaskPage.tsx:272-277
+  <FilteredDataTable
+    entityType="task"
+    parentEntity="project"        // Triggers TIER 3 API
+    parentEntityId={projectId}    // Specific project context
+  />
+
+  2. Project Wiki Page
+
+  // File: apps/web/src/pages/project/ProjectWikiPage.tsx:68-72
+  <FilteredDataTable
+    entityType="wiki"
+    parentEntity="project"        // Triggers TIER 3 API  
+    parentEntityId={projectId}    // Specific project context
+  />
+
+  3. FilteredDataTable Component
+
+  // File: apps/web/src/components/FilteredDataTable.tsx:348-353
+  <DataTable
+    rbacConfig={{
+      entityType: entityType,           // Action entity (task, wiki, artifact)
+      enablePermissionChecking: true,
+      parentEntity: parentEntity,       // Parent entity (project)
+      parentEntityId: parentEntityId,   // Specific parent ID
+    }}
+  />
+
+  4. DataTable with Parent Context
+
+  // File: apps/web/src/components/ui/DataTable.tsx:102-117
+  const isParentActionContext = shouldCheckPermissions && rbacConfig?.parentEntity && rbacConfig?.parentEntityId;
+
+  const parentActionPermissions = useBatchParentActionRBACPermissions(
+    isParentActionContext ? rbacConfig.parentEntity! : '',
+    isParentActionContext ? rbacConfig.parentEntityId! : '',
+    isParentActionContext ? rbacConfig.entityType : '',
+    isParentActionContext ? data : [],
+    isParentActionContext ? actionsToCheck : []
+  );
+
+  // Use parent-action permissions when in parent context
+  const { permissions, loading: permissionsLoading } = isParentActionContext
+    ? parentActionPermissions
+    : directPermissions;
+
+  5. Action Bar with Create Button
+
+  // File: apps/web/src/pages/project/ProjectTaskPage.tsx:224-230
+  <ActionBar
+    createButton={{
+      entityType: 'task',              // Action entity
+      parentEntity: 'project',         // Parent entity  
+      parentEntityId: projectId,       // Uses TIER 3 create permission
+      onCreateClick: () => console.log('Create task in project'),
+    }}
+  />
+
+  ---
+  🔄 Context Flow & Integration
+
+  1. Navigation Context
+
+  // Header Tab Navigation determines parent context
+  // File: apps/web/src/components/common/HeaderTabNavigation.tsx
+  <HeaderTabNavigation
+    parentType="project"           // Sets parent entity context
+    parentId={projectId}          // Sets parent entity ID context
+    tabs={tabs}                   // Dynamic tabs based on permissions
+  />
+
+  2. Permission Context Switching
+
+  // DataTable automatically switches between TIER 1 and TIER 3 based on context
+  // File: apps/web/src/components/ui/DataTable.tsx:102
+  const isParentActionContext = shouldCheckPermissions &&
+    rbacConfig?.parentEntity &&
+    rbacConfig?.parentEntityId;
+
+  // Uses TIER 1 for main pages, TIER 3 for parent-child relationships
+
+  3. API Context Resolution
+
+  // Backend resolves relationships via hierarchy mapping or direct foreign keys
+  // File: apps/api/src/modules/rbac/routes.ts:211-233
+  if (parentEntity === 'project' && actionEntity === 'task') {
+    // Direct FK: app.ops_task_head.project_id
+  } else if (parentEntity === 'project' && actionEntity === 'wiki') {
+    // Direct FK: app.d_wiki.project_id  
+  } else if (parentEntity === 'project' && actionEntity === 'artifact') {
+    // Direct FK: app.d_artifact.project_id
+  }
+

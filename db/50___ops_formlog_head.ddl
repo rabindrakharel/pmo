@@ -443,3 +443,226 @@ INSERT INTO app.ops_formlog_head (
 '{"lead_scoring": true, "auto_response": true, "crm_integration": true, "follow_up_workflow": true}');
 
 -- Indexes removed for simplified import
+
+-- ============================================================================
+-- FALL 2025 LANDSCAPING CAMPAIGN FORMS
+-- ============================================================================
+
+-- Enhanced forms specific to the Fall 2025 Landscaping Campaign project
+WITH campaign_project AS (
+  SELECT id FROM app.d_project WHERE project_code = 'FALL-2025-LAND'
+),
+james_miller AS (
+  SELECT id FROM app.d_employee WHERE name = 'James Miller'
+)
+
+INSERT INTO app.ops_formlog_head (
+  name, "descr", form_code, form_global_link, schema, version,
+  project_specific, project_id, project_permission,
+  requires_authentication, submission_limit, notification_rules,
+  last_modified_by, tags, attr
+)
+SELECT
+  'Site Assessment and Soil Testing Form',
+  'Comprehensive site assessment form for fall landscaping projects including soil testing, drainage evaluation, and site conditions',
+  'FORM-FALL-SITE-ASSESS',
+  'huron-forms/fall-site-assessment',
+  '{
+    "title": "Fall Landscaping Site Assessment",
+    "fields": [
+      {"name": "assessment_date", "type": "date", "required": true, "label": "Assessment Date"},
+      {"name": "assessor_name", "type": "select", "required": true, "label": "Site Assessor"},
+      {"name": "client_property", "type": "text", "required": true, "label": "Client Property Address"},
+      {"name": "property_size", "type": "number", "required": true, "label": "Property Size (sq ft)", "min": 0},
+      {"name": "existing_vegetation", "type": "textarea", "required": true, "label": "Existing Vegetation Assessment"},
+      {"name": "soil_ph", "type": "number", "required": true, "label": "Soil pH", "min": 0, "max": 14, "step": 0.1},
+      {"name": "soil_drainage", "type": "select", "required": true, "label": "Soil Drainage", "options": ["Excellent", "Good", "Fair", "Poor", "Very Poor"]},
+      {"name": "compaction_level", "type": "select", "required": true, "label": "Soil Compaction", "options": ["None", "Light", "Moderate", "Heavy", "Severe"]},
+      {"name": "sun_exposure", "type": "multiselect", "required": true, "label": "Sun Exposure Areas", "options": ["Full Sun", "Partial Sun", "Partial Shade", "Full Shade"]},
+      {"name": "safety_hazards", "type": "textarea", "required": false, "label": "Safety Hazards Identified"},
+      {"name": "access_challenges", "type": "textarea", "required": false, "label": "Equipment Access Challenges"},
+      {"name": "irrigation_system", "type": "boolean", "required": true, "label": "Existing Irrigation System Present"},
+      {"name": "recommended_services", "type": "multiselect", "required": true, "label": "Recommended Services", "options": ["Soil Aeration", "pH Adjustment", "Overseeding", "New Plantings", "Mulching", "Fertilization", "Drainage Improvement"]},
+      {"name": "client_preferences", "type": "textarea", "required": false, "label": "Client Preferences and Special Requests"},
+      {"name": "photo_documentation", "type": "file", "required": false, "label": "Site Photos", "multiple": true},
+      {"name": "assessment_complete", "type": "boolean", "required": true, "label": "Assessment Complete"}
+    ],
+    "validation": {
+      "required_fields": ["assessment_date", "assessor_name", "client_property", "property_size", "existing_vegetation", "soil_ph", "soil_drainage", "compaction_level", "sun_exposure", "irrigation_system", "recommended_services", "assessment_complete"]
+    }
+  }'::jsonb,
+  1,
+  true,
+  campaign_project.id,
+  '["site_assessor", "project_manager", "crew_lead"]'::jsonb,
+  true,
+  NULL::integer,
+  '{"email_notifications": ["project_manager", "crew_supervisor"], "completion_trigger": true}'::jsonb,
+  james_miller.id,
+  '["site_assessment", "soil_testing", "fall_campaign"]'::jsonb,
+  '{"quality_control": true, "photo_required": true, "gps_tracking": true, "weather_conditions": true}'::jsonb
+FROM campaign_project, james_miller
+
+UNION ALL
+
+SELECT
+  'Daily Work Progress Report',
+  'Daily progress tracking form for fall landscaping operations including task completion, quality metrics, and next-day planning',
+  'FORM-FALL-DAILY-PROGRESS',
+  NULL,
+  '{
+    "title": "Fall Landscaping Daily Progress Report",
+    "fields": [
+      {"name": "work_date", "type": "date", "required": true, "label": "Work Date"},
+      {"name": "crew_lead", "type": "select", "required": true, "label": "Crew Lead"},
+      {"name": "crew_members", "type": "multiselect", "required": true, "label": "Crew Members"},
+      {"name": "client_property", "type": "text", "required": true, "label": "Client Property"},
+      {"name": "weather_conditions", "type": "select", "required": true, "label": "Weather Conditions", "options": ["Clear", "Partly Cloudy", "Overcast", "Light Rain", "Heavy Rain", "Windy", "Too Cold", "Perfect"]},
+      {"name": "tasks_completed", "type": "multiselect", "required": true, "label": "Tasks Completed Today", "options": ["Site Preparation", "Soil Testing", "Aeration", "Soil Amendment", "Seeding", "Overseeding", "Plant Installation", "Mulching", "Fertilizer Application", "Cleanup", "Quality Inspection"]},
+      {"name": "hours_worked", "type": "number", "required": true, "label": "Total Hours Worked", "min": 0, "max": 16, "step": 0.5},
+      {"name": "completion_percentage", "type": "number", "required": true, "label": "Overall Project Completion %", "min": 0, "max": 100},
+      {"name": "quality_rating", "type": "rating", "required": true, "label": "Work Quality Self-Assessment", "scale": 5},
+      {"name": "materials_used", "type": "textarea", "required": false, "label": "Materials Used (quantities)"},
+      {"name": "equipment_used", "type": "multiselect", "required": true, "label": "Equipment Used", "options": ["Aerator", "Spreader", "Seeder", "Mower", "Blower", "Hand Tools", "Wheelbarrow", "Truck", "Trailer"]},
+      {"name": "client_interaction", "type": "textarea", "required": false, "label": "Client Interaction Notes"},
+      {"name": "challenges_encountered", "type": "textarea", "required": false, "label": "Challenges Encountered"},
+      {"name": "safety_incidents", "type": "boolean", "required": true, "label": "Any Safety Incidents?"},
+      {"name": "incident_details", "type": "textarea", "required": false, "label": "Safety Incident Details"},
+      {"name": "tomorrow_plan", "type": "textarea", "required": true, "label": "Tomorrow Work Plan"},
+      {"name": "additional_notes", "type": "textarea", "required": false, "label": "Additional Notes"}
+    ]
+  }'::jsonb,
+  1,
+  true,
+  campaign_project.id,
+  '["crew_lead", "crew_member", "supervisor"]'::jsonb,
+  true,
+  1,
+  '{"email_notifications": ["project_manager"], "daily_digest": true, "safety_alerts": true}'::jsonb,
+  james_miller.id,
+  '["daily_progress", "crew_report", "fall_campaign"]'::jsonb,
+  '{"daily_requirement": true, "safety_monitoring": true, "progress_tracking": true, "time_tracking": true}'::jsonb
+FROM campaign_project, james_miller
+
+UNION ALL
+
+SELECT
+  'Client Pre-Service Consultation',
+  'Pre-service consultation form to document client expectations, preferences, and project specifications',
+  'FORM-FALL-CLIENT-CONSULT',
+  'huron-forms/fall-client-consultation',
+  '{
+    "title": "Fall Landscaping Client Consultation",
+    "fields": [
+      {"name": "consultation_date", "type": "date", "required": true, "label": "Consultation Date"},
+      {"name": "consultant_name", "type": "text", "required": true, "label": "Consultant Name"},
+      {"name": "client_name", "type": "text", "required": true, "label": "Client Name"},
+      {"name": "property_address", "type": "text", "required": true, "label": "Property Address"},
+      {"name": "consultation_type", "type": "select", "required": true, "label": "Consultation Type", "options": ["Initial Consultation", "Follow-up Meeting", "Design Review", "Pre-Service Meeting"]},
+      {"name": "service_goals", "type": "textarea", "required": true, "label": "Client Service Goals"},
+      {"name": "budget_range", "type": "select", "required": true, "label": "Client Budget Range", "options": ["Under $2,000", "$2,000 - $5,000", "$5,000 - $10,000", "$10,000 - $20,000", "Over $20,000"]},
+      {"name": "timeline_preference", "type": "select", "required": true, "label": "Preferred Timeline", "options": ["ASAP", "Within 2 weeks", "Within 1 month", "Flexible", "Specific dates required"]},
+      {"name": "preferred_grass_type", "type": "multiselect", "required": false, "label": "Grass Type Preferences", "options": ["Tall Fescue", "Perennial Ryegrass", "Fine Fescue", "Kentucky Bluegrass", "No preference", "Advisor recommendation"]},
+      {"name": "plant_preferences", "type": "textarea", "required": false, "label": "Plant and Color Preferences"},
+      {"name": "maintenance_commitment", "type": "select", "required": true, "label": "Maintenance Commitment Level", "options": ["Low maintenance preferred", "Moderate maintenance acceptable", "High maintenance welcome", "Professional maintenance contract"]},
+      {"name": "special_considerations", "type": "textarea", "required": false, "label": "Special Considerations (pets, allergies, etc.)"},
+      {"name": "communication_preference", "type": "select", "required": true, "label": "Preferred Communication", "options": ["Phone calls", "Text messages", "Email", "In-person updates"]},
+      {"name": "property_access", "type": "textarea", "required": true, "label": "Property Access Instructions"},
+      {"name": "client_approval", "type": "boolean", "required": true, "label": "Client approves proposed service plan"},
+      {"name": "client_signature", "type": "signature", "required": true, "label": "Client Signature"}
+    ]
+  }'::jsonb,
+  1,
+  true,
+  campaign_project.id,
+  '["consultant", "project_manager", "sales"]'::jsonb,
+  false,
+  NULL::integer,
+  '{"email_notifications": ["project_manager", "scheduling"], "client_copy": true}'::jsonb,
+  james_miller.id,
+  '["client_consultation", "pre_service", "fall_campaign"]'::jsonb,
+  '{"client_portal": true, "signature_required": true, "follow_up_scheduling": true, "quote_integration": true}'::jsonb
+FROM campaign_project, james_miller
+
+UNION ALL
+
+SELECT
+  'Quality Control Inspection Checklist',
+  'Comprehensive quality control inspection form for completed fall landscaping work phases',
+  'FORM-FALL-QC-INSPECT',
+  NULL,
+  '{
+    "title": "Fall Landscaping Quality Control Inspection",
+    "fields": [
+      {"name": "inspection_date", "type": "date", "required": true, "label": "Inspection Date"},
+      {"name": "inspector_name", "type": "select", "required": true, "label": "Quality Inspector"},
+      {"name": "client_property", "type": "text", "required": true, "label": "Client Property"},
+      {"name": "inspection_phase", "type": "select", "required": true, "label": "Inspection Phase", "options": ["Site Preparation", "Soil Work", "Seeding", "Planting", "Final Completion", "Client Walkthrough"]},
+      {"name": "site_preparation_score", "type": "rating", "required": false, "label": "Site Preparation Quality", "scale": 10},
+      {"name": "soil_work_score", "type": "rating", "required": false, "label": "Soil Work Quality", "scale": 10},
+      {"name": "seeding_score", "type": "rating", "required": false, "label": "Seeding Quality", "scale": 10},
+      {"name": "planting_score", "type": "rating", "required": false, "label": "Planting Quality", "scale": 10},
+      {"name": "cleanup_score", "type": "rating", "required": true, "label": "Site Cleanup Quality", "scale": 10},
+      {"name": "overall_workmanship", "type": "rating", "required": true, "label": "Overall Workmanship", "scale": 10},
+      {"name": "meets_specifications", "type": "boolean", "required": true, "label": "Work meets project specifications"},
+      {"name": "client_satisfaction", "type": "rating", "required": false, "label": "Client Satisfaction (if present)", "scale": 5},
+      {"name": "deficiencies_noted", "type": "textarea", "required": false, "label": "Deficiencies or Issues Noted"},
+      {"name": "corrective_actions", "type": "textarea", "required": false, "label": "Required Corrective Actions"},
+      {"name": "photo_documentation", "type": "file", "required": true, "label": "Quality Photos", "multiple": true},
+      {"name": "reinspection_required", "type": "boolean", "required": true, "label": "Reinspection Required"},
+      {"name": "client_signoff", "type": "signature", "required": false, "label": "Client Sign-off (if present)"},
+      {"name": "inspector_recommendation", "type": "select", "required": true, "label": "Inspector Recommendation", "options": ["Approve - Excellent Work", "Approve - Good Work", "Approve with Minor Items", "Conditional Approval", "Reject - Rework Required"]},
+      {"name": "inspection_notes", "type": "textarea", "required": false, "label": "Additional Inspection Notes"}
+    ]
+  }'::jsonb,
+  1,
+  true,
+  campaign_project.id,
+  '["quality_inspector", "project_manager", "supervisor"]'::jsonb,
+  true,
+  NULL::integer,
+  '{"email_notifications": ["project_manager", "crew_lead"], "quality_alerts": true, "escalation_enabled": true}'::jsonb,
+  james_miller.id,
+  '["quality_control", "inspection", "fall_campaign"]'::jsonb,
+  '{"photo_required": true, "quality_scoring": true, "corrective_action_tracking": true, "client_portal_integration": true}'::jsonb
+FROM campaign_project, james_miller
+
+UNION ALL
+
+SELECT
+  'Material and Equipment Tracking',
+  'Daily tracking form for materials consumed and equipment usage during fall landscaping operations',
+  'FORM-FALL-MATERIAL-TRACK',
+  NULL,
+  '{
+    "title": "Fall Landscaping Material & Equipment Tracking",
+    "fields": [
+      {"name": "tracking_date", "type": "date", "required": true, "label": "Date"},
+      {"name": "crew_lead", "type": "select", "required": true, "label": "Crew Lead"},
+      {"name": "client_property", "type": "text", "required": true, "label": "Client Property"},
+      {"name": "grass_seed_used", "type": "number", "required": false, "label": "Grass Seed Used (lbs)", "min": 0, "step": 0.5},
+      {"name": "fertilizer_used", "type": "number", "required": false, "label": "Fertilizer Used (lbs)", "min": 0, "step": 0.5},
+      {"name": "mulch_used", "type": "number", "required": false, "label": "Mulch Used (cubic yards)", "min": 0, "step": 0.25},
+      {"name": "compost_used", "type": "number", "required": false, "label": "Compost Used (cubic yards)", "min": 0, "step": 0.25},
+      {"name": "plants_installed", "type": "number", "required": false, "label": "Plants Installed (count)", "min": 0},
+      {"name": "bulbs_planted", "type": "number", "required": false, "label": "Bulbs Planted (count)", "min": 0},
+      {"name": "fuel_consumed", "type": "number", "required": false, "label": "Fuel Consumed (gallons)", "min": 0, "step": 0.1},
+      {"name": "equipment_hours", "type": "textarea", "required": false, "label": "Equipment Usage Hours (list equipment and hours)"},
+      {"name": "material_waste", "type": "textarea", "required": false, "label": "Material Waste/Loss Notes"},
+      {"name": "equipment_issues", "type": "textarea", "required": false, "label": "Equipment Issues or Maintenance Needs"},
+      {"name": "inventory_check", "type": "boolean", "required": true, "label": "End-of-day inventory check completed"},
+      {"name": "materials_secured", "type": "boolean", "required": true, "label": "Materials properly secured"},
+      {"name": "tomorrow_materials", "type": "textarea", "required": false, "label": "Materials needed for tomorrow"}
+    ]
+  }'::jsonb,
+  1,
+  true,
+  campaign_project.id,
+  '["crew_lead", "supervisor", "inventory_manager"]'::jsonb,
+  true,
+  1,
+  '{"email_notifications": ["inventory_manager", "project_manager"], "daily_requirement": true}'::jsonb,
+  james_miller.id,
+  '["material_tracking", "equipment_usage", "inventory"]'::jsonb,
+  '{"cost_tracking": true, "inventory_integration": true, "usage_analytics": true, "waste_monitoring": true}'::jsonb
+FROM campaign_project, james_miller;

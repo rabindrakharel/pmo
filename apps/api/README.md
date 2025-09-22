@@ -508,7 +508,7 @@ cp .env.example .env
 DATABASE_URL="postgresql://app:app@localhost:5434/app"
 REDIS_URL="redis://localhost:6379"
 JWT_SECRET="your-super-secret-jwt-key"
-DEV_BYPASS_OIDC="true"  # Development only
+# Production-grade authentication always required
 ```
 
 ### Development Commands
@@ -520,7 +520,6 @@ pnpm dev
 DATABASE_URL="postgresql://app:app@localhost:5434/app" \
 REDIS_URL="redis://localhost:6379" \
 JWT_SECRET="your-super-secret-jwt-key" \
-DEV_BYPASS_OIDC=true \
 pnpm dev
 
 # Production build

@@ -193,20 +193,22 @@ declare -a DDL_FILES=(
     # CONTENT & ARTIFACTS (must come before entity relationships)
     "27___d_artifact.ddl|Artifact Definitions"
     "35___d_project.ddl|Project Management"
-    
-    # RBAC PERMISSION SYSTEM
-    "18___meta_entity_hierarchy_permission_mapping.ddl|Permission Matrix"
-    "17___entity_id_hierarchy_mapping.ddl|Entity Instance Relationships"
-    "19___rel_employee_entity_rbac.ddl|Employee RBAC Permissions"
-    "20___rel_role_entity_action_rbac.ddl|Role RBAC Permissions"
-    
-    # OPERATIONAL TABLES
+
+    # OPERATIONAL TABLES (must come before entity mapping)
     "50___ops_formlog_head.ddl|Form Log Headers"
     "51___ops_formlog_records.ddl|Form Log Records"
     "53___ops_task_head.ddl|Task Operation Headers"
     "52___ops_task_records.ddl|Task Operation Records"
     "54___d_wiki.ddl|Wiki Knowledge Base"
     "55___d_app.ddl|Application Management"
+
+    # RBAC PERMISSION SYSTEM (must come after operational tables)
+    "18___meta_entity_hierarchy_permission_mapping.ddl|Permission Matrix"
+    "19___rel_employee_entity_rbac.ddl|Employee RBAC Permissions"
+    "20___rel_role_entity_action_rbac.ddl|Role RBAC Permissions"
+
+    # ENTITY RELATIONSHIPS (must come LAST after all entity data is loaded)
+    "17___entity_id_hierarchy_mapping.ddl|Entity Instance Relationships"
 )
 
 # Function to execute SQL file

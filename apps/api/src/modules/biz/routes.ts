@@ -560,9 +560,134 @@ export async function bizRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Get business action summaries - for tab navigation
+  fastify.get('/api/v1/biz/:id/action-summaries', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      response: {
+        200: Type.Object({
+          action_entities: Type.Array(Type.Object({
+            actionEntity: Type.String(),
+            count: Type.Number(),
+            label: Type.String(),
+            icon: Type.Optional(Type.String())
+          })),
+          business_id: Type.String()
+        }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async function (request, reply) {
+    try {
+      const { id: bizId } = request.params as { id: string };
+      const userId = request.user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Check if user has access to this business unit
+      const hasAccess = await hasPermissionOnEntityId(userId, 'biz', bizId, 'view');
+      if (!hasAccess) {
+        return reply.status(403).send({ error: 'Access denied for this business unit' });
+      }
+
+      // Check if business unit exists
+      const biz = await db.execute(sql`
+        SELECT id FROM app.d_biz WHERE id = ${bizId} AND active = true
+      `);
+
+      if (biz.length === 0) {
+        return reply.status(404).send({ error: 'Business unit not found' });
+      }
+
+      // Get action summaries for this business unit
+      const actionSummaries = [];
+
+      // Count projects
+      const projectCount = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM app.d_project p
+        WHERE p.biz_id = ${bizId} AND p.active = true
+      `);
+      actionSummaries.push({
+        actionEntity: 'project',
+        count: Number(projectCount[0]?.count || 0),
+        label: 'Projects',
+        icon: 'FolderOpen'
+      });
+
+      // Count tasks (via projects or direct assignment)
+      const taskCount = await db.execute(sql`
+        SELECT COUNT(DISTINCT t.id) as count
+        FROM app.ops_task_head t
+        LEFT JOIN app.d_project p ON t.project_id = p.id
+        WHERE (p.biz_id = ${bizId} OR t.biz_id = ${bizId}) AND t.active = true
+      `);
+      actionSummaries.push({
+        actionEntity: 'task',
+        count: Number(taskCount[0]?.count || 0),
+        label: 'Tasks',
+        icon: 'CheckSquare'
+      });
+
+      // Count artifacts
+      const artifactCount = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM app.d_artifact a
+        WHERE a.biz_id = ${bizId} AND a.active = true
+      `);
+      actionSummaries.push({
+        actionEntity: 'artifact',
+        count: Number(artifactCount[0]?.count || 0),
+        label: 'Artifacts',
+        icon: 'FileText'
+      });
+
+      // Count wiki entries
+      const wikiCount = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM app.d_wiki w
+        WHERE w.biz_id = ${bizId} AND w.active = true
+      `);
+      actionSummaries.push({
+        actionEntity: 'wiki',
+        count: Number(wikiCount[0]?.count || 0),
+        label: 'Wiki',
+        icon: 'BookOpen'
+      });
+
+      // Count forms
+      const formCount = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM app.ops_formlog_head f
+        WHERE f.biz_id = ${bizId} AND f.active = true
+      `);
+      actionSummaries.push({
+        actionEntity: 'form',
+        count: Number(formCount[0]?.count || 0),
+        label: 'Forms',
+        icon: 'FileText'
+      });
+
+      return {
+        action_entities: actionSummaries,
+        business_id: bizId
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching business action summaries:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
   // Get creatable entity types within a business unit
   fastify.get('/api/v1/biz/:id/creatable', {
-    
+
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })

@@ -60,14 +60,14 @@ export function OrgArtifactPage() {
         <ActionBar
           createButton={{
             entityType: 'artifact',
-            parentEntityType: 'org',
+            parentEntity: 'org',
             parentEntityId: orgId!,
           }}
         />
 
         <FilteredDataTable
           entityType="artifact"
-          parentEntityType="org"
+          parentEntity="org"
           parentEntityId={orgId!}
         />
       </div>

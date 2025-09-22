@@ -1488,54 +1488,23 @@ const UpdateEntitySchema = Type.Partial(CreateEntitySchema);
 400: Type.Object({ error: Type.String() }),  // Bad request
 ```
 
-## 🔄 Development vs Production
+## 🔒 **Production-Grade Security Always Enabled**
 
-### 🚨 **Development Mode (`DEV_BYPASS_OIDC=true`)**
+All requests require full security enforcement:
 
-**CRITICAL SECURITY WARNING**: Development mode completely disables ALL security:
-
-#### Authentication Layer Bypass
-- ❌ **No JWT verification** - Any request header accepted
-- ❌ **Mock user creation** - `request.user = { sub: 'dev-user-id', roles: ['admin'] }`
-- ❌ **No credential validation** - Direct access to all endpoints
-
-#### Authorization Layer Bypass  
-- ❌ **RBAC completely disabled** - `checkScopeAccess()` always returns `{ allowed: true }`
-- ❌ **All users are admin** - `isUserAdmin()` always returns `true`
-- ❌ **Permission checks skipped** - Mock permissions `[0,1,2,3,4]` returned
-- ❌ **Database queries bypassed** - No actual permission lookups
-
-#### What Gets Bypassed
-```typescript
-// These functions return permissive defaults in development:
-hasPermissionOnScopeId(employeeId, 'project', projectId, 'delete')     // → true
-hasPermissionOnAPI(employeeId, 'app:api', '/api/v1/project', 'view')    // → true  
-getEmployeeScopeIdsByScopeType(employeeId, 'business')                  // → mock data
-getEmployeeScopeIds(employeeId, 'location')                             // → scope IDs for filtering
-```
-
-#### Files with Dev Bypasses
-- `server.ts:154` - Authentication bypass
-- `scope-auth.ts:57,133,174` - All RBAC checks bypass
-- `authz.ts:105,38,168` - Authorization middleware bypass
-- `abilities.ts:33,56` - Ability resolution bypass
-
-### 🔒 **Production Mode (`DEV_BYPASS_OIDC=false`)**
-
-Enables full security enforcement:
-
-- ✅ **JWT Validation**: Proper token verification required
-- ✅ **Database RBAC**: All permissions checked via `rel_user_scope` table
-- ✅ **Scope Filtering**: Users limited to their granted scopes only
-- ✅ **API-Only Authorization**: No frontend role checks - all security enforced here
+- ✅ **JWT Validation**: Proper token verification required for all endpoints
+- ✅ **Database RBAC**: All permissions checked via `rel_employee_entity_action_rbac` table
+- ✅ **Entity-Level Filtering**: Users limited to their granted entity access only
+- ✅ **API-Only Authorization**: No frontend role checks - all security enforced at API level
 - ✅ **Graceful 403 Responses**: Frontend handles permission errors appropriately
-- ✅ **John Smith Permissions**: 61 permission entries properly enforced
+- ✅ **Employee Permissions**: All permission entries properly enforced
 
-#### To Enable Production Security
+#### Environment Setup
 ```bash
-# Update .env
-DEV_BYPASS_OIDC=false
-JWT_SECRET=your-production-secret-key
+# Required environment variables
+DATABASE_URL="postgresql://app:app@localhost:5434/app"
+REDIS_URL="redis://localhost:6379"
+JWT_SECRET="your-super-secret-jwt-key-change-in-production"
 
 # Restart API
 ./tools/restart-api.sh

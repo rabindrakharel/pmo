@@ -105,7 +105,7 @@ INSERT INTO app.d_project
   (name, descr, slug, project_code, project_type, priority_level, budget_allocated, budget_currency, biz_id, planned_start_date, planned_end_date, estimated_hours, security_classification, compliance_requirements, risk_assessment, tags, attr)
 VALUES
   ('Fall 2025 Landscaping Campaign', 'Comprehensive fall landscaping services campaign including leaf cleanup, garden preparation, tree care, and lawn winterization across all service areas', 'fall-2025-landscaping', 'FALL-2025-LAND', 'seasonal', 'high', 450000.00, 'CAD',
-    (SELECT id FROM app.d_biz WHERE name = 'Huron Home Services'),
+    (SELECT id FROM app.d_biz WHERE name = 'Landscaping Department'),
     '2025-09-01', '2025-11-30', 1800.0, 'internal',
     '["WSIB Safety Standards", "Environmental Protection Act", "Pesticide Application Permits"]'::jsonb,
     '{"weather_risk": "high", "equipment_availability": "medium", "seasonal_staff": "critical", "customer_demand": "high"}'::jsonb,

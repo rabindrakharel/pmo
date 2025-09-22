@@ -9,14 +9,14 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000
 
 export interface FilteredDataTableProps {
   entityType: string;
-  parentEntityType?: string;
+  parentEntity?: string;
   parentEntityId?: string;
   onRowClick?: (record: any) => void;
 }
 
 export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({ 
   entityType, 
-  parentEntityType, 
+  parentEntity, 
   parentEntityId,
   onRowClick 
 }) => {
@@ -174,9 +174,9 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       // Build the API endpoint based on filtering
       let endpoint: string;
       
-      if (parentEntityType && parentEntityId) {
+      if (parentEntity && parentEntityId) {
         // Use filtered endpoint for parent-child relationships
-        endpoint = `/api/v1/${parentEntityType}/${parentEntityId}/${entityType}`;
+        endpoint = `/api/v1/${parentEntity}/${parentEntityId}/${entityType}`;
       } else {
         // Use regular list endpoint
         const listEndpoint = config.api.endpoints.list.replace(/^GET\s+/, '');
@@ -278,7 +278,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     if (config && !configLoading) {
       fetchData();
     }
-  }, [currentPage, pageSize, config, parentEntityType, parentEntityId]);
+  }, [currentPage, pageSize, config, parentEntity, parentEntityId]);
 
   const pagination = {
     current: currentPage,
@@ -332,6 +332,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     );
   }
 
+
   return (
     <div className="flex-1 p-6">
       <DataTable
@@ -345,6 +346,12 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         rowActions={rowActions}
         onRowClick={handleRowClick}
         className="h-full"
+        rbacConfig={{
+          entityType: entityType,
+          enablePermissionChecking: true,
+          parentEntity: parentEntity,
+          parentEntityId: parentEntityId,
+        }}
       />
     </div>
   );
