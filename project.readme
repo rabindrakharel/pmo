@@ -138,8 +138,8 @@ This guide follows the complete user journey through the Project Management Syst
   Component Hierarchy:
   ├── Layout.tsx
   └── ProjectDetailPage.tsx
-      ├── HeaderTabNavigation
-      │   ├── useHeaderTabs hook
+      ├── DynamicChildEntityTabs
+      │   ├── useDynamicChildEntityTabs hook
       │   └── Dynamic tab generation
       ├── ActionBar (share button)
       └── Project detail content
@@ -149,9 +149,9 @@ This guide follows the complete user journey through the Project Management Syst
 
   Step 3: Tab Generation (Action Summaries)
 
-  Hook: useHeaderTabs("project", projectId)
+  Hook: useDynamicChildEntityTabs("project", projectId)
   ├── API Request:
-  │   ├── URL: /api/v1/project/{projectId}/action-summaries
+  │   ├── URL: /api/v1/project/{projectId}/dynamic-child-entity-tabs
   │   ├── Method: GET
   │   └── Purpose: Get tab counts and labels
   ├── Response:
@@ -236,7 +236,7 @@ This guide follows the complete user journey through the Project Management Syst
 
   Step 1: Tab Navigation
 
-  User Action: Click "Tasks" tab in HeaderTabNavigation
+  User Action: Click "Tasks" tab in DynamicChildEntityTabs
   ├── Route: Navigate to "/project/{projectId}/task"
   ├── Page Load: ProjectTaskPage.tsx
   └── Parent Context: Maintained (project entity)
@@ -246,7 +246,7 @@ This guide follows the complete user journey through the Project Management Syst
   Component Hierarchy:
   ├── Layout.tsx
   └── ProjectTaskPage.tsx
-      ├── HeaderTabNavigation (same as detail page)
+      ├── DynamicChildEntityTabs (same as detail page)
       ├── ActionBar
       │   ├── CreateButton (for tasks within project)
       │   ├── FilterChips
@@ -692,8 +692,8 @@ This guide follows the complete user journey through the Project Management Syst
   1. Navigation Context
 
   // Header Tab Navigation determines parent context
-  // File: apps/web/src/components/common/HeaderTabNavigation.tsx
-  <HeaderTabNavigation
+  // File: apps/web/src/components/common/DynamicChildEntityTabs.tsx
+  <DynamicChildEntityTabs
     parentType="project"           // Sets parent entity context
     parentId={projectId}          // Sets parent entity ID context
     tabs={tabs}                   // Dynamic tabs based on permissions

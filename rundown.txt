@@ -145,7 +145,7 @@ apps/web/
 ├── src/
 │   ├── components/
 │   │   ├── common/              # Shared components
-│   │   │   ├── HeaderTabNavigation.tsx
+│   │   │   ├── DynamicChildEntityTabs.tsx
 │   │   │   ├── RBACButton.tsx
 │   │   │   └── CreateButton.tsx
 │   │   ├── layout/              # Layout components
@@ -170,17 +170,17 @@ apps/web/
 
 ### Key Frontend Components
 
-#### HeaderTabNavigation Component
+#### DynamicChildEntityTabs Component
 ```typescript
-// File: apps/web/src/components/common/HeaderTabNavigation.tsx
+// File: apps/web/src/components/common/DynamicChildEntityTabs.tsx
 // Purpose: Dynamic tab generation for action entities
 // Features:
-// - Uses useHeaderTabs hook to fetch action summaries
+// - Uses useDynamicChildEntityTabs hook to fetch action summaries
 // - Maps entity types to icons and routes
 // - Permission-based tab population
 // - Fallback system for API failures
 
-interface HeaderTabNavigationProps {
+interface DynamicChildEntityTabsProps {
   parentType: string;     // e.g., "project"
   parentId: string;       // e.g., project UUID
   tabs?: TabConfig[];     // Optional static tabs
@@ -339,7 +339,7 @@ PUT    /api/v1/project/:id               // Update project
 DELETE /api/v1/project/:id               // Soft delete project
 
 // Action Entity Endpoints
-GET /api/v1/project/:id/action-summaries  // Tab navigation data
+GET /api/v1/project/:id/dynamic-child-entity-tabs  // Tab navigation data
 GET /api/v1/project/:id/task             // Project tasks
 GET /api/v1/project/:id/wiki             // Project wiki entries
 GET /api/v1/project/:id/artifact         // Project artifacts
@@ -415,7 +415,7 @@ Sidebar Navigation → Main Entity Pages → Detail Pages → Action Entity Tabs
 // All pages follow consistent structure:
 interface PageStructure {
   layout: "Layout.tsx";                    // Common layout with sidebar
-  header: "HeaderTabNavigation";           // Dynamic tabs for action entities
+  header: "DynamicChildEntityTabs";           // Dynamic tabs for action entities
   actionBar: "CreateButton + Filters";     // RBAC-controlled actions
   content: "DataTable | DetailView";       // Main content area
   permissions: "RBAC Hook Integration";     // Permission-based UI
@@ -445,7 +445,7 @@ interface PageStructure {
 ┌─────────────────────────────────────────────────────────────┐
 │ Layout.tsx (Common Shell)                                   │
 │ ┌─────────────┐ ┌─────────────────────────────────────────┐ │
-│ │   Sidebar   │ │ HeaderTabNavigation                     │ │
+│ │   Sidebar   │ │ DynamicChildEntityTabs                     │ │
 │ │ Navigation  │ │ ┌─────────┐ ┌─────────┐ ┌─────────────┐ │ │
 │ │             │ │ │ Tasks   │ │  Wiki   │ │ Artifacts   │ │ │
 │ │ • Projects  │ │ │   (15)  │ │   (3)   │ │     (8)     │ │ │
@@ -1406,8 +1406,8 @@ This comprehensive tooling ecosystem ensures reliable, repeatable, and efficient
   1. Navigation Context
 
   // Header Tab Navigation determines parent context
-  // File: apps/web/src/components/common/HeaderTabNavigation.tsx
-  <HeaderTabNavigation
+  // File: apps/web/src/components/common/DynamicChildEntityTabs.tsx
+  <DynamicChildEntityTabs
     parentType="project"           // Sets parent entity context
     parentId={projectId}          // Sets parent entity ID context
     tabs={tabs}                   // Dynamic tabs based on permissions

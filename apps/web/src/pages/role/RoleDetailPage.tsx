@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
-import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
+import { DynamicChildEntityTabs, useDynamicChildEntityTabs } from '../../components/common/DynamicChildEntityTabs';
 import { ActionBar } from '../../components/common/Button';
 import { Edit3, Check, X } from 'lucide-react';
 import { roleApi } from '../../lib/api';
@@ -10,7 +10,7 @@ import { InlineEditField } from '../../components/common/InlineEditField';
 export function RoleDetailPage() {
   const { roleId } = useParams<{ roleId: string }>();
   const navigate = useNavigate();
-  const { tabs, loading } = useHeaderTabs('role', roleId!);
+  const { tabs, loading } = useDynamicChildEntityTabs('role', roleId!);
   // Permission checking removed - handled at API level via RBAC joins
 
   const [roleData, setRoleData] = React.useState<any>(null);
@@ -85,7 +85,7 @@ export function RoleDetailPage() {
     <Layout>
       <div className="h-full flex flex-col">
         {/* Header Tab Navigation */}
-        <HeaderTabNavigation
+        <DynamicChildEntityTabs
           title={roleData?.name || 'Role'}
           parentType="role"
           parentId={roleId!}

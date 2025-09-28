@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
-import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
+import { DynamicChildEntityTabs, useDynamicChildEntityTabs } from '../../components/common/DynamicChildEntityTabs';
 import { ActionBar } from '../../components/common/Button';
 import { FilterChips } from '../../components/common/ScopeFilters';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
@@ -10,7 +10,7 @@ import { businessApi } from '../../lib/api';
 export function BusinessProjectPage() {
   const { bizId } = useParams<{ bizId: string }>();
   const navigate = useNavigate();
-  const { tabs, loading } = useHeaderTabs('biz', bizId!);
+  const { tabs, loading } = useDynamicChildEntityTabs('biz', bizId!);
   const [businessData, setBusinessData] = React.useState<any>(null);
   const [businessLoading, setBusinessLoading] = React.useState(true);
 
@@ -47,7 +47,7 @@ export function BusinessProjectPage() {
   return (
     <Layout>
       <div className="h-full flex flex-col">
-        <HeaderTabNavigation
+        <DynamicChildEntityTabs
           title={businessData?.name || 'Business Unit'}
           parentType="biz"
           parentId={bizId!}

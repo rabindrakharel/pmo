@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
-import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
+import { DynamicChildEntityTabs, useDynamicChildEntityTabs } from '../../components/common/DynamicChildEntityTabs';
 import { ActionBar } from '../../components/common/Button';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 import { businessApi } from '../../lib/api';
@@ -9,7 +9,7 @@ import { businessApi } from '../../lib/api';
 export function BusinessWikiPage() {
   const { bizId } = useParams<{ bizId: string }>();
   const navigate = useNavigate();
-  const { tabs, loading } = useHeaderTabs('biz', bizId!);
+  const { tabs, loading } = useDynamicChildEntityTabs('biz', bizId!);
 
   // Mock business data - replace with actual API call
   const [businessData, setBusinessData] = React.useState<any>(null);
@@ -49,7 +49,7 @@ export function BusinessWikiPage() {
   return (
     <Layout>
       <div className="h-full flex flex-col">
-        <HeaderTabNavigation
+        <DynamicChildEntityTabs
           title={businessData?.name || 'Business Unit'}
           parentType="biz"
           parentId={bizId!}

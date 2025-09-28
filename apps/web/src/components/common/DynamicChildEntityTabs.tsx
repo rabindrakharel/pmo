@@ -26,7 +26,7 @@ export interface HeaderTab {
   tooltip?: string;
 }
 
-interface HeaderTabNavigationProps {
+interface DynamicChildEntityTabsProps {
   title: string;
   parentType: string;
   parentId: string;
@@ -61,7 +61,7 @@ const getEntityIcon = (entityType: string) => {
   return iconMap[entityType as keyof typeof iconMap] || FileText;
 };
 
-export function HeaderTabNavigation({
+export function DynamicChildEntityTabs({
   title,
   parentType,
   parentId,
@@ -70,7 +70,7 @@ export function HeaderTabNavigation({
   className = '',
   showBackButton = false,
   onBackClick,
-}: HeaderTabNavigationProps) {
+}: DynamicChildEntityTabsProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname;
@@ -257,7 +257,7 @@ const getDefaultTabs = (parentType: string, parentId: string): HeaderTab[] => {
 };
 
 // Hook for generating tabs from API data
-export function useHeaderTabs(parentType: string, parentId: string) {
+export function useDynamicChildEntityTabs(parentType: string, parentId: string) {
   const [tabs, setTabs] = React.useState<HeaderTab[]>([]);
   const [loading, setLoading] = React.useState(true);
 

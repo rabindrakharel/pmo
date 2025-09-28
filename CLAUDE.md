@@ -53,7 +53,7 @@ entity types.
   The main project overview page that serves as the parent entity with navigation to action entities.
 
   Key Components:
-  - HeaderTabNavigation: Dynamic tab navigation for action entities (tasks, wiki, artifacts, forms)
+  - DynamicChildEntityTabs: Dynamic tab navigation for action entities (tasks, wiki, artifacts, forms)
   - ActionBar: Contains RBAC-controlled action buttons and filters
   - Project Stats Cards: Display task count, artifact count, completion percentage, team size
   - Editable Fields System: Inline editing with permission checks
@@ -69,19 +69,19 @@ entity types.
 
   2. Component Architecture
 
-  HeaderTabNavigation Component
+  DynamicChildEntityTabs Component
 
-  // Location: apps/web/src/components/common/HeaderTabNavigation.tsx
+  // Location: apps/web/src/components/common/DynamicChildEntityTabs.tsx
 
   Key Features:
-  - Dynamic Tab Generation: Uses useHeaderTabs hook to fetch action summaries from API
+  - Dynamic Tab Generation: Uses useDynamicChildEntityTabs hook to fetch action summaries from API
   - Entity Mapping: Maps entity types to icons and routes
   - Permission Integration: Tabs are populated based on user's entity access
   - Fallback System: Default tabs if API call fails
 
   API Integration:
-  // Fetches action summaries for tab counts
-  GET /api/v1/{parentType}/{parentId}/action-summaries
+  // Fetches dynamic child entity tabs for tab counts
+  GET /api/v1/{parentType}/{parentId}/dynamic-child-entity-tabs
 
   FilteredDataTable Component
 
@@ -106,7 +106,7 @@ entity types.
   PUT    /api/v1/project/:id     // Update project
   DELETE /api/v1/project/:id     // Soft delete project
   2. Action Entity Endpoints:
-  GET /api/v1/project/:id/action-summaries  // Tab navigation data
+  GET /api/v1/project/:id/dynamic-child-entity-tabs  // Tab navigation data
   GET /api/v1/project/:id/task             // Project tasks
   GET /api/v1/project/:id/wiki             // Project wiki entries
   GET /api/v1/project/:id/artifact         // Project artifacts

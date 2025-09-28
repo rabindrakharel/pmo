@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
-import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
+import { DynamicChildEntityTabs, useDynamicChildEntityTabs } from '../../components/common/DynamicChildEntityTabs';
 import { ActionBar } from '../../components/common/Button';
 import { ShareButton } from '../../components/common/ActionButtons';
 import { EntityAssignmentDataTable } from '../../components/common/EntityAssignmentDataTable';
@@ -11,7 +11,7 @@ import { projectApi } from '../../lib/api';
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { tabs, loading } = useHeaderTabs('project', projectId!);
+  const { tabs, loading } = useDynamicChildEntityTabs('project', projectId!);
 
   const [projectData, setProjectData] = React.useState<any>(null);
   const [projectLoading, setProjectLoading] = React.useState(true);
@@ -180,7 +180,7 @@ export function ProjectDetailPage() {
     <Layout>
       <div className="h-full flex flex-col">
         {/* Header Tab Navigation */}
-        <HeaderTabNavigation
+        <DynamicChildEntityTabs
           title={projectData?.name || 'Digital Transformation Initiative'}
           parentType="project"
           parentId={projectId!}

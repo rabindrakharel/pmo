@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
-import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
+import { DynamicChildEntityTabs, useDynamicChildEntityTabs } from '../../components/common/DynamicChildEntityTabs';
 import { ActionBar } from '../../components/common/Button';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 import { worksiteApi } from '../../lib/api';
@@ -9,7 +9,7 @@ import { worksiteApi } from '../../lib/api';
 export function WorksiteFormPage() {
   const { worksiteId } = useParams<{ worksiteId: string }>();
   const navigate = useNavigate();
-  const { tabs, loading } = useHeaderTabs('worksite', worksiteId!);
+  const { tabs, loading } = useDynamicChildEntityTabs('worksite', worksiteId!);
 
   // Mock worksite data - replace with actual API call
   const [worksiteData, setWorksiteData] = React.useState<any>(null);
@@ -48,7 +48,7 @@ export function WorksiteFormPage() {
   return (
     <Layout>
       <div className="h-full flex flex-col">
-        <HeaderTabNavigation
+        <DynamicChildEntityTabs
           title={worksiteData?.name || 'Worksite'}
           parentType="worksite"
           parentId={worksiteId!}

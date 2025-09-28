@@ -247,7 +247,7 @@ if [[ -n "$BIZ_ID" && "$BIZ_ID" != "null" ]]; then
     make_request "GET" "/api/v1/biz/$BIZ_ID/wiki" "200" "List business wiki pages"
     make_request "GET" "/api/v1/biz/$BIZ_ID/form" "200" "List business forms"
     make_request "GET" "/api/v1/biz/$BIZ_ID/artifact" "200" "List business artifacts"
-    make_request "GET" "/api/v1/biz/$BIZ_ID/action-summaries" "200" "Get business action summaries"
+    make_request "GET" "/api/v1/biz/$BIZ_ID/dynamic-child-entity-tabs" "200" "Get business dynamic child entity tabs"
     make_request "GET" "/api/v1/biz/$BIZ_ID/creatable" "200" "Get creatable entity types"
 else
     echo "    ⚠️  No business units found for testing"

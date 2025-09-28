@@ -331,14 +331,14 @@ interface ActionBarProps {
 
 ### **🧭 Navigation Components**
 
-#### **HeaderTabNavigation Component**
-**Location**: `apps/web/src/components/common/HeaderTabNavigation.tsx`
+#### **DynamicChildEntityTabs Component**
+**Location**: `apps/web/src/components/common/DynamicChildEntityTabs.tsx`
 
 **Purpose**: Dynamic tab navigation for parent-child entity relationships
 
 **Props Interface**:
 ```typescript
-interface HeaderTabNavigationProps {
+interface DynamicChildEntityTabsProps {
   title: string;                          // Page title
   parentType: string;                     // Entity type (project, biz, etc.)
   parentId: string;                       // Parent entity UUID
@@ -360,9 +360,9 @@ interface HeaderTab {
 
 **Usage Example**:
 ```typescript
-const { tabs, loading } = useHeaderTabs('project', projectId);
+const { tabs, loading } = useDynamicChildEntityTabs('project', projectId);
 
-<HeaderTabNavigation
+<DynamicChildEntityTabs
   title="Project Dashboard"
   parentType="project"
   parentId={projectId}

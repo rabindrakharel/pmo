@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
-import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
+import { DynamicChildEntityTabs, useDynamicChildEntityTabs } from '../../components/common/DynamicChildEntityTabs';
 import { ActionBar } from '../../components/common/Button';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 import { orgApi } from '../../lib/api';
@@ -9,7 +9,7 @@ import { orgApi } from '../../lib/api';
 export function OrgWorksitePage() {
   const { orgId } = useParams<{ orgId: string }>();
   const navigate = useNavigate();
-  const { tabs, loading } = useHeaderTabs('org', orgId!);
+  const { tabs, loading } = useDynamicChildEntityTabs('org', orgId!);
 
   // Mock organization data - replace with actual API call
   const [orgData, setOrgData] = React.useState<any>(null);
@@ -48,7 +48,7 @@ export function OrgWorksitePage() {
   return (
     <Layout>
       <div className="h-full flex flex-col">
-        <HeaderTabNavigation
+        <DynamicChildEntityTabs
           title={orgData?.name || 'Organization'}
           parentType="org"
           parentId={orgId!}

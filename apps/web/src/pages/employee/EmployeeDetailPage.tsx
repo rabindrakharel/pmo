@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
-import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
+import { DynamicChildEntityTabs, useDynamicChildEntityTabs } from '../../components/common/DynamicChildEntityTabs';
 import { ActionBar } from '../../components/common/Button';
 import { Edit3, Check, X } from 'lucide-react';
 import { InlineEditField } from '../../components/common/InlineEditField';
@@ -11,7 +11,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000
 export function EmployeeDetailPage() {
   const { employeeId } = useParams<{ employeeId: string }>();
   const navigate = useNavigate();
-  const { tabs, loading } = useHeaderTabs('employee', employeeId!);
+  const { tabs, loading } = useDynamicChildEntityTabs('employee', employeeId!);
   // Permission checking removed - handled at API level via RBAC joins
 
   const [employeeData, setEmployeeData] = React.useState<any>(null);
@@ -104,7 +104,7 @@ export function EmployeeDetailPage() {
     <Layout>
       <div className="h-full flex flex-col">
         {/* Header Tab Navigation */}
-        <HeaderTabNavigation
+        <DynamicChildEntityTabs
           title={employeeData?.name || 'Employee'}
           parentType="employee"
           parentId={employeeId!}

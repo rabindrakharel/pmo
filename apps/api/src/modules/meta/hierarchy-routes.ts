@@ -99,13 +99,13 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get action entity summaries for parent context (for HeaderTabNavigation)
-  fastify.get('/api/v1/:parentEntity/:parentId/action-summaries', {
+  // Get dynamic child entity tabs for parent context (for DynamicChildEntityTabs)
+  fastify.get('/api/v1/:parentEntity/:parentId/dynamic-child-entity-tabs', {
     preHandler: [fastify.authenticate],
     schema: {
       tags: ['meta', 'hierarchy'],
       summary: 'Get action entity summaries for parent context',
-      description: 'Returns available action entities within parent scope for HeaderTabNavigation with counts',
+      description: 'Returns available action entities within parent scope for DynamicChildEntityTabs with counts',
       params: Type.Object({
         parentEntity: Type.String(),
         parentId: Type.String({ format: 'uuid' }),

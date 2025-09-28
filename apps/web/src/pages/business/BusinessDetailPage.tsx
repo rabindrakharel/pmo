@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
-import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
+import { DynamicChildEntityTabs, useDynamicChildEntityTabs } from '../../components/common/DynamicChildEntityTabs';
 import { ActionBar } from '../../components/common/Button';
 import { ShareButton } from '../../components/common/ActionButtons';
 import { Edit3, Check, X } from 'lucide-react';
@@ -12,7 +12,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000
 export function BusinessDetailPage() {
   const { bizId } = useParams<{ bizId: string }>();
   const navigate = useNavigate();
-  const { tabs, loading } = useHeaderTabs('biz', bizId!);
+  const { tabs, loading } = useDynamicChildEntityTabs('biz', bizId!);
 
   const [businessData, setBusinessData] = React.useState<any>(null);
   const [businessLoading, setBusinessLoading] = React.useState(true);
@@ -247,7 +247,7 @@ export function BusinessDetailPage() {
     <Layout>
       <div className="h-full flex flex-col">
         {/* Header Tab Navigation */}
-        <HeaderTabNavigation
+        <DynamicChildEntityTabs
           title={businessData?.name || 'Business Unit'}
           parentType="biz"
           parentId={bizId!}

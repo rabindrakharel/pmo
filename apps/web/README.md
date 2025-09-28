@@ -60,7 +60,7 @@ Each sidebar button corresponds to a main entity type:
 ### Detail Pages (Entity Edit Views)
 
 #### Structure Components
-- **Header Tab Navigation**: Overview + child entity tabs with counts
+- **Dynamic Child Entity Tabs**: Overview + child entity tabs with counts
 - **Action Bar**: Edit, Share, and other entity-specific actions
 - **Entity Information Cards**: Grouped editable fields by category
 - **Inline Edit Fields**: Click-to-edit functionality with save/cancel
@@ -68,7 +68,7 @@ Each sidebar button corresponds to a main entity type:
 
 #### Data Flow
 - **API Route**: `GET /api/v1/{entity}/{id}`
-- **Hook**: `useHeaderTabs()` for dynamic tab generation
+- **Hook**: `useDynamicChildEntityTabs()` for dynamic tab generation
 - **State**: Entity data, editing states, field values
 - **Navigation**: Dynamic routing based on entity relationships
 
@@ -106,17 +106,17 @@ Each sidebar button corresponds to a main entity type:
 
 **Selection System**: Checkbox column with indeterminate states for partial selections
 
-### HeaderTabNavigation
+### DynamicChildEntityTabs
 **Purpose**: Dynamic tab navigation for entity detail pages
 
 **Features**:
-- Fetches action summaries from API to build tabs
+- Fetches dynamic child entity tabs from API to build tabs
 - Shows entity counts per tab (e.g., "Tasks (5)")
 - Back button navigation to parent entity
 - Active tab highlighting
 - Responsive design for mobile devices
 
-**API Integration**: Uses `/api/v1/{entity}/{id}/action-summaries` endpoint
+**API Integration**: Uses `/api/v1/{entity}/{id}/dynamic-child-entity-tabs` endpoint
 
 ### FilteredDataTable
 **Purpose**: Complete data table solution with optional action buttons and bulk operations
@@ -167,7 +167,7 @@ Each sidebar button corresponds to a main entity type:
 - **List Endpoints**: `GET /api/v1/{entity}` with pagination and filtering
 - **Detail Endpoints**: `GET /api/v1/{entity}/{id}` with related data
 - **Child Endpoints**: `GET /api/v1/{parent}/{id}/{child}` for filtered relationships
-- **Action Summaries**: `GET /api/v1/{entity}/{id}/action-summaries` for tab navigation
+- **Dynamic Child Entity Tabs**: `GET /api/v1/{entity}/{id}/dynamic-child-entity-tabs` for tab navigation
 
 ### State Management
 - **React Hooks**: useState for local component state

@@ -232,8 +232,8 @@ export async function orgRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get organization action summaries - for tab navigation
-  fastify.get('/api/v1/org/:id/action-summaries', {
+  // Get organization dynamic child entity tabs - for tab navigation
+  fastify.get('/api/v1/org/:id/dynamic-child-entity-tabs', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
-import { HeaderTabNavigation, useHeaderTabs } from '../components/common/HeaderTabNavigation';
+import { DynamicChildEntityTabs, useDynamicChildEntityTabs } from '../components/common/DynamicChildEntityTabs';
 import { ActionBar } from '../components/common/Button';
 import { FileText, MessageSquare, Activity, Users, Clock, Edit3, Check, X } from 'lucide-react';
 import { InlineEditField } from '../components/common/InlineEditField';
@@ -11,7 +11,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000
 export function TaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
-  const { tabs, loading: tabsLoading } = useHeaderTabs('task', taskId!);
+  const { tabs, loading: tabsLoading } = useDynamicChildEntityTabs('task', taskId!);
   // Permission checking removed - handled at API level via RBAC joins
   const [taskData, setTaskData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -103,7 +103,7 @@ export function TaskDetailPage() {
     <Layout>
       <div className="h-full flex flex-col">
         {/* Header Tab Navigation */}
-        <HeaderTabNavigation
+        <DynamicChildEntityTabs
           title={taskData?.name || 'Task'}
           parentType="task"
           parentId={taskId!}

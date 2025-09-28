@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
-import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
+import { DynamicChildEntityTabs, useDynamicChildEntityTabs } from '../../components/common/DynamicChildEntityTabs';
 import { ActionBar } from '../../components/common/Button';
 import { FilterChips } from '../../components/common/ScopeFilters';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
@@ -210,7 +210,7 @@ function ArtifactPreview({ artifact, onClose }: { artifact: Artifact; onClose: (
 export function ProjectArtifactPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { tabs, loading } = useHeaderTabs('project', projectId!);
+  const { tabs, loading } = useDynamicChildEntityTabs('project', projectId!);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [artifactsLoading, setArtifactsLoading] = useState(true);
   const [projectData, setProjectData] = useState<any>(null);
@@ -300,7 +300,7 @@ export function ProjectArtifactPage() {
     <Layout>
       <div className="h-full flex flex-col">
         {/* Header Tab Navigation */}
-        <HeaderTabNavigation
+        <DynamicChildEntityTabs
           title={projectData?.name || 'Digital Transformation Initiative'}
           parentType="project"
           parentId={projectId!}
