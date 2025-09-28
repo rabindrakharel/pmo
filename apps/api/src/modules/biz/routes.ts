@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { getEmployeeEntityIds, hasPermissionOnEntityId, hasCreatePermissionInEntity, getCreatableEntityTypes } from '../rbac/ui-api-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import { 
@@ -89,17 +88,21 @@ export async function bizRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Temporarily bypass RBAC for testing
-      const conditions = [];
-      
-      // Comment out RBAC logic for now to test authentication
-      // const allowedBizIds = await getEmployeeEntityIds(userId, 'biz');
-      // if (allowedBizIds.length > 0) {
-      //   conditions.push(sql.raw(`id IN (${allowedBizIds.map(id => `'${id}'`).join(',')})`));
-      // } else {
-      //   return { data: [], total: 0, limit, offset };
-      // }
-      
+      // Direct RBAC filtering - only show business units user has access to
+      const rbacConditions = [
+        sql`EXISTS (
+          SELECT 1 FROM app.entity_id_rbac_map rbac
+          WHERE rbac.empid = ${userId}
+            AND rbac.entity = 'biz'
+            AND (rbac.entity_id = b.id OR rbac.entity_id = 'all')
+            AND rbac.active_flag = true
+            AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+            AND 0 = ANY(rbac.permission)
+        )`
+      ];
+
+      const conditions = [...rbacConditions];
+
       if (active !== undefined) {
         conditions.push(sql`active = ${active}`);
       }
@@ -132,20 +135,20 @@ export async function bizRoutes(fastify: FastifyInstance) {
       }
 
       const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total 
-        FROM app.d_biz 
+        SELECT COUNT(*) as total
+        FROM app.d_biz b
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
 
       const bizUnits = await db.execute(sql`
-        SELECT 
-          id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-          slug, code, level_id, level_name, is_leaf_level, is_root_level, parent_id,
-          cost_center_code, biz_unit_type, profit_center
-        FROM app.d_biz
+        SELECT
+          b.id, b.name, b."descr", b.tags, b.attr, b.from_ts, b.to_ts, b.active, b.created, b.updated,
+          b.slug, b.code, b.level_id, b.level_name, b.is_leaf_level, b.is_root_level, b.parent_id,
+          b.cost_center_code, b.biz_unit_type, b.profit_center
+        FROM app.d_biz b
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY level_id ASC, name ASC
+        ORDER BY b.level_id ASC, b.name ASC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -560,8 +563,8 @@ export async function bizRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get business action summaries - for tab navigation
-  fastify.get('/api/v1/biz/:id/action-summaries', {
+  // Get business dynamic child entity tabs - for tab navigation
+  fastify.get('/api/v1/biz/:id/dynamic-child-entity-tabs', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -625,7 +628,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       // Count tasks (via projects or direct assignment)
       const taskCount = await db.execute(sql`
         SELECT COUNT(DISTINCT t.id) as count
-        FROM app.ops_task_head t
+        FROM app.d_task t
         LEFT JOIN app.d_project p ON t.project_id = p.id
         WHERE (p.biz_id = ${bizId} OR t.biz_id = ${bizId}) AND t.active = true
       `);
@@ -665,7 +668,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       // Count forms
       const formCount = await db.execute(sql`
         SELECT COUNT(*) as count
-        FROM app.ops_formlog_head f
+        FROM app.d_form_head f
         WHERE f.biz_id = ${bizId} AND f.active = true
       `);
       actionSummaries.push({

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
-import { ActionBar } from '../../components/common/RBACButton';
+import { ActionBar } from '../../components/common/Button';
 import { FilterChips } from '../../components/common/ScopeFilters';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 import { FileText, Eye, Download, MoreVertical, Image, FileVideo, FileArchive } from 'lucide-react';

@@ -44,8 +44,8 @@ const ENTITY_TABLE_MAP: Record<string, string> = {
   'employee': 'app.d_employee',
   'role': 'app.d_role',
   'wiki': 'app.d_wiki',
-  'form': 'app.ops_formlog_head',
-  'task': 'app.ops_task_head',
+  'form': 'app.d_form_head',
+  'task': 'app.d_task',
   'artifact': 'app.d_artifact',
 };
 
@@ -279,7 +279,7 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
 
       // Create hierarchy mapping for root entity
       await db.execute(sql`
-        INSERT INTO app.entity_id_hierarchy_mapping 
+        INSERT INTO app.entity_id_map 
         (action_entity_id, action_entity, parent_entity_id, parent_entity)
         VALUES (${result[0].id}, ${entityType}, NULL, NULL)
       `);
@@ -426,7 +426,7 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
 
       // Update hierarchy mapping
       await db.execute(sql`
-        UPDATE app.entity_id_hierarchy_mapping 
+        UPDATE app.entity_id_map 
         SET active = false, to_ts = NOW(), updated = NOW()
         WHERE action_entity_id = ${id} AND action_entity = ${entityType}
       `);

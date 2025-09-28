@@ -2,16 +2,17 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
-import { ActionBar } from '../../components/common/RBACButton';
+import { ActionBar } from '../../components/common/Button';
 import { Edit3, Check, X } from 'lucide-react';
-import { useActionEntityPermission } from '../../hooks/useActionEntityPermission';
 import { InlineEditField } from '../../components/common/InlineEditField';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 export function EmployeeDetailPage() {
   const { employeeId } = useParams<{ employeeId: string }>();
   const navigate = useNavigate();
   const { tabs, loading } = useHeaderTabs('employee', employeeId!);
-  const { canEdit, permissionLoading } = useActionEntityPermission('employee', employeeId, 'edit');
+  // Permission checking removed - handled at API level via RBAC joins
 
   const [employeeData, setEmployeeData] = React.useState<any>(null);
   const [employeeLoading, setEmployeeLoading] = React.useState(true);
@@ -48,7 +49,6 @@ export function EmployeeDetailPage() {
   }, [employeeId]);
 
   const handleEditField = (fieldName: string, currentValue: string) => {
-    if (!canEdit) return;
     setEditingField(fieldName);
     setEditValue(currentValue);
   };
@@ -90,7 +90,7 @@ export function EmployeeDetailPage() {
     }
   };
 
-  if (employeeLoading || loading || permissionLoading) {
+  if (employeeLoading || loading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
@@ -170,15 +170,13 @@ export function EmployeeDetailPage() {
                     ) : (
                       <div className="flex items-center space-x-2">
                         <h3 className="text-xl font-semibold text-gray-900">{employeeData?.name || 'Employee'}</h3>
-                        {canEdit && (
-                          <button
-                            onClick={() => handleEditField('name', employeeData?.name || '')}
-                            className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Edit employee name"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleEditField('name', employeeData?.name || '')}
+                          className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Edit employee name"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </button>
                       </div>
                     )}
                     <p className="text-sm text-gray-600">{employeeData?.email}</p>
@@ -196,7 +194,7 @@ export function EmployeeDetailPage() {
                     fieldName="active"
                     label="Status"
                     displayValue={employeeData?.active ? 'Active' : 'Inactive'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'active'}
                     editValue={editValue}
                     saving={saving}
@@ -220,7 +218,7 @@ export function EmployeeDetailPage() {
                     fieldName="department"
                     label="Department"
                     displayValue={employeeData?.department || 'Not assigned'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'department'}
                     editValue={editValue}
                     saving={saving}
@@ -233,7 +231,7 @@ export function EmployeeDetailPage() {
                     fieldName="manager_name"
                     label="Manager"
                     displayValue={employeeData?.manager_name || 'Not assigned'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'manager_name'}
                     editValue={editValue}
                     saving={saving}
@@ -246,7 +244,7 @@ export function EmployeeDetailPage() {
                     fieldName="start_date"
                     label="Start Date"
                     displayValue={employeeData?.start_date ? new Date(employeeData.start_date).toLocaleDateString() : 'Not set'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'start_date'}
                     editValue={editValue}
                     saving={saving}
@@ -263,7 +261,7 @@ export function EmployeeDetailPage() {
                     fieldName="phone"
                     label="Phone"
                     displayValue={employeeData?.phone || 'Not provided'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'phone'}
                     editValue={editValue}
                     saving={saving}
@@ -276,7 +274,7 @@ export function EmployeeDetailPage() {
                     fieldName="job_title"
                     label="Job Title"
                     displayValue={employeeData?.job_title || 'Not set'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'job_title'}
                     editValue={editValue}
                     saving={saving}
@@ -289,7 +287,7 @@ export function EmployeeDetailPage() {
                     fieldName="email"
                     label="Email"
                     displayValue={employeeData?.email || 'Not set'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'email'}
                     editValue={editValue}
                     saving={saving}

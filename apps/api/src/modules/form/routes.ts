@@ -2,11 +2,6 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm';
-import { 
-  getEmployeeEntityIds,
-  hasPermissionOnEntityId,
-  type EntityAction
-} from '../rbac/ui-api-permission-rbac-gate.js';
 
 const FormSchema = Type.Object({
   id: Type.String(),
@@ -125,33 +120,44 @@ export async function formRoutes(fastify: FastifyInstance) {
         conditions.push(sql`worksite_specific = ${worksite_specific}`);
       }
 
-      // RBAC: Filter forms user can access
+      // Direct RBAC filtering - only show forms user has access to
       const employeeId = (request as any).user?.sub;
-      if (employeeId) {
-        const accessibleFormIds = await getEmployeeEntityIds(employeeId, 'form', 'view');
-        if (accessibleFormIds.length > 0) {
-          conditions.push(sql`id = ANY(${accessibleFormIds}::uuid[])`);
-        } else {
-          // User has no form access
-          return { data: [], total: 0, limit, offset };
-        }
+      if (!employeeId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
       }
+
+      const rbacConditions = [
+        sql`(
+          EXISTS (
+            SELECT 1 FROM app.entity_id_rbac_map rbac
+            WHERE rbac.empid = ${employeeId}
+              AND rbac.entity = 'form'
+              AND (rbac.entity_id = f.id OR rbac.entity_id = 'all')
+              AND rbac.active_flag = true
+              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+              AND 0 = ANY(rbac.permission)
+          )
+        )`
+      ];
+
+      // Add RBAC filtering to conditions
+      conditions.push(...rbacConditions);
 
       // Get total count
       const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total 
-        FROM app.ops_formlog_head 
+        SELECT COUNT(*) as total
+        FROM app.d_form_head f
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
 
       // Get paginated results
       const forms = await db.execute(sql`
-        SELECT 
-          id,
-          name,
-          "descr",
-          form_code,
+        SELECT
+          f.id,
+          f.name,
+          f."descr",
+          f.form_code,
           form_global_link,
           project_specific,
           project_id,
@@ -172,9 +178,9 @@ export async function formRoutes(fastify: FastifyInstance) {
           attr,
           is_public,
           requires_authentication
-        FROM app.ops_formlog_head 
+        FROM app.d_form_head f
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY name ASC, version DESC
+        ORDER BY f.name ASC, f.version DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -206,6 +212,26 @@ export async function formRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
+
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    // Direct RBAC check for form access
+    const formAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = 'form'
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 0 = ANY(rbac.permission)
+    `);
+
+    if (formAccess.length === 0) {
+      return reply.status(403).send({ error: 'Insufficient permissions to view this form' });
+    }
 
     try {
       const form = await db.execute(sql`
@@ -243,7 +269,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           validation_rules as "validationRules",
           form_version_hash as "formVersionHash",
           last_modified_by as "lastModifiedBy"
-        FROM app.ops_formlog_head 
+        FROM app.d_form_head 
         WHERE id = ${id} AND active = true
       `);
 
@@ -260,6 +286,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
   // Create form
   fastify.post('/api/v1/form', {
+    preHandler: [fastify.authenticate],
     schema: {
       body: CreateFormSchema,
       response: {
@@ -272,10 +299,30 @@ export async function formRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const data = request.body as any;
 
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    // Direct RBAC check for form create permission
+    const formCreateAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = 'form'
+        AND rbac.entity_id = 'all'
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 4 = ANY(rbac.permission)
+    `);
+
+    if (formCreateAccess.length === 0) {
+      return reply.status(403).send({ error: 'Insufficient permissions to create forms' });
+    }
+
     try {
       // Check for unique name and version combination
       const existingForm = await db.execute(sql`
-        SELECT id FROM app.ops_formlog_head 
+        SELECT id FROM app.d_form_head 
         WHERE name = ${data.name} AND version = ${data.version || 1} AND active = true
       `);
       if (existingForm.length > 0) {
@@ -285,7 +332,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       const fromTs = data.fromTs || new Date().toISOString();
       
       const result = await db.execute(sql`
-        INSERT INTO app.ops_formlog_head (
+        INSERT INTO app.d_form_head (
           name, "descr", form_global_link,
           project_specific, project_id,
           task_specific, task_id,
@@ -373,7 +420,7 @@ export async function formRoutes(fastify: FastifyInstance) {
     try {
       // Check if form exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.ops_formlog_head WHERE id = ${id} AND active = true
+        SELECT id FROM app.d_form_head WHERE id = ${id} AND active = true
       `);
       
       if (existing.length === 0) {
@@ -383,7 +430,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Check for unique name and version combination on update
       if (data.name && data.version) {
         const existingNameVersion = await db.execute(sql`
-          SELECT id FROM app.ops_formlog_head 
+          SELECT id FROM app.d_form_head 
           WHERE name = ${data.name} AND version = ${data.version} AND active = true AND id != ${id}
         `);
         if (existingNameVersion.length > 0) {
@@ -509,7 +556,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.ops_formlog_head 
+        UPDATE app.d_form_head 
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING 
@@ -571,7 +618,7 @@ export async function formRoutes(fastify: FastifyInstance) {
     try {
       // Check if form exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.ops_formlog_head WHERE id = ${id} AND active = true
+        SELECT id FROM app.d_form_head WHERE id = ${id} AND active = true
       `);
       
       if (existing.length === 0) {
@@ -589,7 +636,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Soft delete
       await db.execute(sql`
-        UPDATE app.ops_formlog_head 
+        UPDATE app.d_form_head 
         SET active = false, to_ts = NOW(), updated = NOW()
         WHERE id = ${id}
       `);
@@ -663,7 +710,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           tags,
           schema,
           attr
-        FROM app.ops_formlog_head 
+        FROM app.d_form_head 
         WHERE id = ${id} AND active = true
       `);
 

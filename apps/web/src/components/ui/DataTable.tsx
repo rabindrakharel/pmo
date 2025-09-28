@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Search, Filter, Columns, ChevronLeft, ChevronRight, Eye, Edit, Share, Trash2, X } from 'lucide-react';
-import { useUnifiedRBACPermissions } from '../common/RBACButton';
 
 export interface Column<T = any> {
   key: string;
@@ -46,13 +45,11 @@ export interface DataTableProps<T = any> {
   onEdit?: (record: T) => void;
   onShare?: (record: T) => void;
   onDelete?: (record: T) => void;
-  // RBAC Configuration
-  rbacConfig?: {
-    entityType: string;
-    enablePermissionChecking?: boolean;
-    parentEntity?: string;
-    parentEntityId?: string;
-  };
+  // Bulk selection support
+  selectable?: boolean;
+  selectedRows?: string[];
+  onSelectionChange?: (selectedRows: string[]) => void;
+  // Note: Permission checking removed - handled at API level via RBAC joins
 }
 
 export function DataTable<T = any>({
@@ -72,7 +69,9 @@ export function DataTable<T = any>({
   onEdit,
   onShare,
   onDelete,
-  rbacConfig,
+  selectable = false,
+  selectedRows = [],
+  onSelectionChange,
 }: DataTableProps<T>) {
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -87,39 +86,32 @@ export function DataTable<T = any>({
   const filterContainerRef = useRef<HTMLDivElement | null>(null);
   const columnSelectorRef = useRef<HTMLDivElement | null>(null);
 
-  // RBAC permission checking for action buttons
-  const shouldCheckPermissions = rbacConfig?.enablePermissionChecking && rbacConfig?.entityType;
-  const actionsToCheck = useMemo(() => {
-    const actions: string[] = [];
+  // Selection functionality
+  const handleSelectAll = (checked: boolean) => {
+    if (!onSelectionChange) return;
 
-    // Check individual action handlers
-    if (onView) actions.push('view');
-    if (onEdit) actions.push('edit');
-    if (onShare) actions.push('share');
-    if (onDelete) actions.push('delete');
-
-    // Also check rowActions for additional actions
-    if (rowActions && rowActions.length > 0) {
-      rowActions.forEach(action => {
-        // Map common action keys to standard RBAC actions
-        if (action.key === 'view' && !actions.includes('view')) actions.push('view');
-        if (action.key === 'edit' && !actions.includes('edit')) actions.push('edit');
-        if (action.key === 'share' && !actions.includes('share')) actions.push('share');
-        if (action.key === 'delete' && !actions.includes('delete')) actions.push('delete');
-      });
+    if (checked) {
+      const allRowKeys = data.map((record, index) => getRowKey(record, index));
+      onSelectionChange(allRowKeys);
+    } else {
+      onSelectionChange([]);
     }
+  };
 
-    return actions;
-  }, [onView, onEdit, onShare, onDelete, rowActions]);
+  const handleSelectRow = (rowKey: string, checked: boolean) => {
+    if (!onSelectionChange) return;
 
-  // Use unified RBAC hook for both TIER 1 and TIER 3 scenarios
-  const { permissions, loading: permissionsLoading } = useUnifiedRBACPermissions(
-    shouldCheckPermissions ? rbacConfig.entityType : '',
-    shouldCheckPermissions ? data : [],
-    shouldCheckPermissions ? actionsToCheck : [],
-    rbacConfig?.parentEntity,
-    rbacConfig?.parentEntityId
-  );
+    let newSelection = [...selectedRows];
+    if (checked) {
+      newSelection.push(rowKey);
+    } else {
+      newSelection = newSelection.filter(key => key !== rowKey);
+    }
+    onSelectionChange(newSelection);
+  };
+
+  const isAllSelected = selectedRows.length > 0 && selectedRows.length === data.length;
+  const isIndeterminate = selectedRows.length > 0 && selectedRows.length < data.length;
 
   const getRowKey = (record: T, index: number): string => {
     if (typeof rowKey === 'function') {
@@ -212,8 +204,32 @@ export function DataTable<T = any>({
   }, [defaultActions, rowActions, showDefaultActions]);
 
   const columns = useMemo(() => {
-    const filteredColumns = initialColumns.filter(col => visibleColumns.has(col.key));
-    
+    let processedColumns = initialColumns.filter(col => visibleColumns.has(col.key));
+
+    // Add selection column if selectable
+    if (selectable) {
+      const selectionColumn: Column<T> = {
+        key: '_selection',
+        title: '',
+        width: 50,
+        align: 'center',
+        render: (_, record) => {
+          const recordId = getRowKey(record, 0);
+          const isSelected = selectedRows.includes(recordId);
+          return (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={(e) => handleSelectRow(recordId, e.target.checked)}
+              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              onClick={(e) => e.stopPropagation()}
+            />
+          );
+        },
+      };
+      processedColumns = [selectionColumn, ...processedColumns];
+    }
+
     // Add actions column if there are any actions
     if (allActions.length > 0) {
       const actionsColumn: Column<T> = {
@@ -222,23 +238,10 @@ export function DataTable<T = any>({
         width: allActions.length > 3 ? 120 : allActions.length * 40,
         align: 'center',
         render: (_, record) => {
-          const recordId = getRowKey(record, 0);
-          const recordPermissions = shouldCheckPermissions ? permissions[recordId] || {} : {};
-
           return (
             <div className="flex items-center justify-center space-x-1">
               {allActions.map((action) => {
                 const isDisabled = action.disabled ? action.disabled(record) : false;
-
-                // Check RBAC permission if enabled
-                const hasPermission = shouldCheckPermissions
-                  ? recordPermissions[action.key] !== false // Default to true if not checked yet
-                  : true;
-
-                // Hide button if user doesn't have permission
-                if (shouldCheckPermissions && recordPermissions[action.key] === false) {
-                  return null;
-                }
 
                 const buttonVariants = {
                   default: 'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
@@ -246,37 +249,24 @@ export function DataTable<T = any>({
                   danger: 'text-red-600 hover:text-red-900 hover:bg-red-50',
                 };
 
-                // Show loading state while permissions are being checked
-                const isLoading = shouldCheckPermissions && permissionsLoading && recordPermissions[action.key] === undefined;
-
                 return (
                   <button
                     key={action.key}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (!isDisabled && hasPermission && !isLoading) {
+                      if (!isDisabled) {
                         action.onClick(record);
                       }
                     }}
-                    disabled={isDisabled || !hasPermission || isLoading}
+                    disabled={isDisabled}
                     className={`p-1.5 rounded transition-colors ${
-                      isDisabled || !hasPermission || isLoading
+                      isDisabled
                         ? 'text-gray-300 cursor-not-allowed'
                         : buttonVariants[action.variant || 'default']
                     } ${action.className || ''}`}
-                    title={
-                      isLoading
-                        ? 'Checking permissions...'
-                        : !hasPermission
-                        ? `You don't have ${action.key} permission`
-                        : action.label
-                    }
+                    title={action.label}
                   >
-                    {isLoading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
-                    ) : (
-                      action.icon
-                    )}
+                    {action.icon}
                   </button>
                 );
               })}
@@ -284,12 +274,12 @@ export function DataTable<T = any>({
           );
         },
       };
-      
-      return [...filteredColumns, actionsColumn];
+
+      processedColumns = [...processedColumns, actionsColumn];
     }
-    
-    return filteredColumns;
-  }, [initialColumns, visibleColumns, allActions]);
+
+    return processedColumns;
+  }, [initialColumns, visibleColumns, allActions, selectable, selectedRows, handleSelectRow, handleSelectAll, isAllSelected, isIndeterminate]);
 
   const filteredAndSortedData = useMemo(() => {
     let result = [...data];
@@ -690,22 +680,36 @@ export function DataTable<T = any>({
                     } ${columns.length > 7 ? 'min-w-[200px]' : ''} ${
                       index === 0 ? 'sticky left-0 z-40 bg-gray-50 shadow-r' : ''
                     }`}
-                    style={{ 
-                      width: columns.length > 7 ? '200px' : (column.width || 'auto'), 
-                      textAlign: 'left' 
+                    style={{
+                      width: columns.length > 7 ? '200px' : (column.width || 'auto'),
+                      textAlign: column.align || 'left'
                     }}
                     onClick={() => column.sortable && handleSort(column.key)}
                   >
-                    <div className="flex items-center justify-start">
-                      <span className="select-none">{column.title}</span>
-                      <div className="flex items-center ml-3 space-x-1">
-                        {column.sortable && (
-                          <div className="text-gray-400 hover:text-gray-600 transition-colors">
-                            {renderSortIcon(column.key)}
-                          </div>
-                        )}
+                    {column.key === '_selection' ? (
+                      <div className="flex items-center justify-center">
+                        <input
+                          type="checkbox"
+                          checked={isAllSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = isIndeterminate;
+                          }}
+                          onChange={(e) => handleSelectAll(e.target.checked)}
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex items-center justify-start">
+                        <span className="select-none">{column.title}</span>
+                        <div className="flex items-center ml-3 space-x-1">
+                          {column.sortable && (
+                            <div className="text-gray-400 hover:text-gray-600 transition-colors">
+                              {renderSortIcon(column.key)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </th>
                 ))}
               </tr>

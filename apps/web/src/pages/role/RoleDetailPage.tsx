@@ -2,17 +2,16 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
-import { ActionBar } from '../../components/common/RBACButton';
+import { ActionBar } from '../../components/common/Button';
 import { Edit3, Check, X } from 'lucide-react';
 import { roleApi } from '../../lib/api';
-import { useActionEntityPermission } from '../../hooks/useActionEntityPermission';
 import { InlineEditField } from '../../components/common/InlineEditField';
 
 export function RoleDetailPage() {
   const { roleId } = useParams<{ roleId: string }>();
   const navigate = useNavigate();
   const { tabs, loading } = useHeaderTabs('role', roleId!);
-  const { canEdit, permissionLoading } = useActionEntityPermission('role', roleId, 'edit');
+  // Permission checking removed - handled at API level via RBAC joins
 
   const [roleData, setRoleData] = React.useState<any>(null);
   const [roleLoading, setRoleLoading] = React.useState(true);
@@ -42,7 +41,6 @@ export function RoleDetailPage() {
   }, [roleId]);
 
   const handleEditField = (fieldName: string, currentValue: string) => {
-    if (!canEdit) return;
     setEditingField(fieldName);
     setEditValue(currentValue);
   };
@@ -73,7 +71,7 @@ export function RoleDetailPage() {
     }
   };
 
-  if (roleLoading || loading || permissionLoading) {
+  if (roleLoading || loading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
@@ -150,15 +148,13 @@ export function RoleDetailPage() {
                         <h1 className="text-2xl font-bold text-gray-900">
                           {roleData?.name || 'Unnamed Role'}
                         </h1>
-                        {canEdit && (
-                          <button
-                            onClick={() => handleEditField('name', roleData?.name || '')}
-                            className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Edit role name"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleEditField('name', roleData?.name || '')}
+                          className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Edit role name"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </button>
                       </div>
                     )}
                     {roleData?.role_code && (
@@ -203,7 +199,7 @@ export function RoleDetailPage() {
                     fieldName="role_code"
                     label="Role Code"
                     displayValue={roleData?.role_code || 'Not set'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'role_code'}
                     editValue={editValue}
                     saving={saving}
@@ -216,7 +212,7 @@ export function RoleDetailPage() {
                     fieldName="role_type"
                     label="Role Type"
                     displayValue={roleData?.role_type || 'Standard'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'role_type'}
                     editValue={editValue}
                     saving={saving}
@@ -233,7 +229,7 @@ export function RoleDetailPage() {
                     fieldName="department"
                     label="Department"
                     displayValue={roleData?.department || 'All Departments'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'department'}
                     editValue={editValue}
                     saving={saving}
@@ -246,7 +242,7 @@ export function RoleDetailPage() {
                     fieldName="access_level"
                     label="Access Level"
                     displayValue={roleData?.access_level || 'Standard'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'access_level'}
                     editValue={editValue}
                     saving={saving}
@@ -272,7 +268,7 @@ export function RoleDetailPage() {
                     fieldName="active"
                     label="Status"
                     displayValue={roleData?.active ? 'Active' : 'Inactive'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'active'}
                     editValue={editValue}
                     saving={saving}
@@ -317,7 +313,7 @@ export function RoleDetailPage() {
                     fieldName="description"
                     label="Role Description"
                     displayValue={roleData?.description || 'No description provided'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'description'}
                     editValue={editValue}
                     saving={saving}

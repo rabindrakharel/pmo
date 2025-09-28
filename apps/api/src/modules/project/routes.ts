@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { getEmployeeEntityIds, hasPermissionOnEntityId } from '../rbac/ui-api-permission-rbac-gate.js';
+// RBAC implemented directly via database joins - no separate permission gates
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import { 
@@ -133,24 +133,22 @@ export async function projectRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Get employee's allowed project IDs for filtering
-      const allowedProjectIds = await getEmployeeEntityIds(userId, 'project');
+      // Direct RBAC filtering - only show projects user has access to
+      const baseConditions = [
+        sql`(
+          EXISTS (
+            SELECT 1 FROM app.entity_id_rbac_map rbac
+            WHERE rbac.empid = ${userId}
+              AND rbac.entity = 'project'
+              AND (rbac.entity_id = p.id OR rbac.entity_id = 'all')
+              AND rbac.active_flag = true
+              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+              AND 0 = ANY(rbac.permission)
+          )
+        )`
+      ];
 
-      const conditions = [];
-      
-      if (allowedProjectIds.length > 0) {
-        // Use IN clause instead of ANY for better compatibility with Drizzle
-        const placeholders = allowedProjectIds.map(() => '?').join(',');
-        conditions.push(sql.raw(`id IN (${allowedProjectIds.map(id => `'${id}'`).join(',')})`));
-      } else {
-        // If no project access, return empty result
-        return {
-          data: [],
-          total: 0,
-          limit,
-          offset,
-        };
-      }
+      const conditions = [...baseConditions];
       
       if (active !== undefined) {
         conditions.push(sql`active = ${active}`);
@@ -191,25 +189,25 @@ export async function projectRoutes(fastify: FastifyInstance) {
       }
 
       const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total 
-        FROM app.d_project 
+        SELECT COUNT(*) as total
+        FROM app.d_project p
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
 
       const projects = await db.execute(sql`
-        SELECT 
-          id, project_code, project_type, priority_level, slug,
-          budget_allocated, budget_currency, biz_id, locations, worksites,
-          project_managers, project_sponsors, project_leads, clients, approvers,
-          planned_start_date, planned_end_date, actual_start_date, actual_end_date,
-          milestones, deliverables, estimated_hours, actual_hours, 
-          project_stage, project_status, security_classification, 
-          compliance_requirements, risk_assessment,
-          name, "descr", tags, attr, from_ts, to_ts, active, created, updated
-        FROM app.d_project
+        SELECT
+          p.id, p.project_code, p.project_type, p.priority_level, p.slug,
+          p.budget_allocated, p.budget_currency, p.biz_id, p.locations, p.worksites,
+          p.project_managers, p.project_sponsors, p.project_leads, p.clients, p.approvers,
+          p.planned_start_date, p.planned_end_date, p.actual_start_date, p.actual_end_date,
+          p.milestones, p.deliverables, p.estimated_hours, p.actual_hours,
+          p.project_stage, p.project_status, p.security_classification,
+          p.compliance_requirements, p.risk_assessment,
+          p.name, p."descr", p.tags, p.attr, p.from_ts, p.to_ts, p.active, p.created, p.updated
+        FROM app.d_project p
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY name ASC NULLS LAST, created DESC
+        ORDER BY p.name ASC NULLS LAST, p.created DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -261,10 +259,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
       }
 
 
-      // Get employee's allowed project IDs for filtering
-      const allowedProjectIds = await getEmployeeEntityIds(userId, 'project');
+      // Direct RBAC check for project access
+      const projectAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'project'
+          AND (rbac.entity_id = ${projectId} OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
 
-      if (!allowedProjectIds.includes(projectId)) {
+      if (projectAccess.length === 0) {
         return reply.status(403).send({ error: 'Access denied for this project' });
       }
 
@@ -291,8 +297,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
           -- Employee details
           assignee.name as assignee_name,
           reporter.name as reporter_name
-        FROM app.ops_task_head th
-        LEFT JOIN app.ops_task_records tr ON th.id = tr.head_id
+        FROM app.d_task th
+        LEFT JOIN app.d_task_data tr ON th.id = tr.head_id
         LEFT JOIN app.d_employee assignee ON th.assignee_id = assignee.id
         LEFT JOIN app.d_employee reporter ON th.reporter_id = reporter.id
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
@@ -302,8 +308,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total 
-        FROM app.ops_task_head th
-        LEFT JOIN app.ops_task_records tr ON th.id = tr.head_id
+        FROM app.d_task th
+        LEFT JOIN app.d_task_data tr ON th.id = tr.head_id
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
 
@@ -320,8 +326,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get project action summaries - for tab navigation
-  fastify.get('/api/v1/project/:id/action-summaries', {
+  // Get project dynamic child entity tabs - for tab navigation
+  fastify.get('/api/v1/project/:id/dynamic-child-entity-tabs', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -351,9 +357,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'User not authenticated' });
       }
 
-      // Check if user has access to this project
-      const hasViewAccess = await hasPermissionOnEntityId(userId, 'project', projectId, 'view');
-      if (!hasViewAccess) {
+      // Direct RBAC check for project access
+      const projectAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'project'
+          AND (rbac.entity_id = ${projectId} OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
+
+      if (projectAccess.length === 0) {
         return reply.status(403).send({ error: 'Insufficient permissions to view this project' });
       }
 
@@ -372,12 +387,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // Count tasks using join table
       const taskCount = await db.execute(sql`
         SELECT COUNT(*) as count
-        FROM app.ops_task_head t
-        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = t.id
+        FROM app.d_task t
+        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = t.id
         WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity = 'project'
-          AND eh.action_entity = 'task'
-          AND eh.active = true
+          AND eh.parent_entity_type = 'project'
+          AND eh.child_entity_type = 'task'
+          AND eh.active_flag = true
           AND t.active = true
       `);
       actionSummaries.push({
@@ -391,11 +406,11 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const artifactCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_artifact a
-        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = a.id
+        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = a.id
         WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity = 'project'
-          AND eh.action_entity = 'artifact'
-          AND eh.active = true
+          AND eh.parent_entity_type = 'project'
+          AND eh.child_entity_type = 'artifact'
+          AND eh.active_flag = true
           AND a.active = true
       `);
       actionSummaries.push({
@@ -409,11 +424,11 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const wikiCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_wiki w
-        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = w.id
+        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = w.id
         WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity = 'project'
-          AND eh.action_entity = 'wiki'
-          AND eh.active = true
+          AND eh.parent_entity_type = 'project'
+          AND eh.child_entity_type = 'wiki'
+          AND eh.active_flag = true
           AND w.active = true
       `);
       actionSummaries.push({
@@ -426,12 +441,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // Count forms using join table
       const formCount = await db.execute(sql`
         SELECT COUNT(*) as count
-        FROM app.ops_formlog_head f
-        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = f.id
+        FROM app.d_form_head f
+        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = f.id
         WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity = 'project'
-          AND eh.action_entity = 'form'
-          AND eh.active = true
+          AND eh.parent_entity_type = 'project'
+          AND eh.child_entity_type = 'form'
+          AND eh.active_flag = true
           AND f.active = true
       `);
       actionSummaries.push({
@@ -473,9 +488,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'User not authenticated' });
       }
 
-      // Check if user has access to this project
-      const hasViewAccess = await hasPermissionOnEntityId(userId, 'project', projectId, 'view');
-      if (!hasViewAccess) {
+      // Direct RBAC check for project access
+      const projectAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'project'
+          AND (rbac.entity_id = ${projectId} OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
+
+      if (projectAccess.length === 0) {
         return reply.status(403).send({ error: 'Access denied for this project' });
       }
 
@@ -483,11 +507,11 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const wiki = await db.execute(sql`
         SELECT w.id, w.title as name, w.summary as descr, w.tags, w.created, w.updated
         FROM app.d_wiki w
-        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = w.id
+        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = w.id
         WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity = 'project'
-          AND eh.action_entity = 'wiki'
-          AND eh.active = true
+          AND eh.parent_entity_type = 'project'
+          AND eh.child_entity_type = 'wiki'
+          AND eh.active_flag = true
           AND w.active = true
         ORDER BY w.created DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -496,11 +520,11 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
         FROM app.d_wiki w
-        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = w.id
+        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = w.id
         WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity = 'project'
-          AND eh.action_entity = 'wiki'
-          AND eh.active = true
+          AND eh.parent_entity_type = 'project'
+          AND eh.child_entity_type = 'wiki'
+          AND eh.active_flag = true
           AND w.active = true
       `);
 
@@ -538,16 +562,25 @@ export async function projectRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'User not authenticated' });
       }
 
-      // Check if user has access to this project
-      const hasViewAccess = await hasPermissionOnEntityId(userId, 'project', projectId, 'view');
-      if (!hasViewAccess) {
+      // Direct RBAC check for project access
+      const projectAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'project'
+          AND (rbac.entity_id = ${projectId} OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
+
+      if (projectAccess.length === 0) {
         return reply.status(403).send({ error: 'Access denied for this project' });
       }
 
       const offset = (page - 1) * limit;
       const forms = await db.execute(sql`
         SELECT id, name, descr, tags, created, updated
-        FROM app.ops_formlog_head
+        FROM app.d_form_head
         WHERE project_id = ${projectId} AND active = true
         ORDER BY created DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -555,7 +588,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.ops_formlog_head
+        FROM app.d_form_head
         WHERE project_id = ${projectId} AND active = true
       `);
 
@@ -593,9 +626,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'User not authenticated' });
       }
 
-      // Check if user has access to this project
-      const hasViewAccess = await hasPermissionOnEntityId(userId, 'project', projectId, 'view');
-      if (!hasViewAccess) {
+      // Direct RBAC check for project access
+      const projectAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'project'
+          AND (rbac.entity_id = ${projectId} OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
+
+      if (projectAccess.length === 0) {
         return reply.status(403).send({ error: 'Access denied for this project' });
       }
 
@@ -603,11 +645,11 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const artifacts = await db.execute(sql`
         SELECT a.id, a.name, a.descr, a.tags, a.created, a.updated
         FROM app.d_artifact a
-        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = a.id
+        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = a.id
         WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity = 'project'
-          AND eh.action_entity = 'artifact'
-          AND eh.active = true
+          AND eh.parent_entity_type = 'project'
+          AND eh.child_entity_type = 'artifact'
+          AND eh.active_flag = true
           AND a.active = true
         ORDER BY a.created DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -616,11 +658,11 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
         FROM app.d_artifact a
-        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = a.id
+        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = a.id
         WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity = 'project'
-          AND eh.action_entity = 'artifact'
-          AND eh.active = true
+          AND eh.parent_entity_type = 'project'
+          AND eh.child_entity_type = 'artifact'
+          AND eh.active_flag = true
           AND a.active = true
       `);
 
@@ -658,9 +700,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Check if employee has permission to view this specific project
-    const hasViewAccess = await hasPermissionOnEntityId(userId, 'project', id, 'view');
-    if (!hasViewAccess) {
+    // Direct RBAC check for project access
+    const projectAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = 'project'
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 0 = ANY(rbac.permission)
+    `);
+
+    if (projectAccess.length === 0) {
       return reply.status(403).send({ error: 'Insufficient permissions to view this project' });
     }
 
@@ -715,6 +766,21 @@ export async function projectRoutes(fastify: FastifyInstance) {
     const userId = (request as any).user?.sub;
     if (!userId) {
       return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    // Direct RBAC check for project create permission
+    const projectCreateAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = 'project'
+        AND rbac.entity_id = 'all'
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 4 = ANY(rbac.permission)
+    `);
+
+    if (projectCreateAccess.length === 0) {
+      return reply.status(403).send({ error: 'Insufficient permissions to create projects' });
     }
 
     try {
@@ -840,9 +906,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Check if employee has permission to modify this specific project
-    const hasModifyAccess = await hasPermissionOnEntityId(userId, 'project', id, 'modify');
-    if (!hasModifyAccess) {
+    // Direct RBAC check for project edit access
+    const projectEditAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = 'project'
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 1 = ANY(rbac.permission)
+    `);
+
+    if (projectEditAccess.length === 0) {
       return reply.status(403).send({ error: 'Insufficient permissions to modify this project' });
     }
 
@@ -943,9 +1018,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Check if employee has permission to delete this specific project
-    const hasDeleteAccess = await hasPermissionOnEntityId(userId, 'project', id, 'delete');
-    if (!hasDeleteAccess) {
+    // Direct RBAC check for project delete access
+    const projectDeleteAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = 'project'
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 3 = ANY(rbac.permission)
+    `);
+
+    if (projectDeleteAccess.length === 0) {
       return reply.status(403).send({ error: 'Insufficient permissions to delete this project' });
     }
 
@@ -996,22 +1080,30 @@ export async function projectRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'User not authenticated' });
       }
 
-      // Get employee's allowed project IDs for filtering
-      const allowedProjectIds = await getEmployeeEntityIds(userId, 'project');
+      // Direct RBAC check for project access
+      const projectAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'project'
+          AND (rbac.entity_id = ${projectId} OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
 
-      if (!allowedProjectIds.includes(projectId)) {
+      if (projectAccess.length === 0) {
         return reply.status(403).send({ error: 'Access denied for this project' });
       }
 
-      // Use entity_id_hierarchy_mapping to get tasks for this project
+      // Use entity_id_map to get tasks for this project
       let query = sql`
         SELECT t.*, COALESCE(t.name, 'Untitled Task') as name, t.descr
-        FROM app.ops_task_head t
-        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = t.id
+        FROM app.d_task t
+        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = t.id
         WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity = 'project'
-          AND eh.action_entity = 'task'
-          AND eh.active = true
+          AND eh.parent_entity_type = 'project'
+          AND eh.child_entity_type = 'task'
+          AND eh.active_flag = true
           AND t.active = true
       `;
 
@@ -1030,12 +1122,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // Get total count
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.ops_task_head t
-        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = t.id
+        FROM app.d_task t
+        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = t.id
         WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity = 'project'
-          AND eh.action_entity = 'task'
-          AND eh.active = true
+          AND eh.parent_entity_type = 'project'
+          AND eh.child_entity_type = 'task'
+          AND eh.active_flag = true
           AND t.active = true
       `);
 
@@ -1072,21 +1164,30 @@ export async function projectRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'User not authenticated' });
       }
 
-      // Check if user has access to this project
-      const hasViewAccess = await hasPermissionOnEntityId(userId, 'project', projectId, 'view');
-      if (!hasViewAccess) {
+      // Direct RBAC check for project access
+      const projectAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'project'
+          AND (rbac.entity_id = ${projectId} OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
+
+      if (projectAccess.length === 0) {
         return reply.status(403).send({ error: 'Access denied for this project' });
       }
 
       const offset = (page - 1) * limit;
       const forms = await db.execute(sql`
         SELECT f.*, COALESCE(f.name, 'Untitled Form') as name, f.descr
-        FROM app.ops_formlog_head f
-        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = f.id
+        FROM app.d_form_head f
+        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = f.id
         WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity = 'project'
-          AND eh.action_entity = 'form'
-          AND eh.active = true
+          AND eh.parent_entity_type = 'project'
+          AND eh.child_entity_type = 'form'
+          AND eh.active_flag = true
           AND f.active = true
         ORDER BY f.created DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -1094,12 +1195,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.ops_formlog_head f
-        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = f.id
+        FROM app.d_form_head f
+        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = f.id
         WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity = 'project'
-          AND eh.action_entity = 'form'
-          AND eh.active = true
+          AND eh.parent_entity_type = 'project'
+          AND eh.child_entity_type = 'form'
+          AND eh.active_flag = true
           AND f.active = true
       `);
 
@@ -1136,9 +1237,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'User not authenticated' });
       }
 
-      // Check if user has access to this project
-      const hasViewAccess = await hasPermissionOnEntityId(userId, 'project', projectId, 'view');
-      if (!hasViewAccess) {
+      // Direct RBAC check for project access
+      const projectAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'project'
+          AND (rbac.entity_id = ${projectId} OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
+
+      if (projectAccess.length === 0) {
         return reply.status(403).send({ error: 'Access denied for this project' });
       }
 
@@ -1146,11 +1256,11 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const artifacts = await db.execute(sql`
         SELECT a.*, COALESCE(a.name, 'Untitled Artifact') as name, a.descr
         FROM app.d_artifact a
-        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = a.id
+        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = a.id
         WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity = 'project'
-          AND eh.action_entity = 'artifact'
-          AND eh.active = true
+          AND eh.parent_entity_type = 'project'
+          AND eh.child_entity_type = 'artifact'
+          AND eh.active_flag = true
           AND a.active = true
         ORDER BY a.created DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -1159,11 +1269,11 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
         FROM app.d_artifact a
-        INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = a.id
+        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = a.id
         WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity = 'project'
-          AND eh.action_entity = 'artifact'
-          AND eh.active = true
+          AND eh.parent_entity_type = 'project'
+          AND eh.child_entity_type = 'artifact'
+          AND eh.active_flag = true
           AND a.active = true
       `);
 

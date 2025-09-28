@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, TrendingUp, Users } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, Column } from '../components/ui/DataTable';
+import { FilteredDataTable } from '../components/FilteredDataTable';
 import { StatsGrid } from '../components/common/StatsGrid';
 import { businessApi } from '../lib/api';
 
@@ -176,8 +177,31 @@ export function BusinessPage() {
     }
   };
 
+  // Bulk action handlers
+  const handleBulkShare = (selectedUnits: BusinessUnit[]) => {
+    console.log('Bulk share business units:', selectedUnits.map(u => u.id));
+    alert(`Sharing ${selectedUnits.length} business unit${selectedUnits.length !== 1 ? 's' : ''}`);
+    // TODO: Implement bulk share functionality
+  };
+
+  const handleBulkDelete = async (selectedUnits: BusinessUnit[]) => {
+    try {
+      // Delete business units in parallel
+      await Promise.all(selectedUnits.map(unit => businessApi.delete(unit.id)));
+      loadBusinessUnits(); // Reload the list
+      alert(`Successfully deleted ${selectedUnits.length} business unit${selectedUnits.length !== 1 ? 's' : ''}`);
+    } catch (error) {
+      console.error('Failed to delete business units:', error);
+      alert('Failed to delete some business units. Please try again.');
+    }
+  };
+
+  const handleCreateClick = () => {
+    navigate('/business/new');
+  };
+
   return (
-    <Layout createButton={{ label: "Create Business Unit", href: "/business/new" }}>
+    <Layout>
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
         <div className="flex items-center space-x-3">
           <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
@@ -189,7 +213,7 @@ export function BusinessPage() {
           </div>
         </div>
 
-        <StatsGrid 
+        <StatsGrid
           stats={[
             {
               value: businessUnits.length,
@@ -213,22 +237,15 @@ export function BusinessPage() {
         />
 
         <div className="flex-1 min-h-0">
-          <DataTable
-            data={businessUnits}
-            columns={tableColumns}
-            loading={loading}
-            pagination={{
-              ...pagination,
-              onChange: handlePaginationChange,
-            }}
-            rowKey="id"
-            filterable={true}
-            columnSelection={true}
+          <FilteredDataTable
+            entityType="biz"
+            showActionButtons={true}
+            createLabel="Create Business Unit"
+            onCreateClick={handleCreateClick}
+            onBulkShare={handleBulkShare}
+            onBulkDelete={handleBulkDelete}
             onRowClick={handleRowClick}
-            onView={handleView}
-            onEdit={handleEdit}
-            onShare={handleShare}
-            onDelete={handleDelete}
+            // Permission checking removed - handled at API level via RBAC joins
           />
         </div>
       </div>

@@ -310,7 +310,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
       // Count tasks assigned to this organization
       const taskCount = await db.execute(sql`
         SELECT COUNT(*) as count
-        FROM app.ops_task_head t
+        FROM app.d_task t
         WHERE t.org_id = ${orgId} AND t.active = true
       `);
       actionSummaries.push({
@@ -349,7 +349,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
       // Count forms
       const formCount = await db.execute(sql`
         SELECT COUNT(*) as count
-        FROM app.ops_formlog_head f
+        FROM app.d_form_head f
         WHERE f.org_id = ${orgId} AND f.active = true
       `);
       actionSummaries.push({

@@ -2,12 +2,11 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
-import { ActionBar } from '../../components/common/RBACButton';
+import { ActionBar } from '../../components/common/Button';
 import { ShareButton } from '../../components/common/ActionButtons';
 import { EntityAssignmentDataTable } from '../../components/common/EntityAssignmentDataTable';
 import { Edit3, Check, X } from 'lucide-react';
 import { projectApi } from '../../lib/api';
-import { useActionEntityPermission } from '../../hooks/useActionEntityPermission';
 
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -20,8 +19,7 @@ export function ProjectDetailPage() {
   const [editValue, setEditValue] = React.useState<string>('');
   const [saving, setSaving] = React.useState(false);
 
-  // TIER 2: Use useActionEntityPermission hook for detail page inline edit and share
-  const { canEdit, canShare, permissionLoading } = useActionEntityPermission('project', projectId);
+  // Permission checking removed - handled at API level via RBAC joins
 
   React.useEffect(() => {
     const fetchProject = async () => {
@@ -45,7 +43,6 @@ export function ProjectDetailPage() {
   }, [projectId]);
 
   const handleEditField = (fieldName: string, currentValue: string) => {
-    if (!canEdit) return; // Don't allow editing if no permission
     setEditingField(fieldName);
     setEditValue(currentValue);
   };
@@ -155,15 +152,13 @@ export function ProjectDetailPage() {
               <div className="text-sm text-gray-900 flex-1">
                 {renderValue ? renderValue(displayValue) : displayValue}
               </div>
-              {canEdit && (
-                <button
-                  onClick={() => handleEditField(fieldName, rawValue !== undefined ? String(rawValue) : displayValue)}
-                  className="ml-2 p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                  title={`Edit ${label.toLowerCase()}`}
-                >
-                  <Edit3 className="h-4 w-4" />
-                </button>
-              )}
+              <button
+                onClick={() => handleEditField(fieldName, rawValue !== undefined ? String(rawValue) : displayValue)}
+                className="ml-2 p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                title={`Edit ${label.toLowerCase()}`}
+              >
+                <Edit3 className="h-4 w-4" />
+              </button>
             </>
           )}
         </dd>
@@ -171,7 +166,7 @@ export function ProjectDetailPage() {
     );
   };
 
-  if (projectLoading || loading || permissionLoading) {
+  if (projectLoading || loading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
@@ -199,12 +194,10 @@ export function ProjectDetailPage() {
         <ActionBar
           additionalActions={
             <div className="flex items-center space-x-3">
-              {canShare && (
-                <ShareButton
-                  onClick={() => console.log('Share project')}
-                  variant="secondary"
-                />
-              )}
+              <ShareButton
+                onClick={() => console.log('Share project')}
+                variant="secondary"
+              />
             </div>
           }
         />
@@ -249,15 +242,13 @@ export function ProjectDetailPage() {
                         <h1 className="text-2xl font-bold text-gray-900">
                           {projectData?.name || 'Unnamed Project'}
                         </h1>
-                        {canEdit && (
-                          <button
-                            onClick={() => handleEditField('name', projectData?.name || '')}
-                            className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Edit project name"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleEditField('name', projectData?.name || '')}
+                          className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Edit project name"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </button>
                       </div>
                     )}
                     {projectData?.project_code && (
@@ -416,15 +407,13 @@ export function ProjectDetailPage() {
                         <p className="text-gray-700 whitespace-pre-wrap flex-1">
                           {projectData?.descr || 'No description provided'}
                         </p>
-                        {canEdit && (
-                          <button
-                            onClick={() => handleEditField('descr', projectData?.descr || '')}
-                            className="ml-2 p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Edit description"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleEditField('descr', projectData?.descr || '')}
+                          className="ml-2 p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Edit description"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
                   )}

@@ -76,7 +76,7 @@ function getTableNameFromPath(path: string): string | null {
     'emp': 'app.d_employee',
     'employee': 'app.d_employee',
     'project': 'app.ops_project_head',
-    'task': 'app.ops_task_head',
+    'task': 'app.d_task',
     'scope/location': 'app.d_scope_location',
     'scope/business': 'app.d_scope_business',
     'scope/hr': 'app.d_scope_hr',

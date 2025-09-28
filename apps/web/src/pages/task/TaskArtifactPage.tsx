@@ -2,14 +2,15 @@ import React from 'react';
 import { useParams } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
-import { ActionBar } from '../../components/common/RBACButton';
+import { ActionBar } from '../../components/common/Button';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 export function TaskArtifactPage() {
   const { taskId } = useParams<{ taskId: string }>();
   const { tabs, loading } = useHeaderTabs('task', taskId!);
 
-  // Mock task data - replace with actual API call
   const [taskData, setTaskData] = React.useState<any>(null);
   const [taskLoading, setTaskLoading] = React.useState(true);
 

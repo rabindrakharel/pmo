@@ -51,8 +51,8 @@ const ENTITY_TABLE_MAP: Record<string, string> = {
   'employee': 'app.d_employee',
   'role': 'app.d_role',
   'wiki': 'app.d_wiki',
-  'form': 'app.ops_formlog_head',
-  'task': 'app.ops_task_head',
+  'form': 'app.d_form_head',
+  'task': 'app.d_task',
   'artifact': 'app.d_artifact',
 };
 
@@ -268,10 +268,10 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         // Hierarchy mapping relationship
         const conditions = [
           `e.id = ANY(ARRAY[${accessibleIds.map(id => `'${id}'`).join(',')}]::uuid[])`,
-          `eh.parent_entity_id = '${parentId}'`,
-          `eh.parent_entity = '${parentEntity}'`,
-          `eh.action_entity = '${actionEntity}'`,
-          `eh.active = true`
+          `eh.parent_entity_type_id = '${parentId}'`,
+          `eh.parent_entity_type = '${parentEntity}'`,
+          `eh.child_entity_type = '${actionEntity}'`,
+          `eh.active_flag = true`
         ];
 
         if (active !== undefined) {
@@ -288,7 +288,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         query = `
           SELECT e.*
           FROM ${actionTable} e
-          INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = e.id
+          INNER JOIN app.entity_id_map eh ON eh.child_entity_id = e.id
           ${whereClause}
           ${orderClause}
           LIMIT ${limit} OFFSET ${offset}
@@ -297,7 +297,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         countQuery = `
           SELECT COUNT(*) as total
           FROM ${actionTable} e
-          INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = e.id
+          INNER JOIN app.entity_id_map eh ON eh.child_entity_id = e.id
           ${whereClause}
         `;
       }
@@ -419,12 +419,12 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         query = `
           SELECT e.*
           FROM ${actionTable} e
-          INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = e.id
+          INNER JOIN app.entity_id_map eh ON eh.child_entity_id = e.id
           WHERE e.id = $1
-            AND eh.parent_entity_id = $2
-            AND eh.parent_entity = '${parentEntity}'
-            AND eh.action_entity = '${actionEntity}'
-            AND eh.active = true
+            AND eh.parent_entity_type_id = $2
+            AND eh.parent_entity_type = '${parentEntity}'
+            AND eh.child_entity_type = '${actionEntity}'
+            AND eh.active_flag = true
             AND e.active = true
         `;
       }
@@ -563,7 +563,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
       // Create hierarchy mapping if needed
       if (relationshipConfig.type === 'hierarchy_mapping') {
         await db.execute(sql`
-          INSERT INTO app.entity_id_hierarchy_mapping
+          INSERT INTO app.entity_id_map
           (action_entity_id, action_entity, parent_entity_id, parent_entity)
           VALUES (${result[0].id}, ${actionEntity}, ${parentId}, ${parentEntity})
         `);
@@ -645,12 +645,12 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         existingCheck = await db.execute(sql.raw(`
           SELECT e.id
           FROM ${actionTable} e
-          INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = e.id
+          INNER JOIN app.entity_id_map eh ON eh.child_entity_id = e.id
           WHERE e.id = $1
-            AND eh.parent_entity_id = $2
-            AND eh.parent_entity = '${parentEntity}'
-            AND eh.action_entity = '${actionEntity}'
-            AND eh.active = true
+            AND eh.parent_entity_type_id = $2
+            AND eh.parent_entity_type = '${parentEntity}'
+            AND eh.child_entity_type = '${actionEntity}'
+            AND eh.active_flag = true
             AND e.active = true
         `, [actionId, parentId]));
       }
@@ -783,12 +783,12 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         existingCheck = await db.execute(sql.raw(`
           SELECT e.id
           FROM ${actionTable} e
-          INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = e.id
+          INNER JOIN app.entity_id_map eh ON eh.child_entity_id = e.id
           WHERE e.id = $1
-            AND eh.parent_entity_id = $2
-            AND eh.parent_entity = '${parentEntity}'
-            AND eh.action_entity = '${actionEntity}'
-            AND eh.active = true
+            AND eh.parent_entity_type_id = $2
+            AND eh.parent_entity_type = '${parentEntity}'
+            AND eh.child_entity_type = '${actionEntity}'
+            AND eh.active_flag = true
             AND e.active = true
         `, [actionId, parentId]));
       }
@@ -806,7 +806,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
       // Update hierarchy mapping if applicable
       if (relationshipConfig.type === 'hierarchy_mapping') {
         await db.execute(sql`
-          UPDATE app.entity_id_hierarchy_mapping
+          UPDATE app.entity_id_map
           SET active = false, to_ts = NOW(), updated = NOW()
           WHERE action_entity_id = ${actionId} AND action_entity = ${actionEntity}
             AND parent_entity_id = ${parentId} AND parent_entity = ${parentEntity}

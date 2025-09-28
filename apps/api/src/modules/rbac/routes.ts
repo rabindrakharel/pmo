@@ -1,6 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { hasPermissionOnEntityId, getEmployeeEntityIds, getEmployeeEntityPermissions } from './ui-api-permission-rbac-gate.js';
+import {
+  hasPermissionOnEntityId,
+  getEmployeeEntityIds,
+  getEmployeeEntityPermissions,
+  PermissionLevel,
+  getMainPageActionPermissions,
+  canAssignProjectToBusiness,
+  canNavigateToChildEntity
+} from './entity-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 
@@ -124,19 +132,24 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Get comprehensive permissions for the entity type
-      const allPermissions = await getEmployeeEntityPermissions(userId, entityType);
+      // Get permission levels for the specific entity using new system
+      const permissionLevels = await getEmployeeEntityPermissions(userId, entityType, entityId);
 
-      // Find permissions for the specific entity only
-      const entityPermissions = allPermissions.filter(p => p.actionEntityId === entityId);
+      // Convert permission levels to action strings
+      const actions: string[] = [];
+      if (permissionLevels.includes(PermissionLevel.VIEW)) actions.push('view');
+      if (permissionLevels.includes(PermissionLevel.EDIT)) actions.push('edit');
+      if (permissionLevels.includes(PermissionLevel.SHARE)) actions.push('share');
+      if (permissionLevels.includes(PermissionLevel.DELETE)) actions.push('delete');
+      if (permissionLevels.includes(PermissionLevel.CREATE)) actions.push('create');
 
       return {
         entityType,
         entityId,
-        permissions: entityPermissions.map(p => ({
-          actionEntityId: p.actionEntityId,
-          actions: p.permissions,
-        })),
+        permissions: [{
+          actionEntityId: entityId,
+          actions: actions,
+        }],
       };
     } catch (error) {
       fastify.log.error('Error getting permissions for specific entity:', error);
@@ -195,23 +208,22 @@ export async function rbacRoutes(fastify: FastifyInstance) {
 
       // First, try to find relationships via hierarchy mapping table
       const hierarchyResult = await db.execute(sql`
-        SELECT DISTINCT action_entity_id
-        FROM app.entity_id_hierarchy_mapping
-        WHERE parent_entity = ${parentEntity}
+        SELECT DISTINCT child_entity_id
+        FROM app.entity_id_map
+        WHERE parent_entity_type = ${parentEntity}
           AND parent_entity_id = ${parentEntityId}
-          AND action_entity = ${actionEntity}
-          AND active = true
-          AND (to_ts IS NULL OR to_ts > NOW())
+          AND child_entity_type = ${actionEntity}
+          AND active_flag = true
       `);
 
       if (hierarchyResult.length > 0) {
-        childEntityIds = hierarchyResult.map(row => row.action_entity_id as string);
+        childEntityIds = hierarchyResult.map(row => row.child_entity_id as string);
       } else {
         // If no results from hierarchy mapping, try direct foreign key relationships
         if (parentEntity === 'project' && actionEntity === 'task') {
           const directResult = await db.execute(sql`
             SELECT DISTINCT id
-            FROM app.ops_task_head
+            FROM app.d_task
             WHERE project_id = ${parentEntityId}
           `);
           childEntityIds = directResult.map(row => row.id as string);
@@ -233,25 +245,169 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         // Add more parent-action entity relationships as needed
       }
 
-      // Get comprehensive permissions for the action entity type
-      const allPermissions = await getEmployeeEntityPermissions(userId, actionEntity);
+      // Get permissions for each child entity
+      const permissions = [];
 
-      // Filter permissions to only include entities that are children of the parent
-      const filteredPermissions = allPermissions.filter(p =>
-        childEntityIds.includes(p.actionEntityId) || p.actionEntityId === '' // Include global permissions
-      );
+      // Check 'all' permission for this action entity type
+      const allPermissionLevels = await getEmployeeEntityPermissions(userId, actionEntity, 'all');
+      if (allPermissionLevels.length > 0) {
+        const actions: string[] = [];
+        if (allPermissionLevels.includes(PermissionLevel.VIEW)) actions.push('view');
+        if (allPermissionLevels.includes(PermissionLevel.EDIT)) actions.push('edit');
+        if (allPermissionLevels.includes(PermissionLevel.SHARE)) actions.push('share');
+        if (allPermissionLevels.includes(PermissionLevel.DELETE)) actions.push('delete');
+        if (allPermissionLevels.includes(PermissionLevel.CREATE)) actions.push('create');
+
+        permissions.push({
+          actionEntityId: '', // Empty string represents global permissions
+          actions: actions,
+        });
+      }
+
+      // Check permissions for each specific child entity
+      for (const childEntityId of childEntityIds) {
+        const permissionLevels = await getEmployeeEntityPermissions(userId, actionEntity, childEntityId);
+        if (permissionLevels.length > 0) {
+          const actions: string[] = [];
+          if (permissionLevels.includes(PermissionLevel.VIEW)) actions.push('view');
+          if (permissionLevels.includes(PermissionLevel.EDIT)) actions.push('edit');
+          if (permissionLevels.includes(PermissionLevel.SHARE)) actions.push('share');
+          if (permissionLevels.includes(PermissionLevel.DELETE)) actions.push('delete');
+          if (permissionLevels.includes(PermissionLevel.CREATE)) actions.push('create');
+
+          permissions.push({
+            actionEntityId: childEntityId,
+            actions: actions,
+          });
+        }
+      }
 
       return {
         parentEntity,
         parentEntityId,
         actionEntity,
-        permissions: filteredPermissions.map(p => ({
-          actionEntityId: p.actionEntityId,
-          actions: p.permissions,
-        })),
+        permissions: permissions,
       };
     } catch (error) {
       fastify.log.error('Error getting permissions by parent-action entity:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Main page action permissions endpoint
+  fastify.post('/api/v1/rbac/main-page-actions', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: Type.Object({
+        entityType: Type.String(),
+      }),
+      response: {
+        200: Type.Object({
+          entityType: Type.String(),
+          canCreate: Type.Boolean(),
+          canShare: Type.Boolean(),
+          canDelete: Type.Boolean(),
+          canBulkShare: Type.Boolean(),
+          canBulkDelete: Type.Boolean(),
+        }),
+        401: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { entityType } = request.body as any;
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      const permissions = await getMainPageActionPermissions(userId, entityType);
+
+      return {
+        entityType,
+        ...permissions,
+      };
+    } catch (error) {
+      fastify.log.error('Error getting main page action permissions:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Check project-business assignment permission
+  fastify.post('/api/v1/rbac/can-assign-project-to-business', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: Type.Object({
+        businessId: Type.String({ format: 'uuid' }),
+      }),
+      response: {
+        200: Type.Object({
+          canAssign: Type.Boolean(),
+          businessId: Type.String(),
+        }),
+        401: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { businessId } = request.body as any;
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      const canAssign = await canAssignProjectToBusiness(userId, businessId);
+
+      return {
+        canAssign,
+        businessId,
+      };
+    } catch (error) {
+      fastify.log.error('Error checking project-business assignment permission:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Check child entity navigation permission
+  fastify.post('/api/v1/rbac/can-navigate-to-child', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: Type.Object({
+        childEntityType: Type.String(),
+        childEntityId: Type.String({ format: 'uuid' }),
+      }),
+      response: {
+        200: Type.Object({
+          canNavigate: Type.Boolean(),
+          childEntityType: Type.String(),
+          childEntityId: Type.String(),
+        }),
+        401: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { childEntityType, childEntityId } = request.body as any;
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      const canNavigate = await canNavigateToChildEntity(userId, childEntityType, childEntityId);
+
+      return {
+        canNavigate,
+        childEntityType,
+        childEntityId,
+      };
+    } catch (error) {
+      fastify.log.error('Error checking child entity navigation permission:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

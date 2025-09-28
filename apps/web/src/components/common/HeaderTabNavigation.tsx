@@ -256,13 +256,13 @@ const getDefaultTabs = (parentType: string, parentId: string): HeaderTab[] => {
   return tabs;
 };
 
-// Hook for generating tabs from API data with permission checking
+// Hook for generating tabs from API data
 export function useHeaderTabs(parentType: string, parentId: string) {
   const [tabs, setTabs] = React.useState<HeaderTab[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const fetchActionSummariesAndPermissions = async () => {
+    const fetchActionSummaries = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem('auth_token');
@@ -273,8 +273,8 @@ export function useHeaderTabs(parentType: string, parentId: string) {
           return;
         }
 
-        // Fetch action summaries
-        const response = await fetch(`${API_BASE_URL}/api/v1/${parentType}/${parentId}/action-summaries`, {
+        // Fetch dynamic child entity tabs
+        const response = await fetch(`${API_BASE_URL}/api/v1/${parentType}/${parentId}/dynamic-child-entity-tabs`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -309,10 +309,7 @@ export function useHeaderTabs(parentType: string, parentId: string) {
             return `/${parentType}/${parentId}/${routeSegment}`;
           };
 
-          // Get unique action entity types for permission checking
-          const actionEntityTypes = [...new Set(data.action_entities.map((entity: any) => entity.actionEntity))];
-
-          // Remove RBAC permission checks - tabs should always be accessible
+          // Process action entities - all tabs are always accessible
 
           // Convert API data to tabs - all tabs are always accessible
           const generatedTabs: HeaderTab[] = data.action_entities.map((entity: any) => {
@@ -378,7 +375,7 @@ export function useHeaderTabs(parentType: string, parentId: string) {
     };
 
     if (parentId) {
-      fetchActionSummariesAndPermissions();
+      fetchActionSummaries();
     }
   }, [parentType, parentId]);
 

@@ -4,6 +4,7 @@ import type { Column, RowAction } from './ui/DataTable';
 import type { FrontendEntityConfig } from '../types/config';
 import { configService } from '../services/configService';
 import { useNavigate } from 'react-router-dom';
+import { ActionButtonsBar } from './common/ActionButtonsBar';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -12,13 +13,27 @@ export interface FilteredDataTableProps {
   parentEntity?: string;
   parentEntityId?: string;
   onRowClick?: (record: any) => void;
+
+  // Action buttons functionality
+  showActionButtons?: boolean;
+  createLabel?: string;
+  onCreateClick?: () => void;
+  createHref?: string;
+  onBulkShare?: (selectedItems: any[]) => void;
+  onBulkDelete?: (selectedItems: any[]) => void;
 }
 
-export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({ 
-  entityType, 
-  parentEntity, 
+export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
+  entityType,
+  parentEntity,
   parentEntityId,
-  onRowClick 
+  onRowClick,
+  showActionButtons = false,
+  createLabel,
+  onCreateClick,
+  createHref,
+  onBulkShare,
+  onBulkDelete
 }) => {
   const navigate = useNavigate();
   const [config, setConfig] = useState<FrontendEntityConfig | null>(null);
@@ -29,6 +44,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
   // Load entity configuration
   useEffect(() => {
@@ -274,6 +290,25 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     setPageSize(size);
   };
 
+  const handleBulkShare = () => {
+    if (onBulkShare) {
+      const selectedItems = data.filter((item) =>
+        selectedRows.includes(item.id || item[config?.primaryKey || 'id'])
+      );
+      onBulkShare(selectedItems);
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (onBulkDelete) {
+      const selectedItems = data.filter((item) =>
+        selectedRows.includes(item.id || item[config?.primaryKey || 'id'])
+      );
+      onBulkDelete(selectedItems);
+      setSelectedRows([]); // Clear selection after delete
+    }
+  };
+
   useEffect(() => {
     if (config && !configLoading) {
       fetchData();
@@ -334,25 +369,39 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
 
   return (
-    <div className="flex-1 p-6">
-      <DataTable
-        data={data}
-        columns={columns}
-        loading={loading}
-        pagination={pagination}
-        searchable={config.ui.table.enableSearch}
-        filterable={config.ui.table.enableFilters}
-        columnSelection={true}
-        rowActions={rowActions}
-        onRowClick={handleRowClick}
-        className="h-full"
-        rbacConfig={{
-          entityType: entityType,
-          enablePermissionChecking: true,
-          parentEntity: parentEntity,
-          parentEntityId: parentEntityId,
-        }}
-      />
+    <div className="flex flex-col bg-white rounded-lg shadow">
+      {/* Action buttons bar - only show if action buttons are enabled */}
+      {showActionButtons && (
+        <ActionButtonsBar
+          createLabel={createLabel}
+          onCreateClick={onCreateClick}
+          createHref={createHref}
+          selectedCount={selectedRows.length}
+          onBulkShare={onBulkShare ? handleBulkShare : undefined}
+          onBulkDelete={onBulkDelete ? handleBulkDelete : undefined}
+          entityType={entityType}
+        />
+      )}
+
+      {/* Data table */}
+      <div className="flex-1 p-6">
+        <DataTable
+          data={data}
+          columns={columns}
+          loading={loading}
+          pagination={pagination}
+          searchable={config.ui.table.enableSearch}
+          filterable={config.ui.table.enableFilters}
+          columnSelection={true}
+          rowActions={rowActions}
+          onRowClick={handleRowClick}
+          className="h-full"
+          selectable={showActionButtons}
+          selectedRows={selectedRows}
+          onSelectionChange={setSelectedRows}
+          // Permission checking removed - handled at API level via RBAC joins
+        />
+      </div>
     </div>
   );
 };

@@ -1,12 +1,11 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useRBACPermission } from './RBACButton';
 
 interface CreateButtonProps {
   label: string;
   href: string;
-  entityType: string;  // Added for RBAC
+  entityType: string;  // Keep for consistency but no longer used for permissions
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
@@ -14,11 +13,8 @@ interface CreateButtonProps {
 export function CreateButton({ label, href, entityType, size = 'sm', className = '' }: CreateButtonProps) {
   const navigate = useNavigate();
 
-  // Check for global create permission (empty entityId)
-  const { hasPermission, loading } = useRBACPermission({
-    entityType,
-    action: 'create',
-  });
+  // Permission checking removed - handled at API level via RBAC joins
+  // Frontend shows create buttons for all users, API will handle authorization
 
   const sizeClasses = {
     sm: 'px-3 py-1.5 text-sm',
@@ -31,11 +27,6 @@ export function CreateButton({ label, href, entityType, size = 'sm', className =
     md: 'h-4 w-4',
     lg: 'h-4 w-4'
   };
-
-  // Don't render if loading or no permission
-  if (loading || !hasPermission) {
-    return null;
-  }
 
   return (
     <button

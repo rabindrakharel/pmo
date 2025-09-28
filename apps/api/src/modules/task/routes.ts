@@ -197,15 +197,44 @@ export async function taskRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { 
+    const {
       project_id, assigned_to_employee_id, task_status, task_type, task_category,
-      worksite_id, client_id, active, search, limit = 50, offset = 0 
+      worksite_id, client_id, active, search, limit = 50, offset = 0
     } = request.query as any;
 
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
 
     try {
+      // Direct RBAC filtering - only show tasks user has access to via tasks or parent projects
+      const baseConditions = [
+        sql`(
+          EXISTS (
+            SELECT 1 FROM app.entity_id_rbac_map rbac
+            WHERE rbac.empid = ${userId}
+              AND rbac.entity = 'task'
+              AND (rbac.entity_id = t.id OR rbac.entity_id = 'all')
+              AND rbac.active_flag = true
+              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+              AND 0 = ANY(rbac.permission)
+          )
+          OR
+          EXISTS (
+            SELECT 1 FROM app.entity_id_rbac_map rbac
+            WHERE rbac.empid = ${userId}
+              AND rbac.entity = 'project'
+              AND (rbac.entity_id = t.project_id OR rbac.entity_id = 'all')
+              AND rbac.active_flag = true
+              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+              AND 0 = ANY(rbac.permission)
+          )
+        )`
+      ];
+
       // Build query conditions
-      const conditions = [];
+      const conditions = [...baseConditions];
       
       if (active !== undefined) {
         conditions.push(sql`active = ${active}`);
@@ -255,38 +284,38 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Get total count
       const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total 
-        FROM app.ops_task_head
+        SELECT COUNT(*) as total
+        FROM app.d_task t
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
 
       // Get paginated tasks
       const tasks = await db.execute(sql`
-        SELECT 
-          id, name, "descr",
-          COALESCE(tags, '[]'::jsonb) as tags,
-          attr, from_ts, to_ts, active, created, updated,
-          task_number, task_type, task_category,
-          project_id, project_name, project_code,
-          task_status, priority_level, urgency_level,
-          assigned_to_employee_id, assigned_to_employee_name, assigned_crew_id, task_owner_id,
-          planned_start_date, planned_end_date, actual_start_date, actual_end_date,
-          estimated_hours, actual_hours,
-          worksite_id, client_id, service_address, location_notes,
-          work_scope,
-          COALESCE(materials_required, '[]'::jsonb) as materials_required,
-          COALESCE(equipment_required, '[]'::jsonb) as equipment_required,
-          COALESCE(safety_requirements, '[]'::jsonb) as safety_requirements,
-          completion_percentage, quality_score, client_satisfaction_score, rework_required,
-          estimated_cost, actual_cost, billable_hours, billing_rate,
-          COALESCE(predecessor_tasks, '[]'::jsonb) as predecessor_tasks,
-          COALESCE(successor_tasks, '[]'::jsonb) as successor_tasks,
-          COALESCE(blocking_issues, '[]'::jsonb) as blocking_issues,
-          client_communication_required, permit_required, inspection_required, documentation_complete
-        FROM app.ops_task_head
+        SELECT
+          t.id, t.name, t."descr",
+          COALESCE(t.tags, '[]'::jsonb) as tags,
+          t.attr, t.from_ts, t.to_ts, t.active, t.created, t.updated,
+          t.task_number, t.task_type, t.task_category,
+          t.project_id, t.project_name, t.project_code,
+          t.task_status, t.priority_level, t.urgency_level,
+          t.assigned_to_employee_id, t.assigned_to_employee_name, t.assigned_crew_id, t.task_owner_id,
+          t.planned_start_date, t.planned_end_date, t.actual_start_date, t.actual_end_date,
+          t.estimated_hours, t.actual_hours,
+          t.worksite_id, t.client_id, t.service_address, t.location_notes,
+          t.work_scope,
+          COALESCE(t.materials_required, '[]'::jsonb) as materials_required,
+          COALESCE(t.equipment_required, '[]'::jsonb) as equipment_required,
+          COALESCE(t.safety_requirements, '[]'::jsonb) as safety_requirements,
+          t.completion_percentage, t.quality_score, t.client_satisfaction_score, t.rework_required,
+          t.estimated_cost, t.actual_cost, t.billable_hours, t.billing_rate,
+          COALESCE(t.predecessor_tasks, '[]'::jsonb) as predecessor_tasks,
+          COALESCE(t.successor_tasks, '[]'::jsonb) as successor_tasks,
+          COALESCE(t.blocking_issues, '[]'::jsonb) as blocking_issues,
+          t.client_communication_required, t.permit_required, t.inspection_required, t.documentation_complete
+        FROM app.d_task t
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY created DESC
+        ORDER BY t.created DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -345,6 +374,26 @@ export async function taskRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    // Direct RBAC check for task access
+    const taskAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = 'task'
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 0 = ANY(rbac.permission)
+    `);
+
+    if (taskAccess.length === 0) {
+      return reply.status(403).send({ error: 'Insufficient permissions to view this task' });
+    }
+
     try {
       // Get single task
       const task = await db.execute(sql`
@@ -369,7 +418,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           COALESCE(successor_tasks, '[]'::jsonb) as successor_tasks,
           COALESCE(blocking_issues, '[]'::jsonb) as blocking_issues,
           client_communication_required, permit_required, inspection_required, documentation_complete
-        FROM app.ops_task_head
+        FROM app.d_task
         WHERE id = ${id}
       `);
 
@@ -421,12 +470,30 @@ export async function taskRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const data = request.body as any;
 
-    // Basic validation - detailed RBAC to be implemented with unified scope system
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    // Direct RBAC check for task create permission
+    const taskCreateAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = 'task'
+        AND rbac.entity_id = 'all'
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 4 = ANY(rbac.permission)
+    `);
+
+    if (taskCreateAccess.length === 0) {
+      return reply.status(403).send({ error: 'Insufficient permissions to create tasks' });
+    }
 
     try {
       // Create task using new normalized structure
       const result = await db.execute(sql`
-        INSERT INTO app.ops_task_head (
+        INSERT INTO app.d_task (
           name, "descr", task_number, task_type, task_category,
           project_id, project_name, project_code,
           task_status, priority_level, urgency_level,
@@ -530,10 +597,30 @@ export async function taskRoutes(fastify: FastifyInstance) {
     const { id } = request.params as { id: string };
     const data = request.body as any;
 
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    // Direct RBAC check for task edit access
+    const taskEditAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = 'task'
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 1 = ANY(rbac.permission)
+    `);
+
+    if (taskEditAccess.length === 0) {
+      return reply.status(403).send({ error: 'Insufficient permissions to modify this task' });
+    }
+
     try {
       // Check if task exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.ops_task_head WHERE id = ${id}
+        SELECT id FROM app.d_task WHERE id = ${id}
       `);
       
       if (existing.length === 0) {
@@ -597,7 +684,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.ops_task_head 
+        UPDATE app.d_task 
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -638,10 +725,30 @@ export async function taskRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    // Direct RBAC check for task delete access
+    const taskDeleteAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = 'task'
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 3 = ANY(rbac.permission)
+    `);
+
+    if (taskDeleteAccess.length === 0) {
+      return reply.status(403).send({ error: 'Insufficient permissions to delete this task' });
+    }
+
     try {
       // Check if task exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.ops_task_head WHERE id = ${id}
+        SELECT id FROM app.d_task WHERE id = ${id}
       `);
       
       if (existing.length === 0) {
@@ -650,7 +757,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Soft delete task
       await db.execute(sql`
-        UPDATE app.ops_task_head 
+        UPDATE app.d_task 
         SET active = false, to_ts = NOW(), updated = NOW()
         WHERE id = ${id}
       `);
@@ -696,7 +803,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Validate task exists and user has permission
       const existingTask = await db.execute(sql`
-        SELECT id, name, task_status FROM app.ops_task_head 
+        SELECT id, name, task_status FROM app.d_task 
         WHERE id = ${id} AND active = true
       `);
       
@@ -706,7 +813,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Update task status with audit info
       const updateResult = await db.execute(sql`
-        UPDATE app.ops_task_head 
+        UPDATE app.d_task 
         SET 
           task_status = ${task_status},
           updated = NOW(),
@@ -792,7 +899,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Get all tasks for the project
       const tasks = await db.execute(sql`
-        SELECT * FROM app.ops_task_head
+        SELECT * FROM app.d_task
         WHERE ${sql.join(filters, sql` AND `)}
         ORDER BY 
           CASE task_status 
@@ -878,9 +985,18 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const { taskId } = request.params as { taskId: string };
       const employeeId = (request as any).user?.sub;
 
-      // Verify task access
-      const hasAccess = await hasPermissionOnEntityId(employeeId, 'task', taskId, 'view');
-      if (!hasAccess) {
+      // Direct RBAC check for task access
+      const taskAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${employeeId}
+          AND rbac.entity = 'task'
+          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
+
+      if (taskAccess.length === 0) {
         return reply.status(404).send({ error: 'Task not found or access denied' });
       }
 
@@ -896,7 +1012,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           tr.updated as updated_at,
           COALESCE(tr.attr->>'mentions', '[]')::jsonb as mentions,
           COALESCE(tr.attr->>'attachments', '[]')::jsonb as attachments
-        FROM app.ops_task_records tr
+        FROM app.d_task_data tr
         LEFT JOIN app.d_employee e ON e.id = tr.created_by_employee_id
         WHERE tr.task_head_id = ${taskId}
           AND tr.record_type IN ('case_note', 'rich_note')
@@ -964,9 +1080,18 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const { content, content_type = 'case_note', mentions = [], attachments = [] } = request.body as any;
       const employeeId = (request as any).user?.sub;
 
-      // Verify task edit access
-      const hasAccess = await hasPermissionOnEntityId(employeeId, 'task', taskId, 'edit');
-      if (!hasAccess) {
+      // Direct RBAC check for task edit access
+      const taskEditAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${employeeId}
+          AND rbac.entity = 'task'
+          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 1 = ANY(rbac.permission)
+      `);
+
+      if (taskEditAccess.length === 0) {
         return reply.status(404).send({ error: 'Task not found or access denied' });
       }
 
@@ -978,7 +1103,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Insert case note
       const noteResult = await db.execute(sql`
-        INSERT INTO app.ops_task_records (
+        INSERT INTO app.d_task_data (
           task_head_id,
           record_type,
           record_content,
@@ -1041,9 +1166,18 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const { taskId } = request.params as { taskId: string };
       const employeeId = (request as any).user?.sub;
 
-      // Verify task access
-      const hasAccess = await hasPermissionOnEntityId(employeeId, 'task', taskId, 'view');
-      if (!hasAccess) {
+      // Direct RBAC check for task access
+      const taskAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${employeeId}
+          AND rbac.entity = 'task'
+          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
+
+      if (taskAccess.length === 0) {
         return reply.status(404).send({ error: 'Task not found or access denied' });
       }
 
@@ -1057,7 +1191,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           e.name as actor_name,
           tr.created as timestamp,
           tr.attr as metadata
-        FROM app.ops_task_records tr
+        FROM app.d_task_data tr
         LEFT JOIN app.d_employee e ON e.id = tr.created_by_employee_id
         WHERE tr.task_head_id = ${taskId}
           AND tr.active = true
@@ -1076,7 +1210,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           'System' as actor_name,
           th.updated as timestamp,
           th.attr as metadata
-        FROM app.ops_task_head th
+        FROM app.d_task th
         WHERE th.id = ${taskId}
           AND th.active = true
           

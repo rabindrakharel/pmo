@@ -2,16 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../components/common/HeaderTabNavigation';
-import { ActionBar } from '../components/common/RBACButton';
+import { ActionBar } from '../components/common/Button';
 import { FileText, MessageSquare, Activity, Users, Clock, Edit3, Check, X } from 'lucide-react';
-import { useActionEntityPermission } from '../hooks/useActionEntityPermission';
 import { InlineEditField } from '../components/common/InlineEditField';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 export function TaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
   const { tabs, loading: tabsLoading } = useHeaderTabs('task', taskId!);
-  const { canEdit, permissionLoading } = useActionEntityPermission('task', taskId, 'edit');
+  // Permission checking removed - handled at API level via RBAC joins
   const [taskData, setTaskData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -47,7 +48,6 @@ export function TaskDetailPage() {
   }, [taskId]);
 
   const handleEditField = (fieldName: string, currentValue: string) => {
-    if (!canEdit) return;
     setEditingField(fieldName);
     setEditValue(currentValue);
   };
@@ -89,7 +89,7 @@ export function TaskDetailPage() {
     }
   };
 
-  if (loading || tabsLoading || permissionLoading) {
+  if (loading || tabsLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
@@ -164,15 +164,13 @@ export function TaskDetailPage() {
                     ) : (
                       <div className="flex items-center space-x-2">
                         <h2 className="text-xl font-semibold text-gray-900">{taskData?.name}</h2>
-                        {canEdit && (
-                          <button
-                            onClick={() => handleEditField('name', taskData?.name || '')}
-                            className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Edit task name"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleEditField('name', taskData?.name || '')}
+                          className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Edit task name"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </button>
                       </div>
                     )}
                   </div>
@@ -209,7 +207,7 @@ export function TaskDetailPage() {
                     fieldName="assigned_to_employee_name"
                     label="Assignment"
                     displayValue={taskData?.assigned_to_employee_name || 'Unassigned'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'assigned_to_employee_name'}
                     editValue={editValue}
                     saving={saving}
@@ -222,7 +220,7 @@ export function TaskDetailPage() {
                     fieldName="planned_end_date"
                     label="Due Date"
                     displayValue={taskData?.planned_end_date ? new Date(taskData.planned_end_date).toLocaleDateString() : 'Not set'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'planned_end_date'}
                     editValue={editValue}
                     saving={saving}
@@ -239,7 +237,7 @@ export function TaskDetailPage() {
                     fieldName="completion_percentage"
                     label="Progress (%)"
                     displayValue={`${taskData?.completion_percentage || 0}%`}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'completion_percentage'}
                     editValue={editValue}
                     saving={saving}
@@ -297,7 +295,7 @@ export function TaskDetailPage() {
                     fieldName="task_status"
                     label="Status"
                     displayValue={taskData?.task_status || 'Open'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'task_status'}
                     editValue={editValue}
                     saving={saving}
@@ -314,7 +312,7 @@ export function TaskDetailPage() {
                     fieldName="task_type"
                     label="Task Type"
                     displayValue={taskData?.task_type || 'Not set'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'task_type'}
                     editValue={editValue}
                     saving={saving}
@@ -331,7 +329,7 @@ export function TaskDetailPage() {
                     fieldName="task_category"
                     label="Category"
                     displayValue={taskData?.task_category || 'Not set'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'task_category'}
                     editValue={editValue}
                     saving={saving}
@@ -344,7 +342,7 @@ export function TaskDetailPage() {
                     fieldName="priority_level"
                     label="Priority"
                     displayValue={taskData?.priority_level || 'medium'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'priority_level'}
                     editValue={editValue}
                     saving={saving}
@@ -361,7 +359,7 @@ export function TaskDetailPage() {
                     fieldName="estimated_hours"
                     label="Estimated Hours"
                     displayValue={taskData?.estimated_hours || 'Not set'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'estimated_hours'}
                     editValue={editValue}
                     saving={saving}
@@ -378,7 +376,7 @@ export function TaskDetailPage() {
                     fieldName="actual_hours"
                     label="Actual Hours"
                     displayValue={taskData?.actual_hours || 'Not set'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'actual_hours'}
                     editValue={editValue}
                     saving={saving}

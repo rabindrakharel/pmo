@@ -2,17 +2,16 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { HeaderTabNavigation, useHeaderTabs } from '../../components/common/HeaderTabNavigation';
-import { ActionBar } from '../../components/common/RBACButton';
+import { ActionBar } from '../../components/common/Button';
 import { Edit3, Check, X } from 'lucide-react';
 import { orgApi } from '../../lib/api';
-import { useActionEntityPermission } from '../../hooks/useActionEntityPermission';
 import { InlineEditField } from '../../components/common/InlineEditField';
 
 export function OrgDetailPage() {
   const { orgId } = useParams<{ orgId: string }>();
   const navigate = useNavigate();
   const { tabs, loading } = useHeaderTabs('org', orgId!);
-  const { canEdit, permissionLoading } = useActionEntityPermission('org', orgId, 'edit');
+  // Permission checking removed - handled at API level via RBAC joins
 
   const [orgData, setOrgData] = React.useState<any>(null);
   const [orgLoading, setOrgLoading] = React.useState(true);
@@ -42,7 +41,6 @@ export function OrgDetailPage() {
   }, [orgId]);
 
   const handleEditField = (fieldName: string, currentValue: string) => {
-    if (!canEdit) return;
     setEditingField(fieldName);
     setEditValue(currentValue);
   };
@@ -73,7 +71,7 @@ export function OrgDetailPage() {
     }
   };
 
-  if (orgLoading || loading || permissionLoading) {
+  if (orgLoading || loading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
@@ -148,15 +146,13 @@ export function OrgDetailPage() {
                         <h1 className="text-2xl font-bold text-gray-900">
                           {orgData?.name || 'Unnamed Organization'}
                         </h1>
-                        {canEdit && (
-                          <button
-                            onClick={() => handleEditField('name', orgData?.name || '')}
-                            className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Edit organization name"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleEditField('name', orgData?.name || '')}
+                          className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Edit organization name"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </button>
                       </div>
                     )}
                     {orgData?.org_code && (
@@ -207,7 +203,7 @@ export function OrgDetailPage() {
                     fieldName="org_code"
                     label="Organization Code"
                     displayValue={orgData?.org_code || 'Not set'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'org_code'}
                     editValue={editValue}
                     saving={saving}
@@ -220,7 +216,7 @@ export function OrgDetailPage() {
                     fieldName="org_type"
                     label="Organization Type"
                     displayValue={orgData?.org_type || 'Not specified'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'org_type'}
                     editValue={editValue}
                     saving={saving}
@@ -237,7 +233,7 @@ export function OrgDetailPage() {
                     fieldName="location"
                     label="Location"
                     displayValue={orgData?.location || 'Not specified'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'location'}
                     editValue={editValue}
                     saving={saving}
@@ -250,7 +246,7 @@ export function OrgDetailPage() {
                     fieldName="parent_org_name"
                     label="Parent Organization"
                     displayValue={orgData?.parent_org_name || 'Root organization'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'parent_org_name'}
                     editValue={editValue}
                     saving={saving}
@@ -272,7 +268,7 @@ export function OrgDetailPage() {
                     fieldName="active"
                     label="Status"
                     displayValue={orgData?.active ? 'Active' : 'Inactive'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'active'}
                     editValue={editValue}
                     saving={saving}
@@ -296,7 +292,7 @@ export function OrgDetailPage() {
                     fieldName="established_date"
                     label="Established Date"
                     displayValue={orgData?.established_date ? new Date(orgData.established_date).toLocaleDateString() : 'Not specified'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'established_date'}
                     editValue={editValue}
                     saving={saving}
@@ -313,7 +309,7 @@ export function OrgDetailPage() {
                     fieldName="contact_info"
                     label="Contact Information"
                     displayValue={orgData?.contact_info || 'Not provided'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'contact_info'}
                     editValue={editValue}
                     saving={saving}
@@ -326,7 +322,7 @@ export function OrgDetailPage() {
                     fieldName="territory_size"
                     label="Territory Size (km²)"
                     displayValue={orgData?.territory_size ? `${orgData.territory_size} km²` : 'Not set'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'territory_size'}
                     editValue={editValue}
                     saving={saving}
@@ -352,7 +348,7 @@ export function OrgDetailPage() {
                     fieldName="description"
                     label="Organization Description"
                     displayValue={orgData?.description || 'No description provided'}
-                    canEdit={canEdit}
+                    canEdit={true}
                     isEditing={editingField === 'description'}
                     editValue={editValue}
                     saving={saving}

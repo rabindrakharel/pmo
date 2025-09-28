@@ -198,9 +198,9 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         if (accessibleIds.length > 0) {
           const entityTableMap: Record<string, string> = {
             'project': 'app.d_project',
-            'task': 'app.ops_task_head', 
+            'task': 'app.d_task', 
             'wiki': 'app.d_wiki',
-            'form': 'app.ops_formlog_head',
+            'form': 'app.d_form_head',
             'artifact': 'app.d_artifact',
           };
 
@@ -325,8 +325,8 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           min(eh.hierarchy_level) as hierarchy_level
         FROM app.meta_entity_hierarchy_permission_mapping pm
         LEFT JOIN app.meta_entity_hierarchy eh ON (
-          eh.parent_entity = pm.parent_entity AND 
-          eh.action_entity = pm.action_entity
+          eh.parent_entity_type = pm.parent_entity AND 
+          eh.child_entity_type = pm.action_entity
         )
         WHERE pm.active = true
         GROUP BY parent_entity, action_entity
@@ -387,8 +387,8 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           min(eh.hierarchy_level) as hierarchy_level
         FROM app.meta_entity_hierarchy_permission_mapping pm
         LEFT JOIN app.meta_entity_hierarchy eh ON (
-          eh.parent_entity = pm.parent_entity AND 
-          eh.action_entity = pm.action_entity
+          eh.parent_entity_type = pm.parent_entity AND 
+          eh.child_entity_type = pm.action_entity
         )
         WHERE pm.active = true
         GROUP BY parent_entity, action_entity
@@ -543,7 +543,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
             eih.parent_entity_id,
             eih.parent_entity,
             0 as level
-          FROM app.entity_id_hierarchy_mapping eih
+          FROM app.entity_id_map eih
           WHERE eih.action_entity_id = ${entityId} 
             AND eih.action_entity = ${entityType}
             AND eih.active = true
@@ -557,27 +557,27 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
             eih.parent_entity_id,
             eih.parent_entity,
             eh.level + 1
-          FROM app.entity_id_hierarchy_mapping eih
-          JOIN entity_hierarchy eh ON eih.action_entity_id = eh.parent_entity_id
+          FROM app.entity_id_map eih
+          JOIN entity_hierarchy eh ON eih.action_entity_id = eh.parent_entity_type_id
           WHERE eih.active = true
         )
         SELECT 
-          eh.action_entity as entity_type,
-          eh.action_entity_id as entity_id,
+          eh.child_entity_type as entity_type,
+          eh.child_entity_id as entity_id,
           COALESCE(
-            CASE eh.action_entity
-              WHEN 'biz' THEN (SELECT name FROM app.d_biz WHERE id = eh.action_entity_id)
-              WHEN 'project' THEN (SELECT name FROM app.d_project WHERE id = eh.action_entity_id)
-              WHEN 'hr' THEN (SELECT name FROM app.d_hr WHERE id = eh.action_entity_id)
-              WHEN 'org' THEN (SELECT name FROM app.d_org WHERE id = eh.action_entity_id)
-              WHEN 'client' THEN (SELECT name FROM app.d_client WHERE id = eh.action_entity_id)
-              WHEN 'worksite' THEN (SELECT name FROM app.d_worksite WHERE id = eh.action_entity_id)
-              WHEN 'employee' THEN (SELECT name FROM app.d_employee WHERE id = eh.action_entity_id)
-              WHEN 'role' THEN (SELECT name FROM app.d_role WHERE id = eh.action_entity_id)
-              WHEN 'wiki' THEN (SELECT name FROM app.d_wiki WHERE id = eh.action_entity_id)
-              WHEN 'form' THEN (SELECT name FROM app.ops_formlog_head WHERE id = eh.action_entity_id)
-              WHEN 'task' THEN (SELECT name FROM app.ops_task_head WHERE id = eh.action_entity_id)
-              WHEN 'artifact' THEN (SELECT name FROM app.d_artifact WHERE id = eh.action_entity_id)
+            CASE eh.child_entity_type
+              WHEN 'biz' THEN (SELECT name FROM app.d_biz WHERE id = eh.child_entity_id)
+              WHEN 'project' THEN (SELECT name FROM app.d_project WHERE id = eh.child_entity_id)
+              WHEN 'hr' THEN (SELECT name FROM app.d_hr WHERE id = eh.child_entity_id)
+              WHEN 'org' THEN (SELECT name FROM app.d_org WHERE id = eh.child_entity_id)
+              WHEN 'client' THEN (SELECT name FROM app.d_client WHERE id = eh.child_entity_id)
+              WHEN 'worksite' THEN (SELECT name FROM app.d_worksite WHERE id = eh.child_entity_id)
+              WHEN 'employee' THEN (SELECT name FROM app.d_employee WHERE id = eh.child_entity_id)
+              WHEN 'role' THEN (SELECT name FROM app.d_role WHERE id = eh.child_entity_id)
+              WHEN 'wiki' THEN (SELECT name FROM app.d_wiki WHERE id = eh.child_entity_id)
+              WHEN 'form' THEN (SELECT name FROM app.d_form_head WHERE id = eh.child_entity_id)
+              WHEN 'task' THEN (SELECT name FROM app.d_task WHERE id = eh.child_entity_id)
+              WHEN 'artifact' THEN (SELECT name FROM app.d_artifact WHERE id = eh.child_entity_id)
             END,
             'Unknown'
           ) as entity_name,
@@ -653,7 +653,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           context_fields: ['project_code', 'project_type']
         },
         'task': { 
-          table: 'app.ops_task_head', 
+          table: 'app.d_task', 
           name_field: 'name', 
           desc_field: 'descr',
           context_fields: ['task_number', 'task_type']
@@ -741,7 +741,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           if (entityType === 'task' && result.entity_type) {
             const projectContext = await db.execute(sql`
               SELECT p.name FROM app.d_project p
-              JOIN app.ops_task_head t ON t.project_id = p.id
+              JOIN app.d_task t ON t.project_id = p.id
               WHERE t.id = ${result.id}
             `);
             if (projectContext.length > 0) {
@@ -820,25 +820,25 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         const getEntityCountQuery = (entityType: string) => {
           switch (entityType) {
             case 'task':
-              return sql`(SELECT COUNT(*) FROM app.ops_task_head WHERE project_id = d_project.id AND active = true)`;
+              return sql`(SELECT COUNT(*) FROM app.d_task WHERE project_id = d_project.id AND active = true)`;
             case 'wiki':
               return sql`(SELECT COUNT(*) FROM app.d_wiki w
-                         INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = w.id
-                         WHERE eh.parent_entity_id = d_project.id
-                           AND eh.action_entity = 'wiki'
-                           AND eh.parent_entity = 'project'
-                           AND eh.active = true
+                         INNER JOIN app.entity_id_map eh ON eh.child_entity_id = w.id
+                         WHERE eh.parent_entity_type_id = d_project.id
+                           AND eh.child_entity_type = 'wiki'
+                           AND eh.parent_entity_type = 'project'
+                           AND eh.active_flag = true
                            AND w.active = true)`;
             case 'artifact':
               return sql`(SELECT COUNT(*) FROM app.d_artifact a
-                         INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = a.id
-                         WHERE eh.parent_entity_id = d_project.id
-                           AND eh.action_entity = 'artifact'
-                           AND eh.parent_entity = 'project'
-                           AND eh.active = true
+                         INNER JOIN app.entity_id_map eh ON eh.child_entity_id = a.id
+                         WHERE eh.parent_entity_type_id = d_project.id
+                           AND eh.child_entity_type = 'artifact'
+                           AND eh.parent_entity_type = 'project'
+                           AND eh.active_flag = true
                            AND a.active = true)`;
             case 'form':
-              return sql`(SELECT COUNT(*) FROM app.ops_formlog_head f
+              return sql`(SELECT COUNT(*) FROM app.d_form_head f
                          WHERE f.project_id = d_project.id AND f.active = true)`;
             default:
               return sql`0`;
@@ -869,31 +869,31 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         const getBusinessEntityCountQuery = (entityType: string) => {
           switch (entityType) {
             case 'task':
-              return sql`(SELECT COUNT(*) FROM app.ops_task_head t
+              return sql`(SELECT COUNT(*) FROM app.d_task t
                          INNER JOIN app.d_project p ON p.id = t.project_id
                          WHERE p.biz_id = d_biz.id AND t.active = true AND p.active = true)`;
             case 'wiki':
               return sql`(SELECT COUNT(*) FROM app.d_wiki w
-                         INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = w.id
-                         INNER JOIN app.d_project p ON p.id = eh.parent_entity_id
+                         INNER JOIN app.entity_id_map eh ON eh.child_entity_id = w.id
+                         INNER JOIN app.d_project p ON p.id = eh.parent_entity_type_id
                          WHERE p.biz_id = d_biz.id
-                           AND eh.action_entity = 'wiki'
-                           AND eh.parent_entity = 'project'
-                           AND eh.active = true
+                           AND eh.child_entity_type = 'wiki'
+                           AND eh.parent_entity_type = 'project'
+                           AND eh.active_flag = true
                            AND w.active = true
                            AND p.active = true)`;
             case 'artifact':
               return sql`(SELECT COUNT(*) FROM app.d_artifact a
-                         INNER JOIN app.entity_id_hierarchy_mapping eh ON eh.action_entity_id = a.id
-                         INNER JOIN app.d_project p ON p.id = eh.parent_entity_id
+                         INNER JOIN app.entity_id_map eh ON eh.child_entity_id = a.id
+                         INNER JOIN app.d_project p ON p.id = eh.parent_entity_type_id
                          WHERE p.biz_id = d_biz.id
-                           AND eh.action_entity = 'artifact'
-                           AND eh.parent_entity = 'project'
-                           AND eh.active = true
+                           AND eh.child_entity_type = 'artifact'
+                           AND eh.parent_entity_type = 'project'
+                           AND eh.active_flag = true
                            AND a.active = true
                            AND p.active = true)`;
             case 'form':
-              return sql`(SELECT COUNT(*) FROM app.ops_formlog_head f
+              return sql`(SELECT COUNT(*) FROM app.d_form_head f
                          INNER JOIN app.d_project p ON p.id = f.project_id
                          WHERE p.biz_id = d_biz.id AND f.active = true AND p.active = true)`;
             case 'project':

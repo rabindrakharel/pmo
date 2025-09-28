@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FolderOpen, TrendingUp, DollarSign } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, Column } from '../components/ui/DataTable';
+import { FilteredDataTable } from '../components/FilteredDataTable';
 import { StatsGrid } from '../components/common/StatsGrid';
 import { projectApi } from '../lib/api';
 
@@ -239,30 +240,44 @@ export function ProjectPage() {
     }
   };
 
+  // Bulk action handlers
+  const handleBulkShare = (selectedProjects: Project[]) => {
+    console.log('Bulk share projects:', selectedProjects.map(p => p.id));
+    alert(`Sharing ${selectedProjects.length} project${selectedProjects.length !== 1 ? 's' : ''}`);
+    // TODO: Implement bulk share functionality
+  };
+
+  const handleBulkDelete = async (selectedProjects: Project[]) => {
+    try {
+      // Delete projects in parallel
+      await Promise.all(selectedProjects.map(project => projectApi.delete(project.id)));
+      loadProjects(); // Reload the list
+      alert(`Successfully deleted ${selectedProjects.length} project${selectedProjects.length !== 1 ? 's' : ''}`);
+    } catch (error) {
+      console.error('Failed to delete projects:', error);
+      alert('Failed to delete some projects. Please try again.');
+    }
+  };
+
+  const handleCreateClick = () => {
+    navigate('/project/new');
+  };
+
   const renderContent = () => (
-    <DataTable
-      data={projects}
-      columns={tableColumns}
-      loading={loading}
-      pagination={{
-        ...pagination,
-        onChange: handlePaginationChange,
-      }}
-      rowKey="id"
+    <FilteredDataTable
+      entityType="project"
+      showActionButtons={true}
+      createLabel="Create Project"
+      onCreateClick={handleCreateClick}
+      onBulkShare={handleBulkShare}
+      onBulkDelete={handleBulkDelete}
       onRowClick={handleRowClick}
-      onView={handleView}
-      onEdit={handleEdit}
-      onShare={handleShare}
-      onDelete={handleDelete}
-      rbacConfig={{
-        entityType: 'project',
-        enablePermissionChecking: true,
-      }}
+      // Permission checking removed - handled at API level via RBAC joins
     />
   );
 
   return (
-    <Layout createButton={{ label: "Create Project", href: "/project/new", entityType: "project" }}>
+    <Layout>
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
         <div className="flex items-center space-x-3">
           <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">

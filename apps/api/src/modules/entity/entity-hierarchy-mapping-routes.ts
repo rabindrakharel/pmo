@@ -11,23 +11,23 @@ import { sql } from 'drizzle-orm';
 // Schema for hierarchy mapping
 const HierarchyMappingSchema = Type.Object({
   id: Type.String(),
-  action_entity_id: Type.String(),
-  action_entity: Type.String(),
-  parent_entity_id: Type.String(),
-  parent_entity: Type.String(),
+  child_entity_type_id: Type.String(),
+  child_entity_type: Type.String(),
+  parent_entity_type_id: Type.String(),
+  parent_entity_type: Type.String(),
   created_at: Type.String(),
   active: Type.Boolean(),
 });
 
 // Schema for assignment request
 const AssignmentRequestSchema = Type.Object({
-  action_entity_id: Type.String(),
-  action_entity: Type.String(),
+  child_entity_type_id: Type.String(),
+  child_entity_type: Type.String(),
   assignments: Type.Array(Type.Object({
-    action_entity_id: Type.String(),
-    action_entity: Type.String(),
-    parent_entity_id: Type.String(),
-    parent_entity: Type.String(),
+    child_entity_type_id: Type.String(),
+    child_entity_type: Type.String(),
+    parent_entity_type_id: Type.String(),
+    parent_entity_type: Type.String(),
   }))
 });
 
@@ -48,12 +48,12 @@ async function canAssignParentEntity(
       'org': 'app.d_org',
       'client': 'app.d_client',
       'project': 'app.d_project',
-      'task': 'app.ops_task_head',
+      'task': 'app.d_task',
       'worksite': 'app.d_worksite',
       'employee': 'app.d_employee',
       'wiki': 'app.d_wiki',
       'artifact': 'app.d_artifact',
-      'form': 'app.ops_formlog_head',
+      'form': 'app.d_form_head',
       'hr': 'app.d_hr',
       'role': 'app.d_role'
     };
@@ -68,7 +68,7 @@ async function canAssignParentEntity(
     // Check if action entity exists and is active
     const actionEntityExists = await db.execute(sql`
       SELECT id FROM ${sql.raw(actionTable)}
-      WHERE id = ${actionEntityId} AND active = true
+      WHERE id = ${actionEntityId} AND active_flag = true
     `);
 
     if (!actionEntityExists.length) {
@@ -78,7 +78,7 @@ async function canAssignParentEntity(
     // Check if parent entity exists and is active
     const parentEntityExists = await db.execute(sql`
       SELECT id FROM ${sql.raw(parentTable)}
-      WHERE id = ${parentEntityId} AND active = true
+      WHERE id = ${parentEntityId} AND active_flag = true
     `);
 
     if (!parentEntityExists.length) {
@@ -88,9 +88,9 @@ async function canAssignParentEntity(
     // 2. Check if this relationship is allowed by meta_entity_hierarchy
     const hierarchyRule = await db.execute(sql`
       SELECT id FROM app.meta_entity_hierarchy
-      WHERE parent_entity = ${parentEntityType}
-        AND action_entity = ${actionEntityType}
-        AND active = true
+      WHERE parent_entity_type = ${parentEntityType}
+        AND child_entity_type = ${actionEntityType}
+        AND active_flag = true
     `);
 
     if (!hierarchyRule.length) {
@@ -99,12 +99,12 @@ async function canAssignParentEntity(
 
     // 3. Check if this specific assignment already exists and is active
     const existingAssignment = await db.execute(sql`
-      SELECT id FROM app.entity_id_hierarchy_mapping
-      WHERE action_entity_id = ${actionEntityId}
-        AND action_entity = ${actionEntityType}
-        AND parent_entity_id = ${parentEntityId}
-        AND parent_entity = ${parentEntityType}
-        AND active = true
+      SELECT id FROM app.entity_id_map
+      WHERE child_entity_type_id = ${actionEntityId}
+        AND child_entity_type = ${actionEntityType}
+        AND parent_entity_type_id = ${parentEntityId}
+        AND parent_entity_type = ${parentEntityType}
+        AND active_flag = true
     `);
 
     if (existingAssignment.length) {
@@ -115,20 +115,20 @@ async function canAssignParentEntity(
     const circularCheck = await db.execute(sql`
       WITH RECURSIVE hierarchy_check AS (
         -- Base case: start with the proposed parent
-        SELECT parent_entity_id as entity_id, parent_entity as entity_type, 1 as depth
-        FROM app.entity_id_hierarchy_mapping
-        WHERE action_entity_id = ${parentEntityId}
-          AND action_entity = ${parentEntityType}
-          AND active = true
+        SELECT parent_entity_type_id as entity_id, parent_entity_type as entity_type, 1 as depth
+        FROM app.entity_id_map
+        WHERE child_entity_type_id = ${parentEntityId}
+          AND child_entity_type = ${parentEntityType}
+          AND active_flag = true
 
         UNION ALL
 
         -- Recursive case: follow the chain up
-        SELECT m.parent_entity_id, m.parent_entity, h.depth + 1
-        FROM app.entity_id_hierarchy_mapping m
-        INNER JOIN hierarchy_check h ON m.action_entity_id = h.entity_id
-          AND m.action_entity = h.entity_type
-        WHERE m.active = true
+        SELECT m.parent_entity_type_id, m.parent_entity_type, h.depth + 1
+        FROM app.entity_id_map m
+        INNER JOIN hierarchy_check h ON m.child_entity_type_id = h.entity_id
+          AND m.child_entity_type = h.entity_type
+        WHERE m.active_flag = true
           AND h.depth < 10  -- Prevent infinite recursion
       )
       SELECT entity_id FROM hierarchy_check
@@ -165,9 +165,9 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
         200: Type.Object({
           data: Type.Array(Type.Object({
             id: Type.String(),
-            parent_entity_id: Type.String(),
-            parent_entity: Type.String(),
-            from_ts: Type.String(),
+            parent_entity_type_id: Type.String(),
+            parent_entity_type: Type.String(),
+            created_ts: Type.String(),
             active: Type.Boolean(),
           })),
         }),
@@ -196,24 +196,24 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
       const mappings = await db.execute(sql`
         SELECT
           id,
-          parent_entity_id,
-          parent_entity,
-          from_ts,
+          parent_entity_type_id,
+          parent_entity_type,
+          created_ts,
           active
-        FROM app.entity_id_hierarchy_mapping
-        WHERE action_entity_id = ${actionEntityId}
-          AND action_entity = ${actionEntityType}
-          AND active = true
-        ORDER BY from_ts DESC
+        FROM app.entity_id_map
+        WHERE child_entity_type_id = ${actionEntityId}
+          AND child_entity_type = ${actionEntityType}
+          AND active_flag = true
+        ORDER BY created_ts DESC
       `);
 
       return {
         data: mappings.map(mapping => ({
           id: String(mapping.id),
-          parent_entity_id: String(mapping.parent_entity_id),
-          parent_entity: String(mapping.parent_entity),
-          from_ts: String(mapping.from_ts),
-          active: Boolean(mapping.active),
+          parent_entity_type_id: String(mapping.parent_entity_type_id),
+          parent_entity_type: String(mapping.parent_entity_type),
+          created_ts: String(mapping.created_ts),
+          active: Boolean(mapping.active_flag_flag),
         }))
       };
     } catch (error) {
@@ -234,10 +234,10 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
         actionEntityId: Type.String({ format: 'uuid' }),
       }),
       body: Type.Object({
-        action_entity_id: Type.String(),
-        action_entity: Type.String(),
-        parent_entity_id: Type.String(),
-        parent_entity: Type.String(),
+        child_entity_type_id: Type.String(),
+        child_entity_type: Type.String(),
+        parent_entity_type_id: Type.String(),
+        parent_entity_type: Type.String(),
       }),
       response: {
         200: Type.Object({
@@ -258,11 +258,11 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
         actionEntityType: string;
         actionEntityId: string;
       };
-      const { parent_entity_id, parent_entity } = request.body as {
-        action_entity_id: string;
-        action_entity: string;
-        parent_entity_id: string;
-        parent_entity: string;
+      const { parent_entity_type_id, parent_entity_type } = request.body as {
+        child_entity_type_id: string;
+        child_entity_type: string;
+        parent_entity_type_id: string;
+        parent_entity_type: string;
       };
 
       if (!employeeId) {
@@ -273,8 +273,8 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
       const validation = await canAssignParentEntity(
         actionEntityType,
         actionEntityId,
-        parent_entity,
-        parent_entity_id
+        parent_entity_type,
+        parent_entity_type_id
       );
       if (!validation.canAssign) {
         return reply.status(403).send({
@@ -284,20 +284,20 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
 
       // Insert new assignment
       const result = await db.execute(sql`
-        INSERT INTO app.entity_id_hierarchy_mapping (
-          action_entity_id,
-          action_entity,
-          parent_entity_id,
-          parent_entity,
+        INSERT INTO app.entity_id_map (
+          child_entity_type_id,
+          child_entity_type,
+          parent_entity_type_id,
+          parent_entity_type,
           active,
-          from_ts,
+          created_ts,
           created,
           updated
         ) VALUES (
           ${actionEntityId},
           ${actionEntityType},
-          ${parent_entity_id},
-          ${parent_entity},
+          ${parent_entity_type_id},
+          ${parent_entity_type},
           true,
           NOW(),
           NOW(),
@@ -359,11 +359,11 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
 
       // Verify assignment exists and belongs to this action entity
       const existingAssignment = await db.execute(sql`
-        SELECT id FROM app.entity_id_hierarchy_mapping
+        SELECT id FROM app.entity_id_map
         WHERE id = ${assignmentId}
-          AND action_entity_id = ${actionEntityId}
-          AND action_entity = ${actionEntityType}
-          AND active = true
+          AND child_entity_type_id = ${actionEntityId}
+          AND child_entity_type = ${actionEntityType}
+          AND active_flag = true
       `);
 
       if (!existingAssignment.length) {
@@ -372,8 +372,8 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
 
       // Mark assignment as inactive
       await db.execute(sql`
-        UPDATE app.entity_id_hierarchy_mapping
-        SET active = false, to_ts = NOW(), updated = NOW()
+        UPDATE app.entity_id_map
+        SET active_flag = false, updated_ts = NOW()
         WHERE id = ${assignmentId}
       `);
 
@@ -394,8 +394,8 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
       summary: 'Get entity hierarchy mappings',
       description: 'Returns current parent entity assignments for the specified action entity',
       querystring: Type.Object({
-        action_entity: Type.String(),
-        action_entity_id: Type.String({ format: 'uuid' }),
+        child_entity_type: Type.String(),
+        child_entity_type_id: Type.String({ format: 'uuid' }),
       }),
       response: {
         200: Type.Object({
@@ -410,12 +410,12 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
-      const { action_entity, action_entity_id } = request.query as {
-        action_entity: string;
-        action_entity_id: string;
+      const { child_entity_type, child_entity_type_id } = request.query as {
+        child_entity_type: string;
+        child_entity_type_id: string;
       };
 
-      fastify.log.info(`Entity hierarchy mapping request: employeeId=${employeeId}, action_entity=${action_entity}, action_entity_id=${action_entity_id}`);
+      fastify.log.info(`Entity hierarchy mapping request: employeeId=${employeeId}, child_entity_type=${child_entity_type}, child_entity_type_id=${child_entity_type_id}`);
 
       if (!employeeId) {
         fastify.log.error('No employee ID in request');
@@ -425,20 +425,20 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
       // Note: Removed UI RBAC check - validation now handled by data-based API gating
 
       // Get current assignments
-      fastify.log.info(`Fetching mappings for ${action_entity} ${action_entity_id}`);
+      fastify.log.info(`Fetching mappings for ${child_entity_type} ${child_entity_type_id}`);
       const mappings = await db.execute(sql`
         SELECT
           id,
-          action_entity_id,
-          action_entity,
-          parent_entity_id,
-          parent_entity,
+          child_entity_type_id,
+          child_entity_type,
+          parent_entity_type_id,
+          parent_entity_type,
           created_at,
           active
-        FROM app.entity_id_hierarchy_mapping
-        WHERE action_entity_id = ${action_entity_id}
-          AND action_entity = ${action_entity}
-          AND active = true
+        FROM app.entity_id_map
+        WHERE child_entity_type_id = ${child_entity_type_id}
+          AND child_entity_type = ${child_entity_type}
+          AND active_flag = true
         ORDER BY created_at DESC
       `);
       fastify.log.info(`Found ${mappings.length} mappings`);
@@ -446,12 +446,12 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
       return {
         data: mappings.map(mapping => ({
           id: String(mapping.id),
-          action_entity_id: String(mapping.action_entity_id),
-          action_entity: String(mapping.action_entity),
-          parent_entity_id: String(mapping.parent_entity_id),
-          parent_entity: String(mapping.parent_entity),
+          child_entity_type_id: String(mapping.child_entity_type_id),
+          child_entity_type: String(mapping.child_entity_type),
+          parent_entity_type_id: String(mapping.parent_entity_type_id),
+          parent_entity_type: String(mapping.parent_entity_type),
           created_at: String(mapping.created_at),
-          active: Boolean(mapping.active),
+          active: Boolean(mapping.active_flag_flag),
         }))
       };
     } catch (error) {
@@ -483,14 +483,14 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
-      const { action_entity_id, action_entity, assignments } = request.body as {
-        action_entity_id: string;
-        action_entity: string;
+      const { child_entity_type_id, child_entity_type, assignments } = request.body as {
+        child_entity_type_id: string;
+        child_entity_type: string;
         assignments: Array<{
-          action_entity_id: string;
-          action_entity: string;
-          parent_entity_id: string;
-          parent_entity: string;
+          child_entity_type_id: string;
+          child_entity_type: string;
+          parent_entity_type_id: string;
+          parent_entity_type: string;
         }>;
       };
 
@@ -502,24 +502,24 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
 
       // Get current assignments
       const currentAssignments = await db.execute(sql`
-        SELECT parent_entity_id, parent_entity
-        FROM app.entity_id_hierarchy_mapping
-        WHERE action_entity_id = ${action_entity_id}
-          AND action_entity = ${action_entity}
-          AND active = true
+        SELECT parent_entity_type_id, parent_entity_type
+        FROM app.entity_id_map
+        WHERE child_entity_type_id = ${child_entity_type_id}
+          AND child_entity_type = ${child_entity_type}
+          AND active_flag = true
       `);
 
       const currentSet = new Set(
-        currentAssignments.map(a => `${a.parent_entity}:${a.parent_entity_id}`)
+        currentAssignments.map(a => `${a.parent_entity_type}:${a.parent_entity_type_id}`)
       );
 
       const newSet = new Set(
-        assignments.map(a => `${a.parent_entity}:${a.parent_entity_id}`)
+        assignments.map(a => `${a.parent_entity_type}:${a.parent_entity_type_id}`)
       );
 
       // Calculate changes
       const toRemove = [...currentSet].filter(x => !newSet.has(x));
-      const toAdd = assignments.filter(a => !currentSet.has(`${a.parent_entity}:${a.parent_entity_id}`));
+      const toAdd = assignments.filter(a => !currentSet.has(`${a.parent_entity_type}:${a.parent_entity_type_id}`));
 
       let assignmentsCreated = 0;
       let assignmentsRemoved = 0;
@@ -530,13 +530,13 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
         for (const removal of toRemove) {
           const [parentEntity, parentEntityId] = removal.split(':');
           await tx.execute(sql`
-            UPDATE app.entity_id_hierarchy_mapping
-            SET active = false, updated_at = NOW()
-            WHERE action_entity_id = ${action_entity_id}
-              AND action_entity = ${action_entity}
-              AND parent_entity_id = ${parentEntityId}
-              AND parent_entity = ${parentEntity}
-              AND active = true
+            UPDATE app.entity_id_map
+            SET active_flag = false, updated_at = NOW()
+            WHERE child_entity_type_id = ${child_entity_type_id}
+              AND child_entity_type = ${child_entity_type}
+              AND parent_entity_type_id = ${parentEntityId}
+              AND parent_entity_type = ${parentEntity}
+              AND active_flag = true
           `);
           assignmentsRemoved++;
         }
@@ -545,38 +545,38 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
         for (const assignment of toAdd) {
           // Validate parent entity assignment using data-based API gating
           const validation = await canAssignParentEntity(
-            assignment.action_entity,
-            assignment.action_entity_id,
-            assignment.parent_entity,
-            assignment.parent_entity_id
+            assignment.child_entity_type,
+            assignment.child_entity_type_id,
+            assignment.parent_entity_type,
+            assignment.parent_entity_type_id
           );
 
           if (!validation.canAssign) {
-            throw new Error(`Cannot assign parent entity ${assignment.parent_entity}:${assignment.parent_entity_id}: ${validation.reason}`);
+            throw new Error(`Cannot assign parent entity ${assignment.parent_entity_type}:${assignment.parent_entity_type_id}: ${validation.reason}`);
           }
 
           // Create new assignment
           await tx.execute(sql`
-            INSERT INTO app.entity_id_hierarchy_mapping (
-              action_entity_id,
-              action_entity,
-              parent_entity_id,
-              parent_entity,
+            INSERT INTO app.entity_id_map (
+              child_entity_type_id,
+              child_entity_type,
+              parent_entity_type_id,
+              parent_entity_type,
               active,
               created_at,
               updated_at
             ) VALUES (
-              ${assignment.action_entity_id},
-              ${assignment.action_entity},
-              ${assignment.parent_entity_id},
-              ${assignment.parent_entity},
+              ${assignment.child_entity_type_id},
+              ${assignment.child_entity_type},
+              ${assignment.parent_entity_type_id},
+              ${assignment.parent_entity_type},
               true,
               NOW(),
               NOW()
             )
-            ON CONFLICT (action_entity_id, action_entity, parent_entity_id, parent_entity)
+            ON CONFLICT (child_entity_type_id, child_entity_type, parent_entity_type_id, parent_entity_type)
             DO UPDATE SET
-              active = true,
+              active_flag = true,
               updated_at = NOW()
           `);
           assignmentsCreated++;
@@ -604,7 +604,7 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
       summary: 'Get available parent entities',
       description: 'Returns all available parent entities that can be assigned to the specified action entity type',
       querystring: Type.Object({
-        action_entity: Type.String(),
+        child_entity_type: Type.String(),
       }),
       response: {
         200: Type.Object({
@@ -622,7 +622,7 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
-      const { action_entity } = request.query as { action_entity: string };
+      const { child_entity_type } = request.query as { child_entity_type: string };
 
       if (!employeeId) {
         return reply.status(401).send({ error: 'Unauthorized' });
@@ -630,18 +630,18 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
 
       // Get valid parent entity types for this action entity from meta hierarchy
       const validParentTypes = await db.execute(sql`
-        SELECT DISTINCT parent_entity
+        SELECT DISTINCT parent_entity_type
         FROM app.meta_entity_hierarchy_permission_mapping
-        WHERE action_entity = ${action_entity}
-          AND active = true
-        ORDER BY parent_entity
+        WHERE child_entity_type = ${child_entity_type}
+          AND active_flag = true
+        ORDER BY parent_entity_type
       `);
 
       const parentEntities = [];
 
       // For each valid parent type, get all entities the user can access
       for (const parentType of validParentTypes) {
-        const parentEntityType = String(parentType.parent_entity);
+        const parentEntityType = String(parentType.parent_entity_type);
 
         const tableMap: Record<string, string> = {
           'biz': 'app.d_biz',
@@ -657,7 +657,7 @@ export async function entityHierarchyMappingRoutes(fastify: FastifyInstance) {
         // Get all entities of this type that exist
         const entities = await db.execute(sql`
           SELECT id, name FROM ${sql.raw(table)}
-          WHERE active = true
+          WHERE active_flag = true
           ORDER BY name
         `);
 
