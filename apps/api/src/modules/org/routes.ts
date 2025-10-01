@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { getEmployeeEntityIds, hasPermissionOnEntityId } from '../rbac/ui-api-permission-rbac-gate.js';
+// RBAC implemented directly via database joins - no separate permission gates
 import { db } from '../../db/index.js';
 import { sql } from 'drizzle-orm';
 import {
@@ -9,7 +9,7 @@ import {
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
 
-// Schema based on actual d_org table structure
+// Schema based on actual d_office table structure
 const OrgSchema = Type.Object({
   id: Type.String(),
   // Organization identification and metadata
@@ -87,26 +87,25 @@ export async function orgRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Get employee's allowed organization IDs for filtering
-      const allowedOrgIds = await getEmployeeEntityIds(userId, 'org');
+      // Direct RBAC filtering - only show orgs user has access to
+      const baseConditions = [
+        sql`(
+          EXISTS (
+            SELECT 1 FROM app.entity_id_rbac_map rbac
+            WHERE rbac.empid = ${userId}::uuid
+              AND rbac.entity = 'org'
+              AND (rbac.entity_id = o.id::text OR rbac.entity_id = 'all')
+              AND rbac.active_flag = true
+              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+              AND 0 = ANY(rbac.permission)
+          )
+        )`
+      ];
 
-      const conditions = [];
-
-      if (allowedOrgIds.length > 0) {
-        // Use IN clause for better compatibility with Drizzle
-        conditions.push(sql.raw(`id IN (${allowedOrgIds.map(id => `'${id}'`).join(',')})`));
-      } else {
-        // If no org access, return empty result
-        return {
-          data: [],
-          total: 0,
-          limit,
-          offset,
-        };
-      }
+      const conditions = [...baseConditions];
 
       if (active !== undefined) {
-        conditions.push(sql`active = ${active}`);
+        conditions.push(sql`active_flag = ${active}`);
       }
 
       if (org_type) {
@@ -133,21 +132,21 @@ export async function orgRoutes(fastify: FastifyInstance) {
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.d_org
+        FROM app.d_office o
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
 
       const orgs = await db.execute(sql`
         SELECT
-          id, org_code, org_type, location, contact_info,
-          parent_org_id, territory_size, established_date,
-          name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
+          o.id, o.org_code, o.org_type, o.location, o.contact_info,
+          o.parent_org_id, o.territory_size, o.established_date,
+          o.name, o."descr", o.tags, o.attr, o.from_ts, o.to_ts, o.active_flag as active, o.created, o.updated,
           -- Include parent org name for display
-          (SELECT name FROM app.d_org parent WHERE parent.id = d_org.parent_org_id) as parent_org_name
-        FROM app.d_org
+          (SELECT name FROM app.d_office parent WHERE parent.id = o.parent_org_id) as parent_org_name
+        FROM app.d_office o
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY name ASC NULLS LAST, created DESC
+        ORDER BY o.name ASC NULLS LAST, o.created DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -196,9 +195,18 @@ export async function orgRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Check if employee has permission to view this specific organization
-    const hasViewAccess = await hasPermissionOnEntityId(userId, 'org', id, 'view');
-    if (!hasViewAccess) {
+    // Direct RBAC check for org access
+    const orgAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}::uuid
+        AND rbac.entity = 'org'
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 0 = ANY(rbac.permission)
+    `);
+
+    if (orgAccess.length === 0) {
       return reply.status(403).send({ error: 'Insufficient permissions to view this organization' });
     }
 
@@ -209,8 +217,8 @@ export async function orgRoutes(fastify: FastifyInstance) {
           parent_org_id, territory_size, established_date,
           name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
           -- Include parent org name for display
-          (SELECT name FROM app.d_org parent WHERE parent.id = d_org.parent_org_id) as parent_org_name
-        FROM app.d_org
+          (SELECT name FROM app.d_office parent WHERE parent.id = d_office.parent_org_id) as parent_org_name
+        FROM app.d_office
         WHERE id = ${id}
       `);
 
@@ -263,15 +271,24 @@ export async function orgRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'User not authenticated' });
       }
 
-      // Check if user has access to this organization
-      const hasAccess = await hasPermissionOnEntityId(userId, 'org', orgId, 'view');
-      if (!hasAccess) {
+      // Direct RBAC check for org access
+      const orgAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}::uuid
+          AND rbac.entity = 'org'
+          AND (rbac.entity_id = ${orgId} OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
+
+      if (orgAccess.length === 0) {
         return reply.status(403).send({ error: 'Access denied for this organization' });
       }
 
       // Check if organization exists
       const org = await db.execute(sql`
-        SELECT id FROM app.d_org WHERE id = ${orgId} AND active = true
+        SELECT id FROM app.d_office WHERE id = ${orgId} AND active_flag = true
       `);
 
       if (org.length === 0) {
@@ -285,7 +302,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
       const employeeCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_employee e
-        WHERE e.org_id = ${orgId} AND e.active = true
+        WHERE e.org_id = ${orgId} AND e.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'employee',
@@ -298,7 +315,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
       const worksiteCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_worksite w
-        WHERE w.org_id = ${orgId} AND w.active = true
+        WHERE w.org_id = ${orgId} AND w.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'worksite',
@@ -311,7 +328,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
       const taskCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_task t
-        WHERE t.org_id = ${orgId} AND t.active = true
+        WHERE t.org_id = ${orgId} AND t.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'task',
@@ -324,7 +341,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
       const artifactCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_artifact a
-        WHERE a.org_id = ${orgId} AND a.active = true
+        WHERE a.org_id = ${orgId} AND a.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'artifact',
@@ -337,7 +354,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
       const wikiCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_wiki w
-        WHERE w.org_id = ${orgId} AND w.active = true
+        WHERE w.org_id = ${orgId} AND w.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'wiki',
@@ -350,7 +367,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
       const formCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_form_head f
-        WHERE f.org_id = ${orgId} AND f.active = true
+        WHERE f.org_id = ${orgId} AND f.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'form',
@@ -393,7 +410,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
       // Check for unique organization code if provided
       if (data.org_code) {
         const existingOrg = await db.execute(sql`
-          SELECT id FROM app.d_org WHERE org_code = ${data.org_code} AND active = true
+          SELECT id FROM app.d_office WHERE org_code = ${data.org_code} AND active_flag = true
         `);
         if (existingOrg.length > 0) {
           return reply.status(400).send({ error: 'Organization with this code already exists' });
@@ -403,7 +420,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
       // Validate parent organization if provided
       if (data.parent_org_id) {
         const parentOrg = await db.execute(sql`
-          SELECT id FROM app.d_org WHERE id = ${data.parent_org_id} AND active = true
+          SELECT id FROM app.d_office WHERE id = ${data.parent_org_id} AND active_flag = true
         `);
         if (parentOrg.length === 0) {
           return reply.status(400).send({ error: 'Parent organization not found' });
@@ -411,7 +428,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
       }
 
       const result = await db.execute(sql`
-        INSERT INTO app.d_org (
+        INSERT INTO app.d_office (
           org_code, org_type, location, contact_info,
           parent_org_id, territory_size, established_date,
           name, "descr", tags, attr, active
@@ -475,15 +492,24 @@ export async function orgRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Check if employee has permission to modify this specific organization
-    const hasModifyAccess = await hasPermissionOnEntityId(userId, 'org', id, 'modify');
-    if (!hasModifyAccess) {
+    // Direct RBAC check for org edit access
+    const orgEditAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}::uuid
+        AND rbac.entity = 'org'
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 1 = ANY(rbac.permission)
+    `);
+
+    if (orgEditAccess.length === 0) {
       return reply.status(403).send({ error: 'Insufficient permissions to modify this organization' });
     }
 
     try {
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_org WHERE id = ${id}
+        SELECT id FROM app.d_office WHERE id = ${id}
       `);
 
       if (existing.length === 0) {
@@ -503,7 +529,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
       if (data.established_date !== undefined) updateFields.push(sql`established_date = ${data.established_date}`);
       if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
       if (data.attr !== undefined) updateFields.push(sql`attr = ${JSON.stringify(data.attr)}::jsonb`);
-      if (data.active !== undefined) updateFields.push(sql`active = ${data.active}`);
+      if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
@@ -512,7 +538,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_org
+        UPDATE app.d_office
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -558,15 +584,24 @@ export async function orgRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Check if employee has permission to delete this specific organization
-    const hasDeleteAccess = await hasPermissionOnEntityId(userId, 'org', id, 'delete');
-    if (!hasDeleteAccess) {
+    // Direct RBAC check for org delete access
+    const orgDeleteAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}::uuid
+        AND rbac.entity = 'org'
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 3 = ANY(rbac.permission)
+    `);
+
+    if (orgDeleteAccess.length === 0) {
       return reply.status(403).send({ error: 'Insufficient permissions to delete this organization' });
     }
 
     try {
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_org WHERE id = ${id}
+        SELECT id FROM app.d_office WHERE id = ${id}
       `);
 
       if (existing.length === 0) {
@@ -575,8 +610,8 @@ export async function orgRoutes(fastify: FastifyInstance) {
 
       // Soft delete (using SCD Type 2 pattern)
       await db.execute(sql`
-        UPDATE app.d_org
-        SET active = false, to_ts = NOW(), updated = NOW()
+        UPDATE app.d_office
+        SET active_flag = false, to_ts = NOW(), updated = NOW()
         WHERE id = ${id}
       `);
 

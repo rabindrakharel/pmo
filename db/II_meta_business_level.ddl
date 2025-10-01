@@ -13,7 +13,6 @@ CREATE TABLE app.meta_business_level (
 );
 
 -- Index for meta business level
-CREATE INDEX idx_meta_business_level_active ON app.meta_business_level(active_flag);
 
 -- Initial data for business levels
 INSERT INTO app.meta_business_level (level_id, level_name, level_descr, sort_order) VALUES

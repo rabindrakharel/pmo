@@ -102,7 +102,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             created,
             updated
           FROM app.meta_entity_task_status
-          WHERE active = ${active !== false}
+          WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC, level_name ASC
         `;
         categoryName = 'task_status';
@@ -128,7 +128,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             created,
             updated
           FROM app.meta_entity_task_stage
-          WHERE active = ${active !== false}
+          WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC, level_name ASC
         `;
         categoryName = 'task_stage';
@@ -152,7 +152,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             created,
             updated
           FROM app.meta_entity_project_status
-          WHERE active = ${active !== false}
+          WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC, level_name ASC
         `;
         categoryName = 'project_status';
@@ -173,7 +173,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             created,
             updated
           FROM app.meta_entity_project_stage
-          WHERE active = ${active !== false}
+          WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC, level_name ASC
         `;
         categoryName = 'project_stage';
@@ -193,7 +193,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             created,
             updated
           FROM app.meta_entity_org_level
-          WHERE active = ${active !== false}
+          WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC
         `;
         categoryName = 'biz_level';
@@ -214,7 +214,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             created,
             updated
           FROM app.meta_entity_org_level
-          WHERE active = ${active !== false}
+          WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC
         `;
         categoryName = 'org_level';
@@ -238,7 +238,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             created,
             updated
           FROM app.meta_entity_hr_level
-          WHERE active = ${active !== false}
+          WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC
         `;
         categoryName = 'hr_level';
@@ -269,7 +269,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             created,
             updated
           FROM app.meta_task_status
-          WHERE active = ${active !== false}
+          WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC, name ASC
         `;
       }
@@ -480,7 +480,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
       if (data.icon !== undefined) updateFields.push(sql`icon = ${data.icon}`);
       if (data.is_default !== undefined) updateFields.push(sql`is_default = ${data.is_default}`);
       if (data.wip_limit !== undefined && category.includes('status')) updateFields.push(sql`wip_limit = ${data.wip_limit}`);
-      if (data.active !== undefined) updateFields.push(sql`active = ${data.active}`);
+      if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
@@ -566,14 +566,14 @@ export async function metaRoutes(fastify: FastifyInstance) {
           return reply.status(400).send({ error: 'Invalid meta category' });
       }
 
-      // Soft delete by setting active = false and closing SCD record with to_ts
+      // Soft delete by setting active_flag = false and closing SCD record with to_ts
       const result = await db.execute(sql`
         UPDATE ${sql.raw(tableName)}
         SET
-          active = false,
+          active_flag = false,
           to_ts = NOW(),
           updated = NOW()
-        WHERE id = ${id} AND active = true
+        WHERE id = ${id} AND active_flag = true
         RETURNING id
       `);
 

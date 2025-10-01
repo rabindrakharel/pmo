@@ -14,7 +14,6 @@ CREATE TABLE app.meta_task_stage (
 );
 
 -- Index for meta task stage
-CREATE INDEX idx_meta_task_stage_active ON app.meta_task_stage(active_flag);
 
 -- Initial data for task stages
 INSERT INTO app.meta_task_stage (level_id, level_name, level_descr, sort_order, color_code) VALUES
@@ -29,6 +28,6 @@ INSERT INTO app.meta_task_stage (level_id, level_name, level_descr, sort_order, 
 -- Add foreign key constraint to reference meta tables
 ALTER TABLE app.d_task
 ADD CONSTRAINT fk_task_stage
-FOREIGN KEY (stage) REFERENCES app.meta_task_stage(level_name);
+FOREIGN KEY (stage) ;
 
 COMMENT ON TABLE app.meta_task_stage IS 'Task workflow stages with UI color coding';

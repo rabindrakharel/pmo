@@ -64,17 +64,17 @@ export async function hasPermissionOnEntityId(
     const requiredPermission = mapActionToPermissionLevel(action);
 
     // Check both specific entity permission and 'all' type permission
+    // Note: entity_id is varchar, so we ensure string comparison
     const result = await db.execute(sql`
       SELECT permission
       FROM app.entity_id_rbac_map
-      WHERE empid = ${employeeId}
+      WHERE empid = ${employeeId}::uuid
         AND entity = ${entityType}
         AND (entity_id = ${entityId} OR entity_id = 'all')
         AND active_flag = true
-        AND (expires_ts IS NULL OR expires_ts > NOW())
       ORDER BY
         CASE WHEN entity_id = ${entityId} THEN 1 ELSE 2 END,
-        granted_ts DESC
+        created_ts DESC
       LIMIT 1
     `);
 
@@ -109,11 +109,10 @@ export async function getEmployeeEntityIds(
     const result = await db.execute(sql`
       SELECT DISTINCT entity_id
       FROM app.entity_id_rbac_map
-      WHERE empid = ${employeeId}
+      WHERE empid = ${employeeId}::uuid
         AND entity = ${entityType}
         AND entity_id != 'all'
         AND active_flag = true
-        AND (expires_ts IS NULL OR expires_ts > NOW())
         AND ${requiredPermission} = ANY(permission)
     `);
 
@@ -121,12 +120,11 @@ export async function getEmployeeEntityIds(
     const allPermissionResult = await db.execute(sql`
       SELECT permission
       FROM app.entity_id_rbac_map
-      WHERE empid = ${employeeId}
+      WHERE empid = ${employeeId}::uuid
         AND entity = ${entityType}
         AND entity_id = 'all'
         AND active_flag = true
-        AND (expires_ts IS NULL OR expires_ts > NOW())
-      ORDER BY granted_ts DESC
+      ORDER BY created_ts DESC
       LIMIT 1
     `);
 
@@ -177,14 +175,13 @@ export async function getEmployeeEntityPermissions(
     const result = await db.execute(sql`
       SELECT permission
       FROM app.entity_id_rbac_map
-      WHERE empid = ${employeeId}
+      WHERE empid = ${employeeId}::uuid
         AND entity = ${entityType}
         AND (entity_id = ${entityId} OR entity_id = 'all')
         AND active_flag = true
-        AND (expires_ts IS NULL OR expires_ts > NOW())
       ORDER BY
         CASE WHEN entity_id = ${entityId} THEN 1 ELSE 2 END,
-        granted_ts DESC
+        created_ts DESC
       LIMIT 1
     `);
 
@@ -206,31 +203,24 @@ export async function getEmployeeEntityPermissions(
  * @param entityType - Type of entity
  * @param entityId - Specific entity UUID or 'all'
  * @param permissions - Array of permission levels to grant
- * @param grantedBy - UUID of the employee granting the permission
- * @param expiresAt - Optional expiration date
  * @returns Promise<boolean> - Whether the permission was granted successfully
  */
 export async function grantPermission(
   employeeId: string,
   entityType: string,
   entityId: string,
-  permissions: PermissionLevel[],
-  grantedBy: string,
-  expiresAt?: Date
+  permissions: PermissionLevel[]
 ): Promise<boolean> {
   try {
     await db.execute(sql`
       INSERT INTO app.entity_id_rbac_map (
-        empid, entity, entity_id, permission, granted_by_empid, expires_ts
+        empid, entity, entity_id, permission
       ) VALUES (
-        ${employeeId}, ${entityType}, ${entityId},
-        ${JSON.stringify(permissions)}, ${grantedBy}, ${expiresAt || null}
+        ${employeeId}, ${entityType}, ${entityId}, ${JSON.stringify(permissions)}
       )
       ON CONFLICT (empid, entity, entity_id)
       DO UPDATE SET
         permission = ${JSON.stringify(permissions)},
-        granted_by_empid = ${grantedBy},
-        expires_ts = ${expiresAt || null},
         updated_ts = NOW()
     `);
 
@@ -258,7 +248,7 @@ export async function revokePermission(
     await db.execute(sql`
       UPDATE app.entity_id_rbac_map
       SET active_flag = false, updated_ts = NOW()
-      WHERE empid = ${employeeId}
+      WHERE empid = ${employeeId}::uuid
         AND entity = ${entityType}
         AND entity_id = ${entityId}
         AND active_flag = true
@@ -322,11 +312,10 @@ export async function getEntitiesUserCanActOn(
     const result = await db.execute(sql`
       SELECT DISTINCT entity_id
       FROM app.entity_id_rbac_map
-      WHERE empid = ${employeeId}
+      WHERE empid = ${employeeId}::uuid
         AND entity = ${entityType}
         AND entity_id != 'all'
         AND active_flag = true
-        AND (expires_ts IS NULL OR expires_ts > NOW())
         AND ${requiredPermission} = ANY(permission)
     `);
 

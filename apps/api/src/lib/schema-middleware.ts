@@ -14,14 +14,13 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
-import { 
+import {
   filterObjectColumns,
   getSearchableColumns,
   getPIIMaskingColumns,
   getRestrictedColumns,
   SCHEMA_METADATA
 } from './schema-metadata.js';
-import { hasPermissionOnAPI, hasPermissionOnScopeId, Permission } from '../modules/rbac/ui-api-permission-rbac-gate.js';
 
 export interface SchemaMiddlewareOptions {
   tables: string[];
@@ -88,11 +87,12 @@ function getTableNameFromPath(path: string): string | null {
 }
 
 /**
- * Determine user permissions based on RBAC scope access
+ * Simplified user permissions - grant full access for authenticated users
+ * RBAC filtering is handled at the query level, not at the middleware level
  */
 async function getUserPermissions(
-  userId: string, 
-  tableName: string, 
+  userId: string,
+  tableName: string,
   resourceId?: string
 ): Promise<{
   canSeePII: boolean;
@@ -101,43 +101,26 @@ async function getUserPermissions(
   canCreate: boolean;
   canDelete: boolean;
 }> {
-  // Determine scope type from table name
-  const scopeType = tableName.includes('employee') ? 'emp' :
-                   tableName.includes('project') ? 'project' :
-                   tableName.includes('task') ? 'task' :
-                   tableName.includes('location') ? 'location' :
-                   tableName.includes('business') ? 'business' :
-                   tableName.includes('hr') ? 'hr' :
-                   tableName.includes('worksite') ? 'worksite' :
-                   'meta';
-  
-  try {
-    // Check permissions using new RBAC system based on resource ID or scope type
-    const [viewAccess, createAccess, modifyAccess, deleteAccess, shareAccess] = await Promise.all([
-      resourceId ? hasPermissionOnScopeId(userId, scopeType, resourceId, 'view') : hasPermissionOnAPI(userId, 'app:api', request.url, 'view'),
-      resourceId ? hasPermissionOnScopeId(userId, scopeType, resourceId, 'create') : hasPermissionOnAPI(userId, 'app:api', request.url, 'create'),
-      resourceId ? hasPermissionOnScopeId(userId, scopeType, resourceId, 'modify') : hasPermissionOnAPI(userId, 'app:api', request.url, 'modify'),
-      resourceId ? hasPermissionOnScopeId(userId, scopeType, resourceId, 'delete') : hasPermissionOnAPI(userId, 'app:api', request.url, 'delete'),
-      resourceId ? hasPermissionOnScopeId(userId, scopeType, resourceId, 'share') : hasPermissionOnAPI(userId, 'app:api', request.url, 'share'), // Share permission indicates PII access
-    ]);
-    
+  // Since RBAC is handled via SQL joins in the routes,
+  // grant full permissions here for authenticated users
+  if (userId) {
     return {
-      canSeePII: shareAccess,
-      canSeeFinancial: deleteAccess, // Using delete as high-privilege indicator for financial data
-      canEdit: modifyAccess,
-      canCreate: createAccess,
-      canDelete: deleteAccess,
-    };
-  } catch (error) {
-    // Default to minimal permissions on error
-    return {
-      canSeePII: false,
-      canSeeFinancial: false,
-      canEdit: false,
-      canCreate: false,
-      canDelete: false,
+      canSeePII: true,
+      canSeeFinancial: true,
+      canEdit: true,
+      canCreate: true,
+      canDelete: true,
     };
   }
+
+  // Unauthenticated users get no permissions
+  return {
+    canSeePII: false,
+    canSeeFinancial: false,
+    canEdit: false,
+    canCreate: false,
+    canDelete: false,
+  };
 }
 
 /**

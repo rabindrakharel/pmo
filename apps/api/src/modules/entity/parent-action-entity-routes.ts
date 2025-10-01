@@ -7,12 +7,12 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import { 
+import {
   getEmployeeEntityIds,
   hasPermissionOnEntityId,
-  hasCreatePermissionInEntity,
+  hasCreatePermissionForEntityType,
   type EntityAction
-} from '../rbac/ui-api-permission-rbac-gate.js';
+} from '../rbac/entity-permission-rbac-gate.js';
 
 // Reuse schemas from universal entity routes
 const UniversalEntitySchema = Type.Object({
@@ -40,10 +40,10 @@ const UpdateEntitySchema = Type.Partial(CreateEntitySchema);
 
 // Entity type mapping to table names
 const ENTITY_TABLE_MAP: Record<string, string> = {
-  'biz': 'app.d_biz',
+  'biz': 'app.d_business',
   'project': 'app.d_project', 
-  'hr': 'app.d_hr',
-  'org': 'app.d_org',
+  'hr': 'app.d_office',
+  'org': 'app.d_office',
   'client': 'app.d_client',
   'worksite': 'app.d_worksite',
   'employee': 'app.d_employee',
@@ -195,7 +195,7 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
         SELECT 1 FROM app.meta_entity_hierarchy_permission_mapping 
         WHERE parent_entity = ${parentEntity} 
           AND action_entity = ${actionEntity} 
-          AND active = true
+          AND active_flag = true
         LIMIT 1
       `);
 
@@ -208,7 +208,7 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
       // Get parent entity info for context
       const parentTable = getTableName(parentEntity);
       const parentInfo = await db.execute(sql.raw(
-        `SELECT id, name FROM ${parentTable} WHERE id = $1 AND active = true`,
+        `SELECT id, name FROM ${parentTable} WHERE id = $1 AND active_flag = true`,
         [parentId]
       ));
 
@@ -249,7 +249,7 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
 
       // Add filters
       if (active !== undefined) {
-        conditions.push(`active = ${active}`);
+        conditions.push(`active_flag = ${active}`);
       }
 
       if (search) {
@@ -352,7 +352,7 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
       // Get parent entity info
       const parentTable = getTableName(parentEntity);
       const parentInfo = await db.execute(sql.raw(
-        `SELECT id, name FROM ${parentTable} WHERE id = $1 AND active = true`,
+        `SELECT id, name FROM ${parentTable} WHERE id = $1 AND active_flag = true`,
         [parentId]
       ));
 
@@ -372,7 +372,7 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
 
       const query = `
         SELECT * FROM ${actionTable} 
-        WHERE id = $1 AND ${parentIdColumn} = $2 AND active = true
+        WHERE id = $1 AND ${parentIdColumn} = $2 AND active_flag = true
       `;
       const entities = await db.execute(sql.raw(query, [actionId, parentId]));
 
@@ -435,7 +435,7 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
       }
 
       // Check user has create permission within parent entity
-      const hasCreatePermission = await hasCreatePermissionInEntity(employeeId, parentEntity, parentId, actionEntity);
+      const hasCreatePermission = await hasCreatePermissionForEntityType(employeeId, actionEntity);
       if (!hasCreatePermission) {
         return reply.status(403).send({ error: 'Insufficient permissions to create entity in this context' });
       }
@@ -443,7 +443,7 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
       // Verify parent exists and user has access
       const parentTable = getTableName(parentEntity);
       const parentCheck = await db.execute(sql.raw(
-        `SELECT id FROM ${parentTable} WHERE id = $1 AND active = true`,
+        `SELECT id FROM ${parentTable} WHERE id = $1 AND active_flag = true`,
         [parentId]
       ));
 
@@ -457,7 +457,7 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
         WHERE parent_entity = ${parentEntity} 
           AND action_entity = ${actionEntity} 
           AND permission_action = 'create'
-          AND active = true
+          AND active_flag = true
         LIMIT 1
       `);
 
@@ -584,7 +584,7 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
 
       // Verify entity exists in parent context
       const existingCheck = await db.execute(sql.raw(
-        `SELECT id FROM ${actionTable} WHERE id = $1 AND ${parentIdColumn} = $2 AND active = true`,
+        `SELECT id FROM ${actionTable} WHERE id = $1 AND ${parentIdColumn} = $2 AND active_flag = true`,
         [actionId, parentId]
       ));
 
@@ -618,7 +618,7 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
       }
 
       if (data.active !== undefined) {
-        updateFields.push(`active = $${paramIndex++}`);
+        updateFields.push(`active_flag = $${paramIndex++}`);
         values.push(data.active);
       }
 
@@ -705,7 +705,7 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
 
       // Check if entity exists in parent context
       const existingEntity = await db.execute(sql.raw(
-        `SELECT id FROM ${actionTable} WHERE id = $1 AND ${parentIdColumn} = $2 AND active = true`,
+        `SELECT id FROM ${actionTable} WHERE id = $1 AND ${parentIdColumn} = $2 AND active_flag = true`,
         [actionId, parentId]
       ));
 
@@ -715,14 +715,14 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
 
       // Soft delete
       await db.execute(sql.raw(
-        `UPDATE ${actionTable} SET active = false, to_ts = NOW(), updated = NOW() WHERE id = $1`,
+        `UPDATE ${actionTable} SET active_flag = false, to_ts = NOW(), updated = NOW() WHERE id = $1`,
         [actionId]
       ));
 
       // Update hierarchy mapping
       await db.execute(sql`
         UPDATE app.entity_id_map 
-        SET active = false, to_ts = NOW(), updated = NOW()
+        SET active_flag = false, to_ts = NOW(), updated = NOW()
         WHERE action_entity_id = ${actionId} AND action_entity = ${actionEntity}
           AND parent_entity_id = ${parentId} AND parent_entity = ${parentEntity}
       `);

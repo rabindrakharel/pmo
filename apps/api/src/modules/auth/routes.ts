@@ -10,11 +10,11 @@ import { sql } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { config } from '@/lib/config.js';
-import { 
+import {
   getEmployeeEntityIds,
   hasPermissionOnEntityId,
   type EntityAction
-} from '../rbac/ui-api-permission-rbac-gate.js';
+} from '../rbac/entity-permission-rbac-gate.js';
 
 // Login request schema
 const LoginRequestSchema = Type.Object({
@@ -85,9 +85,9 @@ export async function authRoutes(fastify: FastifyInstance) {
       // Find employee by email
       const employeeResult = await db.execute(sql`
         SELECT id, name, email, password_hash
-        FROM app.d_employee 
-        WHERE email = ${email} 
-          AND active = true
+        FROM app.d_employee
+        WHERE email = ${email}
+          AND active_flag = true
           AND (to_ts IS NULL OR to_ts > NOW())
       `);
 
@@ -163,7 +163,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         SELECT id, name, email
         FROM app.d_employee
         WHERE id = ${userId}
-          AND active = true
+          AND active_flag = true
           AND (to_ts IS NULL OR to_ts > NOW())
       `);
 

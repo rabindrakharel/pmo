@@ -150,7 +150,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       const conditions = [];
       
       if (active !== undefined) {
-        conditions.push(sql`active = ${active}`);
+        conditions.push(sql`active_flag = ${active}`);
       }
       
       if (employment_status) {
@@ -309,7 +309,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // Check for unique employee number if provided
       if (data.employee_number) {
         const existingEmpNumber = await db.execute(sql`
-          SELECT id FROM app.d_employee WHERE employee_number = ${data.employee_number} AND active = true
+          SELECT id FROM app.d_employee WHERE employee_number = ${data.employee_number} AND active_flag = true
         `);
         if (existingEmpNumber.length > 0) {
           return reply.status(400).send({ error: 'Employee with this employee number already exists' });
@@ -319,7 +319,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // Check for unique email if provided
       if (data.email) {
         const existingEmail = await db.execute(sql`
-          SELECT id FROM app.d_employee WHERE email = ${data.email} AND active = true
+          SELECT id FROM app.d_employee WHERE email = ${data.email} AND active_flag = true
         `);
         if (existingEmail.length > 0) {
           return reply.status(400).send({ error: 'Employee with this email already exists' });
@@ -453,7 +453,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       }
       if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
       if (data.attr !== undefined) updateFields.push(sql`attr = ${JSON.stringify(data.attr)}::jsonb`);
-      if (data.active !== undefined) updateFields.push(sql`active = ${data.active}`);
+      if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
@@ -514,7 +514,7 @@ export async function empRoutes(fastify: FastifyInstance) {
 
       await db.execute(sql`
         UPDATE app.d_employee 
-        SET active = false, to_ts = NOW(), updated = NOW()
+        SET active_flag = false, to_ts = NOW(), updated = NOW()
         WHERE id = ${id}
       `);
 

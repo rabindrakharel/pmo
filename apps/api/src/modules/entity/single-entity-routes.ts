@@ -35,10 +35,10 @@ const UpdateEntitySchema = Type.Partial(CreateEntitySchema);
 
 // Entity type mapping to table names
 const ENTITY_TABLE_MAP: Record<string, string> = {
-  'biz': 'app.d_biz',
+  'biz': 'app.d_business',
   'project': 'app.d_project', 
-  'hr': 'app.d_hr',
-  'org': 'app.d_org',
+  'hr': 'app.d_office',
+  'org': 'app.d_office',
   'client': 'app.d_client',
   'worksite': 'app.d_worksite',
   'employee': 'app.d_employee',
@@ -115,7 +115,7 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
 
       // Add filters
       if (active !== undefined) {
-        conditions.push(`active = ${active}`);
+        conditions.push(`active_flag = ${active}`);
       }
 
       if (search) {
@@ -180,7 +180,7 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
       }
 
       const tableName = getTableName(entityType);
-      const query = `SELECT * FROM ${tableName} WHERE id = $1 AND active = true`;
+      const query = `SELECT * FROM ${tableName} WHERE id = $1 AND active_flag = true`;
       const entities = await db.execute(sql.raw(query, [id]));
 
       if (entities.length === 0) {
@@ -226,7 +226,7 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
       const entityTypeInfo = await db.execute(sql`
         SELECT is_root_capable 
         FROM app.meta_entity_types 
-        WHERE entity_type_code = ${entityType} AND active = true
+        WHERE entity_type_code = ${entityType} AND active_flag = true
       `);
 
       if (entityTypeInfo.length === 0) {
@@ -348,7 +348,7 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
       }
 
       if (data.active !== undefined) {
-        updateFields.push(`active = $${paramIndex++}`);
+        updateFields.push(`active_flag = $${paramIndex++}`);
         values.push(data.active);
       }
 
@@ -410,7 +410,7 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
 
       // Check if entity exists
       const existingEntity = await db.execute(sql.raw(
-        `SELECT id FROM ${tableName} WHERE id = $1 AND active = true`,
+        `SELECT id FROM ${tableName} WHERE id = $1 AND active_flag = true`,
         [id]
       ));
 
@@ -420,14 +420,14 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
 
       // Soft delete
       await db.execute(sql.raw(
-        `UPDATE ${tableName} SET active = false, to_ts = NOW(), updated = NOW() WHERE id = $1`,
+        `UPDATE ${tableName} SET active_flag = false, to_ts = NOW(), updated = NOW() WHERE id = $1`,
         [id]
       ));
 
       // Update hierarchy mapping
       await db.execute(sql`
         UPDATE app.entity_id_map 
-        SET active = false, to_ts = NOW(), updated = NOW()
+        SET active_flag = false, to_ts = NOW(), updated = NOW()
         WHERE action_entity_id = ${id} AND action_entity = ${entityType}
       `);
 

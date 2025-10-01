@@ -12,6 +12,258 @@ This is a React-based Project Management Office (PMO) web application built with
 - **Single Source of Truth**: API determines what users can see and do
 - **JWT Authentication**: All API calls authenticated with Bearer tokens
 
+
+### 🏗️ **Layout Components**
+```
+apps/web/src/components/layout/
+└── Layout.tsx                          # Main application layout with sidebar navigation
+```
+
+### 🧩 **UI Components**
+
+#### **Core UI Primitives**
+```
+apps/web/src/components/ui/
+├── DataTable.tsx                       # Enhanced data table with selection, sorting, filtering
+├── GridView.tsx                        # Grid layout component for card-based displays
+└── TreeView.tsx                        # Hierarchical tree view component
+```
+
+#### **Common Reusable Components**
+```
+apps/web/src/components/common/
+├── ActionButtons.tsx                   # Individual action button components
+├── ActionButtonsBar.tsx               # Action button bar layout (Create, Share, Delete)
+├── Button.tsx                          # Base button component without RBAC
+├── CreateButton.tsx                    # Create button component
+├── DynamicChildEntityTabs.tsx         # Dynamic tab navigation for entity detail pages
+├── EntityAssignmentDataTable.tsx      # Assignment data table for entity relationships
+├── FloatingFullscreenToggle.tsx       # Floating fullscreen toggle button
+├── FullscreenToggle.tsx               # Fullscreen toggle component
+├── GlobalSearch.tsx                    # Global search functionality
+├── InlineEditField.tsx                # Click-to-edit field component
+├── RBACButton.tsx                      # RBAC-aware button component (legacy)
+├── ScopeFilters.tsx                   # Scope filtering components
+└── StatsGrid.tsx                      # Statistics grid layout for metrics cards
+```
+
+#### **Specialized Components**
+```
+apps/web/src/components/
+├── FilteredDataTable.tsx              # Configuration-driven data table with action buttons
+└── SimpleDataTable.tsx               # Basic data table component
+```
+
+#### **Authentication Components**
+```
+apps/web/src/components/auth/
+└── LoginForm.tsx                      # User login form component
+```
+
+#### **Form Components**
+```
+apps/web/src/components/forms/
+├── FormBuilder.tsx                    # Dynamic form builder interface
+└── FormPreview.tsx                    # Form preview and rendering component
+```
+
+#### **Editor Components**
+```
+apps/web/src/components/editor/
+├── CodeBlock.tsx                      # Code block editor component
+└── ModularEditor.tsx                  # Modular rich text editor
+```
+
+#### **Wiki Components**
+```
+apps/web/src/components/wiki/
+└── BlockEditor.tsx                    # Block-based wiki editor
+```
+
+---
+
+## 📄 **Pages Directory Structure**
+
+### 🏠 **Main Entity Pages** (List Views)
+```
+apps/web/src/pages/
+├── DashboardPage.tsx                  # Main dashboard with overview metrics
+├── ProjectPage.tsx                    # Projects list page with data table
+├── BusinessPage.tsx                   # Business units list page
+├── TaskPage.tsx                       # Tasks list page
+├── EmployeePage.tsx                   # Employees list page
+├── OrgPage.tsx                        # Organizations list page
+├── RolePage.tsx                       # Roles list page
+├── WikiPage.tsx                       # Wiki pages list
+├── ArtifactPage.tsx                   # Artifacts list page
+├── FormPage.tsx                       # Forms list page
+├── MetaPage.tsx                       # Metadata management page
+├── SecurityPage.tsx                   # Security and permissions page
+├── SettingsPage.tsx                   # Application settings page
+├── ProfilePage.tsx                    # User profile page
+└── BillingPage.tsx                    # Billing and subscription page
+```
+
+### 🏢 **Business Entity Pages**
+```
+apps/web/src/pages/business/
+├── index.ts                           # Business module exports
+├── BusinessDetailPage.tsx             # Business unit detail page with editable fields
+├── BusinessProjectPage.tsx           # Business unit projects (filtered)
+├── BusinessTaskPage.tsx              # Business unit tasks (filtered)
+├── BusinessWikiPage.tsx               # Business unit wiki pages (filtered)
+├── BusinessArtifactPage.tsx           # Business unit artifacts (filtered)
+└── BusinessFormPage.tsx               # Business unit forms (filtered)
+```
+
+### 📁 **Project Entity Pages**
+```
+apps/web/src/pages/project/
+├── index.ts                           # Project module exports
+├── ProjectDetailPage.tsx              # Project detail page with editable fields
+├── ProjectTaskPage.tsx                # Project tasks with Kanban/Grid views
+├── ProjectWikiPage.tsx                # Project wiki pages (filtered)
+├── ProjectArtifactPage.tsx            # Project artifacts (filtered)
+└── ProjectFormPage.tsx                # Project forms (filtered)
+```
+
+### ✅ **Task Entity Pages**
+```
+apps/web/src/pages/task/
+├── TaskArtifactPage.tsx               # Task artifacts (filtered)
+└── TaskFormPage.tsx                   # Task forms (filtered)
+```
+
+### 🏛️ **Organization Entity Pages**
+```
+apps/web/src/pages/org/
+├── OrgDetailPage.tsx                  # Organization detail page
+├── OrgEmployeePage.tsx                # Organization employees (filtered)
+├── OrgTaskPage.tsx                    # Organization tasks (filtered)
+├── OrgWikiPage.tsx                    # Organization wiki pages (filtered)
+├── OrgArtifactPage.tsx                # Organization artifacts (filtered)
+├── OrgFormPage.tsx                    # Organization forms (filtered)
+└── OrgWorksitePage.tsx                # Organization worksites (filtered)
+```
+
+### 👤 **Employee & Role Pages**
+```
+apps/web/src/pages/
+├── employee/
+│   └── EmployeeDetailPage.tsx         # Employee detail page
+└── role/
+    └── RoleDetailPage.tsx             # Role detail page
+```
+
+### 🏗️ **Worksite Pages**
+```
+apps/web/src/pages/worksite/
+├── WorksiteDetailPage.tsx             # Worksite detail page
+├── WorksiteTaskPage.tsx               # Worksite tasks (filtered)
+└── WorksiteFormPage.tsx               # Worksite forms (filtered)
+```
+
+### ⚙️ **Metadata Management Pages**
+```
+apps/web/src/pages/meta/
+├── index.ts                           # Meta module exports
+├── businessLevel.tsx                  # Business hierarchy levels
+├── hrLevel.tsx                        # HR levels and roles
+├── orgLevel.tsx                       # Organization levels
+├── projectStage.tsx                   # Project stages configuration
+├── projectStatus.tsx                  # Project status configuration
+├── taskStage.tsx                      # Task stages configuration
+└── taskStatus.tsx                     # Task status configuration
+```
+
+### 📝 **Standalone Detail Pages**
+```
+apps/web/src/pages/
+└── TaskDetailPage.tsx                 # Standalone task detail page
+```
+
+### 📋 **Form-Related Pages**
+```
+apps/web/src/pages/
+├── FormBuilderPage.tsx                # Form creation and building interface
+├── FormEditPage.tsx                   # Form editing interface
+└── FormViewPage.tsx                   # Form viewing and submission interface
+```
+
+### 📖 **Wiki-Related Pages**
+```
+apps/web/src/pages/
+├── WikiEditorPage.tsx                 # Wiki page editor
+└── WikiViewPage.tsx                   # Wiki page viewer
+```
+
+---
+
+## 🗂️ **Organization Patterns**
+
+### **Main Pages Structure**
+Each main entity follows this pattern:
+- **List Page**: `EntityPage.tsx` - Shows data table with action buttons
+- **Detail Page**: `entity/EntityDetailPage.tsx` - Shows editable entity details
+- **Child Pages**: `entity/EntityChildPage.tsx` - Shows filtered child entities
+
+### **Navigation Flow**
+```
+Main Page (List) → Detail Page → Child Entity Pages
+     ↓                 ↓              ↓
+ProjectPage.tsx → ProjectDetailPage.tsx → ProjectTaskPage.tsx
+                                       → ProjectWikiPage.tsx
+                                       → ProjectArtifactPage.tsx
+                                       → ProjectFormPage.tsx
+```
+
+### **Component Hierarchy**
+```
+Layout.tsx (Root Shell)
+├── DynamicChildEntityTabs (Tab Navigation)
+├── ActionButtonsBar (Action Buttons)
+├── FilteredDataTable (Data Display)
+├── StatsGrid (Metrics Display)
+└── InlineEditField (Field Editing)
+```
+
+### **File Naming Conventions**
+- **Pages**: `PascalCase` ending with `Page.tsx`
+- **Components**: `PascalCase` descriptive names
+- **Directories**: `lowercase` or `camelCase`
+- **Index files**: `index.ts` for module exports
+
+
+
+### Technology Stack
+- **Frontend**: React 19 + TypeScript + Vite + TailwindCSS
+- **Backend**: Fastify + TypeScript + PostgreSQL + Redis
+- **Database**: PostgreSQL 16+ with PostGIS, pgcrypto, uuid-ossp
+- **Infrastructure**: Docker Compose (PostgreSQL, Redis, MinIO, MailHog)
+- **Tooling**: pnpm workspaces, ESLint, Prettier, tsx
+- **Authentication**: JWT with fastify-jwt
+- **Package Manager**: pnpm 8.15.1+
+
+### System Components
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   React Web     │───▶│   Fastify API   │───▶│  PostgreSQL DB  │
+│   Port: 5173    │    │   Port: 4000    │    │   Port: 5434    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       ▼                       │
+         │              ┌─────────────────┐              │
+         │              │   Redis Cache   │              │
+         │              │   Port: 6379    │              │
+         │              └─────────────────┘              │
+         │                                               │
+         ▼                                               ▼
+┌─────────────────┐                           ┌─────────────────┐
+│   TailwindCSS   │                                       └─────────────────┘
+```
+
+
+
 ## Navigation Structure
 
 ### Main Navigation Flow

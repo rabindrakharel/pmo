@@ -69,6 +69,20 @@ export function ProjectFormPage() {
           entityType="form"
           parentEntity="project"
           parentEntityId={projectId!}
+          showActionButtons={true}
+          createLabel="Create Form"
+          onCreateClick={() => console.log('Create form in project', projectId)}
+          onBulkShare={(selectedForms) => {
+            console.log('Bulk share forms:', selectedForms.map(f => f.id));
+            alert(`Sharing ${selectedForms.length} form${selectedForms.length !== 1 ? 's' : ''}`);
+          }}
+          onBulkDelete={async (selectedForms) => {
+            if (window.confirm(`Are you sure you want to delete ${selectedForms.length} form${selectedForms.length !== 1 ? 's' : ''}?`)) {
+              console.log('Bulk delete forms:', selectedForms.map(f => f.id));
+              alert(`Deleted ${selectedForms.length} form${selectedForms.length !== 1 ? 's' : ''}`);
+            }
+          }}
+          onRowClick={(form) => navigate(`/form/${form.id}`)}
         />
       </div>
     </Layout>

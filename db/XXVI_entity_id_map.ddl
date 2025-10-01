@@ -16,15 +16,7 @@ CREATE TABLE app.entity_id_map (
     UNIQUE(parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
 );
 
--- Indexes for entity id map
-CREATE INDEX idx_entity_id_map_parent ON app.entity_id_map(parent_entity_type, parent_entity_id);
-CREATE INDEX idx_entity_id_map_child ON app.entity_id_map(child_entity_type, child_entity_id);
-CREATE INDEX idx_entity_id_map_relationship ON app.entity_id_map(relationship_type);
-CREATE INDEX idx_entity_id_map_active ON app.entity_id_map(active_flag);
 
--- Update trigger for entity id map
-CREATE TRIGGER trg_entity_id_map_updated_ts BEFORE UPDATE ON app.entity_id_map
-    FOR EACH ROW EXECUTE FUNCTION app.update_updated_ts();
 
 -- Insert business-project relationships
 INSERT INTO app.entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)

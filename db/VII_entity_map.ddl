@@ -3,6 +3,7 @@
 -- Central registry of all entity types and instances
 -- =====================================================
 
+
 CREATE TABLE app.entity_map (
     entity_type varchar(20) NOT NULL,
     entity_id uuid NOT NULL,
@@ -15,16 +16,7 @@ CREATE TABLE app.entity_map (
     PRIMARY KEY (entity_type, entity_id)
 );
 
--- Indexes for entity map
-CREATE INDEX idx_entity_map_type ON app.entity_map(entity_type);
-CREATE INDEX idx_entity_map_id ON app.entity_map(entity_id);
-CREATE INDEX idx_entity_map_active ON app.entity_map(active_flag);
-CREATE INDEX idx_entity_map_slug ON app.entity_map(entity_slug);
-CREATE INDEX idx_entity_map_code ON app.entity_map(entity_code);
 
--- Update trigger for entity map
-CREATE TRIGGER trg_entity_map_updated_ts BEFORE UPDATE ON app.entity_map
-    FOR EACH ROW EXECUTE FUNCTION app.update_updated_ts();
 
 -- Insert initial entity mappings for offices
 INSERT INTO app.entity_map (entity_type, entity_id, entity_name, entity_slug, entity_code)

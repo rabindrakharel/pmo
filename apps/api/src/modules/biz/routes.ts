@@ -2,13 +2,13 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import { 
-  getUniversalColumnMetadata, 
+import {
+  getUniversalColumnMetadata,
   filterUniversalColumns,
-  getColumnsByMetadata 
+  getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
 
-// Schema based on d_biz table structure
+// Schema based on d_business table structure
 const BizSchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
@@ -88,23 +88,21 @@ export async function bizRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Direct RBAC filtering - only show business units user has access to
-      const rbacConditions = [
-        sql`EXISTS (
-          SELECT 1 FROM app.entity_id_rbac_map rbac
-          WHERE rbac.empid = ${userId}
-            AND rbac.entity = 'biz'
-            AND (rbac.entity_id = b.id OR rbac.entity_id = 'all')
-            AND rbac.active_flag = true
-            AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-            AND 0 = ANY(rbac.permission)
-        )`
-      ];
+      // Simple RBAC join - show only data user has access to
+      const rbacJoin = sql`
+        INNER JOIN app.entity_id_rbac_map rbac ON (
+          rbac.empid = ${userId}::uuid
+          AND rbac.entity = 'biz'
+          AND (rbac.entity_id = b.id::text OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND 0 = ANY(rbac.permission)
+        )
+      `;
 
-      const conditions = [...rbacConditions];
+      const conditions = [];
 
       if (active !== undefined) {
-        conditions.push(sql`active = ${active}`);
+        conditions.push(sql`b.active_flag = ${active}`);
       }
       
       if (level_id !== undefined) {
@@ -135,18 +133,20 @@ export async function bizRoutes(fastify: FastifyInstance) {
       }
 
       const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_biz b
+        SELECT COUNT(DISTINCT b.id) as total
+        FROM app.d_business b
+        ${rbacJoin}
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
 
       const bizUnits = await db.execute(sql`
-        SELECT
-          b.id, b.name, b."descr", b.tags, b.attr, b.from_ts, b.to_ts, b.active, b.created, b.updated,
+        SELECT DISTINCT
+          b.id, b.name, b."descr", b.tags, b.attr, b.from_ts, b.to_ts, b.active_flag as active, b.created, b.updated,
           b.slug, b.code, b.level_id, b.level_name, b.is_leaf_level, b.is_root_level, b.parent_id,
           b.cost_center_code, b.biz_unit_type, b.profit_center
-        FROM app.d_biz b
+        FROM app.d_business b
+        ${rbacJoin}
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY b.level_id ASC, b.name ASC
         LIMIT ${limit} OFFSET ${offset}
@@ -191,7 +191,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
   }, async function (request, reply) {
     try {
       const { id: parentId } = request.params as { id: string };
-      const { active = true, limit = 50, offset = 0 } = request.query as any;
+      const { active_flag = true, limit = 50, offset = 0 } = request.query as any;
       const userId = request.user?.sub;
 
       if (!userId) {
@@ -206,14 +206,14 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       const conditions = [sql`parent_id = ${parentId}`];
       if (active !== undefined) {
-        conditions.push(sql`active = ${active}`);
+        conditions.push(sql`active_flag = ${active}`);
       }
 
       const children = await db.execute(sql`
         SELECT 
           id, name, "descr", level_id, level_name, is_leaf_level, is_root_level,
           biz_unit_type, profit_center, cost_center_code, created, updated
-        FROM app.d_biz
+        FROM app.d_business
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY level_id ASC, name ASC
         LIMIT ${limit} OFFSET ${offset}
@@ -221,7 +221,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total 
-        FROM app.d_biz
+        FROM app.d_business
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
 
@@ -254,7 +254,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
   }, async function (request, reply) {
     try {
       const { id: bizId } = request.params as { id: string };
-      const { active = true, limit = 50, offset = 0 } = request.query as any;
+      const { active_flag = true, limit = 50, offset = 0 } = request.query as any;
       const userId = request.user?.sub;
 
       if (!userId) {
@@ -269,7 +269,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       const conditions = [sql`business_id = ${bizId}`];
       if (active !== undefined) {
-        conditions.push(sql`active = ${active}`);
+        conditions.push(sql`active_flag = ${active}`);
       }
 
       const projects = await db.execute(sql`
@@ -318,7 +318,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
   }, async function (request, reply) {
     try {
       const { id: bizId } = request.params as { id: string };
-      const { active = true, limit = 50, offset = 0 } = request.query as any;
+      const { active_flag = true, limit = 50, offset = 0 } = request.query as any;
       const userId = request.user?.sub;
 
       if (!userId) {
@@ -334,7 +334,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       // Get tasks associated with business unit (via projects or direct assignment)
       const conditions = [];
       if (active !== undefined) {
-        conditions.push(sql`t.active = ${active}`);
+        conditions.push(sql`t.active_flag = ${active}`);
       }
 
       const tasks = await db.execute(sql`
@@ -388,7 +388,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
   }, async function (request, reply) {
     try {
       const { id: bizId } = request.params as { id: string };
-      const { active = true, limit = 50, offset = 0 } = request.query as any;
+      const { active_flag = true, limit = 50, offset = 0 } = request.query as any;
       const userId = request.user?.sub;
 
       if (!userId) {
@@ -403,7 +403,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       const conditions = [sql`business_id = ${bizId}`];
       if (active !== undefined) {
-        conditions.push(sql`active = ${active}`);
+        conditions.push(sql`active_flag = ${active}`);
       }
 
       const forms = await db.execute(sql`
@@ -451,7 +451,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
   }, async function (request, reply) {
     try {
       const { id: bizId } = request.params as { id: string };
-      const { active = true, limit = 50, offset = 0 } = request.query as any;
+      const { active_flag = true, limit = 50, offset = 0 } = request.query as any;
       const userId = request.user?.sub;
 
       if (!userId) {
@@ -466,7 +466,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       const conditions = [sql`business_id = ${bizId}`];
       if (active !== undefined) {
-        conditions.push(sql`active = ${active}`);
+        conditions.push(sql`active_flag = ${active}`);
       }
 
       const artifacts = await db.execute(sql`
@@ -515,7 +515,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
   }, async function (request, reply) {
     try {
       const { id: bizId } = request.params as { id: string };
-      const { active = true, limit = 50, offset = 0 } = request.query as any;
+      const { active_flag = true, limit = 50, offset = 0 } = request.query as any;
       const userId = request.user?.sub;
 
       if (!userId) {
@@ -530,7 +530,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       const conditions = [sql`business_id = ${bizId}`];
       if (active !== undefined) {
-        conditions.push(sql`active = ${active}`);
+        conditions.push(sql`active_flag = ${active}`);
       }
 
       const wikis = await db.execute(sql`
@@ -602,7 +602,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       // Check if business unit exists
       const biz = await db.execute(sql`
-        SELECT id FROM app.d_biz WHERE id = ${bizId} AND active = true
+        SELECT id FROM app.d_business WHERE id = ${bizId} AND active_flag = true
       `);
 
       if (biz.length === 0) {
@@ -616,7 +616,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       const projectCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_project p
-        WHERE p.biz_id = ${bizId} AND p.active = true
+        WHERE p.biz_id = ${bizId} AND p.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'project',
@@ -630,7 +630,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
         SELECT COUNT(DISTINCT t.id) as count
         FROM app.d_task t
         LEFT JOIN app.d_project p ON t.project_id = p.id
-        WHERE (p.biz_id = ${bizId} OR t.biz_id = ${bizId}) AND t.active = true
+        WHERE (p.biz_id = ${bizId} OR t.biz_id = ${bizId}) AND t.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'task',
@@ -643,7 +643,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       const artifactCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_artifact a
-        WHERE a.biz_id = ${bizId} AND a.active = true
+        WHERE a.biz_id = ${bizId} AND a.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'artifact',
@@ -656,7 +656,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       const wikiCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_wiki w
-        WHERE w.biz_id = ${bizId} AND w.active = true
+        WHERE w.biz_id = ${bizId} AND w.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'wiki',
@@ -669,7 +669,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       const formCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_form_head f
-        WHERE f.biz_id = ${bizId} AND f.active = true
+        WHERE f.biz_id = ${bizId} AND f.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'form',
@@ -711,7 +711,24 @@ export async function bizRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'Access denied for this business unit' });
       }
 
-      const creatableTypes = await getCreatableEntityTypes(userId, 'biz', bizId);
+      // Get entity types that can be created under a business unit
+      const creatableTypes = [];
+
+      // Check permissions for each entity type
+      const entityTypes = ['project', 'task', 'artifact', 'wiki', 'form'];
+      for (const entityType of entityTypes) {
+        const canCreate = await hasCreatePermissionForEntityType(userId, entityType);
+        if (canCreate) {
+          creatableTypes.push({
+            entity_type: entityType,
+            label: entityType.charAt(0).toUpperCase() + entityType.slice(1),
+            icon: entityType === 'project' ? 'FolderOpen' :
+                  entityType === 'task' ? 'CheckSquare' :
+                  entityType === 'artifact' ? 'FileText' :
+                  entityType === 'wiki' ? 'BookOpen' : 'FileText'
+          });
+        }
+      }
 
       return {
         business_id: bizId,
@@ -757,7 +774,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
           id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
           slug, code, level_id, level_name, is_leaf_level, is_root_level, parent_id,
           cost_center_code, biz_unit_type, profit_center
-        FROM app.d_biz 
+        FROM app.d_business 
         WHERE id = ${id}
       `);
 
@@ -802,7 +819,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
     try {
       // If creating under a parent, check create permissions
       if (data.parent_id) {
-        const hasCreateAccess = await hasCreatePermissionInEntity(userId, 'biz', data.parent_id, 'biz');
+        const hasCreateAccess = await hasCreatePermissionForEntityType(userId, 'biz');
         if (!hasCreateAccess) {
           return reply.status(403).send({ error: 'Insufficient permissions to create business unit under this parent' });
         }
@@ -811,7 +828,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       // Check for unique code if provided
       if (data.code) {
         const existingCode = await db.execute(sql`
-          SELECT id FROM app.d_biz WHERE code = ${data.code} AND active = true
+          SELECT id FROM app.d_business WHERE code = ${data.code} AND active_flag = true
         `);
         if (existingCode.length > 0) {
           return reply.status(400).send({ error: 'Business unit with this code already exists' });
@@ -821,7 +838,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       // Check for unique slug if provided
       if (data.slug) {
         const existingSlug = await db.execute(sql`
-          SELECT id FROM app.d_biz WHERE slug = ${data.slug} AND active = true
+          SELECT id FROM app.d_business WHERE slug = ${data.slug} AND active_flag = true
         `);
         if (existingSlug.length > 0) {
           return reply.status(400).send({ error: 'Business unit with this slug already exists' });
@@ -831,7 +848,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       // Validate parent exists if parent_id is provided
       if (data.parent_id) {
         const parentExists = await db.execute(sql`
-          SELECT id FROM app.d_biz WHERE id = ${data.parent_id} AND active = true
+          SELECT id FROM app.d_business WHERE id = ${data.parent_id} AND active_flag = true
         `);
         if (parentExists.length === 0) {
           return reply.status(400).send({ error: 'Parent business unit not found' });
@@ -843,7 +860,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       const is_leaf_level = false; // Will be updated based on actual hierarchy rules
 
       const result = await db.execute(sql`
-        INSERT INTO app.d_biz (
+        INSERT INTO app.d_business (
           name, "descr", slug, code, level_id, level_name, is_leaf_level, is_root_level, parent_id,
           cost_center_code, biz_unit_type, profit_center, tags, attr, active
         )
@@ -917,7 +934,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
     try {
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_biz WHERE id = ${id}
+        SELECT id FROM app.d_business WHERE id = ${id}
       `);
       
       if (existing.length === 0) {
@@ -938,7 +955,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       if (data.profit_center !== undefined) updateFields.push(sql`profit_center = ${data.profit_center}`);
       if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
       if (data.attr !== undefined) updateFields.push(sql`attr = ${JSON.stringify(data.attr)}::jsonb`);
-      if (data.active !== undefined) updateFields.push(sql`active = ${data.active}`);
+      if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
@@ -947,7 +964,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_biz 
+        UPDATE app.d_business 
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -1001,7 +1018,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
     try {
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_biz WHERE id = ${id}
+        SELECT id FROM app.d_business WHERE id = ${id}
       `);
       
       if (existing.length === 0) {
@@ -1010,8 +1027,8 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       // Soft delete (using SCD Type 2 pattern)
       await db.execute(sql`
-        UPDATE app.d_biz 
-        SET active = false, to_ts = NOW(), updated = NOW()
+        UPDATE app.d_business 
+        SET active_flag = false, to_ts = NOW(), updated = NOW()
         WHERE id = ${id}
       `);
 

@@ -1,166 +1,46 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, UserCheck, Building2 } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
-import { DataTable, Column } from '../components/ui/DataTable';
-import { StatsGrid } from '../components/common/StatsGrid';
-import { employeeApi } from '../lib/api';
-
-interface Employee {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  department?: string;
-  role?: string;
-  title?: string;
-  manager_id?: string;
-  hire_date?: string;
-  status?: string;
-  location?: string;
-  active?: boolean;
-  created?: string;
-  updated?: string;
-}
+import { FilteredDataTable } from '../components/FilteredDataTable';
 
 export function EmployeePage() {
   const navigate = useNavigate();
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [pagination, setPagination] = useState({
-    current: 1,
-    pageSize: 20,
-    total: 0,
-  });
 
-  useEffect(() => {
-    loadEmployees();
-  }, [pagination.current, pagination.pageSize]);
+  const handleRowClick = (employee: any) => {
+    navigate(`/employee/${employee.id}`);
+  };
 
-  const loadEmployees = async () => {
-    try {
-      setLoading(true);
-      const response = await employeeApi.list({
-        page: pagination.current,
-        pageSize: pagination.pageSize,
-      });
-      setEmployees(response.data || []);
-      setPagination(prev => ({ ...prev, total: response.total || 0 }));
-    } catch (error) {
-      console.error('Failed to load employees:', error);
-      setEmployees([]);
-    } finally {
-      setLoading(false);
+  const handleCreateClick = () => {
+    navigate('/employee/new');
+  };
+
+  const handleBulkShare = (selectedEmployees: any[]) => {
+    console.log('Bulk share employees:', selectedEmployees.map(e => e.id));
+    alert(`Sharing ${selectedEmployees.length} employee${selectedEmployees.length !== 1 ? 's' : ''}`);
+  };
+
+  const handleBulkDelete = async (selectedEmployees: any[]) => {
+    if (window.confirm(`Are you sure you want to delete ${selectedEmployees.length} employee${selectedEmployees.length !== 1 ? 's' : ''}?`)) {
+      console.log('Bulk delete employees:', selectedEmployees.map(e => e.id));
+      alert(`Deleted ${selectedEmployees.length} employee${selectedEmployees.length !== 1 ? 's' : ''}`);
     }
   };
 
-  const handlePaginationChange = (page: number, pageSize: number) => {
-    setPagination(prev => ({ ...prev, current: page, pageSize }));
-  };
-
-  const getStatusBadge = (active?: boolean) => {
-    const isActive = active !== false;
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-        isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-      }`}>
-        {isActive ? 'Active' : 'Inactive'}
-      </span>
-    );
-  };
-
-  const getDepartmentBadge = (department?: string) => {
-    if (!department) return null;
-    
-    const deptColors: Record<string, string> = {
-      'Engineering': 'bg-blue-100 text-blue-800',
-      'Marketing': 'bg-pink-100 text-pink-800',
-      'Sales': 'bg-green-100 text-green-800',
-      'HR': 'bg-purple-100 text-purple-800',
-      'Finance': 'bg-yellow-100 text-yellow-800',
-      'Operations': 'bg-orange-100 text-orange-800',
-    };
-    
-    const colorClass = deptColors[department] || 'bg-gray-100 text-gray-800';
-    
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
-        {department}
-      </span>
-    );
-  };
-
-  const tableColumns: Column<Employee>[] = [
-    {
-      key: 'name',
-      title: 'Employee Name',
-      sortable: true,
-      filterable: true,
-      render: (value, record) => (
-        <div>
-          <div className="font-medium text-gray-900">{value}</div>
-          <div className="text-sm text-gray-500">{record.email}</div>
-        </div>
-      ),
-    },
-    {
-      key: 'title',
-      title: 'Title',
-      sortable: true,
-      filterable: true,
-      render: (value, record) => (
-        <div>
-          <div className="font-medium text-gray-700">{value || record.role || '-'}</div>
-          {record.department && (
-            <div className="text-sm text-gray-500">{record.department}</div>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'department',
-      title: 'Department',
-      sortable: true,
-      filterable: true,
-      render: (value) => getDepartmentBadge(value),
-    },
-    {
-      key: 'phone',
-      title: 'Phone',
-      sortable: true,
-      filterable: true,
-      render: (value) => value || '-',
-    },
-    {
-      key: 'location',
-      title: 'Location',
-      sortable: true,
-      filterable: true,
-      render: (value) => value || '-',
-    },
-    {
-      key: 'hire_date',
-      title: 'Hire Date',
-      sortable: true,
-      render: (value) => value ? new Date(value).toLocaleDateString('en-CA') : '-',
-    },
-    {
-      key: 'active',
-      title: 'Status',
-      sortable: true,
-      filterable: true,
-      render: (value) => getStatusBadge(value),
-    },
-    {
-      key: 'created',
-      title: 'Created',
-      sortable: true,
-      render: (value) => value ? new Date(value).toLocaleDateString('en-CA') : '-',
-    },
-  ];
+  const renderContent = () => (
+    <FilteredDataTable
+      entityType="employee"
+      showActionButtons={true}
+      createLabel="Create Employee"
+      onCreateClick={handleCreateClick}
+      onBulkShare={handleBulkShare}
+      onBulkDelete={handleBulkDelete}
+      onRowClick={handleRowClick}
+    />
+  );
 
   return (
-    <Layout createButton={{ label: "Create Employee", href: "/employee/new" }}>
+    <Layout>
       <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
         <div className="flex items-center space-x-3">
           <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
@@ -168,61 +48,12 @@ export function EmployeePage() {
           </div>
           <div>
             <h1 className="text-2xl font-semibold text-gray-800">Employees</h1>
-            <p className="mt-1 text-gray-600">Manage employee information and organizational structure</p>
+            <p className="mt-1 text-gray-600">Manage team members and their roles</p>
           </div>
         </div>
 
-        <StatsGrid 
-          stats={[
-            {
-              value: employees.length,
-              label: "Total Employees",
-              color: "blue",
-              icon: Users
-            },
-            {
-              value: employees.filter(e => e.active !== false).length,
-              label: "Active Employees",
-              color: "green",
-              icon: UserCheck
-            },
-            {
-              value: new Set(employees.map(e => e.department).filter(Boolean)).size,
-              label: "Departments",
-              color: "purple",
-              icon: Building2
-            }
-          ]}
-        />
-
         <div className="flex-1 min-h-0">
-          <DataTable
-            data={employees}
-            columns={tableColumns}
-            loading={loading}
-            pagination={{
-              ...pagination,
-              onChange: handlePaginationChange,
-            }}
-            rowKey="id"
-            filterable={true}
-            columnSelection={true}
-            onRowClick={(employee) => navigate(`/employee/${employee.id}`)}
-            onView={(employee) => navigate(`/employee/${employee.id}`)}
-            onEdit={(employee) => navigate(`/employee/${employee.id}/edit`)}
-            onShare={(employee) => console.log('Share employee:', employee.id)}
-            onDelete={async (employee) => {
-              if (window.confirm(`Are you sure you want to delete "${employee.name}"?`)) {
-                try {
-                  await employeeApi.delete(employee.id);
-                  loadEmployees(); // Reload the list
-                } catch (error) {
-                  console.error('Failed to delete employee:', error);
-                  alert('Failed to delete employee. Please try again.');
-                }
-              }
-            }}
-          />
+          {renderContent()}
         </div>
       </div>
     </Layout>

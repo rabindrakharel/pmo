@@ -275,6 +275,20 @@ export function ProjectTaskPage() {
                 entityType="task"
                 parentEntity="project"
                 parentEntityId={projectId!}
+                showActionButtons={true}
+                createLabel="Create Task"
+                onCreateClick={() => console.log('Create task in project', projectId)}
+                onBulkShare={(selectedTasks) => {
+                  console.log('Bulk share tasks:', selectedTasks.map(t => t.id));
+                  alert(`Sharing ${selectedTasks.length} task${selectedTasks.length !== 1 ? 's' : ''}`);
+                }}
+                onBulkDelete={async (selectedTasks) => {
+                  if (window.confirm(`Are you sure you want to delete ${selectedTasks.length} task${selectedTasks.length !== 1 ? 's' : ''}?`)) {
+                    console.log('Bulk delete tasks:', selectedTasks.map(t => t.id));
+                    alert(`Deleted ${selectedTasks.length} task${selectedTasks.length !== 1 ? 's' : ''}`);
+                  }
+                }}
+                onRowClick={(task) => navigate(`/task/${task.id}`)}
               />
             </div>
           )}

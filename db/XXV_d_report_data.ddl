@@ -5,7 +5,7 @@
 
 CREATE TABLE app.d_report_data (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    report_id uuid NOT NULL REFERENCES app.d_reports(id) ON DELETE CASCADE,
+    report_id uuid NOT NULL  ON DELETE CASCADE,
 
     -- Report execution data
     execution_timestamp timestamptz NOT NULL DEFAULT now(),
@@ -33,14 +33,6 @@ CREATE TABLE app.d_report_data (
     updated_ts timestamptz DEFAULT now()
 );
 
--- Indexes for report data
-CREATE INDEX idx_report_data_report_id ON app.d_report_data(report_id);
-CREATE INDEX idx_report_data_execution_timestamp ON app.d_report_data(execution_timestamp DESC);
-CREATE INDEX idx_report_data_executed_by ON app.d_report_data(executed_by_empid);
-CREATE INDEX idx_report_data_stage ON app.d_report_data(stage);
 
--- Update trigger for report data
-CREATE TRIGGER trg_report_data_updated_ts BEFORE UPDATE ON app.d_report_data
-    FOR EACH ROW EXECUTE FUNCTION app.update_updated_ts();
 
 COMMENT ON TABLE app.d_report_data IS 'Report execution data with performance metrics';

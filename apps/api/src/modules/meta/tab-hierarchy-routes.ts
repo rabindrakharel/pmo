@@ -33,7 +33,7 @@ export async function tabHierarchyRoutes(fastify: FastifyInstance) {
           parent_entity
         FROM app.meta_entity_hierarchy
         WHERE parent_entity = ${parentType}
-          AND active = true
+          AND active_flag = true
         ORDER BY action_entity ASC
       `);
 

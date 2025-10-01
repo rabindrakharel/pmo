@@ -80,7 +80,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
       const conditions = [];
       
       if (active !== undefined) {
-        conditions.push(sql`active = ${active}`);
+        conditions.push(sql`active_flag = ${active}`);
       }
       
       if (search) {
@@ -284,7 +284,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
         SELECT id FROM app.d_client 
         WHERE name = ${data.name} 
         AND client_parent_id IS NOT DISTINCT FROM ${data.client_parent_id || null}
-        AND active = true
+        AND active_flag = true
       `);
       if (existingClient.length > 0) {
         return reply.status(400).send({ error: 'Client with this name already exists at this level' });
@@ -293,7 +293,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
       // Validate parent exists if specified
       if (data.client_parent_id) {
         const parent = await db.execute(sql`
-          SELECT id FROM app.d_client WHERE id = ${data.client_parent_id} AND active = true
+          SELECT id FROM app.d_client WHERE id = ${data.client_parent_id} AND active_flag = true
         `);
         if (parent.length === 0) {
           return reply.status(400).send({ error: 'Parent client not found' });
@@ -374,7 +374,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
           WHERE name = ${data.name} 
           AND client_parent_id IS NOT DISTINCT FROM ${parentId || null}
           AND id != ${id} 
-          AND active = true
+          AND active_flag = true
         `);
         if (existingName.length > 0) {
           return reply.status(400).send({ error: 'Client with this name already exists at this level' });
@@ -384,7 +384,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
       // Validate parent exists if specified
       if (data.client_parent_id) {
         const parent = await db.execute(sql`
-          SELECT id FROM app.d_client WHERE id = ${data.client_parent_id} AND active = true
+          SELECT id FROM app.d_client WHERE id = ${data.client_parent_id} AND active_flag = true
         `);
         if (parent.length === 0) {
           return reply.status(400).send({ error: 'Parent client not found' });
@@ -401,7 +401,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
       if (data.level_name !== undefined) updateFields.push(sql`level_name = ${data.level_name}`);
       if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
       if (data.attr !== undefined) updateFields.push(sql`attr = ${JSON.stringify(data.attr)}::jsonb`);
-      if (data.active !== undefined) updateFields.push(sql`active = ${data.active}`);
+      if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
@@ -463,7 +463,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
       // Check if client has children
       const children = await db.execute(sql`
-        SELECT id FROM app.d_client WHERE client_parent_id = ${id} AND active = true
+        SELECT id FROM app.d_client WHERE client_parent_id = ${id} AND active_flag = true
       `);
 
       if (children.length > 0) {
@@ -475,7 +475,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
       // Soft delete (using SCD Type 2 pattern)
       await db.execute(sql`
         UPDATE app.d_client 
-        SET active = false, to_ts = NOW(), updated = NOW()
+        SET active_flag = false, to_ts = NOW(), updated = NOW()
         WHERE id = ${id}
       `);
 

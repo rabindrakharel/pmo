@@ -22,7 +22,7 @@
 **When to Use**: Database initialization, schema reset, data corruption recovery, development data refresh
 **Key Features**:
 - **✅ Complete Schema Reset**: Drops and recreates entire app schema safely
-- **✅ 27 DDL Files**: Dependency-optimized loading order (I-XXVII) with Roman numeral sequence
+- **✅ 28 DDL Files**: Dependency-optimized loading order (I-XXVIII) with Roman numeral sequence
 - **✅ Head/Data Pattern**: Temporal entities with head/data structure for content management
 - **✅ 4-Level Office Hierarchy**: Office → District → Region → Corporate
 - **✅ 3-Level Business Hierarchy**: Department → Division → Corporate levels
@@ -125,7 +125,7 @@ Database tools support these environment variables:
 tools/
 ├── README.md             # This comprehensive guide
 ├── start-all.sh          # Complete platform startup (infrastructure + services)
-├── db-import.sh          # Database schema import (27 DDL files)
+├── db-import.sh          # Database schema import (28 DDL files)
 ├── test-api-endpoints.sh # API endpoint testing and validation
 ├── logs-api.sh           # API server log monitoring
 └── logs-web.sh           # Web application log monitoring

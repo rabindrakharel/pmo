@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 // RBAC imports temporarily disabled - will be updated to use unified scope system
-// import { getEmployeeScopeIds, hasPermissionOnScopeId, Permission } from '../rbac/ui-api-permission-rbac-gate.js';
+// import { getEmployeeScopeIds, hasPermissionOnScopeId, Permission } from '../rbac/entity-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import { 
@@ -237,7 +237,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const conditions = [...baseConditions];
       
       if (active !== undefined) {
-        conditions.push(sql`active = ${active}`);
+        conditions.push(sql`active_flag = ${active}`);
       }
       
       if (project_id !== undefined) {
@@ -675,7 +675,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       if (data.documentation_complete !== undefined) updateFields.push(sql`documentation_complete = ${data.documentation_complete}`);
       if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
       if (data.attr !== undefined) updateFields.push(sql`attr = ${JSON.stringify(data.attr)}::jsonb`);
-      if (data.active !== undefined) updateFields.push(sql`active = ${data.active}`);
+      if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
@@ -758,7 +758,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Soft delete task
       await db.execute(sql`
         UPDATE app.d_task 
-        SET active = false, to_ts = NOW(), updated = NOW()
+        SET active_flag = false, to_ts = NOW(), updated = NOW()
         WHERE id = ${id}
       `);
 
@@ -804,7 +804,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Validate task exists and user has permission
       const existingTask = await db.execute(sql`
         SELECT id, name, task_status FROM app.d_task 
-        WHERE id = ${id} AND active = true
+        WHERE id = ${id} AND active_flag = true
       `);
       
       if (existingTask.length === 0) {
@@ -885,7 +885,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Get project info
       const project = await db.execute(sql`
         SELECT id, name FROM app.d_project 
-        WHERE id = ${projectId} AND active = true
+        WHERE id = ${projectId} AND active_flag = true
       `);
 
       if (project.length === 0) {
@@ -893,7 +893,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       }
 
       // Build filter conditions
-      const filters = [sql`project_id = ${projectId}`, sql`active = true`];
+      const filters = [sql`project_id = ${projectId}`, sql`active_flag = true`];
       if (assignee) filters.push(sql`assigned_to_employee_id = ${assignee}`);
       if (priority) filters.push(sql`priority_level = ${priority}`);
 
@@ -1016,7 +1016,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         LEFT JOIN app.d_employee e ON e.id = tr.created_by_employee_id
         WHERE tr.task_head_id = ${taskId}
           AND tr.record_type IN ('case_note', 'rich_note')
-          AND tr.active = true
+          AND tr.active_flag = true
         ORDER BY tr.created DESC
       `);
 
@@ -1194,7 +1194,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         FROM app.d_task_data tr
         LEFT JOIN app.d_employee e ON e.id = tr.created_by_employee_id
         WHERE tr.task_head_id = ${taskId}
-          AND tr.active = true
+          AND tr.active_flag = true
         
         UNION ALL
         
@@ -1212,7 +1212,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           th.attr as metadata
         FROM app.d_task th
         WHERE th.id = ${taskId}
-          AND th.active = true
+          AND th.active_flag = true
           
         ORDER BY timestamp DESC
         LIMIT 50

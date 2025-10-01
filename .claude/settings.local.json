@@ -126,7 +126,17 @@
       "Bash(/tmp/test-entity-mapping.sh:*)",
       "Bash(PORT=3001 pnpm dev)",
       "Bash(npx vite:*)",
-      "Bash(/tmp/test-assignment.sh:*)"
+      "Bash(/tmp/test-assignment.sh:*)",
+      "Bash(/home/rabin/projects/pmo/tools/db-import.sh:*)",
+      "Bash(tee:*)",
+      "Bash(awk:*)",
+      "Bash(/home/rabin/projects/pmo/tools/start-all.sh:*)",
+      "Bash(/home/rabin/projects/pmo/tools/restart-api.sh:*)",
+      "Bash(/dev/null)",
+      "Bash(npx tsx:*)",
+      "Bash(bash:*)",
+      "Bash(xargs -r kill -9)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": [],

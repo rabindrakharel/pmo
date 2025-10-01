@@ -7,8 +7,8 @@ CREATE TABLE app.d_task_data (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
     -- Required FKs as specified
-    task_id uuid NOT NULL REFERENCES app.d_task(id) ON DELETE CASCADE,
-    project_id uuid NOT NULL REFERENCES app.d_project(id),
+    task_id uuid NOT NULL  ON DELETE CASCADE,
+    project_id uuid NOT NULL ,
 
     -- Data stage
     stage varchar(20) NOT NULL DEFAULT 'draft', -- draft, saved
@@ -33,16 +33,6 @@ CREATE TABLE app.d_task_data (
     updated_ts timestamptz DEFAULT now()
 );
 
--- Indexes for task data
-CREATE INDEX idx_task_data_task_id ON app.d_task_data(task_id);
-CREATE INDEX idx_task_data_project_id ON app.d_task_data(project_id);
-CREATE INDEX idx_task_data_updated_by ON app.d_task_data(updated_by_empid);
-CREATE INDEX idx_task_data_stage ON app.d_task_data(stage);
-CREATE INDEX idx_task_data_created ON app.d_task_data(created_ts DESC);
-CREATE INDEX idx_task_data_attachments ON app.d_task_data USING gin(data_attachments);
 
--- Update trigger for task data
-CREATE TRIGGER trg_task_data_updated_ts BEFORE UPDATE ON app.d_task_data
-    FOR EACH ROW EXECUTE FUNCTION app.update_updated_ts();
 
 COMMENT ON TABLE app.d_task_data IS 'Task data table for updates, comments, and temporal tracking';

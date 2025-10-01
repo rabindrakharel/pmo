@@ -171,7 +171,7 @@ function generateListRoute(
       
       // Add active filter
       if (active !== undefined) {
-        conditions.push(sql`active = ${active}`);
+        conditions.push(sql`active_flag = ${active}`);
       }
       
       // Add search conditions
@@ -516,10 +516,10 @@ function generateDeleteRoute(
         return reply.status(404).send({ error: 'Resource not found' });
       }
       
-      // Soft delete by setting active = false and to_ts = now()
+      // Soft delete by setting active_flag = false and to_ts = now()
       await db.execute(sql`
         UPDATE ${sql.identifier(tableName)}
-        SET active = false, to_ts = now(), updated = now()
+        SET active_flag = false, to_ts = now(), updated = now()
         WHERE id = ${id}
       `);
       

@@ -73,7 +73,7 @@ CREATE TABLE app.entity_id_rbac_map (
   -- Core permission mapping
   empid uuid NOT NULL, -- References app.d_employee (via entity_id_hierarchy_mapping)
   entity varchar(50) NOT NULL, -- Entity type: office, biz, project, task, worksite, client, role, position, etc.
-  entity_id varchar(100) NOT NULL, -- Specific entity UUID or 'all' for type-level permissions
+  entity_id text NOT NULL, -- Specific entity UUID or 'all' for type-level permissions
   permission integer[] NOT NULL DEFAULT '{}', -- Array: [0=View, 1=Edit, 2=Share, 3=Delete, 4=Create]
 
   -- Permission lifecycle management
@@ -84,7 +84,7 @@ CREATE TABLE app.entity_id_rbac_map (
 
   -- Standard temporal fields
   created_ts timestamptz NOT NULL DEFAULT now(),
-  updated_ts timestamptz NOT NULL DEFAULT now(),
+  updated_ts timestamptz NOT NULL DEFAULT now()
 
   -- Business rules managed by application layer
 );
@@ -102,18 +102,19 @@ CREATE TABLE app.entity_id_rbac_map (
 -- CEO (James Miller) - Ultimate authority with full permissions to all entities
 INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid, granted_ts)
 SELECT
-  e.id, entity_type, 'all', '{0,1,2,3,4}', e.id, now()
+  e.id, entity_type, 'all', ARRAY[0,1,2,3,4]::integer[], e.id, now()
 FROM app.d_employee e
 CROSS JOIN (VALUES
-  ('office'), ('biz'), ('project'), ('task'), ('worksite'), ('client'),
-  ('role'), ('position'), ('artifact'), ('wiki'), ('form'), ('report'), ('employee')
+  ('office'), ('biz'), ('business'), ('project'), ('task'), ('worksite'), ('client'),
+  ('role'), ('position'), ('artifact'), ('wiki'), ('form'), ('report'), ('employee'),
+  ('org'), ('hr')
 ) AS entities(entity_type)
 WHERE e.email = 'james.miller@huronhome.ca';
 
 -- C-Level Executives - Strategic oversight with create/edit permissions
 INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid)
 SELECT
-  e.id, entity_type, 'all', permissions,
+  e.id, entity_type, 'all', permissions::integer[],
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca')
 FROM app.d_employee e
 CROSS JOIN (VALUES
@@ -136,7 +137,7 @@ WHERE e.email IN ('sarah.chen@huronhome.ca', 'david.kumar@huronhome.ca', 'maria.
 -- SVP (Robert Thompson) - Multi-division operational authority
 INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid)
 SELECT
-  e.id, entity_type, 'all', permissions,
+  e.id, entity_type, 'all', permissions::integer[],
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca')
 FROM app.d_employee e
 CROSS JOIN (VALUES
@@ -155,7 +156,7 @@ WHERE e.email = 'robert.thompson@huronhome.ca';
 -- VP Human Resources (Lisa Wang) - HR-specific permissions
 INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid)
 SELECT
-  e.id, entity_type, 'all', permissions,
+  e.id, entity_type, 'all', permissions::integer[],
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca')
 FROM app.d_employee e
 CROSS JOIN (VALUES
@@ -174,7 +175,7 @@ WHERE e.email = 'lisa.wang@huronhome.ca';
 -- Directors - Departmental management permissions
 INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid)
 SELECT
-  e.id, entity_type, 'all', permissions,
+  e.id, entity_type, 'all', permissions::integer[],
   (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca')
 FROM app.d_employee e
 CROSS JOIN (VALUES
@@ -193,7 +194,7 @@ WHERE e.email IN ('michael.oconnor@huronhome.ca', 'jennifer.park@huronhome.ca');
 -- Department Managers - Service line management
 INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid)
 SELECT
-  e.id, entity_type, 'all', permissions,
+  e.id, entity_type, 'all', permissions::integer[],
   (SELECT id FROM app.d_employee WHERE email = 'robert.thompson@huronhome.ca')
 FROM app.d_employee e
 CROSS JOIN (VALUES
@@ -219,7 +220,7 @@ WHERE e.email IN (
 -- Field Supervisors - Operational oversight and crew management
 INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid)
 SELECT
-  e.id, entity_type, 'all', permissions,
+  e.id, entity_type, 'all', permissions::integer[],
   (SELECT id FROM app.d_employee WHERE email = 'carlos.martinez@huronhome.ca')
 FROM app.d_employee e
 CROSS JOIN (VALUES
@@ -236,7 +237,7 @@ WHERE e.email IN ('mark.thompson@huronhome.ca', 'rachel.green@huronhome.ca');
 -- Senior Technicians - Technical leadership and mentoring
 INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid)
 SELECT
-  e.id, entity_type, 'all', permissions,
+  e.id, entity_type, 'all', permissions::integer[],
   (SELECT id FROM app.d_employee WHERE email = 'mark.thompson@huronhome.ca')
 FROM app.d_employee e
 CROSS JOIN (VALUES
@@ -253,7 +254,7 @@ WHERE e.email IN ('james.wilson@huronhome.ca', 'maria.santos@huronhome.ca', 'kev
 -- Field Technicians - Service delivery and customer interaction
 INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid)
 SELECT
-  e.id, entity_type, 'all', permissions,
+  e.id, entity_type, 'all', permissions::integer[],
   (SELECT id FROM app.d_employee WHERE email = 'mark.thompson@huronhome.ca')
 FROM app.d_employee e
 CROSS JOIN (VALUES
@@ -269,7 +270,7 @@ WHERE e.email IN ('james.wilson@huronhome.ca', 'maria.santos@huronhome.ca', 'kev
 -- Project Coordinator - Project support and coordination
 INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid)
 SELECT
-  e.id, entity_type, 'all', permissions,
+  e.id, entity_type, 'all', permissions::integer[],
   (SELECT id FROM app.d_employee WHERE email = 'robert.thompson@huronhome.ca')
 FROM app.d_employee e
 CROSS JOIN (VALUES
@@ -285,7 +286,7 @@ WHERE e.email = 'catherine.brooks@huronhome.ca';
 -- Financial Analyst - Financial data and reporting access
 INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid)
 SELECT
-  e.id, entity_type, 'all', permissions,
+  e.id, entity_type, 'all', permissions::integer[],
   (SELECT id FROM app.d_employee WHERE email = 'michael.oconnor@huronhome.ca')
 FROM app.d_employee e
 CROSS JOIN (VALUES
@@ -301,7 +302,7 @@ WHERE e.email = 'daniel.lee@huronhome.ca';
 -- HR Coordinator - HR administration and support
 INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid)
 SELECT
-  e.id, entity_type, 'all', permissions,
+  e.id, entity_type, 'all', permissions::integer[],
   (SELECT id FROM app.d_employee WHERE email = 'lisa.wang@huronhome.ca')
 FROM app.d_employee e
 CROSS JOIN (VALUES
@@ -317,7 +318,7 @@ WHERE e.email = 'sophie.dubois@huronhome.ca';
 -- IT Administrator - System administration and support
 INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid)
 SELECT
-  e.id, entity_type, 'all', permissions,
+  e.id, entity_type, 'all', permissions::integer[],
   (SELECT id FROM app.d_employee WHERE email = 'jennifer.park@huronhome.ca')
 FROM app.d_employee e
 CROSS JOIN (VALUES
@@ -333,7 +334,7 @@ WHERE e.email = 'alex.johnson@huronhome.ca';
 -- Seasonal Workers - Limited operational access
 INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid)
 SELECT
-  e.id, entity_type, 'all', permissions,
+  e.id, entity_type, 'all', permissions::integer[],
   (SELECT id FROM app.d_employee WHERE email = 'mark.thompson@huronhome.ca')
 FROM app.d_employee e
 CROSS JOIN (VALUES
@@ -347,7 +348,7 @@ WHERE e.email IN ('tyler.murphy@huronhome.ca', 'emma.wilson@huronhome.ca');
 -- Part-time Support - Basic administrative access
 INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid)
 SELECT
-  e.id, entity_type, 'all', permissions,
+  e.id, entity_type, 'all', permissions::integer[],
   (SELECT id FROM app.d_employee WHERE email = 'catherine.brooks@huronhome.ca')
 FROM app.d_employee e
 CROSS JOIN (VALUES

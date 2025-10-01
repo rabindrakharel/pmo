@@ -101,7 +101,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       }
       
       if (active !== undefined) {
-        conditions.push(sql`active = ${active}`);
+        conditions.push(sql`active_flag = ${active}`);
       }
       
       if (project_specific !== undefined) {
@@ -270,7 +270,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           form_version_hash as "formVersionHash",
           last_modified_by as "lastModifiedBy"
         FROM app.d_form_head 
-        WHERE id = ${id} AND active = true
+        WHERE id = ${id} AND active_flag = true
       `);
 
       if (form.length === 0) {
@@ -323,7 +323,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Check for unique name and version combination
       const existingForm = await db.execute(sql`
         SELECT id FROM app.d_form_head 
-        WHERE name = ${data.name} AND version = ${data.version || 1} AND active = true
+        WHERE name = ${data.name} AND version = ${data.version || 1} AND active_flag = true
       `);
       if (existingForm.length > 0) {
         return reply.status(400).send({ error: 'Form with this name and version already exists' });
@@ -420,7 +420,7 @@ export async function formRoutes(fastify: FastifyInstance) {
     try {
       // Check if form exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_form_head WHERE id = ${id} AND active = true
+        SELECT id FROM app.d_form_head WHERE id = ${id} AND active_flag = true
       `);
       
       if (existing.length === 0) {
@@ -431,7 +431,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       if (data.name && data.version) {
         const existingNameVersion = await db.execute(sql`
           SELECT id FROM app.d_form_head 
-          WHERE name = ${data.name} AND version = ${data.version} AND active = true AND id != ${id}
+          WHERE name = ${data.name} AND version = ${data.version} AND active_flag = true AND id != ${id}
         `);
         if (existingNameVersion.length > 0) {
           return reply.status(400).send({ error: 'Form with this name and version already exists' });
@@ -505,7 +505,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       }
       
       if (data.active !== undefined) {
-        updateFields.push(sql`active = ${data.active}`);
+        updateFields.push(sql`active_flag = ${data.active}`);
       }
 
       // Form builder state and multi-step form fields
@@ -618,7 +618,7 @@ export async function formRoutes(fastify: FastifyInstance) {
     try {
       // Check if form exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_form_head WHERE id = ${id} AND active = true
+        SELECT id FROM app.d_form_head WHERE id = ${id} AND active_flag = true
       `);
       
       if (existing.length === 0) {
@@ -627,7 +627,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Check if form has submitted records
       const submittedRecords = await db.execute(sql`
-        SELECT COUNT(*) as count FROM app.ops_formlog_records WHERE head_id = ${id} AND active = true
+        SELECT COUNT(*) as count FROM app.ops_formlog_records WHERE head_id = ${id} AND active_flag = true
       `);
       
       if (Number(submittedRecords[0]?.count || 0) > 0) {
@@ -637,7 +637,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Soft delete
       await db.execute(sql`
         UPDATE app.d_form_head 
-        SET active = false, to_ts = NOW(), updated = NOW()
+        SET active_flag = false, to_ts = NOW(), updated = NOW()
         WHERE id = ${id}
       `);
 
@@ -711,7 +711,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           schema,
           attr
         FROM app.d_form_head 
-        WHERE id = ${id} AND active = true
+        WHERE id = ${id} AND active_flag = true
       `);
 
       if (form.length === 0) {
@@ -722,7 +722,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total 
         FROM app.ops_formlog_records 
-        WHERE head_id = ${id} AND active = true
+        WHERE head_id = ${id} AND active_flag = true
       `);
       const total = Number(countResult[0]?.total || 0);
 
@@ -736,7 +736,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           created,
           updated
         FROM app.ops_formlog_records 
-        WHERE head_id = ${id} AND active = true
+        WHERE head_id = ${id} AND active_flag = true
         ORDER BY created DESC
         LIMIT ${limit} OFFSET ${offset}
       `);

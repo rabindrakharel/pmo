@@ -41,16 +41,6 @@ CREATE TABLE app.d_form_head (
     version integer DEFAULT 1
 );
 
--- Indexes for form head
-CREATE INDEX idx_form_head_type ON app.d_form_head(form_type);
-CREATE INDEX idx_form_head_template ON app.d_form_head(is_template);
-CREATE INDEX idx_form_head_primary_entity ON app.d_form_head(primary_entity_type, primary_entity_id);
-CREATE INDEX idx_form_head_active ON app.d_form_head(active_flag);
-CREATE INDEX idx_form_head_slug ON app.d_form_head(slug);
-CREATE INDEX idx_form_head_code ON app.d_form_head(code);
 
--- Update trigger for form head
-CREATE TRIGGER trg_form_head_updated_ts BEFORE UPDATE ON app.d_form_head
-    FOR EACH ROW EXECUTE FUNCTION app.update_updated_ts();
 
 COMMENT ON TABLE app.d_form_head IS 'Form definitions with JSON schema and workflow integration';

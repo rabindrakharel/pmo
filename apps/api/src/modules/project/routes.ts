@@ -9,87 +9,59 @@ import {
   getColumnsByMetadata 
 } from '../../lib/universal-schema-metadata.js';
 
-// Schema based on actual ops_project_head table structure from db/09_project_task.ddl
+// Schema based on actual d_project table structure from db/XV_d_project.ddl
 const ProjectSchema = Type.Object({
   id: Type.String(),
-  // Project identification and metadata
-  project_code: Type.Optional(Type.String()),
-  project_type: Type.String(),
-  priority_level: Type.String(),
-  slug: Type.Optional(Type.String()),
-  // Business and operational context
+  slug: Type.String(),
+  code: Type.String(),
+  name: Type.String(),
+  descr: Type.Optional(Type.String()),
+  tags: Type.Optional(Type.Any()),
+  metadata: Type.Optional(Type.Any()),
+  // Project relationships
+  business_id: Type.Optional(Type.String()),
+  office_id: Type.Optional(Type.String()),
+  // Project fields
+  project_stage: Type.Optional(Type.String()),
   budget_allocated: Type.Optional(Type.Number()),
-  budget_currency: Type.String(),
-  // Scope relationships
-  biz_id: Type.Optional(Type.String()),
-  locations: Type.Array(Type.String()),
-  worksites: Type.Array(Type.String()),
-  // Project team and stakeholders
-  project_managers: Type.Array(Type.String()),
-  project_sponsors: Type.Array(Type.String()),
-  project_leads: Type.Array(Type.String()),
-  clients: Type.Array(Type.Any()),
-  approvers: Type.Array(Type.String()),
-  // Project timeline and planning
+  budget_spent: Type.Optional(Type.Number()),
   planned_start_date: Type.Optional(Type.String()),
   planned_end_date: Type.Optional(Type.String()),
   actual_start_date: Type.Optional(Type.String()),
   actual_end_date: Type.Optional(Type.String()),
-  milestones: Type.Array(Type.Any()),
-  deliverables: Type.Array(Type.Any()),
-  estimated_hours: Type.Optional(Type.Number()),
-  actual_hours: Type.Optional(Type.Number()),
-  project_stage: Type.Optional(Type.String()),
-  project_status: Type.Optional(Type.String()),
-  // Compliance and governance
-  security_classification: Type.String(),
-  compliance_requirements: Type.Array(Type.Any()),
-  risk_assessment: Type.Object({}),
-  // Standard fields
-  name: Type.String(),
-  descr: Type.Optional(Type.String()),
-  tags: Type.Array(Type.String()),
-  attr: Type.Object({}),
-  from_ts: Type.String(),
+  // Project team
+  manager_employee_id: Type.Optional(Type.String()),
+  sponsor_employee_id: Type.Optional(Type.String()),
+  stakeholder_employee_ids: Type.Optional(Type.Array(Type.String())),
+  // Temporal fields
+  from_ts: Type.Optional(Type.String()),
   to_ts: Type.Optional(Type.String()),
-  active: Type.Boolean(),
-  created: Type.String(),
-  updated: Type.String(),
+  active_flag: Type.Optional(Type.Boolean()),
+  created_ts: Type.Optional(Type.String()),
+  updated_ts: Type.Optional(Type.String()),
+  version: Type.Optional(Type.Number()),
 });
 
 const CreateProjectSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
+  slug: Type.String({ minLength: 1 }),
+  code: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
-  project_code: Type.Optional(Type.String()),
-  project_type: Type.Optional(Type.String()),
-  priority_level: Type.Optional(Type.String()),
-  slug: Type.Optional(Type.String()),
+  tags: Type.Optional(Type.Any()),
+  metadata: Type.Optional(Type.Any()),
+  business_id: Type.Optional(Type.String({ format: 'uuid' })),
+  office_id: Type.Optional(Type.String({ format: 'uuid' })),
+  project_stage: Type.Optional(Type.String()),
   budget_allocated: Type.Optional(Type.Number()),
-  budget_currency: Type.Optional(Type.String()),
-  biz_id: Type.Optional(Type.String({ format: 'uuid' })),
-  locations: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
-  worksites: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
-  project_managers: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
-  project_sponsors: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
-  project_leads: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
-  clients: Type.Optional(Type.Array(Type.Any())),
-  approvers: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
+  budget_spent: Type.Optional(Type.Number()),
   planned_start_date: Type.Optional(Type.String({ format: 'date' })),
   planned_end_date: Type.Optional(Type.String({ format: 'date' })),
   actual_start_date: Type.Optional(Type.String({ format: 'date' })),
   actual_end_date: Type.Optional(Type.String({ format: 'date' })),
-  milestones: Type.Optional(Type.Array(Type.Any())),
-  deliverables: Type.Optional(Type.Array(Type.Any())),
-  estimated_hours: Type.Optional(Type.Number()),
-  actual_hours: Type.Optional(Type.Number()),
-  project_stage: Type.Optional(Type.String()),
-  project_status: Type.Optional(Type.String()),
-  security_classification: Type.Optional(Type.String()),
-  compliance_requirements: Type.Optional(Type.Array(Type.Any())),
-  risk_assessment: Type.Optional(Type.Object({})),
-  tags: Type.Optional(Type.Array(Type.String())),
-  attr: Type.Optional(Type.Object({})),
-  active: Type.Optional(Type.Boolean()),
+  manager_employee_id: Type.Optional(Type.String({ format: 'uuid' })),
+  sponsor_employee_id: Type.Optional(Type.String({ format: 'uuid' })),
+  stakeholder_employee_ids: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
+  active_flag: Type.Optional(Type.Boolean()),
 });
 
 const UpdateProjectSchema = Type.Partial(CreateProjectSchema);
@@ -102,11 +74,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
       querystring: Type.Object({
         active: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
-        project_type: Type.Optional(Type.String()),
-        priority_level: Type.Optional(Type.String()),
         project_stage: Type.Optional(Type.String()),
-        project_status: Type.Optional(Type.String()),
-        biz_id: Type.Optional(Type.String()),
+        business_id: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
@@ -122,9 +91,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { 
-      active, search, project_type, priority_level, project_stage, 
-      project_status, biz_id, limit = 50, offset = 0 
+    const {
+      active, search, project_stage, business_id, limit = 50, offset = 0
     } = request.query as any;
 
     const userId = (request as any).user?.sub;
@@ -140,7 +108,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
             SELECT 1 FROM app.entity_id_rbac_map rbac
             WHERE rbac.empid = ${userId}
               AND rbac.entity = 'project'
-              AND (rbac.entity_id = p.id OR rbac.entity_id = 'all')
+              AND (rbac.entity_id = p.id::text OR rbac.entity_id = 'all')
               AND rbac.active_flag = true
               AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
               AND 0 = ANY(rbac.permission)
@@ -149,43 +117,26 @@ export async function projectRoutes(fastify: FastifyInstance) {
       ];
 
       const conditions = [...baseConditions];
-      
+
       if (active !== undefined) {
-        conditions.push(sql`active = ${active}`);
+        conditions.push(sql`p.active_flag = ${active}`);
       }
-      
-      if (project_type) {
-        conditions.push(sql`project_type = ${project_type}`);
-      }
-      
-      if (priority_level) {
-        conditions.push(sql`priority_level = ${priority_level}`);
-      }
-      
+
       if (project_stage) {
-        conditions.push(sql`project_stage = ${project_stage}`);
+        conditions.push(sql`p.project_stage = ${project_stage}`);
       }
-      
-      if (project_status) {
-        conditions.push(sql`project_status = ${project_status}`);
+
+      if (business_id) {
+        conditions.push(sql`p.business_id = ${business_id}`);
       }
-      
-      if (biz_id) {
-        conditions.push(sql`biz_id = ${biz_id}`);
-      }
-      
+
       if (search) {
-        const searchableColumns = getColumnsByMetadata([
-          'name', 'descr', 'project_code', 'slug'
-        ], 'ui:search');
-        
-        const searchConditions = searchableColumns.map(col => 
-          sql`COALESCE(${sql.identifier(col)}, '') ILIKE ${`%${search}%`}`
-        );
-        
-        if (searchConditions.length > 0) {
-          conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
-        }
+        conditions.push(sql`(
+          p.name ILIKE ${`%${search}%`} OR
+          p.descr ILIKE ${`%${search}%`} OR
+          p.code ILIKE ${`%${search}%`} OR
+          p.slug ILIKE ${`%${search}%`}
+        )`);
       }
 
       const countResult = await db.execute(sql`
@@ -197,33 +148,20 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       const projects = await db.execute(sql`
         SELECT
-          p.id, p.project_code, p.project_type, p.priority_level, p.slug,
-          p.budget_allocated, p.budget_currency, p.biz_id, p.locations, p.worksites,
-          p.project_managers, p.project_sponsors, p.project_leads, p.clients, p.approvers,
+          p.id, p.code, p.slug, p.name, p.descr, p.tags, p.metadata,
+          p.business_id, p.office_id, p.project_stage,
+          p.budget_allocated, p.budget_spent,
           p.planned_start_date, p.planned_end_date, p.actual_start_date, p.actual_end_date,
-          p.milestones, p.deliverables, p.estimated_hours, p.actual_hours,
-          p.project_stage, p.project_status, p.security_classification,
-          p.compliance_requirements, p.risk_assessment,
-          p.name, p."descr", p.tags, p.attr, p.from_ts, p.to_ts, p.active, p.created, p.updated
+          p.manager_employee_id, p.sponsor_employee_id, p.stakeholder_employee_ids,
+          p.from_ts, p.to_ts, p.active_flag, p.created_ts, p.updated_ts, p.version
         FROM app.d_project p
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY p.name ASC NULLS LAST, p.created DESC
+        ORDER BY p.name ASC NULLS LAST, p.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true, // Allow all system fields for projects since user has project access
-        canSeeSafetyInfo: true,
-      };
-      
-      const filteredData = projects.map(project => 
-        filterUniversalColumns(project, userPermissions)
-      );
-
       return {
-        data: filteredData,
+        data: projects,
         total,
         limit,
         offset,
@@ -264,7 +202,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         SELECT 1 FROM app.entity_id_rbac_map rbac
         WHERE rbac.empid = ${userId}
           AND rbac.entity = 'project'
-          AND (rbac.entity_id = ${projectId} OR rbac.entity_id = 'all')
+          AND (rbac.entity_id = ${projectId}::text OR rbac.entity_id = 'all')
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
           AND 0 = ANY(rbac.permission)
@@ -275,7 +213,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       }
 
       // Build conditions for task filtering
-      const conditions = [sql`th.project_id = ${projectId}`, sql`th.active = true`];
+      const conditions = [sql`th.project_id = ${projectId}`, sql`th.active_flag = true`];
       
       if (status) {
         conditions.push(sql`tr.status_name = ${status}`);
@@ -362,7 +300,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         SELECT 1 FROM app.entity_id_rbac_map rbac
         WHERE rbac.empid = ${userId}
           AND rbac.entity = 'project'
-          AND (rbac.entity_id = ${projectId} OR rbac.entity_id = 'all')
+          AND (rbac.entity_id = ${projectId}::text OR rbac.entity_id = 'all')
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
           AND 0 = ANY(rbac.permission)
@@ -374,7 +312,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       // Check if project exists
       const project = await db.execute(sql`
-        SELECT id FROM app.d_project WHERE id = ${projectId} AND active = true
+        SELECT id FROM app.d_project WHERE id = ${projectId} AND active_flag = true
       `);
 
       if (project.length === 0) {
@@ -393,7 +331,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           AND eh.parent_entity_type = 'project'
           AND eh.child_entity_type = 'task'
           AND eh.active_flag = true
-          AND t.active = true
+          AND t.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'task',
@@ -411,7 +349,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           AND eh.parent_entity_type = 'project'
           AND eh.child_entity_type = 'artifact'
           AND eh.active_flag = true
-          AND a.active = true
+          AND a.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'artifact',
@@ -429,7 +367,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           AND eh.parent_entity_type = 'project'
           AND eh.child_entity_type = 'wiki'
           AND eh.active_flag = true
-          AND w.active = true
+          AND w.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'wiki',
@@ -447,7 +385,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           AND eh.parent_entity_type = 'project'
           AND eh.child_entity_type = 'form'
           AND eh.active_flag = true
-          AND f.active = true
+          AND f.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'form',
@@ -493,7 +431,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         SELECT 1 FROM app.entity_id_rbac_map rbac
         WHERE rbac.empid = ${userId}
           AND rbac.entity = 'project'
-          AND (rbac.entity_id = ${projectId} OR rbac.entity_id = 'all')
+          AND (rbac.entity_id = ${projectId}::text OR rbac.entity_id = 'all')
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
           AND 0 = ANY(rbac.permission)
@@ -512,7 +450,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           AND eh.parent_entity_type = 'project'
           AND eh.child_entity_type = 'wiki'
           AND eh.active_flag = true
-          AND w.active = true
+          AND w.active_flag = true
         ORDER BY w.created DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
@@ -525,7 +463,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           AND eh.parent_entity_type = 'project'
           AND eh.child_entity_type = 'wiki'
           AND eh.active_flag = true
-          AND w.active = true
+          AND w.active_flag = true
       `);
 
       return {
@@ -567,7 +505,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         SELECT 1 FROM app.entity_id_rbac_map rbac
         WHERE rbac.empid = ${userId}
           AND rbac.entity = 'project'
-          AND (rbac.entity_id = ${projectId} OR rbac.entity_id = 'all')
+          AND (rbac.entity_id = ${projectId}::text OR rbac.entity_id = 'all')
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
           AND 0 = ANY(rbac.permission)
@@ -581,7 +519,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const forms = await db.execute(sql`
         SELECT id, name, descr, tags, created, updated
         FROM app.d_form_head
-        WHERE project_id = ${projectId} AND active = true
+        WHERE project_id = ${projectId} AND active_flag = true
         ORDER BY created DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
@@ -589,7 +527,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
         FROM app.d_form_head
-        WHERE project_id = ${projectId} AND active = true
+        WHERE project_id = ${projectId} AND active_flag = true
       `);
 
       return {
@@ -631,7 +569,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         SELECT 1 FROM app.entity_id_rbac_map rbac
         WHERE rbac.empid = ${userId}
           AND rbac.entity = 'project'
-          AND (rbac.entity_id = ${projectId} OR rbac.entity_id = 'all')
+          AND (rbac.entity_id = ${projectId}::text OR rbac.entity_id = 'all')
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
           AND 0 = ANY(rbac.permission)
@@ -650,7 +588,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           AND eh.parent_entity_type = 'project'
           AND eh.child_entity_type = 'artifact'
           AND eh.active_flag = true
-          AND a.active = true
+          AND a.active_flag = true
         ORDER BY a.created DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
@@ -663,7 +601,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           AND eh.parent_entity_type = 'project'
           AND eh.child_entity_type = 'artifact'
           AND eh.active_flag = true
-          AND a.active = true
+          AND a.active_flag = true
       `);
 
       return {
@@ -705,7 +643,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       SELECT 1 FROM app.entity_id_rbac_map rbac
       WHERE rbac.empid = ${userId}
         AND rbac.entity = 'project'
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
         AND 0 = ANY(rbac.permission)
@@ -717,16 +655,14 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
     try {
       const project = await db.execute(sql`
-        SELECT 
-          id, project_code, project_type, priority_level, slug,
-          budget_allocated, budget_currency, biz_id, locations, worksites,
-          project_managers, project_sponsors, project_leads, clients, approvers,
+        SELECT
+          id, code, slug, name, descr, tags, metadata,
+          business_id, office_id, project_stage,
+          budget_allocated, budget_spent,
           planned_start_date, planned_end_date, actual_start_date, actual_end_date,
-          milestones, deliverables, estimated_hours, actual_hours, 
-          project_stage, project_status, security_classification, 
-          compliance_requirements, risk_assessment,
-          name, "descr", tags, attr, from_ts, to_ts, active, created, updated
-        FROM app.d_project 
+          manager_employee_id, sponsor_employee_id, stakeholder_employee_ids,
+          from_ts, to_ts, active_flag, created_ts, updated_ts, version
+        FROM app.d_project
         WHERE id = ${id}
       `);
 
@@ -734,14 +670,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Project not found' });
       }
 
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true, // Allow all system fields for projects since user has project access
-        canSeeSafetyInfo: true,
-      };
-      
-      return filterUniversalColumns(project[0], userPermissions);
+      return project[0];
     } catch (error) {
       fastify.log.error('Error fetching project:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -787,7 +716,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // Check for unique project code if provided
       if (data.project_code) {
         const existingProject = await db.execute(sql`
-          SELECT id FROM app.d_project WHERE project_code = ${data.project_code} AND active = true
+          SELECT id FROM app.d_project WHERE project_code = ${data.project_code} AND active_flag = true
         `);
         if (existingProject.length > 0) {
           return reply.status(400).send({ error: 'Project with this code already exists' });
@@ -797,7 +726,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // Check for unique slug if provided
       if (data.slug) {
         const existingSlug = await db.execute(sql`
-          SELECT id FROM app.d_project WHERE slug = ${data.slug} AND active = true
+          SELECT id FROM app.d_project WHERE slug = ${data.slug} AND active_flag = true
         `);
         if (existingSlug.length > 0) {
           return reply.status(400).send({ error: 'Project with this slug already exists' });
@@ -911,7 +840,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       SELECT 1 FROM app.entity_id_rbac_map rbac
       WHERE rbac.empid = ${userId}
         AND rbac.entity = 'project'
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
         AND 1 = ANY(rbac.permission)
@@ -963,7 +892,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       if (data.risk_assessment !== undefined) updateFields.push(sql`risk_assessment = ${JSON.stringify(data.risk_assessment)}::jsonb`);
       if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
       if (data.attr !== undefined) updateFields.push(sql`attr = ${JSON.stringify(data.attr)}::jsonb`);
-      if (data.active !== undefined) updateFields.push(sql`active = ${data.active}`);
+      if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
@@ -1023,7 +952,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       SELECT 1 FROM app.entity_id_rbac_map rbac
       WHERE rbac.empid = ${userId}
         AND rbac.entity = 'project'
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
         AND 3 = ANY(rbac.permission)
@@ -1045,7 +974,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // Soft delete (using SCD Type 2 pattern)
       await db.execute(sql`
         UPDATE app.d_project 
-        SET active = false, to_ts = NOW(), updated = NOW()
+        SET active_flag = false, to_ts = NOW(), updated = NOW()
         WHERE id = ${id}
       `);
 
@@ -1085,7 +1014,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         SELECT 1 FROM app.entity_id_rbac_map rbac
         WHERE rbac.empid = ${userId}
           AND rbac.entity = 'project'
-          AND (rbac.entity_id = ${projectId} OR rbac.entity_id = 'all')
+          AND (rbac.entity_id = ${projectId}::text OR rbac.entity_id = 'all')
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
           AND 0 = ANY(rbac.permission)
@@ -1095,40 +1024,39 @@ export async function projectRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'Access denied for this project' });
       }
 
-      // Use entity_id_map to get tasks for this project
-      let query = sql`
-        SELECT t.*, COALESCE(t.name, 'Untitled Task') as name, t.descr
-        FROM app.d_task t
-        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = t.id
-        WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity_type = 'project'
-          AND eh.child_entity_type = 'task'
-          AND eh.active_flag = true
-          AND t.active = true
-      `;
+      // Query tasks using project_id foreign key (simpler than entity_id_map)
+      const conditions = [
+        sql`t.project_id = ${projectId}`,
+        sql`t.active_flag = true`
+      ];
 
       if (status) {
-        query = sql`${query} AND t.status = ${status}`;
+        conditions.push(sql`t.stage = ${status}`);
       }
 
       if (assignee) {
-        query = sql`${query} AND t.assignee = ${assignee}`;
+        conditions.push(sql`${assignee}::uuid = ANY(t.assignee_employee_ids)`);
       }
 
-      query = sql`${query} ORDER BY t.created DESC LIMIT ${limit} OFFSET ${offset}`;
-
-      const tasks = await db.execute(query);
+      const tasks = await db.execute(sql`
+        SELECT
+          t.id, t.slug, t.code, t.name, t.descr, t.tags, t.metadata,
+          t.project_id, t.business_id, t.office_id,
+          t.assignee_employee_ids, t.stage, t.priority_level,
+          t.estimated_hours, t.actual_hours, t.story_points,
+          t.parent_task_id, t.dependency_task_ids,
+          t.from_ts, t.to_ts, t.active_flag, t.created_ts, t.updated_ts, t.version
+        FROM app.d_task t
+        WHERE ${sql.join(conditions, sql` AND `)}
+        ORDER BY t.created_ts DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
 
       // Get total count
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
         FROM app.d_task t
-        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = t.id
-        WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity_type = 'project'
-          AND eh.child_entity_type = 'task'
-          AND eh.active_flag = true
-          AND t.active = true
+        WHERE ${sql.join(conditions, sql` AND `)}
       `);
 
       return {
@@ -1169,7 +1097,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         SELECT 1 FROM app.entity_id_rbac_map rbac
         WHERE rbac.empid = ${userId}
           AND rbac.entity = 'project'
-          AND (rbac.entity_id = ${projectId} OR rbac.entity_id = 'all')
+          AND (rbac.entity_id = ${projectId}::text OR rbac.entity_id = 'all')
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
           AND 0 = ANY(rbac.permission)
@@ -1188,7 +1116,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           AND eh.parent_entity_type = 'project'
           AND eh.child_entity_type = 'form'
           AND eh.active_flag = true
-          AND f.active = true
+          AND f.active_flag = true
         ORDER BY f.created DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
@@ -1201,7 +1129,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           AND eh.parent_entity_type = 'project'
           AND eh.child_entity_type = 'form'
           AND eh.active_flag = true
-          AND f.active = true
+          AND f.active_flag = true
       `);
 
       return {
@@ -1242,7 +1170,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         SELECT 1 FROM app.entity_id_rbac_map rbac
         WHERE rbac.empid = ${userId}
           AND rbac.entity = 'project'
-          AND (rbac.entity_id = ${projectId} OR rbac.entity_id = 'all')
+          AND (rbac.entity_id = ${projectId}::text OR rbac.entity_id = 'all')
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
           AND 0 = ANY(rbac.permission)
@@ -1261,7 +1189,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           AND eh.parent_entity_type = 'project'
           AND eh.child_entity_type = 'artifact'
           AND eh.active_flag = true
-          AND a.active = true
+          AND a.active_flag = true
         ORDER BY a.created DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
@@ -1274,7 +1202,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           AND eh.parent_entity_type = 'project'
           AND eh.child_entity_type = 'artifact'
           AND eh.active_flag = true
-          AND a.active = true
+          AND a.active_flag = true
       `);
 
       return {

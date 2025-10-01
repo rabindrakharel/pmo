@@ -5,7 +5,7 @@
 
 CREATE TABLE app.d_wiki_data (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    wiki_id uuid NOT NULL REFERENCES app.d_wiki(id) ON DELETE CASCADE,
+    wiki_id uuid NOT NULL  ON DELETE CASCADE,
 
     -- Content storage
     content_markdown text,
@@ -35,15 +35,6 @@ CREATE TABLE app.d_wiki_data (
     updated_ts timestamptz DEFAULT now()
 );
 
--- Indexes for wiki data
-CREATE INDEX idx_wiki_data_wiki_id ON app.d_wiki_data(wiki_id);
-CREATE INDEX idx_wiki_data_updated_by ON app.d_wiki_data(updated_by_empid);
-CREATE INDEX idx_wiki_data_stage ON app.d_wiki_data(stage);
-CREATE INDEX idx_wiki_data_created ON app.d_wiki_data(created_ts DESC);
-CREATE INDEX idx_wiki_data_links ON app.d_wiki_data USING gin(internal_links);
 
--- Update trigger for wiki data
-CREATE TRIGGER trg_wiki_data_updated_ts BEFORE UPDATE ON app.d_wiki_data
-    FOR EACH ROW EXECUTE FUNCTION app.update_updated_ts();
 
 COMMENT ON TABLE app.d_wiki_data IS 'Wiki content with markdown/HTML and change tracking';

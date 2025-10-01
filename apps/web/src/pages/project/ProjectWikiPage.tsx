@@ -69,6 +69,20 @@ export function ProjectWikiPage() {
           entityType="wiki"
           parentEntity="project"
           parentEntityId={projectId!}
+          showActionButtons={true}
+          createLabel="Create Wiki Page"
+          onCreateClick={() => console.log('Create wiki in project', projectId)}
+          onBulkShare={(selectedWikis) => {
+            console.log('Bulk share wikis:', selectedWikis.map(w => w.id));
+            alert(`Sharing ${selectedWikis.length} wiki page${selectedWikis.length !== 1 ? 's' : ''}`);
+          }}
+          onBulkDelete={async (selectedWikis) => {
+            if (window.confirm(`Are you sure you want to delete ${selectedWikis.length} wiki page${selectedWikis.length !== 1 ? 's' : ''}?`)) {
+              console.log('Bulk delete wikis:', selectedWikis.map(w => w.id));
+              alert(`Deleted ${selectedWikis.length} wiki page${selectedWikis.length !== 1 ? 's' : ''}`);
+            }
+          }}
+          onRowClick={(wiki) => navigate(`/wiki/${wiki.id}`)}
         />
       </div>
     </Layout>

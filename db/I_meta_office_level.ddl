@@ -13,7 +13,6 @@ CREATE TABLE app.meta_office_level (
 );
 
 -- Index for meta office level
-CREATE INDEX idx_meta_office_level_active ON app.meta_office_level(active_flag);
 
 -- Initial data for office levels
 INSERT INTO app.meta_office_level (level_id, level_name, level_descr, sort_order) VALUES

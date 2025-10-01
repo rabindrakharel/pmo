@@ -336,6 +336,20 @@ export function ProjectArtifactPage() {
             entityType="artifact"
             parentEntity="project"
             parentEntityId={projectId!}
+            showActionButtons={true}
+            createLabel="Upload Artifact"
+            onCreateClick={() => console.log('Upload artifact to project', projectId)}
+            onBulkShare={(selectedArtifacts) => {
+              console.log('Bulk share artifacts:', selectedArtifacts.map(a => a.id));
+              alert(`Sharing ${selectedArtifacts.length} artifact${selectedArtifacts.length !== 1 ? 's' : ''}`);
+            }}
+            onBulkDelete={async (selectedArtifacts) => {
+              if (window.confirm(`Are you sure you want to delete ${selectedArtifacts.length} artifact${selectedArtifacts.length !== 1 ? 's' : ''}?`)) {
+                console.log('Bulk delete artifacts:', selectedArtifacts.map(a => a.id));
+                alert(`Deleted ${selectedArtifacts.length} artifact${selectedArtifacts.length !== 1 ? 's' : ''}`);
+              }
+            }}
+            onRowClick={(artifact) => setPreviewArtifact(artifact)}
           />
         </div>
         

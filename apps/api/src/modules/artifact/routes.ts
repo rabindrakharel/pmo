@@ -88,11 +88,11 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { limit = 20, offset = 0, artifact_type, active = true } = request.query as any;
+    const { limit = 20, offset = 0, artifact_type, active_flag = true } = request.query as any;
 
     try {
       // Build WHERE conditions
-      const conditions = ['a.active = true'];
+      const conditions = ['a.active_flag = true'];
       if (artifact_type) conditions.push(`a.artifact_type = '${artifact_type}'`);
       
       const whereClause = conditions.join(' AND ');
@@ -149,7 +149,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           owner_employee_id, access_count, download_count, last_accessed_ts,
           active, from_ts, to_ts, created, updated
         FROM app.d_artifact
-        WHERE id = ${id} AND active = true
+        WHERE id = ${id} AND active_flag = true
       `);
       
       if (!result.length) return reply.status(404).send({ error: 'Not found' });
@@ -265,7 +265,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       const result = await db.execute(sql`
         UPDATE app.d_artifact 
         SET ${sql.raw(setClause)}
-        WHERE id = ${id} AND active = true
+        WHERE id = ${id} AND active_flag = true
         RETURNING *
       `);
 
@@ -292,8 +292,8 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     try {
       const result = await db.execute(sql`
         UPDATE app.d_artifact 
-        SET active = false, updated = NOW(), to_ts = NOW()
-        WHERE id = ${id} AND active = true
+        SET active_flag = false, updated = NOW(), to_ts = NOW()
+        WHERE id = ${id} AND active_flag = true
         RETURNING id
       `);
 

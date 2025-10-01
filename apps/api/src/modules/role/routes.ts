@@ -66,7 +66,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       const conditions = [];
       
       if (active !== undefined) {
-        conditions.push(sql`active = ${active}`);
+        conditions.push(sql`active_flag = ${active}`);
       }
 
       // Get total count
@@ -150,7 +150,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
           tags,
           attr
         FROM app.d_role 
-        WHERE id = ${id} AND active = true
+        WHERE id = ${id} AND active_flag = true
       `);
 
       if (role.length === 0) {
@@ -182,7 +182,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
     try {
       // Check for unique name
       const existingRole = await db.execute(sql`
-        SELECT id FROM app.d_role WHERE name = ${data.name} AND active = true
+        SELECT id FROM app.d_role WHERE name = ${data.name} AND active_flag = true
       `);
       if (existingRole.length > 0) {
         return reply.status(400).send({ error: 'Role with this name already exists' });
@@ -245,7 +245,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
     try {
       // Check if role exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_role WHERE id = ${id} AND active = true
+        SELECT id FROM app.d_role WHERE id = ${id} AND active_flag = true
       `);
       
       if (existing.length === 0) {
@@ -255,7 +255,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       // Check for unique name on update
       if (data.name) {
         const existingName = await db.execute(sql`
-          SELECT id FROM app.d_role WHERE name = ${data.name} AND active = true AND id != ${id}
+          SELECT id FROM app.d_role WHERE name = ${data.name} AND active_flag = true AND id != ${id}
         `);
         if (existingName.length > 0) {
           return reply.status(400).send({ error: 'Role with this name already exists' });
@@ -302,7 +302,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       }
       
       if (data.active !== undefined) {
-        updateFields.push(sql`active = ${data.active}`);
+        updateFields.push(sql`active_flag = ${data.active}`);
       }
 
       if (updateFields.length === 0) {
@@ -365,7 +365,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
     try {
       // Check if role exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_role WHERE id = ${id} AND active = true
+        SELECT id FROM app.d_role WHERE id = ${id} AND active_flag = true
       `);
       
       if (existing.length === 0) {
@@ -374,7 +374,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
       // Check if role is assigned to any employees
       const assignedEmployees = await db.execute(sql`
-        SELECT COUNT(*) as count FROM app.rel_emp_role WHERE role_id = ${id} AND active = true
+        SELECT COUNT(*) as count FROM app.rel_emp_role WHERE role_id = ${id} AND active_flag = true
       `);
       
       if (Number(assignedEmployees[0]?.count || 0) > 0) {
@@ -384,7 +384,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       // Soft delete
       await db.execute(sql`
         UPDATE app.d_role 
-        SET active = false, to_ts = NOW(), updated = NOW()
+        SET active_flag = false, to_ts = NOW(), updated = NOW()
         WHERE id = ${id}
       `);
 
@@ -441,7 +441,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
           tags,
           attr
         FROM app.d_role 
-        WHERE id = ${id} AND active = true
+        WHERE id = ${id} AND active_flag = true
       `);
 
       if (role.length === 0) {
@@ -456,7 +456,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
           r.name as "scopeName",
           ARRAY['view'] as "permissions"
         FROM app.d_role r
-        WHERE r.id = ${id} AND r.active = true
+        WHERE r.id = ${id} AND r.active_flag = true
         ORDER BY r.name
       `);
 

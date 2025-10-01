@@ -5,7 +5,7 @@
 
 CREATE TABLE app.d_form_data (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    form_id uuid NOT NULL REFERENCES app.d_form_head(id) ON DELETE CASCADE,
+    form_id uuid NOT NULL  ON DELETE CASCADE,
 
     -- Submission data
     submission_data jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -30,15 +30,6 @@ CREATE TABLE app.d_form_data (
     updated_ts timestamptz DEFAULT now()
 );
 
--- Indexes for form data
-CREATE INDEX idx_form_data_form_id ON app.d_form_data(form_id);
-CREATE INDEX idx_form_data_submitted_by ON app.d_form_data(submitted_by_empid);
-CREATE INDEX idx_form_data_status ON app.d_form_data(submission_status);
-CREATE INDEX idx_form_data_stage ON app.d_form_data(stage);
-CREATE INDEX idx_form_data_created ON app.d_form_data(created_ts DESC);
 
--- Update trigger for form data
-CREATE TRIGGER trg_form_data_updated_ts BEFORE UPDATE ON app.d_form_data
-    FOR EACH ROW EXECUTE FUNCTION app.update_updated_ts();
 
 COMMENT ON TABLE app.d_form_data IS 'Form submissions with approval workflow';

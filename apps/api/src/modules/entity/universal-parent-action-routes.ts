@@ -12,9 +12,9 @@ import { sql } from 'drizzle-orm';
 import {
   getEmployeeEntityIds,
   hasPermissionOnEntityId,
-  hasCreatePermissionInEntity,
+  hasCreatePermissionForEntityType,
   type EntityAction
-} from '../rbac/ui-api-permission-rbac-gate.js';
+} from '../rbac/entity-permission-rbac-gate.js';
 
 // Universal schemas
 const UniversalEntitySchema = Type.Object({
@@ -42,10 +42,10 @@ const UpdateEntitySchema = Type.Partial(CreateEntitySchema);
 
 // Entity table mapping
 const ENTITY_TABLE_MAP: Record<string, string> = {
-  'biz': 'app.d_biz',
+  'biz': 'app.d_business',
   'project': 'app.d_project',
-  'hr': 'app.d_hr',
-  'org': 'app.d_org',
+  'hr': 'app.d_office',
+  'org': 'app.d_office',
   'client': 'app.d_client',
   'worksite': 'app.d_worksite',
   'employee': 'app.d_employee',
@@ -200,7 +200,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
       // Get parent entity info
       const parentTable = getTableName(parentEntity);
       const parentInfo = await db.execute(sql.raw(
-        `SELECT id, name FROM ${parentTable} WHERE id = $1 AND active = true`,
+        `SELECT id, name FROM ${parentTable} WHERE id = $1 AND active_flag = true`,
         [parentId]
       ));
 
@@ -240,7 +240,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         ];
 
         if (active !== undefined) {
-          conditions.push(`e.active = ${active}`);
+          conditions.push(`e.active_flag = ${active}`);
         }
 
         if (search) {
@@ -275,7 +275,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         ];
 
         if (active !== undefined) {
-          conditions.push(`e.active = ${active}`);
+          conditions.push(`e.active_flag = ${active}`);
         }
 
         if (search) {
@@ -398,7 +398,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
       // Get parent entity info
       const parentTable = getTableName(parentEntity);
       const parentInfo = await db.execute(sql.raw(
-        `SELECT id, name FROM ${parentTable} WHERE id = $1 AND active = true`,
+        `SELECT id, name FROM ${parentTable} WHERE id = $1 AND active_flag = true`,
         [parentId]
       ));
 
@@ -413,7 +413,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         const foreignKeyColumn = relationshipConfig.foreignKeyColumn!;
         query = `
           SELECT * FROM ${actionTable}
-          WHERE id = $1 AND ${foreignKeyColumn} = $2 AND active = true
+          WHERE id = $1 AND ${foreignKeyColumn} = $2 AND active_flag = true
         `;
       } else {
         query = `
@@ -425,7 +425,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
             AND eh.parent_entity_type = '${parentEntity}'
             AND eh.child_entity_type = '${actionEntity}'
             AND eh.active_flag = true
-            AND e.active = true
+            AND e.active_flag = true
         `;
       }
 
@@ -490,7 +490,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
       }
 
       // Check create permission
-      const hasCreatePermission = await hasCreatePermissionInEntity(employeeId, parentEntity, parentId, actionEntity);
+      const hasCreatePermission = await hasCreatePermissionForEntityType(employeeId, actionEntity);
       if (!hasCreatePermission) {
         return reply.status(403).send({ error: 'Insufficient permissions to create entity in this context' });
       }
@@ -506,7 +506,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
       // Verify parent exists
       const parentTable = getTableName(parentEntity);
       const parentCheck = await db.execute(sql.raw(
-        `SELECT id FROM ${parentTable} WHERE id = $1 AND active = true`,
+        `SELECT id FROM ${parentTable} WHERE id = $1 AND active_flag = true`,
         [parentId]
       ));
 
@@ -638,7 +638,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
       if (relationshipConfig.type === 'foreign_key') {
         const foreignKeyColumn = relationshipConfig.foreignKeyColumn!;
         existingCheck = await db.execute(sql.raw(
-          `SELECT id FROM ${actionTable} WHERE id = $1 AND ${foreignKeyColumn} = $2 AND active = true`,
+          `SELECT id FROM ${actionTable} WHERE id = $1 AND ${foreignKeyColumn} = $2 AND active_flag = true`,
           [actionId, parentId]
         ));
       } else {
@@ -651,7 +651,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
             AND eh.parent_entity_type = '${parentEntity}'
             AND eh.child_entity_type = '${actionEntity}'
             AND eh.active_flag = true
-            AND e.active = true
+            AND e.active_flag = true
         `, [actionId, parentId]));
       }
 
@@ -685,7 +685,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
       }
 
       if (data.active !== undefined) {
-        updateFields.push(`active = $${paramIndex++}`);
+        updateFields.push(`active_flag = $${paramIndex++}`);
         values.push(data.active);
       }
 
@@ -776,7 +776,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
       if (relationshipConfig.type === 'foreign_key') {
         const foreignKeyColumn = relationshipConfig.foreignKeyColumn!;
         existingCheck = await db.execute(sql.raw(
-          `SELECT id FROM ${actionTable} WHERE id = $1 AND ${foreignKeyColumn} = $2 AND active = true`,
+          `SELECT id FROM ${actionTable} WHERE id = $1 AND ${foreignKeyColumn} = $2 AND active_flag = true`,
           [actionId, parentId]
         ));
       } else {
@@ -789,7 +789,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
             AND eh.parent_entity_type = '${parentEntity}'
             AND eh.child_entity_type = '${actionEntity}'
             AND eh.active_flag = true
-            AND e.active = true
+            AND e.active_flag = true
         `, [actionId, parentId]));
       }
 
@@ -799,7 +799,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
 
       // Soft delete entity
       await db.execute(sql.raw(
-        `UPDATE ${actionTable} SET active = false, to_ts = NOW(), updated = NOW() WHERE id = $1`,
+        `UPDATE ${actionTable} SET active_flag = false, to_ts = NOW(), updated = NOW() WHERE id = $1`,
         [actionId]
       ));
 
@@ -807,7 +807,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
       if (relationshipConfig.type === 'hierarchy_mapping') {
         await db.execute(sql`
           UPDATE app.entity_id_map
-          SET active = false, to_ts = NOW(), updated = NOW()
+          SET active_flag = false, to_ts = NOW(), updated = NOW()
           WHERE action_entity_id = ${actionId} AND action_entity = ${actionEntity}
             AND parent_entity_id = ${parentId} AND parent_entity = ${parentEntity}
         `);

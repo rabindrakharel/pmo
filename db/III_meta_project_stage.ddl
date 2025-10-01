@@ -14,7 +14,6 @@ CREATE TABLE app.meta_project_stage (
 );
 
 -- Index for meta project stage
-CREATE INDEX idx_meta_project_stage_active ON app.meta_project_stage(active_flag);
 
 -- Initial data for project stages
 INSERT INTO app.meta_project_stage (level_id, level_name, level_descr, sort_order, color_code) VALUES
@@ -29,6 +28,6 @@ INSERT INTO app.meta_project_stage (level_id, level_name, level_descr, sort_orde
 -- Add foreign key constraint to reference meta tables
 ALTER TABLE app.d_project
 ADD CONSTRAINT fk_project_stage
-FOREIGN KEY (project_stage) REFERENCES app.meta_project_stage(level_name);
+FOREIGN KEY (project_stage) ;
 
 COMMENT ON TABLE app.meta_project_stage IS 'Project lifecycle stages with UI color coding';

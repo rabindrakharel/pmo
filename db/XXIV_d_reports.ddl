@@ -48,18 +48,6 @@ CREATE TABLE app.d_reports (
     version integer DEFAULT 1
 );
 
--- Indexes for reports
-CREATE INDEX idx_reports_type ON app.d_reports(report_type);
-CREATE INDEX idx_reports_category ON app.d_reports(report_category);
-CREATE INDEX idx_reports_refresh_frequency ON app.d_reports(refresh_frequency);
-CREATE INDEX idx_reports_last_execution ON app.d_reports(last_execution_time);
-CREATE INDEX idx_reports_primary_entity ON app.d_reports(primary_entity_type, primary_entity_id);
-CREATE INDEX idx_reports_active ON app.d_reports(active_flag);
-CREATE INDEX idx_reports_slug ON app.d_reports(slug);
-CREATE INDEX idx_reports_code ON app.d_reports(code);
 
--- Update trigger for reports
-CREATE TRIGGER trg_reports_updated_ts BEFORE UPDATE ON app.d_reports
-    FOR EACH ROW EXECUTE FUNCTION app.update_updated_ts();
 
 COMMENT ON TABLE app.d_reports IS 'Report definitions with data source configuration';

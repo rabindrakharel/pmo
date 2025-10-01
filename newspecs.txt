@@ -199,6 +199,32 @@ Business-level edit permission
 WHERE entity = 'project' AND entity_id = 'all' AND 4 = ANY(permission)
 AND entity = 'biz' AND entity_id = <specific_business_id> AND 1 = ANY(permission)
 
+
+-------------RBAC------------
+1. entity_id = 'all' (Type-Level Permissions)
+    - Grants access to ALL instances of that entity type
+    - James Miller has this for all 16 entity types
+    - Example: entity='project', entity_id='all' → Can access all 5 projects
+  2. entity_id = <UUID> (Instance-Level Permissions)
+    - Grants access to ONE specific instance only
+    - Example: entity='project', entity_id='93106ffb...' → Can only access that one project
+  3. active_flag = true
+    - Indicates the permission is currently active and enforced
+    - All of James Miller's 16 permissions are active
+    - Can be set to false to temporarily revoke without deleting
+  4. Permission Array {0,1,2,3,4}
+    - 0 = View (read access)
+    - 1 = Edit (modify data)
+    - 2 = Share (grant permissions)
+    - 3 = Delete (soft delete)
+    - 4 = Create (create new entities)
+  5. Complex Permission Check (from newspecs.txt)
+  -- Can user create project AND assign to business?
+  WHERE entity='project' AND entity_id='all' AND 4=ANY(permission)  -- Can create
+  AND entity='biz' AND entity_id=<uuid> AND 1=ANY(permission)       -- Can edit business
+  5. James Miller: ✅ AUTHORIZED (has both permissions)
+
+
 6. UI & Navigation Model
 Main Page
 

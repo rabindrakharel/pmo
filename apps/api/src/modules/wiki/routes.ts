@@ -136,7 +136,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           created,
           updated,
           attr
-        FROM app.d_wiki WHERE id = ${id} AND active = true
+        FROM app.d_wiki WHERE id = ${id} AND active_flag = true
       `);
       if (!result.length) return reply.status(404).send({ error: 'Not found' });
       return result[0];
@@ -192,7 +192,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           published = COALESCE(${data.published}, published),
           attr = COALESCE(${JSON.stringify(data.attr ?? null)}, attr),
           updated = NOW()
-        WHERE id = ${id} AND active = true
+        WHERE id = ${id} AND active_flag = true
         RETURNING id, title, slug, summary, tags, owner_id as "ownerId", owner_name as "ownerName", published, share_link as "shareLink", version, active, from_ts as "fromTs", to_ts as "toTs", created, updated
       `);
       if (!updated.length) return reply.status(404).send({ error: 'Not found' });
@@ -211,7 +211,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     
     try {
       const deleted = await db.execute(sql`
-        UPDATE app.d_wiki SET active = false, to_ts = NOW(), updated = NOW() WHERE id = ${id} AND active = true
+        UPDATE app.d_wiki SET active_flag = false, to_ts = NOW(), updated = NOW() WHERE id = ${id} AND active_flag = true
         RETURNING id
       `);
       if (!deleted.length) return reply.status(404).send({ error: 'Not found' });
