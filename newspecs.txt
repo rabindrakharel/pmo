@@ -225,53 +225,60 @@ AND entity = 'biz' AND entity_id = <specific_business_id> AND 1 = ANY(permission
   5. James Miller: ✅ AUTHORIZED (has both permissions)
 
 
-6. UI & Navigation Model
-Main Page
 
-Sidebar Menu: office, business, project, task, form, artifact, wiki
+Flow diagram:
 
-Top Section: grid of reports (report1, report2, report3)
+  URL: /project/84215ccb-313d-48f8-9c37-4398f28c0b1f/task
 
-Actions: create, share, delete
+  App.tsx (Line 152-157)
+  ├─ Route path="/project/:id" → EntityDetailPage (parentType="project")
+  │   └─ Route path="task" → EntityChildListPage (parentType="project", childType="task")
+  │
+  EntityDetailPage.tsx
+  ├─ useParams() → id = "84215ccb-313d-48f8-9c37-4398f28c0b1f"
+  ├─ props: { entityType: "project" }
+  ├─ Renders tabs at top
+  └─ Line 376: <Outlet /> → This renders the nested child route
+      │
+      └─ EntityChildListPage.tsx (Line 30)
+          ├─ props: { parentType: "project", childType: "task" }
+          ├─ useParams() → id = "84215ccb-313d-48f8-9c37-4398f28c0b1f" (inherited from parent route)
+          ├─ Line 33: config = getEntityConfig("task")
+          ├─ Line 67-103: loadChildData() → Calls API
+          └─ Renders one of three views:
+              ├─ Table View → FilteredDataTable
+              ├─ Kanban View → KanbanBoard
+              └─ Grid View → GridView
 
-Main Component: Filtered Data Table
+  Step-by-step breakdown:
 
-Searchable
+  1. App.tsx:152-157 - Routing configuration
+  <Route path="/project/:id" element={<EntityDetailPage entityType="project" />}>
+    <Route path="task" element={<EntityChildListPage parentType="project" childType="task" />} />
+  </Route>
+  2. EntityDetailPage receives:
+    - entityType="project" as a prop (from route element)
+    - id from URL params via useParams()
+    - Renders <Outlet /> at line 376 which is where child routes render
+  3. EntityChildListPage receives:
+    - parentType="project" as a prop (from route element)
+    - childType="task" as a prop (from route element)
+    - id from URL params via useParams() - this gets the parent's ID from the URL
+    - Accesses parent ID as parentId via const { id: parentId } = useParams()
+  4. Data loading in EntityChildListPage:
+    - Line 73-94: Tries to call projectApi.getTasks(parentId)
+    - If that doesn't exist, falls back to taskApi.list({ parentId, parentType: "project" })
+  5. Rendering based on view mode (lines 200+):
+    - Table view: <FilteredDataTable parentId={parentId} parentType={parentType} childType={childType} />
+    - Kanban view: <KanbanBoard columns={kanbanColumns} onCardMove={handleCardMove} />
+    - Grid view: <GridView items={data} titleField={...} />
 
-Filterable
+  Key props passed to FilteredDataTable (when Table view is selected):
+  - parentId: The project UUID from URL params
+  - parentType: "project" (from route props)
+  - childType: "task" (from route props)
+  - config: Task entity configuration (fields, columns, etc.)
+  - Various handlers: onRowClick, onBulkShare, onBulkDelete
 
-Scrollable
-
-Row click: navigates to entity detail page.
-
-Entity Detail Page
-
-Shows:
-
-Overview tab (inline edit allowed)
-
-Child entity tabs (task, wiki, etc.)
-
-Editable entity details
-
-Clicking a child entity row:
-
-Navigates to a new Entity Detail Page
-
-entity = child_entity
-
-entity_id = child_entity_id
-
-7. Workflow Notes
-
-All %_data tables share the same pattern:
-
-d_task_data.task_id = d_task.id
-
-d_form_data.form_id = d_form_head.id
-
-etc.
-
-Child entity clicks propagate navigation downward, turning child into active entity.
-
-Inline editing possible from detail page.
+  No props are directly passed from parent to child - React Router's <Outlet /> renders the child route component with its own props as defined in the route
+  configuration.

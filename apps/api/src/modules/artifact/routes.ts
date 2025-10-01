@@ -67,7 +67,7 @@ const UpdateArtifactSchema = Type.Partial(CreateArtifactSchema);
 export async function artifactRoutes(fastify: FastifyInstance) {
   // List artifacts
   fastify.get('/api/v1/artifact', {
-    
+    preHandler: [fastify.authenticate],
     schema: {
       tags: ['artifact'],
       summary: 'List artifacts',

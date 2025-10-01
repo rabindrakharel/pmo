@@ -15,13 +15,23 @@ export interface GridItem<T = any> {
 }
 
 export interface GridViewProps<T = any> {
-  data: GridItem<T>[];
+  // New simplified API (for EntityMainPage/EntityChildListPage)
+  items?: any[];
+  columns?: number;
+  emptyMessage?: string;
+  titleField?: string;
+  descriptionField?: string;
+  badgeFields?: string[];
+  imageField?: string;
+
+  // Original API (for custom GridItem usage)
+  data?: GridItem<T>[];
   loading?: boolean;
   searchable?: boolean;
   filterable?: boolean;
   gridCols?: 1 | 2 | 3 | 4 | 5 | 6;
   cardSize?: 'small' | 'medium' | 'large';
-  onItemClick?: (item: GridItem<T>) => void;
+  onItemClick?: (item: any) => void;
   onItemSelect?: (keys: string[], items: GridItem<T>[]) => void;
   selectable?: boolean;
   className?: string;
@@ -41,6 +51,16 @@ const getBadgeColor = (variant: string = 'default') => {
 };
 
 export function GridView<T = any>({
+  // New simplified API
+  items,
+  columns,
+  emptyMessage,
+  titleField = 'name',
+  descriptionField = 'descr',
+  badgeFields = [],
+  imageField,
+
+  // Original API
   data,
   loading = false,
   searchable = true,
@@ -59,6 +79,29 @@ export function GridView<T = any>({
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
 
+  // Convert simplified API to GridItem[] format
+  const normalizedData: GridItem<T>[] = useMemo(() => {
+    if (items) {
+      // Use simplified API
+      return (items || []).map((item: any) => ({
+        key: item.id || item._id || Math.random().toString(),
+        data: item,
+        title: item[titleField] || item.name || item.title || 'Untitled',
+        subtitle: item.code || item.slug,
+        description: item[descriptionField] || item.description || item.descr,
+        image: imageField ? item[imageField] : undefined,
+        badges: badgeFields.map(field => ({
+          text: item[field]?.toString() || '',
+          variant: 'default' as const
+        })).filter(b => b.text)
+      }));
+    } else if (data) {
+      // Use original API
+      return data;
+    }
+    return [];
+  }, [items, data, titleField, descriptionField, badgeFields, imageField]);
+
   const gridColsClass = {
     1: 'grid-cols-1',
     2: 'grid-cols-1 md:grid-cols-2',
@@ -74,8 +117,12 @@ export function GridView<T = any>({
     large: 'p-8',
   };
 
+  const actualGridCols = columns || gridCols;
+  const actualEmptyText = emptyMessage || emptyText;
+
   const filteredData = useMemo(() => {
-    let result = [...data];
+    if (!normalizedData || !Array.isArray(normalizedData)) return [];
+    let result = [...normalizedData];
 
     if (searchTerm && searchable) {
       result = result.filter(item => 
@@ -97,7 +144,7 @@ export function GridView<T = any>({
     }
 
     return result;
-  }, [data, searchTerm, activeFilters, searchable, filterable]);
+  }, [normalizedData, searchTerm, activeFilters, searchable, filterable]);
 
   const handleSelect = (item: GridItem<T>) => {
     if (!selectable) return;
@@ -111,8 +158,8 @@ export function GridView<T = any>({
     }
     
     setSelectedKeys(newSelectedKeys);
-    
-    const selectedItems = data.filter(dataItem => newSelectedKeys.has(dataItem.key));
+
+    const selectedItems = normalizedData.filter(dataItem => newSelectedKeys.has(dataItem.key));
     onItemSelect?.(Array.from(newSelectedKeys), selectedItems);
   };
 
@@ -130,7 +177,8 @@ export function GridView<T = any>({
           isSelected ? 'ring-2 ring-blue-500 border-blue-500' : ''
         } ${cardSizeClasses[cardSize]} ${item.className || ''}`}
         onClick={() => {
-          onItemClick?.(item);
+          // Pass the original data item for simplified API
+          onItemClick?.(items ? item.data : item);
           if (selectable) {
             handleSelect(item);
           }
@@ -264,10 +312,10 @@ export function GridView<T = any>({
         {filteredData.length === 0 ? (
           <div className="text-center py-12">
             <Grid className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500">{emptyText}</p>
+            <p className="text-gray-500">{actualEmptyText}</p>
           </div>
         ) : (
-          <div className={`grid gap-6 ${gridColsClass[gridCols]}`}>
+          <div className={`grid gap-6 ${gridColsClass[actualGridCols]}`}>
             {filteredData.map(item => 
               renderCustomCard ? renderCustomCard(item) : renderDefaultCard(item)
             )}

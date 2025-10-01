@@ -70,11 +70,34 @@ export const projectApi = {
     return response.data;
   },
   
-  async getTasks(id: string) {
-    const response = await apiClient.get(`/api/v1/project/${id}/task`);
+  async getTasks(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/project/${id}/task`, { params: { page, limit } });
     return response.data;
   },
-  
+
+  async getWikis(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/project/${id}/wiki`, { params: { page, limit } });
+    return response.data;
+  },
+
+  async getArtifacts(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/project/${id}/artifact`, { params: { page, limit } });
+    return response.data;
+  },
+
+  async getForms(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/project/${id}/form`, { params: { page, limit } });
+    return response.data;
+  },
+
   async create(data: any) {
     const response = await apiClient.post('/api/v1/project', data);
     return response.data;

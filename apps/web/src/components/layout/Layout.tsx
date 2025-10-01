@@ -29,7 +29,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useFullscreen } from '../../contexts/FullscreenContext';
 import { FloatingFullscreenToggle } from '../common/FloatingFullscreenToggle';
 import { CreateButton } from '../common/CreateButton';
-import { GlobalSearchCompact } from '../common/GlobalSearch';
 
 interface CreateButtonConfig {
   label: string;
@@ -389,20 +388,7 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header Bar */}
         <header className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 max-w-lg">
-              <GlobalSearchCompact />
-            </div>
-            <div className="flex items-center space-x-4">
-              {createButton && (
-                <CreateButton
-                  label={createButton.label}
-                  href={createButton.href}
-                  entityType={createButton.entityType}
-                  size="sm"
-                />
-              )}
-            </div>
+          <div className="flex items-center justify-end">
           </div>
         </header>
 

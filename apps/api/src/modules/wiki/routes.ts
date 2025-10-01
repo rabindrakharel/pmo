@@ -40,6 +40,7 @@ const UpdateWikiSchema = Type.Partial(CreateWikiSchema);
 export async function wikiRoutes(fastify: FastifyInstance) {
   // List
   fastify.get('/api/v1/wiki', {
+    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         search: Type.Optional(Type.String()),

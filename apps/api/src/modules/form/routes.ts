@@ -58,6 +58,7 @@ const UpdateFormSchema = Type.Partial(CreateFormSchema);
 export async function formRoutes(fastify: FastifyInstance) {
   // List forms with filtering
   fastify.get('/api/v1/form', {
+    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         version: Type.Optional(Type.Number()),
@@ -132,7 +133,7 @@ export async function formRoutes(fastify: FastifyInstance) {
             SELECT 1 FROM app.entity_id_rbac_map rbac
             WHERE rbac.empid = ${employeeId}
               AND rbac.entity = 'form'
-              AND (rbac.entity_id = f.id OR rbac.entity_id = 'all')
+              AND (rbac.entity_id = f.id::text OR rbac.entity_id = 'all')
               AND rbac.active_flag = true
               AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
               AND 0 = ANY(rbac.permission)

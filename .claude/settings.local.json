@@ -136,7 +136,11 @@
       "Bash(npx tsx:*)",
       "Bash(bash:*)",
       "Bash(xargs -r kill -9)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzU5Mjg1MTk1LCJleHAiOjE3NTkzNzE1OTV9.aPbhlB0z1L1MNE4jJlrgdH5f0pYMKBI5gXEv-aXvWJs\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzU5Mjg2NzQ3LCJleHAiOjE3NTkzNzMxNDd9.hrve9OHWwVIAW570wQC8dMiEr40OvfDm399LoiGEVPI\")",
+      "Bash(xargs -r kill)",
+      "Bash(TOKEN='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzU5Mjg5MjA5LCJleHAiOjE3NTkzNzU2MDl9.9YqxcI0i66jw7D6usvgCiPXj3_gYyH4dYPglDUQVQ3Q')"
     ],
     "deny": [],
     "ask": [],

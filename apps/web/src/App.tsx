@@ -4,53 +4,15 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FullscreenProvider } from './contexts/FullscreenContext';
 import { LoginForm } from './components/auth/LoginForm';
 import { MetaPage } from './pages/MetaPage';
-import { BusinessPage } from './pages/BusinessPage';
-import { OrgPage } from './pages/OrgPage';
-import { ProjectPage } from './pages/ProjectPage';
-import { TaskPage } from './pages/TaskPage';
-import { EmployeePage } from './pages/EmployeePage';
-import { RolePage } from './pages/RolePage';
-import { FormPage } from './pages/FormPage';
-import { FormViewPage } from './pages/FormViewPage';
 import { FormBuilderPage } from './pages/FormBuilderPage';
 import { FormEditPage } from './pages/FormEditPage';
-import { WikiPage } from './pages/WikiPage';
 import { WikiEditorPage } from './pages/WikiEditorPage';
 import { WikiViewPage } from './pages/WikiViewPage';
-import { ArtifactPage } from './pages/ArtifactPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { BillingPage } from './pages/BillingPage';
-
-// Parent/Action Page Components
-import { ProjectDetailPage } from './pages/project/ProjectDetailPage';
-import { ProjectWikiPage } from './pages/project/ProjectWikiPage';
-import { ProjectTaskPage } from './pages/project/ProjectTaskPage';
-import { ProjectArtifactPage } from './pages/project/ProjectArtifactPage';
-import { ProjectFormPage } from './pages/project/ProjectFormPage';
-import { BusinessDetailPage } from './pages/business/BusinessDetailPage';
-import { BusinessWikiPage } from './pages/business/BusinessWikiPage';
-import { BusinessFormPage } from './pages/business/BusinessFormPage';
-import { BusinessTaskPage } from './pages/business/BusinessTaskPage';
-import { BusinessArtifactPage } from './pages/business/BusinessArtifactPage';
-import { BusinessProjectPage } from './pages/business/BusinessProjectPage';
-import { EmployeeDetailPage } from './pages/employee/EmployeeDetailPage';
-import { OrgDetailPage } from './pages/org/OrgDetailPage';
-import { OrgWorksitePage } from './pages/org/OrgWorksitePage';
-import { OrgEmployeePage } from './pages/org/OrgEmployeePage';
-import { OrgWikiPage } from './pages/org/OrgWikiPage';
-import { OrgTaskPage } from './pages/org/OrgTaskPage';
-import { OrgArtifactPage } from './pages/org/OrgArtifactPage';
-import { OrgFormPage } from './pages/org/OrgFormPage';
-import { WorksiteDetailPage } from './pages/worksite/WorksiteDetailPage';
-import { WorksiteTaskPage } from './pages/worksite/WorksiteTaskPage';
-import { WorksiteFormPage } from './pages/worksite/WorksiteFormPage';
-import { TaskFormPage } from './pages/task/TaskFormPage';
-import { TaskArtifactPage } from './pages/task/TaskArtifactPage';
-import { RoleDetailPage } from './pages/role/RoleDetailPage';
-import { TaskDetailPage } from './pages/TaskDetailPage';
-import { 
+import {
   ProjectStatusPage,
   ProjectStagePage,
   TaskStatusPage,
@@ -59,6 +21,11 @@ import {
   OrgLevelPage,
   HrLevelPage
 } from './pages/meta';
+
+// Universal Components
+import { EntityMainPage } from './pages/EntityMainPage';
+import { EntityDetailPage } from './pages/EntityDetailPage';
+import { EntityChildListPage } from './pages/EntityChildListPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -165,358 +132,77 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      {/* Entity List Routes */}
-      <Route
-        path="/biz"
-        element={
-          <ProtectedRoute>
-            <BusinessPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/org"
-        element={
-          <ProtectedRoute>
-            <OrgPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/project"
-        element={
-          <ProtectedRoute>
-            <ProjectPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/task"
-        element={
-          <ProtectedRoute>
-            <TaskPage />
-          </ProtectedRoute>
-        }
-      />
+      {/* Universal Entity List Routes */}
+      <Route path="/biz" element={<ProtectedRoute><EntityMainPage entityType="biz" /></ProtectedRoute>} />
+      <Route path="/org" element={<ProtectedRoute><EntityMainPage entityType="org" /></ProtectedRoute>} />
+      <Route path="/project" element={<ProtectedRoute><EntityMainPage entityType="project" /></ProtectedRoute>} />
+      <Route path="/task" element={<ProtectedRoute><EntityMainPage entityType="task" /></ProtectedRoute>} />
+      <Route path="/wiki" element={<ProtectedRoute><EntityMainPage entityType="wiki" /></ProtectedRoute>} />
+      <Route path="/artifact" element={<ProtectedRoute><EntityMainPage entityType="artifact" /></ProtectedRoute>} />
+      <Route path="/form" element={<ProtectedRoute><EntityMainPage entityType="form" /></ProtectedRoute>} />
+      <Route path="/employee" element={<ProtectedRoute><EntityMainPage entityType="employee" /></ProtectedRoute>} />
+      <Route path="/role" element={<ProtectedRoute><EntityMainPage entityType="role" /></ProtectedRoute>} />
+      <Route path="/worksite" element={<ProtectedRoute><EntityMainPage entityType="worksite" /></ProtectedRoute>} />
+      <Route path="/client" element={<ProtectedRoute><EntityMainPage entityType="client" /></ProtectedRoute>} />
+      <Route path="/position" element={<ProtectedRoute><EntityMainPage entityType="position" /></ProtectedRoute>} />
 
-      {/* Parent/Action Routes - Project Context */}
-      <Route
-        path="/project/:projectId"
-        element={
-          <ProtectedRoute>
-            <ProjectDetailPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/project/:projectId/task"
-        element={
-          <ProtectedRoute>
-            <ProjectTaskPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/project/:projectId/artifact"
-        element={
-          <ProtectedRoute>
-            <ProjectArtifactPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/project/:projectId/wiki"
-        element={
-          <ProtectedRoute>
-            <ProjectWikiPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/project/:projectId/form"
-        element={
-          <ProtectedRoute>
-            <ProjectFormPage />
-          </ProtectedRoute>
-        }
-      />
+      {/* Universal Entity Detail Routes with Child Entities */}
 
-      {/* Parent/Action Routes - Business Context */}
-      <Route
-        path="/biz/:bizId"
-        element={
-          <ProtectedRoute>
-            <BusinessDetailPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/biz/:bizId/wiki"
-        element={
-          <ProtectedRoute>
-            <BusinessWikiPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/biz/:bizId/form"
-        element={
-          <ProtectedRoute>
-            <BusinessFormPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/biz/:bizId/task"
-        element={
-          <ProtectedRoute>
-            <BusinessTaskPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/biz/:bizId/project"
-        element={
-          <ProtectedRoute>
-            <BusinessProjectPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/biz/:bizId/artifact"
-        element={
-          <ProtectedRoute>
-            <BusinessArtifactPage />
-          </ProtectedRoute>
-        }
-      />
+      {/* Project Routes */}
+      <Route path="/project/:id" element={<ProtectedRoute><EntityDetailPage entityType="project" /></ProtectedRoute>}>
+        <Route path="task" element={<EntityChildListPage parentType="project" childType="task" />} />
+        <Route path="wiki" element={<EntityChildListPage parentType="project" childType="wiki" />} />
+        <Route path="artifact" element={<EntityChildListPage parentType="project" childType="artifact" />} />
+        <Route path="form" element={<EntityChildListPage parentType="project" childType="form" />} />
+      </Route>
 
-      {/* Task Detail Routes */}
-      <Route
-        path="/project/:projectId/task/:taskId"
-        element={
-          <ProtectedRoute>
-            <TaskDetailPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/employee"
-        element={
-          <ProtectedRoute>
-            <EmployeePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/role"
-        element={
-          <ProtectedRoute>
-            <RolePage />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Entity Detail Routes */}
-      <Route
-        path="/employee/:employeeId"
-        element={
-          <ProtectedRoute>
-            <EmployeeDetailPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/org/:orgId"
-        element={
-          <ProtectedRoute>
-            <OrgDetailPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/role/:roleId"
-        element={
-          <ProtectedRoute>
-            <RoleDetailPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/task/:taskId"
-        element={
-          <ProtectedRoute>
-            <TaskDetailPage />
-          </ProtectedRoute>
-        }
-      />
+      {/* Business Routes */}
+      <Route path="/biz/:id" element={<ProtectedRoute><EntityDetailPage entityType="biz" /></ProtectedRoute>}>
+        <Route path="project" element={<EntityChildListPage parentType="biz" childType="project" />} />
+        <Route path="task" element={<EntityChildListPage parentType="biz" childType="task" />} />
+        <Route path="wiki" element={<EntityChildListPage parentType="biz" childType="wiki" />} />
+        <Route path="artifact" element={<EntityChildListPage parentType="biz" childType="artifact" />} />
+        <Route path="form" element={<EntityChildListPage parentType="biz" childType="form" />} />
+      </Route>
 
       {/* Organization Routes */}
-      <Route
-        path="/org/:orgId/wiki"
-        element={
-          <ProtectedRoute>
-            <OrgWikiPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/org/:orgId/task"
-        element={
-          <ProtectedRoute>
-            <OrgTaskPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/org/:orgId/artifact"
-        element={
-          <ProtectedRoute>
-            <OrgArtifactPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/org/:orgId/form"
-        element={
-          <ProtectedRoute>
-            <OrgFormPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/org/:orgId/worksite"
-        element={
-          <ProtectedRoute>
-            <OrgWorksitePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/org/:orgId/employee"
-        element={
-          <ProtectedRoute>
-            <OrgEmployeePage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/org/:id" element={<ProtectedRoute><EntityDetailPage entityType="org" /></ProtectedRoute>}>
+        <Route path="worksite" element={<EntityChildListPage parentType="org" childType="worksite" />} />
+        <Route path="employee" element={<EntityChildListPage parentType="org" childType="employee" />} />
+        <Route path="wiki" element={<EntityChildListPage parentType="org" childType="wiki" />} />
+        <Route path="task" element={<EntityChildListPage parentType="org" childType="task" />} />
+        <Route path="artifact" element={<EntityChildListPage parentType="org" childType="artifact" />} />
+        <Route path="form" element={<EntityChildListPage parentType="org" childType="form" />} />
+      </Route>
 
       {/* Worksite Routes */}
-      <Route
-        path="/worksite/:worksiteId"
-        element={
-          <ProtectedRoute>
-            <WorksiteDetailPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/worksite/:worksiteId/task"
-        element={
-          <ProtectedRoute>
-            <WorksiteTaskPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/worksite/:worksiteId/form"
-        element={
-          <ProtectedRoute>
-            <WorksiteFormPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/worksite/:id" element={<ProtectedRoute><EntityDetailPage entityType="worksite" /></ProtectedRoute>}>
+        <Route path="task" element={<EntityChildListPage parentType="worksite" childType="task" />} />
+        <Route path="form" element={<EntityChildListPage parentType="worksite" childType="form" />} />
+      </Route>
 
-      {/* Task Action Routes */}
-      <Route
-        path="/task/:taskId/form"
-        element={
-          <ProtectedRoute>
-            <TaskFormPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/task/:taskId/artifact"
-        element={
-          <ProtectedRoute>
-            <TaskArtifactPage />
-          </ProtectedRoute>
-        }
-      />
+      {/* Task Routes */}
+      <Route path="/task/:id" element={<ProtectedRoute><EntityDetailPage entityType="task" /></ProtectedRoute>}>
+        <Route path="form" element={<EntityChildListPage parentType="task" childType="form" />} />
+        <Route path="artifact" element={<EntityChildListPage parentType="task" childType="artifact" />} />
+      </Route>
 
-      <Route
-        path="/form"
-        element={
-          <ProtectedRoute>
-            <FormPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/form/new"
-        element={
-          <ProtectedRoute>
-            <FormBuilderPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/form/:id"
-        element={
-          <ProtectedRoute>
-            <FormViewPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/form/:id/edit"
-        element={
-          <ProtectedRoute>
-            <FormEditPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/artifact"
-        element={
-          <ProtectedRoute>
-            <ArtifactPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/wiki"
-        element={
-          <ProtectedRoute>
-            <WikiPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/wiki/new"
-        element={
-          <ProtectedRoute>
-            <WikiEditorPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/wiki/:id"
-        element={
-          <ProtectedRoute>
-            <WikiViewPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/wiki/:id/edit"
-        element={
-          <ProtectedRoute>
-            <WikiEditorPage />
-          </ProtectedRoute>
-        }
-      />
+      {/* Simple Detail Routes (no children) */}
+      <Route path="/employee/:id" element={<ProtectedRoute><EntityDetailPage entityType="employee" /></ProtectedRoute>} />
+      <Route path="/role/:id" element={<ProtectedRoute><EntityDetailPage entityType="role" /></ProtectedRoute>} />
+      <Route path="/client/:id" element={<ProtectedRoute><EntityDetailPage entityType="client" /></ProtectedRoute>} />
+      <Route path="/position/:id" element={<ProtectedRoute><EntityDetailPage entityType="position" /></ProtectedRoute>} />
+      {/* Form Special Routes (Builder/Editor) */}
+      <Route path="/form/new" element={<ProtectedRoute><FormBuilderPage /></ProtectedRoute>} />
+      <Route path="/form/:id/edit" element={<ProtectedRoute><FormEditPage /></ProtectedRoute>} />
+
+      {/* Wiki Special Routes (Editor/Viewer) */}
+      <Route path="/wiki/new" element={<ProtectedRoute><WikiEditorPage /></ProtectedRoute>} />
+      <Route path="/wiki/:id" element={<ProtectedRoute><WikiViewPage /></ProtectedRoute>} />
+      <Route path="/wiki/:id/edit" element={<ProtectedRoute><WikiEditorPage /></ProtectedRoute>} />
+
+      {/* Artifact Detail Route */}
+      <Route path="/artifact/:id" element={<ProtectedRoute><EntityDetailPage entityType="artifact" /></ProtectedRoute>} />
       {/* Profile Navigation Pages */}
       <Route
         path="/profile"

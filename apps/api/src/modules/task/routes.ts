@@ -12,157 +12,73 @@ import {
 
 const TaskSchema = Type.Object({
   id: Type.String(),
-  
-  // Standard fields
+  slug: Type.String(),
+  code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  tags: Type.Array(Type.String()),
-  attr: Type.Object({}),
-  from_ts: Type.String(),
-  to_ts: Type.Optional(Type.String()),
-  active: Type.Boolean(),
-  created: Type.String(),
-  updated: Type.String(),
-  
-  // Task identification
-  task_number: Type.String(),
-  task_type: Type.String(),
-  task_category: Type.String(),
-  
-  // Project relationship
+  tags: Type.Any(), // jsonb
+  metadata: Type.Any(), // jsonb
+
+  // Relationships
   project_id: Type.String(),
-  project_name: Type.Optional(Type.String()),
-  project_code: Type.Optional(Type.String()),
-  
-  // Task status and priority
-  task_status: Type.String(),
+  business_id: Type.Optional(Type.String()),
+  office_id: Type.Optional(Type.String()),
+
+  // Assignment
+  assignee_employee_ids: Type.Optional(Type.Any()), // uuid[]
+
+  // Status and priority
+  stage: Type.Optional(Type.String()),
   priority_level: Type.Optional(Type.String()),
-  urgency_level: Type.Optional(Type.String()),
-  
-  // Assignment and responsibility
-  assigned_to_employee_id: Type.Optional(Type.String()),
-  assigned_to_employee_name: Type.Optional(Type.String()),
-  assigned_crew_id: Type.Optional(Type.String()),
-  task_owner_id: Type.Optional(Type.String()),
-  
-  // Scheduling and timeline
-  planned_start_date: Type.Optional(Type.String()),
-  planned_end_date: Type.Optional(Type.String()),
-  actual_start_date: Type.Optional(Type.String()),
-  actual_end_date: Type.Optional(Type.String()),
+
+  // Effort tracking
   estimated_hours: Type.Optional(Type.Number()),
   actual_hours: Type.Optional(Type.Number()),
-  
-  // Location and site information
-  worksite_id: Type.Optional(Type.String()),
-  client_id: Type.Optional(Type.String()),
-  service_address: Type.Optional(Type.String()),
-  location_notes: Type.Optional(Type.String()),
-  
-  // Task specifications
-  work_scope: Type.Optional(Type.String()),
-  materials_required: Type.Array(Type.Any()),
-  equipment_required: Type.Array(Type.Any()),
-  safety_requirements: Type.Array(Type.Any()),
-  
-  // Quality and completion
-  completion_percentage: Type.Optional(Type.Number()),
-  quality_score: Type.Optional(Type.Number()),
-  client_satisfaction_score: Type.Optional(Type.Number()),
-  rework_required: Type.Optional(Type.Boolean()),
-  
-  // Financial tracking
-  estimated_cost: Type.Optional(Type.Number()),
-  actual_cost: Type.Optional(Type.Number()),
-  billable_hours: Type.Optional(Type.Number()),
-  billing_rate: Type.Optional(Type.Number()),
-  
-  // Dependencies and relationships
-  predecessor_tasks: Type.Array(Type.Any()),
-  successor_tasks: Type.Array(Type.Any()),
-  blocking_issues: Type.Array(Type.Any()),
-  
-  // Communication and documentation
-  client_communication_required: Type.Optional(Type.Boolean()),
-  permit_required: Type.Optional(Type.Boolean()),
-  inspection_required: Type.Optional(Type.Boolean()),
-  documentation_complete: Type.Optional(Type.Boolean()),
+  story_points: Type.Optional(Type.Number()),
+
+  // Task hierarchy
+  parent_task_id: Type.Optional(Type.String()),
+  dependency_task_ids: Type.Optional(Type.Any()), // uuid[]
+
+  // Temporal fields
+  from_ts: Type.String(),
+  to_ts: Type.Optional(Type.String()),
+  active_flag: Type.Boolean(),
+  created_ts: Type.String(),
+  updated_ts: Type.String(),
+  version: Type.Number(),
 });
 
 // Task Records are deprecated - using single table approach from DDL
 
 const CreateTaskSchema = Type.Object({
+  slug: Type.String({ minLength: 1 }),
+  code: Type.String({ minLength: 1 }),
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
-  
-  // Task identification
-  task_number: Type.String({ minLength: 1 }),
-  task_type: Type.Optional(Type.String()),
-  task_category: Type.Optional(Type.String()),
-  
-  // Project relationship
+  tags: Type.Optional(Type.Any()),
+  metadata: Type.Optional(Type.Any()),
+
+  // Relationships
   project_id: Type.String({ format: 'uuid' }),
-  project_name: Type.Optional(Type.String()),
-  project_code: Type.Optional(Type.String()),
-  
-  // Task status and priority
-  task_status: Type.Optional(Type.String()),
+  business_id: Type.Optional(Type.String({ format: 'uuid' })),
+  office_id: Type.Optional(Type.String({ format: 'uuid' })),
+
+  // Assignment
+  assignee_employee_ids: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
+
+  // Status and priority
+  stage: Type.Optional(Type.String()),
   priority_level: Type.Optional(Type.String()),
-  urgency_level: Type.Optional(Type.String()),
-  
-  // Assignment and responsibility
-  assigned_to_employee_id: Type.Optional(Type.String({ format: 'uuid' })),
-  assigned_to_employee_name: Type.Optional(Type.String()),
-  assigned_crew_id: Type.Optional(Type.String({ format: 'uuid' })),
-  task_owner_id: Type.Optional(Type.String({ format: 'uuid' })),
-  
-  // Scheduling and timeline
-  planned_start_date: Type.Optional(Type.String({ format: 'date' })),
-  planned_end_date: Type.Optional(Type.String({ format: 'date' })),
-  actual_start_date: Type.Optional(Type.String({ format: 'date' })),
-  actual_end_date: Type.Optional(Type.String({ format: 'date' })),
+
+  // Effort tracking
   estimated_hours: Type.Optional(Type.Number()),
   actual_hours: Type.Optional(Type.Number()),
-  
-  // Location and site information
-  worksite_id: Type.Optional(Type.String({ format: 'uuid' })),
-  client_id: Type.Optional(Type.String({ format: 'uuid' })),
-  service_address: Type.Optional(Type.String()),
-  location_notes: Type.Optional(Type.String()),
-  
-  // Task specifications
-  work_scope: Type.Optional(Type.String()),
-  materials_required: Type.Optional(Type.Array(Type.Any())),
-  equipment_required: Type.Optional(Type.Array(Type.Any())),
-  safety_requirements: Type.Optional(Type.Array(Type.Any())),
-  
-  // Quality and completion
-  completion_percentage: Type.Optional(Type.Number()),
-  quality_score: Type.Optional(Type.Number()),
-  client_satisfaction_score: Type.Optional(Type.Number()),
-  rework_required: Type.Optional(Type.Boolean()),
-  
-  // Financial tracking
-  estimated_cost: Type.Optional(Type.Number()),
-  actual_cost: Type.Optional(Type.Number()),
-  billable_hours: Type.Optional(Type.Number()),
-  billing_rate: Type.Optional(Type.Number()),
-  
-  // Dependencies and relationships
-  predecessor_tasks: Type.Optional(Type.Array(Type.Any())),
-  successor_tasks: Type.Optional(Type.Array(Type.Any())),
-  blocking_issues: Type.Optional(Type.Array(Type.Any())),
-  
-  // Communication and documentation
-  client_communication_required: Type.Optional(Type.Boolean()),
-  permit_required: Type.Optional(Type.Boolean()),
-  inspection_required: Type.Optional(Type.Boolean()),
-  documentation_complete: Type.Optional(Type.Boolean()),
-  
-  // Standard fields
-  tags: Type.Optional(Type.Array(Type.String())),
-  attr: Type.Optional(Type.Object({})),
-  active: Type.Optional(Type.Boolean()),
+  story_points: Type.Optional(Type.Number()),
+
+  // Task hierarchy
+  parent_task_id: Type.Optional(Type.String({ format: 'uuid' })),
+  dependency_task_ids: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
 });
 
 const UpdateTaskSchema = Type.Partial(CreateTaskSchema);
@@ -215,7 +131,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
             SELECT 1 FROM app.entity_id_rbac_map rbac
             WHERE rbac.empid = ${userId}
               AND rbac.entity = 'task'
-              AND (rbac.entity_id = t.id OR rbac.entity_id = 'all')
+              AND (rbac.entity_id = t.id::text OR rbac.entity_id = 'all')
               AND rbac.active_flag = true
               AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
               AND 0 = ANY(rbac.permission)
@@ -225,7 +141,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
             SELECT 1 FROM app.entity_id_rbac_map rbac
             WHERE rbac.empid = ${userId}
               AND rbac.entity = 'project'
-              AND (rbac.entity_id = t.project_id OR rbac.entity_id = 'all')
+              AND (rbac.entity_id = t.project_id::text OR rbac.entity_id = 'all')
               AND rbac.active_flag = true
               AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
               AND 0 = ANY(rbac.permission)
@@ -293,29 +209,24 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Get paginated tasks
       const tasks = await db.execute(sql`
         SELECT
-          t.id, t.name, t."descr",
+          t.id, t.slug, t.code, t.name, t.descr,
           COALESCE(t.tags, '[]'::jsonb) as tags,
-          t.attr, t.from_ts, t.to_ts, t.active, t.created, t.updated,
-          t.task_number, t.task_type, t.task_category,
-          t.project_id, t.project_name, t.project_code,
-          t.task_status, t.priority_level, t.urgency_level,
-          t.assigned_to_employee_id, t.assigned_to_employee_name, t.assigned_crew_id, t.task_owner_id,
-          t.planned_start_date, t.planned_end_date, t.actual_start_date, t.actual_end_date,
+          COALESCE(t.metadata, '{}'::jsonb) as metadata,
+          t.project_id, t.business_id, t.office_id,
+          t.assignee_employee_ids,
+          t.stage,
+          t.priority_level,
           t.estimated_hours, t.actual_hours,
-          t.worksite_id, t.client_id, t.service_address, t.location_notes,
-          t.work_scope,
-          COALESCE(t.materials_required, '[]'::jsonb) as materials_required,
-          COALESCE(t.equipment_required, '[]'::jsonb) as equipment_required,
-          COALESCE(t.safety_requirements, '[]'::jsonb) as safety_requirements,
-          t.completion_percentage, t.quality_score, t.client_satisfaction_score, t.rework_required,
-          t.estimated_cost, t.actual_cost, t.billable_hours, t.billing_rate,
-          COALESCE(t.predecessor_tasks, '[]'::jsonb) as predecessor_tasks,
-          COALESCE(t.successor_tasks, '[]'::jsonb) as successor_tasks,
-          COALESCE(t.blocking_issues, '[]'::jsonb) as blocking_issues,
-          t.client_communication_required, t.permit_required, t.inspection_required, t.documentation_complete
+          t.story_points,
+          t.parent_task_id,
+          t.dependency_task_ids,
+          t.from_ts, t.to_ts,
+          t.active_flag,
+          t.created_ts, t.updated_ts,
+          t.version
         FROM app.d_task t
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY t.created DESC
+        ORDER BY t.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -397,27 +308,17 @@ export async function taskRoutes(fastify: FastifyInstance) {
     try {
       // Get single task
       const task = await db.execute(sql`
-        SELECT 
-          id, name, "descr",
+        SELECT
+          id, slug, code, name, descr,
           COALESCE(tags, '[]'::jsonb) as tags,
-          attr, from_ts, to_ts, active, created, updated,
-          task_number, task_type, task_category,
-          project_id, project_name, project_code,
-          task_status, priority_level, urgency_level,
-          assigned_to_employee_id, assigned_to_employee_name, assigned_crew_id, task_owner_id,
-          planned_start_date, planned_end_date, actual_start_date, actual_end_date,
-          estimated_hours, actual_hours,
-          worksite_id, client_id, service_address, location_notes,
-          work_scope,
-          COALESCE(materials_required, '[]'::jsonb) as materials_required,
-          COALESCE(equipment_required, '[]'::jsonb) as equipment_required,
-          COALESCE(safety_requirements, '[]'::jsonb) as safety_requirements,
-          completion_percentage, quality_score, client_satisfaction_score, rework_required,
-          estimated_cost, actual_cost, billable_hours, billing_rate,
-          COALESCE(predecessor_tasks, '[]'::jsonb) as predecessor_tasks,
-          COALESCE(successor_tasks, '[]'::jsonb) as successor_tasks,
-          COALESCE(blocking_issues, '[]'::jsonb) as blocking_issues,
-          client_communication_required, permit_required, inspection_required, documentation_complete
+          COALESCE(metadata, '{}'::jsonb) as metadata,
+          project_id, business_id, office_id,
+          assignee_employee_ids,
+          stage, priority_level,
+          estimated_hours, actual_hours, story_points,
+          parent_task_id, dependency_task_ids,
+          from_ts, to_ts, active_flag,
+          created_ts, updated_ts, version
         FROM app.d_task
         WHERE id = ${id}
       `);
@@ -432,13 +333,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const parsedTask = {
         ...taskData,
         tags: Array.isArray(taskData.tags) ? taskData.tags : (taskData.tags ? JSON.parse(taskData.tags) : []),
-        materials_required: Array.isArray(taskData.materials_required) ? taskData.materials_required : (taskData.materials_required ? JSON.parse(taskData.materials_required) : []),
-        equipment_required: Array.isArray(taskData.equipment_required) ? taskData.equipment_required : (taskData.equipment_required ? JSON.parse(taskData.equipment_required) : []),
-        safety_requirements: Array.isArray(taskData.safety_requirements) ? taskData.safety_requirements : (taskData.safety_requirements ? JSON.parse(taskData.safety_requirements) : []),
-        predecessor_tasks: Array.isArray(taskData.predecessor_tasks) ? taskData.predecessor_tasks : (taskData.predecessor_tasks ? JSON.parse(taskData.predecessor_tasks) : []),
-        successor_tasks: Array.isArray(taskData.successor_tasks) ? taskData.successor_tasks : (taskData.successor_tasks ? JSON.parse(taskData.successor_tasks) : []),
-        blocking_issues: Array.isArray(taskData.blocking_issues) ? taskData.blocking_issues : (taskData.blocking_issues ? JSON.parse(taskData.blocking_issues) : []),
-        attr: taskData.attr || {},
+        metadata: taskData.metadata || {},
       };
 
       const userPermissions = {
