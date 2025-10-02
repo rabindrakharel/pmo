@@ -119,22 +119,36 @@ export const taskApi = {
     const response = await apiClient.get('/api/v1/task', { params });
     return response.data;
   },
-  
+
   async get(id: string) {
     const response = await apiClient.get(`/api/v1/task/${id}`);
     return response.data;
   },
-  
+
+  async getForms(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/task/${id}/form`, { params: { page, limit } });
+    return response.data;
+  },
+
+  async getArtifacts(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/task/${id}/artifact`, { params: { page, limit } });
+    return response.data;
+  },
+
   async create(data: any) {
     const response = await apiClient.post('/api/v1/task', data);
     return response.data;
   },
-  
+
   async updateRecord(id: string, data: any) {
     const response = await apiClient.put(`/api/v1/task/${id}/record`, data);
     return response.data;
   },
-  
+
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/task/${id}`);
     return response.data;
@@ -207,7 +221,7 @@ export const clientApi = {
   },
 };
 
-export const businessApi = {
+export const bizApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; level?: string }) {
     // Convert page-based pagination to limit/offset for API
     const limit = params?.pageSize ?? 20;
@@ -215,82 +229,179 @@ export const businessApi = {
     const query: any = { limit, offset };
     if (params?.search) query.search = params.search;
     if (params?.level) query.level = params.level;
-    
+
     const response = await apiClient.get('/api/v1/biz', { params: query });
     return response.data;
   },
-  
+
   async get(id: string) {
     const response = await apiClient.get(`/api/v1/biz/${id}`);
     return response.data;
   },
-  
+
+  async getProjects(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/biz/${id}/project`, { params: { page, limit } });
+    return response.data;
+  },
+
+  async getTasks(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/biz/${id}/task`, { params: { page, limit } });
+    return response.data;
+  },
+
+  async getWikis(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/biz/${id}/wiki`, { params: { page, limit } });
+    return response.data;
+  },
+
+  async getArtifacts(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/biz/${id}/artifact`, { params: { page, limit } });
+    return response.data;
+  },
+
+  async getForms(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/biz/${id}/form`, { params: { page, limit } });
+    return response.data;
+  },
+
   async create(data: any) {
     const response = await apiClient.post('/api/v1/biz', data);
     return response.data;
   },
-  
+
   async update(id: string, data: any) {
     const response = await apiClient.put(`/api/v1/biz/${id}`, data);
     return response.data;
   },
-  
+
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/biz/${id}`);
     return response.data;
   },
 };
 
-export const orgApi = {
+// Keep backward compatibility alias
+export const businessApi = bizApi;
+
+export const officeApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; level?: string }) {
-    const response = await apiClient.get('/api/v1/entity/org', { params });
+    const response = await apiClient.get('/api/v1/office', { params });
     return response.data;
   },
 
   async get(id: string) {
-    const response = await apiClient.get(`/api/v1/entity/org/${id}`);
+    const response = await apiClient.get(`/api/v1/office/${id}`);
+    return response.data;
+  },
+
+  async getWorksites(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/office/${id}/worksite`, { params: { page, limit } });
+    return response.data;
+  },
+
+  async getEmployees(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/office/${id}/employee`, { params: { page, limit } });
+    return response.data;
+  },
+
+  async getWikis(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/office/${id}/wiki`, { params: { page, limit } });
+    return response.data;
+  },
+
+  async getTasks(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/office/${id}/task`, { params: { page, limit } });
+    return response.data;
+  },
+
+  async getArtifacts(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/office/${id}/artifact`, { params: { page, limit } });
+    return response.data;
+  },
+
+  async getForms(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/office/${id}/form`, { params: { page, limit } });
     return response.data;
   },
 
   async create(data: any) {
-    const response = await apiClient.post('/api/v1/entity/org', data);
+    const response = await apiClient.post('/api/v1/office', data);
     return response.data;
   },
 
   async update(id: string, data: any) {
-    const response = await apiClient.put(`/api/v1/entity/org/${id}`, data);
+    const response = await apiClient.put(`/api/v1/office/${id}`, data);
     return response.data;
   },
 
   async delete(id: string) {
-    const response = await apiClient.delete(`/api/v1/entity/org/${id}`);
+    const response = await apiClient.delete(`/api/v1/office/${id}`);
     return response.data;
   },
 };
 
+// Keep backward compatibility alias
+export const orgApi = officeApi;
+
 export const worksiteApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; location?: string }) {
-    const response = await apiClient.get('/api/v1/entity/worksite', { params });
+    const response = await apiClient.get('/api/v1/worksite', { params });
     return response.data;
   },
-  
+
   async get(id: string) {
-    const response = await apiClient.get(`/api/v1/entity/worksite/${id}`);
+    const response = await apiClient.get(`/api/v1/worksite/${id}`);
     return response.data;
   },
-  
+
+  async getTasks(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/worksite/${id}/task`, { params: { page, limit } });
+    return response.data;
+  },
+
+  async getForms(id: string, params?: { page?: number; pageSize?: number }) {
+    const page = params?.page ?? 1;
+    const limit = params?.pageSize ?? 100;
+    const response = await apiClient.get(`/api/v1/worksite/${id}/form`, { params: { page, limit } });
+    return response.data;
+  },
+
   async create(data: any) {
-    const response = await apiClient.post('/api/v1/entity/worksite', data);
+    const response = await apiClient.post('/api/v1/worksite', data);
     return response.data;
   },
-  
+
   async update(id: string, data: any) {
-    const response = await apiClient.put(`/api/v1/entity/worksite/${id}`, data);
+    const response = await apiClient.put(`/api/v1/worksite/${id}`, data);
     return response.data;
   },
-  
+
   async delete(id: string) {
-    const response = await apiClient.delete(`/api/v1/entity/worksite/${id}`);
+    const response = await apiClient.delete(`/api/v1/worksite/${id}`);
     return response.data;
   },
 };
@@ -426,6 +537,33 @@ export const artifactApi = {
 
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/artifact/${id}`);
+    return response.data;
+  },
+};
+
+export const positionApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string }) {
+    const response = await apiClient.get('/api/v1/position', { params });
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/position/${id}`);
+    return response.data;
+  },
+
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/position', data);
+    return response.data;
+  },
+
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/position/${id}`, data);
+    return response.data;
+  },
+
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/position/${id}`);
     return response.data;
   },
 };

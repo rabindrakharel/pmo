@@ -238,7 +238,7 @@ export function GlobalSearch({ className = '' }: GlobalSearchProps) {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search projects, tasks, people..."
-                  className="flex-1 text-lg border-none outline-none placeholder-gray-400"
+                  className="flex-1 text-sm border-none outline-none placeholder-gray-400"
                 />
                 <button onClick={handleClose}>
                   <X className="h-5 w-5 text-gray-400 hover:text-gray-600" />

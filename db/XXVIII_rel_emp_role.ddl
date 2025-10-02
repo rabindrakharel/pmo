@@ -300,3 +300,37 @@ SELECT
   '{"flexible_schedule": true, "student_employee": true, "general_support_qualified": true}'
 FROM app.d_employee e, app.d_role r
 WHERE e.email = 'jake.patterson@huronhome.ca' AND r.role_code = 'PT-SUPPORT';
+
+-- James Miller Landscaping Manager Role Assignment (for Fall 2024 Campaign)
+INSERT INTO app.rel_emp_role (
+  emp_id,
+  role_id,
+  assignment_type,
+  assignment_reason,
+  effective_date,
+  is_primary_role,
+  is_acting_role,
+  metadata
+)
+SELECT
+  e.id,
+  r.id,
+  'secondary',
+  'Direct oversight of Fall 2024 Landscaping Campaign - CEO acting as Landscaping Manager for strategic project',
+  '2024-08-01',
+  false,
+  true,
+  '{
+    "project_specific": true,
+    "project_id": "84215ccb-313d-48f8-9c37-4398f28c0b1f",
+    "project_name": "Fall 2024 Landscaping Campaign",
+    "assignment_duration": "campaign_duration",
+    "strategic_oversight": true,
+    "direct_client_engagement": true,
+    "team_leadership": true,
+    "budget_authority": true,
+    "reason": "CEO providing direct leadership for high-priority seasonal campaign"
+  }'::jsonb
+FROM app.d_employee e, app.d_role r
+WHERE e.email = 'james.miller@huronhome.ca'
+  AND r.role_code = 'MGR-LAND';

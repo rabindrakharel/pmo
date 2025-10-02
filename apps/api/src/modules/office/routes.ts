@@ -10,63 +10,67 @@ import {
 } from '../../lib/universal-schema-metadata.js';
 
 // Schema based on actual d_office table structure
-const OrgSchema = Type.Object({
+const OfficeSchema = Type.Object({
   id: Type.String(),
-  // Organization identification and metadata
-  org_code: Type.Optional(Type.String()),
-  org_type: Type.String(),
-  location: Type.Optional(Type.String()),
-  contact_info: Type.Optional(Type.String()),
-  // Organizational structure
-  parent_org_id: Type.Optional(Type.String()),
-  parent_org_name: Type.Optional(Type.String()),
-  territory_size: Type.Optional(Type.Number()),
-  established_date: Type.Optional(Type.String()),
-  // Standard fields
+  slug: Type.String(),
+  code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  tags: Type.Array(Type.String()),
-  attr: Type.Object({}),
+  tags: Type.Optional(Type.Array(Type.String())),
+  parent_id: Type.Optional(Type.String()),
+  parent_name: Type.Optional(Type.String()),
+  level_id: Type.Number(),
+  level_name: Type.String(),
+  address_line1: Type.Optional(Type.String()),
+  address_line2: Type.Optional(Type.String()),
+  city: Type.Optional(Type.String()),
+  province: Type.Optional(Type.String()),
+  postal_code: Type.Optional(Type.String()),
+  country: Type.Optional(Type.String()),
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
-  active: Type.Boolean(),
-  created: Type.String(),
-  updated: Type.String(),
+  active_flag: Type.Boolean(),
+  created_ts: Type.String(),
+  updated_ts: Type.String(),
+  version: Type.Number(),
 });
 
-const CreateOrgSchema = Type.Object({
+const CreateOfficeSchema = Type.Object({
+  code: Type.String({ minLength: 1 }),
+  slug: Type.String({ minLength: 1 }),
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
-  org_code: Type.Optional(Type.String()),
-  org_type: Type.Optional(Type.String()),
-  location: Type.Optional(Type.String()),
-  contact_info: Type.Optional(Type.String()),
-  parent_org_id: Type.Optional(Type.String({ format: 'uuid' })),
-  territory_size: Type.Optional(Type.Number()),
-  established_date: Type.Optional(Type.String({ format: 'date' })),
   tags: Type.Optional(Type.Array(Type.String())),
-  attr: Type.Optional(Type.Object({})),
-  active: Type.Optional(Type.Boolean()),
+  parent_id: Type.Optional(Type.String({ format: 'uuid' })),
+  level_id: Type.Number(),
+  level_name: Type.String(),
+  address_line1: Type.Optional(Type.String()),
+  address_line2: Type.Optional(Type.String()),
+  city: Type.Optional(Type.String()),
+  province: Type.Optional(Type.String()),
+  postal_code: Type.Optional(Type.String()),
+  country: Type.Optional(Type.String()),
+  active_flag: Type.Optional(Type.Boolean()),
 });
 
-const UpdateOrgSchema = Type.Partial(CreateOrgSchema);
+const UpdateOfficeSchema = Type.Partial(CreateOfficeSchema);
 
-export async function orgRoutes(fastify: FastifyInstance) {
+export async function officeRoutes(fastify: FastifyInstance) {
   // List organizations with filtering
-  fastify.get('/api/v1/org', {
+  fastify.get('/api/v1/office', {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
-        active: Type.Optional(Type.Boolean()),
+        active_flag: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
-        org_type: Type.Optional(Type.String()),
-        parent_org_id: Type.Optional(Type.String()),
+        level_id: Type.Optional(Type.Number()),
+        parent_id: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
       response: {
         200: Type.Object({
-          data: Type.Array(OrgSchema),
+          data: Type.Array(OfficeSchema),
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),
@@ -77,7 +81,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      active, search, org_type, parent_org_id,
+      active_flag, search, level_id, parent_id,
       limit = 50, offset = 0
     } = request.query as any;
 
@@ -93,7 +97,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
           EXISTS (
             SELECT 1 FROM app.entity_id_rbac_map rbac
             WHERE rbac.empid = ${userId}::uuid
-              AND rbac.entity = 'org'
+              AND rbac.entity = 'office'
               AND (rbac.entity_id = o.id::text OR rbac.entity_id = 'all')
               AND rbac.active_flag = true
               AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
@@ -104,30 +108,29 @@ export async function orgRoutes(fastify: FastifyInstance) {
 
       const conditions = [...baseConditions];
 
-      if (active !== undefined) {
-        conditions.push(sql`active_flag = ${active}`);
+      if (active_flag !== undefined) {
+        conditions.push(sql`active_flag = ${active_flag}`);
       }
 
-      if (org_type) {
-        conditions.push(sql`org_type = ${org_type}`);
+      if (level_id !== undefined) {
+        conditions.push(sql`level_id = ${level_id}`);
       }
 
-      if (parent_org_id) {
-        conditions.push(sql`parent_org_id = ${parent_org_id}`);
+      if (parent_id) {
+        conditions.push(sql`parent_id = ${parent_id}`);
       }
 
       if (search) {
-        const searchableColumns = getColumnsByMetadata([
-          'name', 'descr', 'org_code', 'location'
-        ], 'ui:search');
+        const searchConditions = [
+          sql`COALESCE(name, '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE("descr", '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(code, '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(slug, '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(city, '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(province, '') ILIKE ${`%${search}%`}`
+        ];
 
-        const searchConditions = searchableColumns.map(col =>
-          sql`COALESCE(${sql.identifier(col)}, '') ILIKE ${`%${search}%`}`
-        );
-
-        if (searchConditions.length > 0) {
-          conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
-        }
+        conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
       }
 
       const countResult = await db.execute(sql`
@@ -139,14 +142,15 @@ export async function orgRoutes(fastify: FastifyInstance) {
 
       const orgs = await db.execute(sql`
         SELECT
-          o.id, o.org_code, o.org_type, o.location, o.contact_info,
-          o.parent_org_id, o.territory_size, o.established_date,
-          o.name, o."descr", o.tags, o.attr, o.from_ts, o.to_ts, o.active_flag as active, o.created, o.updated,
+          o.id, o.slug, o.code, o.name, o."descr", o.tags,
+          o.parent_id, o.level_id, o.level_name,
+          o.address_line1, o.address_line2, o.city, o.province, o.postal_code, o.country,
+          o.from_ts, o.to_ts, o.active_flag, o.created_ts, o.updated_ts, o.version,
           -- Include parent org name for display
-          (SELECT name FROM app.d_office parent WHERE parent.id = o.parent_org_id) as parent_org_name
+          (SELECT name FROM app.d_office parent WHERE parent.id = o.parent_id) as parent_name
         FROM app.d_office o
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY o.name ASC NULLS LAST, o.created DESC
+        ORDER BY o.name ASC NULLS LAST, o.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -174,14 +178,14 @@ export async function orgRoutes(fastify: FastifyInstance) {
   });
 
   // Get single organization
-  fastify.get('/api/v1/org/:id', {
+  fastify.get('/api/v1/office/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
       }),
       response: {
-        200: OrgSchema,
+        200: OfficeSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -199,7 +203,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
     const orgAccess = await db.execute(sql`
       SELECT 1 FROM app.entity_id_rbac_map rbac
       WHERE rbac.empid = ${userId}::uuid
-        AND rbac.entity = 'org'
+        AND rbac.entity = 'office'
         AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
@@ -213,11 +217,12 @@ export async function orgRoutes(fastify: FastifyInstance) {
     try {
       const org = await db.execute(sql`
         SELECT
-          id, org_code, org_type, location, contact_info,
-          parent_org_id, territory_size, established_date,
-          name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
+          id, slug, code, name, "descr", tags,
+          parent_id, level_id, level_name,
+          address_line1, address_line2, city, province, postal_code, country,
+          from_ts, to_ts, active_flag, created_ts, updated_ts, version,
           -- Include parent org name for display
-          (SELECT name FROM app.d_office parent WHERE parent.id = d_office.parent_org_id) as parent_org_name
+          (SELECT name FROM app.d_office parent WHERE parent.id = d_office.parent_id) as parent_name
         FROM app.d_office
         WHERE id = ${id}
       `);
@@ -241,7 +246,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
   });
 
   // Get organization dynamic child entity tabs - for tab navigation
-  fastify.get('/api/v1/org/:id/dynamic-child-entity-tabs', {
+  fastify.get('/api/v1/office/:id/dynamic-child-entity-tabs', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -275,7 +280,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
       const orgAccess = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
         WHERE rbac.empid = ${userId}::uuid
-          AND rbac.entity = 'org'
+          AND rbac.entity = 'office'
           AND (rbac.entity_id = ${orgId} OR rbac.entity_id = 'all')
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
@@ -298,82 +303,43 @@ export async function orgRoutes(fastify: FastifyInstance) {
       // Get action summaries for this organization
       const actionSummaries = [];
 
-      // Count employees in this organization
-      const employeeCount = await db.execute(sql`
+      // Count businesses in this office
+      const businessCount = await db.execute(sql`
         SELECT COUNT(*) as count
-        FROM app.d_employee e
-        WHERE e.org_id = ${orgId} AND e.active_flag = true
+        FROM app.d_business b
+        WHERE b.office_id = ${orgId} AND b.active_flag = true
       `);
       actionSummaries.push({
-        actionEntity: 'employee',
-        count: Number(employeeCount[0]?.count || 0),
-        label: 'Employees',
-        icon: 'Users'
+        actionEntity: 'biz',
+        count: Number(businessCount[0]?.count || 0),
+        label: 'Businesses',
+        icon: 'Building'
       });
 
-      // Count worksites in this organization
-      const worksiteCount = await db.execute(sql`
+      // Count projects in this office
+      const projectCount = await db.execute(sql`
         SELECT COUNT(*) as count
-        FROM app.d_worksite w
-        WHERE w.org_id = ${orgId} AND w.active_flag = true
+        FROM app.d_project p
+        WHERE p.office_id = ${orgId} AND p.active_flag = true
       `);
       actionSummaries.push({
-        actionEntity: 'worksite',
-        count: Number(worksiteCount[0]?.count || 0),
-        label: 'Worksites',
-        icon: 'MapPin'
+        actionEntity: 'project',
+        count: Number(projectCount[0]?.count || 0),
+        label: 'Projects',
+        icon: 'Briefcase'
       });
 
-      // Count tasks assigned to this organization
+      // Count tasks assigned to this office
       const taskCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_task t
-        WHERE t.org_id = ${orgId} AND t.active_flag = true
+        WHERE t.office_id = ${orgId} AND t.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'task',
         count: Number(taskCount[0]?.count || 0),
         label: 'Tasks',
         icon: 'CheckSquare'
-      });
-
-      // Count artifacts
-      const artifactCount = await db.execute(sql`
-        SELECT COUNT(*) as count
-        FROM app.d_artifact a
-        WHERE a.org_id = ${orgId} AND a.active_flag = true
-      `);
-      actionSummaries.push({
-        actionEntity: 'artifact',
-        count: Number(artifactCount[0]?.count || 0),
-        label: 'Artifacts',
-        icon: 'FileText'
-      });
-
-      // Count wiki entries
-      const wikiCount = await db.execute(sql`
-        SELECT COUNT(*) as count
-        FROM app.d_wiki w
-        WHERE w.org_id = ${orgId} AND w.active_flag = true
-      `);
-      actionSummaries.push({
-        actionEntity: 'wiki',
-        count: Number(wikiCount[0]?.count || 0),
-        label: 'Wiki',
-        icon: 'BookOpen'
-      });
-
-      // Count forms
-      const formCount = await db.execute(sql`
-        SELECT COUNT(*) as count
-        FROM app.d_form_head f
-        WHERE f.org_id = ${orgId} AND f.active_flag = true
-      `);
-      actionSummaries.push({
-        actionEntity: 'form',
-        count: Number(formCount[0]?.count || 0),
-        label: 'Forms',
-        icon: 'FileText'
       });
 
       return {
@@ -387,12 +353,12 @@ export async function orgRoutes(fastify: FastifyInstance) {
   });
 
   // Create organization
-  fastify.post('/api/v1/org', {
+  fastify.post('/api/v1/office', {
     preHandler: [fastify.authenticate],
     schema: {
-      body: CreateOrgSchema,
+      body: CreateOfficeSchema,
       response: {
-        201: OrgSchema,
+        201: OfficeSchema,
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -469,15 +435,15 @@ export async function orgRoutes(fastify: FastifyInstance) {
   });
 
   // Update organization
-  fastify.put('/api/v1/org/:id', {
+  fastify.put('/api/v1/office/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
       }),
-      body: UpdateOrgSchema,
+      body: UpdateOfficeSchema,
       response: {
-        200: OrgSchema,
+        200: OfficeSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -496,7 +462,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
     const orgEditAccess = await db.execute(sql`
       SELECT 1 FROM app.entity_id_rbac_map rbac
       WHERE rbac.empid = ${userId}::uuid
-        AND rbac.entity = 'org'
+        AND rbac.entity = 'office'
         AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
@@ -563,7 +529,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
   });
 
   // Delete organization (soft delete)
-  fastify.delete('/api/v1/org/:id', {
+  fastify.delete('/api/v1/office/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -588,7 +554,7 @@ export async function orgRoutes(fastify: FastifyInstance) {
     const orgDeleteAccess = await db.execute(sql`
       SELECT 1 FROM app.entity_id_rbac_map rbac
       WHERE rbac.empid = ${userId}::uuid
-        AND rbac.entity = 'org'
+        AND rbac.entity = 'office'
         AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())

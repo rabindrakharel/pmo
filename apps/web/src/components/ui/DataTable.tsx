@@ -470,10 +470,8 @@ export function DataTable<T = any>({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-6">
                 <div className="flex items-center text-sm text-gray-700">
-                  <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center mr-3">
-                    <Filter className="h-4 w-4 text-white" />
-                  </div>
-                  <span className="font-semibold text-gray-900">Filter by:</span>
+                  <Filter className="h-4 w-4 text-gray-500 stroke-[1.5] mr-2" />
+                  <span className="font-normal text-sm text-gray-600">Filter by:</span>
                 </div>
                 
                 <div className="relative">
@@ -564,23 +562,23 @@ export function DataTable<T = any>({
                 <div className="relative" ref={columnSelectorRef}>
                   <button
                     onClick={() => setShowColumnSelector(!showColumnSelector)}
-                    className="flex items-center px-4 py-2.5 text-sm text-gray-600 bg-white/70 backdrop-blur-sm border border-gray-200 rounded-xl hover:bg-white hover:border-gray-300 transition-all duration-200 shadow-sm"
+                    className="flex items-center px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded hover:bg-gray-50 hover:border-gray-300 transition-colors"
                   >
-                    <Columns className="h-4 w-4 mr-2" />
+                    <Columns className="h-4 w-4 mr-2 stroke-[1.5]" />
                     Columns
                   </button>
-                  
+
                   {showColumnSelector && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 backdrop-blur-sm">
+                    <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                       <div className="p-3">
-                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 px-1">Show Columns</div>
+                        <div className="text-sm font-normal text-gray-500 mb-2 px-1">Show Columns</div>
                         {initialColumns.map(column => (
-                          <label key={column.key} className="flex items-center px-3 py-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors">
+                          <label key={column.key} className="flex items-center px-3 py-2 hover:bg-gray-50 rounded cursor-pointer transition-colors">
                             <input
                               type="checkbox"
                               checked={visibleColumns.has(column.key)}
                               onChange={() => toggleColumnVisibility(column.key)}
-                              className="mr-3 text-blue-600 rounded focus:ring-blue-500"
+                              className="mr-3 text-gray-600 rounded focus:ring-gray-400"
                             />
                             <span className="text-sm text-gray-700">{column.title}</span>
                           </label>
@@ -598,23 +596,23 @@ export function DataTable<T = any>({
               <div className="relative" ref={columnSelectorRef}>
                 <button
                   onClick={() => setShowColumnSelector(!showColumnSelector)}
-                  className="flex items-center px-4 py-2.5 text-sm text-gray-600 bg-white/70 backdrop-blur-sm border border-gray-200 rounded-xl hover:bg-white hover:border-gray-300 transition-all duration-200 shadow-sm"
+                  className="flex items-center px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded hover:bg-gray-50 hover:border-gray-300 transition-colors"
                 >
-                  <Columns className="h-4 w-4 mr-2" />
+                  <Columns className="h-4 w-4 mr-2 stroke-[1.5]" />
                   Columns
                 </button>
-                
+
                 {showColumnSelector && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 backdrop-blur-sm">
+                  <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                     <div className="p-3">
-                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 px-1">Show Columns</div>
+                      <div className="text-sm font-normal text-gray-500 mb-2 px-1">Show Columns</div>
                       {initialColumns.map(column => (
-                        <label key={column.key} className="flex items-center px-3 py-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors">
+                        <label key={column.key} className="flex items-center px-3 py-2 hover:bg-gray-50 rounded cursor-pointer transition-colors">
                           <input
                             type="checkbox"
                             checked={visibleColumns.has(column.key)}
                             onChange={() => toggleColumnVisibility(column.key)}
-                            className="mr-3 text-blue-600 rounded focus:ring-blue-500"
+                            className="mr-3 text-gray-600 rounded focus:ring-gray-400"
                           />
                           <span className="text-sm text-gray-700">{column.title}</span>
                         </label>
@@ -675,7 +673,7 @@ export function DataTable<T = any>({
                 {columns.map((column, index) => (
                   <th
                     key={column.key}
-                    className={`px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-100 ${
+                    className={`px-6 py-4 text-left text-sm font-normal text-gray-500 border-b border-gray-100 ${
                       column.sortable ? 'cursor-pointer hover:bg-gray-100/50 transition-colors' : ''
                     } ${columns.length > 7 ? 'min-w-[200px]' : ''} ${
                       index === 0 ? 'sticky left-0 z-40 bg-gray-50 shadow-r' : ''

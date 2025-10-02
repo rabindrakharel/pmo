@@ -11,7 +11,7 @@ export function OrgWorksitePage() {
   const navigate = useNavigate();
   const { tabs, loading } = useDynamicChildEntityTabs('org', orgId!);
 
-  // Mock organization data - replace with actual API call
+  // Mock office data - replace with actual API call
   const [orgData, setOrgData] = React.useState<any>(null);
   const [orgLoading, setOrgLoading] = React.useState(true);
 
@@ -26,7 +26,7 @@ export function OrgWorksitePage() {
           setOrgData(response);
         }
       } catch (error) {
-        console.error('Error fetching organization:', error);
+        console.error('Error fetching office:', error);
       } finally {
         setOrgLoading(false);
       }
@@ -49,7 +49,7 @@ export function OrgWorksitePage() {
     <Layout>
       <div className="h-full flex flex-col">
         <DynamicChildEntityTabs
-          title={orgData?.name || 'Organization'}
+          title={orgData?.name || 'Office'}
           parentType="org"
           parentId={orgId!}
           parentName={orgData?.name}

@@ -31,7 +31,7 @@ export function OrgDetailPage() {
           setOrgData(response);
         }
       } catch (error) {
-        console.error('Error fetching organization:', error);
+        console.error('Error fetching office:', error);
       } finally {
         setOrgLoading(false);
       }
@@ -64,8 +64,8 @@ export function OrgDetailPage() {
       setEditingField(null);
       setEditValue('');
     } catch (error) {
-      console.error('Error updating organization:', error);
-      alert('Failed to update organization. Please try again.');
+      console.error('Error updating office:', error);
+      alert('Failed to update office. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -149,7 +149,7 @@ export function OrgDetailPage() {
                         <button
                           onClick={() => handleEditField('name', orgData?.name || '')}
                           className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Edit organization name"
+                          title="Edit office name"
                         >
                           <Edit3 className="h-4 w-4" />
                         </button>
@@ -245,7 +245,7 @@ export function OrgDetailPage() {
                   <InlineEditField
                     fieldName="parent_org_name"
                     label="Parent Organization"
-                    displayValue={orgData?.parent_org_name || 'Root organization'}
+                    displayValue={orgData?.parent_org_name || 'Root office'}
                     canEdit={true}
                     isEditing={editingField === 'parent_org_name'}
                     editValue={editValue}

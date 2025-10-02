@@ -219,7 +219,7 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
 
   return (
     <Layout>
-      <div className="h-full flex flex-col space-y-4 max-w-7xl mx-auto">
+      <div className="h-full flex flex-col space-y-4 w-[97%] max-w-[1536px] mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -229,8 +229,8 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
               </span>
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-gray-800">{config.pluralName}</h1>
-              <p className="mt-1 text-gray-600">
+              <h1 className="text-lg font-medium text-gray-800">{config.pluralName}</h1>
+              <p className="mt-1 text-sm text-gray-500">
                 Manage and track {config.pluralName.toLowerCase()}
               </p>
             </div>
@@ -247,9 +247,9 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
             )}
             <button
               onClick={handleCreateClick}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors"
             >
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4 mr-2 stroke-[1.5]" />
               Create {config.displayName}
             </button>
           </div>

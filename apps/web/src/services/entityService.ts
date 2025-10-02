@@ -8,7 +8,7 @@ export const ENTITY_TYPES = {
   // Organizational entities (4)
   hr: { displayName: 'HR Department', category: 'organizational', icon: 'users' },
   biz: { displayName: 'Business Unit', category: 'organizational', icon: 'building' },
-  org: { displayName: 'Organization', category: 'organizational', icon: 'globe' },
+  office: { displayName: 'Office', category: 'organizational', icon: 'globe' },
   client: { displayName: 'Client', category: 'organizational', icon: 'handshake' },
 
   // Operational entities (3)

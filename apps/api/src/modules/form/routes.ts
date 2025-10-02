@@ -178,7 +178,19 @@ export async function formRoutes(fastify: FastifyInstance) {
           schema,
           attr,
           is_public,
-          requires_authentication
+          requires_authentication,
+          form_type,
+          is_template,
+          is_draft,
+          form_builder_schema,
+          form_builder_state,
+          step_configuration,
+          validation_rules,
+          submission_config,
+          workflow_config,
+          access_config,
+          metadata,
+          version_metadata
         FROM app.d_form_head f
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY f.name ASC, f.version DESC
@@ -236,7 +248,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
     try {
       const form = await db.execute(sql`
-        SELECT 
+        SELECT
           id,
           name,
           "descr",
@@ -260,17 +272,19 @@ export async function formRoutes(fastify: FastifyInstance) {
           tags,
           schema,
           attr,
-          form_builder_state as "formBuilderState",
+          form_type as "formType",
+          is_template as "isTemplate",
           is_draft as "isDraft",
-          draft_saved_at as "draftSavedAt",
-          is_multi_step as "isMultiStep",
-          total_steps as "totalSteps",
+          form_builder_schema as "formBuilderSchema",
+          form_builder_state as "formBuilderState",
           step_configuration as "stepConfiguration",
-          field_sequence as "fieldSequence",
           validation_rules as "validationRules",
-          form_version_hash as "formVersionHash",
-          last_modified_by as "lastModifiedBy"
-        FROM app.d_form_head 
+          submission_config as "submissionConfig",
+          workflow_config as "workflowConfig",
+          access_config as "accessConfig",
+          metadata,
+          version_metadata as "versionMetadata"
+        FROM app.d_form_head
         WHERE id = ${id} AND active_flag = true
       `);
 
@@ -341,7 +355,11 @@ export async function formRoutes(fastify: FastifyInstance) {
           business_specific, business_id,
           hr_specific, hr_id,
           worksite_specific, worksite_id,
-          version, active, from_ts, tags, schema, attr
+          version, active, from_ts, tags, schema, attr,
+          form_type, is_template, is_draft,
+          form_builder_schema, form_builder_state, step_configuration,
+          validation_rules, submission_config, workflow_config,
+          access_config, metadata, version_metadata
         )
         VALUES (
           ${data.name},
@@ -358,9 +376,21 @@ export async function formRoutes(fastify: FastifyInstance) {
           ${fromTs},
           ${JSON.stringify(data.tags || [])},
           ${JSON.stringify(data.schema || {})},
-          ${JSON.stringify(data.attr || {})}
+          ${JSON.stringify(data.attr || {})},
+          ${data.formType || 'multi_step'},
+          ${data.isTemplate !== undefined ? data.isTemplate : false},
+          ${data.isDraft !== undefined ? data.isDraft : false},
+          ${JSON.stringify(data.formBuilderSchema || {steps: []})},
+          ${JSON.stringify(data.formBuilderState || {currentStepIndex: 0, activeFieldId: null, lastModified: null, modifiedBy: userId, fieldSequence: []})},
+          ${JSON.stringify(data.stepConfiguration || {totalSteps: 1, allowStepSkipping: false, showStepProgress: true, saveProgressOnStepChange: true, validateOnStepChange: true, stepTransition: 'slide', currentStepIndex: 0})},
+          ${JSON.stringify(data.validationRules || {requiredFields: [], customValidators: [], globalRules: []})},
+          ${JSON.stringify(data.submissionConfig || {allowDraft: true, autoSaveInterval: 30000, requireAuthentication: true, allowAnonymous: false, confirmationMessage: 'Thank you for your submission!', redirectUrl: null, emailNotifications: {enabled: false, recipients: [], template: null, ccClient: false}})},
+          ${JSON.stringify(data.workflowConfig || {requiresApproval: false, approvers: [], approvalStages: []})},
+          ${JSON.stringify(data.accessConfig || {visibility: 'private', allowedRoles: [], allowedUsers: [], expiresAt: null})},
+          ${JSON.stringify(data.metadata || {category: null, department: null, estimatedCompletionTime: null, completionRate: 0, averageCompletionTime: 0, totalSubmissions: 0, createdBy: userId, createdByName: null, tags: []})},
+          ${JSON.stringify(data.versionMetadata || {version: 1, previousVersionId: null, changeLog: []})}
         )
-        RETURNING 
+        RETURNING
           id,
           name,
           "descr",
@@ -385,7 +415,19 @@ export async function formRoutes(fastify: FastifyInstance) {
           updated,
           tags,
           schema,
-          attr
+          attr,
+          form_type as "formType",
+          is_template as "isTemplate",
+          is_draft as "isDraft",
+          form_builder_schema as "formBuilderSchema",
+          form_builder_state as "formBuilderState",
+          step_configuration as "stepConfiguration",
+          validation_rules as "validationRules",
+          submission_config as "submissionConfig",
+          workflow_config as "workflowConfig",
+          access_config as "accessConfig",
+          metadata,
+          version_metadata as "versionMetadata"
       `);
 
       if (result.length === 0) {
@@ -509,45 +551,53 @@ export async function formRoutes(fastify: FastifyInstance) {
         updateFields.push(sql`active_flag = ${data.active}`);
       }
 
-      // Form builder state and multi-step form fields
-      if (data.form_builder_state !== undefined) {
-        updateFields.push(sql`form_builder_state = ${JSON.stringify(data.form_builder_state)}`);
+      // Form builder metadata fields
+      if (data.formType !== undefined) {
+        updateFields.push(sql`form_type = ${data.formType}`);
       }
-      
-      if (data.is_draft !== undefined) {
-        updateFields.push(sql`is_draft = ${data.is_draft}`);
+
+      if (data.isTemplate !== undefined) {
+        updateFields.push(sql`is_template = ${data.isTemplate}`);
       }
-      
-      if (data.draft_saved_at !== undefined) {
-        updateFields.push(sql`draft_saved_at = ${data.draft_saved_at}`);
+
+      if (data.isDraft !== undefined) {
+        updateFields.push(sql`is_draft = ${data.isDraft}`);
       }
-      
-      if (data.is_multi_step !== undefined) {
-        updateFields.push(sql`is_multi_step = ${data.is_multi_step}`);
+
+      if (data.formBuilderSchema !== undefined) {
+        updateFields.push(sql`form_builder_schema = ${JSON.stringify(data.formBuilderSchema)}`);
       }
-      
-      if (data.total_steps !== undefined) {
-        updateFields.push(sql`total_steps = ${data.total_steps}`);
+
+      if (data.formBuilderState !== undefined) {
+        updateFields.push(sql`form_builder_state = ${JSON.stringify(data.formBuilderState)}`);
       }
-      
-      if (data.step_configuration !== undefined) {
-        updateFields.push(sql`step_configuration = ${JSON.stringify(data.step_configuration)}`);
+
+      if (data.stepConfiguration !== undefined) {
+        updateFields.push(sql`step_configuration = ${JSON.stringify(data.stepConfiguration)}`);
       }
-      
-      if (data.field_sequence !== undefined) {
-        updateFields.push(sql`field_sequence = ${JSON.stringify(data.field_sequence)}`);
+
+      if (data.validationRules !== undefined) {
+        updateFields.push(sql`validation_rules = ${JSON.stringify(data.validationRules)}`);
       }
-      
-      if (data.validation_rules !== undefined) {
-        updateFields.push(sql`validation_rules = ${JSON.stringify(data.validation_rules)}`);
+
+      if (data.submissionConfig !== undefined) {
+        updateFields.push(sql`submission_config = ${JSON.stringify(data.submissionConfig)}`);
       }
-      
-      if (data.form_version_hash !== undefined) {
-        updateFields.push(sql`form_version_hash = ${data.form_version_hash}`);
+
+      if (data.workflowConfig !== undefined) {
+        updateFields.push(sql`workflow_config = ${JSON.stringify(data.workflowConfig)}`);
       }
-      
-      if (data.last_modified_by !== undefined) {
-        updateFields.push(sql`last_modified_by = ${data.last_modified_by}`);
+
+      if (data.accessConfig !== undefined) {
+        updateFields.push(sql`access_config = ${JSON.stringify(data.accessConfig)}`);
+      }
+
+      if (data.metadata !== undefined) {
+        updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}`);
+      }
+
+      if (data.versionMetadata !== undefined) {
+        updateFields.push(sql`version_metadata = ${JSON.stringify(data.versionMetadata)}`);
       }
 
       if (updateFields.length === 0) {
@@ -560,7 +610,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         UPDATE app.d_form_head 
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
-        RETURNING 
+        RETURNING
           id,
           name,
           "descr",
@@ -585,7 +635,19 @@ export async function formRoutes(fastify: FastifyInstance) {
           updated,
           tags,
           schema,
-          attr
+          attr,
+          form_type as "formType",
+          is_template as "isTemplate",
+          is_draft as "isDraft",
+          form_builder_schema as "formBuilderSchema",
+          form_builder_state as "formBuilderState",
+          step_configuration as "stepConfiguration",
+          validation_rules as "validationRules",
+          submission_config as "submissionConfig",
+          workflow_config as "workflowConfig",
+          access_config as "accessConfig",
+          metadata,
+          version_metadata as "versionMetadata"
       `);
 
       if (result.length === 0) {

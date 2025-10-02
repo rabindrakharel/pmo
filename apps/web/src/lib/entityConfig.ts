@@ -505,10 +505,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
   },
 
   // --------------------------------------------------------------------------
-  // BUSINESS
+  // BUSINESS (biz)
   // --------------------------------------------------------------------------
-  business: {
-    name: 'business',
+  biz: {
+    name: 'biz',
     displayName: 'Business Unit',
     pluralName: 'Business Units',
     apiEndpoint: '/api/v1/biz',
@@ -573,7 +573,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     name: 'office',
     displayName: 'Office',
     pluralName: 'Offices',
-    apiEndpoint: '/api/v1/org',
+    apiEndpoint: '/api/v1/office',
     icon: 'MapPin',
 
     columns: [
@@ -672,11 +672,30 @@ export const entityConfigs: Record<string, EntityConfig> = {
     ],
 
     fields: [
+      { key: 'employee_number', label: 'Employee Number', type: 'text', required: true },
+      { key: 'first_name', label: 'First Name', type: 'text', required: true },
+      { key: 'last_name', label: 'Last Name', type: 'text', required: true },
       { key: 'name', label: 'Full Name', type: 'text', required: true },
       { key: 'email', label: 'Email', type: 'text', required: true },
-      { key: 'employee_number', label: 'Employee Number', type: 'text', required: true },
       { key: 'phone', label: 'Phone', type: 'text' },
-      { key: 'addr', label: 'Address', type: 'textarea' }
+      { key: 'mobile', label: 'Mobile', type: 'text' },
+      { key: 'title', label: 'Job Title', type: 'text' },
+      { key: 'department', label: 'Department', type: 'text' },
+      { key: 'employee_type', label: 'Employment Type', type: 'select', options: [
+        { value: 'full-time', label: 'Full Time' },
+        { value: 'part-time', label: 'Part Time' },
+        { value: 'contractor', label: 'Contractor' },
+        { value: 'temporary', label: 'Temporary' }
+      ]},
+      { key: 'hire_date', label: 'Hire Date', type: 'date' },
+      { key: 'address_line1', label: 'Address Line 1', type: 'text' },
+      { key: 'address_line2', label: 'Address Line 2', type: 'text' },
+      { key: 'city', label: 'City', type: 'text' },
+      { key: 'province', label: 'Province', type: 'text' },
+      { key: 'postal_code', label: 'Postal Code', type: 'text' },
+      { key: 'country', label: 'Country', type: 'text' },
+      { key: 'emergency_contact_name', label: 'Emergency Contact Name', type: 'text' },
+      { key: 'emergency_contact_phone', label: 'Emergency Contact Phone', type: 'text' }
     ],
 
     supportedViews: ['table', 'grid'],

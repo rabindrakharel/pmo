@@ -454,7 +454,7 @@ export function ActionBar({
   return (
     <div className={`flex items-center justify-between bg-white px-6 py-4 border-b border-gray-200 ${className}`}>
       <div className="flex items-center space-x-4">
-        {title && <h2 className="text-lg font-semibold text-gray-900">{title}</h2>}
+        {title && <h2 className="text-lg font-medium text-gray-900">{title}</h2>}
         {scopeFilters}
       </div>
       <div className="flex items-center space-x-3">

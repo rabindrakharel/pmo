@@ -79,7 +79,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
       // Get paginated results
       const roles = await db.execute(sql`
-        SELECT 
+        SELECT
           id,
           name,
           "descr",
@@ -88,14 +88,14 @@ export async function roleRoutes(fastify: FastifyInstance) {
           reporting_level as "authorityLevel",
           required_experience_years as "approvalLimit",
           is_management_role as "delegationAllowed",
-          active,
+          active_flag as "active",
           from_ts as "fromTs",
           to_ts as "toTs",
-          created,
-          updated,
+          created_ts as "created",
+          updated_ts as "updated",
           tags,
-          attr
-        FROM app.d_role 
+          metadata as "attr"
+        FROM app.d_role
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY name ASC
         LIMIT ${limit} OFFSET ${offset}
@@ -133,7 +133,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
     try {
       const role = await db.execute(sql`
-        SELECT 
+        SELECT
           id,
           name,
           "descr",
@@ -142,14 +142,14 @@ export async function roleRoutes(fastify: FastifyInstance) {
           reporting_level as "authorityLevel",
           required_experience_years as "approvalLimit",
           is_management_role as "delegationAllowed",
-          active,
+          active_flag as "active",
           from_ts as "fromTs",
           to_ts as "toTs",
-          created,
-          updated,
+          created_ts as "created",
+          updated_ts as "updated",
           tags,
-          attr
-        FROM app.d_role 
+          metadata as "attr"
+        FROM app.d_role
         WHERE id = ${id} AND active_flag = true
       `);
 
@@ -191,9 +191,9 @@ export async function roleRoutes(fastify: FastifyInstance) {
       const fromTs = data.fromTs || new Date().toISOString();
       
       const result = await db.execute(sql`
-        INSERT INTO app.d_role (name, "descr", role_code, role_category, reporting_level, required_experience_years, is_management_role, active, from_ts, tags, attr)
-        VALUES (${data.name}, ${data.descr || null}, ${data.roleType || 'functional'}, ${data.roleCategory || null}, ${data.authorityLevel || 'standard'}, ${data.approvalLimit || null}, ${data.delegationAllowed !== undefined ? data.delegationAllowed : false}, ${data.active !== false}, ${fromTs}, ${JSON.stringify(data.tags || [])}, ${JSON.stringify(data.attr || {})})
-        RETURNING 
+        INSERT INTO app.d_role (name, "descr", role_code, role_category, reporting_level, required_experience_years, is_management_role, active_flag, from_ts, tags, metadata)
+        VALUES (${data.name}, ${data.descr || null}, ${data.roleType || 'functional'}, ${data.roleCategory || 'operational'}, ${data.authorityLevel || 0}, ${data.approvalLimit || 0}, ${data.delegationAllowed !== undefined ? data.delegationAllowed : false}, ${data.active !== false}, ${fromTs}, ${JSON.stringify(data.tags || [])}, ${JSON.stringify(data.attr || {})})
+        RETURNING
           id,
           name,
           "descr",
@@ -202,13 +202,13 @@ export async function roleRoutes(fastify: FastifyInstance) {
           reporting_level as "authorityLevel",
           required_experience_years as "approvalLimit",
           is_management_role as "delegationAllowed",
-          active,
+          active_flag as "active",
           from_ts as "fromTs",
           to_ts as "toTs",
-          created,
-          updated,
+          created_ts as "created",
+          updated_ts as "updated",
           tags,
-          attr
+          metadata as "attr"
       `);
 
       if (result.length === 0) {
@@ -309,13 +309,13 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      updateFields.push(sql`updated = NOW()`);
+      updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_role 
+        UPDATE app.d_role
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
-        RETURNING 
+        RETURNING
           id,
           name,
           "descr",
@@ -324,13 +324,13 @@ export async function roleRoutes(fastify: FastifyInstance) {
           reporting_level as "authorityLevel",
           required_experience_years as "approvalLimit",
           is_management_role as "delegationAllowed",
-          active,
+          active_flag as "active",
           from_ts as "fromTs",
           to_ts as "toTs",
-          created,
-          updated,
+          created_ts as "created",
+          updated_ts as "updated",
           tags,
-          attr
+          metadata as "attr"
       `);
 
       if (result.length === 0) {
@@ -424,7 +424,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
     try {
       // Get role
       const role = await db.execute(sql`
-        SELECT 
+        SELECT
           id,
           name,
           "descr",
@@ -433,14 +433,14 @@ export async function roleRoutes(fastify: FastifyInstance) {
           reporting_level as "authorityLevel",
           required_experience_years as "approvalLimit",
           is_management_role as "delegationAllowed",
-          active,
+          active_flag as "active",
           from_ts as "fromTs",
           to_ts as "toTs",
-          created,
-          updated,
+          created_ts as "created",
+          updated_ts as "updated",
           tags,
-          attr
-        FROM app.d_role 
+          metadata as "attr"
+        FROM app.d_role
         WHERE id = ${id} AND active_flag = true
       `);
 

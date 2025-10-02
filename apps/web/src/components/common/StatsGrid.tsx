@@ -60,11 +60,11 @@ export function StatsGrid({ stats, className = '' }: StatsGridProps) {
               {IconComponent && (
                 <IconComponent className={`h-5 w-5 ${colorClass} mr-2`} />
               )}
-              <div className={`text-2xl font-bold ${colorClass}`}>
+              <div className={`text-lg font-medium ${colorClass}`}>
                 {formatValue(stat.value, stat.format)}
               </div>
             </div>
-            <div className="text-sm text-gray-600">{stat.label}</div>
+            <div className="text-sm text-gray-500">{stat.label}</div>
           </div>
         );
       })}

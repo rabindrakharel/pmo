@@ -85,8 +85,8 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
     // Organizational Entities (4)
     { name: 'Business', href: '/biz', icon: Building2, category: 'organizational' },
     { name: 'Project', href: '/project', icon: FolderOpen, category: 'operational' },
-    { name: 'Organization', href: '/org', icon: MapPin, category: 'organizational' },
-    
+    { name: 'Office', href: '/office', icon: MapPin, category: 'organizational' },
+
     // Personnel Entities (2)
     { name: 'Role', href: '/role', icon: UserCheck, category: 'personnel' },
     { name: 'Employee', href: '/employee', icon: Users, category: 'personnel' },
@@ -154,8 +154,8 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
           {/* Logo and Collapse Button */}
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-14 px-4 border-b border-gray-200`}>
             <div className="flex items-center">
-              <div className="h-7 w-7 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xs">PMO</span>
+              <div className="h-7 w-7 border border-gray-300 rounded flex items-center justify-center">
+                <span className="text-gray-700 font-normal text-xs">PMO</span>
               </div>
               {!isCollapsed && (
                 <span className="ml-3 text-base font-semibold text-gray-800">Task Manager</span>
@@ -166,7 +166,7 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                 onClick={() => setIsCollapsed(true)}
                 className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4 stroke-[1.5]" />
               </button>
             )}
           </div>
@@ -178,7 +178,7 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                 onClick={() => setIsCollapsed(false)}
                 className="w-full p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200 flex justify-center"
               >
-                <Menu className="h-4 w-4" />
+                <Menu className="h-4 w-4 stroke-[1.5]" />
               </button>
             </div>
           )}
@@ -191,14 +191,14 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                 onClick={() => !isCollapsed && setIsMetaExpanded(!isMetaExpanded)}
                 className={`${
                   isMetaPageActive()
-                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
+                    ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                 } group flex items-center w-full ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 text-sm font-medium rounded-l-lg transition-all duration-200`}
                 title={isCollapsed ? 'Meta Data' : undefined}
               >
                 <Database className={`${
-                  isMetaPageActive() ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-600'
-                } ${isCollapsed ? '' : 'mr-3'} h-4 w-4 transition-colors duration-200`} />
+                  isMetaPageActive() ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
+                } ${isCollapsed ? '' : 'mr-3'} h-4 w-4 stroke-[1.5] transition-colors duration-200`} />
                 {!isCollapsed && (
                   <>
                     <span className="flex-1 text-left text-sm font-medium">Meta</span>
@@ -221,13 +221,13 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                         href={item.href}
                         className={`${
                           isActive
-                            ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
+                            ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
                             : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                         } group flex items-center px-3 py-2 text-xs font-medium rounded-l-lg transition-all duration-200`}
                         onClick={() => setCurrentPage(item.href)}
                       >
                         <IconComponent className={`${
-                          isActive ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-600'
+                          isActive ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
                         } mr-2.5 h-3.5 w-3.5 transition-colors duration-200`} />
                         <span className="text-xs font-medium">{item.name}</span>
                       </a>
@@ -247,15 +247,15 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                   href={item.href}
                   className={`${
                     isActive
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
+                      ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                   } group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 text-sm font-medium rounded-l-lg transition-all duration-200`}
                   onClick={() => setCurrentPage(item.href)}
                   title={isCollapsed ? item.name : undefined}
                 >
                   <IconComponent className={`${
-                    isActive ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-600'
-                  } ${isCollapsed ? '' : 'mr-3'} h-4 w-4 transition-colors duration-200`} />
+                    isActive ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
+                  } ${isCollapsed ? '' : 'mr-3'} h-4 w-4 stroke-[1.5] transition-colors duration-200`} />
                   {!isCollapsed && <span className="text-sm font-medium">{item.name}</span>}
                 </a>
               );
@@ -274,8 +274,8 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                   }}
                   className="w-full flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg transition-colors duration-150"
                 >
-                  <div className="h-10 w-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
-                    <User className="h-5 w-5 text-white" />
+                  <div className="h-10 w-10 border border-gray-300 rounded-full flex items-center justify-center">
+                    <User className="h-5 w-5 text-gray-600 stroke-[1.5]" />
                   </div>
                   <div className="flex-1 min-w-0 text-left">
                     <div className="text-sm font-medium text-gray-900 truncate">{user?.name}</div>
@@ -302,13 +302,13 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                           }}
                           className={`${
                             isActive
-                              ? 'bg-blue-50 text-blue-700'
+                              ? 'bg-gray-100 text-gray-900'
                               : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                           } flex items-center px-3 py-2 text-sm transition-colors duration-150`}
                         >
                           <IconComponent className={`${
-                            isActive ? 'text-blue-700' : 'text-gray-400'
-                          } mr-3 h-4 w-4`} />
+                            isActive ? 'text-gray-700' : 'text-gray-500'
+                          } mr-3 h-4 w-4 stroke-[1.5]`} />
                           {item.name}
                         </a>
                       );
@@ -318,7 +318,7 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                       onClick={handleLogout}
                       className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
                     >
-                      <LogOut className="mr-3 h-4 w-4 text-gray-400" />
+                      <LogOut className="mr-3 h-4 w-4 text-gray-500 stroke-[1.5]" />
                       Sign out
                     </button>
                   </div>
@@ -331,10 +331,10 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                     e.stopPropagation();
                     setIsUserMenuOpen(!isUserMenuOpen);
                   }}
-                  className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center hover:shadow-md transition-shadow"
+                  className="h-8 w-8 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50 transition-colors"
                   title={user?.name}
                 >
-                  <User className="h-4 w-4 text-white" />
+                  <User className="h-4 w-4 text-gray-600 stroke-[1.5]" />
                 </button>
                 
                 {/* Collapsed Dropdown Menu */}
@@ -357,13 +357,13 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                           }}
                           className={`${
                             isActive
-                              ? 'bg-blue-50 text-blue-700'
+                              ? 'bg-gray-100 text-gray-900'
                               : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                           } flex items-center px-3 py-2 text-sm transition-colors duration-150`}
                         >
                           <IconComponent className={`${
-                            isActive ? 'text-blue-700' : 'text-gray-400'
-                          } mr-3 h-4 w-4`} />
+                            isActive ? 'text-gray-700' : 'text-gray-500'
+                          } mr-3 h-4 w-4 stroke-[1.5]`} />
                           {item.name}
                         </a>
                       );
@@ -373,7 +373,7 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                       onClick={handleLogout}
                       className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
                     >
-                      <LogOut className="mr-3 h-4 w-4 text-gray-400" />
+                      <LogOut className="mr-3 h-4 w-4 text-gray-500 stroke-[1.5]" />
                       Sign out
                     </button>
                   </div>

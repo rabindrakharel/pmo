@@ -264,7 +264,7 @@ export function EntityChildListPage({ parentType, childType }: EntityChildListPa
       {/* Header with View Switcher and Create Button */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <h2 className="text-lg font-semibold text-gray-800">
+          <h2 className="text-lg font-medium text-gray-800">
             {config.pluralName}
           </h2>
         </div>
@@ -280,9 +280,9 @@ export function EntityChildListPage({ parentType, childType }: EntityChildListPa
           )}
           <button
             onClick={handleCreateClick}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors"
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4 mr-2 stroke-[1.5]" />
             Create {config.displayName}
           </button>
         </div>

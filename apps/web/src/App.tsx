@@ -6,6 +6,7 @@ import { LoginForm } from './components/auth/LoginForm';
 import { MetaPage } from './pages/MetaPage';
 import { FormBuilderPage } from './pages/FormBuilderPage';
 import { FormEditPage } from './pages/FormEditPage';
+import { FormViewPage } from './pages/FormViewPage';
 import { WikiEditorPage } from './pages/WikiEditorPage';
 import { WikiViewPage } from './pages/WikiViewPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -134,7 +135,7 @@ function AppRoutes() {
       />
       {/* Universal Entity List Routes */}
       <Route path="/biz" element={<ProtectedRoute><EntityMainPage entityType="biz" /></ProtectedRoute>} />
-      <Route path="/org" element={<ProtectedRoute><EntityMainPage entityType="org" /></ProtectedRoute>} />
+      <Route path="/office" element={<ProtectedRoute><EntityMainPage entityType="office" /></ProtectedRoute>} />
       <Route path="/project" element={<ProtectedRoute><EntityMainPage entityType="project" /></ProtectedRoute>} />
       <Route path="/task" element={<ProtectedRoute><EntityMainPage entityType="task" /></ProtectedRoute>} />
       <Route path="/wiki" element={<ProtectedRoute><EntityMainPage entityType="wiki" /></ProtectedRoute>} />
@@ -165,14 +166,16 @@ function AppRoutes() {
         <Route path="form" element={<EntityChildListPage parentType="biz" childType="form" />} />
       </Route>
 
-      {/* Organization Routes */}
-      <Route path="/org/:id" element={<ProtectedRoute><EntityDetailPage entityType="org" /></ProtectedRoute>}>
-        <Route path="worksite" element={<EntityChildListPage parentType="org" childType="worksite" />} />
-        <Route path="employee" element={<EntityChildListPage parentType="org" childType="employee" />} />
-        <Route path="wiki" element={<EntityChildListPage parentType="org" childType="wiki" />} />
-        <Route path="task" element={<EntityChildListPage parentType="org" childType="task" />} />
-        <Route path="artifact" element={<EntityChildListPage parentType="org" childType="artifact" />} />
-        <Route path="form" element={<EntityChildListPage parentType="org" childType="form" />} />
+      {/* Office Routes */}
+      <Route path="/office/:id" element={<ProtectedRoute><EntityDetailPage entityType="office" /></ProtectedRoute>}>
+        <Route path="biz" element={<EntityChildListPage parentType="office" childType="biz" />} />
+        <Route path="project" element={<EntityChildListPage parentType="office" childType="project" />} />
+        <Route path="task" element={<EntityChildListPage parentType="office" childType="task" />} />
+        <Route path="worksite" element={<EntityChildListPage parentType="office" childType="worksite" />} />
+        <Route path="employee" element={<EntityChildListPage parentType="office" childType="employee" />} />
+        <Route path="wiki" element={<EntityChildListPage parentType="office" childType="wiki" />} />
+        <Route path="artifact" element={<EntityChildListPage parentType="office" childType="artifact" />} />
+        <Route path="form" element={<EntityChildListPage parentType="office" childType="form" />} />
       </Route>
 
       {/* Worksite Routes */}
@@ -192,8 +195,9 @@ function AppRoutes() {
       <Route path="/role/:id" element={<ProtectedRoute><EntityDetailPage entityType="role" /></ProtectedRoute>} />
       <Route path="/client/:id" element={<ProtectedRoute><EntityDetailPage entityType="client" /></ProtectedRoute>} />
       <Route path="/position/:id" element={<ProtectedRoute><EntityDetailPage entityType="position" /></ProtectedRoute>} />
-      {/* Form Special Routes (Builder/Editor) */}
+      {/* Form Special Routes (Builder/Editor/Viewer) */}
       <Route path="/form/new" element={<ProtectedRoute><FormBuilderPage /></ProtectedRoute>} />
+      <Route path="/form/:id" element={<ProtectedRoute><FormViewPage /></ProtectedRoute>} />
       <Route path="/form/:id/edit" element={<ProtectedRoute><FormEditPage /></ProtectedRoute>} />
 
       {/* Wiki Special Routes (Editor/Viewer) */}

@@ -120,21 +120,20 @@ const UpdateEmployeeSchema = Type.Partial(CreateEmployeeSchema);
 export async function empRoutes(fastify: FastifyInstance) {
   // List employees
   fastify.get('/api/v1/employee', {
-    
+    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
-        active: Type.Optional(Type.Boolean()),
+        active_flag: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
-        employment_status: Type.Optional(Type.String()),
         employee_type: Type.Optional(Type.String()),
-        remote_eligible: Type.Optional(Type.Boolean()),
-        benefits_eligible: Type.Optional(Type.Boolean()),
+        department: Type.Optional(Type.String()),
+        remote_work_eligible: Type.Optional(Type.Boolean()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
       response: {
         200: Type.Object({
-          data: Type.Array(EmployeeSchema),
+          data: Type.Array(Type.Any()),
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),
@@ -144,69 +143,83 @@ export async function empRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { active, search, employment_status, employee_type, remote_eligible, benefits_eligible, limit = 50, offset = 0 } = request.query as any;
+    const { active_flag, search, employee_type, department, remote_work_eligible, limit = 50, offset = 0 } = request.query as any;
+
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
 
     try {
-      const conditions = [];
-      
-      if (active !== undefined) {
-        conditions.push(sql`active_flag = ${active}`);
+      // RBAC check - only show employees user has access to
+      const baseConditions = [
+        sql`(
+          EXISTS (
+            SELECT 1 FROM app.entity_id_rbac_map rbac
+            WHERE rbac.empid = ${userId}::uuid
+              AND rbac.entity = 'employee'
+              AND (rbac.entity_id = e.id::text OR rbac.entity_id = 'all')
+              AND rbac.active_flag = true
+              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+              AND 0 = ANY(rbac.permission)
+          )
+        )`
+      ];
+
+      const conditions = [...baseConditions];
+
+      if (active_flag !== undefined) {
+        conditions.push(sql`active_flag = ${active_flag}`);
       }
-      
-      if (employment_status) {
-        conditions.push(sql`employment_status = ${employment_status}`);
-      }
-      
+
       if (employee_type) {
         conditions.push(sql`employee_type = ${employee_type}`);
       }
-      
-      if (remote_eligible !== undefined) {
-        conditions.push(sql`remote_eligible = ${remote_eligible}`);
+
+      if (department) {
+        conditions.push(sql`department = ${department}`);
       }
-      
-      if (benefits_eligible !== undefined) {
-        conditions.push(sql`benefits_eligible = ${benefits_eligible}`);
+
+      if (remote_work_eligible !== undefined) {
+        conditions.push(sql`remote_work_eligible = ${remote_work_eligible}`);
       }
-      
+
       if (search) {
-        const searchableColumns = getColumnsByMetadata([
-          'name', 'descr', 'email', 'employee_number', 'phone', 'first_name', 'last_name'
-        ], 'ui:search');
-        
-        const searchConditions = searchableColumns.map(col => 
-          sql`COALESCE(${sql.identifier(col)}, '') ILIKE ${`%${search}%`}`
-        );
-        
-        if (searchConditions.length > 0) {
-          conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
-        }
+        const searchConditions = [
+          sql`COALESCE(name, '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE("descr", '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(email, '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(employee_number, '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(first_name, '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(last_name, '') ILIKE ${`%${search}%`}`
+        ];
+
+        conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
       }
 
       const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total 
-        FROM app.d_employee 
+        SELECT COUNT(*) as total
+        FROM app.d_employee e
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
 
       const employees = await db.execute(sql`
-        SELECT 
-          id, name, "descr", 
+        SELECT
+          id, slug, code, name, "descr",
           COALESCE(tags, '[]'::jsonb) as tags,
-          attr, from_ts, to_ts, active, created, updated,
-          employee_number, email, phone, first_name, last_name, preferred_name, date_of_birth,
-          hire_date, termination_date, employment_status, employee_type,
-          hr_position_id, primary_org_id, reports_to_employee_id,
-          salary_annual, hourly_rate, overtime_eligible, benefits_eligible,
-          COALESCE(certifications, '[]'::jsonb) as certifications,
-          COALESCE(skills, '[]'::jsonb) as skills,
-          COALESCE(languages, '["en"]'::jsonb) as languages,
-          education_level, remote_eligible, travel_required, security_clearance,
-          COALESCE(emergency_contact, '{}'::jsonb) as emergency_contact
-        FROM app.d_employee 
+          from_ts, to_ts, active_flag, created_ts, updated_ts, version,
+          employee_number, email, phone, mobile, first_name, last_name,
+          address_line1, address_line2, city, province, postal_code, country,
+          employee_type, department, title, hire_date, termination_date,
+          salary_band, pay_grade, manager_employee_id,
+          emergency_contact_name, emergency_contact_phone,
+          sin, birthdate, citizenship, security_clearance,
+          remote_work_eligible, time_zone, preferred_language,
+          COALESCE(metadata, '{}'::jsonb) as metadata
+        FROM app.d_employee e
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY name ASC NULLS LAST, created DESC
+        ORDER BY name ASC NULLS LAST, created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -249,7 +262,7 @@ export async function empRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' }),
       }),
       response: {
-        200: EmployeeSchema,
+        200: Type.Any(),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -258,17 +271,41 @@ export async function empRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    // RBAC check
+    const employeeAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}::uuid
+        AND rbac.entity = 'employee'
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 0 = ANY(rbac.permission)
+    `);
+
+    if (employeeAccess.length === 0) {
+      return reply.status(403).send({ error: 'Insufficient permissions to view this employee' });
+    }
+
     try {
       const employee = await db.execute(sql`
-        SELECT 
-          id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-          employee_number, email, phone, first_name, last_name, preferred_name, date_of_birth,
-          hire_date, termination_date, employment_status, employee_type,
-          hr_position_id, primary_org_id, reports_to_employee_id,
-          salary_annual, hourly_rate, overtime_eligible, benefits_eligible,
-          certifications, skills, languages, education_level, 
-          remote_eligible, travel_required, security_clearance, emergency_contact
-        FROM app.d_employee 
+        SELECT
+          id, slug, code, name, "descr",
+          COALESCE(tags, '[]'::jsonb) as tags,
+          from_ts, to_ts, active_flag, created_ts, updated_ts, version,
+          employee_number, email, phone, mobile, first_name, last_name,
+          address_line1, address_line2, city, province, postal_code, country,
+          employee_type, department, title, hire_date, termination_date,
+          salary_band, pay_grade, manager_employee_id,
+          emergency_contact_name, emergency_contact_phone,
+          sin, birthdate, citizenship, security_clearance,
+          remote_work_eligible, time_zone, preferred_language,
+          COALESCE(metadata, '{}'::jsonb) as metadata
+        FROM app.d_employee
         WHERE id = ${id}
       `);
 
@@ -280,8 +317,9 @@ export async function empRoutes(fastify: FastifyInstance) {
         canSeePII: true,
         canSeeFinancial: true,
         canSeeSystemFields: true,
+        canSeeSafetyInfo: true,
       };
-      
+
       return filterUniversalColumns(employee[0], userPermissions);
     } catch (error) {
       fastify.log.error('Error fetching employee:', error as any);

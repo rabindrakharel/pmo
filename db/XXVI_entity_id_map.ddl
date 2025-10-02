@@ -20,9 +20,9 @@ CREATE TABLE app.entity_id_map (
 
 -- Insert business-project relationships
 INSERT INTO app.entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
-SELECT 'business', p.biz_id, 'project', p.id, 'owns'
+SELECT 'business', p.business_id, 'project', p.id, 'owns'
 FROM app.d_project p
-WHERE p.biz_id IS NOT NULL AND p.active_flag = true;
+WHERE p.business_id IS NOT NULL AND p.active_flag = true;
 
 -- Insert office-business relationships
 INSERT INTO app.entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
@@ -36,22 +36,28 @@ SELECT 'project', t.project_id, 'task', t.id, 'contains'
 FROM app.d_task t
 WHERE t.project_id IS NOT NULL AND t.active_flag = true;
 
--- Insert project-artifact relationships
+-- Insert project-artifact relationships (using primary_entity_type and primary_entity_id)
 INSERT INTO app.entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
-SELECT 'project', a.project_id, 'artifact', a.id, 'contains'
+SELECT a.primary_entity_type, a.primary_entity_id, 'artifact', a.id, 'contains'
 FROM app.d_artifact a
-WHERE a.project_id IS NOT NULL AND a.active_flag = true;
+WHERE a.primary_entity_id IS NOT NULL
+  AND a.primary_entity_type IS NOT NULL
+  AND a.active_flag = true;
 
--- Insert project-wiki relationships
+-- Insert project-wiki relationships (using primary_entity_type and primary_entity_id)
 INSERT INTO app.entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
-SELECT 'project', w.project_id, 'wiki', w.id, 'contains'
+SELECT w.primary_entity_type, w.primary_entity_id, 'wiki', w.id, 'contains'
 FROM app.d_wiki w
-WHERE w.project_id IS NOT NULL AND w.active_flag = true;
+WHERE w.primary_entity_id IS NOT NULL
+  AND w.primary_entity_type IS NOT NULL
+  AND w.active_flag = true;
 
--- Insert project-form relationships
+-- Insert project-form relationships (using primary_entity_type and primary_entity_id)
 INSERT INTO app.entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
-SELECT 'project', f.project_id, 'form', f.id, 'contains'
-FROM app.d_formlog f
-WHERE f.project_id IS NOT NULL AND f.active_flag = true;
+SELECT f.primary_entity_type, f.primary_entity_id, 'form', f.id, 'contains'
+FROM app.d_form_head f
+WHERE f.primary_entity_id IS NOT NULL
+  AND f.primary_entity_type IS NOT NULL
+  AND f.active_flag = true;
 
 COMMENT ON TABLE app.entity_id_map IS 'Parent-child relationships between entity instances for navigation and filtering';

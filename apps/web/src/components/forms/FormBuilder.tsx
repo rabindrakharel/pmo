@@ -505,19 +505,19 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
         <div className="flex flex-col">
-          <label className="text-xs text-gray-600 mb-1">Label</label>
+          <label className="text-xs font-light text-gray-500 mb-1">Label</label>
           <input
             value={field.label}
             onChange={(e) => onChange({ label: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded-lg"
+            className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
           />
         </div>
         <div className="flex flex-col">
-          <label className="text-xs text-gray-600 mb-1">Name</label>
+          <label className="text-xs font-light text-gray-500 mb-1">Name</label>
           <input
             value={field.name}
             onChange={(e) => onChange({ name: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded-lg"
+            className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
           />
         </div>
         <div className="flex items-center space-x-2 mt-5 md:mt-0">
@@ -528,18 +528,18 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
             onChange={(e) => onChange({ required: e.target.checked })}
             className="rounded text-blue-600"
           />
-          <label htmlFor={`req-${field.id}`} className="text-xs text-gray-600">Required</label>
+          <label htmlFor={`req-${field.id}`} className="text-xs font-light text-gray-500">Required</label>
         </div>
         
         {/* Placeholder field for most input types */}
         {(['text', 'email', 'phone', 'url', 'textarea', 'number', 'signature', 'initials', 'address', 'geolocation', 'datetime', 'image_capture', 'video_capture', 'qr_scanner', 'barcode_scanner', 'wiki'].includes(field.type)) && (
           <div className="md:col-span-3 flex flex-col">
-            <label className="text-xs text-gray-600 mb-1">Placeholder</label>
+            <label className="text-xs font-light text-gray-500 mb-1">Placeholder</label>
             <input
               value={field.placeholder || ''}
               onChange={(e) => onChange({ placeholder: e.target.value })}
               placeholder="Enter placeholder text..."
-              className="px-3 py-2 border border-gray-300 rounded-lg"
+              className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
             />
           </div>
         )}
@@ -547,11 +547,11 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         {/* Options for select, radio, and checkbox */}
         {(['select', 'radio', 'checkbox'].includes(field.type)) && (
           <div className="md:col-span-3 flex flex-col">
-            <label className="text-xs text-gray-600 mb-1">Options (comma separated)</label>
+            <label className="text-xs font-light text-gray-500 mb-1">Options (comma separated)</label>
             <input
               value={(field.options || []).join(', ')}
               onChange={(e) => onChange({ options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-              className="px-3 py-2 border border-gray-300 rounded-lg"
+              className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
             />
           </div>
         )}
@@ -560,30 +560,30 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         {field.type === 'range' && (
           <>
             <div className="flex flex-col">
-              <label className="text-xs text-gray-600 mb-1">Min Value</label>
+              <label className="text-xs font-light text-gray-500 mb-1">Min Value</label>
               <input
                 type="number"
                 value={field.min || 0}
                 onChange={(e) => onChange({ min: parseInt(e.target.value) || 0 })}
-                className="px-3 py-2 border border-gray-300 rounded-lg"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-xs text-gray-600 mb-1">Max Value</label>
+              <label className="text-xs font-light text-gray-500 mb-1">Max Value</label>
               <input
                 type="number"
                 value={field.max || 100}
                 onChange={(e) => onChange({ max: parseInt(e.target.value) || 100 })}
-                className="px-3 py-2 border border-gray-300 rounded-lg"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-xs text-gray-600 mb-1">Step</label>
+              <label className="text-xs font-light text-gray-500 mb-1">Step</label>
               <input
                 type="number"
                 value={field.step || 1}
                 onChange={(e) => onChange({ step: parseInt(e.target.value) || 1 })}
-                className="px-3 py-2 border border-gray-300 rounded-lg"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
               />
             </div>
           </>
@@ -593,33 +593,33 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         {field.type === 'number' && (
           <>
             <div className="flex flex-col">
-              <label className="text-xs text-gray-600 mb-1">Min Value</label>
+              <label className="text-xs font-light text-gray-500 mb-1">Min Value</label>
               <input
                 type="number"
                 value={field.min || ''}
                 onChange={(e) => onChange({ min: e.target.value ? parseInt(e.target.value) : undefined })}
                 placeholder="No minimum"
-                className="px-3 py-2 border border-gray-300 rounded-lg"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-xs text-gray-600 mb-1">Max Value</label>
+              <label className="text-xs font-light text-gray-500 mb-1">Max Value</label>
               <input
                 type="number"
                 value={field.max || ''}
                 onChange={(e) => onChange({ max: e.target.value ? parseInt(e.target.value) : undefined })}
                 placeholder="No maximum"
-                className="px-3 py-2 border border-gray-300 rounded-lg"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-xs text-gray-600 mb-1">Step</label>
+              <label className="text-xs font-light text-gray-500 mb-1">Step</label>
               <input
                 type="number"
                 value={field.step || ''}
                 onChange={(e) => onChange({ step: e.target.value ? parseFloat(e.target.value) : undefined })}
                 placeholder="Any value"
-                className="px-3 py-2 border border-gray-300 rounded-lg"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
               />
             </div>
           </>
@@ -629,12 +629,12 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         {field.type === 'file' && (
           <>
             <div className="flex flex-col">
-              <label className="text-xs text-gray-600 mb-1">Accept</label>
+              <label className="text-xs font-light text-gray-500 mb-1">Accept</label>
               <input
                 value={field.accept || '*'}
                 onChange={(e) => onChange({ accept: e.target.value })}
                 placeholder="e.g., .pdf,.doc,.jpg or image/*"
-                className="px-3 py-2 border border-gray-300 rounded-lg"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
               />
             </div>
             <div className="flex items-center space-x-2 mt-5">
@@ -645,7 +645,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 onChange={(e) => onChange({ multiple: e.target.checked })}
                 className="rounded text-blue-600"
               />
-              <label htmlFor={`multiple-${field.id}`} className="text-xs text-gray-600">Multiple files</label>
+              <label htmlFor={`multiple-${field.id}`} className="text-xs font-light text-gray-500">Multiple files</label>
             </div>
           </>
         )}
@@ -661,14 +661,14 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 onChange={(e) => onChange({ showTimeSelect: e.target.checked })}
                 className="rounded text-blue-600"
               />
-              <label htmlFor={`time-select-${field.id}`} className="text-xs text-gray-600">Show time picker</label>
+              <label htmlFor={`time-select-${field.id}`} className="text-xs font-light text-gray-500">Show time picker</label>
             </div>
             <div className="flex flex-col">
-              <label className="text-xs text-gray-600 mb-1">Date Format</label>
+              <label className="text-xs font-light text-gray-500 mb-1">Date Format</label>
               <select
                 value={field.dateFormat || 'MMM d, yyyy h:mm aa'}
                 onChange={(e) => onChange({ dateFormat: e.target.value })}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
               >
                 <option value="MMM d, yyyy h:mm aa">Dec 25, 2024 2:30 PM</option>
                 <option value="yyyy-MM-dd HH:mm">2024-12-25 14:30</option>
@@ -685,27 +685,27 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         {field.type === 'wiki' && (
           <>
             <div className="flex flex-col">
-              <label className="text-xs text-gray-600 mb-1">Wiki Title</label>
+              <label className="text-xs font-light text-gray-500 mb-1">Wiki Title</label>
               <input
                 value={field.wikiTitle || 'Documentation'}
                 onChange={(e) => onChange({ wikiTitle: e.target.value })}
                 placeholder="Enter wiki title..."
-                className="px-3 py-2 border border-gray-300 rounded-lg"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-xs text-gray-600 mb-1">Editor Height (px)</label>
+              <label className="text-xs font-light text-gray-500 mb-1">Editor Height (px)</label>
               <input
                 type="number"
                 value={field.wikiHeight || 400}
                 onChange={(e) => onChange({ wikiHeight: parseInt(e.target.value) || 400 })}
                 min="300"
                 max="800"
-                className="px-3 py-2 border border-gray-300 rounded-lg"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
               />
             </div>
             <div className="col-span-full flex flex-col">
-              <label className="text-xs text-gray-600 mb-2">Rich Text Content</label>
+              <label className="text-xs font-light text-gray-500 mb-2">Rich Text Content</label>
               <div className="border border-gray-300 rounded-lg overflow-hidden">
                 <ModularEditor
                   value={field.wikiContent || ''}
@@ -714,7 +714,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                   height={Math.min(500, field.wikiHeight || 400)}
                 />
               </div>
-              <div className="text-xs text-gray-400 mt-2">
+              <div className="text-xs font-light text-gray-400 mt-2">
                 Professional rich text editor with headings, formatting, lists, links, code blocks, and more
               </div>
             </div>

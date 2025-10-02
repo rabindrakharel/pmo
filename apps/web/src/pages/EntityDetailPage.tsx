@@ -35,7 +35,10 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<any>({});
 
-  // Fetch dynamic child entity tabs
+  // Check if this entity has child entities
+  const hasChildEntities = config && config.childEntities && config.childEntities.length > 0;
+
+  // Fetch dynamic child entity tabs - only if entity has children
   const { tabs, loading: tabsLoading } = useDynamicChildEntityTabs(entityType, id || '');
 
   // Determine current tab from URL
@@ -45,6 +48,11 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
 
   // Prepare tabs with Overview as first tab - MUST be before any returns
   const allTabs = React.useMemo(() => {
+    // For leaf entities (no children), don't show tabs
+    if (!hasChildEntities) {
+      return [];
+    }
+
     const overviewTab = {
       id: 'overview',
       label: 'Overview',
@@ -58,7 +66,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
     );
 
     return [overviewTab, ...filteredTabs];
-  }, [tabs, entityType, id]);
+  }, [tabs, entityType, id, hasChildEntities]);
 
   useEffect(() => {
     if (id) {
@@ -187,7 +195,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
       }
       if (field.type === 'jsonb' && value) {
         return (
-          <pre className="text-xs bg-gray-50 p-2 rounded overflow-auto max-h-40">
+          <pre className="font-mono text-sm bg-gray-50 p-2 rounded overflow-auto max-h-40">
             {JSON.stringify(value, null, 2)}
           </pre>
         );
@@ -208,7 +216,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             type={field.type}
             value={value || ''}
             onChange={(e) => handleFieldChange(field.key, e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full text-sm border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
             disabled={field.disabled}
           />
         );
@@ -219,7 +227,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             value={value || ''}
             onChange={(e) => handleFieldChange(field.key, e.target.value)}
             rows={field.type === 'richtext' ? 6 : 4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full text-sm border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0 resize-none"
             disabled={field.disabled}
           />
         );
@@ -230,7 +238,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             value={Array.isArray(value) ? value.join(', ') : ''}
             onChange={(e) => handleFieldChange(field.key, e.target.value.split(',').map(v => v.trim()).filter(Boolean))}
             placeholder="Enter comma-separated values"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full text-sm border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
             disabled={field.disabled}
           />
         );
@@ -246,7 +254,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
               }
             }}
             rows={6}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+            className="w-full text-sm border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0 font-mono resize-none"
             disabled={field.disabled}
           />
         );
@@ -255,7 +263,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
           <select
             value={value || ''}
             onChange={(e) => handleFieldChange(field.key, e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full text-sm border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
             disabled={field.disabled}
           >
             <option value="">Select...</option>
@@ -272,7 +280,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             type="date"
             value={value ? new Date(value).toISOString().split('T')[0] : ''}
             onChange={(e) => handleFieldChange(field.key, e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full text-sm border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
             disabled={field.disabled}
           />
         );
@@ -283,7 +291,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="w-[97%] max-w-[1536px] mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -294,12 +302,12 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
               <ArrowLeft className="h-5 w-5 text-gray-600" />
             </button>
             <div>
-              <h1 className="text-2xl font-semibold text-gray-800">
+              <h1 className="text-lg font-medium text-gray-800">
                 {data.name || data.title || `${config.displayName} Details`}
+                <span className="text-xs font-light text-gray-500 ml-3">
+                  {config.displayName} · {id}
+                </span>
               </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                {config.displayName} · {id}
-              </p>
             </div>
           </div>
 
@@ -350,20 +358,20 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
 
         {/* Content Area - Shows Overview or Child Entity Table */}
         {isOverviewTab ? (
-          // Overview Tab - Entity Details
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">
-                {config.displayName} Information
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          // Overview Tab - Entity Details (Notion-style minimalistic design)
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+            <div className="p-8">
+              <div className="space-y-1">
                 {config.fields.map((field) => (
-                  <div key={field.key} className={field.type === 'textarea' || field.type === 'richtext' || field.type === 'jsonb' || field.type === 'array' ? 'md:col-span-2' : ''}>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <div
+                    key={field.key}
+                    className="group transition-colors rounded-md px-3 py-2 grid grid-cols-[160px_1fr] gap-2 items-start hover:bg-gray-50"
+                  >
+                    <label className="text-sm font-normal text-gray-500">
                       {field.label}
-                      {field.required && <span className="text-red-500 ml-1">*</span>}
+                      {field.required && <span className="text-red-400 ml-1">*</span>}
                     </label>
-                    <div className="text-gray-900">
+                    <div className={`text-sm text-gray-800 break-words rounded px-2 py-1 -mx-2 -my-1 ${isEditing ? 'bg-gray-100 hover:bg-gray-200' : ''}`}>
                       {renderField(field)}
                     </div>
                   </div>

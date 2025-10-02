@@ -20,6 +20,28 @@
 
 The PMO database is designed to support a comprehensive Project Management Office system for **Huron Home Services**, a Canadian service company managing landscaping, HVAC, plumbing, and other home services. The database follows a **flexible, relationship-driven architecture** with no direct foreign keys between most entities.
 
+DDL FILE CONTENTS: 
+Each ddl file has 3 sections: 
+semantics: why that table is needed, how it is related to other table, how are front end api and uiux, business logic served using the schema?
+ddl: create table statements 
+data curation: insert statements
+
+HOW TO CURATE DATA: 
+When you curate data, Please make sure data is curated with proper dependencies on other table.
+Once data is curated, Always reimport the data using tools: /home/rabin/projects/pmo/tools/db-import.sh
+If you create a new .ddl file, then you must add the .ddl file in the import util, and then run it: /home/rabin/projects/pmo/tools/db-import.sh
+
+Data must be only curated for user:
+James Miller Account:
+  - ID: 8260b1b0-5efc-4611-ad33-ee76c0cf7f13
+  - Email: james.miller@huronhome.ca
+  - Password: password123
+
+  and project: Fall 2024 Landscaping Campaign, id:84215ccb-313d-48f8-9c37-4398f28c0b1f
+
+
+
+
 ### Key Design Principles
 
 1. **No Direct Foreign Keys** - All entity relationships managed through `entity_id_map`

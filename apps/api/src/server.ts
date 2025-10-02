@@ -168,6 +168,7 @@ fastify.decorate('authenticate', async function(request: any, reply: any) {
   try {
     await request.jwtVerify();
   } catch (err) {
+    logger.error('JWT verification failed:', { error: err });
     reply.status(401).send({ error: 'User not authenticated' });
   }
 });

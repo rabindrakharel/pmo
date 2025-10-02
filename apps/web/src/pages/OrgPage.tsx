@@ -8,22 +8,22 @@ export function OrgPage() {
   const navigate = useNavigate();
 
   const handleRowClick = (org: any) => {
-    navigate(`/org/${org.id}`);
+    navigate(`/office/${org.id}`);
   };
 
   const handleCreateClick = () => {
-    navigate('/org/new');
+    navigate('/office/new');
   };
 
   const handleBulkShare = (selectedOrgs: any[]) => {
-    console.log('Bulk share organizations:', selectedOrgs.map(o => o.id));
-    alert(`Sharing ${selectedOrgs.length} organization${selectedOrgs.length !== 1 ? 's' : ''}`);
+    console.log('Bulk share offices:', selectedOrgs.map(o => o.id));
+    alert(`Sharing ${selectedOrgs.length} office${selectedOrgs.length !== 1 ? 's' : ''}`);
   };
 
   const handleBulkDelete = async (selectedOrgs: any[]) => {
-    if (window.confirm(`Are you sure you want to delete ${selectedOrgs.length} organization${selectedOrgs.length !== 1 ? 's' : ''}?`)) {
-      console.log('Bulk delete organizations:', selectedOrgs.map(o => o.id));
-      alert(`Deleted ${selectedOrgs.length} organization${selectedOrgs.length !== 1 ? 's' : ''}`);
+    if (window.confirm(`Are you sure you want to delete ${selectedOrgs.length} office${selectedOrgs.length !== 1 ? 's' : ''}?`)) {
+      console.log('Bulk delete offices:', selectedOrgs.map(o => o.id));
+      alert(`Deleted ${selectedOrgs.length} office${selectedOrgs.length !== 1 ? 's' : ''}`);
     }
   };
 
@@ -35,16 +35,16 @@ export function OrgPage() {
             <MapPin className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-gray-800">Organizations</h1>
-            <p className="mt-1 text-gray-600">Manage organizations and regional hierarchies</p>
+            <h1 className="text-2xl font-semibold text-gray-800">Offices</h1>
+            <p className="mt-1 text-gray-600">Manage offices and regional hierarchies</p>
           </div>
         </div>
 
         <div className="flex-1 min-h-0">
           <FilteredDataTable
-            entityType="org"
+            entityType="office"
             showActionButtons={true}
-            createLabel="Create Organization"
+            createLabel="Create Office"
             onCreateClick={handleCreateClick}
             onBulkShare={handleBulkShare}
             onBulkDelete={handleBulkDelete}

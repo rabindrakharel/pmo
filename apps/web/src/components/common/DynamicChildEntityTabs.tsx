@@ -99,18 +99,18 @@ export function DynamicChildEntityTabs({
                 disabled={tab.disabled}
                 title={tab.tooltip}
                 className={[
-                  'group inline-flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200',
+                  'group inline-flex items-center space-x-2 py-4 px-1 border-b-2 font-normal text-sm transition-colors duration-200',
                   isActive
-                    ? 'border-blue-500 text-blue-600'
+                    ? 'border-gray-800 text-gray-800'
                     : tab.disabled
                     ? 'border-transparent text-gray-400 cursor-not-allowed'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 cursor-pointer'
                 ].join(' ')}
               >
                 <IconComponent className={[
-                  'h-4 w-4 transition-colors duration-200',
+                  'h-3.5 w-3.5 transition-colors duration-200 stroke-[1.5]',
                   isActive
-                    ? 'text-blue-500'
+                    ? 'text-gray-600'
                     : tab.disabled
                     ? 'text-gray-400'
                     : 'text-gray-400 group-hover:text-gray-500'
@@ -118,12 +118,12 @@ export function DynamicChildEntityTabs({
                 <span>{tab.label}</span>
                 {tab.count !== undefined && (
                   <span className={[
-                    'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors duration-200',
+                    'inline-flex items-center px-2 py-0.5 rounded text-xs font-normal transition-colors duration-200',
                     isActive
-                      ? 'bg-blue-100 text-blue-600'
+                      ? 'bg-gray-100 text-gray-700'
                       : tab.disabled
                       ? 'bg-gray-100 text-gray-400'
-                      : 'bg-gray-100 text-gray-600 group-hover:bg-gray-200'
+                      : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
                   ].join(' ')}>
                     {tab.count}
                   </span>
@@ -240,6 +240,16 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
         if (!token || token === 'no-auth-needed') {
           console.warn('No valid auth token found, using default tabs');
           setTabs(getDefaultTabs(parentType, parentId));
+          setLoading(false);
+          return;
+        }
+
+        // Check if this entity type has children (leaf entities like employee, role, client don't)
+        const leafEntities = ['employee', 'role', 'client', 'position'];
+        if (leafEntities.includes(parentType)) {
+          // Don't fetch tabs for leaf entities
+          setTabs([]);
+          setLoading(false);
           return;
         }
 

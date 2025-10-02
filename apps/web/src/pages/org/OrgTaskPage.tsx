@@ -25,7 +25,7 @@ export function OrgTaskPage() {
           setOrgData(response);
         }
       } catch (error) {
-        console.error('Error fetching organization:', error);
+        console.error('Error fetching office:', error);
       } finally {
         setOrgLoading(false);
       }
@@ -48,7 +48,7 @@ export function OrgTaskPage() {
     <Layout>
       <div className="h-full flex flex-col">
         <DynamicChildEntityTabs
-          title={orgData?.name || 'Organization'}
+          title={orgData?.name || 'Office'}
           parentType="org"
           parentId={orgId!}
           parentName={orgData?.name}
