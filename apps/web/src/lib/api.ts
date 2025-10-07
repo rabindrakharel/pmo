@@ -144,6 +144,11 @@ export const taskApi = {
     return response.data;
   },
 
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/task/${id}`, data);
+    return response.data;
+  },
+
   async updateRecord(id: string, data: any) {
     const response = await apiClient.put(`/api/v1/task/${id}/record`, data);
     return response.data;
@@ -158,6 +163,33 @@ export const taskApi = {
 export const metaApi = {
   async get(category: 'task_status' | 'task_stage' | 'project_status' | 'project_stage' | 'biz_level' | 'loc_level' | 'hr_level') {
     const response = await apiClient.get(`/api/v1/meta?category=${category}`);
+    return response.data;
+  },
+};
+
+export const settingApi = {
+  async get(category: 'task_status' | 'task_stage' | 'project_status' | 'project_stage' | 'biz_level' | 'org_level' | 'hr_level' | 'client_level' | 'position_level') {
+    const response = await apiClient.get(`/api/v1/setting?category=${category}`);
+    return response.data;
+  },
+
+  async getItem(category: string, id: string) {
+    const response = await apiClient.get(`/api/v1/setting/${category}/${id}`);
+    return response.data;
+  },
+
+  async create(category: string, data: any) {
+    const response = await apiClient.post(`/api/v1/setting/${category}`, data);
+    return response.data;
+  },
+
+  async update(category: string, id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/setting/${category}/${id}`, data);
+    return response.data;
+  },
+
+  async delete(category: string, id: string) {
+    const response = await apiClient.delete(`/api/v1/setting/${category}/${id}`);
     return response.data;
   },
 };

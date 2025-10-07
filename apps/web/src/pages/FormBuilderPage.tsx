@@ -13,125 +13,33 @@ export function FormBuilderPage() {
     const userId = localStorage.getItem('user_id') || undefined;
     const userName = localStorage.getItem('user_name') || undefined;
 
-    // Build comprehensive form metadata
+    // Simplified payload
     const payload = {
       name: formData.name,
       descr: formData.descr,
-      taskSpecific: formData.taskSpecific,
       taskId: formData.taskId,
-
-      // Form configuration
       formType: 'multi_step',
       isTemplate: false,
       isDraft: false,
-
-      // Complete form structure with steps and fields
-      formBuilderSchema: {
-        steps: formData.schema?.steps || [],
-        stepConfiguration: {
-          allowStepSkipping: false,
-          showStepProgress: true,
-          saveProgressOnStepChange: true,
-          validateOnStepChange: true,
-          stepTransition: 'slide'
-        },
-        navigation: {
-          showPreviousButton: true,
-          showNextButton: true,
-          previousButtonText: 'Back',
-          nextButtonText: 'Next',
-          submitButtonText: 'Submit',
-          showStepNumbers: true
-        }
-      },
-
-      // Form builder state for editing
-      formBuilderState: {
-        currentStepIndex: 0,
-        activeFieldId: null,
-        lastModified: new Date().toISOString(),
-        modifiedBy: userId,
-        fieldSequence: formData.fieldSequence || []
-      },
-
-      // Step configuration
-      stepConfiguration: {
-        totalSteps: formData.totalSteps || 1,
-        allowStepSkipping: false,
-        showStepProgress: true,
-        saveProgressOnStepChange: true,
-        validateOnStepChange: true,
-        stepTransition: 'slide',
-        currentStepIndex: 0
-      },
-
-      // Validation rules
-      validationRules: {
-        requiredFields: (formData.schema?.steps || [])
-          .flatMap((s: any) => s.fields || [])
-          .filter((f: any) => f.required)
-          .map((f: any) => f.id || f.name),
-        customValidators: [],
-        globalRules: []
-      },
-
-      // Submission configuration
-      submissionConfig: {
-        allowDraft: true,
-        autoSaveInterval: 30000,
-        requireAuthentication: true,
-        allowAnonymous: false,
-        confirmationMessage: 'Thank you for your submission!',
-        redirectUrl: '/form',
-        emailNotifications: {
-          enabled: false,
-          recipients: [],
-          template: null,
-          ccClient: false
-        }
-      },
-
-      // Workflow configuration
-      workflowConfig: {
-        requiresApproval: false,
-        approvers: [],
-        approvalStages: []
-      },
-
-      // Access control
-      accessConfig: {
-        visibility: 'private',
-        allowedRoles: [],
-        allowedUsers: [],
-        expiresAt: null
-      },
-
-      // Analytics and metadata
+      schema: formData.schema, // Simple nested JSONB with steps array
+      uiSchema: {},
+      allowMultipleSubmissions: true,
+      requireAuthentication: true,
+      autoSaveEnabled: true,
+      workflowConfig: { requiresApproval: false, approvers: [], approvalStages: [] },
+      notificationSettings: {},
+      accessControl: { visibility: 'private', allowedRoles: [], allowedUsers: [], expiresAt: null },
       metadata: {
-        category: taskId ? 'task_form' : 'general',
+        category: formData.taskId ? 'task_form' : 'general',
         department: null,
         estimatedCompletionTime: null,
         completionRate: 0,
         averageCompletionTime: 0,
         totalSubmissions: 0,
         createdBy: userId,
-        createdByName: userName,
-        tags: formData.tags || []
+        createdByName: userName
       },
-
-      // Version control
-      versionMetadata: {
-        version: 1,
-        previousVersionId: null,
-        changeLog: [
-          {
-            version: 1,
-            changedBy: userId,
-            changedAt: new Date().toISOString(),
-            changes: 'Initial form creation'
-          }
-        ]
-      }
+      version: 1
     };
 
     const created = await formApi.create(payload);
@@ -142,59 +50,19 @@ export function FormBuilderPage() {
     const userId = localStorage.getItem('user_id') || undefined;
     const userName = localStorage.getItem('user_name') || undefined;
 
-    // Build draft with partial metadata
     const payload = {
       name: formData.name || 'Untitled Form (Draft)',
       descr: formData.descr,
-      taskSpecific: formData.taskSpecific,
       taskId: formData.taskId,
-
       formType: 'multi_step',
       isTemplate: false,
       isDraft: true,
-
-      formBuilderSchema: {
-        steps: formData.schema?.steps || [],
-        stepConfiguration: {
-          allowStepSkipping: false,
-          showStepProgress: true,
-          saveProgressOnStepChange: true,
-          validateOnStepChange: true,
-          stepTransition: 'slide'
-        },
-        navigation: {
-          showPreviousButton: true,
-          showNextButton: true,
-          previousButtonText: 'Back',
-          nextButtonText: 'Next',
-          submitButtonText: 'Submit',
-          showStepNumbers: true
-        }
-      },
-
-      formBuilderState: {
-        currentStepIndex: formData.schema?.currentStepIndex || 0,
-        activeFieldId: null,
-        lastModified: new Date().toISOString(),
-        modifiedBy: userId,
-        fieldSequence: formData.fieldSequence || []
-      },
-
-      stepConfiguration: {
-        totalSteps: formData.totalSteps || 1,
-        allowStepSkipping: false,
-        showStepProgress: true,
-        saveProgressOnStepChange: true,
-        validateOnStepChange: true,
-        stepTransition: 'slide',
-        currentStepIndex: formData.schema?.currentStepIndex || 0
-      },
-
+      schema: formData.schema,
+      uiSchema: {},
       metadata: {
         category: 'draft',
         createdBy: userId,
-        createdByName: userName,
-        tags: ['draft']
+        createdByName: userName
       }
     };
 

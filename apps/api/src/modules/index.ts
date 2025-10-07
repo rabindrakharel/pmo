@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { authRoutes } from './auth/routes.js';
 import { schemaRoutes } from './schema/routes.js';
 import { metaRoutes } from './meta/routes.js';
+import { settingRoutes } from './setting/routes.js';
 import { configRoutes } from '../routes/config.js';
 
 // Entity-based API modules
@@ -19,6 +20,7 @@ import { officeRoutes } from './office/routes.js';
 import { positionRoutes } from './position/routes.js';
 import { worksiteRoutes } from './worksite/routes.js';
 import { reportsRoutes } from './reports/routes.js';
+import { taskDataRoutes } from './task-data/routes.js';
 
 // New hierarchical API modules
 import { hierarchyRoutes } from './meta/hierarchy-routes.js';
@@ -44,9 +46,12 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   // Configuration API routes
   await configRoutes(fastify);
 
-  // Metadata routes
+  // Metadata routes (legacy - deprecated)
   await metaRoutes(fastify);
-  
+
+  // Setting routes (new)
+  await settingRoutes(fastify);
+
   // Hierarchical metadata routes
   await hierarchyRoutes(fastify);
   
@@ -74,4 +79,5 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await positionRoutes(fastify);
   await worksiteRoutes(fastify);
   await reportsRoutes(fastify);
+  await taskDataRoutes(fastify);
 }

@@ -48,7 +48,7 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
   const { isFullscreen } = useFullscreen();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState(window.location.pathname);
-  const [isMetaExpanded, setIsMetaExpanded] = useState(false);
+  const [isSettingExpanded, setIsSettingExpanded] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -71,14 +71,16 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
     }
   }, [isUserMenuOpen]);
 
-  const metaDropdownItems = [
-    { name: 'projectStatus', href: '/meta/projectStatus', icon: ListChecks },
-    { name: 'projectStage', href: '/meta/projectStage', icon: KanbanSquare },
-    { name: 'taskStatus', href: '/meta/taskStatus', icon: ListChecks },
-    { name: 'taskStage', href: '/meta/taskStage', icon: KanbanSquare },
-    { name: 'businessLevel', href: '/meta/businessLevel', icon: Building2 },
-    { name: 'orgLevel', href: '/meta/orgLevel', icon: MapPin },
-    { name: 'hrLevel', href: '/meta/hrLevel', icon: Crown },
+  const settingDropdownItems = [
+    { name: 'Project Status', href: '/setting/projectStatus', icon: ListChecks },
+    { name: 'Project Stage', href: '/setting/projectStage', icon: KanbanSquare },
+    { name: 'Task Status', href: '/setting/taskStatus', icon: ListChecks },
+    { name: 'Task Stage', href: '/setting/taskStage', icon: KanbanSquare },
+    { name: 'Business Level', href: '/setting/businessLevel', icon: Building2 },
+    { name: 'Office Level', href: '/setting/orgLevel', icon: MapPin },
+    { name: 'HR Level', href: '/setting/hrLevel', icon: Crown },
+    { name: 'Client Level', href: '/setting/clientLevel', icon: Users },
+    { name: 'Position Level', href: '/setting/positionLevel', icon: Star },
   ];
 
   const mainNavigationItems = [
@@ -109,8 +111,8 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
     return currentPage === href;
   };
 
-  const isMetaPageActive = () => {
-    return metaDropdownItems.some(item => isCurrentPage(item.href));
+  const isSettingPageActive = () => {
+    return settingDropdownItems.some(item => isCurrentPage(item.href));
   };
 
   // If in fullscreen mode, render fullscreen layout
@@ -185,34 +187,34 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
 
           {/* Main Navigation */}
           <nav className="flex-1 px-2 py-3 space-y-0.5">
-            {/* Meta Dropdown */}
+            {/* Setting Dropdown */}
             <div>
               <button
-                onClick={() => !isCollapsed && setIsMetaExpanded(!isMetaExpanded)}
+                onClick={() => !isCollapsed && setIsSettingExpanded(!isSettingExpanded)}
                 className={`${
-                  isMetaPageActive()
+                  isSettingPageActive()
                     ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                 } group flex items-center w-full ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 text-sm font-medium rounded-l-lg transition-all duration-200`}
-                title={isCollapsed ? 'Meta Data' : undefined}
+                title={isCollapsed ? 'Setting' : undefined}
               >
-                <Database className={`${
-                  isMetaPageActive() ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
+                <Settings className={`${
+                  isSettingPageActive() ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
                 } ${isCollapsed ? '' : 'mr-3'} h-4 w-4 stroke-[1.5] transition-colors duration-200`} />
                 {!isCollapsed && (
                   <>
-                    <span className="flex-1 text-left text-sm font-medium">Meta</span>
+                    <span className="flex-1 text-left text-sm font-medium">Setting</span>
                     <ChevronRight className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${
-                      isMetaExpanded ? 'transform rotate-90' : ''
+                      isSettingExpanded ? 'transform rotate-90' : ''
                     }`} />
                   </>
                 )}
               </button>
-              
-              {/* Meta Dropdown Items */}
-              {!isCollapsed && isMetaExpanded && (
+
+              {/* Setting Dropdown Items */}
+              {!isCollapsed && isSettingExpanded && (
                 <div className="ml-7 mt-1 space-y-0.5">
-                  {metaDropdownItems.map((item) => {
+                  {settingDropdownItems.map((item) => {
                     const IconComponent = item.icon;
                     const isActive = isCurrentPage(item.href);
                     return (

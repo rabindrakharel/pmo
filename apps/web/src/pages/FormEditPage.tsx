@@ -16,6 +16,10 @@ export function FormEditPage() {
       setLoading(true);
       try {
         const form = await formApi.get(id);
+        // Parse schema if it's a string
+        if (form.schema && typeof form.schema === 'string') {
+          form.schema = JSON.parse(form.schema);
+        }
         setFormData(form);
       } catch (e) {
         console.error('Failed to load form', e);

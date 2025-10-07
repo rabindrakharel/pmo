@@ -4,8 +4,8 @@ import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 
-// Meta data schemas
-const MetaItemSchema = Type.Object({
+// Setting data schemas
+const SettingItemSchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
@@ -32,7 +32,7 @@ const MetaItemSchema = Type.Object({
   updated: Type.String(),
 });
 
-const CreateMetaItemSchema = Type.Object({
+const CreateSettingItemSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
   code: Type.Optional(Type.String()),
@@ -54,11 +54,11 @@ const CreateMetaItemSchema = Type.Object({
   active: Type.Optional(Type.Boolean()),
 });
 
-const UpdateMetaItemSchema = Type.Partial(CreateMetaItemSchema);
+const UpdateSettingItemSchema = Type.Partial(CreateSettingItemSchema);
 
-export async function metaRoutes(fastify: FastifyInstance) {
-  // Get all meta data or filter by category
-  fastify.get('/api/v1/meta', {
+export async function settingRoutes(fastify: FastifyInstance) {
+  // Get all setting data or filter by category
+  fastify.get('/api/v1/setting', {
     
     schema: {
       querystring: Type.Object({
@@ -67,7 +67,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
       }),
       response: {
         200: Type.Object({
-          data: Type.Array(MetaItemSchema),
+          data: Type.Array(SettingItemSchema),
           category: Type.Optional(Type.String()),
         }),
         500: Type.Object({ error: Type.String() }),
@@ -101,7 +101,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             active,
             created,
             updated
-          FROM app.meta_entity_task_status
+          FROM app.setting_task_status
           WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC, level_name ASC
         `;
@@ -109,25 +109,20 @@ export async function metaRoutes(fastify: FastifyInstance) {
       } else if (category === 'task_stage' || category === 'task-stage') {
         query = sql`
           SELECT
-            id::text,
+            level_id::text as id,
             level_name as name,
-            null as descr,
-            slug as code,
-            level_id as sort_id,
-            null as color,
-            is_root as is_default,
-            is_leaf as is_done,
-            false as is_blocked,
-            null as wip_limit,
-            null as icon,
+            level_descr as descr,
+            level_id,
+            sort_order,
+            color_code,
             null as tags,
             null as attr,
-            from_ts,
-            to_ts,
-            active,
-            created,
-            updated
-          FROM app.meta_entity_task_stage
+            created_ts as from_ts,
+            null as to_ts,
+            active_flag as active,
+            created_ts as created,
+            created_ts as updated
+          FROM app.setting_task_stage
           WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC, level_name ASC
         `;
@@ -151,7 +146,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             active,
             created,
             updated
-          FROM app.meta_entity_project_status
+          FROM app.setting_project_status
           WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC, level_name ASC
         `;
@@ -159,20 +154,20 @@ export async function metaRoutes(fastify: FastifyInstance) {
       } else if (category === 'project_stage' || category === 'project-stage') {
         query = sql`
           SELECT
-            id::text,
+            level_id::text as id,
             level_name as name,
-            null as descr,
+            level_descr as descr,
             level_id,
-            null as duration_weeks,
-            level_id as sort_order,
+            sort_order,
+            color_code,
             null as tags,
             null as attr,
-            from_ts,
-            to_ts,
-            active,
-            created,
-            updated
-          FROM app.meta_entity_project_stage
+            created_ts as from_ts,
+            null as to_ts,
+            active_flag as active,
+            created_ts as created,
+            created_ts as updated
+          FROM app.setting_project_stage
           WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC, level_name ASC
         `;
@@ -180,19 +175,19 @@ export async function metaRoutes(fastify: FastifyInstance) {
       } else if (category === 'biz_level' || category === 'business-level') {
         query = sql`
           SELECT
-            id::text,
+            level_id::text as id,
             level_name as name,
-            null as descr,
+            level_descr as descr,
             level_id,
             level_id as sort_order,
             null as tags,
             null as attr,
-            from_ts,
-            to_ts,
-            active,
-            created,
-            updated
-          FROM app.meta_entity_org_level
+            created_ts as from_ts,
+            null as to_ts,
+            active_flag as active,
+            created_ts as created,
+            created_ts as updated
+          FROM app.setting_business_level
           WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC
         `;
@@ -200,20 +195,19 @@ export async function metaRoutes(fastify: FastifyInstance) {
       } else if (category === 'org_level' || category === 'orgLevel') {
         query = sql`
           SELECT
-            id::text,
+            level_id::text as id,
             level_name as name,
-            null as descr,
+            level_descr as descr,
             level_id,
-            null as country_code,
             level_id as sort_order,
             null as tags,
             null as attr,
-            from_ts,
-            to_ts,
-            active,
-            created,
-            updated
-          FROM app.meta_entity_org_level
+            created_ts as from_ts,
+            null as to_ts,
+            active_flag as active,
+            created_ts as created,
+            created_ts as updated
+          FROM app.setting_office_level
           WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC
         `;
@@ -237,7 +231,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             active,
             created,
             updated
-          FROM app.meta_entity_hr_level
+          FROM app.setting_hr_level
           WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC
         `;
@@ -260,7 +254,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             active_flag as active,
             created_ts as created,
             updated_ts as updated
-          FROM app.meta_client_level
+          FROM app.setting_client_level
           WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC
         `;
@@ -283,7 +277,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             active_flag as active,
             created_ts as created,
             updated_ts as updated
-          FROM app.meta_position_level
+          FROM app.setting_position_level
           WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC
         `;
@@ -297,7 +291,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
           };
         }
         
-        // Get all meta data (simplified for now)
+        // Get all setting data (simplified for now)
         query = sql`
           SELECT 
             id::text,
@@ -314,7 +308,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             active,
             created,
             updated
-          FROM app.meta_task_status
+          FROM app.setting_task_status
           WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC, name ASC
         `;
@@ -327,13 +321,13 @@ export async function metaRoutes(fastify: FastifyInstance) {
         category: categoryName,
       };
     } catch (error) {
-      fastify.log.error('Error fetching meta data:', error as any);
+      fastify.log.error('Error fetching setting data:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Get specific meta item
-  fastify.get('/api/v1/meta/:category/:id', {
+  // Get specific setting item
+  fastify.get('/api/v1/setting/:category/:id', {
     
     schema: {
       params: Type.Object({
@@ -341,7 +335,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
         id: Type.String(),
       }),
       response: {
-        200: MetaItemSchema,
+        200: SettingItemSchema,
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
       },
@@ -356,22 +350,22 @@ export async function metaRoutes(fastify: FastifyInstance) {
       switch (category) {
         case 'task_status':
         case 'task-status':
-          tableName = 'app.meta_task_status';
+          tableName = 'app.setting_task_status';
           break;
         case 'task_stage':
         case 'task-stage':
-          tableName = 'app.meta_task_stage';
+          tableName = 'app.setting_task_stage';
           break;
         case 'project_status':
         case 'project-status':
-          tableName = 'app.meta_project_status';
+          tableName = 'app.setting_project_status';
           break;
         case 'project_stage':
         case 'project-stage':
-          tableName = 'app.meta_project_stage';
+          tableName = 'app.setting_project_stage';
           break;
         default:
-          return reply.status(404).send({ error: 'Unknown meta category' });
+          return reply.status(404).send({ error: 'Unknown setting category' });
       }
 
       const results = await db.execute(sql`
@@ -395,26 +389,26 @@ export async function metaRoutes(fastify: FastifyInstance) {
       `);
 
       if (results.length === 0) {
-        return reply.status(404).send({ error: 'Meta item not found' });
+        return reply.status(404).send({ error: 'Setting item not found' });
       }
 
       return results[0];
     } catch (error) {
-      fastify.log.error('Error fetching meta item:', error as any);
+      fastify.log.error('Error fetching setting item:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Create meta item (admin only)
-  fastify.post('/api/v1/meta/:category', {
+  // Create setting item (admin only)
+  fastify.post('/api/v1/setting/:category', {
     
     schema: {
       params: Type.Object({
         category: Type.String(),
       }),
-      body: CreateMetaItemSchema,
+      body: CreateSettingItemSchema,
       response: {
-        201: MetaItemSchema,
+        201: SettingItemSchema,
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -433,7 +427,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
       switch (category) {
         case 'task_status':
         case 'task-status':
-          tableName = 'app.meta_task_status';
+          tableName = 'app.setting_task_status';
           insertFields = 'name, code, description, color, icon, is_default, wip_limit, active';
           returnFields = `
             id::text, name, code, description, level_id, null as parent_id,
@@ -442,7 +436,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
           break;
         case 'task_stage':
         case 'task-stage':
-          tableName = 'app.meta_task_stage';
+          tableName = 'app.setting_task_stage';
           insertFields = 'name, code, description, color, icon, is_default, active';
           returnFields = `
             id::text, name, code, description, level_id, parent_id,
@@ -450,7 +444,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
           `;
           break;
         default:
-          return reply.status(400).send({ error: 'Invalid meta category' });
+          return reply.status(400).send({ error: 'Invalid setting category' });
       }
 
       const result = await db.execute(sql`
@@ -469,27 +463,27 @@ export async function metaRoutes(fastify: FastifyInstance) {
       `);
 
       if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to create meta item' });
+        return reply.status(500).send({ error: 'Failed to create setting item' });
       }
 
       return reply.status(201).send(result[0]);
     } catch (error) {
-      fastify.log.error('Error creating meta item:', error as any);
+      fastify.log.error('Error creating setting item:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Update meta item (admin only)
-  fastify.put('/api/v1/meta/:category/:id', {
+  // Update setting item (admin only)
+  fastify.put('/api/v1/setting/:category/:id', {
     
     schema: {
       params: Type.Object({
         category: Type.String(),
         id: Type.String(),
       }),
-      body: UpdateMetaItemSchema,
+      body: UpdateSettingItemSchema,
       response: {
-        200: MetaItemSchema,
+        200: SettingItemSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -506,14 +500,14 @@ export async function metaRoutes(fastify: FastifyInstance) {
       switch (category) {
         case 'task_status':
         case 'task-status':
-          tableName = 'app.meta_task_status';
+          tableName = 'app.setting_task_status';
           break;
         case 'task_stage':
         case 'task-stage':
-          tableName = 'app.meta_task_stage';
+          tableName = 'app.setting_task_stage';
           break;
         default:
-          return reply.status(400).send({ error: 'Invalid meta category' });
+          return reply.status(400).send({ error: 'Invalid setting category' });
       }
 
       // Build update fields
@@ -546,18 +540,18 @@ export async function metaRoutes(fastify: FastifyInstance) {
       `);
 
       if (result.length === 0) {
-        return reply.status(404).send({ error: 'Meta item not found' });
+        return reply.status(404).send({ error: 'Setting item not found' });
       }
 
       return result[0];
     } catch (error) {
-      fastify.log.error('Error updating meta item:', error as any);
+      fastify.log.error('Error updating setting item:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Delete meta item (admin only)
-  fastify.delete('/api/v1/meta/:category/:id', {
+  // Delete setting item (admin only)
+  fastify.delete('/api/v1/setting/:category/:id', {
 
     schema: {
       params: Type.Object({
@@ -574,7 +568,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { category, id } = request.params as { category: string; id: string };
 
-    // Check if user has permission to delete meta data (admin-level)
+    // Check if user has permission to delete setting data (admin-level)
 
     try {
       let tableName = '';
@@ -582,34 +576,34 @@ export async function metaRoutes(fastify: FastifyInstance) {
       switch (category) {
         case 'task_status':
         case 'task-status':
-          tableName = 'app.meta_entity_task_status';
+          tableName = 'app.setting_task_status';
           break;
         case 'task_stage':
         case 'task-stage':
-          tableName = 'app.meta_entity_task_stage';
+          tableName = 'app.setting_task_stage';
           break;
         case 'project_status':
         case 'project-status':
-          tableName = 'app.meta_entity_project_status';
+          tableName = 'app.setting_project_status';
           break;
         case 'project_stage':
         case 'project-stage':
-          tableName = 'app.meta_entity_project_stage';
+          tableName = 'app.setting_project_stage';
           break;
         case 'biz_level':
         case 'business-level':
-          tableName = 'app.meta_entity_org_level';
+          tableName = 'app.setting_org_level';
           break;
         case 'org_level':
         case 'orgLevel':
-          tableName = 'app.meta_entity_org_level';
+          tableName = 'app.setting_org_level';
           break;
         case 'hr_level':
         case 'hr-level':
-          tableName = 'app.meta_entity_hr_level';
+          tableName = 'app.setting_hr_level';
           break;
         default:
-          return reply.status(400).send({ error: 'Invalid meta category' });
+          return reply.status(400).send({ error: 'Invalid setting category' });
       }
 
       // Soft delete by setting active_flag = false and closing SCD record with to_ts
@@ -624,12 +618,12 @@ export async function metaRoutes(fastify: FastifyInstance) {
       `);
 
       if (result.length === 0) {
-        return reply.status(404).send({ error: 'Meta item not found or already deleted' });
+        return reply.status(404).send({ error: 'Setting item not found or already deleted' });
       }
 
       return reply.status(204).send();
     } catch (error) {
-      fastify.log.error('Error deleting meta item:', error as any);
+      fastify.log.error('Error deleting setting item:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

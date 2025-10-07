@@ -11,8 +11,9 @@ interface FormHead {
   name: string;
   descr?: string;
   schema?: any;
-  created?: string;
-  updated?: string;
+  createdTs?: string;
+  updatedTs?: string;
+  version?: number;
   attr?: any;
   isMultiStep?: boolean;
   totalSteps?: number;
@@ -34,10 +35,16 @@ export function FormViewPage() {
       setLoading(true);
       try {
         const data = await formApi.get(id);
+
+        // Parse schema if it's a string
+        if (data.schema && typeof data.schema === 'string') {
+          data.schema = JSON.parse(data.schema);
+        }
+
         setForm(data);
-        
+
         const schema = data?.schema || {};
-        
+
         // Handle multi-step forms
         if (schema.steps && Array.isArray(schema.steps)) {
           const formSteps = schema.steps.map((step: any, index: number) => ({
@@ -113,12 +120,17 @@ export function FormViewPage() {
               <ArrowLeft className="h-5 w-5 text-gray-700" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{form?.name || 'Form'}</h1>
-              <p className="mt-1 text-gray-600">
+              <h1 className="text-sm font-normal text-gray-500">
+                {form?.name || 'Form'}
+                <span className="text-xs font-light text-gray-500 ml-3">
+                  Form · {id}
+                </span>
+              </h1>
+              <p className="mt-1 text-sm text-gray-600">
                 {form?.descr || 'Form design preview'}
                 {steps.length > 1 && (
-                  <span className="ml-2 text-sm text-blue-600">
-                    • Multi-step form ({steps.length} steps)
+                  <span className="text-sm text-blue-600">
+                    {' '}• Multi-step form ({steps.length} steps)
                   </span>
                 )}
               </p>
@@ -127,35 +139,31 @@ export function FormViewPage() {
           <div className="flex items-center space-x-3">
             <button
               onClick={() => navigate(`/form/${id}/edit`)}
-              className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               title="Edit form"
             >
               <Edit3 className="h-4 w-4 mr-2" />
               Edit
             </button>
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-500">ID</span>
-              <code className="text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded">{form?.id?.slice(0, 8)}…</code>
-            </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="text-xs text-gray-500">Creator</div>
-            <div className="text-sm text-gray-900">{form?.attr?.createdByName || form?.attr?.createdBy || '—'}</div>
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Created</div>
+            <div className="mt-1 text-sm text-gray-900">{form?.createdTs ? new Date(form.createdTs).toLocaleString('en-CA') : '—'}</div>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="text-xs text-gray-500">Created</div>
-            <div className="text-sm text-gray-900">{form?.created ? new Date(form.created).toLocaleString('en-CA') : '—'}</div>
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Updated</div>
+            <div className="mt-1 text-sm text-gray-900">{form?.updatedTs ? new Date(form.updatedTs).toLocaleString('en-CA') : '—'}</div>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="text-xs text-gray-500">Updated</div>
-            <div className="text-sm text-gray-900">{form?.updated ? new Date(form.updated).toLocaleString('en-CA') : '—'}</div>
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Version</div>
+            <div className="mt-1 text-sm text-gray-900">{form?.version || '—'}</div>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="text-xs text-gray-500">Total Fields</div>
-            <div className="text-sm text-gray-900">{fields.length} field{fields.length !== 1 ? 's' : ''}</div>
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Fields</div>
+            <div className="mt-1 text-sm text-gray-900">{fields.length} field{fields.length !== 1 ? 's' : ''}</div>
           </div>
         </div>
 

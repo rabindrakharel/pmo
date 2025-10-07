@@ -53,18 +53,18 @@ export function WikiViewPage() {
           <div>
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 text-3xl flex items-center justify-center bg-white rounded-lg border">{page.attr?.icon || '📄'}</div>
-              <h1 className="text-2xl font-semibold text-gray-800">{page.title}</h1>
+              <h1 className="text-2xl font-semibold text-gray-800">{page.name}</h1>
             </div>
-            <p className="text-gray-500 text-sm">Updated {new Date(page.updated).toLocaleString()}</p>
+            <p className="text-gray-500 text-sm">Updated {new Date(page.updatedTs || page.updated_ts).toLocaleString()}</p>
           </div>
           <div className="space-x-2">
-            <button onClick={() => navigate(`/wiki/${id}/edit`)} className="px-3 py-2 rounded text-white bg-blue-600">Edit</button>
-            <button onClick={() => navigate('/wiki')} className="px-3 py-2 rounded border">Back</button>
+            <button onClick={() => navigate(`/wiki/${id}/edit`)} className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Edit</button>
+            <button onClick={() => navigate('/wiki')} className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50">Back</button>
           </div>
         </div>
 
         <article className="bg-white border rounded-lg p-6 prose max-w-none">
-          <div dangerouslySetInnerHTML={{ __html: page.contentHtml || '' }} />
+          <div dangerouslySetInnerHTML={{ __html: page.content_html || page.contentHtml || '' }} />
         </article>
       </div>
     </Layout>

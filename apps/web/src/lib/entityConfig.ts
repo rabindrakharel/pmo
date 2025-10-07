@@ -65,7 +65,7 @@ export interface EntityConfig {
   // Kanban configuration (for task)
   kanban?: {
     groupByField: string; // e.g., 'stage' or 'status'
-    metaTable?: string; // e.g., 'meta_task_stage'
+    metaTable?: string; // e.g., 'setting_task_stage'
     cardFields: string[]; // fields to show on kanban cards
   };
 
@@ -194,7 +194,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'code', label: 'Project Code', type: 'text', required: true },
       { key: 'slug', label: 'Slug', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'richtext' },
-      { key: 'project_stage', label: 'Stage', type: 'select', options: [] }, // populated from meta_project_stage
+      { key: 'project_stage', label: 'Stage', type: 'select', options: [] }, // populated from setting_project_stage
       { key: 'budget_allocated', label: 'Budget', type: 'number' },
       { key: 'planned_start_date', label: 'Start Date', type: 'date' },
       { key: 'planned_end_date', label: 'End Date', type: 'date' },
@@ -282,7 +282,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'code', label: 'Task Code', type: 'text', required: true },
       { key: 'slug', label: 'Slug', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'richtext' },
-      { key: 'stage', label: 'Stage', type: 'select', options: [] }, // from meta_task_stage
+      { key: 'stage', label: 'Stage', type: 'select', options: [] }, // from setting_task_stage
       { key: 'priority_level', label: 'Priority', type: 'select', options: [
         { value: 'High', label: 'High' },
         { value: 'Medium', label: 'Medium' },
@@ -298,7 +298,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     kanban: {
       groupByField: 'stage',
-      metaTable: 'meta_task_stage',
+      metaTable: 'setting_task_stage',
       cardFields: ['name', 'priority_level', 'estimated_hours', 'assignee_employee_ids']
     },
 
@@ -328,18 +328,50 @@ export const entityConfigs: Record<string, EntityConfig> = {
         render: (value, record) => React.createElement(
           'div',
           null,
-          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-          record.slug && React.createElement('div', { className: 'text-sm text-gray-500' }, record.slug)
+          React.createElement(
+            'div',
+            { className: 'flex items-center gap-2' },
+            record.attr?.icon && React.createElement('span', { className: 'text-lg' }, record.attr.icon),
+            React.createElement('span', { className: 'font-medium text-gray-900' }, value)
+          ),
+          record.slug && React.createElement('div', { className: 'text-sm text-gray-500' }, `/${record.slug}`)
         )
       },
       {
-        key: 'published',
+        key: 'wiki_type',
+        title: 'Type',
+        sortable: true,
+        filterable: true,
+        render: (value) => renderBadge(value || 'page', {
+          'page': 'bg-blue-100 text-blue-800',
+          'template': 'bg-purple-100 text-purple-800',
+          'workflow': 'bg-green-100 text-green-800',
+          'guide': 'bg-yellow-100 text-yellow-800',
+          'policy': 'bg-red-100 text-red-800',
+          'checklist': 'bg-indigo-100 text-indigo-800'
+        })
+      },
+      {
+        key: 'publication_status',
         title: 'Status',
         sortable: true,
         filterable: true,
-        render: (value) => value
-          ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Published')
-          : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800' }, 'Draft')
+        render: (value) => {
+          const status = value || 'draft';
+          return renderBadge(status, {
+            'published': 'bg-green-100 text-green-800',
+            'draft': 'bg-yellow-100 text-yellow-800',
+            'archived': 'bg-gray-100 text-gray-800',
+            'deprecated': 'bg-red-100 text-red-800'
+          });
+        }
+      },
+      {
+        key: 'category',
+        title: 'Category',
+        sortable: true,
+        filterable: true,
+        render: (value) => value || '-'
       },
       {
         key: 'updated_ts',
@@ -355,21 +387,42 @@ export const entityConfigs: Record<string, EntityConfig> = {
     ],
 
     fields: [
-      { key: 'title', label: 'Title', type: 'text', required: true },
+      { key: 'name', label: 'Name', type: 'text', required: true },
+      { key: 'code', label: 'Code', type: 'text', required: true },
       { key: 'slug', label: 'Slug', type: 'text', required: true },
-      { key: 'content', label: 'Content', type: 'richtext', required: true },
-      { key: 'published', label: 'Published', type: 'select', options: [
-        { value: 'true', label: 'Published' },
-        { value: 'false', label: 'Draft' }
+      { key: 'descr', label: 'Description', type: 'textarea' },
+      { key: 'wiki_type', label: 'Type', type: 'select', options: [
+        { value: 'page', label: 'Page' },
+        { value: 'template', label: 'Template' },
+        { value: 'workflow', label: 'Workflow' },
+        { value: 'guide', label: 'Guide' },
+        { value: 'policy', label: 'Policy' },
+        { value: 'checklist', label: 'Checklist' }
       ]},
-      { key: 'tags', label: 'Tags', type: 'array' }
+      { key: 'category', label: 'Category', type: 'text' },
+      { key: 'publication_status', label: 'Publication Status', type: 'select', options: [
+        { value: 'draft', label: 'Draft' },
+        { value: 'published', label: 'Published' },
+        { value: 'archived', label: 'Archived' },
+        { value: 'deprecated', label: 'Deprecated' }
+      ]},
+      { key: 'visibility', label: 'Visibility', type: 'select', options: [
+        { value: 'public', label: 'Public' },
+        { value: 'internal', label: 'Internal' },
+        { value: 'restricted', label: 'Restricted' },
+        { value: 'private', label: 'Private' }
+      ]},
+      { key: 'summary', label: 'Summary', type: 'textarea' },
+      { key: 'keywords', label: 'Keywords', type: 'array' },
+      { key: 'tags', label: 'Tags', type: 'array' },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 
     supportedViews: ['table', 'grid'],
     defaultView: 'table',
 
     grid: {
-      cardFields: ['title', 'content', 'published', 'updated_ts']
+      cardFields: ['name', 'descr', 'wiki_type', 'publication_status', 'updated_ts']
     }
   },
 
@@ -492,6 +545,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     fields: [
       { key: 'name', label: 'Form Name', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
+      { key: 'url', label: 'Public Form URL', type: 'text', readonly: true },
       { key: 'schema', label: 'Form Schema', type: 'jsonb', required: true },
       { key: 'active_flag', label: 'Active', type: 'select', options: [
         { value: 'true', label: 'Active' },
@@ -548,7 +602,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     fields: [
       { key: 'name', label: 'Name', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'level_id', label: 'Level', type: 'select', options: [] }, // from meta_business_level
+      { key: 'level_id', label: 'Level', type: 'select', options: [] }, // from setting_business_level
       { key: 'parent_id', label: 'Parent Unit', type: 'select', options: [] },
       { key: 'tags', label: 'Tags', type: 'array' }
     ],
@@ -559,7 +613,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     hierarchical: {
       levels: 3,
       levelNames: ['Department', 'Division', 'Corporate'],
-      metaTable: 'meta_business_level',
+      metaTable: 'setting_business_level',
       levelField: 'level_id'
     },
 
@@ -615,7 +669,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'name', label: 'Name', type: 'text', required: true },
       { key: 'addr', label: 'Address', type: 'textarea' },
       { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'level_id', label: 'Level', type: 'select', options: [] }, // from meta_office_level
+      { key: 'level_id', label: 'Level', type: 'select', options: [] }, // from setting_office_level
       { key: 'parent_id', label: 'Parent Office', type: 'select', options: [] }
     ],
 
@@ -625,7 +679,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     hierarchical: {
       levels: 4,
       levelNames: ['Office', 'District', 'Region', 'Corporate'],
-      metaTable: 'meta_office_level',
+      metaTable: 'setting_office_level',
       levelField: 'level_id'
     },
 
@@ -880,6 +934,356 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'name', label: 'Position Name', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'tags', label: 'Tags', type: 'array' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // META: PROJECT STAGE
+  // --------------------------------------------------------------------------
+  projectStage: {
+    name: 'projectStage',
+    displayName: 'Project Stage',
+    pluralName: 'Project Stages',
+    apiEndpoint: '/api/v1/setting?category=project-stage',
+    icon: 'KanbanSquare',
+
+    columns: [
+      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
+      { key: 'name', title: 'Stage Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
+      {
+        key: 'color_code',
+        title: 'Color',
+        render: (value) => value ? React.createElement('div', {
+          className: 'flex items-center gap-2'
+        },
+          React.createElement('div', {
+            className: 'w-4 h-4 rounded border border-gray-300',
+            style: { backgroundColor: value }
+          }),
+          React.createElement('span', { className: 'text-xs font-mono text-gray-600' }, value)
+        ) : '-'
+      },
+      {
+        key: 'active',
+        title: 'Status',
+        render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
+          'Active': 'bg-green-100 text-green-800',
+          'Inactive': 'bg-red-100 text-red-800'
+        })
+      }
+    ],
+
+    fields: [
+      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
+      { key: 'level_name', label: 'Stage Name', type: 'text', required: true },
+      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'sort_order', label: 'Sort Order', type: 'number' },
+      { key: 'color_code', label: 'Color Code', type: 'text', placeholder: '#3B82F6' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // META: PROJECT STATUS
+  // --------------------------------------------------------------------------
+  projectStatus: {
+    name: 'projectStatus',
+    displayName: 'Project Status',
+    pluralName: 'Project Statuses',
+    apiEndpoint: '/api/v1/setting?category=project-status',
+    icon: 'ListChecks',
+
+    columns: [
+      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
+      { key: 'name', title: 'Status Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
+      {
+        key: 'active',
+        title: 'Status',
+        render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
+          'Active': 'bg-green-100 text-green-800',
+          'Inactive': 'bg-red-100 text-red-800'
+        })
+      }
+    ],
+
+    fields: [
+      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
+      { key: 'level_name', label: 'Status Name', type: 'text', required: true },
+      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'sort_order', label: 'Sort Order', type: 'number' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // META: TASK STAGE
+  // --------------------------------------------------------------------------
+  taskStage: {
+    name: 'taskStage',
+    displayName: 'Task Stage',
+    pluralName: 'Task Stages',
+    apiEndpoint: '/api/v1/setting?category=task-stage',
+    icon: 'KanbanSquare',
+
+    columns: [
+      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
+      { key: 'name', title: 'Stage Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
+      {
+        key: 'color_code',
+        title: 'Color',
+        render: (value) => value ? React.createElement('div', {
+          className: 'flex items-center gap-2'
+        },
+          React.createElement('div', {
+            className: 'w-4 h-4 rounded border border-gray-300',
+            style: { backgroundColor: value }
+          }),
+          React.createElement('span', { className: 'text-xs font-mono text-gray-600' }, value)
+        ) : '-'
+      },
+      {
+        key: 'active',
+        title: 'Status',
+        render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
+          'Active': 'bg-green-100 text-green-800',
+          'Inactive': 'bg-red-100 text-red-800'
+        })
+      }
+    ],
+
+    fields: [
+      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
+      { key: 'level_name', label: 'Stage Name', type: 'text', required: true },
+      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'sort_order', label: 'Sort Order', type: 'number' },
+      { key: 'color_code', label: 'Color Code', type: 'text', placeholder: '#3B82F6' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // META: TASK STATUS
+  // --------------------------------------------------------------------------
+  taskStatus: {
+    name: 'taskStatus',
+    displayName: 'Task Status',
+    pluralName: 'Task Statuses',
+    apiEndpoint: '/api/v1/setting?category=task-status',
+    icon: 'ListChecks',
+
+    columns: [
+      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
+      { key: 'name', title: 'Status Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
+      {
+        key: 'active',
+        title: 'Status',
+        render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
+          'Active': 'bg-green-100 text-green-800',
+          'Inactive': 'bg-red-100 text-red-800'
+        })
+      }
+    ],
+
+    fields: [
+      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
+      { key: 'level_name', label: 'Status Name', type: 'text', required: true },
+      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'sort_order', label: 'Sort Order', type: 'number' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // META: BUSINESS LEVEL
+  // --------------------------------------------------------------------------
+  businessLevel: {
+    name: 'businessLevel',
+    displayName: 'Business Level',
+    pluralName: 'Business Levels',
+    apiEndpoint: '/api/v1/setting?category=business-level',
+    icon: 'Building2',
+
+    columns: [
+      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
+      { key: 'name', title: 'Level Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
+      {
+        key: 'active',
+        title: 'Status',
+        render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
+          'Active': 'bg-green-100 text-green-800',
+          'Inactive': 'bg-red-100 text-red-800'
+        })
+      }
+    ],
+
+    fields: [
+      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
+      { key: 'level_name', label: 'Level Name', type: 'text', required: true },
+      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'sort_order', label: 'Sort Order', type: 'number' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // META: OFFICE LEVEL (ORG LEVEL)
+  // --------------------------------------------------------------------------
+  orgLevel: {
+    name: 'orgLevel',
+    displayName: 'Office Level',
+    pluralName: 'Office Levels',
+    apiEndpoint: '/api/v1/setting?category=orgLevel',
+    icon: 'MapPin',
+
+    columns: [
+      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
+      { key: 'name', title: 'Level Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
+      {
+        key: 'active',
+        title: 'Status',
+        render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
+          'Active': 'bg-green-100 text-green-800',
+          'Inactive': 'bg-red-100 text-red-800'
+        })
+      }
+    ],
+
+    fields: [
+      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
+      { key: 'level_name', label: 'Level Name', type: 'text', required: true },
+      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'sort_order', label: 'Sort Order', type: 'number' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // META: HR LEVEL
+  // --------------------------------------------------------------------------
+  hrLevel: {
+    name: 'hrLevel',
+    displayName: 'HR Level',
+    pluralName: 'HR Levels',
+    apiEndpoint: '/api/v1/setting?category=hr-level',
+    icon: 'Crown',
+
+    columns: [
+      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
+      { key: 'name', title: 'Level Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
+      {
+        key: 'active',
+        title: 'Status',
+        render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
+          'Active': 'bg-green-100 text-green-800',
+          'Inactive': 'bg-red-100 text-red-800'
+        })
+      }
+    ],
+
+    fields: [
+      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
+      { key: 'level_name', label: 'Level Name', type: 'text', required: true },
+      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'sort_order', label: 'Sort Order', type: 'number' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // META: CLIENT LEVEL
+  // --------------------------------------------------------------------------
+  clientLevel: {
+    name: 'clientLevel',
+    displayName: 'Client Level',
+    pluralName: 'Client Levels',
+    apiEndpoint: '/api/v1/setting?category=client-level',
+    icon: 'Users',
+
+    columns: [
+      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
+      { key: 'name', title: 'Level Name', sortable: true, filterable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
+      {
+        key: 'active',
+        title: 'Status',
+        render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
+          'Active': 'bg-green-100 text-green-800',
+          'Inactive': 'bg-red-100 text-red-800'
+        })
+      }
+    ],
+
+    fields: [
+      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
+      { key: 'name', label: 'Level Name', type: 'text', required: true },
+      { key: 'slug', label: 'Slug', type: 'text', required: true },
+      { key: 'authority_description', label: 'Authority Description', type: 'textarea' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // META: POSITION LEVEL
+  // --------------------------------------------------------------------------
+  positionLevel: {
+    name: 'positionLevel',
+    displayName: 'Position Level',
+    pluralName: 'Position Levels',
+    apiEndpoint: '/api/v1/setting?category=position-level',
+    icon: 'Star',
+
+    columns: [
+      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
+      { key: 'name', title: 'Level Name', sortable: true, filterable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
+      {
+        key: 'active',
+        title: 'Status',
+        render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
+          'Active': 'bg-green-100 text-green-800',
+          'Inactive': 'bg-red-100 text-red-800'
+        })
+      }
+    ],
+
+    fields: [
+      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
+      { key: 'name', label: 'Level Name', type: 'text', required: true },
+      { key: 'slug', label: 'Slug', type: 'text', required: true },
+      { key: 'authority_description', label: 'Authority Description', type: 'textarea' }
     ],
 
     supportedViews: ['table'],

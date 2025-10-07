@@ -1,213 +1,217 @@
+# Huron Home Services - PMO Enterprise Platform 🏡
+
+> **Complete Canadian Home Services Management System** - Production-ready PMO platform with comprehensive data model, unified RBAC, and industry-specific business intelligence
+
+## 📖 Documentation Index & Project Overview
+
+| Document | Purpose | Key Topics |
+|----------|---------|------------|
+| **[🏠 Main README](./README.md)** | Project overview and quick start | Architecture, getting started, business context |
+| **[🌐 Frontend Guide](./apps/web/README.md)** | React 19 hierarchical navigation UI/UX | 12 entity types, RBAC integration, modern components |
+| **[🔧 Backend API](./apps/api/README.md)** | Enterprise Fastify API with unified RBAC | 11 modules, JWT auth, 113+ permissions |
 | **[🗄️ Database Schema](./db/README.md)** | 5-layer RBAC architecture with 20+ tables | Canadian business context, DDL files, relationships |
-| **[🛠️ Management Tools](./tools/README.md)** | 16 platform operation tools | Start/stop, database import, API testing, RBAC debugging. 
+| **[🛠️ Management Tools](./tools/README.md)** | 16 platform operation tools | Start/stop, database import, API testing, RBAC debugging |
+| **[🧪 API Testing Guide](./tools/API_TESTING.md)** | Generic API testing with `test-api.sh` | Test any endpoint, examples, form workflows |
 
-Run /home/rabin/projects/pmo/tools/db-import.sh to import all the data all over again.
 
-Run /home/rabin/projects/pmo/tools/start-all.sh to start api or db or web or all servers. 
 
+DATA MODEL:
+1️⃣ Core Business Entities (13 tables):
 
-  I was having trouble with bash variable assignment and token handling. The commands like:
-  JWT_TOKEN="token" && curl -H "Authorization: Bearer $JWT_TOKEN" ...
-  were not working properly due to bash variable scoping in single command execution.
+  1. d_office - Office locations (4-level hierarchy: Office→District→Region→Corporate)
+  2. d_business - Business units (3-level hierarchy: Dept→Division→Corporate)
+  3. ops_project_head - Projects with budgets, timelines, stakeholders
+  4. ops_task_head - Tasks linked to projects
+  5. d_employee - Users with authentication & RBAC (includes James Miller)
+  6. d_client - Customer entities
+  7. d_worksite - Work site locations
+  8. d_role - Organizational roles (22 records)
+  9. d_position - Employee positions (16 records)
+  10. d_artifact - Documents & file attachments
+  11. d_wiki - Knowledge base
+  12. ops_formlog_head - Form definitions
+  13. d_reports - Report definitions
 
-  What I Found
-  Bash(curl -s -H "Authorization: Bearer $(jq -r '.token' /tmp/auth2.json)" "http://localhost:4000/api/v1/project/ab731343-d974-4e4b-9a66-5fb0c672403d/task" | jq '.dat…)
-  ⎿  0
-  This works. 
+  2️⃣ Metadata/Configuration Tables (5 tables):
 
-   Bash(curl -s -X POST "http://localhost:4000/api/v1/auth/login" -H "Content-Type: application/json" -d '{"email": "james.miller@huronhome.ca",
-      "password": "password12…)
-  ⎿ {                                                                                                                                                
-      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzZDY1MWYzYi05ODJkLTRmMzUtYmFmOS0zODhmMzg5ZDg5ZTYiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJv
-    bmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzU4NDc5Njc0LCJleHAiOjE3NTg1NjYwNzR9.r8idKVf6N5PrmQKW6X5nYr148oJdx8zqaswtLhWkwqI",
-    … +6 lines (ctrl+o to expand)
+  1. meta_office_level - Office hierarchy (4 levels)
+  2. meta_business_level - Business hierarchy (3 levels)
+  3. meta_project_stage - Project lifecycle stages (7 stages)
+  4. meta_task_stage - Task workflow stages (7 stages)
+  5. meta_position_level - Position hierarchy (8 levels)
 
+---
 
-● Now let me test the existing API endpoints that the AssignmentBox component relies on to ensure they work with authentication:
 
-● Bash(curl -s -H "Authorization: Bearer $(jq -r '.token' /tmp/auth_fresh.json)" "http://localhost:4000/api/v1/biz" | jq '.data | length')
-  ⎿  0
 
-● Bash(curl -s -H "Authorization: Bearer $(jq -r '.token' /tmp/auth_fresh.json)" "http://localhost:4000/api/v1/entity/org" | jq '.data | length')
-  ⎿  14
+## 🧪 Quick Start: API Testing
+---
+AI/LLM/Agent:
+For API, UIUX or App testing, Strictly use the credentials below:
+James Miller Account:
+  - ID: 8260b1b0-5efc-4611-ad33-ee76c0cf7f13
+  - Email: james.miller@huronhome.ca
+  - Password: password123
 
-● Bash(curl -s -H "Authorization: Bearer $(jq -r '.token' /tmp/auth_fresh.json)" "http://localhost:4000/api/v1/client" | jq '.data | length')
-  ⎿  13
 
-  When I used the existing test script (./tools/test-api-endpoints.sh), authentication worked perfectly. The script:
+Test any API endpoint using the generic testing tool:
 
-  1. Successfully logs in via POST /api/v1/auth/login
-  2. Gets a valid JWT token (265 chars)
-  3. All authenticated endpoints work - project, task, employee, etc. all return ✅ PASS (200)
+```bash
+# List resources
+./tools/test-api.sh GET /api/v1/form
+./tools/test-api.sh GET /api/v1/project
+./tools/test-api.sh GET /api/v1/task
 
+# Create resources
+./tools/test-api.sh POST /api/v1/form '{"name":"Test Form","schema":{"steps":[]}}'
 
-different entities use join table: entity_id_hierarchy_mapping for join purposes, no foreign key is required for parent-action 
-entity types. 
+# Update resources
+./tools/test-api.sh PUT /api/v1/form/uuid '{"name":"Updated Name"}'
 
+# Delete resources
+./tools/test-api.sh DELETE /api/v1/form/uuid
+```
 
-  Based on my analysis of the project page, Same structure is applicable for rest of the other pages. 
-  1. Page Structure Overview
+**Features:**
+- ✅ Auto-authentication with James Miller account
+- ✅ Colored output with HTTP status indicators
+- ✅ JSON formatting with `jq`
+- ✅ Supports GET, POST, PUT, DELETE methods
+- ✅ Environment variable configuration
 
-  Project Detail Page (ProjectDetailPage.tsx)
+**Examples & Documentation:**
+- 📖 Full guide: [tools/API_TESTING.md](./tools/API_TESTING.md)
+- 📝 Example workflows: `./tools/examples/test-form-api.sh`
+- 🔍 Run examples: `./tools/examples/test-api-examples.sh`
 
-  The main project overview page that serves as the parent entity with navigation to action entities.
 
-  Key Components:
-  - DynamicChildEntityTabs: Dynamic tab navigation for action entities (tasks, wiki, artifacts, forms)
-  - ActionBar: Contains RBAC-controlled action buttons and filters
-  - Project Stats Cards: Display task count, artifact count, completion percentage, team size
-  - Editable Fields System: Inline editing with permission checks
-  - Project Information Sections: Basic info, status & timeline, budget, description
+Modeling:
 
-  Action Entity Pages
+entity_id_map
 
-  Project Sub-pages:
-  - ProjectTaskPage.tsx: Task management with Kanban/Grid views
-  - ProjectWikiPage.tsx: Wiki entries with filtered data table
-  - ProjectArtifactPage.tsx: Artifact management with preview capabilities
-  - ProjectFormPage.tsx: Form management
+Columns: entity, entity_id, child_entity, child_entity_id
 
-  2. Component Architecture
+Used for path building:
 
-  DynamicChildEntityTabs Component
+/entity/<child_entity>/<tab>
 
-  // Location: apps/web/src/components/common/DynamicChildEntityTabs.tsx
+Example:
 
-  Key Features:
-  - Dynamic Tab Generation: Uses useDynamicChildEntityTabs hook to fetch action summaries from API
-  - Entity Mapping: Maps entity types to icons and routes
-  - Permission Integration: Tabs are populated based on user's entity access
-  - Fallback System: Default tabs if API call fails
+entity=project, entity_id=123456789, child_entity=task, child_entity_id=23456789011
 
-  API Integration:
-  // Fetches dynamic child entity tabs for tab counts
-  GET /api/v1/{parentType}/{parentId}/dynamic-child-entity-tabs
+5. RBAC & Permissions
 
-  FilteredDataTable Component
+Table: entity_id_rbac_map
 
-  // Location: apps/web/src/components/FilteredDataTable.tsx
+Columns: empid, entity, entity_id, permission[]
 
-  Features:
-  - Configuration-Driven: Uses configService.getEntityConfig() for field definitions
-  - Parent-Child Filtering: Filters data by parent entity relationship
-  - Dynamic Columns: Renders columns based on entity configuration
-  - Row Actions: Edit, delete, view actions based on permissions
+Permissions:
 
-  3. API Architecture
+0 → View
 
-  Project Routes (apps/api/src/modules/project/routes.ts)
+1 → Edit
 
-  Core Endpoints:
-
-  1. Project CRUD:
-  GET    /api/v1/project          // List projects with RBAC filtering
-  GET    /api/v1/project/:id     // Get single project
-  POST   /api/v1/project         // Create project
-  PUT    /api/v1/project/:id     // Update project
-  DELETE /api/v1/project/:id     // Soft delete project
-  2. Action Entity Endpoints:
-  GET /api/v1/project/:id/dynamic-child-entity-tabs  // Tab navigation data
-  GET /api/v1/project/:id/task             // Project tasks
-  GET /api/v1/project/:id/wiki             // Project wiki entries
-  GET /api/v1/project/:id/artifact         // Project artifacts
-  GET /api/v1/project/:id/form             // Project forms
-
-
-
-
-  NEVER USE DEV_BYPASS_OIDC=true, and never create fallback option in code.
-  write code for production grade. 
-  Generate a new jwt token each time before you try to authenticate.
-
-  Data curation, Data creation:
-  - Please curate the data in .ddl files in this location /home/rabin/projects/pmo/dba/* 
-  - append the insert statements in .ddl file so that data can be reimported by tools .sh script /home/rabin/projects/pmo/tools/db-import.sh
-  - You must understand the data model first: 
-
-  - Please make sure if you need to rebuild /home/rabin/projects/pmo/tools/db-import.sh script to include all the .ddl files. 
-Data model usage: 
-🗄️ PMO Database Tables - Short Reference
-
-  🔗 Mapping & Relationship Tables
-
-  entity_id_hierarchy_mapping - Instance Relationships
-
-  Maps actual parent-child relationships between specific entity instances.
-  -- Examples:
-  parent_entity='project', parent_entity_id='uuid-123', action_entity='task', action_entity_id='uuid-456'
-  parent_entity='biz', parent_entity_id='uuid-789', action_entity='project', action_entity_id='uuid-123'
-  Purpose: Tracks which tasks belong to which projects, which projects belong to which business units, etc.
-
-  rel_employee_entity_action_rbac - User Permissions
-
-  Maps employee permissions to specific entity instances.
-  -- Example: James Miller can view/edit project uuid-123
-  employee_id='james-uuid', parent_entity='project', parent_entity_id='uuid-123', permission_action='view'
-
-  rel_emp_role - Employee Role Assignments
-
-  Links employees to their roles with temporal tracking.
-  -- Example: James Miller is CEO
-  employee_id='james-uuid', role_id='ceo-role-uuid', from_ts='2024-01-01'
-
-  🏗️ Meta Configuration Tables
-
-  meta_entity_types - Foundation Layer
-
-  Defines the 12 core entity types (biz, project, task, wiki, etc.).
-
-  meta_entity_hierarchy - Rules Layer
-
-  Defines what can create what (business→project, project→task).
-
-  meta_entity_hierarchy_permission_mapping - Permission Matrix
-
-  Defines available actions for each relationship type.
-
-  👥 Core Entity Tables
-
-  d_employee - Personnel (25 employees)
-
-  -- Example: James Miller, CEO
-  name='James Miller', email='james.miller@huronhome.ca', employee_number='EMP-001'
-
-  d_project - Projects (10 projects)
-
-  -- Example: Fall 2025 Landscaping Campaign
-  name='Fall 2025 Landscaping Campaign', project_type='seasonal', budget_allocated=50000
-  project/e0bf3527-4968-4170-a7bb-2890c52a84c1
-
-  d_biz - Business Units (3-level hierarchy)
-
-  -- Example: Corporate → Landscaping Division → Grounds Maintenance Dept
-  parent_id=null (Corporate), parent_id='corporate-uuid' (Division), parent_id='division-uuid' (Dept)
-
-  ops_task_head - Tasks (8 tasks)
-
-  -- Example: Fall Leaf Cleanup
-  name='Fall Leaf Cleanup - Thompson Residence', project_id='landscaping-project-uuid'
-
-  📄 Content Tables
-
-  d_wiki - Knowledge Base (5 entries)
-
-  -- Example: Safety Protocols
-  title='Safety Protocols', slug='safety-protocols', published=true
-
-  d_artifact - Documents (8 artifacts)
-
-  -- Example: HVAC Maintenance Template
-  name='HVAC Maintenance Checklist Template', artifact_type='template'
-
-  ops_formlog_head - Forms (8 forms)
-
-  -- Example: Safety Inspection Form  
-  name='Daily Safety Inspection Form', project_id='project-uuid', biz_id='biz-uuid'
-
-  🎯 Key Relationships
-
-  - Projects have tasks via entity_id_hierarchy_mapping
-  - Projects have wiki/artifacts via entity_id_hierarchy_mapping
-  - Business units create projects via entity_id_hierarchy_mapping
-  - Employees get permissions via rel_employee_entity_action_rbac
-  - NO direct foreign keys between action entities - all via hierarchy mapping table
+2 → Share
+
+3 → Delete
+
+4 → Create
+
+Key behavior:
+
+If entity_id = 'all' and permission includes 4, user can create a new project.
+
+Permission Checks
+
+Can user create a project?
+
+SELECT * FROM entity_id_rbac_map
+WHERE entity = 'project'
+  AND entity_id = 'all'
+  AND 4 = ANY(permission);
+
+
+Can user assign a project to a business department?
+
+Must satisfy:
+
+Project-level create permission
+
+Business-level edit permission
+
+WHERE entity = 'project' AND entity_id = 'all' AND 4 = ANY(permission)
+AND entity = 'biz' AND entity_id = <specific_business_id> AND 1 = ANY(permission)
+
+
+-------------RBAC------------
+1. entity_id = 'all' (Type-Level Permissions)
+    - Grants access to ALL instances of that entity type
+    - James Miller has this for all 16 entity types
+    - Example: entity='project', entity_id='all' → Can access all 5 projects
+  2. entity_id = <UUID> (Instance-Level Permissions)
+    - Grants access to ONE specific instance only
+    - Example: entity='project', entity_id='93106ffb...' → Can only access that one project
+  3. active_flag = true
+    - Indicates the permission is currently active and enforced
+    - All of James Miller's 16 permissions are active
+    - Can be set to false to temporarily revoke without deleting
+  4. Permission Array {0,1,2,3,4}
+    - 0 = View (read access)
+    - 1 = Edit (modify data)
+    - 2 = Share (grant permissions)
+    - 3 = Delete (soft delete)
+    - 4 = Create (create new entities)
+  5. Complex Permission Check (from newspecs.txt)
+  -- Can user create project AND assign to business?
+  WHERE entity='project' AND entity_id='all' AND 4=ANY(permission)  -- Can create
+  AND entity='biz' AND entity_id=<uuid> AND 1=ANY(permission)       -- Can edit business
+  5. James Miller: ✅ AUTHORIZED (has both permissions)
+
+
+
+Flow diagram:
+
+  URL: /project/84215ccb-313d-48f8-9c37-4398f28c0b1f/task
+
+  App.tsx (Line 152-157)
+  ├─ Route path="/project/:id" → EntityDetailPage (parentType="project")
+  │   └─ Route path="task" → EntityChildListPage (parentType="project", childType="task")
+  │
+  EntityDetailPage.tsx
+  ├─ useParams() → id = "84215ccb-313d-48f8-9c37-4398f28c0b1f"
+  ├─ props: { entityType: "project" }
+  ├─ Renders tabs at top
+  └─ Line 376: <Outlet /> → This renders the nested child route
+      │
+      └─ EntityChildListPage.tsx (Line 30)
+          ├─ props: { parentType: "project", childType: "task" }
+          ├─ useParams() → id = "84215ccb-313d-48f8-9c37-4398f28c0b1f" (inherited from parent route)
+          ├─ Line 33: config = getEntityConfig("task")
+          ├─ Line 67-103: loadChildData() → Calls API
+          └─ Renders one of three views:
+              ├─ Table View → FilteredDataTable
+              ├─ Kanban View → KanbanBoard
+              └─ Grid View → GridView
+
+  Step-by-step breakdown:
+
+  1. App.tsx:152-157 - Routing configuration
+  <Route path="/project/:id" element={<EntityDetailPage entityType="project" />}>
+    <Route path="task" element={<EntityChildListPage parentType="project" childType="task" />} />
+  </Route>
+  2. EntityDetailPage receives:
+    - entityType="project" as a prop (from route element)
+    - id from URL params via useParams()
+    - Renders <Outlet /> at line 376 which is where child routes render
+  3. EntityChildListPage receives:
+    - parentType="project" as a prop (from route element)
+    - childType="task" as a prop (from route element)
+    - id from URL params via useParams() - this gets the parent's ID from the URL
+    - Accesses parent ID as parentId via const { id: parentId } = useParams()
+  4. Data loading in EntityChildListPage:
+    - Line 73-94: Tries to call projectApi.getTasks(parentId)
+    - If that doesn't exist, falls back to taskApi.list({ parentId, parentType: "project" })
+  5. Rendering based on view mode (lines 200+):
+    - Table view: <FilteredDataTable parentId={parentId} parentType={parentType} childType={childType} />
+    - Kanban view: <KanbanBoard columns={kanbanColumns} onCardMove={handleCardMove} />
+    - Grid view: <GridView items={data} titleField={...} />

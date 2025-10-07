@@ -44,14 +44,14 @@ export function WikiEditorPage() {
       (async () => {
         try {
           const page = await wikiApi.get(id);
-          setTitle(page.title || '');
+          setTitle(page.name || '');
           setSlug(page.slug || '');
           setTags(page.tags || []);
           setIcon(page.attr?.icon || '📄');
           setCover(page.attr?.cover || 'gradient-blue');
-          setAuthor(page.ownerName || 'Current User');
-          setCreatedDate(page.created || '');
-          setUpdatedDate(page.updated || '');
+          setAuthor('Current User');
+          setCreatedDate(page.createdTs || '');
+          setUpdatedDate(page.updatedTs || '');
           const loadedBlocks: Block[] = Array.isArray(page.content?.blocks) ? page.content.blocks : [{ id: 't1', type: 'paragraph', text: '' }];
           setBlocks(loadedBlocks);
         } catch (e) {
@@ -77,13 +77,16 @@ export function WikiEditorPage() {
     setSaving(true);
     try {
       const payload = {
-        title,
+        name: title,
         slug: slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
         contentHtml: renderBlocksToHtml(blocks),
+        contentMarkdown: '', // Could add markdown conversion if needed
         content: { type: 'blocks', blocks },
         tags,
         attr: { icon, cover },
-        published: false,
+        publicationStatus: 'draft',
+        visibility: 'internal',
+        wikiType: 'page',
       };
       if (editing && id) {
         await wikiApi.update(id, payload);
@@ -94,6 +97,7 @@ export function WikiEditorPage() {
       }
     } catch (e) {
       console.error('Save wiki failed', e);
+      alert('Failed to save wiki page. Please check the console for details.');
     } finally {
       setSaving(false);
     }

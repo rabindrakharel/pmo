@@ -142,12 +142,12 @@ validate_all_ddls() {
     print_status $BLUE "📋 Validating DDL files..."
 
     local ddl_files=(
-        "I_meta_office_level.ddl"
-        "II_meta_business_level.ddl"
-        "III_meta_project_stage.ddl"
-        "IV_meta_task_stage.ddl"
-        "V_meta_client_level.ddl"
-        "VI_meta_position_level.ddl"
+        "I_setting_office_level.ddl"
+        "II_setting_business_level.ddl"
+        "III_setting_project_stage.ddl"
+        "IV_setting_task_stage.ddl"
+        "V_setting_client_level.ddl"
+        "VI_setting_position_level.ddl"
         "VII_entity_map.ddl"
         "VIII_d_employee.ddl"
         "IX_d_office.ddl"
@@ -204,13 +204,13 @@ import_ddls() {
     # Initial setup - Drop and recreate schema
     execute_sql "$DB_PATH/0_initial_setup.ddl" "Initial schema setup (drop and recreate)"
 
-    # Meta configuration tables - Foundation layer
-    execute_sql "$DB_PATH/I_meta_office_level.ddl" "Office level metadata"
-    execute_sql "$DB_PATH/II_meta_business_level.ddl" "Business level metadata"
-    execute_sql "$DB_PATH/III_meta_project_stage.ddl" "Project stage metadata"
-    execute_sql "$DB_PATH/IV_meta_task_stage.ddl" "Task stage metadata"
-    execute_sql "$DB_PATH/V_meta_client_level.ddl" "Client level metadata"
-    execute_sql "$DB_PATH/VI_meta_position_level.ddl" "Position level metadata"
+    # Setting configuration tables - Foundation layer
+    execute_sql "$DB_PATH/I_setting_office_level.ddl" "Office level settings"
+    execute_sql "$DB_PATH/II_setting_business_level.ddl" "Business level settings"
+    execute_sql "$DB_PATH/III_setting_project_stage.ddl" "Project stage settings"
+    execute_sql "$DB_PATH/IV_setting_task_stage.ddl" "Task stage settings"
+    execute_sql "$DB_PATH/V_setting_client_level.ddl" "Client level settings"
+    execute_sql "$DB_PATH/VI_setting_position_level.ddl" "Position level settings"
     execute_sql "$DB_PATH/VII_entity_map.ddl" "Entity mapping framework"
 
     # Core personnel - Must come before organizational assignments
@@ -291,10 +291,10 @@ validate_schema() {
     local emp_role_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.rel_emp_role;" 2>/dev/null | xargs || echo "0")
 
     # Meta configuration tables
-    local office_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.meta_office_level;" 2>/dev/null | xargs || echo "0")
-    local business_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.meta_business_level;" 2>/dev/null | xargs || echo "0")
-    local project_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.meta_project_stage;" 2>/dev/null | xargs || echo "0")
-    local task_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.meta_task_stage;" 2>/dev/null | xargs || echo "0")
+    local office_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_office_level;" 2>/dev/null | xargs || echo "0")
+    local business_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_business_level;" 2>/dev/null | xargs || echo "0")
+    local project_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_project_stage;" 2>/dev/null | xargs || echo "0")
+    local task_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_task_stage;" 2>/dev/null | xargs || echo "0")
 
     print_status $CYAN "   Core Entities:"
     print_status $CYAN "     Offices: $office_count"

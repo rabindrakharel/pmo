@@ -405,28 +405,31 @@ export function DraggableFieldType({ fieldType }: { fieldType: { type: FieldType
 
   const style: React.CSSProperties = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.3 : 1,
+    cursor: isDragging ? 'grabbing' : 'grab',
+    transition: isDragging ? 'none' : 'all 0.2s ease',
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
-      <button
-        onClick={() => {}} // We'll handle this in the parent
-        className="w-full text-left px-3 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 hover:border-blue-300 transition-colors cursor-grab active:cursor-grabbing"
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="flex-shrink-0 p-1.5 bg-blue-50 rounded-md text-blue-600">
-              {fieldType.icon}
-            </div>
-            <div>
-              <div className="font-medium text-gray-800 text-sm">{fieldType.label}</div>
-              <div className="text-xs text-gray-500">{fieldType.hint}</div>
-            </div>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className="w-full text-left px-3 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 hover:border-blue-300 transition-colors touch-none select-none"
+    >
+      <div className="flex items-center justify-between pointer-events-none">
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0 p-1.5 bg-blue-50 rounded-md text-blue-600">
+            {fieldType.icon}
           </div>
-          <Plus className="h-4 w-4 text-gray-400 flex-shrink-0" />
+          <div>
+            <div className="font-medium text-gray-800 text-sm">{fieldType.label}</div>
+            <div className="text-xs text-gray-500">{fieldType.hint}</div>
+          </div>
         </div>
-      </button>
+        <Plus className="h-4 w-4 text-gray-400 flex-shrink-0" />
+      </div>
     </div>
   );
 }
@@ -440,8 +443,8 @@ export function DroppableFormCanvas({ children }: { children: React.ReactNode })
   return (
     <div
       ref={setNodeRef}
-      className={`space-y-3 min-h-[200px] rounded-lg transition-colors ${
-        isOver ? 'bg-blue-50 border-2 border-dashed border-blue-300' : ''
+      className={`space-y-3 min-h-[500px] rounded-lg transition-all duration-200 ${
+        isOver ? 'bg-blue-50 border-2 border-dashed border-blue-400 ring-2 ring-blue-200' : ''
       }`}
     >
       {children}

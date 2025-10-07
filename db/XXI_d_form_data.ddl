@@ -5,7 +5,7 @@
 
 CREATE TABLE app.d_form_data (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    form_id uuid NOT NULL  ON DELETE CASCADE,
+    form_id uuid NOT NULL REFERENCES app.d_form_head(id) ON DELETE CASCADE,
 
     -- Submission data
     submission_data jsonb NOT NULL DEFAULT '{}'::jsonb,

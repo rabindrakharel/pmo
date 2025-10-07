@@ -296,7 +296,7 @@ export function RBACButton({
   onClick,
   href,
   className = '',
-  variant = 'primary',
+  variant = 'secondary',
   size = 'md',
   icon: Icon,
   loading = false,
@@ -305,27 +305,28 @@ export function RBACButton({
 }: RBACButtonProps) {
   const { hasPermission, loading: permissionLoading } = useRBACPermission(permission);
 
-  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+  // Standardized base classes matching the Button component
+  const baseClasses = 'inline-flex items-center border text-sm font-normal rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1';
 
   const variantClasses = {
     primary: hasPermission
-      ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
-      : 'bg-gray-300 text-gray-500 cursor-not-allowed',
+      ? 'border-blue-600 text-white bg-blue-600 hover:bg-blue-700 hover:border-blue-700 focus:ring-blue-500'
+      : 'border-gray-300 bg-gray-300 text-gray-500 cursor-not-allowed',
     secondary: hasPermission
-      ? 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-blue-500'
-      : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed',
+      ? 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 focus:ring-gray-500'
+      : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed',
     danger: hasPermission
-      ? 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500'
-      : 'bg-gray-300 text-gray-500 cursor-not-allowed',
+      ? 'border-red-600 text-white bg-red-600 hover:bg-red-700 hover:border-red-700 focus:ring-red-500'
+      : 'border-gray-300 bg-gray-300 text-gray-500 cursor-not-allowed',
     ghost: hasPermission
-      ? 'text-gray-700 hover:bg-gray-50 focus:ring-blue-500'
-      : 'text-gray-400 cursor-not-allowed',
+      ? 'border-transparent text-gray-700 hover:bg-gray-50 focus:ring-gray-500'
+      : 'border-transparent text-gray-400 cursor-not-allowed',
   };
 
   const sizeClasses = {
-    sm: 'px-3 py-1.5 text-xs',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-6 py-3 text-base',
+    sm: 'px-2.5 py-1 text-xs',
+    md: 'px-3 py-1.5 text-sm',
+    lg: 'px-4 py-2 text-base',
   };
 
   const finalClassName = `${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`;
@@ -351,12 +352,12 @@ export function RBACButton({
         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
       )}
       {Icon && !loading && !permissionLoading && (
-        <Icon className={`${size === 'sm' ? 'h-3 w-3' : size === 'lg' ? 'h-5 w-5' : 'h-4 w-4'} ${
+        <Icon className={`${size === 'sm' ? 'h-3 w-3' : size === 'lg' ? 'h-5 w-5' : 'h-4 w-4'} stroke-[1.5] ${
           children ? 'mr-2' : ''
         }`} />
       )}
       {!hasPermission && !permissionLoading && !loading && !Icon && (
-        <Lock className={`${size === 'sm' ? 'h-3 w-3' : size === 'lg' ? 'h-5 w-5' : 'h-4 w-4'} ${
+        <Lock className={`${size === 'sm' ? 'h-3 w-3' : size === 'lg' ? 'h-5 w-5' : 'h-4 w-4'} stroke-[1.5] ${
           children ? 'mr-2' : ''
         }`} />
       )}
@@ -420,7 +421,7 @@ export function RBACCreateButton({
     <RBACButton
       permission={permission}
       onClick={handleClick}
-      variant="primary"
+      variant="secondary"
       size={size}
       className={className}
     >

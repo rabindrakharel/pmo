@@ -7,6 +7,7 @@ import { MetaPage } from './pages/MetaPage';
 import { FormBuilderPage } from './pages/FormBuilderPage';
 import { FormEditPage } from './pages/FormEditPage';
 import { FormViewPage } from './pages/FormViewPage';
+import { FormDataPreviewPage } from './pages/FormDataPreviewPage';
 import { WikiEditorPage } from './pages/WikiEditorPage';
 import { WikiViewPage } from './pages/WikiViewPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -20,13 +21,16 @@ import {
   TaskStagePage,
   BusinessLevelPage,
   OrgLevelPage,
-  HrLevelPage
-} from './pages/meta';
+  HrLevelPage,
+  ClientLevelPage,
+  PositionLevelPage
+} from './pages/setting';
 
 // Universal Components
 import { EntityMainPage } from './pages/EntityMainPage';
 import { EntityDetailPage } from './pages/EntityDetailPage';
 import { EntityChildListPage } from './pages/EntityChildListPage';
+import { PublicFormPage } from './pages/PublicFormPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -59,9 +63,12 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route 
-        path="/login" 
-        element={isAuthenticated ? <Navigate to="/meta" replace /> : <LoginForm />} 
+      {/* Public Routes - No authentication required */}
+      <Route path="/public/form/:id" element={<PublicFormPage />} />
+
+      <Route
+        path="/login"
+        element={isAuthenticated ? <Navigate to="/meta" replace /> : <LoginForm />}
       />
       <Route
         path="/"
@@ -76,9 +83,9 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      {/* Meta Dropdown Pages */}
+      {/* Setting Dropdown Pages */}
       <Route
-        path="/meta/projectStatus"
+        path="/setting/projectStatus"
         element={
           <ProtectedRoute>
             <ProjectStatusPage />
@@ -86,7 +93,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/meta/projectStage"
+        path="/setting/projectStage"
         element={
           <ProtectedRoute>
             <ProjectStagePage />
@@ -94,7 +101,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/meta/taskStatus"
+        path="/setting/taskStatus"
         element={
           <ProtectedRoute>
             <TaskStatusPage />
@@ -102,7 +109,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/meta/taskStage"
+        path="/setting/taskStage"
         element={
           <ProtectedRoute>
             <TaskStagePage />
@@ -110,7 +117,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/meta/businessLevel"
+        path="/setting/businessLevel"
         element={
           <ProtectedRoute>
             <BusinessLevelPage />
@@ -118,7 +125,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/meta/orgLevel"
+        path="/setting/orgLevel"
         element={
           <ProtectedRoute>
             <OrgLevelPage />
@@ -126,10 +133,26 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/meta/hrLevel"
+        path="/setting/hrLevel"
         element={
           <ProtectedRoute>
             <HrLevelPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/setting/clientLevel"
+        element={
+          <ProtectedRoute>
+            <ClientLevelPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/setting/positionLevel"
+        element={
+          <ProtectedRoute>
+            <PositionLevelPage />
           </ProtectedRoute>
         }
       />
@@ -197,12 +220,15 @@ function AppRoutes() {
       <Route path="/position/:id" element={<ProtectedRoute><EntityDetailPage entityType="position" /></ProtectedRoute>} />
       {/* Form Special Routes (Builder/Editor/Viewer) */}
       <Route path="/form/new" element={<ProtectedRoute><FormBuilderPage /></ProtectedRoute>} />
-      <Route path="/form/:id" element={<ProtectedRoute><FormViewPage /></ProtectedRoute>} />
+      <Route path="/form/:id" element={<ProtectedRoute><EntityDetailPage entityType="form" /></ProtectedRoute>}>
+        <Route path="form-data" element={<div />} />
+      </Route>
       <Route path="/form/:id/edit" element={<ProtectedRoute><FormEditPage /></ProtectedRoute>} />
+      <Route path="/form/:formId/data/:submissionId" element={<ProtectedRoute><FormDataPreviewPage /></ProtectedRoute>} />
 
-      {/* Wiki Special Routes (Editor/Viewer) */}
+      {/* Wiki Detail Route - Uses EntityDetailPage for viewing, WikiEditorPage for editing */}
+      <Route path="/wiki/:id" element={<ProtectedRoute><EntityDetailPage entityType="wiki" /></ProtectedRoute>} />
       <Route path="/wiki/new" element={<ProtectedRoute><WikiEditorPage /></ProtectedRoute>} />
-      <Route path="/wiki/:id" element={<ProtectedRoute><WikiViewPage /></ProtectedRoute>} />
       <Route path="/wiki/:id/edit" element={<ProtectedRoute><WikiEditorPage /></ProtectedRoute>} />
 
       {/* Artifact Detail Route */}

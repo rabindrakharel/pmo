@@ -5,33 +5,42 @@ import { sql } from 'drizzle-orm';
 
 const WikiSchema = Type.Object({
   id: Type.String(),
-  title: Type.String(),
+  name: Type.String(),
+  code: Type.String(),
   slug: Type.String(),
+  descr: Type.Optional(Type.String()),
   summary: Type.Optional(Type.String()),
   tags: Type.Optional(Type.Array(Type.String())),
   content: Type.Optional(Type.Any()),
+  contentMarkdown: Type.Optional(Type.String()),
   contentHtml: Type.Optional(Type.String()),
-  ownerId: Type.Optional(Type.String()),
-  ownerName: Type.Optional(Type.String()),
-  published: Type.Optional(Type.Boolean()),
-  shareLink: Type.Optional(Type.String()),
-  version: Type.Optional(Type.Number()),
+  wikiType: Type.Optional(Type.String()),
+  category: Type.Optional(Type.String()),
+  publicationStatus: Type.Optional(Type.String()),
+  visibility: Type.Optional(Type.String()),
   active: Type.Boolean(),
   fromTs: Type.String(),
   toTs: Type.Optional(Type.String()),
-  created: Type.String(),
-  updated: Type.String(),
+  createdTs: Type.String(),
+  updatedTs: Type.String(),
+  version: Type.Optional(Type.Number()),
   attr: Type.Optional(Type.Any()),
 });
 
 const CreateWikiSchema = Type.Object({
-  title: Type.String({ minLength: 1 }),
+  name: Type.String({ minLength: 1 }),
   slug: Type.String({ minLength: 1 }),
+  code: Type.Optional(Type.String()),
+  descr: Type.Optional(Type.String()),
   summary: Type.Optional(Type.String()),
   tags: Type.Optional(Type.Array(Type.String())),
   content: Type.Optional(Type.Any()),
+  contentMarkdown: Type.Optional(Type.String()),
   contentHtml: Type.Optional(Type.String()),
-  published: Type.Optional(Type.Boolean()),
+  wikiType: Type.Optional(Type.String()),
+  category: Type.Optional(Type.String()),
+  publicationStatus: Type.Optional(Type.String()),
+  visibility: Type.Optional(Type.String()),
   attr: Type.Optional(Type.Any()),
 });
 
@@ -64,38 +73,53 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       const conditions = [];
       
       if (search) {
-        conditions.push(sql`(title ILIKE '%' || ${search} || '%' OR slug ILIKE '%' || ${search} || '%')`);
+        conditions.push(sql`(name ILIKE '%' || ${search} || '%' OR slug ILIKE '%' || ${search} || '%')`);
       }
       if (tag) {
         conditions.push(sql`${tag} = ANY(tags)`);
       }
 
+      // Always filter for active records in count too
+      const countBaseCondition = sql`active_flag = true`;
+      const countAllConditions = conditions.length > 0
+        ? sql`WHERE ${countBaseCondition} AND ${sql.join(conditions, sql` AND `)}`
+        : sql`WHERE ${countBaseCondition}`;
+
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total FROM app.d_wiki
-        ${conditions.length ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        ${countAllConditions}
       `);
       const total = Number(countResult[0]?.total || 0);
 
+      // Always filter for active records
+      const baseCondition = sql`active_flag = true`;
+      const allConditions = conditions.length > 0
+        ? sql`WHERE ${baseCondition} AND ${sql.join(conditions, sql` AND `)}`
+        : sql`WHERE ${baseCondition}`;
+
       const rows = await db.execute(sql`
-        SELECT 
+        SELECT
           id,
-          title,
+          name,
+          code,
           slug,
-          summary,
+          descr,
           tags,
-          owner_id as "ownerId",
-          owner_name as "ownerName",
-          published,
-          share_link as "shareLink",
+          metadata,
+          wiki_type,
+          category,
+          publication_status,
+          visibility,
+          keywords,
+          summary,
+          active_flag,
+          created_ts,
+          updated_ts,
           version,
-          active,
-          from_ts as "fromTs",
-          to_ts as "toTs",
-          created,
-          updated
+          metadata as attr
         FROM app.d_wiki
-        ${conditions.length ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY updated DESC
+        ${allConditions}
+        ORDER BY updated_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -119,25 +143,51 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     try {
       const result = await db.execute(sql`
         SELECT
-          id,
-          title,
-          slug,
-          summary,
-          tags,
-          content,
-          content_html as "contentHtml",
-          owner_id as "ownerId",
-          owner_name as "ownerName",
-          published,
-          share_link as "shareLink",
-          version,
-          active,
-          from_ts as "fromTs",
-          to_ts as "toTs",
-          created,
-          updated,
-          attr
-        FROM app.d_wiki WHERE id = ${id} AND active_flag = true
+          w.id,
+          w.name,
+          w.code,
+          w.slug,
+          w.descr,
+          w.tags,
+          w.metadata,
+          w.wiki_type,
+          w.category,
+          w.page_path,
+          w.parent_wiki_id,
+          w.sort_order,
+          w.publication_status,
+          w.published_at,
+          w.published_by_empid,
+          w.visibility,
+          w.read_access_groups,
+          w.edit_access_groups,
+          w.keywords,
+          w.summary,
+          w.primary_entity_type,
+          w.primary_entity_id,
+          w.from_ts,
+          w.to_ts,
+          w.active_flag,
+          w.created_ts,
+          w.updated_ts,
+          w.version,
+          w.metadata as attr,
+          wd.content_markdown,
+          wd.content_html,
+          wd.content_metadata,
+          wd.word_count,
+          wd.reading_time_minutes,
+          wd.internal_links,
+          wd.external_links,
+          wd.attached_artifacts
+        FROM app.d_wiki w
+        LEFT JOIN LATERAL (
+          SELECT * FROM app.d_wiki_data
+          WHERE wiki_id = w.id AND stage = 'saved'
+          ORDER BY updated_ts DESC
+          LIMIT 1
+        ) wd ON true
+        WHERE w.id = ${id} AND w.active_flag = true
       `);
       if (!result.length) return reply.status(404).send({ error: 'Not found' });
       return result[0];
@@ -149,27 +199,64 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
   // Create
   fastify.post('/api/v1/wiki', {
+    preHandler: [fastify.authenticate],
     schema: { body: CreateWikiSchema, response: { 201: WikiSchema } }
   }, async (request, reply) => {
     const data = request.body as any;
-    const userId = '1e58f150-52ed-4963-b137-c1feee3ce8aa'; // Default user
-    const user = { name: 'James Miller' };
+    const userId = (request as any).user?.sub || '8260b1b0-5efc-4611-ad33-ee76c0cf7f13';
+
     try {
-      const fromTs = new Date().toISOString();
-      const created = await db.execute(sql`
+      // Generate code if not provided
+      const code = data.code || `WIKI-${Date.now().toString(36).toUpperCase()}`;
+
+      // Insert into d_wiki (head table)
+      const wikiResult = await db.execute(sql`
         INSERT INTO app.d_wiki (
-          title, slug, summary, tags, content, content_html, owner_id, owner_name, published, share_link, version, active, from_ts, attr
+          slug, code, name, descr, tags, metadata, wiki_type, category,
+          publication_status, visibility, summary, active_flag, version
         ) VALUES (
-          ${data.title}, ${data.slug}, ${data.summary || null}, ${JSON.stringify(data.tags || [])}, ${JSON.stringify(data.content || {})},
-          ${data.contentHtml || null}, ${userId}, ${user?.name || null}, ${data.published === true},
-          encode(gen_random_bytes(8), 'hex'), 1, true, ${fromTs}, ${JSON.stringify(data.attr || {})}
+          ${data.slug},
+          ${code},
+          ${data.name},
+          ${data.descr || null},
+          ${JSON.stringify(data.tags || [])}::jsonb,
+          ${JSON.stringify(data.attr || {})}::jsonb,
+          ${data.wikiType || 'page'},
+          ${data.category || null},
+          ${data.publicationStatus || 'draft'},
+          ${data.visibility || 'internal'},
+          ${data.summary || null},
+          true,
+          1
         )
-        RETURNING id, title, slug, summary, tags, owner_id as "ownerId", owner_name as "ownerName", published, share_link as "shareLink", version, active, from_ts as "fromTs", to_ts as "toTs", created, updated
+        RETURNING id, slug, code, name, descr, tags, metadata as attr, wiki_type as "wikiType",
+                  category, publication_status as "publicationStatus", visibility, summary,
+                  active_flag as active, from_ts as "fromTs", to_ts as "toTs",
+                  created_ts as "createdTs", updated_ts as "updatedTs", version
       `);
-      return reply.status(201).send(created[0]);
+
+      const wiki = wikiResult[0];
+
+      // Insert into d_wiki_data (content table) if content provided
+      if (data.contentMarkdown || data.contentHtml) {
+        await db.execute(sql`
+          INSERT INTO app.d_wiki_data (
+            wiki_id, content_markdown, content_html, stage, updated_by_empid, update_type
+          ) VALUES (
+            ${wiki.id},
+            ${data.contentMarkdown || null},
+            ${data.contentHtml || null},
+            'saved',
+            ${userId},
+            'content_edit'
+          )
+        `);
+      }
+
+      return reply.status(201).send({ ...wiki, content: data.content });
     } catch (e) {
       fastify.log.error('Error create wiki: ' + String(e));
-      return reply.status(500).send({ error: 'Internal server error' });
+      return reply.status(500).send({ error: 'Internal server error', details: String(e) });
     }
   });
 
@@ -180,27 +267,87 @@ export async function wikiRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as any;
     const data = request.body as any;
-    
+    const userId = (request as any).user?.sub || '8260b1b0-5efc-4611-ad33-ee76c0cf7f13';
+
     try {
-      const updated = await db.execute(sql`
-        UPDATE app.d_wiki SET
-          title = COALESCE(${data.title}, title),
-          slug = COALESCE(${data.slug}, slug),
-          summary = COALESCE(${data.summary}, summary),
-          tags = COALESCE(${JSON.stringify(data.tags ?? null)}, tags),
-          content = COALESCE(${JSON.stringify(data.content ?? null)}, content),
-          content_html = COALESCE(${data.contentHtml ?? null}, content_html),
-          published = COALESCE(${data.published}, published),
-          attr = COALESCE(${JSON.stringify(data.attr ?? null)}, attr),
-          updated = NOW()
-        WHERE id = ${id} AND active_flag = true
-        RETURNING id, title, slug, summary, tags, owner_id as "ownerId", owner_name as "ownerName", published, share_link as "shareLink", version, active, from_ts as "fromTs", to_ts as "toTs", created, updated
-      `);
+      // Update d_wiki (head table)
+      const updateFields: string[] = [];
+      const values: any[] = [];
+
+      if (data.name !== undefined) {
+        updateFields.push(`name = $${values.length + 1}`);
+        values.push(data.name);
+      }
+      if (data.slug !== undefined) {
+        updateFields.push(`slug = $${values.length + 1}`);
+        values.push(data.slug);
+      }
+      if (data.descr !== undefined) {
+        updateFields.push(`descr = $${values.length + 1}`);
+        values.push(data.descr);
+      }
+      if (data.summary !== undefined) {
+        updateFields.push(`summary = $${values.length + 1}`);
+        values.push(data.summary);
+      }
+      if (data.tags !== undefined) {
+        updateFields.push(`tags = $${values.length + 1}::jsonb`);
+        values.push(JSON.stringify(data.tags));
+      }
+      if (data.attr !== undefined) {
+        updateFields.push(`metadata = $${values.length + 1}::jsonb`);
+        values.push(JSON.stringify(data.attr));
+      }
+      if (data.wikiType !== undefined) {
+        updateFields.push(`wiki_type = $${values.length + 1}`);
+        values.push(data.wikiType);
+      }
+      if (data.category !== undefined) {
+        updateFields.push(`category = $${values.length + 1}`);
+        values.push(data.category);
+      }
+      if (data.publicationStatus !== undefined) {
+        updateFields.push(`publication_status = $${values.length + 1}`);
+        values.push(data.publicationStatus);
+      }
+      if (data.visibility !== undefined) {
+        updateFields.push(`visibility = $${values.length + 1}`);
+        values.push(data.visibility);
+      }
+
+      updateFields.push(`updated_ts = NOW()`);
+
+      const updated = await db.execute(sql.raw(`
+        UPDATE app.d_wiki SET ${updateFields.join(', ')}
+        WHERE id = '${id}' AND active_flag = true
+        RETURNING id, slug, code, name, descr, tags, metadata as attr, wiki_type as "wikiType",
+                  category, publication_status as "publicationStatus", visibility, summary,
+                  active_flag as active, from_ts as "fromTs", to_ts as "toTs",
+                  created_ts as "createdTs", updated_ts as "updatedTs", version
+      `));
+
       if (!updated.length) return reply.status(404).send({ error: 'Not found' });
-      return updated[0];
+
+      // Update or insert content in d_wiki_data if provided
+      if (data.contentMarkdown !== undefined || data.contentHtml !== undefined) {
+        await db.execute(sql`
+          INSERT INTO app.d_wiki_data (
+            wiki_id, content_markdown, content_html, stage, updated_by_empid, update_type
+          ) VALUES (
+            ${id},
+            ${data.contentMarkdown || null},
+            ${data.contentHtml || null},
+            'saved',
+            ${userId},
+            'content_edit'
+          )
+        `);
+      }
+
+      return { ...updated[0], content: data.content };
     } catch (e) {
       fastify.log.error('Error update wiki: ' + String(e));
-      return reply.status(500).send({ error: 'Internal server error' });
+      return reply.status(500).send({ error: 'Internal server error', details: String(e) });
     }
   });
 
@@ -209,10 +356,11 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     const { id } = request.params as any;
-    
+
     try {
       const deleted = await db.execute(sql`
-        UPDATE app.d_wiki SET active_flag = false, to_ts = NOW(), updated = NOW() WHERE id = ${id} AND active_flag = true
+        UPDATE app.d_wiki SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
+        WHERE id = ${id} AND active_flag = true
         RETURNING id
       `);
       if (!deleted.length) return reply.status(404).send({ error: 'Not found' });

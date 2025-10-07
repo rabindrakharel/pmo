@@ -66,13 +66,11 @@ export function AdvancedFormBuilder({
 }: AdvancedFormBuilderProps) {
   const navigate = useNavigate();
 
-  // Helper to restore form state from saved metadata
+  // Helper to restore form state from saved schema
   const restoreFormState = (formData: any) => {
-    if (!formData) return null;
+    if (!formData || !formData.schema) return null;
 
-    // Priority: formBuilderSchema > schema
-    const schema = formData.formBuilderSchema || formData.schema;
-    const builderState = formData.formBuilderState;
+    const schema = formData.schema;
 
     if (schema?.steps && Array.isArray(schema.steps)) {
       // Restore steps
@@ -100,7 +98,7 @@ export function AdvancedFormBuilder({
       return {
         steps: restoredSteps,
         fields: restoredFields,
-        currentStepIndex: builderState?.currentStepIndex || 0
+        currentStepIndex: 0
       };
     }
 
@@ -109,13 +107,28 @@ export function AdvancedFormBuilder({
 
   const restored = initialFormData ? restoreFormState(initialFormData) : null;
 
-  const [title, setTitle] = useState(initialTitle);
-  const [descr, setDescr] = useState(initialDescription);
+  const [title, setTitle] = useState(initialFormData?.name || initialTitle);
+  const [descr, setDescr] = useState(initialFormData?.descr || initialDescription);
   const [steps, setSteps] = useState<FormStep[]>(
     restored?.steps || [{ id: 'step-1', name: 'step_1', title: 'General Information', description: '' }]
   );
   const [fields, setFields] = useState<BuilderField[]>(restored?.fields || []);
   const [currentStepIndex, setCurrentStepIndex] = useState(restored?.currentStepIndex || 0);
+
+  // Re-restore form state when initialFormData changes (for async loading)
+  useEffect(() => {
+    if (initialFormData) {
+      const restored = restoreFormState(initialFormData);
+      if (restored) {
+        setSteps(restored.steps);
+        setFields(restored.fields);
+        setCurrentStepIndex(restored.currentStepIndex);
+      }
+      // Also update title and description from loaded form
+      if (initialFormData.name) setTitle(initialFormData.name);
+      if (initialFormData.descr) setDescr(initialFormData.descr);
+    }
+  }, [initialFormData]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [saving, setSaving] = useState(false);
@@ -130,10 +143,10 @@ export function AdvancedFormBuilder({
     p.type.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // DnD sensors
+  // DnD sensors - reduced activation distance for smoother dragging
   const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 3 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
   );
 
   // Keyboard navigation for steps
@@ -507,9 +520,7 @@ export function AdvancedFormBuilder({
                 </div>
               ) : (
                 filteredPalette.map(p => (
-                  <div key={p.type} onClick={() => addField(p.type)}>
-                    <DraggableFieldType fieldType={p} />
-                  </div>
+                  <DraggableFieldType key={p.type} fieldType={p} />
                 ))
               )}
             </div>
@@ -559,13 +570,13 @@ export function AdvancedFormBuilder({
                 <SortableContext items={currentStepFields.map(f => f.id)} strategy={rectSortingStrategy}>
                   <DroppableFormCanvas>
                     {currentStepFields.length === 0 ? (
-                      <div className="h-40 border border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-500">
+                      <div className="h-96 border border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-500">
                         <Layers className="h-8 w-8 mb-2 text-gray-400" />
                         <p className="text-sm">No fields in this step yet</p>
                         <p className="text-xs text-gray-400">Drag field types from the palette or click to add them to {currentStep?.title}</p>
                       </div>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-3 pb-32">
                         {currentStepFields.map((f) => (
                           <SortableFieldCard
                             key={f.id}
@@ -605,10 +616,17 @@ export function AdvancedFormBuilder({
           </div>
         </div>
 
-        <DragOverlay dropAnimation={null}>
+        <DragOverlay dropAnimation={{ duration: 200, easing: 'ease' }}>
           {activeId ? (
-            <div className="px-3 py-2 rounded-lg bg-white border border-gray-200 shadow-lg text-sm text-gray-700">
-              {activeId.includes('field-type-') ? 'Creating field...' : 'Reordering...'}
+            <div className="px-4 py-3 rounded-lg bg-white border-2 border-blue-400 shadow-2xl">
+              {activeId.includes('field-type-') ? (
+                <div className="flex items-center space-x-2 text-sm font-medium text-blue-600">
+                  <Plus className="h-4 w-4" />
+                  <span>Adding field...</span>
+                </div>
+              ) : (
+                <div className="text-sm font-medium text-gray-700">Moving field...</div>
+              )}
             </div>
           ) : null}
         </DragOverlay>

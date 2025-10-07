@@ -1,74 +1,51 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
+// Response schema matching minimalistic database structure
 const FormSchema = Type.Object({
   id: Type.String(),
+  slug: Type.String(),
+  code: Type.String(),
   name: Type.String(),
-  descr: Type.Optional(Type.String()),
-  form_code: Type.Optional(Type.String()),
-  form_global_link: Type.Optional(Type.String()),
-  project_specific: Type.Optional(Type.Boolean()),
-  project_id: Type.Optional(Type.String()),
-  biz_specific: Type.Optional(Type.Boolean()),
-  biz_id: Type.Optional(Type.String()),
-  hr_specific: Type.Optional(Type.Boolean()),
-  hr_id: Type.Optional(Type.String()),
-  worksite_specific: Type.Optional(Type.Boolean()),
-  worksite_id: Type.Optional(Type.String()),
-  version: Type.Optional(Type.Number()),
+  descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  url: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  tags: Type.Optional(Type.Any()),
+  formType: Type.String(),
+  schema: Type.Any(), // form_schema JSONB
+  fromTs: Type.String(),
+  toTs: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   active: Type.Boolean(),
-  from_ts: Type.String(),
-  to_ts: Type.Optional(Type.String()),
-  created: Type.String(),
-  updated: Type.String(),
-  tags: Type.Optional(Type.Array(Type.String())),
-  schema: Type.Optional(Type.Any()),
-  attr: Type.Optional(Type.Any()),
-  is_public: Type.Optional(Type.Boolean()),
-  requires_authentication: Type.Optional(Type.Boolean()),
+  createdTs: Type.String(),
+  updatedTs: Type.String(),
+  version: Type.Number(),
 });
 
+// Create schema
 const CreateFormSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
-  form_code: Type.Optional(Type.String()),
-  form_global_link: Type.Optional(Type.String()),
-  project_specific: Type.Optional(Type.Boolean()),
-  project_id: Type.Optional(Type.String()),
-  biz_specific: Type.Optional(Type.Boolean()),
-  biz_id: Type.Optional(Type.String()),
-  hr_specific: Type.Optional(Type.Boolean()),
-  hr_id: Type.Optional(Type.String()),
-  worksite_specific: Type.Optional(Type.Boolean()),
-  worksite_id: Type.Optional(Type.String()),
+  tags: Type.Optional(Type.Array(Type.String())),
+  formType: Type.Optional(Type.String()),
+  schema: Type.Optional(Type.Any()), // Full form schema from UI
   version: Type.Optional(Type.Number()),
   active: Type.Optional(Type.Boolean()),
-  from_ts: Type.Optional(Type.String({ format: 'date-time' })),
-  tags: Type.Optional(Type.Array(Type.String())),
-  schema: Type.Optional(Type.Any()),
-  attr: Type.Optional(Type.Any()),
-  is_public: Type.Optional(Type.Boolean()),
-  requires_authentication: Type.Optional(Type.Boolean()),
 });
 
 const UpdateFormSchema = Type.Partial(CreateFormSchema);
 
 export async function formRoutes(fastify: FastifyInstance) {
-  // List forms with filtering
+  // List forms with RBAC filtering
   fastify.get('/api/v1/form', {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
-        version: Type.Optional(Type.Number()),
         active: Type.Optional(Type.Boolean()),
-        project_specific: Type.Optional(Type.Boolean()),
-        biz_specific: Type.Optional(Type.Boolean()),
-        hr_specific: Type.Optional(Type.Boolean()),
-        worksite_specific: Type.Optional(Type.Boolean()),
+        formType: Type.Optional(Type.String()),
+        search: Type.Optional(Type.String()),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
       response: {
         200: Type.Object({
@@ -78,60 +55,32 @@ export async function formRoutes(fastify: FastifyInstance) {
           offset: Type.Number(),
         }),
         403: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
       },
     },
   }, async (request, reply) => {
-    const { 
-      version, 
-      active, 
-      project_specific,
-      biz_specific,
-      hr_specific,
-      worksite_specific,
-      limit = 50, 
-      offset = 0 
-    } = request.query as any;
-
     try {
-      // Build query conditions
-      const conditions = [];
-      
-      if (version !== undefined) {
-        conditions.push(sql`version = ${version}`);
-      }
-      
-      if (active !== undefined) {
-        conditions.push(sql`active_flag = ${active}`);
-      }
-      
-      if (project_specific !== undefined) {
-        conditions.push(sql`project_specific = ${project_specific}`);
-      }
-      
-      if (biz_specific !== undefined) {
-        conditions.push(sql`biz_specific = ${biz_specific}`);
-      }
-      
-      if (hr_specific !== undefined) {
-        conditions.push(sql`hr_specific = ${hr_specific}`);
-      }
-      
-      if (worksite_specific !== undefined) {
-        conditions.push(sql`worksite_specific = ${worksite_specific}`);
+      const userId = request.user?.sub;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      // Direct RBAC filtering - only show forms user has access to
-      const employeeId = (request as any).user?.sub;
-      if (!employeeId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
+      const {
+        active = true,
+        formType,
+        search,
+        page = 1,
+        limit = 20,
+      } = request.query as any;
 
-      const rbacConditions = [
+      const offset = (page - 1) * limit;
+
+      // Build WHERE conditions
+      const conditions: any[] = [
+        // RBAC check - user must have view permission (0) on form entity
         sql`(
           EXISTS (
             SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.empid = ${employeeId}
+            WHERE rbac.empid = ${userId}
               AND rbac.entity = 'form'
               AND (rbac.entity_id = f.id::text OR rbac.entity_id = 'all')
               AND rbac.active_flag = true
@@ -141,10 +90,22 @@ export async function formRoutes(fastify: FastifyInstance) {
         )`
       ];
 
-      // Add RBAC filtering to conditions
-      conditions.push(...rbacConditions);
+      if (active !== undefined) {
+        conditions.push(sql`f.active_flag = ${active}`);
+      }
 
-      // Get total count
+      if (formType) {
+        conditions.push(sql`f.form_type = ${formType}`);
+      }
+
+      if (search) {
+        conditions.push(sql`(
+          f.name ILIKE ${`%${search}%`} OR
+          f.descr ILIKE ${`%${search}%`}
+        )`);
+      }
+
+      // Count total
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
         FROM app.d_form_head f
@@ -152,45 +113,24 @@ export async function formRoutes(fastify: FastifyInstance) {
       `);
       const total = Number(countResult[0]?.total || 0);
 
-      // Get paginated results
+      // Get paginated results with column aliases for camelCase
       const forms = await db.execute(sql`
         SELECT
           f.id,
+          f.slug,
+          f.code,
           f.name,
-          f."descr",
-          f.form_code,
-          form_global_link,
-          project_specific,
-          project_id,
-          biz_specific,
-          biz_id,
-          hr_specific,
-          hr_id,
-          worksite_specific,
-          worksite_id,
-          version,
-          active,
-          from_ts,
-          to_ts,
-          created,
-          updated,
-          tags,
-          schema,
-          attr,
-          is_public,
-          requires_authentication,
-          form_type,
-          is_template,
-          is_draft,
-          form_builder_schema,
-          form_builder_state,
-          step_configuration,
-          validation_rules,
-          submission_config,
-          workflow_config,
-          access_config,
-          metadata,
-          version_metadata
+          f.descr,
+          f.url,
+          f.tags,
+          f.form_type as "formType",
+          f.form_schema as "schema",
+          f.from_ts as "fromTs",
+          f.to_ts as "toTs",
+          f.active_flag as "active",
+          f.created_ts as "createdTs",
+          f.updated_ts as "updatedTs",
+          f.version
         FROM app.d_form_head f
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY f.name ASC, f.version DESC
@@ -209,90 +149,65 @@ export async function formRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get single form
+  // Get single form by ID
   fastify.get('/api/v1/form/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
+        id: Type.String(),
       }),
       response: {
         200: FormSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
       },
     },
   }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    // Direct RBAC check for form access
-    const formAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'form'
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 0 = ANY(rbac.permission)
-    `);
-
-    if (formAccess.length === 0) {
-      return reply.status(403).send({ error: 'Insufficient permissions to view this form' });
-    }
-
     try {
-      const form = await db.execute(sql`
-        SELECT
-          id,
-          name,
-          "descr",
-          form_global_link as "formGlobalLink",
-          project_specific as "projectSpecific",
-          project_id as "projectId",
-          task_specific as "taskSpecific",
-          task_id as "taskId",
-          biz_specific as "businessSpecific",
-          biz_id as "businessId",
-          hr_specific as "hrSpecific",
-          hr_id as "hrId",
-          worksite_specific as "worksiteSpecific",
-          worksite_id as "worksiteId",
-          version,
-          active,
-          from_ts as "fromTs",
-          to_ts as "toTs",
-          created,
-          updated,
-          tags,
-          schema,
-          attr,
-          form_type as "formType",
-          is_template as "isTemplate",
-          is_draft as "isDraft",
-          form_builder_schema as "formBuilderSchema",
-          form_builder_state as "formBuilderState",
-          step_configuration as "stepConfiguration",
-          validation_rules as "validationRules",
-          submission_config as "submissionConfig",
-          workflow_config as "workflowConfig",
-          access_config as "accessConfig",
-          metadata,
-          version_metadata as "versionMetadata"
-        FROM app.d_form_head
-        WHERE id = ${id} AND active_flag = true
-      `);
-
-      if (form.length === 0) {
-        return reply.status(404).send({ error: 'Form not found' });
+      const userId = request.user?.sub;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      return form[0];
+      const { id } = request.params as { id: string };
+
+      const forms = await db.execute(sql`
+        SELECT
+          f.id,
+          f.slug,
+          f.code,
+          f.name,
+          f.descr,
+          f.url,
+          f.tags,
+          f.form_type as "formType",
+          f.form_schema as "schema",
+          f.from_ts as "fromTs",
+          f.to_ts as "toTs",
+          f.active_flag as "active",
+          f.created_ts as "createdTs",
+          f.updated_ts as "updatedTs",
+          f.version
+        FROM app.d_form_head f
+        WHERE f.id = ${id}
+          AND (
+            EXISTS (
+              SELECT 1 FROM app.entity_id_rbac_map rbac
+              WHERE rbac.empid = ${userId}
+                AND rbac.entity = 'form'
+                AND (rbac.entity_id = f.id::text OR rbac.entity_id = 'all')
+                AND rbac.active_flag = true
+                AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+                AND 0 = ANY(rbac.permission)
+            )
+          )
+      `);
+
+      if (forms.length === 0) {
+        return reply.status(404).send({ error: 'Form not found or access denied' });
+      }
+
+      return forms[0];
     } catch (error) {
       fastify.log.error('Error fetching form: ' + String(error));
       return reply.status(500).send({ error: 'Internal server error' });
@@ -308,133 +223,114 @@ export async function formRoutes(fastify: FastifyInstance) {
         201: FormSchema,
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
       },
     },
   }, async (request, reply) => {
-    const data = request.body as any;
-
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    // Direct RBAC check for form create permission
-    const formCreateAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'form'
-        AND rbac.entity_id = 'all'
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 4 = ANY(rbac.permission)
-    `);
-
-    if (formCreateAccess.length === 0) {
-      return reply.status(403).send({ error: 'Insufficient permissions to create forms' });
-    }
-
     try {
-      // Check for unique name and version combination
-      const existingForm = await db.execute(sql`
-        SELECT id FROM app.d_form_head 
-        WHERE name = ${data.name} AND version = ${data.version || 1} AND active_flag = true
-      `);
-      if (existingForm.length > 0) {
-        return reply.status(400).send({ error: 'Form with this name and version already exists' });
+      const userId = request.user?.sub;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      const fromTs = data.fromTs || new Date().toISOString();
-      
+      const data = request.body as any;
+
+      // Check create permission (permission 4 on 'all')
+      const hasPermission = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'form'
+          AND rbac.entity_id = 'all'
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 4 = ANY(rbac.permission)
+        LIMIT 1
+      `);
+
+      if (hasPermission.length === 0) {
+        return reply.status(403).send({ error: 'No permission to create forms' });
+      }
+
+      // Auto-generate slug and code
+      const slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now();
+      const code = 'FORM-' + Date.now();
+
+      // Insert form with minimalistic schema (URL will be updated after we have the ID)
       const result = await db.execute(sql`
         INSERT INTO app.d_form_head (
-          name, "descr", form_global_link,
-          project_specific, project_id,
-          task_specific, task_id,
-          location_specific, location_id,
-          business_specific, business_id,
-          hr_specific, hr_id,
-          worksite_specific, worksite_id,
-          version, active, from_ts, tags, schema, attr,
-          form_type, is_template, is_draft,
-          form_builder_schema, form_builder_state, step_configuration,
-          validation_rules, submission_config, workflow_config,
-          access_config, metadata, version_metadata
+          slug,
+          code,
+          name,
+          descr,
+          tags,
+          form_type,
+          form_schema,
+          active_flag,
+          version
         )
         VALUES (
+          ${slug},
+          ${code},
           ${data.name},
           ${data.descr || null},
-          ${data.formGlobalLink || null},
-          ${data.projectSpecific !== undefined ? data.projectSpecific : false}, ${data.projectId || null},
-          ${data.taskSpecific !== undefined ? data.taskSpecific : false}, ${data.taskId || null},
-          ${data.locationSpecific !== undefined ? data.locationSpecific : false}, ${data.locationId || null},
-          ${data.businessSpecific !== undefined ? data.businessSpecific : false}, ${data.businessId || null},
-          ${data.hrSpecific !== undefined ? data.hrSpecific : false}, ${data.hrId || null},
-          ${data.worksiteSpecific !== undefined ? data.worksiteSpecific : false}, ${data.worksiteId || null},
-          ${data.version || 1},
-          ${data.active !== false},
-          ${fromTs},
           ${JSON.stringify(data.tags || [])},
-          ${JSON.stringify(data.schema || {})},
-          ${JSON.stringify(data.attr || {})},
           ${data.formType || 'multi_step'},
-          ${data.isTemplate !== undefined ? data.isTemplate : false},
-          ${data.isDraft !== undefined ? data.isDraft : false},
-          ${JSON.stringify(data.formBuilderSchema || {steps: []})},
-          ${JSON.stringify(data.formBuilderState || {currentStepIndex: 0, activeFieldId: null, lastModified: null, modifiedBy: userId, fieldSequence: []})},
-          ${JSON.stringify(data.stepConfiguration || {totalSteps: 1, allowStepSkipping: false, showStepProgress: true, saveProgressOnStepChange: true, validateOnStepChange: true, stepTransition: 'slide', currentStepIndex: 0})},
-          ${JSON.stringify(data.validationRules || {requiredFields: [], customValidators: [], globalRules: []})},
-          ${JSON.stringify(data.submissionConfig || {allowDraft: true, autoSaveInterval: 30000, requireAuthentication: true, allowAnonymous: false, confirmationMessage: 'Thank you for your submission!', redirectUrl: null, emailNotifications: {enabled: false, recipients: [], template: null, ccClient: false}})},
-          ${JSON.stringify(data.workflowConfig || {requiresApproval: false, approvers: [], approvalStages: []})},
-          ${JSON.stringify(data.accessConfig || {visibility: 'private', allowedRoles: [], allowedUsers: [], expiresAt: null})},
-          ${JSON.stringify(data.metadata || {category: null, department: null, estimatedCompletionTime: null, completionRate: 0, averageCompletionTime: 0, totalSubmissions: 0, createdBy: userId, createdByName: null, tags: []})},
-          ${JSON.stringify(data.versionMetadata || {version: 1, previousVersionId: null, changeLog: []})}
+          ${JSON.stringify(data.schema || {steps: []})},
+          ${data.active !== false},
+          ${data.version || 1}
         )
         RETURNING
           id,
+          slug,
+          code,
           name,
-          "descr",
-          form_global_link as "formGlobalLink",
-          project_specific as "projectSpecific",
-          project_id as "projectId",
-          task_specific as "taskSpecific",
-          task_id as "taskId",
-          location_specific as "locationSpecific",
-          location_id as "locationId",
-          business_specific as "businessSpecific",
-          business_id as "businessId",
-          hr_specific as "hrSpecific",
-          hr_id as "hrId",
-          worksite_specific as "worksiteSpecific",
-          worksite_id as "worksiteId",
-          version,
-          active,
+          descr,
+          tags,
+          form_type as "formType",
+          form_schema as "schema",
           from_ts as "fromTs",
           to_ts as "toTs",
-          created,
-          updated,
-          tags,
-          schema,
-          attr,
-          form_type as "formType",
-          is_template as "isTemplate",
-          is_draft as "isDraft",
-          form_builder_schema as "formBuilderSchema",
-          form_builder_state as "formBuilderState",
-          step_configuration as "stepConfiguration",
-          validation_rules as "validationRules",
-          submission_config as "submissionConfig",
-          workflow_config as "workflowConfig",
-          access_config as "accessConfig",
-          metadata,
-          version_metadata as "versionMetadata"
+          active_flag as "active",
+          created_ts as "createdTs",
+          updated_ts as "updatedTs",
+          version
       `);
 
-      if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to create form' });
-      }
+      const created = result[0];
 
-      return reply.status(201).send(result[0]);
+      // Generate public form URL using form ID
+      const publicUrl = `/public/form/${created.id}`;
+
+      // Update the form with the generated URL
+      await db.execute(sql`
+        UPDATE app.d_form_head
+        SET url = ${publicUrl}
+        WHERE id = ${created.id}
+      `);
+
+      // Add URL to the response
+      created.url = publicUrl;
+
+      // Auto-grant creator full permissions (0=view, 1=edit, 2=share, 3=delete, 4=create)
+      await db.execute(sql`
+        INSERT INTO app.entity_id_rbac_map (
+          empid,
+          entity,
+          entity_id,
+          permission,
+          active_flag,
+          granted_ts
+        )
+        VALUES (
+          ${userId},
+          'form',
+          ${created.id}::text,
+          ARRAY[0, 1, 2, 3],
+          true,
+          NOW()
+        )
+      `);
+
+      return reply.status(201).send(created);
     } catch (error) {
       fastify.log.error('Error creating form: ' + String(error));
       return reply.status(500).send({ error: 'Internal server error' });
@@ -446,212 +342,107 @@ export async function formRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
+        id: Type.String(),
       }),
       body: UpdateFormSchema,
       response: {
         200: FormSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
       },
     },
   }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const data = request.body as any;
-
     try {
-      // Check if form exists
-      const existing = await db.execute(sql`
-        SELECT id FROM app.d_form_head WHERE id = ${id} AND active_flag = true
+      const userId = request.user?.sub;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const { id } = request.params as { id: string };
+      const data = request.body as any;
+
+      // Check edit permission (permission 1)
+      const hasPermission = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'form'
+          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 1 = ANY(rbac.permission)
+        LIMIT 1
       `);
-      
-      if (existing.length === 0) {
+
+      if (hasPermission.length === 0) {
+        return reply.status(403).send({ error: 'No permission to edit this form' });
+      }
+
+      // Get current form data to detect changes
+      const currentForm = await db.execute(sql`
+        SELECT name, descr, tags, form_type, form_schema, active_flag, version
+        FROM app.d_form_head
+        WHERE id = ${id}
+      `);
+
+      if (currentForm.length === 0) {
         return reply.status(404).send({ error: 'Form not found' });
       }
 
-      // Check for unique name and version combination on update
-      if (data.name && data.version) {
-        const existingNameVersion = await db.execute(sql`
-          SELECT id FROM app.d_form_head 
-          WHERE name = ${data.name} AND version = ${data.version} AND active_flag = true AND id != ${id}
-        `);
-        if (existingNameVersion.length > 0) {
-          return reply.status(400).send({ error: 'Form with this name and version already exists' });
-        }
+      const current = currentForm[0] as any;
+
+      // Detect if meaningful changes occurred (ignore metadata-only updates)
+      const schemaChanged = data.schema !== undefined &&
+        JSON.stringify(data.schema) !== JSON.stringify(current.form_schema);
+      const nameChanged = data.name !== undefined && data.name !== current.name;
+      const formTypeChanged = data.formType !== undefined && data.formType !== current.form_type;
+
+      const hasSubstantiveChanges = schemaChanged || nameChanged || formTypeChanged;
+
+      // Build UPDATE SET clause dynamically
+      const updateFields: any[] = [];
+
+      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
+      if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
+      if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}`);
+      if (data.formType !== undefined) updateFields.push(sql`form_type = ${data.formType}`);
+      if (data.schema !== undefined) updateFields.push(sql`form_schema = ${JSON.stringify(data.schema)}`);
+      if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
+
+      // Increment version ONLY if substantive changes detected
+      if (hasSubstantiveChanges) {
+        updateFields.push(sql`version = version + 1`);
       }
 
-      // Build update fields
-      const updateFields = [];
-      
-      if (data.name !== undefined) {
-        updateFields.push(sql`name = ${data.name}`);
-      }
-      
-      if (data.descr !== undefined) {
-        updateFields.push(sql`"descr" = ${data.descr}`);
-      }
-      
-      if (data.form_global_link !== undefined) {
-        updateFields.push(sql`form_global_link = ${data.form_global_link}`);
-      }
-      
-      if (data.project_specific !== undefined) {
-        updateFields.push(sql`project_specific = ${data.project_specific}`);
-      }
-      if (data.project_id !== undefined) {
-        updateFields.push(sql`project_id = ${data.project_id}`);
-      }
-      
-      if (data.task_specific !== undefined) {
-        updateFields.push(sql`task_specific = ${data.task_specific}`);
-      }
-      if (data.task_id !== undefined) {
-        updateFields.push(sql`task_id = ${data.task_id}`);
-      }
-      
-      if (data.biz_specific !== undefined) {
-        updateFields.push(sql`biz_specific = ${data.biz_specific}`);
-      }
-      if (data.biz_id !== undefined) {
-        updateFields.push(sql`biz_id = ${data.biz_id}`);
-      }
-      
-      if (data.hr_specific !== undefined) {
-        updateFields.push(sql`hr_specific = ${data.hr_specific}`);
-      }
-      if (data.hr_id !== undefined) {
-        updateFields.push(sql`hr_id = ${data.hr_id}`);
-      }
-      
-      if (data.worksite_specific !== undefined) {
-        updateFields.push(sql`worksite_specific = ${data.worksite_specific}`);
-      }
-      if (data.worksite_id !== undefined) {
-        updateFields.push(sql`worksite_id = ${data.worksite_id}`);
-      }
-      
-      if (data.version !== undefined) {
-        updateFields.push(sql`version = ${data.version}`);
-      }
-      
-      if (data.tags !== undefined) {
-        updateFields.push(sql`tags = ${JSON.stringify(data.tags)}`);
-      }
-      
-      if (data.schema !== undefined) {
-        updateFields.push(sql`schema = ${JSON.stringify(data.schema)}`);
-      }
-      
-      if (data.attr !== undefined) {
-        updateFields.push(sql`attr = ${JSON.stringify(data.attr)}`);
-      }
-      
-      if (data.active !== undefined) {
-        updateFields.push(sql`active_flag = ${data.active}`);
-      }
+      // Always update timestamp
+      updateFields.push(sql`updated_ts = NOW()`);
 
-      // Form builder metadata fields
-      if (data.formType !== undefined) {
-        updateFields.push(sql`form_type = ${data.formType}`);
-      }
-
-      if (data.isTemplate !== undefined) {
-        updateFields.push(sql`is_template = ${data.isTemplate}`);
-      }
-
-      if (data.isDraft !== undefined) {
-        updateFields.push(sql`is_draft = ${data.isDraft}`);
-      }
-
-      if (data.formBuilderSchema !== undefined) {
-        updateFields.push(sql`form_builder_schema = ${JSON.stringify(data.formBuilderSchema)}`);
-      }
-
-      if (data.formBuilderState !== undefined) {
-        updateFields.push(sql`form_builder_state = ${JSON.stringify(data.formBuilderState)}`);
-      }
-
-      if (data.stepConfiguration !== undefined) {
-        updateFields.push(sql`step_configuration = ${JSON.stringify(data.stepConfiguration)}`);
-      }
-
-      if (data.validationRules !== undefined) {
-        updateFields.push(sql`validation_rules = ${JSON.stringify(data.validationRules)}`);
-      }
-
-      if (data.submissionConfig !== undefined) {
-        updateFields.push(sql`submission_config = ${JSON.stringify(data.submissionConfig)}`);
-      }
-
-      if (data.workflowConfig !== undefined) {
-        updateFields.push(sql`workflow_config = ${JSON.stringify(data.workflowConfig)}`);
-      }
-
-      if (data.accessConfig !== undefined) {
-        updateFields.push(sql`access_config = ${JSON.stringify(data.accessConfig)}`);
-      }
-
-      if (data.metadata !== undefined) {
-        updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}`);
-      }
-
-      if (data.versionMetadata !== undefined) {
-        updateFields.push(sql`version_metadata = ${JSON.stringify(data.versionMetadata)}`);
-      }
-
-      if (updateFields.length === 0) {
+      if (updateFields.length === 1) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      updateFields.push(sql`updated = NOW()`);
-
       const result = await db.execute(sql`
-        UPDATE app.d_form_head 
+        UPDATE app.d_form_head
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING
           id,
+          slug,
+          code,
           name,
-          "descr",
-          form_global_link as "formGlobalLink",
-          project_specific as "projectSpecific",
-          project_id as "projectId",
-          task_specific as "taskSpecific",
-          task_id as "taskId",
-          location_specific as "locationSpecific",
-          location_id as "locationId",
-          business_specific as "businessSpecific",
-          business_id as "businessId",
-          hr_specific as "hrSpecific",
-          hr_id as "hrId",
-          worksite_specific as "worksiteSpecific",
-          worksite_id as "worksiteId",
-          version,
-          active,
+          descr,
+          tags,
+          form_type as "formType",
+          form_schema as "schema",
           from_ts as "fromTs",
           to_ts as "toTs",
-          created,
-          updated,
-          tags,
-          schema,
-          attr,
-          form_type as "formType",
-          is_template as "isTemplate",
-          is_draft as "isDraft",
-          form_builder_schema as "formBuilderSchema",
-          form_builder_state as "formBuilderState",
-          step_configuration as "stepConfiguration",
-          validation_rules as "validationRules",
-          submission_config as "submissionConfig",
-          workflow_config as "workflowConfig",
-          access_config as "accessConfig",
-          metadata,
-          version_metadata as "versionMetadata"
+          active_flag as "active",
+          created_ts as "createdTs",
+          updated_ts as "updatedTs",
+          version
       `);
 
       if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to update form' });
+        return reply.status(404).send({ error: 'Form not found' });
       }
 
       return result[0];
@@ -661,158 +452,534 @@ export async function formRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Delete form (soft delete)
-  fastify.delete('/api/v1/form/:id', {
+  // Get single form submission by ID
+  fastify.get('/api/v1/form/:id/data/:submissionId', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
+        id: Type.String(),
+        submissionId: Type.String(),
       }),
       response: {
-        204: Type.Null(),
+        200: Type.Any(),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
       },
     },
   }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-
     try {
-      // Check if form exists
-      const existing = await db.execute(sql`
-        SELECT id FROM app.d_form_head WHERE id = ${id} AND active_flag = true
-      `);
-      
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Form not found' });
+      const userId = request.user?.sub;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      // Check if form has submitted records
-      const submittedRecords = await db.execute(sql`
-        SELECT COUNT(*) as count FROM app.ops_formlog_records WHERE head_id = ${id} AND active_flag = true
+      const { id, submissionId } = request.params as { id: string; submissionId: string };
+
+      fastify.log.info(`GET /form/${id}/data/${submissionId} - User: ${userId}`);
+
+      // Check view permission on form
+      const hasPermission = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}::uuid
+          AND rbac.entity = 'form'
+          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+        LIMIT 1
       `);
-      
-      if (Number(submittedRecords[0]?.count || 0) > 0) {
-        return reply.status(400).send({ error: 'Cannot delete form that has submitted records' });
+
+      fastify.log.info(`Permission check returned ${hasPermission.length} results`);
+
+      if (hasPermission.length === 0) {
+        fastify.log.warn(`No permission for user ${userId} to view form ${id}`);
+        return reply.status(403).send({ error: 'No permission to view this form' });
       }
 
-      // Soft delete
-      await db.execute(sql`
-        UPDATE app.d_form_head 
-        SET active_flag = false, to_ts = NOW(), updated = NOW()
-        WHERE id = ${id}
+      // Get specific submission
+      fastify.log.info(`Fetching submission: formId=${id}, submissionId=${submissionId}`);
+
+      const formData = await db.execute(sql`
+        SELECT
+          fd.id::text,
+          fd.form_id::text as "formId",
+          fd.submission_data as "submissionData",
+          fd.submission_status as "submissionStatus",
+          fd.stage,
+          fd.submitted_by_empid::text as "submittedByEmpid",
+          fd.submission_ip_address as "submissionIpAddress",
+          fd.submission_user_agent as "submissionUserAgent",
+          fd.approval_status as "approvalStatus",
+          fd.approved_by_empid::text as "approvedByEmpid",
+          fd.approval_notes as "approvalNotes",
+          fd.approved_at as "approvedAt",
+          fd.created_ts as "createdTs",
+          fd.updated_ts as "updatedTs"
+        FROM app.d_form_data fd
+        WHERE fd.form_id = ${id}::uuid
+          AND fd.id = ${submissionId}::uuid
+        LIMIT 1
       `);
 
-      return reply.status(204).send();
+      fastify.log.info(`Query returned ${formData.length} results`);
+      if (formData.length > 0) {
+        fastify.log.info(`Submission found with ID: ${formData[0].id}`);
+      }
+
+      if (formData.length === 0) {
+        fastify.log.warn(`Submission not found: formId=${id}, submissionId=${submissionId}`);
+        return reply.status(404).send({ error: 'Submission not found' });
+      }
+
+      const result = formData[0];
+      fastify.log.info(`Returning submission data with ${Object.keys(result).length} fields`);
+      fastify.log.info(`Result object:`, JSON.stringify(result));
+
+      // Explicitly return with reply.send to ensure proper serialization
+      return reply.status(200).send(result);
     } catch (error) {
-      fastify.log.error('Error deleting form: ' + String(error));
+      fastify.log.error('Error fetching form submission: ' + String(error));
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Get form records/submissions
-  fastify.get('/api/v1/form/:id/records', {
+  // Get form data (submissions)
+  fastify.get('/api/v1/form/:id/data', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
+        id: Type.String(),
       }),
       querystring: Type.Object({
+        page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 })),
+        status: Type.Optional(Type.String()),
       }),
       response: {
         200: Type.Object({
-          form: FormSchema,
-          records: Type.Array(Type.Object({
-            id: Type.String(),
-            name: Type.String(),
-            descr: Type.Optional(Type.String()),
-            data: Type.Any(),
-            created: Type.String(),
-            updated: Type.String(),
-          })),
+          data: Type.Array(Type.Any()),
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),
         }),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
       },
     },
   }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const { limit = 50, offset = 0 } = request.query as any;
-
     try {
-      // Get form
-      const form = await db.execute(sql`
-        SELECT 
-          id,
-          name,
-          "descr",
-          form_global_link as "formGlobalLink",
-          project_specific as "projectSpecific",
-          project_id as "projectId",
-          task_specific as "taskSpecific",
-          task_id as "taskId",
-          biz_specific as "businessSpecific",
-          biz_id as "businessId",
-          hr_specific as "hrSpecific",
-          hr_id as "hrId",
-          worksite_specific as "worksiteSpecific",
-          worksite_id as "worksiteId",
-          version,
-          active,
-          from_ts as "fromTs",
-          to_ts as "toTs",
-          created,
-          updated,
-          tags,
-          schema,
-          attr
-        FROM app.d_form_head 
-        WHERE id = ${id} AND active_flag = true
-      `);
-
-      if (form.length === 0) {
-        return reply.status(404).send({ error: 'Form not found' });
+      const userId = request.user?.sub;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      // Get total count of records
+      const { id } = request.params as { id: string };
+      const { page = 1, limit = 20, status } = request.query as any;
+      const offset = (page - 1) * limit;
+
+      // Check view permission on form
+      const hasPermission = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'form'
+          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+        LIMIT 1
+      `);
+
+      if (hasPermission.length === 0) {
+        return reply.status(403).send({ error: 'No permission to view this form' });
+      }
+
+      // Build WHERE conditions
+      const conditions: any[] = [sql`fd.form_id = ${id}`];
+
+      if (status) {
+        conditions.push(sql`fd.submission_status = ${status}`);
+      }
+
+      // Count total
       const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total 
-        FROM app.ops_formlog_records 
-        WHERE head_id = ${id} AND active_flag = true
+        SELECT COUNT(*) as total
+        FROM app.d_form_data fd
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
 
-      // Get form records
-      const records = await db.execute(sql`
-        SELECT 
-          id,
-          name,
-          "descr",
-          data,
-          created,
-          updated
-        FROM app.ops_formlog_records 
-        WHERE head_id = ${id} AND active_flag = true
-        ORDER BY created DESC
+      // Get paginated results
+      const formData = await db.execute(sql`
+        SELECT
+          fd.id,
+          fd.form_id as "formId",
+          fd.submission_data as "submissionData",
+          fd.submission_status as "submissionStatus",
+          fd.stage,
+          fd.submitted_by_empid as "submittedByEmpid",
+          fd.submission_ip_address as "submissionIpAddress",
+          fd.submission_user_agent as "submissionUserAgent",
+          fd.approval_status as "approvalStatus",
+          fd.approved_by_empid as "approvedByEmpid",
+          fd.approval_notes as "approvalNotes",
+          fd.approved_at as "approvedAt",
+          fd.created_ts as "createdTs",
+          fd.updated_ts as "updatedTs"
+        FROM app.d_form_data fd
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        ORDER BY fd.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
       return {
-        form: form[0],
-        records,
+        data: formData,
         total,
         limit,
         offset,
       };
     } catch (error) {
-      fastify.log.error('Error fetching form records: ' + String(error));
+      fastify.log.error('Error fetching form data: ' + String(error));
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Update form submission
+  fastify.put('/api/v1/form/:id/data/:submissionId', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String(),
+        submissionId: Type.String(),
+      }),
+      body: Type.Object({
+        submissionData: Type.Any(),
+        submissionStatus: Type.Optional(Type.String()),
+      }),
+      response: {
+        200: Type.Object({
+          id: Type.String(),
+          message: Type.String()
+        }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const userId = request.user?.sub;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const { id, submissionId } = request.params as { id: string; submissionId: string };
+      const data = request.body as any;
+
+      // Check edit permission on form (permission 1)
+      const hasPermission = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'form'
+          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 1 = ANY(rbac.permission)
+        LIMIT 1
+      `);
+
+      if (hasPermission.length === 0) {
+        return reply.status(403).send({ error: 'No permission to edit this form submission' });
+      }
+
+      // Verify submission exists
+      const existingSubmission = await db.execute(sql`
+        SELECT id FROM app.d_form_data
+        WHERE id = ${submissionId} AND form_id = ${id}
+        LIMIT 1
+      `);
+
+      if (existingSubmission.length === 0) {
+        return reply.status(404).send({ error: 'Submission not found' });
+      }
+
+      // Update submission
+      await db.execute(sql`
+        UPDATE app.d_form_data
+        SET
+          submission_data = ${JSON.stringify(data.submissionData || {})},
+          submission_status = ${data.submissionStatus || 'submitted'},
+          updated_ts = NOW()
+        WHERE id = ${submissionId}
+          AND form_id = ${id}
+      `);
+
+      return reply.status(200).send({
+        id: submissionId,
+        message: 'Form submission updated successfully'
+      });
+    } catch (error) {
+      fastify.log.error('Error updating form submission: ' + String(error));
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Submit form (authenticated)
+  fastify.post('/api/v1/form/:id/submit', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String(),
+      }),
+      body: Type.Object({
+        submissionData: Type.Any(),
+        submissionStatus: Type.Optional(Type.String()),
+      }),
+      response: {
+        201: Type.Object({
+          id: Type.String(),
+          message: Type.String()
+        }),
+        404: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const userId = request.user?.sub;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const { id } = request.params as { id: string };
+      const data = request.body as any;
+
+      // Check view permission on form
+      const hasPermission = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'form'
+          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+        LIMIT 1
+      `);
+
+      if (hasPermission.length === 0) {
+        return reply.status(403).send({ error: 'No permission to submit this form' });
+      }
+
+      // Verify form exists and is active
+      const forms = await db.execute(sql`
+        SELECT id FROM app.d_form_head
+        WHERE id = ${id} AND active_flag = true
+      `);
+
+      if (forms.length === 0) {
+        return reply.status(404).send({ error: 'Form not found or not active' });
+      }
+
+      // Create submission with user ID
+      const result = await db.execute(sql`
+        INSERT INTO app.d_form_data (
+          form_id,
+          submission_data,
+          submission_status,
+          submitted_by_empid,
+          submission_ip_address,
+          submission_user_agent,
+          stage
+        )
+        VALUES (
+          ${id},
+          ${JSON.stringify(data.submissionData || {})},
+          ${data.submissionStatus || 'submitted'},
+          ${userId}::uuid,
+          ${request.ip || null},
+          ${request.headers['user-agent'] || null},
+          'saved'
+        )
+        RETURNING id
+      `);
+
+      return reply.status(201).send({
+        id: result[0].id,
+        message: 'Form submitted successfully'
+      });
+    } catch (error) {
+      fastify.log.error('Error submitting form: ' + String(error));
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // PUBLIC ENDPOINTS - No authentication required
+
+  // Get public form (no auth required)
+  fastify.get('/api/v1/public/form/:id', {
+    schema: {
+      params: Type.Object({
+        id: Type.String(),
+      }),
+      response: {
+        200: FormSchema,
+        404: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+
+      const forms = await db.execute(sql`
+        SELECT
+          f.id,
+          f.slug,
+          f.code,
+          f.name,
+          f.descr,
+          f.url,
+          f.tags,
+          f.form_type as "formType",
+          f.form_schema as "schema",
+          f.from_ts as "fromTs",
+          f.to_ts as "toTs",
+          f.active_flag as "active",
+          f.created_ts as "createdTs",
+          f.updated_ts as "updatedTs",
+          f.version
+        FROM app.d_form_head f
+        WHERE f.id = ${id}
+          AND f.active_flag = true
+      `);
+
+      if (forms.length === 0) {
+        return reply.status(404).send({ error: 'Form not found or not publicly accessible' });
+      }
+
+      return forms[0];
+    } catch (error) {
+      fastify.log.error('Error fetching public form: ' + String(error));
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Submit public form (no auth required)
+  fastify.post('/api/v1/public/form/:id/submit', {
+    schema: {
+      params: Type.Object({
+        id: Type.String(),
+      }),
+      body: Type.Object({
+        submissionData: Type.Any(),
+        submissionStatus: Type.Optional(Type.String()),
+      }),
+      response: {
+        201: Type.Object({
+          id: Type.String(),
+          message: Type.String()
+        }),
+        404: Type.Object({ error: Type.String() }),
+        400: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const data = request.body as any;
+
+      // Verify form exists and is active
+      const forms = await db.execute(sql`
+        SELECT id FROM app.d_form_head
+        WHERE id = ${id} AND active_flag = true
+      `);
+
+      if (forms.length === 0) {
+        return reply.status(404).send({ error: 'Form not found or not publicly accessible' });
+      }
+
+      // Create anonymous submission
+      const result = await db.execute(sql`
+        INSERT INTO app.d_form_data (
+          form_id,
+          submission_data,
+          submission_status,
+          submitted_by_empid,
+          submission_ip_address,
+          submission_user_agent,
+          stage
+        )
+        VALUES (
+          ${id},
+          ${JSON.stringify(data.submissionData || {})},
+          ${data.submissionStatus || 'submitted'},
+          '00000000-0000-0000-0000-000000000000'::uuid,
+          ${request.ip || null},
+          ${request.headers['user-agent'] || null},
+          'saved'
+        )
+        RETURNING id
+      `);
+
+      return reply.status(201).send({
+        id: result[0].id,
+        message: 'Form submitted successfully'
+      });
+    } catch (error) {
+      fastify.log.error('Error submitting public form: ' + String(error));
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Soft delete form
+  fastify.delete('/api/v1/form/:id', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String(),
+      }),
+      response: {
+        200: Type.Object({ message: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const userId = request.user?.sub;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const { id } = request.params as { id: string };
+
+      // Check delete permission (permission 3)
+      const hasPermission = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'form'
+          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 3 = ANY(rbac.permission)
+        LIMIT 1
+      `);
+
+      if (hasPermission.length === 0) {
+        return reply.status(403).send({ error: 'No permission to delete this form' });
+      }
+
+      // Soft delete - set active_flag = false and to_ts = NOW()
+      const result = await db.execute(sql`
+        UPDATE app.d_form_head
+        SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
+        WHERE id = ${id} AND active_flag = true
+      `);
+
+      if (result.rowCount === 0) {
+        return reply.status(404).send({ error: 'Form not found or already deleted' });
+      }
+
+      return { message: 'Form deleted successfully' };
+    } catch (error) {
+      fastify.log.error('Error deleting form: ' + String(error));
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
