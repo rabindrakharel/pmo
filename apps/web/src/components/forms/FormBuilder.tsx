@@ -553,7 +553,15 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
             <label className="text-xs font-light text-gray-500 mb-1">Options (comma separated)</label>
             <input
               value={(field.options || []).join(', ')}
-              onChange={(e) => onChange({ options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+              onChange={(e) => {
+                const rawValue = e.target.value;
+                const parsedOptions = rawValue.split(',').map(opt => opt.trim());
+                onChange({ options: parsedOptions });
+              }}
+              onBlur={(e) => {
+                const cleanedOptions = e.target.value.split(',').map(opt => opt.trim()).filter(Boolean);
+                onChange({ options: cleanedOptions });
+              }}
               className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
             />
           </div>
