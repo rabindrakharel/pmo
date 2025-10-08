@@ -245,7 +245,7 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
         }
 
         // Check if this entity type has children (leaf entities like employee, role, client don't)
-        const leafEntities = ['employee', 'role', 'client', 'position'];
+        const leafEntities = ['employee', 'role', 'client', 'position', 'form'];
         if (leafEntities.includes(parentType)) {
           // Don't fetch tabs for leaf entities
           setTabs([]);

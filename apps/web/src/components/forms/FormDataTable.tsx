@@ -5,11 +5,12 @@ import { Database, RefreshCw, Calendar, User, CheckCircle, XCircle, Eye } from '
 interface FormDataTableProps {
   formId: string;
   formSchema?: any;
+  refreshKey?: number;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
-export function FormDataTable({ formId, formSchema }: FormDataTableProps) {
+export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTableProps) {
   const navigate = useNavigate();
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -18,7 +19,7 @@ export function FormDataTable({ formId, formSchema }: FormDataTableProps) {
 
   useEffect(() => {
     loadFormData();
-  }, [formId]);
+  }, [formId, refreshKey]);
 
   const fetchEmployeeName = async (empId: string): Promise<string> => {
     if (!empId || empId === '00000000-0000-0000-0000-000000000000') {
@@ -194,7 +195,12 @@ export function FormDataTable({ formId, formSchema }: FormDataTableProps) {
             {data.map((row) => (
               <tr
                 key={row.id}
-                onClick={() => navigate(`/form/${formId}/data/${row.id}`)}
+                onClick={() => {
+                  console.log('Navigating to edit submission with row data:', row);
+                  navigate(`/form/${formId}/edit-submission?submissionId=${row.id}`, {
+                    state: { submission: row },
+                  });
+                }}
                 className="hover:bg-blue-50 cursor-pointer transition-colors"
               >
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

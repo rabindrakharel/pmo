@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
-import { InteractiveForm } from '../components/forms/InteractiveForm';
+import { FormSubmissionEditor } from '../components/forms/FormSubmissionEditor';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -14,8 +14,6 @@ export function FormDataPreviewPage() {
   const [submissionData, setSubmissionData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
-
   useEffect(() => {
     loadData();
   }, [formId, submissionId]);
@@ -80,7 +78,6 @@ export function FormDataPreviewPage() {
         status: submission.submissionStatus || submission.submission_status,
         hasData: !!submission.submissionData || !!submission.submission_data,
         dataKeys: Object.keys(submission.submissionData || submission.submission_data || {}),
-        allKeys: Object.keys(submission)
       });
     } catch (err) {
       console.error('❌ Error loading data:', err);
@@ -126,72 +123,6 @@ export function FormDataPreviewPage() {
     );
   }
 
-  // Extract and prepare fields from schema
-  console.log('🔍 Raw formData:', formData);
-  console.log('🔍 formData.schema:', formData.schema);
-  console.log('🔍 Type of formData.schema:', typeof formData.schema);
-
-  // Handle schema that might be a JSON string or already parsed object
-  let schema = formData.schema || {};
-  if (typeof schema === 'string') {
-    try {
-      schema = JSON.parse(schema);
-      console.log('✅ Parsed schema from string');
-    } catch (e) {
-      console.error('❌ Failed to parse schema string:', e);
-      schema = {};
-    }
-  }
-  console.log('🔍 Final schema:', schema);
-
-  const steps = schema.steps || [];
-  console.log('🔍 Steps array:', steps);
-
-  const fields = steps.flatMap((step: any, stepIndex: number) => {
-    const stepFields = step.fields || [];
-    console.log(`📌 Step ${stepIndex} "${step.title || step.name || 'Untitled'}" has ${stepFields.length} fields:`, stepFields);
-    return stepFields.map((field: any) => ({
-      ...field,
-      id: field.id || field.name || crypto.randomUUID(),
-      stepId: step.id,
-    }));
-  });
-
-  console.log('📋 FormDataPreviewPage - Prepared data:', {
-    hasSchema: !!schema,
-    stepCount: steps.length,
-    totalFields: fields.length,
-    steps: steps.map((s: any, i: number) => ({
-      index: i,
-      id: s.id,
-      title: s.title || s.name,
-      fieldCount: s.fields?.length || 0
-    })),
-    fields: fields.map((f: any) => ({
-      name: f.name,
-      type: f.type,
-      label: f.label,
-      stepId: f.stepId
-    })),
-    submissionDataKeys: Object.keys(submissionData.submissionData || submissionData.submission_data || {})
-  });
-
-  // Prepare initial data for the form - Use React.useMemo to prevent re-creation
-  const initialData = React.useMemo(() => {
-    let data = submissionData.submissionData || submissionData.submission_data || {};
-    if (typeof data === 'string') {
-      try {
-        data = JSON.parse(data);
-        console.log('✅ Parsed submission data from string');
-      } catch (e) {
-        console.error('❌ Failed to parse submission data string:', e);
-        data = {};
-      }
-    }
-    console.log('🔍 Final initialData for form:', data);
-    return data;
-  }, [submissionData]);
-
   return (
     <Layout>
       <div className="w-[97%] max-w-[1536px] mx-auto space-y-6">
@@ -214,71 +145,17 @@ export function FormDataPreviewPage() {
             </div>
           </div>
         </div>
-
-        {/* Status Messages */}
-        {saveStatus === 'success' && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center space-x-3">
-            <CheckCircle className="h-5 w-5 text-green-600" />
-            <p className="text-green-800 font-medium">Changes saved successfully!</p>
-          </div>
-        )}
-
-        {saveStatus === 'error' && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
-            <AlertCircle className="h-5 w-5 text-red-600" />
-            <p className="text-red-800 font-medium">Failed to save changes</p>
-          </div>
-        )}
-
-        {/* Submission Info */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <div className="grid grid-cols-4 gap-4 text-sm">
-            <div>
-              <span className="text-gray-500">Status:</span>
-              <span className="ml-2 font-medium text-gray-700 capitalize">
-                {submissionData.submissionStatus || submissionData.submission_status}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-500">Submitted:</span>
-              <span className="ml-2 font-medium text-gray-700">
-                {new Date(submissionData.createdTs || submissionData.created_ts).toLocaleString('en-CA')}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-500">Updated:</span>
-              <span className="ml-2 font-medium text-gray-700">
-                {new Date(submissionData.updatedTs || submissionData.updated_ts).toLocaleString('en-CA')}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-500">Stage:</span>
-              <span className="ml-2 font-medium text-gray-700 capitalize">
-                {submissionData.stage || 'saved'}
-              </span>
-            </div>
-          </div>
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 shadow-sm">
+          <FormSubmissionEditor
+            form={formData}
+            formId={formId!}
+            submissionId={submissionId!}
+            submission={submissionData}
+            onSubmissionUpdated={loadData}
+            showHeader={false}
+          />
         </div>
-
-        {/* Interactive Form with Pre-filled Data */}
-        <InteractiveForm
-          key={submissionId}
-          formId={formId!}
-          submissionId={submissionId!}
-          fields={fields}
-          steps={steps}
-          initialData={initialData}
-          isEditMode={true}
-          onSubmitSuccess={() => {
-            setSaveStatus('success');
-            setTimeout(() => {
-              setSaveStatus('idle');
-              // Optionally reload data
-              loadData();
-            }, 2000);
-          }}
-        />
-      </div>
-    </Layout>
-  );
+     </div>
+   </Layout>
+ );
 }

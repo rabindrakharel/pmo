@@ -9,6 +9,7 @@ import { WikiContentRenderer } from '../components/wiki/WikiContentRenderer';
 import { TaskDataContainer } from '../components/task/TaskDataContainer';
 import { FormDataTable } from '../components/forms/FormDataTable';
 import { InteractiveForm } from '../components/forms/InteractiveForm';
+import { FormSubmissionEditor } from '../components/forms/FormSubmissionEditor';
 
 /**
  * Universal EntityDetailPage
@@ -38,6 +39,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<any>({});
+  const [formDataRefreshKey, setFormDataRefreshKey] = useState(0);
 
   // Check if this entity has child entities
   const hasChildEntities = config && config.childEntities && config.childEntities.length > 0;
@@ -47,6 +49,9 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
 
   // Determine current tab from URL
   const pathParts = location.pathname.split('/').filter(Boolean);
+  const searchParams = new URLSearchParams(location.search);
+  const selectedSubmissionId = searchParams.get('submissionId');
+  const submissionFromState = (location.state as any)?.submission || null;
   const currentChildEntity = pathParts.length > 2 ? pathParts[2] : null;
   const isOverviewTab = !currentChildEntity;
 
@@ -68,7 +73,14 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
         icon: undefined
       };
 
-      return [overviewTab, formDataTab];
+      const editSubmissionTab = {
+        id: 'edit-submission',
+        label: 'Edit Form Submission',
+        path: `/${entityType}/${id}/edit-submission`,
+        icon: undefined
+      };
+
+      return [overviewTab, formDataTab, editSubmissionTab];
     }
 
     // For leaf entities (no children), don't show tabs
@@ -411,7 +423,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             />
           ) : entityType === 'form' ? (
             // Special Interactive Form Renderer
-            <div className="space-y-4">
+            <div className="space-y-4 bg-blue-50 border border-blue-100 rounded-xl p-6 shadow-sm">
               {(() => {
                 // Extract and prepare fields from schema
                 const schema = data.schema || {};
@@ -485,7 +497,20 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
           )
         ) : currentChildEntity === 'form-data' ? (
           // Form Data Tab - Show form submissions
-          <FormDataTable formId={id!} formSchema={data.schema} />
+          <FormDataTable formId={id!} formSchema={data.schema} refreshKey={formDataRefreshKey} />
+        ) : currentChildEntity === 'edit-submission' ? (
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 shadow-sm">
+            <FormSubmissionEditor
+              form={data}
+              formId={id!}
+              submissionId={selectedSubmissionId}
+              submission={submissionFromState || undefined}
+              onSubmissionUpdated={() => {
+                setFormDataRefreshKey((prev) => prev + 1);
+                loadData();
+              }}
+            />
+          </div>
         ) : (
           // Child Entity Tab - Filtered Data Table
           <Outlet />

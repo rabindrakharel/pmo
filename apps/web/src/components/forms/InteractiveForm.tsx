@@ -366,17 +366,6 @@ export function InteractiveForm({
 
   return (
     <div className="space-y-4">
-      {/* Debug Panel - Show loaded data */}
-      {isEditMode && Object.keys(formData).length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="text-xs font-semibold text-blue-800 mb-2">
-            ✓ Loaded Data ({Object.keys(formData).length} fields)
-          </div>
-          <div className="text-xs text-blue-700 font-mono bg-white p-2 rounded">
-            {JSON.stringify(formData, null, 2)}
-          </div>
-        </div>
-      )}
 
       {steps.length > 1 && (
         <StepProgressIndicator

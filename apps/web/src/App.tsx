@@ -222,6 +222,7 @@ function AppRoutes() {
       <Route path="/form/new" element={<ProtectedRoute><FormBuilderPage /></ProtectedRoute>} />
       <Route path="/form/:id" element={<ProtectedRoute><EntityDetailPage entityType="form" /></ProtectedRoute>}>
         <Route path="form-data" element={<div />} />
+        <Route path="edit-submission" element={<div />} />
       </Route>
       <Route path="/form/:id/edit" element={<ProtectedRoute><FormEditPage /></ProtectedRoute>} />
       <Route path="/form/:formId/data/:submissionId" element={<ProtectedRoute><FormDataPreviewPage /></ProtectedRoute>} />
