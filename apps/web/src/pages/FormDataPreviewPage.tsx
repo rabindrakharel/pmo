@@ -176,18 +176,21 @@ export function FormDataPreviewPage() {
     submissionDataKeys: Object.keys(submissionData.submissionData || submissionData.submission_data || {})
   });
 
-  // Prepare initial data for the form
-  let initialData = submissionData.submissionData || submissionData.submission_data || {};
-  if (typeof initialData === 'string') {
-    try {
-      initialData = JSON.parse(initialData);
-      console.log('✅ Parsed submission data from string');
-    } catch (e) {
-      console.error('❌ Failed to parse submission data string:', e);
-      initialData = {};
+  // Prepare initial data for the form - Use React.useMemo to prevent re-creation
+  const initialData = React.useMemo(() => {
+    let data = submissionData.submissionData || submissionData.submission_data || {};
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+        console.log('✅ Parsed submission data from string');
+      } catch (e) {
+        console.error('❌ Failed to parse submission data string:', e);
+        data = {};
+      }
     }
-  }
-  console.log('🔍 Final initialData for form:', initialData);
+    console.log('🔍 Final initialData for form:', data);
+    return data;
+  }, [submissionData]);
 
   return (
     <Layout>
@@ -259,6 +262,7 @@ export function FormDataPreviewPage() {
 
         {/* Interactive Form with Pre-filled Data */}
         <InteractiveForm
+          key={submissionId}
           formId={formId!}
           submissionId={submissionId!}
           fields={fields}
