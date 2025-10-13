@@ -7,3 +7,7 @@ export { OrgLevelPage } from './orgLevel';
 export { HrLevelPage } from './hrLevel';
 export { ClientLevelPage } from './clientLevel';
 export { PositionLevelPage } from './positionLevel';
+export { OpportunityFunnelLevelPage } from './opportunityFunnelLevel';
+export { IndustrySectorPage } from './industrySector';
+export { AcquisitionChannelPage } from './acquisitionChannel';
+export { CustomerTierPage } from './customerTier';

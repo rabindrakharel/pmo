@@ -3,36 +3,36 @@ import { Layout } from '../../components/layout/Layout';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 
 /**
- * BusinessLevel Page
+ * OpportunityFunnelLevel Page
  *
- * Displays and manages meta_business_level table data.
- * Defines business hierarchy levels (Department, Division, Corporate).
+ * Displays and manages setting_opportunity_funnel_level table data.
+ * Defines sales funnel stages (Lead, Qualified, Site Visit, Proposal, Negotiation, Contract Signed, Lost, On Hold).
  *
- * Database: app.meta_business_level
- * Schema: db/II_meta_business_level.ddl
+ * Database: app.setting_opportunity_funnel_level
+ * Schema: db/VII_setting_opportunity_funnel_level.ddl
  */
 
-export const BusinessLevelPage: React.FC = () => {
+export const OpportunityFunnelLevelPage: React.FC = () => {
   return (
     <Layout
       createButton={{
-        label: 'Add Business Level',
-        href: '/setting/businessLevel/new',
-        entityType: 'businessLevel'
+        label: 'Add Funnel Stage',
+        href: '/setting/opportunityFunnelLevel/new',
+        entityType: 'opportunityFunnelLevel'
       }}
     >
       <div className="flex flex-col h-full">
         <div className="flex-shrink-0 p-6 border-b border-gray-200">
           <h1 className="text-sm font-normal text-gray-500">
-            Business Hierarchy Levels
+            Opportunity Funnel Levels
           </h1>
           <p className="mt-1 text-xs font-light text-gray-500">
-            Organizational hierarchy levels from Department to Division to Corporate
+            Sales pipeline stages tracking client opportunities from lead to contract
           </p>
         </div>
         <div className="flex-1 overflow-hidden">
           <FilteredDataTable
-            entityType="businessLevel"
+            entityType="opportunityFunnelLevel"
             inlineEditable={true}
             showEditIcon={true}
             showDeleteIcon={true}
@@ -44,4 +44,4 @@ export const BusinessLevelPage: React.FC = () => {
   );
 };
 
-export default BusinessLevelPage;
+export default OpportunityFunnelLevelPage;

@@ -31,7 +31,13 @@ export const ProjectStagePage: React.FC = () => {
           </p>
         </div>
         <div className="flex-1 overflow-hidden">
-          <FilteredDataTable entityType="projectStage" />
+          <FilteredDataTable
+            entityType="projectStage"
+            inlineEditable={true}
+            showEditIcon={true}
+            showDeleteIcon={true}
+            showActionIcons={false}
+          />
         </div>
       </div>
     </Layout>

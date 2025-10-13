@@ -371,7 +371,7 @@ Each sidebar button corresponds to a main entity type:
 **API Integration**: Uses `/api/v1/{entity}/{id}/dynamic-child-entity-tabs` endpoint
 
 ### FilteredDataTable
-**Purpose**: Complete data table solution with optional action buttons and bulk operations
+**Purpose**: Complete data table solution with optional action buttons, bulk operations, and inline editing
 
 **Features**:
 - Configuration-driven column definitions via entity configuration service
@@ -381,8 +381,56 @@ Each sidebar button corresponds to a main entity type:
 - Bulk selection with checkbox column and select all/none functionality
 - Integration with ActionButtonsBar component
 - Supports all standard DataTable features (search, filter, sort, pagination)
+- **Inline editing** support for quick field updates directly in the table
+- Granular action icon visibility controls (Edit, Delete, View)
+
+**Props**:
+- `entityType` (required): The entity type for configuration lookup
+- `parentType` (optional): Parent entity type for filtered data
+- `parentId` (optional): Parent entity ID for filtered data
+- `onRowClick` (optional): Custom row click handler
+- `showActionButtons` (default: false): Show action button bar above table
+- `createLabel` (optional): Custom create button label
+- `onCreateClick` (optional): Custom create handler
+- `createHref` (optional): Create button navigation link
+- `onBulkShare` (optional): Bulk share handler
+- `onBulkDelete` (optional): Bulk delete handler
+- **`inlineEditable`** (default: false): Enable inline editing mode - when true, clicking edit icon allows editing fields directly in the table row
+- **`showEditIcon`** (default: true): Show/hide edit icon in row actions
+- **`showDeleteIcon`** (default: true): Show/hide delete icon in row actions
+- **`showActionIcons`** (default: true): Show/hide view icon in row actions (master toggle for action column)
+
+**Inline Editing Behavior**:
+When `inlineEditable={true}`:
+- Clicking the edit icon (pencil) activates inline editing for that row
+- All editable fields in the row become input fields
+- "Save" and "Cancel" buttons appear in the actions column
+- Save button commits changes via PUT request to the entity API endpoint
+- Cancel button discards changes and exits editing mode
+- Only one row can be edited at a time
 
 **Usage**: Primary component for main entity pages and child entity displays in detail page tabs
+
+**Example - Settings Page with Inline Editing**:
+```tsx
+<FilteredDataTable
+  entityType="businessLevel"
+  inlineEditable={true}
+  showEditIcon={true}
+  showDeleteIcon={true}
+  showActionIcons={false}  // Hide view icon for settings pages
+/>
+```
+
+**Example - Standard List Page**:
+```tsx
+<FilteredDataTable
+  entityType="project"
+  showActionButtons={true}
+  createLabel="New Project"
+  onBulkDelete={handleBulkDelete}
+/>
+```
 
 ### InlineEditField
 **Purpose**: Click-to-edit functionality for detail page fields
@@ -464,3 +512,73 @@ Each sidebar button corresponds to a main entity type:
 - **Performance Optimized**: Lazy loading and virtual scrolling for large datasets
 
 This architecture provides a scalable, maintainable frontend that efficiently handles complex entity relationships while maintaining security through API-level RBAC enforcement.
+
+
+Summary: DataTable Props Usage Across Different Pages
+
+  Settings Pages (e.g., Customer Tier, Project Status)
+
+  <FilteredDataTable
+    entityType="customerTier"
+    inlineEditable={true}        // ✅ Inline editing ENABLED
+    showEditIcon={true}          // ✅ Show edit icon
+    showDeleteIcon={false}       // ❌ Usually FALSE for settings
+    showActionIcons={true}       // ✅ Show action icons
+  />
+
+  Why inline editing works well in settings:
+  - Simple fields: level_id, level_name, level_descr, sort_order
+  - No custom render functions: Fields display plain text
+  - Quick edits: Users can edit directly without leaving the page
+
+  ---
+  Client/Project Pages (Regular Entity Pages)
+
+  <FilteredDataTable
+    entityType="client"
+    inlineEditable={true}        // ✅ Can enable inline editing
+    showEditIcon={true}          // ✅ Show edit icon
+    showDeleteIcon={true}        // ✅ Show delete icon (soft delete)
+    showActionIcons={true}       // ✅ Show action icons
+  />
+
+  Current issue with client page:
+  - Complex columns: Custom render functions for badges, truncation, formatting
+  - Many fields: name, descr, city, client_number, contact info, + 4 setting references
+  - Inline editing shows input for ALL fields: Even fields with badges/custom rendering
+
+  The fix I applied:
+  - Added inlineEditable to the dependency array of rowActions useMemo in FilteredDataTable.tsx
+  - This ensures the edit handler properly triggers inline editing mode
+
+  ---
+  Key Differences
+
+  | Aspect           | Settings Pages                             | Client/Project Pages                        |
+  |------------------|--------------------------------------------|---------------------------------------------|
+  | Fields           | Simple (level_id, level_name, level_descr) | Complex (many fields, references, metadata) |
+  | Render Functions | Minimal                                    | Many (badges, links, formatting)            |
+  | Inline Editing   | Works great                                | Works but shows plain inputs                |
+  | Delete           | Usually disabled                           | Enabled (soft delete)                       |
+  | Use Case         | Quick config changes                       | Full entity management                      |
+
+  ---
+  The Inline Editing Flow (Fixed)
+
+  1. User clicks Edit icon → rowActions[edit].onClick(record) called
+  2. FilteredDataTable.handleAction('edit', record):
+  if (inlineEditable) {
+    setEditingRow(record.id);       // Mark this row as editing
+    setEditedData({ ...record });   // Copy all fields to temp storage
+  }
+  3. DataTable receives updated props:
+  editingRow={record.id}  // Now matches this row's ID
+  4. DataTable detects isEditing=true (line 731):
+  const isEditing = inlineEditable && editingRow === recordId;
+  5. Row renders in edit mode (lines 801-808):
+    - Background turns blue
+    - All columns show <input> fields
+    - Save/Cancel buttons appear in Actions column
+  6. User edits field → onInlineEdit(rowId, field, value) called
+  7. User clicks Save → onSaveInlineEdit(record) → API call
+  8. User clicks Cancel → onCancelInlineEdit() → reset state

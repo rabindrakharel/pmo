@@ -3,37 +3,34 @@ import { Layout } from '../../components/layout/Layout';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 
 /**
- * TaskStatus Page
+ * Customer Tier Settings Page
  *
- * Displays and manages task status configuration data.
- * Defines task workflow states for task management.
+ * Manages customer tier levels for client segmentation and service differentiation.
+ * Enables tailored pricing, service levels, priority handling, and account management.
+ *
+ * Database: app.setting_customer_tier
+ * Schema: db/VI_setting_customer_tier.ddl
  */
 
-export const TaskStatusPage: React.FC = () => {
+export const CustomerTierPage: React.FC = () => {
   return (
-    <Layout
-      createButton={{
-        label: 'Add Task Status',
-        href: '/setting/taskStatus/new',
-        entityType: 'taskStatus'
-      }}
-    >
+    <Layout>
       <div className="flex flex-col h-full">
         <div className="flex-shrink-0 p-6 border-b border-gray-200">
           <h1 className="text-sm font-normal text-gray-500">
-            Task Status
+            Customer Tier Levels
           </h1>
           <p className="mt-1 text-xs font-light text-gray-500">
-            Task status workflow states for task management
+            Manage customer tier segmentation for service differentiation
           </p>
         </div>
         <div className="flex-1 overflow-hidden">
           <FilteredDataTable
-            entityType="taskStatus"
+            entityType="customerTier"
             inlineEditable={true}
             showEditIcon={true}
-            showDeleteIcon={true}
-            showActionIcons={false}
+            showDeleteIcon={false}
+            showActionIcons={true}
           />
         </div>
       </div>
@@ -41,4 +38,4 @@ export const TaskStatusPage: React.FC = () => {
   );
 };
 
-export default TaskStatusPage;
+export default CustomerTierPage;

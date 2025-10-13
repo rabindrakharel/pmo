@@ -8,7 +8,7 @@ import {
   getColumnsByMetadata 
 } from '../../lib/universal-schema-metadata.js';
 
-// Schema based on actual d_client table structure from db/07_client.ddl
+// Schema based on actual d_client table structure from db/XIV_d_client.ddl
 const ClientSchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
@@ -17,9 +17,9 @@ const ClientSchema = Type.Object({
   attr: Type.Object({}),
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
-  active: Type.Boolean(),
-  created: Type.String(),
-  updated: Type.String(),
+  active_flag: Type.Boolean(),
+  created_ts: Type.String(),
+  updated_ts: Type.String(),
   // Client-specific fields - match actual d_client table
   client_number: Type.String(),
   client_type: Type.String(),
@@ -27,8 +27,16 @@ const ClientSchema = Type.Object({
   primary_contact_name: Type.Optional(Type.String()),
   primary_email: Type.Optional(Type.String()),
   primary_phone: Type.Optional(Type.String()),
-  biz_id: Type.Optional(Type.String()),
-  org_id: Type.Optional(Type.String()),
+  city: Type.Optional(Type.String()),
+  // Sales and marketing fields with settings JOINs
+  opportunity_funnel_level_id: Type.Optional(Type.Number()),
+  opportunity_funnel_level_name: Type.Optional(Type.String()),
+  industry_sector_id: Type.Optional(Type.Number()),
+  industry_sector_name: Type.Optional(Type.String()),
+  acquisition_channel_id: Type.Optional(Type.Number()),
+  acquisition_channel_name: Type.Optional(Type.String()),
+  customer_tier_id: Type.Optional(Type.Number()),
+  customer_tier_name: Type.Optional(Type.String()),
 });
 
 const CreateClientSchema = Type.Object({
@@ -40,11 +48,9 @@ const CreateClientSchema = Type.Object({
   primary_contact_name: Type.Optional(Type.String()),
   primary_email: Type.Optional(Type.String()),
   primary_phone: Type.Optional(Type.String()),
-  biz_id: Type.Optional(Type.String({ format: 'uuid' })),
-  org_id: Type.Optional(Type.String({ format: 'uuid' })),
   tags: Type.Optional(Type.Array(Type.String())),
-  attr: Type.Optional(Type.Object({})),
-  active: Type.Optional(Type.Boolean()),
+  metadata: Type.Optional(Type.Object({})),
+  active_flag: Type.Optional(Type.Boolean()),
 });
 
 const UpdateClientSchema = Type.Partial(CreateClientSchema);
@@ -101,13 +107,21 @@ export async function clientRoutes(fastify: FastifyInstance) {
       const total = Number(countResult[0]?.total || 0);
 
       const clients = await db.execute(sql`
-        SELECT 
-          id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-          client_number, client_type, client_status, primary_contact_name, 
-          primary_email, primary_phone, biz_id, org_id
-        FROM app.d_client 
+        SELECT
+          c.id, c.name, c."descr", c.tags, c.metadata as attr, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts,
+          c.client_number, c.client_type, c.client_status, c.primary_contact_name,
+          c.primary_email, c.primary_phone, c.city,
+          c.opportunity_funnel_level_id, ofl.level_name as opportunity_funnel_level_name,
+          c.industry_sector_id, isl.level_name as industry_sector_name,
+          c.acquisition_channel_id, acl.level_name as acquisition_channel_name,
+          c.customer_tier_id, ctl.level_name as customer_tier_name
+        FROM app.d_client c
+        LEFT JOIN app.setting_opportunity_funnel_level ofl ON c.opportunity_funnel_level_id = ofl.level_id
+        LEFT JOIN app.setting_industry_sector isl ON c.industry_sector_id = isl.level_id
+        LEFT JOIN app.setting_acquisition_channel acl ON c.acquisition_channel_id = acl.level_id
+        LEFT JOIN app.setting_customer_tier ctl ON c.customer_tier_id = ctl.level_id
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY name ASC NULLS LAST, created DESC
+        ORDER BY c.name ASC NULLS LAST, c.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -153,12 +167,20 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
     try {
       const client = await db.execute(sql`
-        SELECT 
-          id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-          client_number, client_type, client_status, primary_contact_name, 
-          primary_email, primary_phone, biz_id, org_id
-        FROM app.d_client 
-        WHERE id = ${id}
+        SELECT
+          c.id, c.name, c."descr", c.tags, c.metadata as attr, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts,
+          c.client_number, c.client_type, c.client_status, c.primary_contact_name,
+          c.primary_email, c.primary_phone, c.city,
+          c.opportunity_funnel_level_id, ofl.level_name as opportunity_funnel_level_name,
+          c.industry_sector_id, isl.level_name as industry_sector_name,
+          c.acquisition_channel_id, acl.level_name as acquisition_channel_name,
+          c.customer_tier_id, ctl.level_name as customer_tier_name
+        FROM app.d_client c
+        LEFT JOIN app.setting_opportunity_funnel_level ofl ON c.opportunity_funnel_level_id = ofl.level_id
+        LEFT JOIN app.setting_industry_sector isl ON c.industry_sector_id = isl.level_id
+        LEFT JOIN app.setting_acquisition_channel acl ON c.acquisition_channel_id = acl.level_id
+        LEFT JOIN app.setting_customer_tier ctl ON c.customer_tier_id = ctl.level_id
+        WHERE c.id = ${id}
       `);
 
       if (client.length === 0) {
@@ -203,12 +225,20 @@ export async function clientRoutes(fastify: FastifyInstance) {
     try {
       // Get the client
       const clientResult = await db.execute(sql`
-        SELECT 
-          id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-          client_number, client_type, client_status, primary_contact_name, 
-          primary_email, primary_phone, biz_id, org_id
-        FROM app.d_client 
-        WHERE id = ${id}
+        SELECT
+          c.id, c.name, c."descr", c.tags, c.metadata as attr, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts,
+          c.client_number, c.client_type, c.client_status, c.primary_contact_name,
+          c.primary_email, c.primary_phone, c.city,
+          c.opportunity_funnel_level_id, ofl.level_name as opportunity_funnel_level_name,
+          c.industry_sector_id, isl.level_name as industry_sector_name,
+          c.acquisition_channel_id, acl.level_name as acquisition_channel_name,
+          c.customer_tier_id, ctl.level_name as customer_tier_name
+        FROM app.d_client c
+        LEFT JOIN app.setting_opportunity_funnel_level ofl ON c.opportunity_funnel_level_id = ofl.level_id
+        LEFT JOIN app.setting_industry_sector isl ON c.industry_sector_id = isl.level_id
+        LEFT JOIN app.setting_acquisition_channel acl ON c.acquisition_channel_id = acl.level_id
+        LEFT JOIN app.setting_customer_tier ctl ON c.customer_tier_id = ctl.level_id
+        WHERE c.id = ${id}
       `);
 
       if (clientResult.length === 0) {
@@ -221,30 +251,9 @@ export async function clientRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Client not found' });
       }
 
-      // Get parent if exists
-      let parent = null;
-      if (client.client_parent_id) {
-        const parentResult = await db.execute(sql`
-          SELECT 
-            id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-            client_number, client_type, client_status, primary_contact_name, 
-          primary_email, primary_phone, biz_id, org_id
-          FROM app.d_client 
-          WHERE id = ${client.client_parent_id}
-        `);
-        parent = parentResult[0] || null;
-      }
-
-      // Get children
-      const children = await db.execute(sql`
-        SELECT 
-          id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-          client_number, client_type, client_status, primary_contact_name, 
-          primary_email, primary_phone, biz_id, org_id
-        FROM app.d_client 
-        WHERE client_parent_id = ${id}
-        ORDER BY name ASC
-      `);
+      // Note: Client table doesn't have hierarchy - parent/children not applicable
+      const parent = null;
+      const children = [];
 
       const userPermissions = {
         canSeePII: true,
@@ -279,42 +288,34 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
 
     try {
-      // Check for unique client name at the same level
+      // Check for unique client number
       const existingClient = await db.execute(sql`
-        SELECT id FROM app.d_client 
-        WHERE name = ${data.name} 
-        AND client_parent_id IS NOT DISTINCT FROM ${data.client_parent_id || null}
+        SELECT id FROM app.d_client
+        WHERE client_number = ${data.client_number}
         AND active_flag = true
       `);
       if (existingClient.length > 0) {
-        return reply.status(400).send({ error: 'Client with this name already exists at this level' });
-      }
-
-      // Validate parent exists if specified
-      if (data.client_parent_id) {
-        const parent = await db.execute(sql`
-          SELECT id FROM app.d_client WHERE id = ${data.client_parent_id} AND active_flag = true
-        `);
-        if (parent.length === 0) {
-          return reply.status(400).send({ error: 'Parent client not found' });
-        }
+        return reply.status(400).send({ error: 'Client with this client number already exists' });
       }
 
       const result = await db.execute(sql`
         INSERT INTO app.d_client (
-          name, "descr", client_parent_id, contact, level_id, level_name,
-          tags, attr, active
+          name, "descr", client_number, client_type, client_status,
+          primary_contact_name, primary_email, primary_phone,
+          tags, metadata, active_flag
         )
         VALUES (
-          ${data.name}, 
-          ${data.descr || null}, 
-          ${data.client_parent_id || null}, 
-          ${data.contact ? JSON.stringify(data.contact) : '{}'}::jsonb,
-          ${data.level_id || null},
-          ${data.level_name || null},
+          ${data.name},
+          ${data.descr || null},
+          ${data.client_number},
+          ${data.client_type || 'residential'},
+          ${data.client_status || 'active'},
+          ${data.primary_contact_name || null},
+          ${data.primary_email || null},
+          ${data.primary_phone || null},
           ${data.tags ? JSON.stringify(data.tags) : '[]'}::jsonb,
-          ${data.attr ? JSON.stringify(data.attr) : '{}'}::jsonb,
-          ${data.active !== false}
+          ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
+          ${data.active_flag !== false}
         )
         RETURNING *
       `);
@@ -359,55 +360,45 @@ export async function clientRoutes(fastify: FastifyInstance) {
 
     try {
       const existing = await db.execute(sql`
-        SELECT id, client_parent_id FROM app.d_client WHERE id = ${id}
+        SELECT id FROM app.d_client WHERE id = ${id}
       `);
-      
+
       if (existing.length === 0) {
         return reply.status(404).send({ error: 'Client not found' });
       }
 
-      // Check for unique name on update
-      if (data.name !== undefined) {
-        const parentId = data.client_parent_id !== undefined ? data.client_parent_id : existing[0].client_parent_id;
-        const existingName = await db.execute(sql`
-          SELECT id FROM app.d_client 
-          WHERE name = ${data.name} 
-          AND client_parent_id IS NOT DISTINCT FROM ${parentId || null}
-          AND id != ${id} 
+      // Check for unique client number on update
+      if (data.client_number !== undefined) {
+        const existingNumber = await db.execute(sql`
+          SELECT id FROM app.d_client
+          WHERE client_number = ${data.client_number}
+          AND id != ${id}
           AND active_flag = true
         `);
-        if (existingName.length > 0) {
-          return reply.status(400).send({ error: 'Client with this name already exists at this level' });
-        }
-      }
-
-      // Validate parent exists if specified
-      if (data.client_parent_id) {
-        const parent = await db.execute(sql`
-          SELECT id FROM app.d_client WHERE id = ${data.client_parent_id} AND active_flag = true
-        `);
-        if (parent.length === 0) {
-          return reply.status(400).send({ error: 'Parent client not found' });
+        if (existingNumber.length > 0) {
+          return reply.status(400).send({ error: 'Client with this client number already exists' });
         }
       }
 
       const updateFields = [];
-      
+
       if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
       if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
-      if (data.client_parent_id !== undefined) updateFields.push(sql`client_parent_id = ${data.client_parent_id}`);
-      if (data.contact !== undefined) updateFields.push(sql`contact = ${JSON.stringify(data.contact)}::jsonb`);
-      if (data.level_id !== undefined) updateFields.push(sql`level_id = ${data.level_id}`);
-      if (data.level_name !== undefined) updateFields.push(sql`level_name = ${data.level_name}`);
+      if (data.client_number !== undefined) updateFields.push(sql`client_number = ${data.client_number}`);
+      if (data.client_type !== undefined) updateFields.push(sql`client_type = ${data.client_type}`);
+      if (data.client_status !== undefined) updateFields.push(sql`client_status = ${data.client_status}`);
+      if (data.primary_contact_name !== undefined) updateFields.push(sql`primary_contact_name = ${data.primary_contact_name}`);
+      if (data.primary_email !== undefined) updateFields.push(sql`primary_email = ${data.primary_email}`);
+      if (data.primary_phone !== undefined) updateFields.push(sql`primary_phone = ${data.primary_phone}`);
       if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
-      if (data.attr !== undefined) updateFields.push(sql`attr = ${JSON.stringify(data.attr)}::jsonb`);
-      if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
+      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
+      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      updateFields.push(sql`updated = NOW()`);
+      updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
         UPDATE app.d_client 
@@ -461,21 +452,10 @@ export async function clientRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Client not found' });
       }
 
-      // Check if client has children
-      const children = await db.execute(sql`
-        SELECT id FROM app.d_client WHERE client_parent_id = ${id} AND active_flag = true
-      `);
-
-      if (children.length > 0) {
-        return reply.status(400).send({ 
-          error: 'Cannot delete client with active sub-clients. Delete or reassign sub-clients first.' 
-        });
-      }
-
       // Soft delete (using SCD Type 2 pattern)
       await db.execute(sql`
-        UPDATE app.d_client 
-        SET active_flag = false, to_ts = NOW(), updated = NOW()
+        UPDATE app.d_client
+        SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
         WHERE id = ${id}
       `);
 

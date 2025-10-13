@@ -49,6 +49,13 @@ export interface DataTableProps<T = any> {
   selectable?: boolean;
   selectedRows?: string[];
   onSelectionChange?: (selectedRows: string[]) => void;
+  // Inline editing support
+  inlineEditable?: boolean;
+  editingRow?: string | null;
+  editedData?: any;
+  onInlineEdit?: (rowId: string, field: string, value: any) => void;
+  onSaveInlineEdit?: (record: T) => void;
+  onCancelInlineEdit?: () => void;
   // Note: Permission checking removed - handled at API level via RBAC joins
 }
 
@@ -72,6 +79,12 @@ export function DataTable<T = any>({
   selectable = false,
   selectedRows = [],
   onSelectionChange,
+  inlineEditable = false,
+  editingRow = null,
+  editedData = {},
+  onInlineEdit,
+  onSaveInlineEdit,
+  onCancelInlineEdit,
 }: DataTableProps<T>) {
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -713,34 +726,99 @@ export function DataTable<T = any>({
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
-              {filteredAndSortedData.map((record, index) => (
-                <tr
-                  key={getRowKey(record, index)}
-                  onClick={() => onRowClick?.(record)}
-                  className={`group transition-all duration-150 ${
-                    onRowClick 
-                      ? 'cursor-pointer hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-transparent hover:shadow-sm' 
-                      : 'hover:bg-gray-50/30'
-                  }`}
-                >
-                  {columns.map((column, index) => (
-                    <td
-                      key={column.key}
-                      className={`px-6 py-4 text-sm text-gray-700 group-hover:text-gray-900 transition-colors ${
-                        index === 0 ? 'sticky left-0 z-20 bg-white shadow-r' : ''
-                      }`}
-                      style={{ textAlign: 'left' }}
-                    >
-                      {column.render 
-                        ? column.render((record as any)[column.key], record)
-                        : (record as any)[column.key]?.toString() || (
-                          <span className="text-gray-400 italic">—</span>
-                        )
+              {filteredAndSortedData.map((record, index) => {
+                const recordId = getRowKey(record, index);
+                const isEditing = inlineEditable && editingRow === recordId;
+
+                return (
+                  <tr
+                    key={recordId}
+                    onClick={() => !isEditing && onRowClick?.(record)}
+                    className={`group transition-all duration-150 ${
+                      isEditing
+                        ? 'bg-blue-50/30'
+                        : onRowClick
+                          ? 'cursor-pointer hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-transparent hover:shadow-sm'
+                          : 'hover:bg-gray-50/30'
+                    }`}
+                  >
+                    {columns.map((column, colIndex) => {
+                      // Special handling for selection and actions columns
+                      if (column.key === '_selection' || column.key === '_actions') {
+                        return (
+                          <td
+                            key={column.key}
+                            className={`px-6 py-4 text-sm text-gray-700 group-hover:text-gray-900 transition-colors ${
+                              colIndex === 0 ? 'sticky left-0 z-20 bg-white shadow-r' : ''
+                            }`}
+                            style={{ textAlign: 'left' }}
+                          >
+                            {column.render
+                              ? column.render((record as any)[column.key], record)
+                              : (record as any)[column.key]?.toString() || (
+                                <span className="text-gray-400 italic">—</span>
+                              )
+                            }
+                            {/* Add Save/Cancel buttons for editing row in actions column */}
+                            {isEditing && column.key === '_actions' && (
+                              <div className="flex items-center gap-2 mt-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onSaveInlineEdit?.(record);
+                                  }}
+                                  className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                                  title="Save"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onCancelInlineEdit?.();
+                                  }}
+                                  className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                                  title="Cancel"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        );
                       }
-                    </td>
-                  ))}
-                </tr>
-              ))}
+
+                      // Regular data columns
+                      return (
+                        <td
+                          key={column.key}
+                          className={`px-6 py-4 text-sm text-gray-700 group-hover:text-gray-900 transition-colors ${
+                            colIndex === 0 ? 'sticky left-0 z-20 bg-white shadow-r' : ''
+                          }`}
+                          style={{ textAlign: 'left' }}
+                          onClick={(e) => isEditing && e.stopPropagation()}
+                        >
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
+                              onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          ) : (
+                            column.render
+                              ? column.render((record as any)[column.key], record)
+                              : (record as any)[column.key]?.toString() || (
+                                <span className="text-gray-400 italic">—</span>
+                              )
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

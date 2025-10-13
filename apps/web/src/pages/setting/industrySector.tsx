@@ -3,36 +3,36 @@ import { Layout } from '../../components/layout/Layout';
 import { FilteredDataTable } from '../../components/FilteredDataTable';
 
 /**
- * BusinessLevel Page
+ * IndustrySector Page
  *
- * Displays and manages meta_business_level table data.
- * Defines business hierarchy levels (Department, Division, Corporate).
+ * Displays and manages setting_industry_sector table data.
+ * Defines client industry categorization (Residential, Commercial, Healthcare, Education, etc.).
  *
- * Database: app.meta_business_level
- * Schema: db/II_meta_business_level.ddl
+ * Database: app.setting_industry_sector
+ * Schema: db/VIII_setting_industry_sector.ddl
  */
 
-export const BusinessLevelPage: React.FC = () => {
+export const IndustrySectorPage: React.FC = () => {
   return (
     <Layout
       createButton={{
-        label: 'Add Business Level',
-        href: '/setting/businessLevel/new',
-        entityType: 'businessLevel'
+        label: 'Add Industry Sector',
+        href: '/setting/industrySector/new',
+        entityType: 'industrySector'
       }}
     >
       <div className="flex flex-col h-full">
         <div className="flex-shrink-0 p-6 border-b border-gray-200">
           <h1 className="text-sm font-normal text-gray-500">
-            Business Hierarchy Levels
+            Industry Sectors
           </h1>
           <p className="mt-1 text-xs font-light text-gray-500">
-            Organizational hierarchy levels from Department to Division to Corporate
+            Client industry categorization for market segmentation and service specialization
           </p>
         </div>
         <div className="flex-1 overflow-hidden">
           <FilteredDataTable
-            entityType="businessLevel"
+            entityType="industrySector"
             inlineEditable={true}
             showEditIcon={true}
             showDeleteIcon={true}
@@ -44,4 +44,4 @@ export const BusinessLevelPage: React.FC = () => {
   );
 };
 
-export default BusinessLevelPage;
+export default IndustrySectorPage;

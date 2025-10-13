@@ -901,31 +901,99 @@ export const entityConfigs: Record<string, EntityConfig> = {
         key: 'name',
         title: 'Client Name',
         sortable: true,
-        filterable: true
+        filterable: true,
+        render: (value, record) => React.createElement(
+          'div',
+          null,
+          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
+          record.client_number && React.createElement('div', { className: 'text-sm text-gray-500' }, record.client_number)
+        )
       },
       {
-        key: 'email',
-        title: 'Email',
+        key: 'descr',
+        title: 'Description',
+        sortable: true,
+        filterable: true,
+        render: (value) => value ? React.createElement('div', { className: 'max-w-xs truncate text-gray-600' }, value) : '-'
+      },
+      {
+        key: 'city',
+        title: 'City',
         sortable: true,
         filterable: true
       },
       {
-        key: 'phone',
-        title: 'Phone',
-        sortable: true
+        key: 'opportunity_funnel_level_name',
+        title: 'Opportunity Funnel',
+        sortable: true,
+        filterable: true,
+        render: (value) => value ? renderBadge(value, {
+          'Lead': 'bg-gray-100 text-gray-800',
+          'Qualified': 'bg-blue-100 text-blue-800',
+          'Site Visit Scheduled': 'bg-purple-100 text-purple-800',
+          'Proposal Sent': 'bg-yellow-100 text-yellow-800',
+          'Negotiation': 'bg-orange-100 text-orange-800',
+          'Contract Signed': 'bg-green-100 text-green-800',
+          'Lost': 'bg-red-100 text-red-800',
+          'On Hold': 'bg-gray-100 text-gray-600'
+        }) : '-'
       },
       {
-        key: 'tags',
-        title: 'Tags',
-        render: renderTags
+        key: 'industry_sector_name',
+        title: 'Industry Sector',
+        sortable: true,
+        filterable: true,
+        render: (value) => value ? renderBadge(value, {
+          'Residential': 'bg-blue-100 text-blue-800',
+          'Commercial Real Estate': 'bg-purple-100 text-purple-800',
+          'Healthcare': 'bg-green-100 text-green-800',
+          'Education': 'bg-yellow-100 text-yellow-800',
+          'Hospitality': 'bg-pink-100 text-pink-800',
+          'Municipal/Government': 'bg-indigo-100 text-indigo-800',
+          'Industrial': 'bg-gray-100 text-gray-800',
+          'Property Management': 'bg-teal-100 text-teal-800'
+        }) : '-'
+      },
+      {
+        key: 'acquisition_channel_name',
+        title: 'Acquisition Channel',
+        sortable: true,
+        filterable: true,
+        render: (value) => value || '-'
+      },
+      {
+        key: 'customer_tier_name',
+        title: 'Customer Tier',
+        sortable: true,
+        filterable: true,
+        render: (value) => value ? renderBadge(value, {
+          'Standard': 'bg-gray-100 text-gray-800',
+          'Plus': 'bg-blue-100 text-blue-800',
+          'Premium': 'bg-purple-100 text-purple-800',
+          'Enterprise': 'bg-green-100 text-green-800',
+          'Government': 'bg-indigo-100 text-indigo-800',
+          'Strategic': 'bg-yellow-100 text-yellow-800'
+        }) : '-'
       }
     ],
 
     fields: [
       { key: 'name', label: 'Client Name', type: 'text', required: true },
-      { key: 'email', label: 'Email', type: 'text' },
-      { key: 'phone', label: 'Phone', type: 'text' },
-      { key: 'addr', label: 'Address', type: 'textarea' },
+      { key: 'descr', label: 'Description', type: 'textarea' },
+      { key: 'client_number', label: 'Client Number', type: 'text', required: true },
+      { key: 'client_type', label: 'Client Type', type: 'select', options: [
+        { value: 'residential', label: 'Residential' },
+        { value: 'commercial', label: 'Commercial' },
+        { value: 'municipal', label: 'Municipal' },
+        { value: 'industrial', label: 'Industrial' }
+      ]},
+      { key: 'primary_contact_name', label: 'Primary Contact', type: 'text' },
+      { key: 'primary_email', label: 'Email', type: 'text' },
+      { key: 'primary_phone', label: 'Phone', type: 'text' },
+      { key: 'primary_address', label: 'Address', type: 'textarea' },
+      { key: 'city', label: 'City', type: 'text' },
+      { key: 'province', label: 'Province', type: 'text' },
+      { key: 'postal_code', label: 'Postal Code', type: 'text' },
       { key: 'tags', label: 'Tags', type: 'array' }
     ],
 
@@ -933,8 +1001,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
     defaultView: 'table',
 
     grid: {
-      cardFields: ['name', 'email', 'phone']
-    }
+      cardFields: ['name', 'primary_email', 'primary_phone', 'city']
+    },
+
+    childEntities: ['project', 'task', 'wiki', 'artifact', 'form']
   },
 
   // --------------------------------------------------------------------------
@@ -984,30 +1054,20 @@ export const entityConfigs: Record<string, EntityConfig> = {
     name: 'projectStage',
     displayName: 'Project Stage',
     pluralName: 'Project Stages',
-    apiEndpoint: '/api/v1/setting?category=project-stage',
+    apiEndpoint: '/api/v1/setting?category=project_stage',
     icon: 'KanbanSquare',
 
     columns: [
-      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
-      { key: 'name', title: 'Stage Name', sortable: true, filterable: true },
+      { key: 'id', title: 'ID', sortable: true, align: 'center', width: '80px' },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
       { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
-      {
-        key: 'color_code',
-        title: 'Color',
-        render: (value) => value ? React.createElement('div', {
-          className: 'flex items-center gap-2'
-        },
-          React.createElement('div', {
-            className: 'w-4 h-4 rounded border border-gray-300',
-            style: { backgroundColor: value }
-          }),
-          React.createElement('span', { className: 'text-xs font-mono text-gray-600' }, value)
-        ) : '-'
-      },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active',
         title: 'Status',
+        sortable: true,
+        align: 'center',
+        width: '100px',
         render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
           'Active': 'bg-green-100 text-green-800',
           'Inactive': 'bg-red-100 text-red-800'
@@ -1034,17 +1094,20 @@ export const entityConfigs: Record<string, EntityConfig> = {
     name: 'projectStatus',
     displayName: 'Project Status',
     pluralName: 'Project Statuses',
-    apiEndpoint: '/api/v1/setting?category=project-status',
+    apiEndpoint: '/api/v1/setting?category=project_status',
     icon: 'ListChecks',
 
     columns: [
-      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
-      { key: 'name', title: 'Status Name', sortable: true, filterable: true },
+      { key: 'id', title: 'ID', sortable: true, align: 'center', width: '80px' },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
       { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active',
         title: 'Status',
+        sortable: true,
+        align: 'center',
+        width: '100px',
         render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
           'Active': 'bg-green-100 text-green-800',
           'Inactive': 'bg-red-100 text-red-800'
@@ -1070,30 +1133,20 @@ export const entityConfigs: Record<string, EntityConfig> = {
     name: 'taskStage',
     displayName: 'Task Stage',
     pluralName: 'Task Stages',
-    apiEndpoint: '/api/v1/setting?category=task-stage',
+    apiEndpoint: '/api/v1/setting?category=task_stage',
     icon: 'KanbanSquare',
 
     columns: [
-      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
-      { key: 'name', title: 'Stage Name', sortable: true, filterable: true },
+      { key: 'id', title: 'ID', sortable: true, align: 'center', width: '80px' },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
       { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
-      {
-        key: 'color_code',
-        title: 'Color',
-        render: (value) => value ? React.createElement('div', {
-          className: 'flex items-center gap-2'
-        },
-          React.createElement('div', {
-            className: 'w-4 h-4 rounded border border-gray-300',
-            style: { backgroundColor: value }
-          }),
-          React.createElement('span', { className: 'text-xs font-mono text-gray-600' }, value)
-        ) : '-'
-      },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active',
         title: 'Status',
+        sortable: true,
+        align: 'center',
+        width: '100px',
         render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
           'Active': 'bg-green-100 text-green-800',
           'Inactive': 'bg-red-100 text-red-800'
@@ -1120,17 +1173,20 @@ export const entityConfigs: Record<string, EntityConfig> = {
     name: 'taskStatus',
     displayName: 'Task Status',
     pluralName: 'Task Statuses',
-    apiEndpoint: '/api/v1/setting?category=task-status',
+    apiEndpoint: '/api/v1/setting?category=task_status',
     icon: 'ListChecks',
 
     columns: [
-      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
-      { key: 'name', title: 'Status Name', sortable: true, filterable: true },
+      { key: 'id', title: 'ID', sortable: true, align: 'center', width: '80px' },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
       { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active',
         title: 'Status',
+        sortable: true,
+        align: 'center',
+        width: '100px',
         render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
           'Active': 'bg-green-100 text-green-800',
           'Inactive': 'bg-red-100 text-red-800'
@@ -1156,17 +1212,20 @@ export const entityConfigs: Record<string, EntityConfig> = {
     name: 'businessLevel',
     displayName: 'Business Level',
     pluralName: 'Business Levels',
-    apiEndpoint: '/api/v1/setting?category=business-level',
+    apiEndpoint: '/api/v1/setting?category=biz_level',
     icon: 'Building2',
 
     columns: [
-      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
-      { key: 'name', title: 'Level Name', sortable: true, filterable: true },
+      { key: 'id', title: 'ID', sortable: true, align: 'center', width: '80px' },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
       { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active',
         title: 'Status',
+        sortable: true,
+        align: 'center',
+        width: '100px',
         render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
           'Active': 'bg-green-100 text-green-800',
           'Inactive': 'bg-red-100 text-red-800'
@@ -1196,13 +1255,16 @@ export const entityConfigs: Record<string, EntityConfig> = {
     icon: 'MapPin',
 
     columns: [
-      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
-      { key: 'name', title: 'Level Name', sortable: true, filterable: true },
+      { key: 'id', title: 'ID', sortable: true, align: 'center', width: '80px' },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
       { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active',
         title: 'Status',
+        sortable: true,
+        align: 'center',
+        width: '100px',
         render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
           'Active': 'bg-green-100 text-green-800',
           'Inactive': 'bg-red-100 text-red-800'
@@ -1232,13 +1294,16 @@ export const entityConfigs: Record<string, EntityConfig> = {
     icon: 'Crown',
 
     columns: [
-      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
-      { key: 'name', title: 'Level Name', sortable: true, filterable: true },
+      { key: 'id', title: 'ID', sortable: true, align: 'center', width: '80px' },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
       { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active',
         title: 'Status',
+        sortable: true,
+        align: 'center',
+        width: '100px',
         render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
           'Active': 'bg-green-100 text-green-800',
           'Inactive': 'bg-red-100 text-red-800'
@@ -1268,12 +1333,16 @@ export const entityConfigs: Record<string, EntityConfig> = {
     icon: 'Users',
 
     columns: [
-      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
-      { key: 'name', title: 'Level Name', sortable: true, filterable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
+      { key: 'id', title: 'ID', sortable: true, align: 'center', width: '80px' },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active',
         title: 'Status',
+        sortable: true,
+        align: 'center',
+        width: '100px',
         render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
           'Active': 'bg-green-100 text-green-800',
           'Inactive': 'bg-red-100 text-red-800'
@@ -1303,12 +1372,16 @@ export const entityConfigs: Record<string, EntityConfig> = {
     icon: 'Star',
 
     columns: [
-      { key: 'level_id', title: 'Level ID', sortable: true, align: 'center' },
-      { key: 'name', title: 'Level Name', sortable: true, filterable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center' },
+      { key: 'id', title: 'ID', sortable: true, align: 'center', width: '80px' },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active',
         title: 'Status',
+        sortable: true,
+        align: 'center',
+        width: '100px',
         render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
           'Active': 'bg-green-100 text-green-800',
           'Inactive': 'bg-red-100 text-red-800'
@@ -1321,6 +1394,162 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'name', label: 'Level Name', type: 'text', required: true },
       { key: 'slug', label: 'Slug', type: 'text', required: true },
       { key: 'authority_description', label: 'Authority Description', type: 'textarea' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // META: OPPORTUNITY FUNNEL LEVEL
+  // --------------------------------------------------------------------------
+  opportunityFunnelLevel: {
+    name: 'opportunityFunnelLevel',
+    displayName: 'Opportunity Funnel Level',
+    pluralName: 'Opportunity Funnel Levels',
+    apiEndpoint: '/api/v1/setting?category=opportunityFunnelLevel',
+    icon: 'TrendingUp',
+
+    columns: [
+      { key: 'id', title: 'ID', sortable: true, align: 'center', width: '80px' },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
+      {
+        key: 'active',
+        title: 'Status',
+        sortable: true,
+        align: 'center',
+        width: '100px',
+        render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
+          'Active': 'bg-green-100 text-green-800',
+          'Inactive': 'bg-red-100 text-red-800'
+        })
+      }
+    ],
+
+    fields: [
+      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
+      { key: 'level_name', label: 'Stage Name', type: 'text', required: true },
+      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'sort_order', label: 'Sort Order', type: 'number' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // META: INDUSTRY SECTOR
+  // --------------------------------------------------------------------------
+  industrySector: {
+    name: 'industrySector',
+    displayName: 'Industry Sector',
+    pluralName: 'Industry Sectors',
+    apiEndpoint: '/api/v1/setting?category=industrySector',
+    icon: 'Building',
+
+    columns: [
+      { key: 'id', title: 'ID', sortable: true, align: 'center', width: '80px' },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
+      {
+        key: 'active',
+        title: 'Status',
+        sortable: true,
+        align: 'center',
+        width: '100px',
+        render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
+          'Active': 'bg-green-100 text-green-800',
+          'Inactive': 'bg-red-100 text-red-800'
+        })
+      }
+    ],
+
+    fields: [
+      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
+      { key: 'level_name', label: 'Sector Name', type: 'text', required: true },
+      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'sort_order', label: 'Sort Order', type: 'number' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // META: ACQUISITION CHANNEL
+  // --------------------------------------------------------------------------
+  acquisitionChannel: {
+    name: 'acquisitionChannel',
+    displayName: 'Acquisition Channel',
+    pluralName: 'Acquisition Channels',
+    apiEndpoint: '/api/v1/setting?category=acquisitionChannel',
+    icon: 'Radio',
+
+    columns: [
+      { key: 'id', title: 'ID', sortable: true, align: 'center', width: '80px' },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
+      {
+        key: 'active',
+        title: 'Status',
+        sortable: true,
+        align: 'center',
+        width: '100px',
+        render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
+          'Active': 'bg-green-100 text-green-800',
+          'Inactive': 'bg-red-100 text-red-800'
+        })
+      }
+    ],
+
+    fields: [
+      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
+      { key: 'level_name', label: 'Channel Name', type: 'text', required: true },
+      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'sort_order', label: 'Sort Order', type: 'number' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // META: CUSTOMER TIER
+  // --------------------------------------------------------------------------
+  customerTier: {
+    name: 'customerTier',
+    displayName: 'Customer Tier',
+    pluralName: 'Customer Tiers',
+    apiEndpoint: '/api/v1/setting?category=customerTier',
+    icon: 'Award',
+
+    columns: [
+      { key: 'id', title: 'ID', sortable: true, align: 'center', width: '80px' },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
+      {
+        key: 'active',
+        title: 'Status',
+        sortable: true,
+        align: 'center',
+        width: '100px',
+        render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
+          'Active': 'bg-green-100 text-green-800',
+          'Inactive': 'bg-red-100 text-red-800'
+        })
+      }
+    ],
+
+    fields: [
+      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
+      { key: 'level_name', label: 'Tier Name', type: 'text', required: true },
+      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'sort_order', label: 'Sort Order', type: 'number' }
     ],
 
     supportedViews: ['table'],

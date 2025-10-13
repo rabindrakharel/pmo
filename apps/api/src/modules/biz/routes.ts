@@ -632,12 +632,13 @@ export async function bizRoutes(fastify: FastifyInstance) {
         icon: 'CheckSquare'
       });
 
-      // Count artifacts (via projects)
+      // Count artifacts (via entity mapping with biz)
       const artifactCount = await db.execute(sql`
-        SELECT COUNT(DISTINCT a.id) as count
+        SELECT COUNT(*) as count
         FROM app.d_artifact a
-        INNER JOIN app.d_project p ON a.project_id = p.id
-        WHERE p.business_id = ${bizId} AND a.active_flag = true
+        WHERE a.primary_entity_type = 'biz'
+          AND a.primary_entity_id = ${bizId}
+          AND a.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'artifact',
@@ -646,12 +647,13 @@ export async function bizRoutes(fastify: FastifyInstance) {
         icon: 'FileText'
       });
 
-      // Count wiki entries (via projects)
+      // Count wiki entries (via entity mapping with biz)
       const wikiCount = await db.execute(sql`
-        SELECT COUNT(DISTINCT w.id) as count
+        SELECT COUNT(*) as count
         FROM app.d_wiki w
-        INNER JOIN app.d_project p ON w.project_id = p.id
-        WHERE p.business_id = ${bizId} AND w.active_flag = true
+        WHERE w.primary_entity_type = 'biz'
+          AND w.primary_entity_id = ${bizId}
+          AND w.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'wiki',
@@ -660,16 +662,11 @@ export async function bizRoutes(fastify: FastifyInstance) {
         icon: 'BookOpen'
       });
 
-      // Count forms (via projects)
-      const formCount = await db.execute(sql`
-        SELECT COUNT(DISTINCT f.id) as count
-        FROM app.ops_formlog_head f
-        INNER JOIN app.d_project p ON f.project_id = p.id
-        WHERE p.business_id = ${bizId} AND f.active_flag = true
-      `);
+      // Count forms (forms are standalone, use entity_id_map table to link)
+      // For now, we'll count forms as 0 until proper entity mapping is added
       actionSummaries.push({
         actionEntity: 'form',
-        count: Number(formCount[0]?.count || 0),
+        count: 0,
         label: 'Forms',
         icon: 'FileText'
       });

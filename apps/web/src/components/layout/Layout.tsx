@@ -1,16 +1,13 @@
 import React, { ReactNode } from 'react';
-import { 
-  User, 
-  Settings, 
-  LogOut, 
-  Shield, 
-  CreditCard, 
-  Menu, 
-  X, 
+import {
+  User,
+  Settings,
+  LogOut,
+  Shield,
+  CreditCard,
+  Menu,
   ChevronLeft,
   ChevronDown,
-  ChevronRight,
-  Database,
   Building2,
   MapPin,
   FolderOpen,
@@ -18,11 +15,7 @@ import {
   FileText,
   BookOpen,
   CheckSquare,
-  Users,
-  ListChecks,
-  KanbanSquare,
-  Crown,
-  Star
+  Users
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -48,7 +41,6 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
   const { isFullscreen } = useFullscreen();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState(window.location.pathname);
-  const [isSettingExpanded, setIsSettingExpanded] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -71,28 +63,17 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
     }
   }, [isUserMenuOpen]);
 
-  const settingDropdownItems = [
-    { name: 'Project Status', href: '/setting/projectStatus', icon: ListChecks },
-    { name: 'Project Stage', href: '/setting/projectStage', icon: KanbanSquare },
-    { name: 'Task Status', href: '/setting/taskStatus', icon: ListChecks },
-    { name: 'Task Stage', href: '/setting/taskStage', icon: KanbanSquare },
-    { name: 'Business Level', href: '/setting/businessLevel', icon: Building2 },
-    { name: 'Office Level', href: '/setting/orgLevel', icon: MapPin },
-    { name: 'HR Level', href: '/setting/hrLevel', icon: Crown },
-    { name: 'Client Level', href: '/setting/clientLevel', icon: Users },
-    { name: 'Position Level', href: '/setting/positionLevel', icon: Star },
-  ];
-
   const mainNavigationItems = [
     // Organizational Entities (4)
     { name: 'Business', href: '/biz', icon: Building2, category: 'organizational' },
     { name: 'Project', href: '/project', icon: FolderOpen, category: 'operational' },
     { name: 'Office', href: '/office', icon: MapPin, category: 'organizational' },
+    { name: 'Client', href: '/client', icon: Users, category: 'organizational' },
 
     // Personnel Entities (2)
     { name: 'Role', href: '/role', icon: UserCheck, category: 'personnel' },
     { name: 'Employee', href: '/employee', icon: Users, category: 'personnel' },
-    
+
     // Content Entities (3)
     { name: 'Wiki', href: '/wiki', icon: BookOpen, category: 'content' },
     { name: 'Form', href: '/form', icon: FileText, category: 'content' },
@@ -109,10 +90,6 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
 
   const isCurrentPage = (href: string) => {
     return currentPage === href;
-  };
-
-  const isSettingPageActive = () => {
-    return settingDropdownItems.some(item => isCurrentPage(item.href));
   };
 
   // If in fullscreen mode, render fullscreen layout
@@ -187,57 +164,22 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
 
           {/* Main Navigation */}
           <nav className="flex-1 px-2 py-3 space-y-0.5">
-            {/* Setting Dropdown */}
-            <div>
-              <button
-                onClick={() => !isCollapsed && setIsSettingExpanded(!isSettingExpanded)}
-                className={`${
-                  isSettingPageActive()
-                    ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
-                } group flex items-center w-full ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 text-sm font-medium rounded-l-lg transition-all duration-200`}
-                title={isCollapsed ? 'Setting' : undefined}
-              >
-                <Settings className={`${
-                  isSettingPageActive() ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
-                } ${isCollapsed ? '' : 'mr-3'} h-4 w-4 stroke-[1.5] transition-colors duration-200`} />
-                {!isCollapsed && (
-                  <>
-                    <span className="flex-1 text-left text-sm font-medium">Setting</span>
-                    <ChevronRight className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${
-                      isSettingExpanded ? 'transform rotate-90' : ''
-                    }`} />
-                  </>
-                )}
-              </button>
-
-              {/* Setting Dropdown Items */}
-              {!isCollapsed && isSettingExpanded && (
-                <div className="ml-7 mt-1 space-y-0.5">
-                  {settingDropdownItems.map((item) => {
-                    const IconComponent = item.icon;
-                    const isActive = isCurrentPage(item.href);
-                    return (
-                      <a
-                        key={item.name}
-                        href={item.href}
-                        className={`${
-                          isActive
-                            ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
-                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
-                        } group flex items-center px-3 py-2 text-xs font-medium rounded-l-lg transition-all duration-200`}
-                        onClick={() => setCurrentPage(item.href)}
-                      >
-                        <IconComponent className={`${
-                          isActive ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
-                        } mr-2.5 h-3.5 w-3.5 transition-colors duration-200`} />
-                        <span className="text-xs font-medium">{item.name}</span>
-                      </a>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            {/* Settings Link */}
+            <a
+              href="/settings"
+              className={`${
+                currentPage === '/settings'
+                  ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
+              } group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 text-sm font-medium rounded-l-lg transition-all duration-200`}
+              onClick={() => setCurrentPage('/settings')}
+              title={isCollapsed ? 'Settings' : undefined}
+            >
+              <Settings className={`${
+                currentPage === '/settings' ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
+              } ${isCollapsed ? '' : 'mr-3'} h-4 w-4 stroke-[1.5] transition-colors duration-200`} />
+              {!isCollapsed && <span className="text-sm font-medium">Settings</span>}
+            </a>
 
             {/* Other Navigation Items */}
             {mainNavigationItems.map((item) => {

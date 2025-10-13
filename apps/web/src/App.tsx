@@ -13,17 +13,6 @@ import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { BillingPage } from './pages/BillingPage';
-import {
-  ProjectStatusPage,
-  ProjectStagePage,
-  TaskStatusPage,
-  TaskStagePage,
-  BusinessLevelPage,
-  OrgLevelPage,
-  HrLevelPage,
-  ClientLevelPage,
-  PositionLevelPage
-} from './pages/setting';
 
 // Universal Components
 import { EntityMainPage } from './pages/EntityMainPage';
@@ -72,79 +61,6 @@ function AppRoutes() {
       <Route
         path="/"
         element={<Navigate to="/project" replace />}
-      />
-      {/* Setting Dropdown Pages */}
-      <Route
-        path="/setting/projectStatus"
-        element={
-          <ProtectedRoute>
-            <ProjectStatusPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/setting/projectStage"
-        element={
-          <ProtectedRoute>
-            <ProjectStagePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/setting/taskStatus"
-        element={
-          <ProtectedRoute>
-            <TaskStatusPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/setting/taskStage"
-        element={
-          <ProtectedRoute>
-            <TaskStagePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/setting/businessLevel"
-        element={
-          <ProtectedRoute>
-            <BusinessLevelPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/setting/orgLevel"
-        element={
-          <ProtectedRoute>
-            <OrgLevelPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/setting/hrLevel"
-        element={
-          <ProtectedRoute>
-            <HrLevelPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/setting/clientLevel"
-        element={
-          <ProtectedRoute>
-            <ClientLevelPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/setting/positionLevel"
-        element={
-          <ProtectedRoute>
-            <PositionLevelPage />
-          </ProtectedRoute>
-        }
       />
       {/* Universal Entity List Routes */}
       <Route path="/biz" element={<ProtectedRoute><EntityMainPage entityType="biz" /></ProtectedRoute>} />

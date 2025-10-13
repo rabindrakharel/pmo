@@ -20,6 +20,12 @@ export interface FilteredDataTableProps {
   createHref?: string;
   onBulkShare?: (selectedItems: any[]) => void;
   onBulkDelete?: (selectedItems: any[]) => void;
+
+  // Inline editing and action icon controls
+  inlineEditable?: boolean;
+  showEditIcon?: boolean;
+  showDeleteIcon?: boolean;
+  showActionIcons?: boolean;
 }
 
 export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
@@ -32,7 +38,11 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   onCreateClick,
   createHref,
   onBulkShare,
-  onBulkDelete
+  onBulkDelete,
+  inlineEditable = false,
+  showEditIcon = true,
+  showDeleteIcon = true,
+  showActionIcons = true
 }) => {
   const navigate = useNavigate();
   const config = getEntityConfig(entityType);
@@ -42,6 +52,8 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   const [pageSize, setPageSize] = useState(20);
   const [totalRecords, setTotalRecords] = useState(0);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [editingRow, setEditingRow] = useState<string | null>(null);
+  const [editedData, setEditedData] = useState<any>({});
 
   // Use columns directly from config
   const columns: Column[] = useMemo(() => {
@@ -49,26 +61,37 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     return config.columns as Column[];
   }, [config]);
 
-  // Define row actions
+  // Define row actions based on props
   const rowActions: RowAction[] = useMemo(() => {
-    if (!config) return [];
+    if (!config || !showActionIcons) return [];
 
-    return [
-      {
+    const actions: RowAction[] = [];
+
+    // Only show view icon if showActionIcons is true (default behavior)
+    if (showActionIcons) {
+      actions.push({
         key: 'view',
         label: 'View',
         icon: <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>,
         variant: 'default',
         onClick: (record) => handleRowClick(record)
-      },
-      {
+      });
+    }
+
+    // Show edit icon based on prop
+    if (showEditIcon) {
+      actions.push({
         key: 'edit',
         label: 'Edit',
         icon: <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>,
         variant: 'default',
         onClick: (record) => handleAction('edit', record)
-      },
-      {
+      });
+    }
+
+    // Show delete icon based on prop
+    if (showDeleteIcon) {
+      actions.push({
         key: 'delete',
         label: 'Delete',
         icon: <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
@@ -78,9 +101,11 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
             handleDelete(record);
           }
         }
-      }
-    ];
-  }, [config]);
+      });
+    }
+
+    return actions;
+  }, [config, showActionIcons, showEditIcon, showDeleteIcon, inlineEditable]);
 
   const fetchData = async () => {
     if (!config) return;
@@ -135,9 +160,14 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   const handleAction = (actionType: string, record: any) => {
     switch (actionType) {
       case 'edit':
-        console.log('Edit record:', record);
-        // Navigate to edit page
-        navigate(`/${entityType}/${record.id}/edit`);
+        if (inlineEditable) {
+          // Enable inline editing mode
+          setEditingRow(record.id);
+          setEditedData({ ...record });
+        } else {
+          // Navigate to edit page
+          navigate(`/${entityType}/${record.id}/edit`);
+        }
         break;
       case 'delete':
         // This is already handled in rowActions onClick
@@ -148,6 +178,70 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       default:
         console.log(`Action ${actionType} clicked for record:`, record);
     }
+  };
+
+  const handleInlineEdit = (rowId: string, field: string, value: any) => {
+    setEditedData((prev: any) => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSaveInlineEdit = async (record: any) => {
+    if (!config) return;
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      // Build the correct API endpoint
+      let updateEndpoint = '';
+
+      // Check if this is a settings entity with category query parameter
+      if (config.apiEndpoint.includes('/api/v1/setting?category=')) {
+        // Extract the category from the apiEndpoint
+        const categoryMatch = config.apiEndpoint.match(/category=([^&]+)/);
+        const category = categoryMatch ? categoryMatch[1] : entityType;
+
+        // Settings API uses: PUT /api/v1/setting/{category}/{id}
+        updateEndpoint = `/api/v1/setting/${category}/${record.id}`;
+      } else {
+        // Regular entities use: PUT /api/v1/{entity}/{id}
+        updateEndpoint = `${config.apiEndpoint}/${record.id}`;
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}${updateEndpoint}`,
+        {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(editedData)
+        }
+      );
+
+      if (response.ok) {
+        await fetchData();
+        setEditingRow(null);
+        setEditedData({});
+      } else {
+        console.error('Failed to update record:', response.statusText);
+        alert('Failed to update record. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error updating record:', error);
+      alert('An error occurred while updating. Please try again.');
+    }
+  };
+
+  const handleCancelInlineEdit = () => {
+    setEditingRow(null);
+    setEditedData({});
   };
 
   const handleDelete = async (record: any) => {
@@ -163,8 +257,24 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         headers.Authorization = `Bearer ${token}`;
       }
 
+      // Build the correct API endpoint
+      let deleteEndpoint = '';
+
+      // Check if this is a settings entity with category query parameter
+      if (config.apiEndpoint.includes('/api/v1/setting?category=')) {
+        // Extract the category from the apiEndpoint
+        const categoryMatch = config.apiEndpoint.match(/category=([^&]+)/);
+        const category = categoryMatch ? categoryMatch[1] : entityType;
+
+        // Settings API uses: DELETE /api/v1/setting/{category}/{id}
+        deleteEndpoint = `/api/v1/setting/${category}/${record.id}`;
+      } else {
+        // Regular entities use: DELETE /api/v1/{entity}/{id}
+        deleteEndpoint = `${config.apiEndpoint}/${record.id}`;
+      }
+
       const response = await fetch(
-        `${API_BASE_URL}${config.apiEndpoint}/${record.id}`,
+        `${API_BASE_URL}${deleteEndpoint}`,
         {
           method: 'DELETE',
           headers
@@ -278,6 +388,12 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           selectable={showActionButtons}
           selectedRows={selectedRows}
           onSelectionChange={setSelectedRows}
+          inlineEditable={inlineEditable}
+          editingRow={editingRow}
+          editedData={editedData}
+          onInlineEdit={handleInlineEdit}
+          onSaveInlineEdit={handleSaveInlineEdit}
+          onCancelInlineEdit={handleCancelInlineEdit}
         />
       </div>
     </div>

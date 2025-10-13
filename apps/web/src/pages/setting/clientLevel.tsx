@@ -31,7 +31,13 @@ export const ClientLevelPage: React.FC = () => {
           </p>
         </div>
         <div className="flex-1 overflow-hidden">
-          <FilteredDataTable entityType="clientLevel" />
+          <FilteredDataTable
+            entityType="clientLevel"
+            inlineEditable={true}
+            showEditIcon={true}
+            showDeleteIcon={true}
+            showActionIcons={false}
+          />
         </div>
       </div>
     </Layout>
