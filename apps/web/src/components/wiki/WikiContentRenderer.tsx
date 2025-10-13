@@ -88,6 +88,30 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
     return typeMap[type || 'page'] || typeMap['page'];
   };
 
+  const normalizePath = (value?: string) => {
+    if (!value) return '';
+    let next = value.trim();
+    if (!next) return '';
+    next = next.replace(/\s+/g, '-');
+    if (!next.startsWith('/')) next = `/${next}`;
+    next = next.replace(/(?!^)\/{2,}/g, '/');
+    if (next.length > 1 && next.endsWith('/')) next = next.slice(0, -1);
+    return next;
+  };
+
+  const attrPath = normalizePath(data?.attr?.path);
+  const slugValue = typeof data?.slug === 'string' ? data.slug : '';
+  const fullPath = (() => {
+    if (typeof data?.page_path === 'string' && data.page_path) return data.page_path;
+    if (attrPath && slugValue) {
+      const base = attrPath.endsWith('/') ? attrPath.slice(0, -1) : attrPath;
+      return `${base}/${slugValue}`;
+    }
+    if (attrPath) return attrPath;
+    if (slugValue) return `/wiki/${slugValue}`;
+    return '';
+  })();
+
   return (
     <div className="space-y-6">
       {/* Cover Image */}
@@ -213,9 +237,9 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
       </div>
 
       {/* Path Information */}
-      {data.page_path && (
+      {fullPath && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm text-gray-600">
-          <span className="font-medium">Path:</span> {data.page_path}
+          <span className="font-medium">Path:</span> {fullPath}
         </div>
       )}
 

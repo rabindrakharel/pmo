@@ -218,6 +218,17 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
     }
   };
 
+  type AttachmentOp = {
+    id?: string;
+    name?: string;
+    filename?: string;
+    format?: string;
+    type?: string;
+    dataUrl?: string;
+    size?: number;
+    isImage?: boolean;
+  };
+
   const renderRichText = (richtext: any) => {
     // Handle string input (parse if needed)
     let deltaObj = richtext;
@@ -234,18 +245,86 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
       return <span className="text-gray-500">-</span>;
     }
 
+    const { html, attachments: attachmentOps } = convertDeltaToHtml(deltaObj);
+
     return (
-      <div
-        className="prose prose-sm max-w-none text-gray-700"
-        dangerouslySetInnerHTML={{ __html: convertDeltaToHtml(deltaObj) }}
-      />
+      <div className="space-y-3">
+        {html && (
+          <div
+            className="prose prose-sm max-w-none text-gray-700"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        )}
+
+        {attachmentOps.length > 0 && (
+          <div className="flex flex-wrap gap-3">
+            {attachmentOps.map((att, index) => {
+              const key = att.id || att.name || att.filename || `attachment-${index}`;
+              const displayName = att.name || att.filename || `Attachment ${index + 1}`;
+              const sizeKb = att.size ? `${(att.size / 1024).toFixed(1)} KB` : null;
+
+              if (att.isImage && att.dataUrl) {
+                return (
+                  <div key={key} className="inline-block">
+                    <div className="relative group">
+                      <img
+                        src={att.dataUrl}
+                        alt={displayName}
+                        className="max-w-[30vw] md:max-w-xs h-auto rounded-lg border border-gray-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => setImagePreview({ url: att.dataUrl!, name: displayName })}
+                      />
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="bg-black bg-opacity-60 text-white p-1.5 rounded-full">
+                          <ZoomIn className="w-4 h-4" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {displayName}
+                      {sizeKb && <span className="ml-1 text-gray-400">({sizeKb})</span>}
+                    </div>
+                  </div>
+                );
+              }
+
+              if (att.dataUrl) {
+                return (
+                  <a
+                    key={key}
+                    href={att.dataUrl}
+                    download={displayName}
+                    className="inline-flex items-center px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors"
+                  >
+                    <Paperclip className="w-4 h-4 mr-2" />
+                    <span className="font-medium truncate max-w-[12rem]">{displayName}</span>
+                    {sizeKb && <span className="ml-2 text-xs text-blue-500">({sizeKb})</span>}
+                  </a>
+                );
+              }
+
+              return (
+                <div
+                  key={key}
+                  className="inline-flex items-center px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-700"
+                >
+                  <Paperclip className="w-4 h-4 mr-2" />
+                  <span className="font-medium truncate max-w-[12rem]">{displayName}</span>
+                  {sizeKb && <span className="ml-2 text-xs text-gray-500">({sizeKb})</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     );
   };
 
-  const convertDeltaToHtml = (delta: any): string => {
-    if (!delta || !delta.ops) return '';
+  const convertDeltaToHtml = (delta: any): { html: string; attachments: AttachmentOp[] } => {
+    if (!delta || !delta.ops) return { html: '', attachments: [] };
 
     let html = '';
+    const attachments: AttachmentOp[] = [];
+
     delta.ops.forEach((op: any) => {
       let text = op.insert || '';
 
@@ -264,46 +343,15 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
           text = `<span class="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">@${op.attributes.mention.name}</span>`;
         }
         if (op.attributes.attachment) {
-          const att = op.attributes.attachment;
-          const sizeKB = att.size ? (att.size / 1024).toFixed(1) : '?';
-
-          // Check if it's an image
-          if (att.isImage && att.dataUrl) {
-            text = `
-              <div class="inline-block my-2 mr-2">
-                <div class="relative group">
-                  <img
-                    src="${att.dataUrl}"
-                    alt="${att.name}"
-                    class="max-w-[30%] h-auto rounded-lg border border-gray-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                    onclick="window.openImagePreview('${att.dataUrl.replace(/'/g, "\\'")}', '${att.name.replace(/'/g, "\\'")}')"
-                  />
-                  <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div class="bg-black bg-opacity-60 text-white p-1.5 rounded-full">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path>
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                <div class="text-xs text-gray-500 mt-1">${att.name} (${sizeKB} KB)</div>
-              </div>
-            `;
-          } else {
-            // Non-image attachment
-            text = `<a href="${att.dataUrl || '#'}" download="${att.name}" class="inline-flex items-center px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors my-1 mr-2">
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
-              <span class="font-medium">${att.name}</span>
-              <span class="ml-2 text-xs text-blue-500">(${sizeKB} KB)</span>
-            </a>`;
-          }
+          attachments.push(op.attributes.attachment as AttachmentOp);
+          return;
         }
       }
 
       html += text.replace(/\n/g, '<br/>');
     });
 
-    return html;
+    return { html, attachments };
   };
 
   return (

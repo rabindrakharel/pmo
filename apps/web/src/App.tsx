@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FullscreenProvider } from './contexts/FullscreenContext';
 import { LoginForm } from './components/auth/LoginForm';
-import { MetaPage } from './pages/MetaPage';
 import { FormBuilderPage } from './pages/FormBuilderPage';
 import { FormEditPage } from './pages/FormEditPage';
 import { FormViewPage } from './pages/FormViewPage';
@@ -68,20 +67,11 @@ function AppRoutes() {
 
       <Route
         path="/login"
-        element={isAuthenticated ? <Navigate to="/meta" replace /> : <LoginForm />}
+        element={isAuthenticated ? <Navigate to="/project" replace /> : <LoginForm />}
       />
       <Route
         path="/"
-        element={<Navigate to="/meta" replace />}
-      />
-      {/* Main Navigation Pages */}
-      <Route
-        path="/meta"
-        element={
-          <ProtectedRoute>
-            <MetaPage />
-          </ProtectedRoute>
-        }
+        element={<Navigate to="/project" replace />}
       />
       {/* Setting Dropdown Pages */}
       <Route
@@ -267,7 +257,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route path="*" element={<Navigate to="/meta" replace />} />
+      <Route path="*" element={<Navigate to="/project" replace />} />
     </Routes>
   );
 }

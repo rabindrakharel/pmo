@@ -7,45 +7,46 @@ import {
   filterUniversalColumns,
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
+import {
+  hasPermissionOnEntityId,
+  hasCreatePermissionForEntityType
+} from '../rbac/entity-permission-rbac-gate.js';
 
-// Schema based on d_business table structure
+// Schema based on actual d_business table structure
 const BizSchema = Type.Object({
   id: Type.String(),
+  slug: Type.String(),
+  code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  tags: Type.Array(Type.String()),
-  attr: Type.Object({}),
-  from_ts: Type.String(),
-  to_ts: Type.Optional(Type.String()),
-  active: Type.Boolean(),
-  created: Type.String(),
-  updated: Type.String(),
-  slug: Type.Optional(Type.String()),
-  code: Type.Optional(Type.String()),
+  tags: Type.Optional(Type.Array(Type.String())),
+  parent_id: Type.Optional(Type.String()),
   level_id: Type.Number(),
   level_name: Type.String(),
-  is_leaf_level: Type.Boolean(),
-  is_root_level: Type.Boolean(),
-  parent_id: Type.Optional(Type.String()),
-  cost_center_code: Type.Optional(Type.String()),
-  biz_unit_type: Type.String(),
-  profit_center: Type.Boolean(),
+  office_id: Type.Optional(Type.String()),
+  budget_allocated: Type.Optional(Type.Number()),
+  manager_employee_id: Type.Optional(Type.String()),
+  from_ts: Type.String(),
+  to_ts: Type.Optional(Type.String()),
+  active_flag: Type.Boolean(),
+  created_ts: Type.String(),
+  updated_ts: Type.String(),
+  version: Type.Number(),
 });
 
 const CreateBizSchema = Type.Object({
+  slug: Type.String({ minLength: 1 }),
+  code: Type.String({ minLength: 1 }),
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
-  slug: Type.Optional(Type.String()),
-  code: Type.Optional(Type.String()),
+  tags: Type.Optional(Type.Array(Type.String())),
+  parent_id: Type.Optional(Type.String({ format: 'uuid' })),
   level_id: Type.Number({ minimum: 0 }),
   level_name: Type.String({ minLength: 1 }),
-  parent_id: Type.Optional(Type.String({ format: 'uuid' })),
-  cost_center_code: Type.Optional(Type.String()),
-  biz_unit_type: Type.Optional(Type.String()),
-  profit_center: Type.Optional(Type.Boolean()),
-  tags: Type.Optional(Type.Array(Type.String())),
-  attr: Type.Optional(Type.Object({})),
-  active: Type.Optional(Type.Boolean()),
+  office_id: Type.Optional(Type.String({ format: 'uuid' })),
+  budget_allocated: Type.Optional(Type.Number()),
+  manager_employee_id: Type.Optional(Type.String({ format: 'uuid' })),
+  active_flag: Type.Optional(Type.Boolean()),
 });
 
 const UpdateBizSchema = Type.Partial(CreateBizSchema);
@@ -56,12 +57,10 @@ export async function bizRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
-        active: Type.Optional(Type.Boolean()),
+        active_flag: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
         level_id: Type.Optional(Type.Number()),
-        biz_unit_type: Type.Optional(Type.String()),
         parent_id: Type.Optional(Type.String()),
-        is_root_level: Type.Optional(Type.Boolean()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
@@ -77,77 +76,67 @@ export async function bizRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { 
-      active, search, level_id, biz_unit_type, parent_id, is_root_level,
-      limit = 50, offset = 0 
+    const {
+      active_flag, search, level_id, parent_id,
+      limit = 50, offset = 0
     } = request.query as any;
-    const userId = request.user?.sub;
+    const userId = (request as any).user?.sub;
 
     if (!userId) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
     try {
-      // Simple RBAC join - show only data user has access to
-      const rbacJoin = sql`
-        INNER JOIN app.entity_id_rbac_map rbac ON (
-          rbac.empid = ${userId}::uuid
-          AND rbac.entity = 'biz'
-          AND (rbac.entity_id = b.id::text OR rbac.entity_id = 'all')
-          AND rbac.active_flag = true
-          AND 0 = ANY(rbac.permission)
-        )
-      `;
+      // Direct RBAC filtering - only show biz units user has access to
+      const baseConditions = [
+        sql`(
+          EXISTS (
+            SELECT 1 FROM app.entity_id_rbac_map rbac
+            WHERE rbac.empid = ${userId}::uuid
+              AND rbac.entity = 'biz'
+              AND (rbac.entity_id = b.id::text OR rbac.entity_id = 'all')
+              AND rbac.active_flag = true
+              AND 0 = ANY(rbac.permission)
+          )
+        )`
+      ];
 
-      const conditions = [];
-
-      if (active !== undefined) {
-        conditions.push(sql`b.active_flag = ${active}`);
+      if (active_flag !== undefined) {
+        baseConditions.push(sql`b.active_flag = ${active_flag}`);
       }
-      
+
       if (level_id !== undefined) {
-        conditions.push(sql`level_id = ${level_id}`);
+        baseConditions.push(sql`b.level_id = ${level_id}`);
       }
-      
-      if (biz_unit_type) {
-        conditions.push(sql`biz_unit_type = ${biz_unit_type}`);
-      }
-      
+
       if (parent_id) {
-        conditions.push(sql`parent_id = ${parent_id}`);
+        baseConditions.push(sql`b.parent_id = ${parent_id}::uuid`);
       }
-      
-      if (is_root_level !== undefined) {
-        conditions.push(sql`is_root_level = ${is_root_level}`);
-      }
-      
+
       if (search) {
-        const searchConditions = [
-          sql`name ILIKE ${`%${search}%`}`,
-          sql`COALESCE("descr", '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(code, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(slug, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(cost_center_code, '') ILIKE ${`%${search}%`}`
+        const searchTerms = [
+          sql`b.name ILIKE ${`%${search}%`}`,
+          sql`COALESCE(b."descr", '') ILIKE ${`%${search}%`}`,
+          sql`b.code ILIKE ${`%${search}%`}`,
+          sql`b.slug ILIKE ${`%${search}%`}`
         ];
-        conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
+        baseConditions.push(sql`(${sql.join(searchTerms, sql` OR `)})`);
       }
 
       const countResult = await db.execute(sql`
         SELECT COUNT(DISTINCT b.id) as total
         FROM app.d_business b
-        ${rbacJoin}
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        WHERE ${sql.join(baseConditions, sql` AND `)}
       `);
       const total = Number(countResult[0]?.total || 0);
 
       const bizUnits = await db.execute(sql`
-        SELECT DISTINCT
-          b.id, b.name, b."descr", b.tags, b.attr, b.from_ts, b.to_ts, b.active_flag as active, b.created, b.updated,
-          b.slug, b.code, b.level_id, b.level_name, b.is_leaf_level, b.is_root_level, b.parent_id,
-          b.cost_center_code, b.biz_unit_type, b.profit_center
+        SELECT
+          b.id, b.slug, b.code, b.name, b.descr, b.tags, b.parent_id,
+          b.level_id, b.level_name, b.office_id, b.budget_allocated, b.manager_employee_id,
+          b.from_ts, b.to_ts, b.active_flag, b.created_ts, b.updated_ts, b.version
         FROM app.d_business b
-        ${rbacJoin}
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        WHERE ${sql.join(baseConditions, sql` AND `)}
         ORDER BY b.level_id ASC, b.name ASC
         LIMIT ${limit} OFFSET ${offset}
       `);
@@ -331,7 +320,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'Access denied for this business unit' });
       }
 
-      // Get tasks associated with business unit (via projects or direct assignment)
+      // Get tasks associated with business unit (via projects)
       const conditions = [];
       if (active !== undefined) {
         conditions.push(sql`t.active_flag = ${active}`);
@@ -344,8 +333,8 @@ export async function bizRoutes(fastify: FastifyInstance) {
           t.created, t.updated, t.project_id,
           p.name as project_name
         FROM app.d_task t
-        LEFT JOIN app.d_project p ON t.project_id = p.id
-        WHERE (p.business_id = ${bizId} OR t.business_id = ${bizId})
+        INNER JOIN app.d_project p ON t.project_id = p.id
+        WHERE p.business_id = ${bizId}
         ${conditions.length > 0 ? sql`AND ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY t.created DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -354,8 +343,8 @@ export async function bizRoutes(fastify: FastifyInstance) {
       const countResult = await db.execute(sql`
         SELECT COUNT(DISTINCT t.id) as total
         FROM app.d_task t
-        LEFT JOIN app.d_project p ON t.project_id = p.id
-        WHERE (p.business_id = ${bizId} OR t.business_id = ${bizId})
+        INNER JOIN app.d_project p ON t.project_id = p.id
+        WHERE p.business_id = ${bizId}
         ${conditions.length > 0 ? sql`AND ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
 
@@ -401,25 +390,29 @@ export async function bizRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'Access denied for this business unit' });
       }
 
-      const conditions = [sql`business_id = ${bizId}`];
+      const conditions = [];
       if (active !== undefined) {
-        conditions.push(sql`active_flag = ${active}`);
+        conditions.push(sql`f.active_flag = ${active}`);
       }
 
       const forms = await db.execute(sql`
-        SELECT
-          id, name, "descr", form_type, form_status, form_category,
-          created, updated, form_schema, form_ui_schema
-        FROM app.d_form
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY created DESC
+        SELECT DISTINCT
+          f.id, f.name, f."descr", f.form_type, f.form_status, f.form_category,
+          f.created, f.updated, f.form_schema, f.form_ui_schema
+        FROM app.ops_formlog_head f
+        INNER JOIN app.d_project p ON f.project_id = p.id
+        WHERE p.business_id = ${bizId}
+        ${conditions.length > 0 ? sql`AND ${sql.join(conditions, sql` AND `)}` : sql``}
+        ORDER BY f.created DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
       const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_form
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        SELECT COUNT(DISTINCT f.id) as total
+        FROM app.ops_formlog_head f
+        INNER JOIN app.d_project p ON f.project_id = p.id
+        WHERE p.business_id = ${bizId}
+        ${conditions.length > 0 ? sql`AND ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
 
       return {
@@ -616,7 +609,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       const projectCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_project p
-        WHERE p.biz_id = ${bizId} AND p.active_flag = true
+        WHERE p.business_id = ${bizId} AND p.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'project',
@@ -625,12 +618,12 @@ export async function bizRoutes(fastify: FastifyInstance) {
         icon: 'FolderOpen'
       });
 
-      // Count tasks (via projects or direct assignment)
+      // Count tasks (via projects)
       const taskCount = await db.execute(sql`
         SELECT COUNT(DISTINCT t.id) as count
         FROM app.d_task t
-        LEFT JOIN app.d_project p ON t.project_id = p.id
-        WHERE (p.biz_id = ${bizId} OR t.biz_id = ${bizId}) AND t.active_flag = true
+        INNER JOIN app.d_project p ON t.project_id = p.id
+        WHERE p.business_id = ${bizId} AND t.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'task',
@@ -639,11 +632,12 @@ export async function bizRoutes(fastify: FastifyInstance) {
         icon: 'CheckSquare'
       });
 
-      // Count artifacts
+      // Count artifacts (via projects)
       const artifactCount = await db.execute(sql`
-        SELECT COUNT(*) as count
+        SELECT COUNT(DISTINCT a.id) as count
         FROM app.d_artifact a
-        WHERE a.biz_id = ${bizId} AND a.active_flag = true
+        INNER JOIN app.d_project p ON a.project_id = p.id
+        WHERE p.business_id = ${bizId} AND a.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'artifact',
@@ -652,11 +646,12 @@ export async function bizRoutes(fastify: FastifyInstance) {
         icon: 'FileText'
       });
 
-      // Count wiki entries
+      // Count wiki entries (via projects)
       const wikiCount = await db.execute(sql`
-        SELECT COUNT(*) as count
+        SELECT COUNT(DISTINCT w.id) as count
         FROM app.d_wiki w
-        WHERE w.biz_id = ${bizId} AND w.active_flag = true
+        INNER JOIN app.d_project p ON w.project_id = p.id
+        WHERE p.business_id = ${bizId} AND w.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'wiki',
@@ -665,11 +660,12 @@ export async function bizRoutes(fastify: FastifyInstance) {
         icon: 'BookOpen'
       });
 
-      // Count forms
+      // Count forms (via projects)
       const formCount = await db.execute(sql`
-        SELECT COUNT(*) as count
-        FROM app.d_form_head f
-        WHERE f.biz_id = ${bizId} AND f.active_flag = true
+        SELECT COUNT(DISTINCT f.id) as count
+        FROM app.ops_formlog_head f
+        INNER JOIN app.d_project p ON f.project_id = p.id
+        WHERE p.business_id = ${bizId} AND f.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'form',
@@ -683,8 +679,9 @@ export async function bizRoutes(fastify: FastifyInstance) {
         business_id: bizId
       };
     } catch (error) {
-      fastify.log.error('Error fetching business action summaries:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
+      fastify.log.error('Error fetching business action summaries:', error);
+      console.error('Full error details:', error);
+      return reply.status(500).send({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -770,11 +767,11 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
     try {
       const bizUnit = await db.execute(sql`
-        SELECT 
-          id, name, "descr", tags, attr, from_ts, to_ts, active, created, updated,
-          slug, code, level_id, level_name, is_leaf_level, is_root_level, parent_id,
-          cost_center_code, biz_unit_type, profit_center
-        FROM app.d_business 
+        SELECT
+          id, name, descr, tags, parent_id, level_id, level_name,
+          slug, code, from_ts, to_ts, active_flag, created_ts, updated_ts, version,
+          office_id, budget_allocated, manager_employee_id
+        FROM app.d_business
         WHERE id = ${id}
       `);
 
@@ -904,7 +901,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
   // Update business unit
   fastify.put('/api/v1/biz/:id', {
-    
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -961,10 +958,10 @@ export async function bizRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      updateFields.push(sql`updated = NOW()`);
+      updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_business 
+        UPDATE app.d_business
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -1027,8 +1024,8 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       // Soft delete (using SCD Type 2 pattern)
       await db.execute(sql`
-        UPDATE app.d_business 
-        SET active_flag = false, to_ts = NOW(), updated = NOW()
+        UPDATE app.d_business
+        SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
         WHERE id = ${id}
       `);
 

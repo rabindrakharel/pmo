@@ -1,5 +1,6 @@
 import React from 'react';
-import { MetaDataTable } from '../../components/meta/MetaDataTable';
+import { Layout } from '../../components/layout/Layout';
+import { FilteredDataTable } from '../../components/FilteredDataTable';
 
 /**
  * TaskStage Page
@@ -13,12 +14,27 @@ import { MetaDataTable } from '../../components/meta/MetaDataTable';
 
 export const TaskStagePage: React.FC = () => {
   return (
-    <MetaDataTable
-      entityType="taskStage"
-      title="Task Workflow Stages"
-      description="Task lifecycle stages with UI color coding for task management"
-      createLabel="Add Task Stage"
-    />
+    <Layout
+      createButton={{
+        label: 'Add Task Stage',
+        href: '/setting/taskStage/new',
+        entityType: 'taskStage'
+      }}
+    >
+      <div className="flex flex-col h-full">
+        <div className="flex-shrink-0 p-6 border-b border-gray-200">
+          <h1 className="text-sm font-normal text-gray-500">
+            Task Workflow Stages
+          </h1>
+          <p className="mt-1 text-xs font-light text-gray-500">
+            Task lifecycle stages with UI color coding for task management
+          </p>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <FilteredDataTable entityType="taskStage" />
+        </div>
+      </div>
+    </Layout>
   );
 };
 

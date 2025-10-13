@@ -225,8 +225,8 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
         return new Date(value).toLocaleDateString();
       }
       if (field.type === 'select' && field.options) {
-        const option = field.options.find((opt: any) => opt.value === value);
-        return option?.label || value;
+        const option = field.options.find((opt: any) => String(opt.value) === String(value));
+        return option?.label || (value ?? '-');
       }
       if (field.type === 'textarea' || field.type === 'richtext') {
         return <div className="whitespace-pre-wrap">{value || '-'}</div>;
@@ -310,8 +310,14 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
       case 'select':
         return (
           <select
-            value={value || ''}
-            onChange={(e) => handleFieldChange(field.key, e.target.value)}
+            value={value !== undefined && value !== null ? String(value) : ''}
+            onChange={(e) => {
+              let newValue: any = e.target.value;
+              if (field.coerceBoolean) {
+                newValue = e.target.value === 'true';
+              }
+              handleFieldChange(field.key, newValue === '' ? undefined : newValue);
+            }}
             className="w-full text-sm border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
             disabled={field.disabled}
           >

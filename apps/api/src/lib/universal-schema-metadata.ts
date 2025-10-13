@@ -621,7 +621,9 @@ const PATTERN_RULES: Array<{
  */
 export function getUniversalColumnMetadata(columnName: string): ColumnMetadata {
   // Start with exact match
-  let metadata: ColumnMetadata = { ...UNIVERSAL_COLUMN_PATTERNS[columnName] } || {};
+  const baseMetadata = UNIVERSAL_COLUMN_PATTERNS[columnName];
+  // Avoid spreading undefined when no base metadata exists for the column
+  let metadata: ColumnMetadata = baseMetadata ? { ...baseMetadata } : {};
   
   // Apply pattern-based rules
   for (const rule of PATTERN_RULES) {

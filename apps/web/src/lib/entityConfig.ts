@@ -29,9 +29,15 @@ export interface FieldDef {
   type: 'text' | 'textarea' | 'richtext' | 'number' | 'date' | 'select' | 'multiselect' | 'jsonb' | 'array';
   required?: boolean;
   readonly?: boolean;
+  disabled?: boolean;
   placeholder?: string;
   options?: { value: string; label: string }[];
   validation?: (value: any) => string | null;
+  /**
+   * When true, selected values of 'true'/'false' will be coerced to booleans before saving.
+   * Useful for boolean fields represented as select inputs.
+   */
+  coerceBoolean?: boolean;
 }
 
 export interface EntityConfig {
@@ -293,17 +299,13 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'tags', label: 'Tags', type: 'array' }
     ],
 
-    supportedViews: ['table', 'kanban', 'grid'],
+    supportedViews: ['table', 'kanban'],
     defaultView: 'table',
 
     kanban: {
       groupByField: 'stage',
       metaTable: 'setting_task_stage',
       cardFields: ['name', 'priority_level', 'estimated_hours', 'assignee_employee_ids']
-    },
-
-    grid: {
-      cardFields: ['name', 'descr', 'stage', 'priority_level', 'estimated_hours']
     },
 
     childEntities: ['form', 'artifact']
@@ -418,12 +420,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 
-    supportedViews: ['table', 'grid'],
-    defaultView: 'table',
-
-    grid: {
-      cardFields: ['name', 'descr', 'wiki_type', 'publication_status', 'updated_ts']
-    }
+    supportedViews: ['table'],
+    defaultView: 'table'
   },
 
   // --------------------------------------------------------------------------
@@ -578,15 +576,44 @@ export const entityConfigs: Record<string, EntityConfig> = {
           'div',
           null,
           React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-          record.level_name && React.createElement('div', { className: 'text-sm text-gray-500' }, record.level_name)
+          React.createElement(
+            'div',
+            { className: 'flex items-center text-xs text-gray-500 gap-2 mt-0.5' },
+            record.code && React.createElement('span', null, record.code),
+            record.slug && React.createElement('span', { className: 'text-gray-400' }, `/${record.slug}`)
+          )
         )
+      },
+      {
+        key: 'level_name',
+        title: 'Level',
+        sortable: true,
+        filterable: true,
+        render: (value) => renderBadge(value, {
+          'Department': 'bg-blue-100 text-blue-800',
+          'Division': 'bg-purple-100 text-purple-800',
+          'Corporate': 'bg-green-100 text-green-800',
+          'Business Unit': 'bg-indigo-100 text-indigo-800'
+        })
+      },
+      {
+        key: 'budget_allocated',
+        title: 'Budget',
+        sortable: true,
+        align: 'right',
+        render: (value) => value ? formatCurrency(value, 'CAD') : '-'
       },
       {
         key: 'descr',
         title: 'Description',
         sortable: true,
         filterable: true,
-        render: (value) => value ? React.createElement('div', { className: 'max-w-xs truncate' }, value) : '-'
+        render: (value) => value ? React.createElement('div', { className: 'max-w-xs truncate text-gray-600' }, value) : '-'
+      },
+      {
+        key: 'tags',
+        title: 'Tags',
+        render: renderTags
       },
       {
         key: 'active_flag',
@@ -600,11 +627,21 @@ export const entityConfigs: Record<string, EntityConfig> = {
     ],
 
     fields: [
-      { key: 'name', label: 'Name', type: 'text', required: true },
+      { key: 'name', label: 'Business Unit Name', type: 'text', required: true },
+      { key: 'code', label: 'Code', type: 'text', required: true },
+      { key: 'slug', label: 'Slug', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'level_id', label: 'Level', type: 'select', options: [] }, // from setting_business_level
+      { key: 'level_id', label: 'Level', type: 'number', required: true },
+      { key: 'level_name', label: 'Level Name', type: 'text', required: true },
       { key: 'parent_id', label: 'Parent Unit', type: 'select', options: [] },
-      { key: 'tags', label: 'Tags', type: 'array' }
+      { key: 'office_id', label: 'Office', type: 'select', options: [] },
+      { key: 'budget_allocated', label: 'Budget Allocated (CAD)', type: 'number' },
+      { key: 'manager_employee_id', label: 'Manager', type: 'select', options: [] },
+      { key: 'tags', label: 'Tags', type: 'array' },
+      { key: 'active_flag', label: 'Active', type: 'select', options: [
+        { value: 'true', label: 'Active' },
+        { value: 'false', label: 'Inactive' }
+      ], coerceBoolean: true }
     ],
 
     supportedViews: ['table'],

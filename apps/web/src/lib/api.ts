@@ -160,13 +160,6 @@ export const taskApi = {
   },
 };
 
-export const metaApi = {
-  async get(category: 'task_status' | 'task_stage' | 'project_status' | 'project_stage' | 'biz_level' | 'loc_level' | 'hr_level') {
-    const response = await apiClient.get(`/api/v1/meta?category=${category}`);
-    return response.data;
-  },
-};
-
 export const settingApi = {
   async get(category: 'task_status' | 'task_stage' | 'project_status' | 'project_stage' | 'biz_level' | 'org_level' | 'hr_level' | 'client_level' | 'position_level') {
     const response = await apiClient.get(`/api/v1/setting?category=${category}`);

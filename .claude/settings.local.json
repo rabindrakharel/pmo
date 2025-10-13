@@ -161,7 +161,9 @@
       "Bash(tools/logs-api.sh:*)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzU5Mjg5MjA5LCJleHAiOjE3NTkzNzU2MDl9.9YqxcI0i66jw7D6usvgCiPXj3_gYyH4dYPglDUQVQ3Q\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzU5ODU1NTI3LCJleHAiOjE3NTk5NDE5Mjd9.n03b5bfAQnEkzzC8bTt-Fv081YgAQL_Ot1vTPffc3Nk\" curl -s \"http://localhost:4000/api/v1/form\" -H \"Authorization: Bearer $TOKEN\")",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzU5ODU1NTI3LCJleHAiOjE3NTk5NDE5Mjd9.n03b5bfAQnEkzzC8bTt-Fv081YgAQL_Ot1vTPffc3Nk\" FORM_ID=\"362cf359-00bf-4b7c-a4f1-3a0404d1b522\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzU5ODU1NTI3LCJleHAiOjE3NTk5NDE5Mjd9.n03b5bfAQnEkzzC8bTt-Fv081YgAQL_Ot1vTPffc3Nk\" FORM_ID=\"362cf359-00bf-4b7c-a4f1-3a0404d1b522\")",
+      "Bash(do echo \"=== $table ===\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzYwMzEyODk2LCJleHAiOjE3NjAzOTkyOTZ9.w0QD9OFnzU6x32CWHENKxK2WQhmyNZPwtBvAeS9fk5Q\" curl -s -H \"Authorization: Bearer $TOKEN\" \"http://localhost:4000/api/v1/biz/dddddddd-dddd-dddd-dddd-dddddddddddd\")"
     ],
     "deny": [],
     "ask": [],

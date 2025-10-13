@@ -1,5 +1,6 @@
 import React from 'react';
-import { MetaDataTable } from '../../components/meta/MetaDataTable';
+import { Layout } from '../../components/layout/Layout';
+import { FilteredDataTable } from '../../components/FilteredDataTable';
 
 /**
  * PositionLevel Page
@@ -13,12 +14,27 @@ import { MetaDataTable } from '../../components/meta/MetaDataTable';
 
 export const PositionLevelPage: React.FC = () => {
   return (
-    <MetaDataTable
-      entityType="positionLevel"
-      title="Position Hierarchy Levels"
-      description="Organizational authority levels and career progression paths from CEO to Associate Director"
-      createLabel="Add Position Level"
-    />
+    <Layout
+      createButton={{
+        label: 'Add Position Level',
+        href: '/setting/positionLevel/new',
+        entityType: 'positionLevel'
+      }}
+    >
+      <div className="flex flex-col h-full">
+        <div className="flex-shrink-0 p-6 border-b border-gray-200">
+          <h1 className="text-sm font-normal text-gray-500">
+            Position Hierarchy Levels
+          </h1>
+          <p className="mt-1 text-xs font-light text-gray-500">
+            Organizational authority levels and career progression paths from CEO to Associate Director
+          </p>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <FilteredDataTable entityType="positionLevel" />
+        </div>
+      </div>
+    </Layout>
   );
 };
 

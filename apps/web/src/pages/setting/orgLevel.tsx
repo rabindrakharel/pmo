@@ -1,5 +1,6 @@
 import React from 'react';
-import { MetaDataTable } from '../../components/meta/MetaDataTable';
+import { Layout } from '../../components/layout/Layout';
+import { FilteredDataTable } from '../../components/FilteredDataTable';
 
 /**
  * OrgLevel Page (Office Level)
@@ -13,12 +14,27 @@ import { MetaDataTable } from '../../components/meta/MetaDataTable';
 
 export const OrgLevelPage: React.FC = () => {
   return (
-    <MetaDataTable
-      entityType="orgLevel"
-      title="Office Hierarchy Levels"
-      description="Geographic hierarchy levels from Office to District to Region to Corporate"
-      createLabel="Add Office Level"
-    />
+    <Layout
+      createButton={{
+        label: 'Add Office Level',
+        href: '/setting/orgLevel/new',
+        entityType: 'orgLevel'
+      }}
+    >
+      <div className="flex flex-col h-full">
+        <div className="flex-shrink-0 p-6 border-b border-gray-200">
+          <h1 className="text-sm font-normal text-gray-500">
+            Office Hierarchy Levels
+          </h1>
+          <p className="mt-1 text-xs font-light text-gray-500">
+            Geographic hierarchy levels from Office to District to Region to Corporate
+          </p>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <FilteredDataTable entityType="orgLevel" />
+        </div>
+      </div>
+    </Layout>
   );
 };
 

@@ -1,291 +1,191 @@
-│ > /home/rabin/projects/pmo/db/README.md                                                                                │
-│   /home/rabin/projects/pmo/db/userguide.md                                                                             │
-│   /home/rabin/projects/pmo/userguide.md\\                                                                              │
-│   Understand the design pattern, how we design and build something: \                                                  │
-│   I want to build a sidebar button for artifacts, button artificats, which will have page artifacts, reusable          │
-│   components, Will have database table d_artifacts,
-artifacts are design, rfp, proposals, sow documents, design, onboarding guide, 3 models, etc. 
-The artifacts will be scoped by project and business, 
-the artifacts can be only relevant to just 1 project stage, or entire project
-Design datamodel, generate api code, the design ui/ux for sidebar button, page and everything.
-First understand my design, and create a detailed plan. 
-What steps, or course of action will you take to achieve this? 
-
-
-[Pasted text #1 +36 lines]\                                                                                                                                                       │
-│   \                                                                                                                                                                                 │
-│   Each of the entity type become a sidebar button in the webportal, each sidebar button has page, each page will have action entity: \                                              │
-│   action entity will always have create buttons, but you must keep current dataTable as it is. Do not touch existing dataTable, But I want you to work on:\                         │
-│   create reusable component for each page: headerTabNavigation which has a list of menu items which are action entity type in each of the page, so each page will have:             │
-│   headerTabNavigation, grid, dataTable. grid and dataTable are existing so don't touch them. \                                                                                      │
-│   \                                                                                                                                                                                 │
-│   headerTabNavigation will have menu buttons for each of the action entity within the parent entity which is the sidebar button or page. \                                          │
-│   \                                                                                                                                                                                 │
-│   Each menu button can be clicked which leads to another page view which is parent-action page, eg. project/artifact page, if artifact is clicked inside of project page. \         │
-│   project/task page if task is clicked inside of project. \                                                                                                                         │
-│   \                                                                                                                                                                                 │
-│   each of such parent/action page will have: \                                                                                                                                      │
-│   \                                                                                                                                                                                 │
-│   Create New button, \                                                                                                                                                              │
-│   Grid\                                                                                                                                                                             │
-│   dataTable component \                                                                                                                                                             │
-│   These all exist today and they function well. \                                                                                                                                   │
-│   \                                                                                                                                                                                 │
-│   So basically, each root parent entity needs extra headerTabNavigation\                                                                                                            │
-│   \                                                                                                                                                                                 │
-│   Given this context, I want you to just work on API, the api are all outdated with old datamodel, I want you to build API that's closely tied to datamodel I have now. Work on     │
-│   api only! Not the uiux for now, Create api endpoint to view, update, delete, create each parent entity, or create each action entity inside parent entity. Each entity in itself  │
-│   will live in data model, but they can have relation to one another too, eg. a wiki can be part of project or business, a task can be part of project, a form can be part of       │
-│   business or project or task. \                                                                                                                                                    │
-│   \                                                                                                                                                                                 │
-│   Datamodel: /home/rabin/projects/pmo/db\                                                                                                                                           │
-│   \                                                                                                                                                                                 │
-│   Please work on api: \                                                                                                                                                             │
-│   /home/rabin/projects/pmo/apps/api\                                                                                                                                                │
-│   \                                                                                                                                                                                 │
-│   Please create api so as to support this nature of ui request!   - Entity Types: biz, project, hr, worksite, client, org, role, employee, wiki, form, task, artifact               │
-│     - Permission Actions: create, view, edit, share                                                                                                                                 │
-│     - Hierarchical Structure: parent_entity → action_entity with specific permission actions                                                                                        │
-│     - Employee Access: James Miller has comprehensive permissions across 97 entities with admin-level access There is no such thing alled admin level access, but there's           │
-│   something about relationship of:\                                                                                                                                                 │
-│   parent and action entity, \                                                                                                                                                       │
-│   permission on parent entity, \                                                                                                                                                    │
-│   permission on action entity inside parent entity. \                                                                                                                               │
-│   \                                                                                                                                                                                 │
-│   Understand the relation from datamodel, and then update the api    
-
-
-
-
-
-
-api validation:
-apps/api/src/modules has all my route api, Please validate the api against my datamodel  │
-│   esp. that the rbac at api level has to happen through                                    │
-│   apps/api/src/modules/rbac/scope-auth.ts, which works using the datamodel db/*.ddl\ 
-db/13_unified_scope.ddl
-db/14_permission_tables.ddl │
-│   the rbac is decided by querying rel_user_scope table only! Please refactor each of the   │
-│   route api to make sure, the rbac is working fine. Use tools/ for start, stop the         │
-│   server.          
-
-
-CURATE DATA ----------------------------------------------
-Curate very meaningful and deeply coorelated data for a home services for 1 company called 'Huron Home Services' that has different departments:
-landscaping
-plumbing
-heating
-snow Removal
-electrical
-Solar Installation
-, 
-Has office in Missisuaga, Toronto, London has 3 locations
-, can have worksite which are client's address
-, employee can be employment type --contingent, intern, part_time, full_time, contractor, co-op
-These contractor are based of a particular location, but serve different worksites. 
-Start from the the top .ddl file and keep building downward, and curate very meaningful data relationship. 
-May be first think of all levels, addressess, name and designation against department; then curate the data. 
-Project can be: Fall 2025 Landscaping, Winter 2025 SnowRemoval, Tank Water Heater replacement, etc. 
-
-
-rbac testing: 
-apps/api/src/modules has all my route api, the rbac at api level works through                                    │
-│   apps/api/src/modules/rbac/scope-auth.ts, which works using the datamodel db/schema.sql\  │
-understand api documentation: apps/api/src/modules/README.md
-│the rbac is decided by querying rel_user_scope table only! 
-Use tools/ for start, stop the         │
-│   server. 
-
-
-create tools:
-create tools to drop, recreate data schema, and import curated data from db/schema.sql, create tool as tools/*.sh
-Create tools/readme.md that indexes each tools and explains what each tools does. 
+Implement Row Click Navigation to Entity Detail Page for Settings Configuration Tables
+
+  Context & Current Architecture
+
+  The PMO application uses a universal entity system with two main page types:
+
+  1. EntityMainPage - Lists entities in table/kanban/grid views
+  2. EntityDetailPage - Shows individual entity details with dynamic tabs for child entities
+
+  Current Behavior (Working Reference)
+
+  When clicking a row in main entity tables (e.g., /project, /task, /biz):
+  - Navigation happens via: EntityMainPage.tsx:67-69
+  const handleRowClick = (item: any) => {
+    navigate(`/${entityType}/${item.id}`);
+  };
+  - Route structure in App.tsx:
+  /project → EntityMainPage (list)
+  /project/:id → EntityDetailPage (detail with tabs)
+  /project/:id/task → EntityChildListPage (filtered child list)
+  - EntityDetailPage features (EntityDetailPage.tsx:1-527):
+    - Dynamic tab system using DynamicChildEntityTabs component
+    - Overview tab showing entity fields in Notion-style layout
+    - Child entity tabs (e.g., "Tasks", "Wiki", "Artifacts") with filtered data
+    - Edit mode with inline field editing
+    - Special renderers for wiki (WikiContentRenderer) and form (InteractiveForm)
+
+  Problem Statement
+
+  Settings configuration pages (9 pages under /setting/*) currently display tables but do NOT navigate to detail pages when rows are clicked:
+
+  Affected Pages:
+  - /setting/projectStatus → apps/web/src/pages/setting/projectStatus.tsx
+  - /setting/projectStage
+  - /setting/taskStatus
+  - /setting/taskStage
+  - /setting/businessLevel
+  - /setting/orgLevel
+  - /setting/hrLevel
+  - /setting/clientLevel
+  - /setting/positionLevel
+
+  Current Implementation:
+  // All 9 setting pages use this structure:
+  <Layout createButton={{...}}>
+    <div className="flex flex-col h-full">
+      <div className="flex-shrink-0 p-6 border-b border-gray-200">
+        <h1>Title</h1>
+        <p>Description</p>
+      </div>
+      <div className="flex-1 overflow-hidden">
+        <FilteredDataTable entityType="projectStatus" />
+      </div>
+    </div>
+  </Layout>
+
+  EntityConfig for these entities (entityConfig.ts:983-1328):
+  - All have supportedViews: ['table'] and defaultView: 'table'
+  - All have apiEndpoint: '/api/v1/setting?category=...'
+  - NONE have childEntities defined
+  - All have columns and fields arrays defining their schema
+
+  Required Implementation
+
+  1. Row Click Navigation
+
+  For each setting page, when a row is clicked:
+  - Navigate to: /setting/{entityType}/:id
+  - Examples:
+    - /setting/projectStatus/uuid-123
+    - /setting/taskStage/uuid-456
+
+  2. Create EntityDetailPage-Compatible Routes
+
+  Add routes in App.tsx (similar to line 176-220):
+  {/* Setting Configuration Detail Routes */}
+  <Route path="/setting/projectStatus/:id" element={
+    <ProtectedRoute>
+      <EntityDetailPage entityType="projectStatus" />
+    </ProtectedRoute>
+  } />
+  <Route path="/setting/projectStage/:id" element={...} />
+  {/* ...repeat for all 9 setting entities... */}
+
+  3. Reuse EntityDetailPage Component
+
+  The existing EntityDetailPage component should work because:
+  - ✅ It loads data dynamically: const apiModule = (api as any)[${entityType}Api]
+  - ✅ It renders fields from config.fields (lines 473-487)
+  - ✅ It handles edit mode (inline editing)
+  - ✅ It shows Notion-style minimalistic field layout
+  - ✅ No child entities = no tabs (lines 86-89: returns empty array if !hasChildEntities)
+
+  4. Ensure API Compatibility
+
+  Verify/Update apps/web/src/lib/api.ts has individual item getters:
+  export const settingApi = {
+    async getItem(category: string, id: string) {
+      const response = await apiClient.get(`/api/v1/setting/${category}/${id}`);
+      return response.data;
+    },
+    // ...existing methods...
+  };
+
+  Create pseudo-API modules (if needed) to match EntityDetailPage's pattern:
+  export const projectStatusApi = {
+    async get(id: string) {
+      return settingApi.getItem('project-status', id);
+    },
+    async update(id: string, data: any) {
+      return settingApi.update('project-status', id, data);
+    },
+    async delete(id: string) {
+      return settingApi.delete('project-status', id);
+    }
+  };
+  // Repeat for all 9 setting entities...
+
+  5. Update FilteredDataTable onRowClick
+
+  Current behavior (FilteredDataTable.tsx:186-195):
+  const handleRowClick = (record: any) => {
+    if (onRowClick) {
+      onRowClick(record);
+    } else {
+      // Default navigation based on entity type
+      const entityPath = entityType === 'biz' ? '/biz' : `/${entityType}`;
+      const targetPath = `${entityPath}/${record.id}`;
+      navigate(targetPath);
+    }
+  };
+
+  Required change for setting entities:
+  const handleRowClick = (record: any) => {
+    if (onRowClick) {
+      onRowClick(record);
+    } else {
+      // Check if this is a setting entity
+      const settingEntities = ['projectStatus', 'projectStage', 'taskStatus', 'taskStage',
+                                'businessLevel', 'orgLevel', 'hrLevel', 'clientLevel', 'positionLevel'];
+
+      const entityPath = settingEntities.includes(entityType)
+        ? `/setting/${entityType}`
+        : (entityType === 'biz' ? '/biz' : `/${entityType}`);
+
+      const targetPath = `${entityPath}/${record.id}`;
+      navigate(targetPath);
+    }
+  };
+
+  Expected User Flow
+
+  1. User clicks "Settings" in sidebar → dropdown shows 9 options
+  2. User clicks "Project Status" → navigates to /setting/projectStatus
+  3. Page shows table with rows (e.g., "Active", "On Hold", "Cancelled")
+  4. User clicks row "Active" → navigates to /setting/projectStatus/uuid-123
+  5. Page shows EntityDetailPage with:
+    - Header: "Active" with back button
+    - Fields in Notion-style layout: Level ID, Status Name, Description, Sort Order
+    - Edit button (enables inline editing)
+    - No tabs (because no child entities)
+  6. User can edit → inline editing mode → Save → updates via API
+  7. User clicks back arrow → returns to /setting/projectStatus table
+
+  Design Consistency
+
+  Must match existing EntityDetailPage styling:
+  - Back button: <ArrowLeft /> with hover effect
+  - Header: Small font title with entity type + ID subtitle
+  - Fields: 2-column grid (160px label width) with hover background
+  - Edit mode: Inline inputs with bottom border transitions
+  - Buttons: Same classes as other detail pages
+
+  Files to Modify
+
+  1. ✅ App.tsx - Add 9 new routes for setting detail pages
+  2. ✅ FilteredDataTable.tsx - Update handleRowClick for setting entities
+  3. ✅ api.ts - Ensure individual item getters exist (or add pseudo-API modules)
+  4. ⚠️ No changes needed to EntityDetailPage.tsx (should work as-is)
+  5. ⚠️ No changes needed to setting page files (keep current table-only layout)
+
+  Backend API Requirements
+
+  Ensure these endpoints exist:
+  - GET /api/v1/setting/{category}/{id} - Get single item
+  - PUT /api/v1/setting/{category}/{id} - Update item
+  - DELETE /api/v1/setting/{category}/{id} - Delete item
+
+  Categories: project-status, project-stage, task-status, task-stage, business-level, orgLevel, hr-level, client-level, position-level
 
-build page/screen:
-Now, I want you to build pages/screen that has components such as:
--create, edit, share, delete icons
--data table with pagination, sorting and filter, 
--searchable filter with dropdown checkboxes for the data table, filter to have on scope names and other important field. 
--and more ..
-Goal is to build pages/screen and components; also apply the page level gates for each user based on datamodel db/schema.sql, esp. rel_user_scope table which will have entries from tables: app_d_route_page & rel_scope_permission, page/screen will be gated using the table rel_scope_permission using specific scope type. 
-Once you build the page, you  have page details, please do update tables with new truthful data in table app_d_route_page & rel_scope_permission,drop all tables and reimport the data. 
 
-
-
-Go through Readme List: 
-
-
-and go through the .ddl files, 
-reupdate the README.md to have most accurate data, concise, precise, bulleted, ER diagram, business relationship between tables, 
-how are the tables coorelated, small snippet of sample data. 
-
-After you have done that, Go to api and refactor all the api one by one as the api will have to adapt to db datamodel which is the source of truth. 
-for api reference, always refer to api readme: /home/rabin/projects/pmo/apps/api/src/modules/README.md
-
-Action: 
-Look through the .ddl files in /home/rabin/projects/pmo/db, and run the import of the .ddl files using the tools db import
-
-If you see any error, Please fix the data model, .ddl file one by one, and then re-run the import through the tools again. 
-
-
-
-First of all traverse through the 
-README.md list, and access required .md file to build LLM context: 
-to understand datamodel readme: db/README.md
-view datamodel curated data & schema: db/schema.sql, rerun this .sql using *.sh tools, to drop all tables and reimport the data. 
-always use tools to stop, start the server, or drop, recreate data/schema: tools/README.md
-for api reference, always refer to api readme: apps/api/src/modules/README.md
-api index.ts: apps/api/src/modules/index.ts
-
-
-
-
-README.md list --------------------------------
-Data model: /home/rabin/projects/pmo/db/README.md
-view datamodel curated data & schema in each of the .ddl files 
-for api reference, api reference need updates,
- always refer to api readme: apps/api/src/modules/README.md
-/home/rabin/projects/pmo/tools/README.md
-api index.ts: /home/rabin/projects/pmo/apps/api/src/modules/index.ts
-web component, page, ui reference: /home/rabin/projects/pmo/apps/web/src/README.md
-Tech stack: TECHSTACK.md
-always use tools to stop, start the server, or drop, recreate data schema, or test import to db
-central readme that indexes and navigates to all other readme: /home/rabin/projects/pmo/README.md
-
-
-API TEST ----------------------------------------
-Login as James Miller to generate JWT, then hit each API endpoint one by one to test if all api endpoint work.
-Please fix if you see any api or data issues. 
-for api reference, always refer to api readme: apps/api/src/modules/README.md
-/home/rabin/projects/pmo/tools/README.md
-api index.ts: /home/rabin/projects/pmo/apps/api/src/modules/index.ts
-If you see data issue, refer to the api errors to identify which *.ddl has issue and what issue. 
-Please fix the *.ddl one by one as you test the api. 
-If there's no meaningful data returned by api, please understand the ER relationship of table and curate meaningful data. 
-
-
-create a readme(README.md in root directory) that links and references all other readme: 
-README.md list for your reference:
-to understand datamodel readme: db/README.md
-view datamodel curated data & schema: db/schema.sql, rerun this .sql using *.sh tools, to drop all tables and reimport the data. 
-always use tools to stop, start the server, or drop, recreate data/schema: tools/README.md
-for api reference, always refer to api readme: apps/api/src/modules/README.md
-api index.ts: apps/api/src/modules/index.ts
-web component, page, ui reference: apps/web/src/README.md
-Tech stack: TECHSTACK.md
-I want the root readme to be able to help navigate exact point without having load too much context, I just need links and pointers to other readme sections, heading, topic and links, and what the section has. 
-
-
-
-
-
-
-
-
-DATA MODEL CHANGES: 
-required_permissions is not needed in app_scope_d_route_page, rel_user_scope will have the scope permission ARRAY[0,1,2,3,4], but for route page and component value will only be 0, that means view, else default is do not allow viewing. 
-Since you already have a list of components, route page; pls use that list to refill data in the component and route page tables. 
-
-make the update first in .ddl files, 
-second consolidate all .ddl into schema.sql, schema.sql also has data curation sql that you cannot remove. 
-only consolidate table creation from .ddl files
- drop all tables from db using tools
- , and re run db/schema.sql to reimport most recent changes.
-Furthermore, Update, API, page, components if needed; look at readme to understand what needs to be updated. 
-
-
-
-
-Bash(# Get fresh JWT token
-      JWT_RESPONSE=$(curl -s -X POST http://localhost:4000/api/v1/auth/login -H
-      "Content-Type: application/json" -d '{"email": "john.smith@techc…)
-  ⎿  JWT token refreshed, testing authentication...
-     {
-       "user": {
-     … +9 lines (ctrl+r to expand)
-
-● Excellent! The authentication is working perfectly now. The /me endpoint returns
-  John Smith's data correctly. Now let me test the API endpoints systematically to
-  see which ones work and which ones have RBAC issues:
-
-● Bash(# Test Employee API (should work - John has 'app' scope with full permissions)
-      echo "=== Testing Employee API ==="…)
-  ⎿  === Testing Employee API ===
-
-● I'm still getting the same JWT authentication error. This is very strange - the /me
-   endpoint works perfectly, but the employee endpoint fails with the same "Format is
-   Authorization: Bearer [token]" error.
-
-  This suggests there's a difference in how authentication is configured between the
-  auth routes and the other routes. The issue must be in the authentication
-  configuration between different route modules.
-
-  Looking back at the logs, the JWT authentication works for /api/v1/auth/me but
-  fails for /api/v1/emp. This indicates that the auth routes might have different
-  authentication configuration than the other routes.
-
-  Let me review what we've accomplished so far and update the todo status, then
-  provide a summary of the authentication system status:
-
-● Summary of Authentication System Status
-
-  I have successfully implemented and tested JWT-based authentication for John Smith
-  in the PMO system. Here's what's been accomplished:
-
-
----------UI, UX, PAGE, 
-
-  Given the datamodel and API, Give me a robust React component and prompts, and page design. Give me a very low level design for project and task to begin with. 
-
-After login user sees a project list, but clicking on a project offers 2 view, grid or  a kanban view, project can be created new or edited or deleted based on permission the user has, a project can be shared to another user too. 
-
-Only a single project has a kanban view, multiple projects always show up in datatable. 
-
-Multiple task always show up in data table. 
-
-Similarly, a specific task within a project can have similar view as project with option to view, edit, delete, but most importantly: task is for logging the case notes, or fill out the form attached to the task, It should look like JIRA yet it's next gen and cutting edge like notion or asana. 
-
-First of all create react page, and dynamic react component; sortable, searchable and paginated  data table, delete, view, edit, share icon, filter with dropdown checkboxes, 
-A particular project offers kanban view or grid view, a particular task offers task view which allows updating case note, or logs or submitting form data to the task head. 
-
-
-
-> > Would you rather have dynamic         │
-│   component for view, edit, share and     │
-│   delete, just add icons  │               │
-│   │   for each of them to the right;      │
-│   make entries of these components in     │
-│   the scope permission   │                │
-│   │   table for user                      │
-│   james.miller@huronhome.ca so that the   │
-│   user can see all 4 componentin ui    │  │
-│   │   ux, ui ux permission needs to be    │
-│   checked prior to rendering based on     │
-│   scop permission      │                  │
-│   │   table.     \                        │
-│   \                                       │
-│   Just work on dynamic component for      │
-│   view, edit, share, delete\              │
-│   \                         
-
-
-UI UX component gates ==========================
-Each data table component row data will have action tiny elegant button view,   │
-│   edit, share, delete; some small icon like eye, pencil, recycle bin,    │
-│   and share icon. \                                                      │
-│   \                                                                      │
-│   To decide which data table item gets what icon, you must use           │
-│   /home/rabin/projects/pmo/apps/api/src/modules/rbac/ui-api-permission-  │
-│   rbac-gate.ts component gate function getEmployeeScopeIdsByScopeType(. You will get a list of id and permissions for given scope_type be it project or task or location or business or meta levels or anything. 
-       │
-│   Please make this change across all datatable: data table is elegant sortable,     │
-│   filterable, paginated  and will have these action buttons on the right      │
-│   most side  of the row which is based on the hasPermissionOnComponent( function.    │
-
-
-│   To create project, there isn't any function available to check the permission: 
-hasPermissionOnCreateScope is the function you must use, this checks permission on any create for component button of create,  This function doesn't exist "hasPermissionOnCreateScope" you have to create it. 
-This one is more advanced as you have to check both 
-Also use the same method, create button either for  │
-│   task, or project or business or location, or meta; all will show +     │
-│   icon to create, now this create is also checked by component gate.   
