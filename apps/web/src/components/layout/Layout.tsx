@@ -137,7 +137,7 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                 <span className="text-gray-700 font-normal text-xs">PMO</span>
               </div>
               {!isCollapsed && (
-                <span className="ml-3 text-base font-semibold text-gray-800">Task Manager</span>
+                <span className="ml-3 text-sm font-normal text-gray-800">Task Manager</span>
               )}
             </div>
             {!isCollapsed && (
@@ -171,14 +171,14 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                 currentPage === '/settings'
                   ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
-              } group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 text-sm font-medium rounded-l-lg transition-all duration-200`}
+              } group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 text-sm font-normal rounded-l-lg transition-all duration-200`}
               onClick={() => setCurrentPage('/settings')}
               title={isCollapsed ? 'Settings' : undefined}
             >
               <Settings className={`${
                 currentPage === '/settings' ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
               } ${isCollapsed ? '' : 'mr-3'} h-4 w-4 stroke-[1.5] transition-colors duration-200`} />
-              {!isCollapsed && <span className="text-sm font-medium">Settings</span>}
+              {!isCollapsed && <span className="text-sm font-normal">Settings</span>}
             </a>
 
             {/* Other Navigation Items */}
@@ -193,14 +193,14 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                     isActive
                       ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
-                  } group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 text-sm font-medium rounded-l-lg transition-all duration-200`}
+                  } group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 text-sm font-normal rounded-l-lg transition-all duration-200`}
                   onClick={() => setCurrentPage(item.href)}
                   title={isCollapsed ? item.name : undefined}
                 >
                   <IconComponent className={`${
                     isActive ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
                   } ${isCollapsed ? '' : 'mr-3'} h-4 w-4 stroke-[1.5] transition-colors duration-200`} />
-                  {!isCollapsed && <span className="text-sm font-medium">{item.name}</span>}
+                  {!isCollapsed && <span className="text-sm font-normal">{item.name}</span>}
                 </a>
               );
             })}
@@ -222,8 +222,8 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                     <User className="h-5 w-5 text-gray-600 stroke-[1.5]" />
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <div className="text-sm font-medium text-gray-900 truncate">{user?.name}</div>
-                    <div className="text-xs text-gray-500 truncate">{user?.email}</div>
+                    <div className="text-sm font-normal text-gray-900 truncate">{user?.name}</div>
+                    <div className="text-xs font-normal text-gray-500 truncate">{user?.email}</div>
                   </div>
                   <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-150 ${
                     isUserMenuOpen ? 'transform rotate-180' : ''
@@ -285,8 +285,8 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
                 {isUserMenuOpen && (
                   <div className="absolute bottom-full left-16 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50 min-w-48">
                     <div className="px-3 py-2 border-b border-gray-200">
-                      <div className="text-sm font-medium text-gray-900 truncate">{user?.name}</div>
-                      <div className="text-xs text-gray-500 truncate">{user?.email}</div>
+                      <div className="text-sm font-normal text-gray-900 truncate">{user?.name}</div>
+                      <div className="text-xs font-normal text-gray-500 truncate">{user?.email}</div>
                     </div>
                     {profileNavigationItems.map((item) => {
                       const IconComponent = item.icon;

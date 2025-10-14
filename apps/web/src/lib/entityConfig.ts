@@ -21,6 +21,18 @@ export interface ColumnDef {
   align?: 'left' | 'center' | 'right';
   width?: string;
   render?: (value: any, record: any) => React.ReactNode;
+  /**
+   * When true, options for this column will be dynamically loaded from settings tables
+   * for use in inline editing dropdowns. The column key will be mapped to the appropriate
+   * settings category.
+   */
+  loadOptionsFromSettings?: boolean;
+  /**
+   * When true, this column can be edited inline in the DataTable.
+   * Fields with loadOptionsFromSettings automatically become editable with dropdowns.
+   * Tags fields are also automatically editable with text inputs.
+   */
+  inlineEditable?: boolean;
 }
 
 export interface FieldDef {
@@ -38,6 +50,12 @@ export interface FieldDef {
    * Useful for boolean fields represented as select inputs.
    */
   coerceBoolean?: boolean;
+  /**
+   * When true, options will be dynamically loaded from settings tables.
+   * The field key will be mapped to the appropriate settings category.
+   * Example: project_stage → loads from setting_project_stage table
+   */
+  loadOptionsFromSettings?: boolean;
 }
 
 export interface EntityConfig {
@@ -161,6 +179,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Stage',
         sortable: true,
         filterable: true,
+        loadOptionsFromSettings: true,
+        inlineEditable: true,
         render: (value) => renderBadge(value, {
           'Initiation': 'bg-blue-100 text-blue-800',
           'Planning': 'bg-purple-100 text-purple-800',
@@ -191,6 +211,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       {
         key: 'tags',
         title: 'Tags',
+        inlineEditable: true,
         render: renderTags
       }
     ],
@@ -200,7 +221,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'code', label: 'Project Code', type: 'text', required: true },
       { key: 'slug', label: 'Slug', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'richtext' },
-      { key: 'project_stage', label: 'Stage', type: 'select', options: [] }, // populated from setting_project_stage
+      { key: 'project_stage', label: 'Stage', type: 'select', loadOptionsFromSettings: true },
       { key: 'budget_allocated', label: 'Budget', type: 'number' },
       { key: 'planned_start_date', label: 'Start Date', type: 'date' },
       { key: 'planned_end_date', label: 'End Date', type: 'date' },
@@ -242,6 +263,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Stage',
         sortable: true,
         filterable: true,
+        loadOptionsFromSettings: true,
+        inlineEditable: true,
         render: (value) => renderBadge(value, {
           'Backlog': 'bg-gray-100 text-gray-800',
           'To Do': 'bg-blue-100 text-blue-800',
@@ -279,6 +302,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       {
         key: 'tags',
         title: 'Tags',
+        inlineEditable: true,
         render: renderTags
       }
     ],
@@ -288,7 +312,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'code', label: 'Task Code', type: 'text', required: true },
       { key: 'slug', label: 'Slug', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'richtext' },
-      { key: 'stage', label: 'Stage', type: 'select', options: [] }, // from setting_task_stage
+      { key: 'stage', label: 'Stage', type: 'select', loadOptionsFromSettings: true },
       { key: 'priority_level', label: 'Priority', type: 'select', options: [
         { value: 'High', label: 'High' },
         { value: 'Medium', label: 'Medium' },
@@ -384,6 +408,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       {
         key: 'tags',
         title: 'Tags',
+        inlineEditable: true,
         render: renderTags
       }
     ],
@@ -613,6 +638,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       {
         key: 'tags',
         title: 'Tags',
+        inlineEditable: true,
         render: renderTags
       },
       {
@@ -681,16 +707,18 @@ export const entityConfigs: Record<string, EntityConfig> = {
         )
       },
       {
-        key: 'level_name',
+        key: 'office_level_id',
         title: 'Level',
         sortable: true,
         filterable: true,
-        render: (value) => renderBadge(value, {
+        loadOptionsFromSettings: true,
+        inlineEditable: true,
+        render: (value, record) => record.level_name ? renderBadge(record.level_name, {
           'Office': 'bg-blue-100 text-blue-800',
           'District': 'bg-purple-100 text-purple-800',
           'Region': 'bg-green-100 text-green-800',
           'Corporate': 'bg-yellow-100 text-yellow-800'
-        })
+        }) : '-'
       },
       {
         key: 'active_flag',
@@ -706,7 +734,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'name', label: 'Name', type: 'text', required: true },
       { key: 'addr', label: 'Address', type: 'textarea' },
       { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'level_id', label: 'Level', type: 'select', options: [] }, // from setting_office_level
+      { key: 'office_level_id', label: 'Level', type: 'select', loadOptionsFromSettings: true },
       { key: 'parent_id', label: 'Parent Office', type: 'select', options: [] }
     ],
 
@@ -866,6 +894,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       {
         key: 'tags',
         title: 'Tags',
+        inlineEditable: true,
         render: renderTags
       }
     ],
@@ -923,11 +952,13 @@ export const entityConfigs: Record<string, EntityConfig> = {
         filterable: true
       },
       {
-        key: 'opportunity_funnel_level_name',
+        key: 'opportunity_funnel_level_id',
         title: 'Opportunity Funnel',
         sortable: true,
         filterable: true,
-        render: (value) => value ? renderBadge(value, {
+        loadOptionsFromSettings: true,
+        inlineEditable: true,
+        render: (value, record) => record.opportunity_funnel_level_name ? renderBadge(record.opportunity_funnel_level_name, {
           'Lead': 'bg-gray-100 text-gray-800',
           'Qualified': 'bg-blue-100 text-blue-800',
           'Site Visit Scheduled': 'bg-purple-100 text-purple-800',
@@ -939,11 +970,13 @@ export const entityConfigs: Record<string, EntityConfig> = {
         }) : '-'
       },
       {
-        key: 'industry_sector_name',
+        key: 'industry_sector_id',
         title: 'Industry Sector',
         sortable: true,
         filterable: true,
-        render: (value) => value ? renderBadge(value, {
+        loadOptionsFromSettings: true,
+        inlineEditable: true,
+        render: (value, record) => record.industry_sector_name ? renderBadge(record.industry_sector_name, {
           'Residential': 'bg-blue-100 text-blue-800',
           'Commercial Real Estate': 'bg-purple-100 text-purple-800',
           'Healthcare': 'bg-green-100 text-green-800',
@@ -955,18 +988,22 @@ export const entityConfigs: Record<string, EntityConfig> = {
         }) : '-'
       },
       {
-        key: 'acquisition_channel_name',
+        key: 'acquisition_channel_id',
         title: 'Acquisition Channel',
         sortable: true,
         filterable: true,
-        render: (value) => value || '-'
+        loadOptionsFromSettings: true,
+        inlineEditable: true,
+        render: (value, record) => record.acquisition_channel_name || '-'
       },
       {
-        key: 'customer_tier_name',
+        key: 'customer_tier_id',
         title: 'Customer Tier',
         sortable: true,
         filterable: true,
-        render: (value) => value ? renderBadge(value, {
+        loadOptionsFromSettings: true,
+        inlineEditable: true,
+        render: (value, record) => record.customer_tier_name ? renderBadge(record.customer_tier_name, {
           'Standard': 'bg-gray-100 text-gray-800',
           'Plus': 'bg-blue-100 text-blue-800',
           'Premium': 'bg-purple-100 text-purple-800',
@@ -994,6 +1031,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'city', label: 'City', type: 'text' },
       { key: 'province', label: 'Province', type: 'text' },
       { key: 'postal_code', label: 'Postal Code', type: 'text' },
+      { key: 'opportunity_funnel_level_id', label: 'Opportunity Funnel', type: 'select', loadOptionsFromSettings: true },
+      { key: 'industry_sector_id', label: 'Industry Sector', type: 'select', loadOptionsFromSettings: true },
+      { key: 'acquisition_channel_id', label: 'Acquisition Channel', type: 'select', loadOptionsFromSettings: true },
+      { key: 'customer_tier_id', label: 'Customer Tier', type: 'select', loadOptionsFromSettings: true },
       { key: 'tags', label: 'Tags', type: 'array' }
     ],
 
@@ -1033,6 +1074,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       {
         key: 'tags',
         title: 'Tags',
+        inlineEditable: true,
         render: renderTags
       }
     ],

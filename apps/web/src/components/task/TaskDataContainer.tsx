@@ -384,7 +384,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
       <div className="px-6 py-4 border-b border-gray-200">
         <div className="flex items-center space-x-2">
           <MessageSquare className="h-5 w-5 text-gray-600" />
-          <h2 className="text-sm font-medium text-gray-700">Task Updates & Activity</h2>
+          <h2 className="text-sm font-normal text-gray-700">Task Updates & Activity</h2>
           <span className="text-xs text-gray-500">({updates.length})</span>
         </div>
       </div>
@@ -433,7 +433,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
           {/* Attachment Preview */}
           {attachments.length > 0 && (
             <div className="space-y-2">
-              <div className="text-xs font-medium text-gray-600">Attachments ({attachments.length})</div>
+              <div className="text-xs font-normal text-gray-600">Attachments ({attachments.length})</div>
               <div className="flex flex-wrap gap-2">
                 {attachments.map((file, index) => (
                   <div
@@ -479,7 +479,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
             <button
               onClick={handlePostUpdate}
               disabled={posting || (!editorContent.trim() && attachments.length === 0)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-normal rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send className="h-4 w-4 mr-2" />
               {posting ? 'Posting...' : 'Post Update'}
@@ -515,19 +515,19 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
                     {/* Header: Name, Time, Type */}
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">
-                        <span className="text-sm font-semibold text-gray-900">
+                        <span className="text-sm font-normal text-gray-900">
                           {update.updated_by_name || 'Unknown User'}
                         </span>
                         <span className="text-xs text-gray-500">
                           {formatRelativeTime(update.created_ts)}
                         </span>
                         {update.hours_logged && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-normal bg-green-100 text-green-800">
                             {update.hours_logged}h logged
                           </span>
                         )}
                       </div>
-                      <span className="px-2.5 py-1 text-xs font-medium rounded bg-gray-100 text-gray-600 capitalize">
+                      <span className="px-2.5 py-1 text-xs font-normal rounded bg-gray-100 text-gray-600 capitalize">
                         {update.update_type.replace('_', ' ')}
                       </span>
                     </div>

@@ -72,23 +72,27 @@ app (schema)
 │   ├── d_role, d_position
 │   └── d_artifact, d_wiki, ops_formlog_head, d_reports
 │
-├── Metadata/Configuration (5 tables)
-│   ├── meta_office_level, meta_business_level
-│   ├── meta_project_stage, meta_task_stage
-│   └── meta_position_level
+├── Settings/Configuration (13 tables)
+│   ├── setting_office_level, setting_business_level
+│   ├── setting_project_stage, setting_project_status
+│   ├── setting_task_stage, setting_task_status
+│   ├── setting_opportunity_funnel_level, setting_industry_sector
+│   ├── setting_acquisition_channel, setting_customer_tier ✅
+│   ├── setting_client_level, setting_hr_level
+│   └── setting_position_level
 │
 └── Relationships & RBAC (3 tables)
-    ├── entity_id_hierarchy_mapping (parent-child relationships)
-    ├── rel_employee_entity_action_rbac (permissions)
+    ├── entity_id_map (parent-child relationships)
+    ├── entity_id_rbac_map (fine-grained permissions)
     └── rel_emp_role (employee-role assignments)
 ```
 
-### Total: 21 Tables
+### Total: 29 Tables
 
 | Category | Count | Purpose |
 |----------|-------|---------|
 | **Data Entities** | 13 | Core business objects |
-| **Metadata** | 5 | Configuration & hierarchies |
+| **Settings** | 13 | Configuration, hierarchies & dropdown options |
 | **Relationships** | 3 | Mappings & permissions |
 
 ---
@@ -152,10 +156,14 @@ app (schema)
 #### Client & Site Entities
 
 **`d_client`** - Client Entities
-- **Key Fields:** `id`, `code`, `name`, `client_type`, `contact_email`, `contact_phone`
-- **Address:** `address_line1`, `city`, `province`, `postal_code`
-- **Records:** 11 clients
-- **Purpose:** Customer relationship management
+- **Key Fields:** `id`, `name`, `client_number`, `client_type`, `client_status`
+- **Contact:** `primary_contact_name`, `primary_email`, `primary_phone`
+- **Address:** `primary_address`, `city`, `province`, `postal_code`, `country`
+- **Business:** `business_legal_name`, `business_type`, `gst_hst_number`
+- **Marketing/Sales:** `opportunity_funnel_level_id`, `industry_sector_id`, `acquisition_channel_id`, `customer_tier_id`
+- **Records:** 3 clients (Thompson Family, Martinez Family, Square One Shopping)
+- **Purpose:** Customer relationship management, sales pipeline tracking
+- **Table:** `app.d_client`
 
 **`d_worksite`** - Work Site Locations
 - **Key Fields:** `id`, `code`, `name`, `site_type`, `client_id`
@@ -187,31 +195,70 @@ app (schema)
 
 ---
 
-### 2️⃣ Metadata & Configuration Tables (6 tables)
+### 2️⃣ Settings & Configuration Tables (13 tables)
 
-These tables define configurable hierarchies and workflow stages.
+These tables define configurable hierarchies, workflow stages, and dropdown options throughout the system. Settings are dynamically loaded by the frontend via the universal `/api/v1/setting?category=<name>` endpoint.
 
-**`meta_office_level`** - Office Hierarchy Levels
+**`setting_office_level`** - Office Hierarchy Levels
 - **Levels:** 4 (Office → District → Region → Corporate)
 - **Records:** 4
+- **Usage:** Defines office organizational structure
 
-**`meta_business_level`** - Business Hierarchy Levels
+**`setting_business_level`** - Business Hierarchy Levels
 - **Levels:** 3 (Department → Division → Corporate)
 - **Records:** 3
+- **Usage:** Defines business unit hierarchy
 
-**`meta_project_stage`** - Project Lifecycle Stages
-- **Stages:** Initiation, Planning, In Progress, On Hold, Completed, Cancelled, Archived
+**`setting_project_stage`** - Project Lifecycle Stages
+- **Stages:** Initiation, Planning, Execution, Monitoring, Closure
 - **Records:** 7
+- **Usage:** Kanban columns, project filtering
 
-**`meta_task_stage`** - Task Workflow Stages
-- **Stages:** To Do, In Progress, In Review, Blocked, Done, Cancelled, Archived
+**`setting_task_stage`** - Task Workflow Stages
+- **Stages:** Backlog, To Do, In Progress, In Review, Done, Blocked
 - **Records:** 7
+- **Usage:** Kanban board columns, task workflow
 
-**`meta_client_level`** - Client Hierarchy Levels
-- **Records:** 5
+**`setting_project_status`** - Project Status Values
+- **Records:** Multiple status options
+- **Usage:** Project status tracking
 
-**`meta_position_level`** - Position Hierarchy Levels
+**`setting_task_status`** - Task Status Values
+- **Records:** Multiple status options
+- **Usage:** Task completion tracking
+
+**`setting_opportunity_funnel_level`** - Sales Pipeline Stages
+- **Stages:** Lead, Qualified, Site Visit, Proposal, Negotiation, Contract, Lost
 - **Records:** 8
+- **Usage:** Client opportunity tracking
+
+**`setting_industry_sector`** - Industry Classifications
+- **Sectors:** Residential, Commercial, Healthcare, Education, Hospitality, Municipal, Industrial
+- **Records:** 8
+- **Usage:** Client categorization
+
+**`setting_acquisition_channel`** - Customer Acquisition Sources
+- **Channels:** Referral, Website, Social Media, Direct Sales, etc.
+- **Usage:** Marketing analytics, lead source tracking
+
+**`setting_customer_tier`** - Customer Service Tiers ✅
+- **Tiers:** Standard, Plus, Premium, Enterprise, Government, Strategic
+- **Records:** 6
+- **Usage:** Service level differentiation, client segmentation
+- **Referenced by:** `d_client.customer_tier_id`
+- **Table:** `app.setting_customer_tier`
+
+**`setting_client_level`** - Client Classification Levels
+- **Records:** 5
+- **Usage:** Client hierarchy and authority levels
+
+**`setting_hr_level`** - HR/Employee Hierarchy Levels
+- **Records:** Multiple levels
+- **Usage:** Employee classification and reporting structure
+
+**`setting_position_level`** - Position Hierarchy Levels
+- **Records:** 8
+- **Usage:** Job title/position classification
 
 ---
 
@@ -569,16 +616,25 @@ The DDL files are imported in dependency order:
 
 ```
 0. 0_initial_setup.ddl         - Drop and recreate schema
-1. I-VI: meta_* tables         - Metadata configuration
+1. I-VI: Setting tables        - Metadata configuration (includes setting_customer_tier ✅)
 2. VII: entity_map             - Entity registry framework
 3. VIII: d_employee            - Employees (required for RBAC)
-4. IX-XIV: Core entities       - Office, Business, Client, Role, etc.
+4. IX-XIV: Core entities       - Office, Business, Client ✅, Role, etc.
 5. XV-XVII: Project entities   - Projects, Tasks
 6. XVIII-XXV: Content entities - Artifacts, Wiki, Forms, Reports
 7. XXVI: entity_id_map         - Parent-child relationships
 8. XXVII: entity_id_rbac_map   - RBAC permissions
 9. XXVIII: rel_emp_role        - Employee-role assignments
 ```
+
+### Recent Architectural Changes (2025-10-14)
+
+**Client Entity Implementation:**
+- ✅ Created `app.d_client` table with comprehensive fields
+- ✅ Created `app.setting_customer_tier` lookup table (6 tiers)
+- ✅ Integrated with existing setting tables (opportunity_funnel, industry_sector, acquisition_channel)
+- ✅ Added 3 sample clients spanning residential and commercial segments
+- ✅ API endpoint `/api/v1/client` fully functional with JOIN-based enrichment
 
 ### Default User Credentials
 

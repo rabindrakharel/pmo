@@ -195,6 +195,7 @@ export function EntityChildListPage({ parentType, childType }: EntityChildListPa
           parentType={parentType}
           parentId={parentId}
           showActionButtons={false}
+          inlineEditable={true}
           onBulkShare={handleBulkShare}
           onBulkDelete={handleBulkDelete}
           onRowClick={handleRowClick}
@@ -264,7 +265,7 @@ export function EntityChildListPage({ parentType, childType }: EntityChildListPa
       {/* Header with View Switcher and Create Button */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <h2 className="text-lg font-medium text-gray-800">
+          <h2 className="text-sm font-normal text-gray-800">
             {config.pluralName}
           </h2>
         </div>

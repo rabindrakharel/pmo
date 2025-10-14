@@ -410,7 +410,7 @@ export function InteractiveForm({
                 <div className="flex-shrink-0 text-blue-600">
                   {getFieldIcon(field.type)}
                 </div>
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-normal text-gray-700">
                   {label}
                   {field.required && <span className="text-red-500 ml-1">*</span>}
                 </label>
@@ -428,7 +428,7 @@ export function InteractiveForm({
               <button
                 type="button"
                 onClick={handlePrevious}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-normal text-gray-700 bg-white hover:bg-gray-50 transition-colors"
               >
                 Previous
               </button>

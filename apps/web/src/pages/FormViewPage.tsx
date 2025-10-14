@@ -139,7 +139,7 @@ export function FormViewPage() {
           <div className="flex items-center space-x-3">
             <button
               onClick={() => navigate(`/form/${id}/edit`)}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-normal rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               title="Edit form"
             >
               <Edit3 className="h-4 w-4 mr-2" />
@@ -150,19 +150,19 @@ export function FormViewPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Created</div>
+            <div className="text-xs font-normal text-gray-500 uppercase tracking-wide">Created</div>
             <div className="mt-1 text-sm text-gray-900">{form?.createdTs ? new Date(form.createdTs).toLocaleString('en-CA') : '—'}</div>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Updated</div>
+            <div className="text-xs font-normal text-gray-500 uppercase tracking-wide">Updated</div>
             <div className="mt-1 text-sm text-gray-900">{form?.updatedTs ? new Date(form.updatedTs).toLocaleString('en-CA') : '—'}</div>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Version</div>
+            <div className="text-xs font-normal text-gray-500 uppercase tracking-wide">Version</div>
             <div className="mt-1 text-sm text-gray-900">{form?.version || '—'}</div>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Fields</div>
+            <div className="text-xs font-normal text-gray-500 uppercase tracking-wide">Total Fields</div>
             <div className="mt-1 text-sm text-gray-900">{fields.length} field{fields.length !== 1 ? 's' : ''}</div>
           </div>
         </div>
@@ -173,7 +173,7 @@ export function FormViewPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
                 <Layers className="h-5 w-5 text-gray-600" />
-                <h3 className="text-sm font-semibold text-gray-700">Form Steps</h3>
+                <h3 className="text-sm font-normal text-gray-700">Form Steps</h3>
                 <span className="text-xs text-gray-500">Navigate through the form</span>
               </div>
               <div className="text-xs text-gray-500">
@@ -196,7 +196,7 @@ export function FormViewPage() {
                   <button
                     key={step.id}
                     onClick={() => navigateToStep(index)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors min-w-0 flex items-center space-x-2 ${
+                    className={`px-3 py-2 rounded-lg text-sm font-normal transition-colors min-w-0 flex items-center space-x-2 ${
                       index === currentStepIndex
                         ? 'bg-blue-100 text-blue-700 border border-blue-200'
                         : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
@@ -224,7 +224,7 @@ export function FormViewPage() {
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-gray-50/70">
-            <div className="flex items-center text-sm text-gray-700 font-semibold">
+            <div className="flex items-center text-sm text-gray-700 font-normal">
               <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center mr-3">
                 <Eye className="h-4 w-4 text-white" />
               </div>

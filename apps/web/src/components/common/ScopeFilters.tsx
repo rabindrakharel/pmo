@@ -93,7 +93,7 @@ export function ScopeFilters({
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`
-          inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg border transition-colors
+          inline-flex items-center px-4 py-2 text-sm font-normal rounded-lg border transition-colors
           ${selectedScopes.length > 0
             ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
             : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
@@ -117,7 +117,7 @@ export function ScopeFilters({
           {selectedScopeNames.map((scopeName, index) => (
             <span
               key={selectedScopes[index]}
-              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-blue-100 text-blue-800"
             >
               {scopeName}
               <button
@@ -175,7 +175,7 @@ export function ScopeFilters({
                       className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
                     <div className="ml-3 flex-1">
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-normal text-gray-900">
                         {scope.scope_name}
                       </div>
                       <div className="text-xs text-gray-500">
@@ -214,7 +214,7 @@ export function FilterChips({ filters, className = '' }: FilterChipsProps) {
           key={filter.id}
           onClick={filter.onClick}
           className={`
-            inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors
+            inline-flex items-center px-3 py-1.5 rounded-full text-sm font-normal transition-colors
             ${filter.active
               ? 'bg-blue-100 text-blue-800 border border-blue-200'
               : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'

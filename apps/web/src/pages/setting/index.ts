@@ -1,13 +1,3 @@
-export { ProjectStatusPage } from './projectStatus';
-export { ProjectStagePage } from './projectStage';
-export { TaskStatusPage } from './taskStatus';
-export { TaskStagePage } from './taskStage';
-export { BusinessLevelPage } from './businessLevel';
-export { OrgLevelPage } from './orgLevel';
-export { HrLevelPage } from './hrLevel';
-export { ClientLevelPage } from './clientLevel';
-export { PositionLevelPage } from './positionLevel';
-export { OpportunityFunnelLevelPage } from './opportunityFunnelLevel';
-export { IndustrySectorPage } from './industrySector';
-export { AcquisitionChannelPage } from './acquisitionChannel';
-export { CustomerTierPage } from './customerTier';
+// All settings are now managed through the unified SettingsPage component
+// Individual setting pages have been removed following DRY principle
+// Use SettingsPage from parent directory instead

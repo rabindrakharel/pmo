@@ -52,7 +52,7 @@ export function EditButton({
   disabled = false,
   className = ''
 }: EditButtonProps) {
-  const baseClasses = 'inline-flex items-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const baseClasses = 'inline-flex items-center font-normal rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
 
   const variantClasses = variant === 'primary'
     ? 'text-white bg-blue-600 border border-blue-600 hover:bg-blue-700 focus:ring-blue-500'
@@ -79,7 +79,7 @@ export function ShareButton({
   disabled = false,
   className = ''
 }: ShareButtonProps) {
-  const baseClasses = 'inline-flex items-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const baseClasses = 'inline-flex items-center font-normal rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
 
   const variantClasses = variant === 'primary'
     ? 'text-white bg-gray-600 border border-gray-600 hover:bg-gray-700 focus:ring-gray-500'
@@ -107,7 +107,7 @@ export function SaveButton({
   loadingText = 'Saving...',
   className = ''
 }: SaveButtonProps) {
-  const baseClasses = 'inline-flex items-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const baseClasses = 'inline-flex items-center font-normal rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
   const variantClasses = 'text-white bg-blue-600 border border-blue-600 hover:bg-blue-700 focus:ring-blue-500';
   const disabledClasses = (disabled || loading) ? 'opacity-50 cursor-not-allowed' : '';
 
@@ -163,7 +163,7 @@ export function CancelButton({
   disabled = false,
   className = ''
 }: CancelButtonProps) {
-  const baseClasses = 'inline-flex items-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const baseClasses = 'inline-flex items-center font-normal rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
   const variantClasses = 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-blue-500';
   const disabledClasses = disabled ? 'opacity-50 cursor-not-allowed' : '';
 

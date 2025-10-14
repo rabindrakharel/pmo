@@ -44,7 +44,7 @@ export function ViewSwitcher({
             key={view}
             onClick={() => onChange(view)}
             className={`
-              flex items-center space-x-2 px-4 py-2 text-sm font-medium transition-colors
+              flex items-center space-x-2 px-4 py-2 text-sm font-normal transition-colors
               ${isActive
                 ? 'bg-blue-50 text-blue-700 border-r border-gray-300 last:border-r-0'
                 : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900 border-r border-gray-300 last:border-r-0'
@@ -53,7 +53,7 @@ export function ViewSwitcher({
             `}
             title={`Switch to ${label} view`}
           >
-            <Icon className="h-4 w-4" />
+            <Icon className="h-4 w-4 stroke-[1.5]" />
             <span className="hidden sm:inline">{label}</span>
           </button>
         );

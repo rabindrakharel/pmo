@@ -309,6 +309,12 @@ export async function empRoutes(fastify: FastifyInstance) {
         WHERE id = ${id}
       `);
 
+      fastify.log.info(`Employee query returned ${employee.length} results`);
+      if (employee.length > 0) {
+        fastify.log.info(`Employee data keys: ${Object.keys(employee[0]).join(', ')}`);
+        fastify.log.info(`Employee raw data: ${JSON.stringify(employee[0]).substring(0, 200)}`);
+      }
+
       if (employee.length === 0) {
         return reply.status(404).send({ error: 'Employee not found' });
       }
@@ -320,7 +326,11 @@ export async function empRoutes(fastify: FastifyInstance) {
         canSeeSafetyInfo: true,
       };
 
-      return filterUniversalColumns(employee[0], userPermissions);
+      const filtered = filterUniversalColumns(employee[0], userPermissions);
+      fastify.log.info(`Filtered data keys: ${Object.keys(filtered).join(', ')}`);
+      fastify.log.info(`Filtered data: ${JSON.stringify(filtered).substring(0, 200)}`);
+
+      return filtered;
     } catch (error) {
       fastify.log.error('Error fetching employee:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

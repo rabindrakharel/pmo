@@ -286,7 +286,7 @@ export function GlobalSearch({ className = '' }: GlobalSearchProps) {
                         
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2">
-                            <span className="font-medium text-gray-900 truncate">
+                            <span className="font-normal text-gray-900 truncate">
                               {result.name}
                             </span>
                             <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">

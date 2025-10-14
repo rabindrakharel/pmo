@@ -417,7 +417,7 @@ export function FormSubmissionEditor({
       {showHeader && (
         <div className="bg-white border border-gray-200 rounded-lg p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-sm font-medium text-gray-800">Edit Form Submission</h2>
+            <h2 className="text-sm font-normal text-gray-800">Edit Form Submission</h2>
             <p className="text-xs text-gray-500 mt-1">
               {form?.name || form?.title || 'Form'} · Submission{' '}
               {submissionId?.substring(0, 8)}…
@@ -432,7 +432,7 @@ export function FormSubmissionEditor({
             )}
             <button
               onClick={() => fetchSubmission({ forceFullLoading: true })}
-              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50"
+              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-normal rounded-lg text-gray-700 bg-white hover:bg-gray-50"
             >
               <RefreshCw className="h-4 w-4 mr-1.5" />
               Refresh
@@ -440,7 +440,7 @@ export function FormSubmissionEditor({
             {onBack && (
               <button
                 onClick={onBack}
-                className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50"
+                className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-normal rounded-lg text-gray-700 bg-white hover:bg-gray-50"
               >
                 <ArrowLeft className="h-4 w-4 mr-1.5" />
                 Back
@@ -456,35 +456,35 @@ export function FormSubmissionEditor({
             <Hash className="h-4 w-4 text-gray-400" />
             <div>
               <p className="text-gray-500">Form ID</p>
-              <p className="font-medium text-gray-700 break-all">{formId}</p>
+              <p className="font-normal text-gray-700 break-all">{formId}</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
             <Hash className="h-4 w-4 text-gray-400" />
             <div>
               <p className="text-gray-500">Submission ID</p>
-              <p className="font-medium text-gray-700 break-all">{submissionId}</p>
+              <p className="font-normal text-gray-700 break-all">{submissionId}</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
             <CheckCircle className="h-4 w-4 text-gray-400" />
             <div>
               <p className="text-gray-500">Status</p>
-              <p className="font-medium text-gray-700 capitalize">{submissionStatus}</p>
+              <p className="font-normal text-gray-700 capitalize">{submissionStatus}</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
             <CheckCircle className="h-4 w-4 text-gray-400" />
             <div>
               <p className="text-gray-500">Approval</p>
-              <p className="font-medium text-gray-700 capitalize">{approvalStatus || '—'}</p>
+              <p className="font-normal text-gray-700 capitalize">{approvalStatus || '—'}</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
             <Calendar className="h-4 w-4 text-gray-400" />
             <div>
               <p className="text-gray-500">Submitted</p>
-              <p className="font-medium text-gray-700">
+              <p className="font-normal text-gray-700">
                 {createdAt ? new Date(createdAt).toLocaleString('en-CA') : '—'}
               </p>
             </div>
@@ -493,7 +493,7 @@ export function FormSubmissionEditor({
             <Clock className="h-4 w-4 text-gray-400" />
             <div>
               <p className="text-gray-500">Last Updated</p>
-              <p className="font-medium text-gray-700">
+              <p className="font-normal text-gray-700">
                 {updatedAt ? new Date(updatedAt).toLocaleString('en-CA') : '—'}
               </p>
             </div>
@@ -502,7 +502,7 @@ export function FormSubmissionEditor({
             <CheckCircle className="h-4 w-4 text-gray-400" />
             <div>
               <p className="text-gray-500">Stage</p>
-              <p className="font-medium text-gray-700 capitalize">{stage}</p>
+              <p className="font-normal text-gray-700 capitalize">{stage}</p>
             </div>
           </div>
         </div>

@@ -374,7 +374,7 @@ export function StepProgressIndicator({
               <button
                 onClick={() => isClickable && onStepClick(index)}
                 disabled={!isClickable}
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-200 relative z-10 ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-normal transition-all duration-200 relative z-10 ${
                   isActive 
                     ? 'bg-blue-500 text-white ring-4 ring-blue-100' 
                     : isCompleted 
@@ -424,7 +424,7 @@ export function DraggableFieldType({ fieldType }: { fieldType: { type: FieldType
             {fieldType.icon}
           </div>
           <div>
-            <div className="font-medium text-gray-800 text-sm">{fieldType.label}</div>
+            <div className="font-normal text-gray-800 text-sm">{fieldType.label}</div>
             <div className="text-xs text-gray-500">{fieldType.hint}</div>
           </div>
         </div>

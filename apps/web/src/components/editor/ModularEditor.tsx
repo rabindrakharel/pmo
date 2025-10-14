@@ -278,7 +278,7 @@ export const ModularEditor: React.FC<ModularEditorProps> = ({
       <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <Type className="h-4 w-4 text-gray-600" />
-          <span className="text-sm font-medium text-gray-700">Rich Text Editor</span>
+          <span className="text-sm font-normal text-gray-700">Rich Text Editor</span>
         </div>
         <div className="text-xs text-gray-500">
           {disabled ? 'Read-only' : 'Modular Editor'}

@@ -207,7 +207,15 @@ export function GridView<T = any>({
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold text-gray-900 truncate">
+              <h3
+                className="text-gray-900 truncate"
+                style={{
+                  fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                  fontSize: '13px',
+                  fontWeight: 400,
+                  color: '#333'
+                }}
+              >
                 {item.title}
               </h3>
               {selectable && (
@@ -222,11 +230,27 @@ export function GridView<T = any>({
             </div>
 
             {item.subtitle && (
-              <p className="text-sm text-gray-600 mb-2">{item.subtitle}</p>
+              <p
+                className="text-gray-600 mb-2"
+                style={{
+                  fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                  fontSize: '12px',
+                  color: '#666'
+                }}
+              >
+                {item.subtitle}
+              </p>
             )}
 
             {item.description && (
-              <p className="text-sm text-gray-500 mb-3 line-clamp-3">
+              <p
+                className="text-gray-500 mb-3 line-clamp-3"
+                style={{
+                  fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                  fontSize: '12px',
+                  color: '#777'
+                }}
+              >
                 {item.description}
               </p>
             )}
@@ -236,7 +260,7 @@ export function GridView<T = any>({
                 {item.badges.map((badge, index) => (
                   <span
                     key={index}
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getBadgeColor(badge.variant)}`}
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal ${getBadgeColor(badge.variant)}`}
                     style={badge.color ? { backgroundColor: badge.color } : {}}
                   >
                     {badge.text}
@@ -261,7 +285,16 @@ export function GridView<T = any>({
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-3 text-gray-600">Loading...</span>
+          <span
+            className="ml-3 text-gray-600"
+            style={{
+              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '13px',
+              fontWeight: 400
+            }}
+          >
+            Loading...
+          </span>
         </div>
       </div>
     );
@@ -312,7 +345,16 @@ export function GridView<T = any>({
         {filteredData.length === 0 ? (
           <div className="text-center py-12">
             <Grid className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500">{actualEmptyText}</p>
+            <p
+              className="text-gray-500"
+              style={{
+                fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                fontSize: '13px',
+                fontWeight: 400
+              }}
+            >
+              {actualEmptyText}
+            </p>
           </div>
         ) : (
           <div className={`grid gap-6 ${gridColsClass[actualGridCols]}`}>

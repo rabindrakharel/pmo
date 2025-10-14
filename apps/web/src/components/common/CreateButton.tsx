@@ -18,12 +18,12 @@ export function CreateButton({ label, href, entityType, size = 'sm', className =
 
   const sizeClasses = {
     sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-4 py-2 text-base'
+    md: 'px-3 py-1.5 text-sm',
+    lg: 'px-3 py-1.5 text-sm'
   };
 
   const iconSizes = {
-    sm: 'h-3 w-3',
+    sm: 'h-4 w-4',
     md: 'h-4 w-4',
     lg: 'h-4 w-4'
   };
@@ -31,9 +31,9 @@ export function CreateButton({ label, href, entityType, size = 'sm', className =
   return (
     <button
       onClick={() => navigate(href)}
-      className={`inline-flex items-center ${sizeClasses[size]} bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium shadow-sm hover:shadow-md ${className}`}
+      className={`inline-flex items-center ${sizeClasses[size]} border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors ${className}`}
     >
-      <Plus className={`${iconSizes[size]} mr-1.5`} />
+      <Plus className={`${iconSizes[size]} mr-2 stroke-[1.5]`} />
       {label}
     </button>
   );

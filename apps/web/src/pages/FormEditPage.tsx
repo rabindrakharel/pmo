@@ -57,7 +57,7 @@ export function FormEditPage() {
       <Layout>
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-900">Form not found</h3>
+            <h3 className="text-sm font-normal text-gray-900">Form not found</h3>
             <p className="mt-2 text-gray-600">The form you're looking for doesn't exist.</p>
           </div>
         </div>

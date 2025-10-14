@@ -441,7 +441,7 @@ export function EntityAssignmentDataTable({
   if (loading) {
     return (
       <div className="bg-white shadow rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Parent Entity Assignments</h3>
+        <h3 className="text-sm font-normal text-gray-900 mb-4">Parent Entity Assignments</h3>
         <div className="flex items-center text-gray-500">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
           Loading parent entity assignments...
@@ -454,7 +454,7 @@ export function EntityAssignmentDataTable({
   return (
     <div className="bg-white shadow rounded-lg p-4 mb-6">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-gray-900">Parent Entity Assignments</h3>
+        <h3 className="text-sm font-normal text-gray-900">Parent Entity Assignments</h3>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-500">
             {actionEntityType}: {actionEntityName}
@@ -462,7 +462,7 @@ export function EntityAssignmentDataTable({
           {effectiveCanAssign && (
             <button
               onClick={isEditMode ? handleSaveChanges : () => setIsEditMode(true)}
-              className={`inline-flex items-center px-3 py-1.5 border shadow-sm text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+              className={`inline-flex items-center px-3 py-1.5 border shadow-sm text-xs font-normal rounded focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                 showSavedMessage
                   ? 'border-green-300 text-green-700 bg-green-50 focus:ring-green-500'
                   : isEditMode
@@ -528,7 +528,7 @@ export function EntityAssignmentDataTable({
               <div key={entityType} className="bg-gray-50 rounded p-3 border border-gray-200">
                 {/* Entity Type Header */}
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
+                  <h4 className="text-xs font-normal text-gray-700 flex items-center gap-1.5">
                     <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                     {getEntityTypeDisplayName(entityType)}
                     <span className="text-xs text-gray-400 font-normal">
@@ -638,13 +638,13 @@ export function EntityAssignmentDataTable({
                                   ) : (
                                     <ChevronDown className="h-2.5 w-2.5 text-gray-500" />
                                   )}
-                                  <h4 className="text-xs font-medium text-gray-700 uppercase tracking-wide">
+                                  <h4 className="text-xs font-normal text-gray-700 uppercase tracking-wide">
                                     {getEntityTypeDisplayName(entityType)}
                                   </h4>
                                 </div>
                                 <div className="flex items-center space-x-1.5">
                                   {assignedCount > 0 && (
-                                    <span className="bg-blue-100 text-blue-800 text-xs font-medium px-1.5 py-0.5 rounded">
+                                    <span className="bg-blue-100 text-blue-800 text-xs font-normal px-1.5 py-0.5 rounded">
                                       {assignedCount}
                                     </span>
                                   )}

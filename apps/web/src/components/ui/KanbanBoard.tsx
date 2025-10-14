@@ -29,39 +29,87 @@ function KanbanCard({
 
   const defaultContent = (
     <>
-      <h4 className="font-medium text-gray-900 text-sm mb-2 line-clamp-2">
+      <h4
+        className="text-gray-900 mb-2 line-clamp-2"
+        style={{
+          fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+          fontSize: '13px',
+          fontWeight: 400,
+          color: '#333'
+        }}
+      >
         {item.name || item.title}
       </h4>
       {item.descr && (
-        <p className="text-xs text-gray-600 mb-2 line-clamp-2">{item.descr}</p>
+        <p
+          className="text-gray-600 mb-2 line-clamp-2"
+          style={{
+            fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+            fontSize: '12px',
+            color: '#666'
+          }}
+        >
+          {item.descr}
+        </p>
       )}
       <div className="flex items-center justify-between mt-2">
         {item.priority_level && (
-          <span className={`
-            inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-            ${item.priority_level === 'High'
-              ? 'bg-red-100 text-red-800'
-              : item.priority_level === 'Medium'
-              ? 'bg-yellow-100 text-yellow-800'
-              : 'bg-green-100 text-green-800'
-            }
-          `}>
+          <span
+            className={`
+              inline-flex items-center px-2 py-0.5 rounded-full
+              ${item.priority_level === 'High'
+                ? 'bg-red-100 text-red-800'
+                : item.priority_level === 'Medium'
+                ? 'bg-yellow-100 text-yellow-800'
+                : 'bg-green-100 text-green-800'
+              }
+            `}
+            style={{
+              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '11px',
+              fontWeight: 400
+            }}
+          >
             {item.priority_level}
           </span>
         )}
         {item.estimated_hours && (
-          <span className="text-xs text-gray-500">{item.estimated_hours}h</span>
+          <span
+            className="text-gray-500"
+            style={{
+              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '11px'
+            }}
+          >
+            {item.estimated_hours}h
+          </span>
         )}
       </div>
       {item.tags && item.tags.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
           {item.tags.slice(0, 2).map((tag: string, idx: number) => (
-            <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-blue-50 text-blue-700">
+            <span
+              key={idx}
+              className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 text-blue-700"
+              style={{
+                fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                fontSize: '11px',
+                fontWeight: 400
+              }}
+            >
               {tag}
             </span>
           ))}
           {item.tags.length > 2 && (
-            <span className="text-xs text-gray-400">+{item.tags.length - 2}</span>
+            <span
+              className="text-gray-400"
+              style={{
+                fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                fontSize: '11px'
+              }}
+            >
+              +{item.tags.length - 2}
+            </span>
           )}
         </div>
       )}
@@ -135,9 +183,26 @@ function KanbanColumnComponent({
               style={{ backgroundColor: column.color }}
             />
           )}
-          <h3 className="font-semibold text-gray-900 text-sm">{column.title}</h3>
+          <h3
+            className="text-gray-900"
+            style={{
+              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '13px',
+              fontWeight: 400,
+              color: '#333'
+            }}
+          >
+            {column.title}
+          </h3>
         </div>
-        <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full text-xs font-medium">
+        <span
+          className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full"
+          style={{
+            fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+            fontSize: '11px',
+            fontWeight: 400
+          }}
+        >
           {column.items.length}
         </span>
       </div>
@@ -156,7 +221,16 @@ function KanbanColumnComponent({
         <div className="space-y-3">
           {column.items.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-400 text-sm">No items</p>
+              <p
+                className="text-gray-400"
+                style={{
+                  fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                  fontSize: '13px',
+                  fontWeight: 400
+                }}
+              >
+                No items
+              </p>
             </div>
           ) : (
             column.items.map((item) => (
@@ -197,7 +271,16 @@ export function KanbanBoard({
   if (columns.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">{emptyMessage}</p>
+        <p
+          className="text-gray-500"
+          style={{
+            fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+            fontSize: '13px',
+            fontWeight: 400
+          }}
+        >
+          {emptyMessage}
+        </p>
       </div>
     );
   }

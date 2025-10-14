@@ -138,7 +138,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
             <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
               {/* Type Badge */}
               {data.wiki_type && (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeBadgeClass(data.wiki_type)}`}>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal ${getTypeBadgeClass(data.wiki_type)}`}>
                   <BookOpen className="h-3 w-3 mr-1" />
                   {data.wiki_type}
                 </span>
@@ -146,7 +146,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
 
               {/* Status Badge */}
               {data.publication_status && (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(data.publication_status)}`}>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal ${getStatusBadgeClass(data.publication_status)}`}>
                   {data.publication_status}
                 </span>
               )}
@@ -155,7 +155,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
               {data.category && (
                 <span className="flex items-center gap-1">
                   <span className="text-gray-400">Category:</span>
-                  <span className="font-medium text-gray-700">{data.category}</span>
+                  <span className="font-normal text-gray-700">{data.category}</span>
                 </span>
               )}
 
@@ -192,7 +192,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
                   {data.tags.map((tag: string, index: number) => (
                     <span
                       key={index}
-                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200"
+                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-normal bg-blue-50 text-blue-700 border border-blue-200"
                     >
                       {tag}
                     </span>
@@ -209,7 +209,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
                   {data.keywords.map((keyword: string, index: number) => (
                     <span
                       key={index}
-                      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700"
+                      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-normal bg-gray-100 text-gray-700"
                     >
                       {keyword}
                     </span>
@@ -285,7 +285,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
       {/* Metadata Section */}
       {data.metadata && Object.keys(data.metadata).length > 0 && (
         <details className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <summary className="cursor-pointer font-medium text-gray-700 hover:text-gray-900">
+          <summary className="cursor-pointer font-normal text-gray-700 hover:text-gray-900">
             Additional Metadata
           </summary>
           <pre className="mt-3 text-xs text-gray-600 overflow-auto bg-white p-3 rounded border border-gray-200">

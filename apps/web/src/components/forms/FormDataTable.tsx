@@ -103,7 +103,7 @@ export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTa
     const colorClass = statusColors[status] || 'bg-gray-100 text-gray-800';
 
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal ${colorClass}`}>
         {status}
       </span>
     );
@@ -155,7 +155,7 @@ export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTa
       <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 bg-gray-50">
         <div className="flex items-center space-x-2">
           <Database className="h-5 w-5 text-gray-600" />
-          <h3 className="text-sm font-semibold text-gray-700">Form Submissions</h3>
+          <h3 className="text-sm font-normal text-gray-700">Form Submissions</h3>
           <span className="text-xs text-gray-500">({data.length} total)</span>
         </div>
         <button
@@ -171,22 +171,22 @@ export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTa
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
                 Submission ID
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
                 Status
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
                 Approval
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
                 Submitted By
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
                 Submitted At
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
                 Data
               </th>
             </tr>

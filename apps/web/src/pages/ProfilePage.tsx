@@ -53,7 +53,7 @@ export function ProfilePage() {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-gray-800">Profile</h1>
+          <h1 className="text-sm font-normal text-gray-800">Profile</h1>
           <p className="mt-2 text-gray-600">Manage your personal information and account settings.</p>
         </div>
 
@@ -75,7 +75,7 @@ export function ProfilePage() {
                 <User className="h-8 w-8 text-white" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">{user?.name}</h2>
+                <h2 className="text-sm font-normal text-gray-900">{user?.name}</h2>
                 <p className="text-gray-500">{user?.email}</p>
               </div>
             </div>
@@ -83,7 +83,7 @@ export function ProfilePage() {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-900 mb-2">
+                  <label htmlFor="name" className="block text-sm font-normal text-gray-900 mb-2">
                     Full Name
                   </label>
                   <input
@@ -98,7 +98,7 @@ export function ProfilePage() {
                 </div>
 
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-900 mb-2">
+                  <label htmlFor="email" className="block text-sm font-normal text-gray-900 mb-2">
                     Email Address
                   </label>
                   <input
@@ -117,7 +117,7 @@ export function ProfilePage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-normal rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >
                   {isLoading ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -134,16 +134,16 @@ export function ProfilePage() {
         {/* Account Information Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Information</h3>
+            <h3 className="text-sm font-normal text-gray-900 mb-4">Account Information</h3>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div className="bg-gray-50 rounded-lg p-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                <label className="block text-sm font-normal text-gray-700 mb-1">User ID</label>
                 <div className="text-sm font-mono text-gray-900 break-all">
                   {user?.id}
                 </div>
               </div>
               <div className="bg-gray-50 rounded-lg p-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Member Since</label>
+                <label className="block text-sm font-normal text-gray-700 mb-1">Member Since</label>
                 <div className="flex items-center text-sm text-gray-900">
                   <Calendar className="h-4 w-4 text-gray-500 mr-2" />
                   January 2025

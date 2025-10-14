@@ -58,9 +58,9 @@ export function ActionButtonsBar({
             {onBulkShare && (
               <button
                 onClick={onBulkShare}
-                className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors"
               >
-                <Share className="h-4 w-4 mr-1.5" />
+                <Share className="h-4 w-4 mr-2 stroke-[1.5]" />
                 Share Selected
               </button>
             )}
@@ -68,9 +68,9 @@ export function ActionButtonsBar({
             {onBulkDelete && (
               <button
                 onClick={onBulkDelete}
-                className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                className="inline-flex items-center px-3 py-1.5 border border-red-600 text-sm font-normal rounded text-white bg-red-600 hover:bg-red-700 hover:border-red-700 transition-colors"
               >
-                <Trash2 className="h-4 w-4 mr-1.5" />
+                <Trash2 className="h-4 w-4 mr-2 stroke-[1.5]" />
                 Delete Selected
               </button>
             )}
@@ -86,9 +86,9 @@ export function ActionButtonsBar({
         {(createLabel || onCreateClick || createHref) && (
           <button
             onClick={handleCreateClick}
-            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors"
           >
-            <Plus className="h-4 w-4 mr-1.5" />
+            <Plus className="h-4 w-4 mr-2 stroke-[1.5]" />
             {createLabel || `Create ${entityType.charAt(0).toUpperCase() + entityType.slice(1)}`}
           </button>
         )}

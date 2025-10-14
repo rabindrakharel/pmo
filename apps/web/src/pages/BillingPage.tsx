@@ -61,21 +61,21 @@ export function BillingPage() {
     switch (status) {
       case 'paid':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-green-100 text-green-800">
             <CheckCircle className="w-3 h-3 mr-1" />
             Paid
           </span>
         );
       case 'pending':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-yellow-100 text-yellow-800">
             <Calendar className="w-3 h-3 mr-1" />
             Pending
           </span>
         );
       case 'overdue':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-red-100 text-red-800">
             <AlertCircle className="w-3 h-3 mr-1" />
             Overdue
           </span>
@@ -93,7 +93,7 @@ export function BillingPage() {
                 <CreditCard className="h-5 w-5 text-white" />
               </div>
               <div className="ml-4">
-                <h1 className="text-2xl font-bold text-gray-900">Billing & Subscription</h1>
+                <h1 className="text-sm font-normal text-gray-900">Billing & Subscription</h1>
                 <p className="text-gray-600">Manage your subscription and billing information</p>
               </div>
             </div>
@@ -102,18 +102,18 @@ export function BillingPage() {
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 mb-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">PMO Enterprise Plan</h3>
+                  <h3 className="text-sm font-normal text-gray-900">PMO Enterprise Plan</h3>
                   <p className="text-gray-600">Full access to all features and unlimited users</p>
                   <div className="flex items-center mt-2">
                     <DollarSign className="h-4 w-4 text-gray-500 mr-1" />
-                    <span className="text-2xl font-bold text-gray-900">$99.99</span>
+                    <span className="text-sm font-normal text-gray-900">$99.99</span>
                     <span className="text-gray-600 ml-1">/month</span>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-sm text-gray-600">Next billing date</div>
-                  <div className="font-medium text-gray-900">February 1, 2025</div>
-                  <button className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium">
+                  <div className="font-normal text-gray-900">February 1, 2025</div>
+                  <button className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-normal">
                     Change plan
                   </button>
                 </div>
@@ -122,7 +122,7 @@ export function BillingPage() {
 
             {/* Payment Method */}
             <div className="mb-8">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Payment Method</h3>
+              <h3 className="text-sm font-normal text-gray-900 mb-4">Payment Method</h3>
               <div className="bg-white border border-gray-200 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
@@ -130,14 +130,14 @@ export function BillingPage() {
                       <CreditCard className="h-5 w-5 text-gray-600" />
                     </div>
                     <div className="ml-4">
-                      <div className="font-medium text-gray-900">•••• •••• •••• 4242</div>
+                      <div className="font-normal text-gray-900">•••• •••• •••• 4242</div>
                       <div className="text-sm text-gray-500">Expires 12/2028</div>
                     </div>
                   </div>
                   <button
                     onClick={handleUpdatePaymentMethod}
                     disabled={isUpdatingPayment}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium disabled:opacity-50"
+                    className="text-blue-600 hover:text-blue-700 text-sm font-normal disabled:opacity-50"
                   >
                     {isUpdatingPayment ? 'Updating...' : 'Update'}
                   </button>
@@ -147,7 +147,7 @@ export function BillingPage() {
 
             {/* Billing History */}
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Billing History</h3>
+              <h3 className="text-sm font-normal text-gray-900 mb-4">Billing History</h3>
               <div className="bg-white shadow overflow-hidden sm:rounded-md">
                 <ul className="divide-y divide-gray-200">
                   {mockInvoices.map((invoice) => (
@@ -161,7 +161,7 @@ export function BillingPage() {
                           </div>
                           <div className="ml-4">
                             <div className="flex items-center">
-                              <div className="text-sm font-medium text-gray-900 mr-2">
+                              <div className="text-sm font-normal text-gray-900 mr-2">
                                 {invoice.id}
                               </div>
                               {getStatusBadge(invoice.status)}
@@ -173,7 +173,7 @@ export function BillingPage() {
                           </div>
                         </div>
                         <div className="flex items-center space-x-4">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-normal text-gray-900">
                             ${invoice.amount.toFixed(2)}
                           </div>
                           <button
@@ -192,11 +192,11 @@ export function BillingPage() {
 
             {/* Billing Settings */}
             <div className="border-t border-gray-200 pt-8 mt-8">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Billing Settings</h3>
+              <h3 className="text-sm font-normal text-gray-900 mb-4">Billing Settings</h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-sm font-medium text-gray-900">Email invoices</div>
+                    <div className="text-sm font-normal text-gray-900">Email invoices</div>
                     <div className="text-sm text-gray-500">Receive invoices via email</div>
                   </div>
                   <input
@@ -207,7 +207,7 @@ export function BillingPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-sm font-medium text-gray-900">Auto-renewal</div>
+                    <div className="text-sm font-normal text-gray-900">Auto-renewal</div>
                     <div className="text-sm text-gray-500">Automatically renew subscription</div>
                   </div>
                   <input

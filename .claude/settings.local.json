@@ -171,7 +171,11 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzYwNDY3NzYzLCJleHAiOjE3NjA1NTQxNjN9.lQQkXCDmk-mQYJGJQBXcN_sTxJk5KSU_OhPTVEgx1D4\" curl -s \"http://localhost:4000/api/v1/client?limit=1\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzYwNDY3NzYzLCJleHAiOjE3NjA1NTQxNjN9.lQQkXCDmk-mQYJGJQBXcN_sTxJk5KSU_OhPTVEgx1D4\" curl -s \"http://localhost:4000/api/v1/client\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzYwNDY3NzYzLCJleHAiOjE3NTk1NTQxNjN9.lQQkXCDmk-mQYJGJQBXcN_sTxJk5KSU_OhPTVEgx1D4\")",
-      "Bash(tools/restart-api.sh:*)"
+      "Bash(tools/restart-api.sh:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzYwNDY3NzYzLCJleHAiOjE3NjA1NTQxNjN9.lQQkXCDmk-mQYJGJQBXcN_sTxJk5KSU_OhPTVEgx1D4\" curl -s \"http://localhost:4000/api/v1/client?limit=5\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzYwNDY3NzYzLCJleHAiOjE3NjA1NTQxNjN9.lQQkXCDmk-mQYJGJQBXcN_sTxJk5KSU_OhPTVEgx1D4\" curl -s \"http://localhost:4000/api/v1/employee/6fbcc2c1-417a-41c0-804b-45f3d031a6e2\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash({} ;)",
+      "Bash(pages/WikiEditorPage.tsx pages/SettingsPage.tsx pages/PublicFormPage.tsx pages/SecurityPage.tsx pages/FormViewPage.tsx pages/BillingPage.tsx components/common/ScopeFilters.tsx)"
     ],
     "deny": [],
     "ask": [],

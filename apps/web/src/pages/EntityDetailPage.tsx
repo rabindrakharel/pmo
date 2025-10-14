@@ -10,6 +10,10 @@ import { TaskDataContainer } from '../components/task/TaskDataContainer';
 import { FormDataTable } from '../components/forms/FormDataTable';
 import { InteractiveForm } from '../components/forms/InteractiveForm';
 import { FormSubmissionEditor } from '../components/forms/FormSubmissionEditor';
+import {
+  loadFieldOptions,
+  type SettingOption
+} from '../lib/settingsLoader';
 
 /**
  * Universal EntityDetailPage
@@ -40,6 +44,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<any>({});
   const [formDataRefreshKey, setFormDataRefreshKey] = useState(0);
+  const [settingOptions, setSettingOptions] = useState<Map<string, SettingOption[]>>(new Map());
 
   // Check if this entity has child entities
   const hasChildEntities = config && config.childEntities && config.childEntities.length > 0;
@@ -108,6 +113,38 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
       loadData();
     }
   }, [id, entityType]);
+
+  // Load setting options on mount and when config changes
+  useEffect(() => {
+    const loadAllSettingOptions = async () => {
+      if (!config) return;
+
+      const optionsMap = new Map<string, SettingOption[]>();
+
+      // Find all fields that need dynamic settings
+      const fieldsNeedingSettings = config.fields.filter(
+        field => field.loadOptionsFromSettings && field.type === 'select'
+      );
+
+      // Load options for each field
+      await Promise.all(
+        fieldsNeedingSettings.map(async (field) => {
+          try {
+            const options = await loadFieldOptions(field.key);
+            if (options.length > 0) {
+              optionsMap.set(field.key, options);
+            }
+          } catch (error) {
+            console.error(`Failed to load options for ${field.key}:`, error);
+          }
+        })
+      );
+
+      setSettingOptions(optionsMap);
+    };
+
+    loadAllSettingOptions();
+  }, [config]);
 
   const loadData = async () => {
     try {
@@ -220,12 +257,18 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
     const value = isEditing ? editedData[field.key] : data[field.key];
 
     if (!isEditing) {
-      // Display mode
+      // Display mode - all text inherits font from parent div now via inline styles
       if (field.type === 'date' && value) {
         return new Date(value).toLocaleDateString();
       }
-      if (field.type === 'select' && field.options) {
-        const option = field.options.find((opt: any) => String(opt.value) === String(value));
+      if (field.type === 'select') {
+        // Check if this field has dynamically loaded options
+        const hasDynamicOptions = field.loadOptionsFromSettings && settingOptions.has(field.key);
+        const options = hasDynamicOptions
+          ? settingOptions.get(field.key)!
+          : field.options || [];
+
+        const option = options.find((opt: any) => String(opt.value) === String(value));
         return option?.label || (value ?? '-');
       }
       if (field.type === 'textarea' || field.type === 'richtext') {
@@ -235,7 +278,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
         return (
           <div className="flex flex-wrap gap-2">
             {value.map((item, idx) => (
-              <span key={idx} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              <span key={idx} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-blue-100 text-blue-800">
                 {item}
               </span>
             ))}
@@ -244,7 +287,14 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
       }
       if (field.type === 'jsonb' && value) {
         return (
-          <pre className="font-mono text-sm bg-gray-50 p-2 rounded overflow-auto max-h-40">
+          <pre
+            className="font-mono bg-gray-50 p-2 rounded overflow-auto max-h-40"
+            style={{
+              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '13px',
+              color: '#333'
+            }}
+          >
             {JSON.stringify(value, null, 2)}
           </pre>
         );
@@ -265,7 +315,12 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             type={field.type}
             value={value || ''}
             onChange={(e) => handleFieldChange(field.key, e.target.value)}
-            className="w-full text-sm border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
+            className="w-full border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
+            style={{
+              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '13px',
+              color: '#333'
+            }}
             disabled={field.disabled}
           />
         );
@@ -276,7 +331,12 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             value={value || ''}
             onChange={(e) => handleFieldChange(field.key, e.target.value)}
             rows={field.type === 'richtext' ? 6 : 4}
-            className="w-full text-sm border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0 resize-none"
+            className="w-full border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0 resize-none"
+            style={{
+              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '13px',
+              color: '#333'
+            }}
             disabled={field.disabled}
           />
         );
@@ -287,7 +347,12 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             value={Array.isArray(value) ? value.join(', ') : ''}
             onChange={(e) => handleFieldChange(field.key, e.target.value.split(',').map(v => v.trim()).filter(Boolean))}
             placeholder="Enter comma-separated values"
-            className="w-full text-sm border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
+            className="w-full border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
+            style={{
+              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '13px',
+              color: '#333'
+            }}
             disabled={field.disabled}
           />
         );
@@ -303,11 +368,22 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
               }
             }}
             rows={6}
-            className="w-full text-sm border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0 font-mono resize-none"
+            className="w-full border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0 font-mono resize-none"
+            style={{
+              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '13px',
+              color: '#333'
+            }}
             disabled={field.disabled}
           />
         );
-      case 'select':
+      case 'select': {
+        // Check if this field should load options from settings
+        const hasDynamicOptions = field.loadOptionsFromSettings && settingOptions.has(field.key);
+        const selectOptions = hasDynamicOptions
+          ? settingOptions.get(field.key)!
+          : field.options || [];
+
         return (
           <select
             value={value !== undefined && value !== null ? String(value) : ''}
@@ -318,24 +394,35 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
               }
               handleFieldChange(field.key, newValue === '' ? undefined : newValue);
             }}
-            className="w-full text-sm border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
+            className="w-full border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
+            style={{
+              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '13px',
+              color: '#333'
+            }}
             disabled={field.disabled}
           >
             <option value="">Select...</option>
-            {field.options?.map((opt: any) => (
+            {selectOptions.map((opt: any) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
             ))}
           </select>
         );
+      }
       case 'date':
         return (
           <input
             type="date"
             value={value ? new Date(value).toISOString().split('T')[0] : ''}
             onChange={(e) => handleFieldChange(field.key, e.target.value)}
-            className="w-full text-sm border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
+            className="w-full border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
+            style={{
+              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '13px',
+              color: '#333'
+            }}
             disabled={field.disabled}
           />
         );
@@ -378,7 +465,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                     setIsEditing(true);
                   }
                 }}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-normal rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 <Edit2 className="h-4 w-4 mr-2" />
                 Edit
@@ -387,14 +474,14 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
               <>
                 <button
                   onClick={handleCancel}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50"
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-normal rounded-lg text-gray-700 bg-white hover:bg-gray-50"
                 >
                   <X className="h-4 w-4 mr-2" />
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-normal rounded-lg text-white bg-blue-600 hover:bg-blue-700"
                 >
                   <Save className="h-4 w-4 mr-2" />
                   Save
@@ -475,11 +562,25 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                         key={field.key}
                         className="group transition-colors rounded-md px-3 py-2 grid grid-cols-[160px_1fr] gap-2 items-start hover:bg-gray-50"
                       >
-                        <label className="text-sm font-normal text-gray-500">
+                        <label
+                          style={{
+                            fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                            fontSize: '13px',
+                            fontWeight: 400,
+                            color: '#6b7280'
+                          }}
+                        >
                           {field.label}
                           {field.required && <span className="text-red-400 ml-1">*</span>}
                         </label>
-                        <div className={`text-sm text-gray-800 break-words rounded px-2 py-1 -mx-2 -my-1 ${isEditing ? 'bg-gray-100 hover:bg-gray-200' : ''}`}>
+                        <div
+                          className={`break-words rounded px-2 py-1 -mx-2 -my-1 ${isEditing ? 'bg-gray-100 hover:bg-gray-200' : ''}`}
+                          style={{
+                            fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                            fontSize: '13px',
+                            color: '#333'
+                          }}
+                        >
                           {renderField(field)}
                         </div>
                       </div>

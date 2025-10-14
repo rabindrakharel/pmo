@@ -153,6 +153,7 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
         <FilteredDataTable
           entityType={entityType}
           showActionButtons={false}
+          inlineEditable={true}
           onBulkShare={handleBulkShare}
           onBulkDelete={handleBulkDelete}
           onRowClick={handleRowClick}
@@ -224,12 +225,12 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white text-lg font-semibold">
+              <span className="text-white text-sm font-normal">
                 {config.displayName.charAt(0)}
               </span>
             </div>
             <div>
-              <h1 className="text-lg font-medium text-gray-800">{config.pluralName}</h1>
+              <h1 className="text-sm font-normal text-gray-800">{config.pluralName}</h1>
               <p className="mt-1 text-sm text-gray-500">
                 Manage and track {config.pluralName.toLowerCase()}
               </p>

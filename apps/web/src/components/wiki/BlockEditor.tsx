@@ -159,7 +159,7 @@ function MetadataView(props: any) {
               } catch {}
             }}
             placeholder="/wiki"
-            className="border-b border-gray-300 bg-transparent pb-0.5 text-sm font-medium text-gray-700 focus:border-blue-400 focus:outline-none"
+            className="border-b border-gray-300 bg-transparent pb-0.5 text-sm font-normal text-gray-700 focus:border-blue-400 focus:outline-none"
           />
           <span className="text-gray-400">/</span>
           <input
@@ -182,7 +182,7 @@ function MetadataView(props: any) {
               } catch {}
             }}
             placeholder="page-slug"
-            className="border-b border-gray-300 bg-transparent pb-0.5 text-sm font-medium text-gray-700 focus:border-blue-400 focus:outline-none"
+            className="border-b border-gray-300 bg-transparent pb-0.5 text-sm font-normal text-gray-700 focus:border-blue-400 focus:outline-none"
           />
           <div className="inline-flex items-center gap-2 text-xs text-gray-500">
             <span className="font-semibold uppercase tracking-[0.3em] text-gray-500">Theme</span>
@@ -205,7 +205,7 @@ function MetadataView(props: any) {
                   window.dispatchEvent(new CustomEvent('wiki:metadata:theme', { detail: next }));
                 } catch {}
               }}
-              className="h-8 rounded-md border border-gray-300 bg-white px-2 text-xs font-medium text-gray-700 focus:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-200"
+              className="h-8 rounded-md border border-gray-300 bg-white px-2 text-xs font-normal text-gray-700 focus:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-200"
             >
               <option value="gradient-blue">🔵 Blue</option>
               <option value="gradient-purple">🟣 Purple</option>
@@ -1268,7 +1268,7 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
           >
             {tocOpen ? <ChevronDown className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
-          {tocOpen && <span className="text-sm font-semibold text-gray-700">Table of Contents</span>}
+          {tocOpen && <span className="text-sm font-normal text-gray-700">Table of Contents</span>}
         </div>
         {tocOpen && (
           <div className="flex-1 overflow-y-auto p-3">
@@ -1286,9 +1286,9 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
                     }}
                     className={`w-full text-left text-xs p-2 rounded hover:bg-white transition-colors ${
                       h.level === 1
-                        ? 'font-semibold text-gray-800'
+                        ? 'font-normal text-gray-800'
                         : h.level === 2
-                        ? 'font-medium text-gray-700 ml-2'
+                        ? 'font-normal text-gray-700 ml-2'
                         : 'text-gray-600 ml-4'
                     }`}
                     style={{ paddingLeft: `${(h.level - 1) * 0.5 + 0.5}rem` }}
@@ -1323,12 +1323,12 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
             <div className="absolute inset-0 bg-black/40" onClick={() => setMediaOpen(false)} />
             <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md p-4 z-[10001]">
               <div className="mb-3">
-                <h3 className="text-sm font-semibold text-gray-800">Insert {mediaType === 'image' ? 'Image' : 'Video'}</h3>
+                <h3 className="text-sm font-normal text-gray-800">Insert {mediaType === 'image' ? 'Image' : 'Video'}</h3>
                 <p className="text-xs text-gray-500">Choose a file or paste a URL</p>
               </div>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-700">From device</label>
+                  <label className="text-xs font-normal text-gray-700">From device</label>
                   <input
                     type="file"
                     accept={mediaType === 'image' ? 'image/*' : 'video/*'}
@@ -1342,7 +1342,7 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-700">From URL</label>
+                  <label className="text-xs font-normal text-gray-700">From URL</label>
                   <input
                     type="url"
                     placeholder={mediaType === 'image' ? 'https://example.com/image.png' : 'https://youtu.be/... or https://example.com/video.mp4'}
@@ -1457,7 +1457,7 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
             <div className="relative bg-white rounded-lg shadow-xl w-full max-w-3xl p-4 z-[10001]">
               <div className="mb-3 flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-800">Edit Image</h3>
+                  <h3 className="text-sm font-normal text-gray-800">Edit Image</h3>
                   <p className="text-xs text-gray-500">Drag to select crop area. Adjust width if needed.</p>
                 </div>
               </div>

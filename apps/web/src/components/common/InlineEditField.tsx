@@ -50,7 +50,7 @@ export function InlineEditField({
   if (type === 'textarea') {
     return (
       <div className="group">
-        <dt className="text-sm font-medium text-gray-500 mb-1">{label}</dt>
+        <dt className="text-sm font-normal text-gray-500 mb-1">{label}</dt>
         <dd>
           {isEditing ? (
             <div className="space-y-2">
@@ -104,7 +104,7 @@ export function InlineEditField({
 
   return (
     <div className="group">
-      <dt className="text-sm font-medium text-gray-500 mb-1">{label}</dt>
+      <dt className="text-sm font-normal text-gray-500 mb-1">{label}</dt>
       <dd className="flex items-center justify-between">
         {isEditing ? (
           <div className="flex items-center space-x-2 flex-1">

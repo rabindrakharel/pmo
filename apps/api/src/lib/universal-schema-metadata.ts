@@ -650,6 +650,7 @@ export function getColumnsByMetadata(
 
 /**
  * Filter object columns based on universal metadata and user permissions
+ * Default behavior: Include all columns (opt-out), only exclude/mask specific ones
  */
 export function filterUniversalColumns(
   data: Record<string, any>,
@@ -661,41 +662,42 @@ export function filterUniversalColumns(
   } = {}
 ): Record<string, any> {
   const filtered: Record<string, any> = {};
-  
+
   for (const [column, value] of Object.entries(data)) {
     const metadata = getUniversalColumnMetadata(column);
-    
-    // Skip auth fields entirely
+
+    // Skip auth fields entirely (password_hash, etc.)
     if (metadata['api:auth_field']) {
       continue;
     }
-    
+
     // Skip system fields unless permitted
     if (metadata['api:system_field'] && !userPermissions.canSeeSystemFields) {
       continue;
     }
-    
+
     // Handle PII masking
     if (metadata['api:pii_masking'] && !userPermissions.canSeePII) {
       filtered[column] = maskValue(value, column, 'pii');
       continue;
     }
-    
+
     // Handle financial masking
     if (metadata['api:financial_masking'] && !userPermissions.canSeeFinancial) {
       filtered[column] = maskValue(value, column, 'financial');
       continue;
     }
-    
+
     // Handle safety info restriction
     if (metadata['api:safety_info'] && !userPermissions.canSeeSafetyInfo) {
       filtered[column] = '[RESTRICTED]';
       continue;
     }
-    
+
+    // Include all other columns by default (opt-out behavior)
     filtered[column] = value;
   }
-  
+
   return filtered;
 }
 

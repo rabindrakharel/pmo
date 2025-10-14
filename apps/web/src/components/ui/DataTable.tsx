@@ -1,5 +1,10 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Search, Filter, Columns, ChevronLeft, ChevronRight, Eye, Edit, Share, Trash2, X } from 'lucide-react';
+import {
+  isSettingField,
+  loadFieldOptions,
+  type SettingOption
+} from '../../lib/settingsLoader';
 
 export interface Column<T = any> {
   key: string;
@@ -9,6 +14,16 @@ export interface Column<T = any> {
   render?: (value: any, record: T) => React.ReactNode;
   width?: string | number;
   align?: 'left' | 'center' | 'right';
+  // For inline editing with dynamic options
+  editable?: boolean;
+  editType?: 'text' | 'select' | 'number' | 'date';
+  loadOptionsFromSettings?: boolean;
+  /**
+   * When true, this column can be edited inline in the DataTable.
+   * Fields with loadOptionsFromSettings automatically become editable with dropdowns.
+   * Tags fields are also automatically editable with text inputs.
+   */
+  inlineEditable?: boolean;
 }
 
 export interface RowAction<T = any> {
@@ -99,32 +114,61 @@ export function DataTable<T = any>({
   const filterContainerRef = useRef<HTMLDivElement | null>(null);
   const columnSelectorRef = useRef<HTMLDivElement | null>(null);
 
-  // Selection functionality
+  // State for dynamically loaded setting options
+  const [settingOptions, setSettingOptions] = useState<Map<string, SettingOption[]>>(new Map());
+
+  // Load setting options for columns that need them
+  useEffect(() => {
+    const loadAllSettingOptions = async () => {
+      const optionsMap = new Map<string, SettingOption[]>();
+
+      // Find all columns that need dynamic settings
+      const columnsNeedingSettings = initialColumns.filter(
+        col => col.loadOptionsFromSettings || isSettingField(col.key)
+      );
+
+      // Load options for each column
+      await Promise.all(
+        columnsNeedingSettings.map(async (col) => {
+          try {
+            const options = await loadFieldOptions(col.key);
+            if (options.length > 0) {
+              optionsMap.set(col.key, options);
+            }
+          } catch (error) {
+            console.error(`Failed to load options for ${col.key}:`, error);
+          }
+        })
+      );
+
+      setSettingOptions(optionsMap);
+    };
+
+    if (inlineEditable) {
+      loadAllSettingOptions();
+    }
+  }, [initialColumns, inlineEditable]);
+
+  // Selection functionality - only one row at a time (radio behavior)
   const handleSelectAll = (checked: boolean) => {
     if (!onSelectionChange) return;
-
-    if (checked) {
-      const allRowKeys = data.map((record, index) => getRowKey(record, index));
-      onSelectionChange(allRowKeys);
-    } else {
-      onSelectionChange([]);
-    }
+    // Clear selection when "select all" is unchecked
+    onSelectionChange([]);
   };
 
   const handleSelectRow = (rowKey: string, checked: boolean) => {
     if (!onSelectionChange) return;
 
-    let newSelection = [...selectedRows];
+    // Only allow one selection at a time (radio button behavior)
     if (checked) {
-      newSelection.push(rowKey);
+      onSelectionChange([rowKey]);
     } else {
-      newSelection = newSelection.filter(key => key !== rowKey);
+      onSelectionChange([]);
     }
-    onSelectionChange(newSelection);
   };
 
-  const isAllSelected = selectedRows.length > 0 && selectedRows.length === data.length;
-  const isIndeterminate = selectedRows.length > 0 && selectedRows.length < data.length;
+  const isAllSelected = false; // Disabled "select all" for single-selection mode
+  const isIndeterminate = false;
 
   const getRowKey = (record: T, index: number): string => {
     if (typeof rowKey === 'function') {
@@ -231,11 +275,12 @@ export function DataTable<T = any>({
           const isSelected = selectedRows.includes(recordId);
           return (
             <input
-              type="checkbox"
+              type="radio"
               checked={isSelected}
               onChange={(e) => handleSelectRow(recordId, e.target.checked)}
-              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500 cursor-pointer"
               onClick={(e) => e.stopPropagation()}
+              name="row-selection"
             />
           );
         },
@@ -376,8 +421,8 @@ export function DataTable<T = any>({
 
   const renderSortIcon = (field: string) => {
     if (sortField !== field) return null;
-    return sortDirection === 'asc' ? 
-      <ChevronUp className="h-4 w-4" /> : 
+    return sortDirection === 'asc' ?
+      <ChevronUp className="h-4 w-4" /> :
       <ChevronDown className="h-4 w-4" />;
   };
 
@@ -491,7 +536,7 @@ export function DataTable<T = any>({
                   <select
                     value={selectedFilterColumn}
                     onChange={(e) => setSelectedFilterColumn(e.target.value)}
-                    className="appearance-none px-4 py-2 pr-10 w-48 border border-gray-300 rounded-xl text-sm bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all duration-200 shadow-sm font-medium text-gray-700"
+                    className="appearance-none px-4 py-2 pr-10 w-48 border border-gray-300 rounded-xl text-sm bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all duration-200 shadow-sm font-normal text-gray-700"
                   >
                     <option value="" className="text-gray-500">Select column...</option>
                     {initialColumns.filter(col => col.filterable).map(column => (
@@ -686,28 +731,24 @@ export function DataTable<T = any>({
                 {columns.map((column, index) => (
                   <th
                     key={column.key}
-                    className={`px-6 py-4 text-left text-sm font-normal text-gray-500 border-b border-gray-100 ${
+                    className={`px-6 py-4 text-left border-r border-gray-200 ${
                       column.sortable ? 'cursor-pointer hover:bg-gray-100/50 transition-colors' : ''
                     } ${columns.length > 7 ? 'min-w-[200px]' : ''} ${
                       index === 0 ? 'sticky left-0 z-40 bg-gray-50 shadow-r' : ''
                     }`}
                     style={{
                       width: columns.length > 7 ? '200px' : (column.width || 'auto'),
-                      textAlign: column.align || 'left'
+                      textAlign: column.align || 'left',
+                      color: '#6b6d70',
+                      font: "400 12px / 16px 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                      outline: 0,
+                      backgroundColor: '#fff'
                     }}
                     onClick={() => column.sortable && handleSort(column.key)}
                   >
                     {column.key === '_selection' ? (
                       <div className="flex items-center justify-center">
-                        <input
-                          type="checkbox"
-                          checked={isAllSelected}
-                          ref={(el) => {
-                            if (el) el.indeterminate = isIndeterminate;
-                          }}
-                          onChange={(e) => handleSelectAll(e.target.checked)}
-                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
+                        {/* Empty header for single-selection mode */}
                       </div>
                     ) : (
                       <div className="flex items-center justify-start">
@@ -748,17 +789,34 @@ export function DataTable<T = any>({
                         return (
                           <td
                             key={column.key}
-                            className={`px-6 py-4 text-sm text-gray-700 group-hover:text-gray-900 transition-colors ${
+                            className={`px-6 py-4 ${
                               colIndex === 0 ? 'sticky left-0 z-20 bg-white shadow-r' : ''
                             }`}
-                            style={{ textAlign: 'left' }}
+                            style={{
+                              textAlign: column.align || 'left',
+                              boxSizing: 'border-box'
+                            }}
                           >
-                            {column.render
-                              ? column.render((record as any)[column.key], record)
-                              : (record as any)[column.key]?.toString() || (
-                                <span className="text-gray-400 italic">—</span>
-                              )
-                            }
+                            <div
+                              style={{
+                                position: 'relative',
+                                zIndex: 1,
+                                textOverflow: 'ellipsis',
+                                padding: '2px 8px',
+                                overflow: 'hidden',
+                                whiteSpace: 'nowrap',
+                                fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                                fontSize: '13px',
+                                color: '#333'
+                              }}
+                            >
+                              {column.render
+                                ? column.render((record as any)[column.key], record)
+                                : (record as any)[column.key]?.toString() || (
+                                  <span className="text-gray-400 italic">—</span>
+                                )
+                              }
+                            </div>
                             {/* Add Save/Cancel buttons for editing row in actions column */}
                             {isEditing && column.key === '_actions' && (
                               <div className="flex items-center gap-2 mt-2">
@@ -789,29 +847,112 @@ export function DataTable<T = any>({
                       }
 
                       // Regular data columns
+                      // Check if this column should show a settings dropdown
+                      const hasSettingOptions = settingOptions.has(column.key);
+                      const columnOptions = hasSettingOptions ? settingOptions.get(column.key)! : [];
+                      // Use column.inlineEditable from config to determine if field is editable
+                      const fieldEditable = column.inlineEditable || false;
+                      const isTagsField = column.key.toLowerCase() === 'tags' || column.key.toLowerCase().endsWith('_tags');
+
                       return (
                         <td
                           key={column.key}
-                          className={`px-6 py-4 text-sm text-gray-700 group-hover:text-gray-900 transition-colors ${
+                          className={`px-6 py-4 ${
                             colIndex === 0 ? 'sticky left-0 z-20 bg-white shadow-r' : ''
                           }`}
-                          style={{ textAlign: 'left' }}
+                          style={{
+                            textAlign: column.align || 'left',
+                            boxSizing: 'border-box'
+                          }}
                           onClick={(e) => isEditing && e.stopPropagation()}
                         >
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
-                              onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
+                          {isEditing && fieldEditable ? (
+                            hasSettingOptions ? (
+                              // Render elegant select dropdown for setting fields
+                              <div className="relative w-full">
+                                <select
+                                  value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
+                                  onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-full px-2.5 py-1.5 pr-8 border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-white shadow-sm hover:border-blue-400 transition-colors cursor-pointer appearance-none"
+                                  style={{
+                                    fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                                    fontSize: '13px',
+                                    color: '#333',
+                                    minHeight: '32px',
+                                    maxHeight: '32px',
+                                    lineHeight: '1.2'
+                                  }}
+                                >
+                                  <option value="" className="text-gray-400">Select...</option>
+                                  {columnOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value} className="text-gray-900 py-1.5">
+                                      {opt.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                {/* Custom dropdown arrow */}
+                                <ChevronDown className="h-4 w-4 text-gray-500 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                              </div>
+                            ) : isTagsField ? (
+                              // Render text input for tags fields
+                              <input
+                                type="text"
+                                value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
+                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                placeholder="Enter tags (comma-separated)"
+                                className="w-full px-2 py-1 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                style={{
+                                  fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                                  fontSize: '13px',
+                                  color: '#333'
+                                }}
+                              />
+                            ) : (
+                              // Render text input for other editable fields (should not reach here normally)
+                              <input
+                                type="text"
+                                value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
+                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full px-2 py-1 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                style={{
+                                  fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                                  fontSize: '13px',
+                                  color: '#333'
+                                }}
+                              />
+                            )
                           ) : (
-                            column.render
-                              ? column.render((record as any)[column.key], record)
-                              : (record as any)[column.key]?.toString() || (
-                                <span className="text-gray-400 italic">—</span>
-                              )
+                            // Display mode for all fields (editable or not)
+                            <div
+                              style={{
+                                position: 'relative',
+                                zIndex: 1,
+                                textOverflow: 'ellipsis',
+                                padding: '2px 8px',
+                                overflow: 'hidden',
+                                whiteSpace: 'nowrap',
+                                fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                                fontSize: '13px',
+                                color: '#333',
+                                userSelect: 'none',
+                                WebkitUserSelect: 'none',
+                                MozUserSelect: 'none',
+                                msUserSelect: 'none',
+                                WebkitTapHighlightColor: 'transparent',
+                                WebkitUserDrag: 'none',
+                                cursor: 'default'
+                              }}
+                            >
+                              {column.render
+                                ? column.render((record as any)[column.key], record)
+                                : (record as any)[column.key]?.toString() || (
+                                  <span className="text-gray-400 italic">—</span>
+                                )
+                              }
+                            </div>
                           )}
                         </td>
                       );

@@ -207,7 +207,7 @@ export function WikiEditorPage() {
 
   const baseToolbarButton =
     'inline-flex items-center justify-center rounded-lg border border-transparent bg-white text-slate-600 transition-colors duration-150 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-1';
-  const textToolbarButton = `${baseToolbarButton} px-3 py-1.5 text-xs font-semibold`;
+  const textToolbarButton = `${baseToolbarButton} px-3 py-1.5 text-xs font-normal`;
   const iconToolbarButton = `${baseToolbarButton} h-8 w-8`;
 
   return (

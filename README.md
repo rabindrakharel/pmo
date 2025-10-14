@@ -13,6 +13,72 @@
 | **[🛠️ Management Tools](./tools/README.md)** | 16 platform operation tools | Start/stop, database import, API testing, RBAC debugging |
 | **[🧪 API Testing Guide](./tools/API_TESTING.md)** | Generic API testing with `test-api.sh` | Test any endpoint, examples, form workflows |
 
+---
+
+## 🎨 UI/UX Design System
+
+### Centralized Icon Configuration
+
+**Location:** `apps/web/src/lib/entityIcons.ts`
+
+All entity icons across the application are centralized in a single configuration file to ensure consistency between:
+- Sidebar navigation
+- Settings page dropdowns
+- Entity detail pages
+- Any component that displays entity-related icons
+
+#### Icon Mappings
+
+**Main Entities:**
+```typescript
+business/biz      → Building2 (Building icon)
+project           → FolderOpen (Folder icon)
+office            → MapPin (Location pin icon)
+client            → Users (Multiple users icon)
+role              → UserCheck (User with checkmark icon)
+employee          → Users (Multiple users icon)
+wiki              → BookOpen (Open book icon)
+form              → FileText (Document icon)
+task              → CheckSquare (Checkbox icon)
+artifact          → FileText (Document icon)
+```
+
+**Settings/Metadata Entities:**
+```typescript
+projectStatus, projectStage        → CheckSquare (matches task)
+taskStatus, taskStage              → CheckSquare (matches task)
+businessLevel, orgLevel            → Building2 (matches business)
+hrLevel, clientLevel               → Users (matches employee/client)
+positionLevel                      → UserCheck (matches role)
+opportunityFunnelLevel             → Users (matches client)
+industrySector, acquisitionChannel → Building2/Users
+```
+
+#### Usage
+
+```typescript
+// Import centralized icons
+import { ENTITY_ICONS, ENTITY_GROUPS, getEntityIcon } from '../lib/entityIcons';
+
+// Get icon for an entity
+const ProjectIcon = ENTITY_ICONS.project;  // Returns FolderOpen
+
+// Get icon dynamically
+const icon = getEntityIcon('task');  // Returns CheckSquare
+
+// Use entity group configuration
+const projectGroup = ENTITY_GROUPS.project;
+// { name: 'Project', icon: FolderOpen, color: 'blue' }
+```
+
+#### Benefits
+
+✅ **Single Source of Truth** - Change icon in one place, updates everywhere
+✅ **Visual Consistency** - Sidebar and settings use identical icons
+✅ **Type Safety** - TypeScript ensures icon consistency
+✅ **Easy Maintenance** - Add new entities without touching multiple files
+✅ **Self-Documenting** - Clear mapping of entity → icon relationships
+
 
 
 DATA MODEL:
@@ -32,13 +98,21 @@ DATA MODEL:
   12. ops_formlog_head - Form definitions
   13. d_reports - Report definitions
 
-  2️⃣ Metadata/Configuration Tables (5 tables):
+  2️⃣ Settings/Configuration Tables (13 tables):
 
-  1. meta_office_level - Office hierarchy (4 levels)
-  2. meta_business_level - Business hierarchy (3 levels)
-  3. meta_project_stage - Project lifecycle stages (7 stages)
-  4. meta_task_stage - Task workflow stages (7 stages)
-  5. meta_position_level - Position hierarchy (8 levels)
+  1. setting_office_level - Office hierarchy (4 levels)
+  2. setting_business_level - Business hierarchy (3 levels)
+  3. setting_project_stage - Project lifecycle stages (7 stages)
+  4. setting_task_stage - Task workflow stages (7 stages)
+  5. setting_position_level - Position hierarchy (8 levels)
+  6. setting_opportunity_funnel_level - Sales pipeline stages
+  7. setting_industry_sector - Client industry classifications
+  8. setting_acquisition_channel - Client acquisition sources
+  9. setting_customer_tier - Customer service tiers
+  10. setting_project_status - Project status values
+  11. setting_task_status - Task status values
+  12. setting_hr_level - HR/employee hierarchy levels
+  13. setting_client_level - Client classification levels
 
 ---
 

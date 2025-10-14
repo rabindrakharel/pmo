@@ -381,7 +381,7 @@ export function AdvancedFormBuilder({
             <ArrowLeft className="h-5 w-5 text-gray-700" />
           </button>
           <div>
-            <h1 className="text-lg font-medium text-gray-800">{headerTitle}</h1>
+            <h1 className="text-sm font-normal text-gray-800">{headerTitle}</h1>
             <p className="mt-1 text-xs font-light text-gray-500">
               Composable, drag-and-drop form builder • Step {currentStepIndex + 1} of {steps.length}
               {savingDraft && <span className="text-blue-600 ml-2">• Draft saving...</span>}
@@ -394,7 +394,7 @@ export function AdvancedFormBuilder({
             <button
               onClick={saveDraft}
               disabled={savingDraft || !title}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-normal rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
               <Save className="h-4 w-4 mr-2" />
               {savingDraft ? 'Saving Draft..' : 'Save Draft'}
@@ -404,7 +404,7 @@ export function AdvancedFormBuilder({
             <button
               onClick={handleSaveForm}
               disabled={saving || !title || fields.length === 0}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-normal rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
               <Save className="h-4 w-4 mr-2" />
               {saving ? 'Publishing...' : 'Publish Form'}
@@ -418,12 +418,12 @@ export function AdvancedFormBuilder({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
             <Layers className="h-5 w-5 text-gray-600" />
-            <h3 className="text-sm font-medium text-gray-700">Form Steps</h3>
+            <h3 className="text-sm font-normal text-gray-700">Form Steps</h3>
             <span className="text-xs font-light text-gray-500">Use Ctrl+← / Ctrl+→ to navigate</span>
           </div>
           <button
             onClick={addStep}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-normal rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Step
@@ -500,7 +500,7 @@ export function AdvancedFormBuilder({
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-0">
           {/* Left: Field Types Palette */}
           <aside className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col overflow-hidden">
-            <div className="text-sm font-medium text-gray-700 mb-3">Field Types</div>
+            <div className="text-sm font-normal text-gray-700 mb-3">Field Types</div>
 
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -532,7 +532,7 @@ export function AdvancedFormBuilder({
             <section className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col overflow-hidden">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <div className="text-sm font-medium text-gray-700">
+                  <div className="text-sm font-normal text-gray-700">
                     {currentStep?.title || 'Step'} - Form Fields
                   </div>
                   <div className="text-xs font-light text-gray-500">
@@ -597,7 +597,7 @@ export function AdvancedFormBuilder({
             {/* Live Preview */}
             <aside className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col overflow-hidden">
               <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-medium text-gray-700">Live Preview</div>
+                <div className="text-sm font-normal text-gray-700">Live Preview</div>
                 <div className="text-xs font-light text-gray-500">
                   {currentStep?.title} ({currentStepIndex + 1}/{steps.length})
                 </div>
@@ -625,7 +625,7 @@ export function AdvancedFormBuilder({
                   <span>Adding field...</span>
                 </div>
               ) : (
-                <div className="text-sm font-medium text-gray-700">Moving field...</div>
+                <div className="text-sm font-normal text-gray-700">Moving field...</div>
               )}
             </div>
           ) : null}

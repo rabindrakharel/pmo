@@ -94,7 +94,7 @@ export function PublicFormPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error</h3>
+          <h3 className="text-sm font-normal text-gray-900 mb-2">Error</h3>
           <p className="text-gray-600">{error}</p>
         </div>
       </div>
@@ -106,7 +106,7 @@ export function PublicFormPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Thank You!</h2>
+          <h2 className="text-sm font-normal text-gray-900 mb-2">Thank You!</h2>
           <p className="text-gray-600 mb-6">Your form has been submitted successfully.</p>
           <button
             onClick={() => {
@@ -138,7 +138,7 @@ export function PublicFormPage() {
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-6">
-            <h1 className="text-2xl font-bold text-white">{form?.name}</h1>
+            <h1 className="text-sm font-normal text-white">{form?.name}</h1>
             {form?.descr && (
               <p className="mt-2 text-blue-100">{form.descr}</p>
             )}
@@ -158,7 +158,7 @@ export function PublicFormPage() {
             <form onSubmit={handleSubmit} className="space-y-6">
               {fields.map((field: any) => (
                 <div key={field.id || field.name}>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-normal text-gray-700 mb-2">
                     {field.label || field.name}
                     {field.required && <span className="text-red-500 ml-1">*</span>}
                   </label>
@@ -206,7 +206,7 @@ export function PublicFormPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-normal hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submitting ? 'Submitting...' : 'Submit'}
                 </button>
