@@ -1,3 +1,12 @@
-// All settings are now managed through the unified SettingsPage component
-// Individual setting pages have been removed following DRY principle
-// Use SettingsPage from parent directory instead
+/**
+ * Settings Pages
+ *
+ * Comprehensive settings management pages for the application.
+ */
+
+// Main Settings Page
+export { SettingsPage } from './SettingsPage';
+
+// Data Management Pages
+export { DataLabelPage } from './DataLabelPage';
+export { DataLinkagePage } from './DataLinkagePage';

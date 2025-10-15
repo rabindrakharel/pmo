@@ -2,25 +2,23 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FullscreenProvider } from './contexts/FullscreenContext';
-import { LoginForm } from './components/auth/LoginForm';
-import { FormBuilderPage } from './pages/FormBuilderPage';
-import { FormEditPage } from './pages/FormEditPage';
-import { FormViewPage } from './pages/FormViewPage';
-import { FormDataPreviewPage } from './pages/FormDataPreviewPage';
-import { WikiEditorPage } from './pages/WikiEditorPage';
-import { WikiViewPage } from './pages/WikiViewPage';
-import { ProfilePage } from './pages/ProfilePage';
-import { LabelsPage } from './pages/LabelsPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { SecurityPage } from './pages/SecurityPage';
-import { BillingPage } from './pages/BillingPage';
+import { LoginForm } from './components/shared';
 
-// Universal Components
-import { EntityMainPage } from './pages/EntityMainPage';
-import { EntityDetailPage } from './pages/EntityDetailPage';
-import { EntityChildListPage } from './pages/EntityChildListPage';
-import { EntityCreatePage } from './pages/EntityCreatePage';
-import { PublicFormPage } from './pages/PublicFormPage';
+// Form Pages
+import { FormBuilderPage, FormEditPage, FormViewPage, FormDataPreviewPage, PublicFormPage } from './pages/form';
+
+// Wiki Pages
+import { WikiEditorPage, WikiViewPage } from './pages/wiki';
+
+// Profile & Settings Pages
+import { ProfilePage } from './pages/profile';
+import { LabelsPage } from './pages/labels';
+import { SettingsPage, DataLabelPage, DataLinkagePage } from './pages/setting';
+import { SecurityPage } from './pages/security';
+import { BillingPage } from './pages/billing';
+
+// Shared/Universal Components
+import { EntityMainPage, EntityDetailPage, EntityChildListPage, EntityCreatePage } from './pages/shared';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -176,6 +174,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/data-labels"
+        element={
+          <ProtectedRoute>
+            <DataLabelPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/data-linkage"
+        element={
+          <ProtectedRoute>
+            <DataLinkagePage />
           </ProtectedRoute>
         }
       />
