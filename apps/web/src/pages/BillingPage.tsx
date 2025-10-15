@@ -62,21 +62,21 @@ export function BillingPage() {
       case 'paid':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-green-100 text-green-800">
-            <CheckCircle className="w-3 h-3 mr-1" />
+            <CheckCircle className="w-3 h-3 mr-1 stroke-[1.5]" />
             Paid
           </span>
         );
       case 'pending':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-yellow-100 text-yellow-800">
-            <Calendar className="w-3 h-3 mr-1" />
+            <Calendar className="w-3 h-3 mr-1 stroke-[1.5]" />
             Pending
           </span>
         );
       case 'overdue':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-red-100 text-red-800">
-            <AlertCircle className="w-3 h-3 mr-1" />
+            <AlertCircle className="w-3 h-3 mr-1 stroke-[1.5]" />
             Overdue
           </span>
         );
@@ -89,12 +89,10 @@ export function BillingPage() {
         <div className="bg-white shadow rounded-lg">
           <div className="px-4 py-5 sm:p-6">
             <div className="flex items-center mb-6">
-              <div className="h-12 w-12 bg-blue-600 rounded-full flex items-center justify-center">
-                <CreditCard className="h-5 w-5 text-white" />
-              </div>
-              <div className="ml-4">
+              <CreditCard className="h-5 w-5 text-gray-600 stroke-[1.5] mr-3" />
+              <div className="flex-1">
                 <h1 className="text-sm font-normal text-gray-900">Billing & Subscription</h1>
-                <p className="text-gray-600">Manage your subscription and billing information</p>
+                <p className="text-sm text-gray-600">Manage your subscription and billing information</p>
               </div>
             </div>
 
@@ -105,7 +103,7 @@ export function BillingPage() {
                   <h3 className="text-sm font-normal text-gray-900">PMO Enterprise Plan</h3>
                   <p className="text-gray-600">Full access to all features and unlimited users</p>
                   <div className="flex items-center mt-2">
-                    <DollarSign className="h-4 w-4 text-gray-500 mr-1" />
+                    <DollarSign className="h-4 w-4 text-gray-500 stroke-[1.5] mr-1" />
                     <span className="text-sm font-normal text-gray-900">$99.99</span>
                     <span className="text-gray-600 ml-1">/month</span>
                   </div>
@@ -127,7 +125,7 @@ export function BillingPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <CreditCard className="h-5 w-5 text-gray-600" />
+                      <CreditCard className="h-5 w-5 text-gray-600 stroke-[1.5]" />
                     </div>
                     <div className="ml-4">
                       <div className="font-normal text-gray-900">•••• •••• •••• 4242</div>
@@ -156,7 +154,7 @@ export function BillingPage() {
                         <div className="flex items-center">
                           <div className="flex-shrink-0">
                             <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                              <DollarSign className="h-5 w-5 text-gray-600" />
+                              <DollarSign className="h-5 w-5 text-gray-600 stroke-[1.5]" />
                             </div>
                           </div>
                           <div className="ml-4">
@@ -180,7 +178,7 @@ export function BillingPage() {
                             onClick={() => downloadInvoice(invoice.id)}
                             className="text-gray-400 hover:text-gray-600"
                           >
-                            <Download className="h-4 w-4" />
+                            <Download className="h-4 w-4 stroke-[1.5]" />
                           </button>
                         </div>
                       </div>

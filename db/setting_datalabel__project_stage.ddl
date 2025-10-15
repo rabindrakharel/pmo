@@ -3,7 +3,7 @@
 -- Project lifecycle stages with UI color coding
 -- =====================================================
 
-CREATE TABLE app.setting_project_stage (
+CREATE TABLE app.setting_datalabel_project_stage (
     level_id integer PRIMARY KEY,
     level_name varchar(50) NOT NULL UNIQUE,
     level_descr text,
@@ -16,7 +16,7 @@ CREATE TABLE app.setting_project_stage (
 -- Index for setting project stage
 
 -- Initial data for project stages
-INSERT INTO app.setting_project_stage (level_id, level_name, level_descr, sort_order, color_code) VALUES
+INSERT INTO app.setting_datalabel_project_stage (level_id, level_name, level_descr, sort_order, color_code) VALUES
 (0, 'Initiation', 'Project concept and initial planning', 1, '#6B7280'),
 (1, 'Planning', 'Detailed project planning and resource allocation', 2, '#3B82F6'),
 (2, 'Execution', 'Active project execution phase', 3, '#10B981'),
@@ -30,4 +30,4 @@ ALTER TABLE app.d_project
 ADD CONSTRAINT fk_project_stage
 FOREIGN KEY (project_stage) ;
 
-COMMENT ON TABLE app.setting_project_stage IS 'Project lifecycle stages with UI color coding';
+COMMENT ON TABLE app.setting_datalabel_project_stage IS 'Project lifecycle stages with UI color coding';

@@ -117,7 +117,7 @@ export function FormViewPage() {
               className="h-10 w-10 bg-white border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50"
               title="Back"
             >
-              <ArrowLeft className="h-5 w-5 text-gray-700" />
+              <ArrowLeft className="h-5 w-5 text-gray-700 stroke-[1.5]" />
             </button>
             <div>
               <h1 className="text-sm font-normal text-gray-500">
@@ -142,7 +142,7 @@ export function FormViewPage() {
               className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-normal rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               title="Edit form"
             >
-              <Edit3 className="h-4 w-4 mr-2" />
+              <Edit3 className="h-4 w-4 mr-2 stroke-[1.5]" />
               Edit
             </button>
           </div>
@@ -172,7 +172,7 @@ export function FormViewPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
-                <Layers className="h-5 w-5 text-gray-600" />
+                <Layers className="h-5 w-5 text-gray-600 stroke-[1.5]" />
                 <h3 className="text-sm font-normal text-gray-700">Form Steps</h3>
                 <span className="text-xs text-gray-500">Navigate through the form</span>
               </div>
@@ -188,9 +188,9 @@ export function FormViewPage() {
                 className="p-1.5 rounded-md border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Previous step"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4 stroke-[1.5]" />
               </button>
-              
+
               <div className="flex space-x-1 min-w-0 flex-1">
                 {steps.map((step, index) => (
                   <button
@@ -209,14 +209,14 @@ export function FormViewPage() {
                   </button>
                 ))}
               </div>
-              
+
               <button
                 onClick={() => navigateToStep(currentStepIndex + 1)}
                 disabled={currentStepIndex === steps.length - 1}
                 className="p-1.5 rounded-md border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Next step"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4 stroke-[1.5]" />
               </button>
             </div>
           </div>
@@ -225,9 +225,7 @@ export function FormViewPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-gray-50/70">
             <div className="flex items-center text-sm text-gray-700 font-normal">
-              <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center mr-3">
-                <Eye className="h-4 w-4 text-white" />
-              </div>
+              <Eye className="h-5 w-5 text-gray-600 stroke-[1.5] mr-3" />
               Form Preview
               {steps.length > 1 && currentStep && (
                 <span className="ml-2 text-xs text-gray-500">

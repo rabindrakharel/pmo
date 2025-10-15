@@ -68,19 +68,17 @@ export function SecurityPage() {
         <div className="bg-white shadow rounded-lg">
           <div className="px-4 py-5 sm:p-6">
             <div className="flex items-center mb-6">
-              <div className="h-12 w-12 bg-blue-600 rounded-full flex items-center justify-center">
-                <Shield className="h-5 w-5 text-white" />
-              </div>
-              <div className="ml-4">
+              <Shield className="h-5 w-5 text-gray-600 stroke-[1.5] mr-3" />
+              <div className="flex-1">
                 <h1 className="text-sm font-normal text-gray-900">Security Settings</h1>
-                <p className="text-gray-600">Manage your account security and authentication</p>
+                <p className="text-sm text-gray-600">Manage your account security and authentication</p>
               </div>
             </div>
 
             {/* Password Change */}
             <div className="mb-8">
               <div className="flex items-center mb-4">
-                <Key className="h-5 w-5 text-gray-400 mr-2" />
+                <Key className="h-5 w-5 text-gray-400 stroke-[1.5] mr-2" />
                 <h3 className="text-sm font-normal text-gray-900">Change Password</h3>
               </div>
 
@@ -106,9 +104,9 @@ export function SecurityPage() {
                       onClick={() => togglePasswordVisibility('current')}
                     >
                       {showPasswords.current ? (
-                        <EyeOff className="h-4 w-4 text-gray-400" />
+                        <EyeOff className="h-4 w-4 text-gray-400 stroke-[1.5]" />
                       ) : (
-                        <Eye className="h-4 w-4 text-gray-400" />
+                        <Eye className="h-4 w-4 text-gray-400 stroke-[1.5]" />
                       )}
                     </button>
                   </div>
@@ -132,9 +130,9 @@ export function SecurityPage() {
                       onClick={() => togglePasswordVisibility('new')}
                     >
                       {showPasswords.new ? (
-                        <EyeOff className="h-4 w-4 text-gray-400" />
+                        <EyeOff className="h-4 w-4 text-gray-400 stroke-[1.5]" />
                       ) : (
-                        <Eye className="h-4 w-4 text-gray-400" />
+                        <Eye className="h-4 w-4 text-gray-400 stroke-[1.5]" />
                       )}
                     </button>
                   </div>
@@ -158,9 +156,9 @@ export function SecurityPage() {
                       onClick={() => togglePasswordVisibility('confirm')}
                     >
                       {showPasswords.confirm ? (
-                        <EyeOff className="h-4 w-4 text-gray-400" />
+                        <EyeOff className="h-4 w-4 text-gray-400 stroke-[1.5]" />
                       ) : (
-                        <Eye className="h-4 w-4 text-gray-400" />
+                        <Eye className="h-4 w-4 text-gray-400 stroke-[1.5]" />
                       )}
                     </button>
                   </div>
@@ -173,12 +171,12 @@ export function SecurityPage() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-normal rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isLoading ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     ) : (
-                      <Save className="h-4 w-4 mr-2" />
+                      <Save className="h-4 w-4 mr-2 stroke-[1.5]" />
                     )}
                     Change Password
                   </button>
@@ -189,12 +187,12 @@ export function SecurityPage() {
             {/* Two-Factor Authentication */}
             <div className="border-t border-gray-200 pt-8">
               <div className="flex items-center mb-4">
-                <Smartphone className="h-5 w-5 text-gray-400 mr-2" />
+                <Smartphone className="h-5 w-5 text-gray-400 stroke-[1.5] mr-2" />
                 <h3 className="text-sm font-normal text-gray-900">Two-Factor Authentication</h3>
               </div>
               <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
                 <div className="flex items-start">
-                  <AlertTriangle className="h-5 w-5 text-yellow-400 mt-0.5 mr-3 flex-shrink-0" />
+                  <AlertTriangle className="h-5 w-5 text-yellow-400 stroke-[1.5] mt-0.5 mr-3 flex-shrink-0" />
                   <div>
                     <h4 className="text-sm font-normal text-yellow-800">Two-Factor Authentication Not Enabled</h4>
                     <p className="text-sm text-yellow-700 mt-1">
@@ -203,8 +201,8 @@ export function SecurityPage() {
                   </div>
                 </div>
               </div>
-              <button className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-normal rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                <Smartphone className="h-4 w-4 mr-2" />
+              <button className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors">
+                <Smartphone className="h-4 w-4 mr-2 stroke-[1.5]" />
                 Enable Two-Factor Authentication
               </button>
             </div>

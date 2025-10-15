@@ -62,7 +62,7 @@
 -- DDL:
 -- ============================================================================
 
-CREATE TABLE app.setting_position_level (
+CREATE TABLE app.setting_datalabel_position_level (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Standardized setting fields
@@ -91,7 +91,7 @@ CREATE TABLE app.setting_position_level (
 -- Position Hierarchy Levels (CEO starts at level 0)
 -- Comprehensive organizational structure for internal hierarchy management
 
-INSERT INTO app.setting_position_level (
+INSERT INTO app.setting_datalabel_position_level (
   level_id, level_name, slug, is_root, is_leaf, authority_description,
   typical_span_of_control, career_progression, compensation_guidance
 ) VALUES

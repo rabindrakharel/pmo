@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global font consistency */
+@layer base {
+  body {
+    font-family: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    color: #333;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font-family: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 13px;
+  }
+}
+
 /* Elegant scrollbars for both horizontal and vertical */
 .scrollbar-elegant {
   scrollbar-width: thin;

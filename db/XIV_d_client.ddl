@@ -105,10 +105,10 @@ CREATE TABLE app.d_client (
   business_number text,
 
   -- Sales and Marketing
-  opportunity_funnel_level_id integer,  -- References setting_opportunity_funnel_level
-  industry_sector_id integer,           -- References setting_industry_sector
-  acquisition_channel_id integer,       -- References setting_acquisition_channel
-  customer_tier_id integer,             -- References setting_customer_tier
+  opportunity_funnel_level_name text,  -- Setting name from setting_opportunity_funnel_level
+  industry_sector_name text,           -- Setting name from setting_industry_sector
+  acquisition_channel_name text,       -- Setting name from setting_acquisition_channel
+  customer_tier_name text,             -- Setting name from setting_customer_tier
 
 
   -- Contact information
@@ -117,9 +117,7 @@ CREATE TABLE app.d_client (
   primary_phone text,
   secondary_contact_name text,
   secondary_email text,
-  secondary_phone text,
-
-
+  secondary_phone text
 );
 
 -- ============================================================================
@@ -128,178 +126,129 @@ CREATE TABLE app.d_client (
 
 -- Huron Home Services Client Portfolio
 -- Comprehensive client data across all service categories and client types
+-- ALIGNED WITH DDL SCHEMA - Extra fields in metadata JSONB
 
 -- Premium Residential Clients
 INSERT INTO app.d_client (
-  slug, code, name, client_number, client_type, client_status, primary_contact_name,
-  primary_email, primary_phone, primary_address, city, province, postal_code,
-  acquisition_date, acquisition_channel_id, payment_terms, service_categories,
-  customer_tier_id, lifetime_value, annual_contract_value, preferred_service_times,
-  opportunity_funnel_level_id, industry_sector_id, acquisition_cost,
+  slug, code, name, client_number, client_type, client_status,
+  primary_contact_name, primary_email, primary_phone,
+  primary_address, city, province, postal_code,
+  opportunity_funnel_level_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
   tags, metadata
 ) VALUES
 ('thompson-family-residence', 'CL-RES-001', 'Thompson Family Residence', 'CL-RES-001', 'residential', 'active',
  'Robert Thompson', 'robert.thompson@email.com', '416-555-0101',
  '1847 Sheridan Park Dr', 'Oakville', 'ON', 'L6H 7S3',
- '2021-03-15', 4, 'net-15',  -- acquisition_channel_id: 4 = Referral
- '["landscaping", "garden_design", "seasonal_maintenance"]',
- 2, 85000.00, 25000.00,  -- customer_tier_id: 2 = Premium
- '{"preferred_days": ["tuesday", "wednesday", "thursday"], "time_range": "9am-3pm"}',
- 5, 0, 450.00,  -- opportunity_funnel_level_id: 5 = Contract Signed, industry_sector_id: 0 = Residential, acquisition_cost: $450
- '["residential", "premium", "oakville", "referral"]',
- '{"property_size_sqft": 8500, "pool": true, "garden_specialty": "perennial_borders", "seasonal_decorations": true, "referral_source": "neighbor"}'),
+ 'Contract Signed', 'Residential', 'Referral', 'Premium',
+ '["residential", "premium", "oakville", "referral"]'::jsonb,
+ '{"acquisition_date": "2021-03-15", "payment_terms": "net-15", "service_categories": ["landscaping", "garden_design", "seasonal_maintenance"], "lifetime_value": 85000.00, "annual_contract_value": 25000.00, "preferred_service_times": {"preferred_days": ["tuesday", "wednesday", "thursday"], "time_range": "9am-3pm"}, "acquisition_cost": 450.00, "property_size_sqft": 8500, "pool": true, "garden_specialty": "perennial_borders", "seasonal_decorations": true, "referral_source": "neighbor"}'::jsonb),
 
 ('chen-estate', 'CL-RES-003', 'The Chen Estate', 'CL-RES-003', 'residential', 'active',
  'David Chen', 'david.chen@outlook.com', '905-555-0103',
  '3425 Mississauga Rd', 'Mississauga', 'ON', 'L5L 3R8',
- '2020-08-10', 4, 'net-30',  -- acquisition_channel_id: 4 = Referral
- '["landscaping", "garden_design", "seasonal_maintenance", "pool_maintenance"]',
- 2, 120000.00, 35000.00,  -- customer_tier_id: 2 = Premium
- '{"preferred_days": ["monday", "tuesday"], "time_range": "10am-2pm", "seasonal_intensive": true}',
- 5, 0, 380.00,  -- opportunity_funnel_level_id: 5 = Contract Signed, industry_sector_id: 0 = Residential
- '["residential", "premium", "mississauga", "estate"]',
- '{"property_size_sqft": 12500, "pool": true, "tennis_court": true, "garden_specialty": "japanese_design", "irrigation_system": true}');
+ 'Contract Signed', 'Residential', 'Referral', 'Premium',
+ '["residential", "premium", "mississauga", "estate"]'::jsonb,
+ '{"acquisition_date": "2020-08-10", "payment_terms": "net-30", "service_categories": ["landscaping", "garden_design", "seasonal_maintenance", "pool_maintenance"], "lifetime_value": 120000.00, "annual_contract_value": 35000.00, "preferred_service_times": {"preferred_days": ["monday", "tuesday"], "time_range": "10am-2pm", "seasonal_intensive": true}, "acquisition_cost": 380.00, "property_size_sqft": 12500, "pool": true, "tennis_court": true, "garden_specialty": "japanese_design", "irrigation_system": true}'::jsonb);
 
 -- Standard Residential Clients
 INSERT INTO app.d_client (
-  slug, code, name, client_number, client_type, client_status, primary_contact_name,
-  primary_email, primary_phone, primary_address, city, province, postal_code,
-  acquisition_date, acquisition_channel_id, payment_terms, service_categories,
-  customer_tier_id, lifetime_value, annual_contract_value, preferred_service_times,
-  opportunity_funnel_level_id, industry_sector_id, acquisition_cost,
+  slug, code, name, client_number, client_type, client_status,
+  primary_contact_name, primary_email, primary_phone,
+  primary_address, city, province, postal_code,
+  opportunity_funnel_level_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
   tags, metadata
 ) VALUES
 ('martinez-family-home', 'CL-RES-002', 'Martinez Family Home', 'CL-RES-002', 'residential', 'active',
  'Isabella Martinez', 'isabella.martinez@gmail.com', '647-555-0102',
  '2156 Lakeshore Rd W', 'Oakville', 'ON', 'L6L 1H2',
- '2021-05-20', 0, 'net-15',  -- acquisition_channel_id: 0 = Organic Search
- '["landscaping", "seasonal_cleanup", "snow_removal"]',
- 0, 42000.00, 12000.00,  -- customer_tier_id: 0 = Standard
- '{"preferred_days": ["friday", "saturday"], "time_range": "8am-5pm"}',
- 5, 0, 850.00,  -- opportunity_funnel_level_id: 5 = Contract Signed, industry_sector_id: 0 = Residential
- '["residential", "standard", "oakville", "online"]',
- '{"property_size_sqft": 6200, "driveway": "double", "garden_type": "low_maintenance", "snow_priority": "high"}'),
+ 'Contract Signed', 'Residential', 'Organic Search', 'Standard',
+ '["residential", "standard", "oakville", "online"]'::jsonb,
+ '{"acquisition_date": "2021-05-20", "payment_terms": "net-15", "service_categories": ["landscaping", "seasonal_cleanup", "snow_removal"], "lifetime_value": 42000.00, "annual_contract_value": 12000.00, "preferred_service_times": {"preferred_days": ["friday", "saturday"], "time_range": "8am-5pm"}, "acquisition_cost": 850.00, "property_size_sqft": 6200, "driveway": "double", "garden_type": "low_maintenance", "snow_priority": "high"}'::jsonb),
 
 ('wilson-townhouse', 'CL-RES-004', 'Wilson Townhouse', 'CL-RES-004', 'residential', 'active',
  'Sarah Wilson', 'swilson@rogers.com', '416-555-0104',
  '45 Elm Drive', 'Toronto', 'ON', 'M4W 1N4',
- '2022-01-15', 2, 'net-15',  -- acquisition_channel_id: 2 = Social Media Organic
- '["landscaping", "seasonal_cleanup"]',
- 0, 18000.00, 6000.00,  -- customer_tier_id: 0 = Standard
- '{"preferred_days": ["saturday"], "time_range": "9am-1pm"}',
- 5, 0, 320.00,  -- opportunity_funnel_level_id: 5 = Contract Signed, industry_sector_id: 0 = Residential
- '["residential", "standard", "toronto", "townhouse"]',
- '{"property_size_sqft": 1800, "front_yard_only": true, "small_space_design": true, "low_maintenance": true}');
+ 'Contract Signed', 'Residential', 'Social Media Organic', 'Standard',
+ '["residential", "standard", "toronto", "townhouse"]'::jsonb,
+ '{"acquisition_date": "2022-01-15", "payment_terms": "net-15", "service_categories": ["landscaping", "seasonal_cleanup"], "lifetime_value": 18000.00, "annual_contract_value": 6000.00, "preferred_service_times": {"preferred_days": ["saturday"], "time_range": "9am-1pm"}, "acquisition_cost": 320.00, "property_size_sqft": 1800, "front_yard_only": true, "small_space_design": true, "low_maintenance": true}'::jsonb);
 
 -- Enterprise Commercial Clients
 INSERT INTO app.d_client (
-  slug, code, name, client_number, client_type, client_status, primary_contact_name,
-  primary_email, primary_phone, primary_address, city, province, postal_code,
-  acquisition_date, acquisition_channel_id, payment_terms, service_categories,
-  customer_tier_id, lifetime_value, annual_contract_value, preferred_service_times,
-  opportunity_funnel_level_id, industry_sector_id, acquisition_cost,
+  slug, code, name, client_number, client_type, client_status,
+  primary_contact_name, primary_email, primary_phone,
+  primary_address, city, province, postal_code,
+  opportunity_funnel_level_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
   tags, metadata
 ) VALUES
 ('square-one-shopping', 'CL-COM-001', 'Square One Shopping Centre', 'CL-COM-001', 'commercial', 'active',
  'Jennifer Walsh', 'jennifer.walsh@squareone.com', '905-555-0201',
  '100 City Centre Dr', 'Mississauga', 'ON', 'L5B 2C9',
- '2020-01-15', 14, 'net-45',  -- acquisition_channel_id: 14 = Municipal Contract
- '["landscaping", "snow_removal", "seasonal_decorations"]',
- 3, 500000.00, 120000.00,  -- customer_tier_id: 3 = Enterprise
- '{"service_windows": "off_hours", "coordination_required": true, "seasonal_intensive": true}',
- 5, 1, 12500.00,  -- opportunity_funnel_level_id: 5 = Contract Signed, industry_sector_id: 1 = Commercial Real Estate
- '["commercial", "enterprise", "retail", "high-visibility"]',
- '{"property_size_acres": 85, "foot_traffic": "high", "seasonal_decorations": true, "public_space": true, "media_visibility": true}'),
+ 'Contract Signed', 'Commercial Real Estate', 'Municipal Contract', 'Enterprise',
+ '["commercial", "enterprise", "retail", "high-visibility"]'::jsonb,
+ '{"acquisition_date": "2020-01-15", "payment_terms": "net-45", "service_categories": ["landscaping", "snow_removal", "seasonal_decorations"], "lifetime_value": 500000.00, "annual_contract_value": 120000.00, "preferred_service_times": {"service_windows": "off_hours", "coordination_required": true, "seasonal_intensive": true}, "acquisition_cost": 12500.00, "property_size_acres": 85, "foot_traffic": "high", "seasonal_decorations": true, "public_space": true, "media_visibility": true}'::jsonb),
 
 ('sheridan-college', 'CL-COM-002', 'Sheridan College', 'CL-COM-002', 'commercial', 'active',
  'Mark Patterson', 'mark.patterson@sheridancollege.ca', '905-845-9430',
  '7899 McLaughlin Rd', 'Brampton', 'ON', 'L6Y 5H9',
- '2020-12-01', 14, 'net-60',  -- acquisition_channel_id: 14 = Municipal Contract (RFP)
- '["landscaping", "snow_removal", "grounds_maintenance"]',
- 3, 450000.00, 150000.00,  -- customer_tier_id: 3 = Enterprise
- '{"academic_calendar_sensitive": true, "student_safety": "priority", "environmental_education": true}',
- 5, 3, 15000.00,  -- opportunity_funnel_level_id: 5 = Contract Signed, industry_sector_id: 3 = Education
- '["commercial", "education", "enterprise", "public"]',
- '{"campus_acres": 125, "buildings": 12, "parking_lots": 8, "environmental_certification": "LEED", "student_population": 23000}'),
+ 'Contract Signed', 'Education', 'Municipal Contract', 'Enterprise',
+ '["commercial", "education", "enterprise", "public"]'::jsonb,
+ '{"acquisition_date": "2020-12-01", "payment_terms": "net-60", "service_categories": ["landscaping", "snow_removal", "grounds_maintenance"], "lifetime_value": 450000.00, "annual_contract_value": 150000.00, "preferred_service_times": {"academic_calendar_sensitive": true, "student_safety": "priority", "environmental_education": true}, "acquisition_cost": 15000.00, "campus_acres": 125, "buildings": 12, "parking_lots": 8, "environmental_certification": "LEED", "student_population": 23000}'::jsonb),
 
 ('ontario-power-generation', 'CL-COM-004', 'Ontario Power Generation', 'CL-COM-004', 'commercial', 'active',
  'Jennifer Clarke', 'jennifer.clarke@opg.com', '905-839-6000',
  '700 University Ave', 'Toronto', 'ON', 'M5G 1X6',
- '2021-03-01', 14, 'net-45',  -- acquisition_channel_id: 14 = Municipal Contract (procurement)
- '["landscaping", "grounds_maintenance", "environmental_compliance"]',
- 3, 650000.00, 180000.00,  -- customer_tier_id: 3 = Enterprise
- '{"security_clearance_required": true, "environmental_strict": true, "safety_protocols": "nuclear"}',
- 5, 6, 18000.00,  -- opportunity_funnel_level_id: 5 = Contract Signed, industry_sector_id: 6 = Industrial
- '["commercial", "utilities", "government", "high-security"]',
- '{"facilities": 15, "environmental_compliance": "nuclear", "security_level": "high", "specialized_equipment": true}');
+ 'Contract Signed', 'Industrial', 'Municipal Contract', 'Enterprise',
+ '["commercial", "utilities", "government", "high-security"]'::jsonb,
+ '{"acquisition_date": "2021-03-01", "payment_terms": "net-45", "service_categories": ["landscaping", "grounds_maintenance", "environmental_compliance"], "lifetime_value": 650000.00, "annual_contract_value": 180000.00, "preferred_service_times": {"security_clearance_required": true, "environmental_strict": true, "safety_protocols": "nuclear"}, "acquisition_cost": 18000.00, "facilities": 15, "environmental_compliance": "nuclear", "security_level": "high", "specialized_equipment": true}'::jsonb);
 
 -- Municipal Government Clients
 INSERT INTO app.d_client (
-  slug, code, name, client_number, client_type, client_status, primary_contact_name,
-  primary_email, primary_phone, primary_address, city, province, postal_code,
-  acquisition_date, acquisition_channel_id, payment_terms, service_categories,
-  customer_tier_id, lifetime_value, annual_contract_value, preferred_service_times,
-  opportunity_funnel_level_id, industry_sector_id, acquisition_cost,
+  slug, code, name, client_number, client_type, client_status,
+  primary_contact_name, primary_email, primary_phone,
+  primary_address, city, province, postal_code,
+  opportunity_funnel_level_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
   tags, metadata
 ) VALUES
 ('city-of-mississauga', 'CL-MUN-001', 'City of Mississauga', 'CL-MUN-001', 'municipal', 'active',
  'Paul Martineau', 'paul.martineau@mississauga.ca', '905-615-3200',
  '300 City Centre Dr', 'Mississauga', 'ON', 'L5B 3C1',
- '2021-09-15', 14, 'net-45',  -- acquisition_channel_id: 14 = Municipal Contract (public tender)
- '["landscaping", "seasonal_maintenance", "snow_removal", "park_maintenance"]',
- 4, 750000.00, 250000.00,  -- customer_tier_id: 4 = Government
- '{"public_hours_coordination": true, "environmental_compliance": "strict", "public_safety": "priority"}',
- 5, 5, 25000.00,  -- opportunity_funnel_level_id: 5 = Contract Signed, industry_sector_id: 5 = Municipal/Government
- '["municipal", "government", "public-spaces", "environmental"]',
- '{"parks": 45, "public_spaces_acres": 2500, "environmental_standards": "highest", "public_visibility": "maximum", "citizen_satisfaction": "critical"}');
+ 'Contract Signed', 'Municipal/Government', 'Municipal Contract', 'Government',
+ '["municipal", "government", "public-spaces", "environmental"]'::jsonb,
+ '{"acquisition_date": "2021-09-15", "payment_terms": "net-45", "service_categories": ["landscaping", "seasonal_maintenance", "snow_removal", "park_maintenance"], "lifetime_value": 750000.00, "annual_contract_value": 250000.00, "preferred_service_times": {"public_hours_coordination": true, "environmental_compliance": "strict", "public_safety": "priority"}, "acquisition_cost": 25000.00, "parks": 45, "public_spaces_acres": 2500, "environmental_standards": "highest", "public_visibility": "maximum", "citizen_satisfaction": "critical"}'::jsonb);
 
 -- Healthcare and Senior Living
 INSERT INTO app.d_client (
-  slug, code, name, client_number, client_type, client_status, primary_contact_name,
-  primary_email, primary_phone, primary_address, city, province, postal_code,
-  acquisition_date, acquisition_channel_id, payment_terms, service_categories,
-  customer_tier_id, lifetime_value, annual_contract_value, preferred_service_times,
-  opportunity_funnel_level_id, industry_sector_id, acquisition_cost,
+  slug, code, name, client_number, client_type, client_status,
+  primary_contact_name, primary_email, primary_phone,
+  primary_address, city, province, postal_code,
+  opportunity_funnel_level_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
   tags, metadata
 ) VALUES
 ('trillium-health', 'CL-COM-006', 'Trillium Health Partners', 'CL-COM-006', 'commercial', 'active',
  'Dr. Patricia Moore', 'patricia.moore@thp.ca', '905-848-7100',
  '100 Queensway W', 'Mississauga', 'ON', 'L5B 1B8',
- '2021-11-01', 14, 'net-60',  -- acquisition_channel_id: 14 = Municipal Contract (healthcare procurement)
- '["landscaping", "grounds_maintenance", "healing_gardens", "accessibility"]',
- 2, 520000.00, 160000.00,  -- customer_tier_id: 2 = Premium
- '{"patient_care": "priority", "accessibility": "full", "healing_environment": true, "infection_control": true}',
- 5, 2, 16000.00,  -- opportunity_funnel_level_id: 5 = Contract Signed, industry_sector_id: 2 = Healthcare
- '["healthcare", "hospital", "healing-gardens", "accessibility"]',
- '{"campus_acres": 45, "buildings": 8, "healing_gardens": 6, "patient_capacity": 850, "staff": 3200}'),
+ 'Contract Signed', 'Healthcare', 'Municipal Contract', 'Premium',
+ '["healthcare", "hospital", "healing-gardens", "accessibility"]'::jsonb,
+ '{"acquisition_date": "2021-11-01", "payment_terms": "net-60", "service_categories": ["landscaping", "grounds_maintenance", "healing_gardens", "accessibility"], "lifetime_value": 520000.00, "annual_contract_value": 160000.00, "preferred_service_times": {"patient_care": "priority", "accessibility": "full", "healing_environment": true, "infection_control": true}, "acquisition_cost": 16000.00, "campus_acres": 45, "buildings": 8, "healing_gardens": 6, "patient_capacity": 850, "staff": 3200}'::jsonb),
 
 ('amica-senior-living', 'CL-COM-007', 'Amica Senior Living', 'CL-COM-007', 'commercial', 'active',
  'Carol Henderson', 'carol.henderson@amica.ca', '905-607-5050',
  '3180 Kirwin Ave', 'Mississauga', 'ON', 'L5A 3R2',
- '2022-02-15', 10, 'net-45',  -- acquisition_channel_id: 10 = Partnership (competitive bid)
- '["landscaping", "seasonal_maintenance", "accessible_gardens", "safety_focus"]',
- 2, 340000.00, 95000.00,  -- customer_tier_id: 2 = Premium
- '{"senior_safety": "priority", "accessible_design": true, "seasonal_activities": true}',
- 5, 2, 9500.00,  -- opportunity_funnel_level_id: 5 = Contract Signed, industry_sector_id: 2 = Healthcare
- '["senior-living", "accessibility", "premium", "safety"]',
- '{"residents": 220, "staff": 85, "garden_areas": 4, "accessibility_features": "full", "memory_care": true}');
+ 'Contract Signed', 'Healthcare', 'Partnership', 'Premium',
+ '["senior-living", "accessibility", "premium", "safety"]'::jsonb,
+ '{"acquisition_date": "2022-02-15", "payment_terms": "net-45", "service_categories": ["landscaping", "seasonal_maintenance", "accessible_gardens", "safety_focus"], "lifetime_value": 340000.00, "annual_contract_value": 95000.00, "preferred_service_times": {"senior_safety": "priority", "accessible_design": true, "seasonal_activities": true}, "acquisition_cost": 9500.00, "residents": 220, "staff": 85, "garden_areas": 4, "accessibility_features": "full", "memory_care": true}'::jsonb);
 
 -- Industrial Manufacturing
 INSERT INTO app.d_client (
-  slug, code, name, client_number, client_type, client_status, primary_contact_name,
-  primary_email, primary_phone, primary_address, city, province, postal_code,
-  acquisition_date, acquisition_channel_id, payment_terms, service_categories,
-  customer_tier_id, lifetime_value, annual_contract_value, preferred_service_times,
-  opportunity_funnel_level_id, industry_sector_id, acquisition_cost,
+  slug, code, name, client_number, client_type, client_status,
+  primary_contact_name, primary_email, primary_phone,
+  primary_address, city, province, postal_code,
+  opportunity_funnel_level_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
   tags, metadata
 ) VALUES
 ('magna-international', 'CL-COM-008', 'Magna International', 'CL-COM-008', 'commercial', 'active',
  'Thomas Weber', 'thomas.weber@magna.com', '905-726-2462',
  '337 Magna Dr', 'Aurora', 'ON', 'L4G 7K1',
- '2020-09-15', 11, 'net-60',  -- acquisition_channel_id: 11 = Cold Outreach (corporate procurement)
- '["landscaping", "industrial_grounds", "snow_removal", "parking_maintenance"]',
- 3, 890000.00, 280000.00,  -- customer_tier_id: 3 = Enterprise
- '{"industrial_safety": "critical", "employee_parking": "priority", "environmental_compliance": "strict"}',
- 5, 6, 28000.00,  -- opportunity_funnel_level_id: 5 = Contract Signed, industry_sector_id: 6 = Industrial
- '["industrial", "manufacturing", "enterprise", "automotive"]',
- '{"facilities": 35, "employees": 15000, "parking_spaces": 8500, "manufacturing_sites": true, "environmental_certification": "ISO14001"}');
+ 'Contract Signed', 'Industrial', 'Cold Outreach', 'Enterprise',
+ '["industrial", "manufacturing", "enterprise", "automotive"]'::jsonb,
+ '{"acquisition_date": "2020-09-15", "payment_terms": "net-60", "service_categories": ["landscaping", "industrial_grounds", "snow_removal", "parking_maintenance"], "lifetime_value": 890000.00, "annual_contract_value": 280000.00, "preferred_service_times": {"industrial_safety": "critical", "employee_parking": "priority", "environmental_compliance": "strict"}, "acquisition_cost": 28000.00, "facilities": 35, "employees": 15000, "parking_spaces": 8500, "manufacturing_sites": true, "environmental_certification": "ISO14001"}'::jsonb);

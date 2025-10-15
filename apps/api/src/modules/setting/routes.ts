@@ -7,12 +7,15 @@ import { sql } from 'drizzle-orm';
 // Setting data schemas
 const SettingItemSchema = Type.Object({
   id: Type.String(),
-  name: Type.String(),
+  name: Type.Optional(Type.String()),
+  level_name: Type.Optional(Type.String()),
   descr: Type.Optional(Type.String()),
+  level_descr: Type.Optional(Type.String()),
   code: Type.Optional(Type.String()),
   level_id: Type.Optional(Type.Number()),
   sort_id: Type.Optional(Type.Number()),
   sort_order: Type.Optional(Type.Number()),
+  color_code: Type.Optional(Type.String()),
   country_code: Type.Optional(Type.String()),
   salary_band_min: Type.Optional(Type.Number()),
   salary_band_max: Type.Optional(Type.Number()),
@@ -27,7 +30,8 @@ const SettingItemSchema = Type.Object({
   attr: Type.Optional(Type.Object({})),
   from_ts: Type.Optional(Type.String()),
   to_ts: Type.Optional(Type.String()),
-  active: Type.Boolean(),
+  active: Type.Optional(Type.Boolean()),
+  active_flag: Type.Optional(Type.Boolean()),
   created: Type.String(),
   updated: Type.String(),
 });
@@ -81,7 +85,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
       let query;
       let categoryName = category;
 
-      if (category === 'task_status' || category === 'task-status') {
+      if (category === 'task_status') {
         query = sql`
           SELECT
             id::text,
@@ -106,12 +110,12 @@ export async function settingRoutes(fastify: FastifyInstance) {
           ORDER BY level_id ASC, level_name ASC
         `;
         categoryName = 'task_status';
-      } else if (category === 'task_stage' || category === 'task-stage') {
+      } else if (category === 'task_stage') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name as name,
-            level_descr as descr,
+            level_name,
+            level_descr,
             level_id,
             sort_order,
             color_code,
@@ -119,15 +123,15 @@ export async function settingRoutes(fastify: FastifyInstance) {
             null as attr,
             created_ts as from_ts,
             null as to_ts,
-            active_flag as active,
+            active_flag,
             created_ts as created,
             created_ts as updated
-          FROM app.setting_task_stage
+          FROM app.setting_datalabel_task_stage
           WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC, level_name ASC
         `;
         categoryName = 'task_stage';
-      } else if (category === 'project_status' || category === 'project-status') {
+      } else if (category === 'project_status') {
         query = sql`
           SELECT
             id::text,
@@ -151,12 +155,12 @@ export async function settingRoutes(fastify: FastifyInstance) {
           ORDER BY level_id ASC, level_name ASC
         `;
         categoryName = 'project_status';
-      } else if (category === 'project_stage' || category === 'project-stage') {
+      } else if (category === 'project_stage') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name as name,
-            level_descr as descr,
+            level_name,
+            level_descr,
             level_id,
             sort_order,
             color_code,
@@ -164,55 +168,55 @@ export async function settingRoutes(fastify: FastifyInstance) {
             null as attr,
             created_ts as from_ts,
             null as to_ts,
-            active_flag as active,
+            active_flag,
             created_ts as created,
             created_ts as updated
-          FROM app.setting_project_stage
+          FROM app.setting_datalabel_project_stage
           WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC, level_name ASC
         `;
         categoryName = 'project_stage';
-      } else if (category === 'biz_level' || category === 'business-level') {
+      } else if (category === 'business_level') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name as name,
-            level_descr as descr,
+            level_name,
+            level_descr,
             level_id,
             level_id as sort_order,
             null as tags,
             null as attr,
             created_ts as from_ts,
             null as to_ts,
-            active_flag as active,
+            active_flag,
             created_ts as created,
             created_ts as updated
-          FROM app.setting_business_level
+          FROM app.setting_datalabel_business_level
           WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC
         `;
-        categoryName = 'biz_level';
-      } else if (category === 'org_level' || category === 'orgLevel') {
+        categoryName = 'business_level';
+      } else if (category === 'office_level') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name as name,
-            level_descr as descr,
+            level_name,
+            level_descr,
             level_id,
             level_id as sort_order,
             null as tags,
             null as attr,
             created_ts as from_ts,
             null as to_ts,
-            active_flag as active,
+            active_flag,
             created_ts as created,
             created_ts as updated
-          FROM app.setting_office_level
+          FROM app.setting_datalabel_office_level
           WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC
         `;
-        categoryName = 'org_level';
-      } else if (category === 'hr_level' || category === 'hr-level') {
+        categoryName = 'office_level';
+      } else if (category === 'hr_level') {
         query = sql`
           SELECT
             id::text,
@@ -236,7 +240,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
           ORDER BY level_id ASC
         `;
         categoryName = 'hr_level';
-      } else if (category === 'client_level' || category === 'client-level' || category === 'clientLevel') {
+      } else if (category === 'client_level') {
         query = sql`
           SELECT
             id::text,
@@ -254,12 +258,12 @@ export async function settingRoutes(fastify: FastifyInstance) {
             active_flag as active,
             created_ts as created,
             updated_ts as updated
-          FROM app.setting_client_level
+          FROM app.setting_datalabel_client_level
           WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC
         `;
         categoryName = 'client_level';
-      } else if (category === 'position_level' || category === 'position-level' || category === 'positionLevel') {
+      } else if (category === 'position_level') {
         query = sql`
           SELECT
             id::text,
@@ -277,52 +281,92 @@ export async function settingRoutes(fastify: FastifyInstance) {
             active_flag as active,
             created_ts as created,
             updated_ts as updated
-          FROM app.setting_position_level
+          FROM app.setting_datalabel_position_level
           WHERE active_flag = ${active !== false}
           ORDER BY level_id ASC
         `;
         categoryName = 'position_level';
-      } else if (category === 'opportunity_funnel_level' || category === 'opportunity-funnel-level' || category === 'opportunityFunnelLevel') {
+      } else if (category === 'opportunity_funnel_level') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name as name,
-            level_descr as descr,
+            level_name,
+            level_descr,
             level_id,
             sort_order,
             null as tags,
             null as attr,
             created_ts as from_ts,
             null as to_ts,
-            active_flag as active,
+            active_flag,
             created_ts as created,
             created_ts as updated
-          FROM app.setting_opportunity_funnel_level
+          FROM app.setting_datalabel_opportunity_funnel_level
           WHERE active_flag = ${active !== false}
           ORDER BY sort_order ASC, level_name ASC
         `;
         categoryName = 'opportunity_funnel_level';
-      } else if (category === 'industry_sector' || category === 'industry-sector' || category === 'industrySector') {
+      } else if (category === 'industry_sector') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name as name,
-            level_descr as descr,
+            level_name,
+            level_descr,
             level_id,
             sort_order,
             null as tags,
             null as attr,
             created_ts as from_ts,
             null as to_ts,
-            active_flag as active,
+            active_flag,
             created_ts as created,
             created_ts as updated
-          FROM app.setting_industry_sector
+          FROM app.setting_datalabel_industry_sector
           WHERE active_flag = ${active !== false}
           ORDER BY sort_order ASC, level_name ASC
         `;
         categoryName = 'industry_sector';
-      } else if (category === 'acquisition_channel' || category === 'acquisition-channel' || category === 'acquisitionChannel') {
+      } else if (category === 'acquisition_channel') {
+        query = sql`
+          SELECT
+            level_id::text as id,
+            level_name,
+            level_descr,
+            level_id,
+            sort_order,
+            null as tags,
+            null as attr,
+            created_ts as from_ts,
+            null as to_ts,
+            active_flag,
+            created_ts as created,
+            created_ts as updated
+          FROM app.setting_datalabel_acquisition_channel
+          WHERE active_flag = ${active !== false}
+          ORDER BY sort_order ASC, level_name ASC
+        `;
+        categoryName = 'acquisition_channel';
+      } else if (category === 'customer_tier') {
+        query = sql`
+          SELECT
+            level_id::text as id,
+            level_name,
+            level_descr,
+            level_id,
+            sort_order,
+            null as tags,
+            null as attr,
+            created_ts as from_ts,
+            null as to_ts,
+            active_flag,
+            created_ts as created,
+            created_ts as updated
+          FROM app.setting_datalabel_customer_tier
+          WHERE active_flag = ${active !== false}
+          ORDER BY sort_order ASC, level_name ASC
+        `;
+        categoryName = 'customer_tier';
+      } else if (category === 'client_status') {
         query = sql`
           SELECT
             level_id::text as id,
@@ -334,14 +378,114 @@ export async function settingRoutes(fastify: FastifyInstance) {
             null as attr,
             created_ts as from_ts,
             null as to_ts,
-            active_flag as active,
+            is_active as active,
             created_ts as created,
-            created_ts as updated
-          FROM app.setting_acquisition_channel
-          WHERE active_flag = ${active !== false}
+            updated_ts as updated
+          FROM app.setting_datalabel_client_status
+          WHERE is_active = ${active !== false}
           ORDER BY sort_order ASC, level_name ASC
         `;
-        categoryName = 'acquisition_channel';
+        categoryName = 'client_status';
+      } else if (category === 'task_priority') {
+        query = sql`
+          SELECT
+            level_id::text as id,
+            level_name as name,
+            level_descr as descr,
+            level_id,
+            sort_order,
+            null as tags,
+            null as attr,
+            created_ts as from_ts,
+            null as to_ts,
+            is_active as active,
+            created_ts as created,
+            updated_ts as updated
+          FROM app.setting_datalabel_task_priority
+          WHERE is_active = ${active !== false}
+          ORDER BY sort_order ASC, level_name ASC
+        `;
+        categoryName = 'task_priority';
+      } else if (category === 'task_update_type') {
+        query = sql`
+          SELECT
+            level_id::text as id,
+            level_name as name,
+            level_descr as descr,
+            level_id,
+            sort_order,
+            null as tags,
+            null as attr,
+            created_ts as from_ts,
+            null as to_ts,
+            is_active as active,
+            created_ts as created,
+            updated_ts as updated
+          FROM app.setting_datalabel_task_update_type
+          WHERE is_active = ${active !== false}
+          ORDER BY sort_order ASC, level_name ASC
+        `;
+        categoryName = 'task_update_type';
+      } else if (category === 'form_submission_status') {
+        query = sql`
+          SELECT
+            level_id::text as id,
+            level_name as name,
+            level_descr as descr,
+            level_id,
+            sort_order,
+            null as tags,
+            null as attr,
+            created_ts as from_ts,
+            null as to_ts,
+            is_active as active,
+            created_ts as created,
+            updated_ts as updated
+          FROM app.setting_datalabel_form_submission_status
+          WHERE is_active = ${active !== false}
+          ORDER BY sort_order ASC, level_name ASC
+        `;
+        categoryName = 'form_submission_status';
+      } else if (category === 'form_approval_status') {
+        query = sql`
+          SELECT
+            level_id::text as id,
+            level_name as name,
+            level_descr as descr,
+            level_id,
+            sort_order,
+            null as tags,
+            null as attr,
+            created_ts as from_ts,
+            null as to_ts,
+            is_active as active,
+            created_ts as created,
+            updated_ts as updated
+          FROM app.setting_datalabel_form_approval_status
+          WHERE is_active = ${active !== false}
+          ORDER BY sort_order ASC, level_name ASC
+        `;
+        categoryName = 'form_approval_status';
+      } else if (category === 'wiki_publication_status') {
+        query = sql`
+          SELECT
+            level_id::text as id,
+            level_name as name,
+            level_descr as descr,
+            level_id,
+            sort_order,
+            null as tags,
+            null as attr,
+            created_ts as from_ts,
+            null as to_ts,
+            is_active as active,
+            created_ts as created,
+            updated_ts as updated
+          FROM app.setting_datalabel_wiki_publication_status
+          WHERE is_active = ${active !== false}
+          ORDER BY sort_order ASC, level_name ASC
+        `;
+        categoryName = 'wiki_publication_status';
       } else {
         // Return all categories or empty if unknown category
         if (category && !['all', undefined].includes(category)) {
@@ -560,65 +704,50 @@ export async function settingRoutes(fastify: FastifyInstance) {
 
       switch (category) {
         case 'task_status':
-        case 'task-status':
           tableName = 'app.setting_task_status';
           break;
         case 'task_stage':
-        case 'task-stage':
           tableName = 'app.setting_task_stage';
           idField = 'level_id';
           break;
         case 'project_status':
-        case 'project-status':
           tableName = 'app.setting_project_status';
           break;
         case 'project_stage':
-        case 'project-stage':
           tableName = 'app.setting_project_stage';
           idField = 'level_id';
           break;
-        case 'biz_level':
-        case 'business-level':
-        case 'businessLevel':
+        case 'business_level':
           tableName = 'app.setting_business_level';
           idField = 'level_id';
           break;
-        case 'org_level':
-        case 'orgLevel':
+        case 'office_level':
           tableName = 'app.setting_office_level';
           idField = 'level_id';
           break;
         case 'hr_level':
-        case 'hr-level':
-        case 'hrLevel':
           tableName = 'app.setting_hr_level';
           break;
         case 'client_level':
-        case 'client-level':
-        case 'clientLevel':
-          tableName = 'app.setting_client_level';
+          tableName = 'app.setting_datalabel_client_level';
           break;
         case 'position_level':
-        case 'position-level':
-        case 'positionLevel':
-          tableName = 'app.setting_position_level';
+          tableName = 'app.setting_datalabel_position_level';
           break;
         case 'opportunity_funnel_level':
-        case 'opportunity-funnel-level':
-        case 'opportunityFunnelLevel':
-          tableName = 'app.setting_opportunity_funnel_level';
+          tableName = 'app.setting_datalabel_opportunity_funnel_level';
           idField = 'level_id';
           break;
         case 'industry_sector':
-        case 'industry-sector':
-        case 'industrySector':
-          tableName = 'app.setting_industry_sector';
+          tableName = 'app.setting_datalabel_industry_sector';
           idField = 'level_id';
           break;
         case 'acquisition_channel':
-        case 'acquisition-channel':
-        case 'acquisitionChannel':
-          tableName = 'app.setting_acquisition_channel';
+          tableName = 'app.setting_datalabel_acquisition_channel';
+          idField = 'level_id';
+          break;
+        case 'customer_tier':
+          tableName = 'app.setting_datalabel_customer_tier';
           idField = 'level_id';
           break;
         default:
@@ -712,65 +841,50 @@ export async function settingRoutes(fastify: FastifyInstance) {
 
       switch (category) {
         case 'task_status':
-        case 'task-status':
           tableName = 'app.setting_task_status';
           break;
         case 'task_stage':
-        case 'task-stage':
           tableName = 'app.setting_task_stage';
           idField = 'level_id';
           break;
         case 'project_status':
-        case 'project-status':
           tableName = 'app.setting_project_status';
           break;
         case 'project_stage':
-        case 'project-stage':
           tableName = 'app.setting_project_stage';
           idField = 'level_id';
           break;
-        case 'biz_level':
-        case 'business-level':
-        case 'businessLevel':
+        case 'business_level':
           tableName = 'app.setting_business_level';
           idField = 'level_id';
           break;
-        case 'org_level':
-        case 'orgLevel':
+        case 'office_level':
           tableName = 'app.setting_office_level';
           idField = 'level_id';
           break;
         case 'hr_level':
-        case 'hr-level':
-        case 'hrLevel':
           tableName = 'app.setting_hr_level';
           break;
         case 'client_level':
-        case 'client-level':
-        case 'clientLevel':
-          tableName = 'app.setting_client_level';
+          tableName = 'app.setting_datalabel_client_level';
           break;
         case 'position_level':
-        case 'position-level':
-        case 'positionLevel':
-          tableName = 'app.setting_position_level';
+          tableName = 'app.setting_datalabel_position_level';
           break;
         case 'opportunity_funnel_level':
-        case 'opportunity-funnel-level':
-        case 'opportunityFunnelLevel':
-          tableName = 'app.setting_opportunity_funnel_level';
+          tableName = 'app.setting_datalabel_opportunity_funnel_level';
           idField = 'level_id';
           break;
         case 'industry_sector':
-        case 'industry-sector':
-        case 'industrySector':
-          tableName = 'app.setting_industry_sector';
+          tableName = 'app.setting_datalabel_industry_sector';
           idField = 'level_id';
           break;
         case 'acquisition_channel':
-        case 'acquisition-channel':
-        case 'acquisitionChannel':
-          tableName = 'app.setting_acquisition_channel';
+          tableName = 'app.setting_datalabel_acquisition_channel';
+          idField = 'level_id';
+          break;
+        case 'customer_tier':
+          tableName = 'app.setting_datalabel_customer_tier';
           idField = 'level_id';
           break;
         default:
@@ -779,7 +893,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
 
       // Soft delete by setting active_flag = false
       // Only update to_ts and updated_ts if they exist (new tables don't have updated_ts or to_ts)
-      const hasTimestamps = !['opportunity_funnel_level', 'industry_sector', 'acquisition_channel'].some(t => tableName.includes(t));
+      const hasTimestamps = !['opportunity_funnel_level', 'industry_sector', 'acquisition_channel', 'customer_tier'].some(t => tableName.includes(t));
 
       let updateQuery;
       if (hasTimestamps) {

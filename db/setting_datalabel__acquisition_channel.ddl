@@ -48,7 +48,7 @@
 -- DDL:
 -- ============================================================================
 
-CREATE TABLE app.setting_acquisition_channel (
+CREATE TABLE app.setting_datalabel_acquisition_channel (
     level_id integer PRIMARY KEY,
     level_name varchar(50) NOT NULL UNIQUE,
     level_descr text,
@@ -64,7 +64,7 @@ CREATE TABLE app.setting_acquisition_channel (
 -- Acquisition channels for Huron Home Services
 -- Comprehensive tracking of client acquisition sources
 
-INSERT INTO app.setting_acquisition_channel (level_id, level_name, level_descr, sort_order, active_flag) VALUES
+INSERT INTO app.setting_datalabel_acquisition_channel (level_id, level_name, level_descr, sort_order, active_flag) VALUES
 (0, 'Organic Search', 'Found business through Google, Bing, or other search engines (SEO).', 0, true),
 (1, 'Paid Search', 'Clicked on Google Ads, Bing Ads, or other paid search advertisements (PPC).', 1, true),
 (2, 'Social Media Organic', 'Discovered via Facebook, Instagram, LinkedIn, or Twitter organic posts.', 2, true),

@@ -142,15 +142,22 @@ validate_all_ddls() {
     print_status $BLUE "📋 Validating DDL files..."
 
     local ddl_files=(
-        "I_setting_office_level.ddl"
-        "II_setting_business_level.ddl"
-        "III_setting_project_stage.ddl"
-        "IV_setting_task_stage.ddl"
-        "V_setting_client_level.ddl"
-        "VI_setting_position_level.ddl"
-        "VII_setting_opportunity_funnel_level.ddl"
-        "VIII_setting_industry_sector.ddl"
-        "IX_setting_acquisition_channel.ddl"
+        "setting_datalabel__office_level.ddl"
+        "setting_datalabel__business_level.ddl"
+        "setting_datalabel__project_stage.ddl"
+        "setting_datalabel__task_stage.ddl"
+        "setting_datalabel__client_level.ddl"
+        "setting_datalabel__customer_tier.ddl"
+        "setting_datalabel__position_level.ddl"
+        "setting_datalabel__opportunity_funnel_level.ddl"
+        "setting_datalabel__industry_sector.ddl"
+        "setting_datalabel__acquisition_channel.ddl"
+        "setting_datalabel__client_status.ddl"
+        "setting_datalabel__task_priority.ddl"
+        "setting_datalabel__task_update_type.ddl"
+        "setting_datalabel__form_submission_status.ddl"
+        "setting_datalabel__form_approval_status.ddl"
+        "setting_datalabel__wiki_publication_status.ddl"
         "X_entity_map.ddl"
         "XI_d_employee.ddl"
         "XII_d_office.ddl"
@@ -205,18 +212,27 @@ import_ddls() {
     print_status $BLUE "📥 Importing DDL files in dependency order..."
 
     # Initial setup - Drop and recreate schema
-    execute_sql "$DB_PATH/0_initial_setup.ddl" "Initial schema setup (drop and recreate)"
+    execute_sql "$DB_PATH/0_schemaCreate.ddl" "Initial schema setup (drop and recreate)"
 
-    # Setting configuration tables - Foundation layer
-    execute_sql "$DB_PATH/I_setting_office_level.ddl" "Office level settings"
-    execute_sql "$DB_PATH/II_setting_business_level.ddl" "Business level settings"
-    execute_sql "$DB_PATH/III_setting_project_stage.ddl" "Project stage settings"
-    execute_sql "$DB_PATH/IV_setting_task_stage.ddl" "Task stage settings"
-    execute_sql "$DB_PATH/V_setting_client_level.ddl" "Client level settings"
-    execute_sql "$DB_PATH/VI_setting_position_level.ddl" "Position level settings"
-    execute_sql "$DB_PATH/VII_setting_opportunity_funnel_level.ddl" "Opportunity funnel level settings"
-    execute_sql "$DB_PATH/VIII_setting_industry_sector.ddl" "Industry sector settings"
-    execute_sql "$DB_PATH/IX_setting_acquisition_channel.ddl" "Acquisition channel settings"
+    # Setting configuration tables - Foundation layer (All settings first)
+    execute_sql "$DB_PATH/setting_datalabel__office_level.ddl" "Office level settings"
+    execute_sql "$DB_PATH/setting_datalabel__business_level.ddl" "Business level settings"
+    execute_sql "$DB_PATH/setting_datalabel__project_stage.ddl" "Project stage settings"
+    execute_sql "$DB_PATH/setting_datalabel__task_stage.ddl" "Task stage settings"
+    execute_sql "$DB_PATH/setting_datalabel__client_level.ddl" "Client level settings"
+    execute_sql "$DB_PATH/setting_datalabel__customer_tier.ddl" "Customer tier settings"
+    execute_sql "$DB_PATH/setting_datalabel__position_level.ddl" "Position level settings"
+    execute_sql "$DB_PATH/setting_datalabel__opportunity_funnel_level.ddl" "Opportunity funnel level settings"
+    execute_sql "$DB_PATH/setting_datalabel__industry_sector.ddl" "Industry sector settings"
+    execute_sql "$DB_PATH/setting_datalabel__acquisition_channel.ddl" "Acquisition channel settings"
+    execute_sql "$DB_PATH/setting_datalabel__client_status.ddl" "Client status settings"
+    execute_sql "$DB_PATH/setting_datalabel__task_priority.ddl" "Task priority settings"
+    execute_sql "$DB_PATH/setting_datalabel__task_update_type.ddl" "Task update type settings"
+    execute_sql "$DB_PATH/setting_datalabel__form_submission_status.ddl" "Form submission status settings"
+    execute_sql "$DB_PATH/setting_datalabel__form_approval_status.ddl" "Form approval status settings"
+    execute_sql "$DB_PATH/setting_datalabel__wiki_publication_status.ddl" "Wiki publication status settings"
+
+    # Entity mapping framework
     execute_sql "$DB_PATH/X_entity_map.ddl" "Entity mapping framework"
 
     # Core personnel - Must come before organizational assignments
@@ -297,10 +313,10 @@ validate_schema() {
     local emp_role_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.rel_emp_role;" 2>/dev/null | xargs || echo "0")
 
     # Meta configuration tables
-    local office_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_office_level;" 2>/dev/null | xargs || echo "0")
-    local business_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_business_level;" 2>/dev/null | xargs || echo "0")
-    local project_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_project_stage;" 2>/dev/null | xargs || echo "0")
-    local task_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_task_stage;" 2>/dev/null | xargs || echo "0")
+    local office_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_datalabel_office_level;" 2>/dev/null | xargs || echo "0")
+    local business_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_datalabel_business_level;" 2>/dev/null | xargs || echo "0")
+    local project_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_datalabel_project_stage;" 2>/dev/null | xargs || echo "0")
+    local task_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_datalabel_task_stage;" 2>/dev/null | xargs || echo "0")
 
     print_status $CYAN "   Core Entities:"
     print_status $CYAN "     Offices: $office_count"

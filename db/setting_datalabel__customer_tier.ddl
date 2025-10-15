@@ -44,7 +44,7 @@
 -- DDL:
 -- ============================================================================
 
-CREATE TABLE app.setting_customer_tier (
+CREATE TABLE app.setting_datalabel_customer_tier (
     level_id integer PRIMARY KEY,
     level_name varchar(50) NOT NULL UNIQUE,
     level_descr text,
@@ -60,7 +60,7 @@ CREATE TABLE app.setting_customer_tier (
 -- Customer tier levels for Huron Home Services
 -- Comprehensive segmentation for service differentiation and resource allocation
 
-INSERT INTO app.setting_customer_tier (level_id, level_name, level_descr, sort_order, active_flag) VALUES
+INSERT INTO app.setting_datalabel_customer_tier (level_id, level_name, level_descr, sort_order, active_flag) VALUES
 (0, 'Standard', 'Base-level service tier for residential clients and small businesses. Standard pricing, regular scheduling windows, email/phone support.', 0, true),
 (1, 'Plus', 'Enhanced service tier for recurring clients with seasonal contracts. Priority scheduling, dedicated support line, loyalty discounts.', 1, true),
 (2, 'Premium', 'High-value clients requiring white-glove service and priority handling. Same-day response, account manager, premium pricing with concierge service.', 2, true),

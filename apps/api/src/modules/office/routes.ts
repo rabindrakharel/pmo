@@ -19,7 +19,6 @@ const OfficeSchema = Type.Object({
   tags: Type.Optional(Type.Array(Type.String())),
   parent_id: Type.Optional(Type.String()),
   parent_name: Type.Optional(Type.String()),
-  level_id: Type.Number(),
   level_name: Type.String(),
   address_line1: Type.Optional(Type.String()),
   address_line2: Type.Optional(Type.String()),
@@ -42,7 +41,6 @@ const CreateOfficeSchema = Type.Object({
   descr: Type.Optional(Type.String()),
   tags: Type.Optional(Type.Array(Type.String())),
   parent_id: Type.Optional(Type.String({ format: 'uuid' })),
-  level_id: Type.Number(),
   level_name: Type.String(),
   address_line1: Type.Optional(Type.String()),
   address_line2: Type.Optional(Type.String()),
@@ -63,7 +61,6 @@ export async function officeRoutes(fastify: FastifyInstance) {
       querystring: Type.Object({
         active_flag: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
-        level_id: Type.Optional(Type.Number()),
         parent_id: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
@@ -81,7 +78,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      active_flag, search, level_id, parent_id,
+      active_flag, search, parent_id,
       limit = 50, offset = 0
     } = request.query as any;
 
@@ -112,10 +109,6 @@ export async function officeRoutes(fastify: FastifyInstance) {
         conditions.push(sql`active_flag = ${active_flag}`);
       }
 
-      if (level_id !== undefined) {
-        conditions.push(sql`level_id = ${level_id}`);
-      }
-
       if (parent_id) {
         conditions.push(sql`parent_id = ${parent_id}`);
       }
@@ -143,7 +136,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       const orgs = await db.execute(sql`
         SELECT
           o.id, o.slug, o.code, o.name, o."descr", o.tags,
-          o.parent_id, o.level_id, o.level_name,
+          o.parent_id, o.level_name,
           o.address_line1, o.address_line2, o.city, o.province, o.postal_code, o.country,
           o.from_ts, o.to_ts, o.active_flag, o.created_ts, o.updated_ts, o.version,
           -- Include parent org name for display
@@ -218,7 +211,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       const org = await db.execute(sql`
         SELECT
           id, slug, code, name, "descr", tags,
-          parent_id, level_id, level_name,
+          parent_id, level_name,
           address_line1, address_line2, city, province, postal_code, country,
           from_ts, to_ts, active_flag, created_ts, updated_ts, version,
           -- Include parent org name for display

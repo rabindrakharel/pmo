@@ -30,53 +30,71 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
  */
 export const FIELD_TO_SETTING_MAP: Record<string, string> = {
   // Project fields
-  'project_stage': 'projectStage',
-  'project_status': 'projectStatus',
+  'project_stage': 'project_stage',
+  'project_status': 'project_status',
 
   // Task fields
-  'stage': 'taskStage',
-  'task_stage': 'taskStage',
-  'status': 'taskStatus',
-  'task_status': 'taskStatus',
+  'stage': 'task_stage',
+  'task_stage': 'task_stage',
+  'status': 'task_status',
+  'task_status': 'task_status',
+  'priority_level': 'task_priority',
 
   // Client fields
-  'opportunity_funnel_level_id': 'opportunityFunnelLevel',
-  'industry_sector_id': 'industrySector',
-  'acquisition_channel_id': 'acquisitionChannel',
-  'customer_tier_id': 'customerTier',
+  'opportunity_funnel_level_name': 'opportunity_funnel_level',
+  'industry_sector_name': 'industry_sector',
+  'acquisition_channel_name': 'acquisition_channel',
+  'customer_tier_name': 'customer_tier',
+  'client_status': 'client_status',
 
   // Business fields
-  'level_id': 'businessLevel', // Context-dependent
-  'business_level_id': 'businessLevel',
+  'level_id': 'business_level', // Context-dependent
+  'business_level_id': 'business_level',
 
   // Office fields
-  'office_level_id': 'orgLevel',
+  'office_level_id': 'office_level',
 
   // HR/Position fields
-  'position_level_id': 'positionLevel',
-  'hr_level_id': 'hrLevel',
+  'position_level_id': 'position_level',
+  'hr_level_id': 'hr_level',
 
   // Client level
-  'client_level_id': 'clientLevel',
+  'client_level_id': 'client_level',
+
+  // Form fields
+  'submission_status': 'form_submission_status',
+  'approval_status': 'form_approval_status',
+
+  // Wiki fields
+  'publication_status': 'wiki_publication_status',
+
+  // Task activity fields
+  'update_type': 'task_update_type',
 };
 
 /**
  * Mapping of setting categories to their API endpoints
  */
 export const SETTING_CATEGORY_TO_ENDPOINT: Record<string, string> = {
-  'projectStage': '/api/v1/setting?category=projectStage',
-  'projectStatus': '/api/v1/setting?category=projectStatus',
-  'taskStage': '/api/v1/setting?category=taskStage',
-  'taskStatus': '/api/v1/setting?category=taskStatus',
-  'opportunityFunnelLevel': '/api/v1/setting?category=opportunityFunnelLevel',
-  'industrySector': '/api/v1/setting?category=industrySector',
-  'acquisitionChannel': '/api/v1/setting?category=acquisitionChannel',
-  'customerTier': '/api/v1/setting?category=customerTier',
-  'businessLevel': '/api/v1/setting?category=businessLevel',
-  'orgLevel': '/api/v1/setting?category=orgLevel',
-  'positionLevel': '/api/v1/setting?category=positionLevel',
-  'hrLevel': '/api/v1/setting?category=hrLevel',
-  'clientLevel': '/api/v1/setting?category=clientLevel',
+  'project_stage': '/api/v1/setting?category=project_stage',
+  'project_status': '/api/v1/setting?category=project_status',
+  'task_stage': '/api/v1/setting?category=task_stage',
+  'task_status': '/api/v1/setting?category=task_status',
+  'task_priority': '/api/v1/setting?category=task_priority',
+  'opportunity_funnel_level': '/api/v1/setting?category=opportunity_funnel_level',
+  'industry_sector': '/api/v1/setting?category=industry_sector',
+  'acquisition_channel': '/api/v1/setting?category=acquisition_channel',
+  'customer_tier': '/api/v1/setting?category=customer_tier',
+  'client_status': '/api/v1/setting?category=client_status',
+  'business_level': '/api/v1/setting?category=business_level',
+  'office_level': '/api/v1/setting?category=office_level',
+  'position_level': '/api/v1/setting?category=position_level',
+  'hr_level': '/api/v1/setting?category=hr_level',
+  'client_level': '/api/v1/setting?category=client_level',
+  'form_submission_status': '/api/v1/setting?category=form_submission_status',
+  'form_approval_status': '/api/v1/setting?category=form_approval_status',
+  'wiki_publication_status': '/api/v1/setting?category=wiki_publication_status',
+  'task_update_type': '/api/v1/setting?category=task_update_type',
 };
 
 /**

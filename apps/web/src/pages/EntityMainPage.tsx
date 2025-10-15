@@ -8,6 +8,7 @@ import { GridView } from '../components/ui/GridView';
 import { ViewSwitcher } from '../components/common/ViewSwitcher';
 import { useViewMode } from '../lib/hooks/useViewMode';
 import { getEntityConfig, ViewMode } from '../lib/entityConfig';
+import { getEntityIcon } from '../lib/entityIcons';
 import * as api from '../lib/api';
 
 /**
@@ -153,6 +154,8 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
         <FilteredDataTable
           entityType={entityType}
           showActionButtons={false}
+          showActionIcons={true}
+          showEditIcon={true}
           inlineEditable={true}
           onBulkShare={handleBulkShare}
           onBulkDelete={handleBulkDelete}
@@ -218,17 +221,16 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
     return null;
   };
 
+  // Get entity icon from centralized icon system
+  const EntityIcon = getEntityIcon(entityType);
+
   return (
     <Layout>
       <div className="h-full flex flex-col space-y-4 w-[97%] max-w-[1536px] mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white text-sm font-normal">
-                {config.displayName.charAt(0)}
-              </span>
-            </div>
+            <EntityIcon className="h-5 w-5 text-gray-600 stroke-[1.5]" />
             <div>
               <h1 className="text-sm font-normal text-gray-800">{config.pluralName}</h1>
               <p className="mt-1 text-sm text-gray-500">

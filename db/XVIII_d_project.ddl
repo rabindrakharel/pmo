@@ -17,7 +17,7 @@ CREATE TABLE app.d_project (
     office_id uuid ,
 
     -- Project fields
-    project_stage varchar(50), -- References meta_project_stage.level_name
+    project_stage text, -- Project stage name (denormalized from meta_project_stage)
     budget_allocated decimal(15,2),
     budget_spent decimal(15,2) DEFAULT 0,
     planned_start_date date,

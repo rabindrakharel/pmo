@@ -650,6 +650,107 @@ Summary: DataTable Props Usage Across Different Pages
 
 ---
 
+## 🎨 Centralized Icon System
+
+### Overview
+The application uses a **centralized icon management system** that provides consistent icons across all entity types throughout the application. This eliminates icon duplication and ensures visual consistency.
+
+**Location:** `/apps/web/src/lib/entityIcons.ts`
+
+### Key Features
+
+#### 1. **Single Source of Truth**
+All entity icons are defined in one central location:
+
+```typescript
+import { Building2, FolderOpen, MapPin, Users, CheckSquare } from 'lucide-react';
+
+export const ENTITY_ICONS: Record<string, LucideIcon> = {
+  // Main entities
+  business: Building2,
+  project: FolderOpen,
+  office: MapPin,
+  client: Users,
+  task: CheckSquare,
+  // ... 20+ entity types
+};
+```
+
+#### 2. **Dynamic Icon Retrieval**
+Use the `getEntityIcon()` helper function to dynamically retrieve icons:
+
+```typescript
+import { getEntityIcon } from '../lib/entityIcons';
+
+// In component
+const EntityIcon = getEntityIcon('project');  // Returns FolderOpen
+<EntityIcon className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+```
+
+#### 3. **Entity Groups**
+Pre-defined entity groups with consistent theming:
+
+```typescript
+export const ENTITY_GROUPS = {
+  project: { name: 'Project', icon: FolderOpen, color: 'blue' },
+  task: { name: 'Task', icon: CheckSquare, color: 'purple' },
+  business: { name: 'Business', icon: Building2, color: 'green' },
+  employee: { name: 'Employee', icon: Users, color: 'orange' },
+  client: { name: 'Client', icon: Users, color: 'pink' }
+};
+```
+
+### Usage Examples
+
+#### EntityMainPage.tsx
+```typescript
+import { getEntityIcon } from '../lib/entityIcons';
+
+export function EntityMainPage({ entityType }: EntityMainPageProps) {
+  const EntityIcon = getEntityIcon(entityType);
+
+  return (
+    <div>
+      <EntityIcon className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+      <h1>{config.pluralName}</h1>
+    </div>
+  );
+}
+```
+
+#### SettingsPage.tsx
+```typescript
+import { ENTITY_ICONS } from '../lib/entityIcons';
+
+const settings = [
+  { id: 'projectStage', label: 'Project Stage', icon: ENTITY_ICONS.projectStage },
+  { id: 'taskStage', label: 'Task Stage', icon: ENTITY_ICONS.taskStage }
+];
+```
+
+### Design Standards
+
+All icons follow consistent styling:
+- **Size:** `h-5 w-5` for headers, `h-4 w-4` for inline elements
+- **Color:** `text-gray-600` for neutral icons
+- **Stroke:** `stroke-[1.5]` for consistent visual weight
+- **Spacing:** `mr-3` for header icons, `mr-2` for inline icons
+
+**Example:**
+```typescript
+<FolderOpen className="h-5 w-5 text-gray-600 stroke-[1.5] mr-3" />
+```
+
+### Benefits
+
+✅ **Consistency** - Same icon used everywhere for each entity type
+✅ **Maintainability** - Change icon once, updates everywhere
+✅ **Type Safety** - TypeScript ensures valid entity types
+✅ **No Duplication** - No gradient backgrounds or letter avatars for entity icons
+✅ **Professional Design** - Clean, minimalist, consistent appearance
+
+---
+
 ## 🏗️ Central Configuration Architecture
 
 This project leverages a **centralized, metadata-driven configuration system** that eliminates code duplication and provides a unified approach to handling 24+ entity types across the platform.

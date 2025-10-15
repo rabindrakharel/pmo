@@ -71,8 +71,8 @@ export function ProfilePage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-6">
             <div className="flex items-center space-x-4 mb-6">
-              <div className="h-16 w-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
-                <User className="h-8 w-8 text-white" />
+              <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center">
+                <User className="h-8 w-8 text-gray-600 stroke-[1.5]" />
               </div>
               <div>
                 <h2 className="text-sm font-normal text-gray-900">{user?.name}</h2>
@@ -122,7 +122,7 @@ export function ProfilePage() {
                   {isLoading ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   ) : (
-                    <Save className="h-4 w-4 mr-2" />
+                    <Save className="h-4 w-4 mr-2 stroke-[1.5]" />
                   )}
                   Save Changes
                 </button>
@@ -145,7 +145,7 @@ export function ProfilePage() {
               <div className="bg-gray-50 rounded-lg p-4">
                 <label className="block text-sm font-normal text-gray-700 mb-1">Member Since</label>
                 <div className="flex items-center text-sm text-gray-900">
-                  <Calendar className="h-4 w-4 text-gray-500 mr-2" />
+                  <Calendar className="h-4 w-4 text-gray-500 stroke-[1.5] mr-2" />
                   January 2025
                 </div>
               </div>

@@ -439,7 +439,7 @@ export function DataTable<T = any>({
     return (
       <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gradient-to-r from-gray-50/50 to-white">
         <div className="flex items-center text-sm text-gray-600">
-          <span className="font-medium">
+          <span className="font-normal">
             {loading ? (
               <>Loading...</>
             ) : (
@@ -485,9 +485,9 @@ export function DataTable<T = any>({
                 <button
                   key={pageNum}
                   onClick={() => onChange?.(pageNum, pageSize)}
-                  className={`px-3 py-1.5 text-sm border rounded-lg font-medium transition-all duration-200 ${
-                    current === pageNum 
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
+                  className={`px-3 py-1.5 text-sm border rounded-lg font-normal transition-all duration-200 ${
+                    current === pageNum
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                       : 'border-gray-200 bg-white/70 hover:bg-white hover:border-gray-300 hover:shadow-sm text-gray-700'
                   }`}
                 >

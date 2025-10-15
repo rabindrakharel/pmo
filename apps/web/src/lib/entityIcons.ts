@@ -36,18 +36,15 @@ export const ENTITY_ICONS: Record<string, LucideIcon> = {
   artifact: FileText,
 
   // Settings/metadata entities
-  projectStatus: CheckSquare,
   projectStage: CheckSquare,
-  taskStatus: CheckSquare,
   taskStage: CheckSquare,
   businessLevel: Building2,
   orgLevel: Building2,
-  hrLevel: Users,
-  clientLevel: Users,
   positionLevel: UserCheck,
   opportunityFunnelLevel: Users,
   industrySector: Building2,
   acquisitionChannel: Users,
+  customerTier: Users,
 };
 
 /**

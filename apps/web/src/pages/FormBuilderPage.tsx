@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { AdvancedFormBuilder } from '../components/forms/AdvancedFormBuilder';
@@ -8,6 +8,9 @@ export function FormBuilderPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const taskId = searchParams.get('taskId') || undefined;
+
+  // Track the draft form ID to avoid creating duplicates
+  const draftFormIdRef = useRef<string | null>(null);
 
   const handleSave = async (formData: any) => {
     const userId = localStorage.getItem('user_id') || undefined;
@@ -42,8 +45,14 @@ export function FormBuilderPage() {
       version: 1
     };
 
-    const created = await formApi.create(payload);
-    navigate(`/form/${created.id}`);
+    // If we have a draft, update it; otherwise create new
+    if (draftFormIdRef.current) {
+      const updated = await formApi.update(draftFormIdRef.current, payload);
+      navigate(`/form/${updated.id}`);
+    } else {
+      const created = await formApi.create(payload);
+      navigate(`/form/${created.id}`);
+    }
   };
 
   const handleSaveDraft = async (formData: any) => {
@@ -66,8 +75,15 @@ export function FormBuilderPage() {
       }
     };
 
-    await formApi.create(payload);
-    console.log('Draft saved successfully');
+    // If draft already exists, update it; otherwise create new
+    if (draftFormIdRef.current) {
+      await formApi.update(draftFormIdRef.current, payload);
+      console.log('Draft updated successfully');
+    } else {
+      const created = await formApi.create(payload);
+      draftFormIdRef.current = created.id;
+      console.log('Draft created successfully with ID:', created.id);
+    }
   };
 
   return (

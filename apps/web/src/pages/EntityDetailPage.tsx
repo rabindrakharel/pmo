@@ -243,7 +243,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
           <p className="text-red-600">{error || 'Data not found'}</p>
           <button
             onClick={loadData}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="mt-4 inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors"
           >
             Retry
           </button>
@@ -441,7 +441,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
               onClick={handleBack}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <ArrowLeft className="h-5 w-5 text-gray-600" />
+              <ArrowLeft className="h-5 w-5 text-gray-600 stroke-[1.5]" />
             </button>
             <div>
               <h1 className="text-sm font-normal text-gray-500">
@@ -465,25 +465,25 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                     setIsEditing(true);
                   }
                 }}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-normal rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors"
               >
-                <Edit2 className="h-4 w-4 mr-2" />
+                <Edit2 className="h-4 w-4 mr-2 stroke-[1.5]" />
                 Edit
               </button>
             ) : (
               <>
                 <button
                   onClick={handleCancel}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-normal rounded-lg text-gray-700 bg-white hover:bg-gray-50"
+                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors"
                 >
-                  <X className="h-4 w-4 mr-2" />
+                  <X className="h-4 w-4 mr-2 stroke-[1.5]" />
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-normal rounded-lg text-white bg-blue-600 hover:bg-blue-700"
+                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors"
                 >
-                  <Save className="h-4 w-4 mr-2" />
+                  <Save className="h-4 w-4 mr-2 stroke-[1.5]" />
                   Save
                 </button>
               </>

@@ -459,18 +459,23 @@ export const roleApi = {
 };
 
 export const formApi = {
-  async list(params?: { page?: number; pageSize?: number; search?: string; version?: number }) {
+  async list(params?: { page?: number; pageSize?: number; search?: string; showAllVersions?: boolean }) {
     // Map UI pagination to API limit/offset
     const limit = params?.pageSize ?? 20;
     const offset = ((params?.page ?? 1) - 1) * limit;
     const query: any = { limit, offset };
-    if (params?.version != null) query.version = params.version;
+    if (params?.showAllVersions != null) query.showAllVersions = params.showAllVersions;
     const response = await apiClient.get('/api/v1/form', { params: query });
     return response.data;
   },
-  
+
   async get(id: string) {
     const response = await apiClient.get(`/api/v1/form/${id}`);
+    return response.data;
+  },
+
+  async getVersions(slug: string) {
+    const response = await apiClient.get(`/api/v1/form/versions/${slug}`);
     return response.data;
   },
 
@@ -480,17 +485,17 @@ export const formApi = {
     const response = await apiClient.get(`/api/v1/form/${id}/records`, { params: { limit, offset } });
     return response.data;
   },
-  
+
   async create(data: any) {
     const response = await apiClient.post('/api/v1/form', data);
     return response.data;
   },
-  
+
   async update(id: string, data: any) {
     const response = await apiClient.put(`/api/v1/form/${id}`, data);
     return response.data;
   },
-  
+
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/form/${id}`);
     return response.data;

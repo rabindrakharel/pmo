@@ -44,7 +44,7 @@
 -- DDL:
 -- ============================================================================
 
-CREATE TABLE app.setting_industry_sector (
+CREATE TABLE app.setting_datalabel_industry_sector (
     level_id integer PRIMARY KEY,
     level_name varchar(50) NOT NULL UNIQUE,
     level_descr text,
@@ -60,7 +60,7 @@ CREATE TABLE app.setting_industry_sector (
 -- Industry sectors served by Huron Home Services
 -- Comprehensive categorization for Canadian home services market
 
-INSERT INTO app.setting_industry_sector (level_id, level_name, level_descr, sort_order, active_flag) VALUES
+INSERT INTO app.setting_datalabel_industry_sector (level_id, level_name, level_descr, sort_order, active_flag) VALUES
 (0, 'Residential', 'Individual homeowners, single-family homes, townhouses, and residential condominiums.', 0, true),
 (1, 'Commercial Real Estate', 'Office buildings, retail centers, shopping malls, and mixed-use commercial properties.', 1, true),
 (2, 'Healthcare', 'Hospitals, medical clinics, senior living facilities, assisted living, and long-term care homes.', 2, true),

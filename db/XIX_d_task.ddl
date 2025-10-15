@@ -19,7 +19,7 @@ CREATE TABLE app.d_task (
 
     -- Task assignment
     assignee_employee_ids uuid[] DEFAULT '{}',
-    stage varchar(50), -- References meta_task_stage.level_name
+    stage text, -- Task stage name (denormalized from meta_task_stage)
 
     -- Task details
     priority_level varchar(20) DEFAULT 'medium', -- low, medium, high, critical

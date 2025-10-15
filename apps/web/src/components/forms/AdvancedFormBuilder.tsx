@@ -378,7 +378,7 @@ export function AdvancedFormBuilder({
             className="h-10 w-10 bg-white border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50"
             title="Back"
           >
-            <ArrowLeft className="h-5 w-5 text-gray-700" />
+            <ArrowLeft className="h-5 w-5 text-gray-700 stroke-[1.5]" />
           </button>
           <div>
             <h1 className="text-sm font-normal text-gray-800">{headerTitle}</h1>
@@ -394,9 +394,9 @@ export function AdvancedFormBuilder({
             <button
               onClick={saveDraft}
               disabled={savingDraft || !title}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-normal rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 transition-colors"
             >
-              <Save className="h-4 w-4 mr-2" />
+              <Save className="h-4 w-4 mr-2 stroke-[1.5]" />
               {savingDraft ? 'Saving Draft..' : 'Save Draft'}
             </button>
           )}
@@ -404,9 +404,9 @@ export function AdvancedFormBuilder({
             <button
               onClick={handleSaveForm}
               disabled={saving || !title || fields.length === 0}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-normal rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
-              <Save className="h-4 w-4 mr-2" />
+              <Save className="h-4 w-4 mr-2 stroke-[1.5]" />
               {saving ? 'Publishing...' : 'Publish Form'}
             </button>
           )}
@@ -417,15 +417,15 @@ export function AdvancedFormBuilder({
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
-            <Layers className="h-5 w-5 text-gray-600" />
+            <Layers className="h-5 w-5 text-gray-600 stroke-[1.5]" />
             <h3 className="text-sm font-normal text-gray-700">Form Steps</h3>
             <span className="text-xs font-light text-gray-500">Use Ctrl+← / Ctrl+→ to navigate</span>
           </div>
           <button
             onClick={addStep}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-normal rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors"
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4 mr-2 stroke-[1.5]" />
             Add Step
           </button>
         </div>
@@ -437,7 +437,7 @@ export function AdvancedFormBuilder({
             className="p-1.5 rounded-md border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             title="Previous step (Ctrl+←)"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4 stroke-[1.5]" />
           </button>
 
           <div className="flex space-x-1 min-w-0 flex-1">
@@ -445,7 +445,7 @@ export function AdvancedFormBuilder({
               <div key={step.id} className="relative group">
                 <button
                   onClick={() => navigateToStep(index)}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors min-w-0 flex items-center space-x-2 ${
+                  className={`px-3 py-2 rounded-lg text-sm font-normal transition-colors min-w-0 flex items-center space-x-2 ${
                     index === currentStepIndex
                       ? 'bg-blue-100 text-blue-700 border border-blue-200'
                       : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
@@ -477,7 +477,7 @@ export function AdvancedFormBuilder({
                     className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs hover:bg-red-600 transition-all"
                     title="Remove step"
                   >
-                    <X className="h-2.5 w-2.5" />
+                    <X className="h-2.5 w-2.5 stroke-[1.5]" />
                   </button>
                 )}
               </div>
@@ -490,7 +490,7 @@ export function AdvancedFormBuilder({
             className="p-1.5 rounded-md border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             title="Next step (Ctrl+→)"
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4 stroke-[1.5]" />
           </button>
         </div>
       </div>
@@ -503,7 +503,7 @@ export function AdvancedFormBuilder({
             <div className="text-sm font-normal text-gray-700 mb-3">Field Types</div>
 
             <div className="relative mb-3">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 stroke-[1.5]" />
               <input
                 type="text"
                 placeholder="Search field types..."
@@ -571,7 +571,7 @@ export function AdvancedFormBuilder({
                   <DroppableFormCanvas>
                     {currentStepFields.length === 0 ? (
                       <div className="h-96 border border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-500">
-                        <Layers className="h-8 w-8 mb-2 text-gray-400" />
+                        <Layers className="h-8 w-8 mb-2 text-gray-400 stroke-[1.5]" />
                         <p className="text-sm">No fields in this step yet</p>
                         <p className="text-xs text-gray-400">Drag field types from the palette or click to add them to {currentStep?.title}</p>
                       </div>
@@ -620,8 +620,8 @@ export function AdvancedFormBuilder({
           {activeId ? (
             <div className="px-4 py-3 rounded-lg bg-white border-2 border-blue-400 shadow-2xl">
               {activeId.includes('field-type-') ? (
-                <div className="flex items-center space-x-2 text-sm font-medium text-blue-600">
-                  <Plus className="h-4 w-4" />
+                <div className="flex items-center space-x-2 text-sm font-normal text-blue-600">
+                  <Plus className="h-4 w-4 stroke-[1.5]" />
                   <span>Adding field...</span>
                 </div>
               ) : (

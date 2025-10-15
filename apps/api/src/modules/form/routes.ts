@@ -36,7 +36,7 @@ const CreateFormSchema = Type.Object({
 const UpdateFormSchema = Type.Partial(CreateFormSchema);
 
 export async function formRoutes(fastify: FastifyInstance) {
-  // List forms with RBAC filtering
+  // List forms with RBAC filtering - Shows only latest version by default
   fastify.get('/api/v1/form', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -46,6 +46,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         search: Type.Optional(Type.String()),
         page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
+        showAllVersions: Type.Optional(Type.Boolean()), // New: show all versions
       }),
       response: {
         200: Type.Object({
@@ -70,6 +71,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         search,
         page = 1,
         limit = 20,
+        showAllVersions = false,
       } = request.query as any;
 
       const offset = (page - 1) * limit;
@@ -105,15 +107,109 @@ export async function formRoutes(fastify: FastifyInstance) {
         )`);
       }
 
-      // Count total
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_form_head f
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-      `);
-      const total = Number(countResult[0]?.total || 0);
+      if (showAllVersions) {
+        // Show all versions - simple query
+        const countResult = await db.execute(sql`
+          SELECT COUNT(*) as total
+          FROM app.d_form_head f
+          ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        `);
+        const total = Number(countResult[0]?.total || 0);
 
-      // Get paginated results with column aliases for camelCase
+        const forms = await db.execute(sql`
+          SELECT
+            f.id,
+            f.slug,
+            f.code,
+            f.name,
+            f.descr,
+            f.url,
+            f.tags,
+            f.form_type as "formType",
+            f.form_schema as "schema",
+            f.from_ts as "fromTs",
+            f.to_ts as "toTs",
+            f.active_flag as "active",
+            f.created_ts as "createdTs",
+            f.updated_ts as "updatedTs",
+            f.version
+          FROM app.d_form_head f
+          ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+          ORDER BY f.slug ASC, f.version DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `);
+
+        return { data: forms, total, limit, offset };
+      } else {
+        // Show only latest version (highest version per slug/code group)
+        // Use DISTINCT ON to get one row per slug with max version
+        const countResult = await db.execute(sql`
+          SELECT COUNT(*) as total
+          FROM (
+            SELECT DISTINCT ON (f.slug) f.id
+            FROM app.d_form_head f
+            ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+            ORDER BY f.slug, f.version DESC
+          ) subq
+        `);
+        const total = Number(countResult[0]?.total || 0);
+
+        const forms = await db.execute(sql`
+          SELECT DISTINCT ON (f.slug)
+            f.id,
+            f.slug,
+            f.code,
+            f.name,
+            f.descr,
+            f.url,
+            f.tags,
+            f.form_type as "formType",
+            f.form_schema as "schema",
+            f.from_ts as "fromTs",
+            f.to_ts as "toTs",
+            f.active_flag as "active",
+            f.created_ts as "createdTs",
+            f.updated_ts as "updatedTs",
+            f.version
+          FROM app.d_form_head f
+          ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+          ORDER BY f.slug, f.version DESC, f.name ASC
+          LIMIT ${limit} OFFSET ${offset}
+        `);
+
+        return { data: forms, total, limit, offset };
+      }
+    } catch (error) {
+      fastify.log.error('Error fetching forms: ' + String(error));
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get all versions of a form by slug
+  fastify.get('/api/v1/form/versions/:slug', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        slug: Type.String(),
+      }),
+      response: {
+        200: Type.Object({
+          data: Type.Array(FormSchema),
+          latestVersion: Type.Number(),
+        }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const userId = request.user?.sub;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const { slug } = request.params as { slug: string };
+
       const forms = await db.execute(sql`
         SELECT
           f.id,
@@ -132,19 +228,33 @@ export async function formRoutes(fastify: FastifyInstance) {
           f.updated_ts as "updatedTs",
           f.version
         FROM app.d_form_head f
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY f.name ASC, f.version DESC
-        LIMIT ${limit} OFFSET ${offset}
+        WHERE f.slug = ${slug}
+          AND (
+            EXISTS (
+              SELECT 1 FROM app.entity_id_rbac_map rbac
+              WHERE rbac.empid = ${userId}
+                AND rbac.entity = 'form'
+                AND (rbac.entity_id = f.id::text OR rbac.entity_id = 'all')
+                AND rbac.active_flag = true
+                AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+                AND 0 = ANY(rbac.permission)
+            )
+          )
+        ORDER BY f.version DESC
       `);
+
+      if (forms.length === 0) {
+        return reply.status(404).send({ error: 'Form not found or access denied' });
+      }
+
+      const latestVersion = Math.max(...forms.map((f: any) => f.version));
 
       return {
         data: forms,
-        total,
-        limit,
-        offset,
+        latestVersion,
       };
     } catch (error) {
-      fastify.log.error('Error fetching forms: ' + String(error));
+      fastify.log.error('Error fetching form versions: ' + String(error));
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -337,7 +447,7 @@ export async function formRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update form
+  // Update form - Creates new version if schema changes
   fastify.put('/api/v1/form/:id', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -377,9 +487,9 @@ export async function formRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'No permission to edit this form' });
       }
 
-      // Get current form data to detect changes
+      // Get current form data
       const currentForm = await db.execute(sql`
-        SELECT name, descr, tags, form_type, form_schema, active_flag, version
+        SELECT id, slug, code, name, descr, tags, form_type, form_schema, url, active_flag, version
         FROM app.d_form_head
         WHERE id = ${id}
       `);
@@ -390,62 +500,130 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       const current = currentForm[0] as any;
 
-      // Detect if meaningful changes occurred (ignore metadata-only updates)
+      // Detect if meaningful changes occurred (schema changes trigger versioning)
       const schemaChanged = data.schema !== undefined &&
         JSON.stringify(data.schema) !== JSON.stringify(current.form_schema);
-      const nameChanged = data.name !== undefined && data.name !== current.name;
-      const formTypeChanged = data.formType !== undefined && data.formType !== current.form_type;
 
-      const hasSubstantiveChanges = schemaChanged || nameChanged || formTypeChanged;
+      const hasSubstantiveChanges = schemaChanged;
 
-      // Build UPDATE SET clause dynamically
-      const updateFields: any[] = [];
-
-      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
-      if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
-      if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}`);
-      if (data.formType !== undefined) updateFields.push(sql`form_type = ${data.formType}`);
-      if (data.schema !== undefined) updateFields.push(sql`form_schema = ${JSON.stringify(data.schema)}`);
-      if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
-
-      // Increment version ONLY if substantive changes detected
       if (hasSubstantiveChanges) {
-        updateFields.push(sql`version = version + 1`);
+        // CREATE NEW VERSION: Archive old version and create new one
+
+        // 1. Set current version to inactive with to_ts
+        await db.execute(sql`
+          UPDATE app.d_form_head
+          SET active_flag = false,
+              to_ts = NOW(),
+              updated_ts = NOW()
+          WHERE id = ${id}
+        `);
+
+        // 2. Create new version with incremented version number
+        const newVersion = (current.version || 1) + 1;
+
+        const result = await db.execute(sql`
+          INSERT INTO app.d_form_head (
+            slug,
+            code,
+            name,
+            descr,
+            url,
+            tags,
+            form_type,
+            form_schema,
+            active_flag,
+            version,
+            from_ts
+          )
+          VALUES (
+            ${current.slug},
+            ${current.code},
+            ${data.name !== undefined ? data.name : current.name},
+            ${data.descr !== undefined ? data.descr : current.descr},
+            ${current.url},
+            ${data.tags !== undefined ? JSON.stringify(data.tags) : current.tags},
+            ${data.formType !== undefined ? data.formType : current.form_type},
+            ${JSON.stringify(data.schema)},
+            true,
+            ${newVersion},
+            NOW()
+          )
+          RETURNING
+            id,
+            slug,
+            code,
+            name,
+            descr,
+            url,
+            tags,
+            form_type as "formType",
+            form_schema as "schema",
+            from_ts as "fromTs",
+            to_ts as "toTs",
+            active_flag as "active",
+            created_ts as "createdTs",
+            updated_ts as "updatedTs",
+            version
+        `);
+
+        const newForm = result[0];
+
+        // 3. Grant same permissions to new version as the old one
+        await db.execute(sql`
+          INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, active_flag, granted_ts)
+          SELECT empid, entity, ${newForm.id}::text, permission, active_flag, NOW()
+          FROM app.entity_id_rbac_map
+          WHERE entity = 'form' AND entity_id = ${id}::text
+        `);
+
+        fastify.log.info(`Created new form version: ${newForm.id} (version ${newVersion}) from ${id}`);
+
+        return newForm;
+      } else {
+        // IN-PLACE UPDATE: No schema changes, just update metadata
+        const updateFields: any[] = [];
+
+        if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
+        if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
+        if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}`);
+        if (data.formType !== undefined) updateFields.push(sql`form_type = ${data.formType}`);
+        if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
+
+        // Always update timestamp
+        updateFields.push(sql`updated_ts = NOW()`);
+
+        if (updateFields.length === 1) {
+          return reply.status(400).send({ error: 'No fields to update' });
+        }
+
+        const result = await db.execute(sql`
+          UPDATE app.d_form_head
+          SET ${sql.join(updateFields, sql`, `)}
+          WHERE id = ${id}
+          RETURNING
+            id,
+            slug,
+            code,
+            name,
+            descr,
+            url,
+            tags,
+            form_type as "formType",
+            form_schema as "schema",
+            from_ts as "fromTs",
+            to_ts as "toTs",
+            active_flag as "active",
+            created_ts as "createdTs",
+            updated_ts as "updatedTs",
+            version
+        `);
+
+        if (result.length === 0) {
+          return reply.status(404).send({ error: 'Form not found' });
+        }
+
+        return result[0];
       }
-
-      // Always update timestamp
-      updateFields.push(sql`updated_ts = NOW()`);
-
-      if (updateFields.length === 1) {
-        return reply.status(400).send({ error: 'No fields to update' });
-      }
-
-      const result = await db.execute(sql`
-        UPDATE app.d_form_head
-        SET ${sql.join(updateFields, sql`, `)}
-        WHERE id = ${id}
-        RETURNING
-          id,
-          slug,
-          code,
-          name,
-          descr,
-          tags,
-          form_type as "formType",
-          form_schema as "schema",
-          from_ts as "fromTs",
-          to_ts as "toTs",
-          active_flag as "active",
-          created_ts as "createdTs",
-          updated_ts as "updatedTs",
-          version
-      `);
-
-      if (result.length === 0) {
-        return reply.status(404).send({ error: 'Form not found' });
-      }
-
-      return result[0];
     } catch (error) {
       fastify.log.error('Error updating form: ' + String(error));
       return reply.status(500).send({ error: 'Internal server error' });

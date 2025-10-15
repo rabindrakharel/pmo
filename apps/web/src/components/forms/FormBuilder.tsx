@@ -154,7 +154,7 @@ export function SignatureCanvas({ width = 300, height = 120, isInitials = false 
       />
       <button
         onClick={clearCanvas}
-        className="absolute top-2 right-2 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded"
+        className="absolute top-2 right-2 px-2 py-1 text-xs font-normal bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded"
         type="button"
       >
         Clear
@@ -246,10 +246,10 @@ export function GeoLocationInput({ disabled = false }: { disabled?: boolean }) {
         <button
           disabled={disabled || loading}
           onClick={getCurrentLocation}
-          className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 flex items-center space-x-1"
+          className="px-3 py-1.5 text-sm font-normal bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 flex items-center space-x-1"
           type="button"
         >
-          <Navigation className="h-4 w-4" />
+          <Navigation className="h-4 w-4 stroke-[1.5]" />
           <span>{loading ? 'Getting...' : 'Get Location'}</span>
         </button>
       </div>
@@ -292,7 +292,7 @@ export function ModernDateTimePicker({
         minDate={minDate}
         maxDate={maxDate}
         showPopperArrow={false}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
         calendarClassName="shadow-lg border border-gray-200 rounded-lg"
         dayClassName={(date) => 
           "hover:bg-blue-100 rounded-md transition-colors duration-150 cursor-pointer"
@@ -325,7 +325,7 @@ export function ModernDateTimePicker({
           },
         ]}
       />
-      <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+      <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none stroke-[1.5]" />
     </div>
   );
 }
@@ -428,7 +428,7 @@ export function DraggableFieldType({ fieldType }: { fieldType: { type: FieldType
             <div className="text-xs text-gray-500">{fieldType.hint}</div>
           </div>
         </div>
-        <Plus className="h-4 w-4 text-gray-400 flex-shrink-0" />
+        <Plus className="h-4 w-4 text-gray-400 flex-shrink-0 stroke-[1.5]" />
       </div>
     </div>
   );
@@ -492,7 +492,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center text-sm hover:bg-red-600 transition-all z-10 shadow-sm"
         title="Remove field"
       >
-        <X className="h-3 w-3" />
+        <X className="h-3 w-3 stroke-[1.5]" />
       </button>
 
       <div className="flex items-center justify-between">
@@ -500,7 +500,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
           <div className="flex-shrink-0 p-1 bg-blue-50 rounded text-blue-600">
             {getFieldIcon(field.type)}
           </div>
-          <div className="text-xs font-semibold text-gray-500 tracking-wide">{field.type.toUpperCase()}</div>
+          <div className="text-xs font-normal text-gray-500 tracking-wide">{field.type.toUpperCase()}</div>
         </div>
         <div className="text-xs text-gray-400">
           Click anywhere to drag • Hover to remove

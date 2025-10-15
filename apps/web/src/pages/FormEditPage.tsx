@@ -32,14 +32,23 @@ export function FormEditPage() {
 
   const handleSave = async (payload: any) => {
     if (!id) return;
-    await formApi.update(id, payload);
-    navigate(`/form/${id}`);
+    // Update returns the new form (may be a new version with new ID)
+    const updatedForm = await formApi.update(id, payload);
+    // Navigate to the new version ID
+    navigate(`/form/${updatedForm.id}`);
   };
 
   const handleSaveDraft = async (payload: any) => {
     if (!id) return;
-    await formApi.update(id, payload);
+    // Draft saves also go through update, which may create new version
+    const updatedForm = await formApi.update(id, payload);
     console.log('Draft saved successfully');
+    // Update the form data to reflect the new version
+    if (updatedForm.id !== id) {
+      // New version was created, update the URL silently
+      window.history.replaceState(null, '', `/form/${updatedForm.id}/edit`);
+      setFormData(updatedForm);
+    }
   };
 
   if (loading) {

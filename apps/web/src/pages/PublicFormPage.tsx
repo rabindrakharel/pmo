@@ -93,7 +93,7 @@ export function PublicFormPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <AlertCircle className="h-12 w-12 text-red-500 stroke-[1.5] mx-auto mb-4" />
           <h3 className="text-sm font-normal text-gray-900 mb-2">Error</h3>
           <p className="text-gray-600">{error}</p>
         </div>
@@ -105,7 +105,7 @@ export function PublicFormPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-          <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+          <CheckCircle className="h-16 w-16 text-green-500 stroke-[1.5] mx-auto mb-4" />
           <h2 className="text-sm font-normal text-gray-900 mb-2">Thank You!</h2>
           <p className="text-gray-600 mb-6">Your form has been submitted successfully.</p>
           <button
@@ -149,7 +149,7 @@ export function PublicFormPage() {
             {error && (
               <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
                 <div className="flex">
-                  <AlertCircle className="h-5 w-5 text-red-400" />
+                  <AlertCircle className="h-5 w-5 text-red-400 stroke-[1.5]" />
                   <p className="ml-3 text-sm text-red-700">{error}</p>
                 </div>
               </div>

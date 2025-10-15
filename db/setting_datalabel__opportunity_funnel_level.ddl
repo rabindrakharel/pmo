@@ -44,7 +44,7 @@
 -- DDL:
 -- ============================================================================
 
-CREATE TABLE app.setting_opportunity_funnel_level (
+CREATE TABLE app.setting_datalabel_opportunity_funnel_level (
     level_id integer PRIMARY KEY,
     level_name varchar(50) NOT NULL UNIQUE,
     level_descr text,
@@ -60,7 +60,7 @@ CREATE TABLE app.setting_opportunity_funnel_level (
 -- Opportunity funnel stages for Huron Home Services
 -- Tracking potential clients through the sales pipeline
 
-INSERT INTO app.setting_opportunity_funnel_level (level_id, level_name, level_descr, sort_order, active_flag) VALUES
+INSERT INTO app.setting_datalabel_opportunity_funnel_level (level_id, level_name, level_descr, sort_order, active_flag) VALUES
 (0, 'Lead', 'Initial contact or inquiry from potential client. Requires qualification and follow-up.', 0, true),
 (1, 'Qualified', 'Lead has been vetted and meets service criteria. Ready for site visit or assessment.', 1, true),
 (2, 'Site Visit Scheduled', 'Appointment booked for property assessment and service evaluation.', 2, true),

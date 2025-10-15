@@ -3,7 +3,7 @@
 -- Task workflow stages with UI color coding
 -- =====================================================
 
-CREATE TABLE app.setting_task_stage (
+CREATE TABLE app.setting_datalabel_task_stage (
     level_id integer PRIMARY KEY,
     level_name varchar(50) NOT NULL UNIQUE,
     level_descr text,
@@ -16,7 +16,7 @@ CREATE TABLE app.setting_task_stage (
 -- Index for setting task stage
 
 -- Initial data for task stages
-INSERT INTO app.setting_task_stage (level_id, level_name, level_descr, sort_order, color_code) VALUES
+INSERT INTO app.setting_datalabel_task_stage (level_id, level_name, level_descr, sort_order, color_code) VALUES
 (0, 'Backlog', 'Task identified but not started', 1, '#6B7280'),
 (1, 'To Do', 'Task ready to be started', 2, '#3B82F6'),
 (2, 'In Progress', 'Task currently being worked on', 3, '#F59E0B'),
@@ -30,4 +30,4 @@ ALTER TABLE app.d_task
 ADD CONSTRAINT fk_task_stage
 FOREIGN KEY (stage) ;
 
-COMMENT ON TABLE app.setting_task_stage IS 'Task workflow stages with UI color coding';
+COMMENT ON TABLE app.setting_datalabel_task_stage IS 'Task workflow stages with UI color coding';

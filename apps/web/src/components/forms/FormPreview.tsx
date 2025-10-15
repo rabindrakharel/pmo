@@ -32,8 +32,8 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
       <form className="space-y-3">
         {displayFields.length === 0 && (
           <div className="text-gray-500 text-center py-8">
-            <Layers className="h-6 w-6 mx-auto mb-2 text-gray-400" />
-            <p className="text-sm">No fields in this step.</p>
+            <Layers className="h-6 w-6 mx-auto mb-2 text-gray-400 stroke-[1.5]" />
+            <p className="text-sm font-normal">No fields in this step.</p>
           </div>
         )}
         
@@ -147,8 +147,8 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
               
               {f.type === 'file' && (
                 <div className="px-3 py-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 text-center">
-                  <Upload className="h-6 w-6 mx-auto text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-600">
+                  <Upload className="h-6 w-6 mx-auto text-gray-400 mb-2 stroke-[1.5]" />
+                  <p className="text-sm font-normal text-gray-600">
                     {f.multiple ? 'Choose files or drag and drop' : 'Choose file or drag and drop'}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
@@ -221,8 +221,8 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
               {f.type === 'wiki' && (
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <div className="bg-blue-50 border-b border-gray-200 px-4 py-2 flex items-center space-x-2">
-                    <BookOpen className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-semibold text-blue-800">{f.wikiTitle || 'Documentation'}</span>
+                    <BookOpen className="h-4 w-4 text-blue-600 stroke-[1.5]" />
+                    <span className="text-sm font-normal text-blue-800">{f.wikiTitle || 'Documentation'}</span>
                     <span className="text-xs text-gray-500 ml-auto">Read-only preview</span>
                   </div>
                   <ModularEditor

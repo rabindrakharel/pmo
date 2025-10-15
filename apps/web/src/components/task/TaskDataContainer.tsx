@@ -275,7 +275,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
                       />
                       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <div className="bg-black bg-opacity-60 text-white p-1.5 rounded-full">
-                          <ZoomIn className="w-4 h-4" />
+                          <ZoomIn className="w-4 h-4 stroke-[1.5]" />
                         </div>
                       </div>
                     </div>
@@ -295,8 +295,8 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
                     download={displayName}
                     className="inline-flex items-center px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors"
                   >
-                    <Paperclip className="w-4 h-4 mr-2" />
-                    <span className="font-medium truncate max-w-[12rem]">{displayName}</span>
+                    <Paperclip className="w-4 h-4 mr-2 stroke-[1.5]" />
+                    <span className="font-normal truncate max-w-[12rem]">{displayName}</span>
                     {sizeKb && <span className="ml-2 text-xs text-blue-500">({sizeKb})</span>}
                   </a>
                 );
@@ -307,8 +307,8 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
                   key={key}
                   className="inline-flex items-center px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-700"
                 >
-                  <Paperclip className="w-4 h-4 mr-2" />
-                  <span className="font-medium truncate max-w-[12rem]">{displayName}</span>
+                  <Paperclip className="w-4 h-4 mr-2 stroke-[1.5]" />
+                  <span className="font-normal truncate max-w-[12rem]">{displayName}</span>
                   {sizeKb && <span className="ml-2 text-xs text-gray-500">({sizeKb})</span>}
                 </div>
               );
@@ -335,7 +335,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
         if (op.attributes.strike) text = `<s>${text}</s>`;
         if (op.attributes.code) text = `<code class="bg-gray-100 px-1 py-0.5 rounded">${text}</code>`;
         if (op.attributes.link) text = `<a href="${op.attributes.link}" class="text-blue-600 hover:underline" target="_blank">${text}</a>`;
-        if (op.attributes.header) text = `<h${op.attributes.header} class="font-semibold mt-4 mb-2">${text}</h${op.attributes.header}>`;
+        if (op.attributes.header) text = `<h${op.attributes.header} class="font-normal mt-4 mb-2">${text}</h${op.attributes.header}>`;
         if (op.attributes['code-block']) text = `<pre class="bg-gray-100 p-2 rounded overflow-x-auto"><code>${text}</code></pre>`;
         if (op.attributes.list === 'bullet') text = `<li class="ml-4">${text}</li>`;
         if (op.attributes.list === 'ordered') text = `<li class="ml-4 list-decimal">${text}</li>`;
@@ -367,7 +367,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
               onClick={() => setImagePreview(null)}
               className="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors"
             >
-              <XIcon className="h-8 w-8" />
+              <XIcon className="h-8 w-8 stroke-[1.5]" />
             </button>
             <img
               src={imagePreview.url}
@@ -383,7 +383,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200">
         <div className="flex items-center space-x-2">
-          <MessageSquare className="h-5 w-5 text-gray-600" />
+          <MessageSquare className="h-5 w-5 text-gray-600 stroke-[1.5]" />
           <h2 className="text-sm font-normal text-gray-700">Task Updates & Activity</h2>
           <span className="text-xs text-gray-500">({updates.length})</span>
         </div>
@@ -440,7 +440,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
                     key={index}
                     className="inline-flex items-center px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 group"
                   >
-                    <Paperclip className="h-3.5 w-3.5 mr-1.5" />
+                    <Paperclip className="h-3.5 w-3.5 mr-1.5 stroke-[1.5]" />
                     <span className="max-w-[200px] truncate">{file.name}</span>
                     <span className="ml-2 text-xs text-blue-500">
                       ({(file.size / 1024).toFixed(1)} KB)
@@ -461,8 +461,8 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
           {/* Action Buttons */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <label className="inline-flex items-center px-3 py-1.5 text-sm text-gray-600 hover:text-blue-600 cursor-pointer border border-gray-300 rounded-lg hover:border-blue-400 transition-colors">
-                <Paperclip className="h-4 w-4 mr-1.5" />
+              <label className="inline-flex items-center px-3 py-1.5 text-sm font-normal text-gray-600 hover:text-blue-600 cursor-pointer border border-gray-300 rounded hover:border-blue-400 transition-colors">
+                <Paperclip className="h-4 w-4 mr-1.5 stroke-[1.5]" />
                 <span>Attach files</span>
                 <input
                   type="file"
@@ -479,9 +479,9 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
             <button
               onClick={handlePostUpdate}
               disabled={posting || (!editorContent.trim() && attachments.length === 0)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-normal rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <Send className="h-4 w-4 mr-2" />
+              <Send className="h-4 w-4 mr-2 stroke-[1.5]" />
               {posting ? 'Posting...' : 'Post Update'}
             </button>
           </div>
@@ -494,7 +494,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
           <div className="text-center py-8 text-gray-500">Loading updates...</div>
         ) : updates.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+            <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-400 stroke-[1.5]" />
             <p className="text-sm">No updates yet. Be the first to add one!</p>
           </div>
         ) : (
@@ -505,7 +505,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
                 <div className="flex space-x-3">
                   {/* Avatar */}
                   <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-sm font-semibold text-white shadow-sm">
+                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-sm font-normal text-gray-600 shadow-sm">
                       {update.updated_by_name?.charAt(0).toUpperCase() || 'U'}
                     </div>
                   </div>
@@ -550,9 +550,9 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
                       })}</span>
                       {update.status_change_from && update.status_change_to && (
                         <span className="flex items-center space-x-1">
-                          <span className="font-medium">{update.status_change_from}</span>
+                          <span className="font-normal">{update.status_change_from}</span>
                           <span>→</span>
-                          <span className="font-medium">{update.status_change_to}</span>
+                          <span className="font-normal">{update.status_change_to}</span>
                         </span>
                       )}
                     </div>

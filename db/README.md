@@ -72,14 +72,15 @@ app (schema)
 │   ├── d_role, d_position
 │   └── d_artifact, d_wiki, ops_formlog_head, d_reports
 │
-├── Settings/Configuration (13 tables)
-│   ├── setting_office_level, setting_business_level
-│   ├── setting_project_stage, setting_project_status
-│   ├── setting_task_stage, setting_task_status
-│   ├── setting_opportunity_funnel_level, setting_industry_sector
-│   ├── setting_acquisition_channel, setting_customer_tier ✅
-│   ├── setting_client_level, setting_hr_level
-│   └── setting_position_level
+├── Settings/Configuration (16 tables)
+│   ├── setting_datalabel_office_level, setting_datalabel_business_level
+│   ├── setting_datalabel_project_stage, setting_datalabel_task_stage
+│   ├── setting_datalabel_client_level, setting_datalabel_customer_tier
+│   ├── setting_datalabel_position_level, setting_datalabel_opportunity_funnel_level
+│   ├── setting_datalabel_industry_sector, setting_datalabel_acquisition_channel
+│   ├── setting_datalabel_client_status, setting_datalabel_task_priority
+│   ├── setting_datalabel_task_update_type, setting_datalabel_form_submission_status
+│   ├── setting_datalabel_form_approval_status, setting_datalabel_wiki_publication_status
 │
 └── Relationships & RBAC (3 tables)
     ├── entity_id_map (parent-child relationships)
@@ -87,12 +88,12 @@ app (schema)
     └── rel_emp_role (employee-role assignments)
 ```
 
-### Total: 29 Tables
+### Total: 32 Tables
 
 | Category | Count | Purpose |
 |----------|-------|---------|
 | **Data Entities** | 13 | Core business objects |
-| **Settings** | 13 | Configuration, hierarchies & dropdown options |
+| **Settings** | 16 | Configuration, hierarchies & dropdown options |
 | **Relationships** | 3 | Mappings & permissions |
 
 ---
@@ -195,70 +196,106 @@ app (schema)
 
 ---
 
-### 2️⃣ Settings & Configuration Tables (13 tables)
+### 2️⃣ Settings & Configuration Tables (16 tables)
 
-These tables define configurable hierarchies, workflow stages, and dropdown options throughout the system. Settings are dynamically loaded by the frontend via the universal `/api/v1/setting?category=<name>` endpoint.
+These tables define configurable hierarchies, workflow stages, and dropdown options throughout the system. All setting tables now use the `setting_datalabel_*` naming convention. Settings are dynamically loaded by the frontend via the universal `/api/v1/setting?category=<name>` endpoint.
 
-**`setting_office_level`** - Office Hierarchy Levels
+**`setting_datalabel_office_level`** - Office Hierarchy Levels
 - **Levels:** 4 (Office → District → Region → Corporate)
 - **Records:** 4
 - **Usage:** Defines office organizational structure
+- **File:** `setting_datalabel__office_level.ddl`
 
-**`setting_business_level`** - Business Hierarchy Levels
+**`setting_datalabel_business_level`** - Business Hierarchy Levels
 - **Levels:** 3 (Department → Division → Corporate)
 - **Records:** 3
 - **Usage:** Defines business unit hierarchy
+- **File:** `setting_datalabel__business_level.ddl`
 
-**`setting_project_stage`** - Project Lifecycle Stages
-- **Stages:** Initiation, Planning, Execution, Monitoring, Closure
+**`setting_datalabel_project_stage`** - Project Lifecycle Stages
+- **Stages:** Initiation, Planning, Execution, Monitoring, Closure, On Hold, Cancelled
 - **Records:** 7
-- **Usage:** Kanban columns, project filtering
+- **Usage:** Kanban columns, project filtering with color coding
+- **File:** `setting_datalabel__project_stage.ddl`
 
-**`setting_task_stage`** - Task Workflow Stages
-- **Stages:** Backlog, To Do, In Progress, In Review, Done, Blocked
+**`setting_datalabel_task_stage`** - Task Workflow Stages
+- **Stages:** Backlog, To Do, In Progress, In Review, Blocked, Done, Cancelled
 - **Records:** 7
-- **Usage:** Kanban board columns, task workflow
+- **Usage:** Kanban board columns, task workflow with color coding
+- **File:** `setting_datalabel__task_stage.ddl`
 
-**`setting_project_status`** - Project Status Values
-- **Records:** Multiple status options
-- **Usage:** Project status tracking
+**`setting_datalabel_client_level`** - Client Classification Levels
+- **Levels:** CEO, VP, Director, Manager, Coordinator
+- **Records:** 5
+- **Usage:** Client hierarchy and authority levels
+- **File:** `setting_datalabel__client_level.ddl`
 
-**`setting_task_status`** - Task Status Values
-- **Records:** Multiple status options
-- **Usage:** Task completion tracking
-
-**`setting_opportunity_funnel_level`** - Sales Pipeline Stages
-- **Stages:** Lead, Qualified, Site Visit, Proposal, Negotiation, Contract, Lost
-- **Records:** 8
-- **Usage:** Client opportunity tracking
-
-**`setting_industry_sector`** - Industry Classifications
-- **Sectors:** Residential, Commercial, Healthcare, Education, Hospitality, Municipal, Industrial
-- **Records:** 8
-- **Usage:** Client categorization
-
-**`setting_acquisition_channel`** - Customer Acquisition Sources
-- **Channels:** Referral, Website, Social Media, Direct Sales, etc.
-- **Usage:** Marketing analytics, lead source tracking
-
-**`setting_customer_tier`** - Customer Service Tiers ✅
+**`setting_datalabel_customer_tier`** - Customer Service Tiers
 - **Tiers:** Standard, Plus, Premium, Enterprise, Government, Strategic
 - **Records:** 6
 - **Usage:** Service level differentiation, client segmentation
 - **Referenced by:** `d_client.customer_tier_id`
-- **Table:** `app.setting_customer_tier`
+- **File:** `setting_datalabel__customer_tier.ddl`
 
-**`setting_client_level`** - Client Classification Levels
-- **Records:** 5
-- **Usage:** Client hierarchy and authority levels
-
-**`setting_hr_level`** - HR/Employee Hierarchy Levels
-- **Records:** Multiple levels
-- **Usage:** Employee classification and reporting structure
-
-**`setting_position_level`** - Position Hierarchy Levels
+**`setting_datalabel_position_level`** - Position Hierarchy Levels
+- **Levels:** CEO/President, C-Suite, VP, Director, Manager, Supervisor, Team Lead, Individual Contributor
 - **Records:** 8
-- **Usage:** Job title/position classification
+- **Usage:** Employee position classification and organizational structure
+- **File:** `setting_datalabel__position_level.ddl`
+
+**`setting_datalabel_opportunity_funnel_level`** - Sales Pipeline Stages
+- **Stages:** Lead, Qualified, Site Visit Scheduled, Proposal Sent, Negotiation, Contract Signed, Lost, On Hold
+- **Records:** 8
+- **Usage:** Client opportunity tracking through sales funnel
+- **File:** `setting_datalabel__opportunity_funnel_level.ddl`
+
+**`setting_datalabel_industry_sector`** - Industry Classifications
+- **Sectors:** Residential, Commercial Real Estate, Healthcare, Education, Hospitality, Municipal/Government, Industrial, Property Management
+- **Records:** 8
+- **Usage:** Client industry categorization
+- **File:** `setting_datalabel__industry_sector.ddl`
+
+**`setting_datalabel_acquisition_channel`** - Customer Acquisition Sources
+- **Channels:** Organic Search, Paid Search, Social Media Organic, Paid Social Media, Referral, Direct, Email Marketing, Content Marketing, etc.
+- **Records:** 15+
+- **Usage:** Marketing analytics, lead source tracking
+- **File:** `setting_datalabel__acquisition_channel.ddl`
+
+**`setting_datalabel_client_status`** - Client Status Values
+- **Status:** Active, Inactive, Prospect, Archived, Suspended, Churned
+- **Records:** 6
+- **Usage:** Client lifecycle status tracking
+- **File:** `setting_datalabel__client_status.ddl`
+
+**`setting_datalabel_task_priority`** - Task Priority Levels
+- **Priorities:** Low, Medium, High, Critical, Urgent
+- **Records:** 5
+- **Usage:** Task prioritization and scheduling
+- **File:** `setting_datalabel__task_priority.ddl`
+
+**`setting_datalabel_task_update_type`** - Task Update/Activity Types
+- **Types:** Comment, Status Change, Assignment, Attachment, Description Update, Deadline Change, Priority Change
+- **Records:** 7
+- **Usage:** Task activity logging and audit trail
+- **File:** `setting_datalabel__task_update_type.ddl`
+
+**`setting_datalabel_form_submission_status`** - Form Submission Status
+- **Status:** Draft, Submitted, Under Review, Approved, Rejected, Withdrawn
+- **Records:** 6
+- **Usage:** Form submission workflow tracking
+- **File:** `setting_datalabel__form_submission_status.ddl`
+
+**`setting_datalabel_form_approval_status`** - Form Approval Status
+- **Status:** Pending, Approved, Rejected, Conditional, Escalated
+- **Records:** 5
+- **Usage:** Form approval workflow management
+- **File:** `setting_datalabel__form_approval_status.ddl`
+
+**`setting_datalabel_wiki_publication_status`** - Wiki Publication Status
+- **Status:** Draft, Review, Published, Archived, Deprecated, Private
+- **Records:** 6
+- **Usage:** Wiki content lifecycle management
+- **File:** `setting_datalabel__wiki_publication_status.ddl`
 
 ---
 
@@ -612,26 +649,65 @@ psql -h localhost -p 5434 -U app -d app -c "\dt app.*"
 
 ### Import Order
 
-The DDL files are imported in dependency order:
+The DDL files are imported in dependency order with all settings loaded first:
 
 ```
-0. 0_initial_setup.ddl         - Drop and recreate schema
-1. I-VI: Setting tables        - Metadata configuration (includes setting_customer_tier ✅)
-2. VII: entity_map             - Entity registry framework
-3. VIII: d_employee            - Employees (required for RBAC)
-4. IX-XIV: Core entities       - Office, Business, Client ✅, Role, etc.
-5. XV-XVII: Project entities   - Projects, Tasks
-6. XVIII-XXV: Content entities - Artifacts, Wiki, Forms, Reports
-7. XXVI: entity_id_map         - Parent-child relationships
-8. XXVII: entity_id_rbac_map   - RBAC permissions
-9. XXVIII: rel_emp_role        - Employee-role assignments
+0. 0_schemaCreate.ddl                               - Drop and recreate schema
+1. setting_datalabel__office_level.ddl              - Office hierarchy (4 levels)
+2. setting_datalabel__business_level.ddl            - Business hierarchy (3 levels)
+3. setting_datalabel__project_stage.ddl             - Project stages
+4. setting_datalabel__task_stage.ddl                - Task stages
+5. setting_datalabel__client_level.ddl              - Client levels
+6. setting_datalabel__customer_tier.ddl             - Customer tiers
+7. setting_datalabel__position_level.ddl            - Position levels
+8. setting_datalabel__opportunity_funnel_level.ddl  - Sales funnel stages
+9. setting_datalabel__industry_sector.ddl           - Industry sectors
+10. setting_datalabel__acquisition_channel.ddl      - Acquisition channels
+11. setting_datalabel__client_status.ddl            - Client status values
+12. setting_datalabel__task_priority.ddl            - Task priorities
+13. setting_datalabel__task_update_type.ddl         - Task update types
+14. setting_datalabel__form_submission_status.ddl   - Form submission status
+15. setting_datalabel__form_approval_status.ddl     - Form approval status
+16. setting_datalabel__wiki_publication_status.ddl  - Wiki publication status
+17. X_entity_map.ddl                                - Entity registry framework
+18. XI_d_employee.ddl                               - Employees (required for RBAC)
+19. XII_d_office.ddl                                - Office entities
+20. XIII_d_business.ddl                             - Business entities
+21. XIV_d_client.ddl                                - Client entities
+22. XV_d_role.ddl                                   - Role entities
+23. XVI_d_position.ddl                              - Position entities
+24. XVII_d_worksite.ddl                             - Worksite entities
+25. XVIII_d_project.ddl                             - Project entities
+26. XIX_d_task.ddl                                  - Task head entities
+27. XX_d_task_data.ddl                              - Task data entities
+28. XXI_d_artifact.ddl                              - Artifact head entities
+29. XXII_d_artifact_data.ddl                        - Artifact data entities
+30. XXIII_d_form_head.ddl                           - Form head entities
+31. XXIV_d_form_data.ddl                            - Form data entities
+32. XXV_d_wiki.ddl                                  - Wiki entities
+33. XXVI_d_wiki_data.ddl                            - Wiki data entities
+34. XXVII_d_reports.ddl                             - Report entities
+35. XXVIII_d_report_data.ddl                        - Report data entities
+36. XXIX_entity_id_map.ddl                          - Parent-child relationships
+37. XXX_entity_id_rbac_map.ddl                      - RBAC permissions
+38. XXXI_rel_emp_role.ddl                           - Employee-role assignments
 ```
 
-### Recent Architectural Changes (2025-10-14)
+**Total: 38 DDL files** (1 schema + 16 settings + 21 entities/relationships)
 
-**Client Entity Implementation:**
+### Recent Architectural Changes
+
+**2025-10-14 - DDL File Reorganization:**
+- ✅ Renamed all setting files from `I_setting_*.ddl` to `setting_datalabel__*.ddl`
+- ✅ Updated all table names from `app.setting_*` to `app.setting_datalabel_*`
+- ✅ Renamed `0_initial_setup.ddl` to `0_schemaCreate.ddl`
+- ✅ Reorganized import order in `db-import.sh` with all 16 settings first
+- ✅ Added 6 new setting tables for enhanced data labeling
+- ✅ Validated all 38 DDL files with dry-run test
+
+**Previous Changes - Client Entity Implementation:**
 - ✅ Created `app.d_client` table with comprehensive fields
-- ✅ Created `app.setting_customer_tier` lookup table (6 tiers)
+- ✅ Created `app.setting_datalabel_customer_tier` lookup table (6 tiers)
 - ✅ Integrated with existing setting tables (opportunity_funnel, industry_sector, acquisition_channel)
 - ✅ Added 3 sample clients spanning residential and commercial segments
 - ✅ API endpoint `/api/v1/client` fully functional with JOIN-based enrichment
@@ -664,6 +740,13 @@ SELECT id, code, name FROM app.d_project;  -- Expected: 5
 SELECT parent_entity_type, child_entity_type, COUNT(*)
 FROM app.entity_id_map
 GROUP BY parent_entity_type, child_entity_type;  -- Expected: 14 total
+
+-- Verify setting tables (new naming convention)
+SELECT COUNT(*) FROM app.setting_datalabel_office_level;       -- Expected: 4
+SELECT COUNT(*) FROM app.setting_datalabel_task_priority;      -- Expected: 5
+SELECT COUNT(*) FROM app.setting_datalabel_customer_tier;      -- Expected: 6
+SELECT COUNT(*) FROM app.setting_datalabel_project_stage;      -- Expected: 7
+SELECT COUNT(*) FROM app.setting_datalabel_industry_sector;    -- Expected: 8
 ```
 
 ---
@@ -752,7 +835,8 @@ The database supports these API patterns:
 
 ---
 
-**Last Updated:** 2025-01-30
-**Schema Version:** 4.0
+**Last Updated:** 2025-10-14
+**Schema Version:** 4.1
 **Database:** PostgreSQL 14+
 **Organization:** Huron Home Services Corporation
+**Total Tables:** 32 (13 entities + 16 settings + 3 relationships)

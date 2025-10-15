@@ -8,6 +8,7 @@ import {
   Menu,
   ChevronLeft,
   ChevronDown,
+  ChevronRight,
   Building2,
   MapPin,
   FolderOpen,
@@ -15,7 +16,9 @@ import {
   FileText,
   BookOpen,
   CheckSquare,
-  Users
+  Users,
+  Tag,
+  Link as LinkIcon
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -42,6 +45,7 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState(window.location.pathname);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -81,9 +85,13 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
     { name: 'Artifact', href: '/artifact', icon: FileText, category: 'content' },
   ];
 
+  const settingsSubItems = [
+    { name: 'Data Labels', href: '/labels', icon: Tag },
+    { name: 'Data Linkage', href: '/settings', icon: LinkIcon },
+  ];
+
   const profileNavigationItems = [
     { name: 'Profile', href: '/profile', icon: User },
-    { name: 'Settings', href: '/settings', icon: Settings },
     { name: 'Security', href: '/security', icon: Shield },
     { name: 'Billing', href: '/billing', icon: CreditCard },
   ];
@@ -164,22 +172,57 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
 
           {/* Main Navigation */}
           <nav className="flex-1 px-2 py-3 space-y-0.5">
-            {/* Settings Link */}
-            <a
-              href="/settings"
-              className={`${
-                currentPage === '/settings'
-                  ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
-              } group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 text-sm font-normal rounded-l-lg transition-all duration-200`}
-              onClick={() => setCurrentPage('/settings')}
-              title={isCollapsed ? 'Settings' : undefined}
-            >
-              <Settings className={`${
-                currentPage === '/settings' ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
-              } ${isCollapsed ? '' : 'mr-3'} h-4 w-4 stroke-[1.5] transition-colors duration-200`} />
-              {!isCollapsed && <span className="text-sm font-normal">Settings</span>}
-            </a>
+            {/* Settings Dropdown */}
+            <div>
+              <button
+                onClick={() => !isCollapsed && setIsSettingsOpen(!isSettingsOpen)}
+                className={`${
+                  settingsSubItems.some(item => currentPage === item.href)
+                    ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
+                } w-full group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 text-sm font-normal rounded-l-lg transition-all duration-200`}
+                title={isCollapsed ? 'Settings' : undefined}
+              >
+                <Settings className={`${
+                  settingsSubItems.some(item => currentPage === item.href) ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
+                } ${isCollapsed ? '' : 'mr-3'} h-4 w-4 stroke-[1.5] transition-colors duration-200`} />
+                {!isCollapsed && (
+                  <>
+                    <span className="text-sm font-normal flex-1 text-left">Settings</span>
+                    <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
+                      isSettingsOpen ? 'transform rotate-90' : ''
+                    }`} />
+                  </>
+                )}
+              </button>
+
+              {/* Settings Submenu */}
+              {!isCollapsed && isSettingsOpen && (
+                <div className="ml-4 mt-1 space-y-0.5">
+                  {settingsSubItems.map((item) => {
+                    const IconComponent = item.icon;
+                    const isActive = isCurrentPage(item.href);
+                    return (
+                      <a
+                        key={item.name}
+                        href={item.href}
+                        className={`${
+                          isActive
+                            ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
+                        } group flex items-center px-3 py-2 text-sm font-normal rounded-l-lg transition-all duration-200`}
+                        onClick={() => setCurrentPage(item.href)}
+                      >
+                        <IconComponent className={`${
+                          isActive ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
+                        } mr-3 h-4 w-4 stroke-[1.5] transition-colors duration-200`} />
+                        <span className="text-sm font-normal">{item.name}</span>
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* Other Navigation Items */}
             {mainNavigationItems.map((item) => {

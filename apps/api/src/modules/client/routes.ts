@@ -28,14 +28,10 @@ const ClientSchema = Type.Object({
   primary_email: Type.Optional(Type.String()),
   primary_phone: Type.Optional(Type.String()),
   city: Type.Optional(Type.String()),
-  // Sales and marketing fields with settings JOINs
-  opportunity_funnel_level_id: Type.Optional(Type.Number()),
+  // Sales and marketing fields - _name columns only
   opportunity_funnel_level_name: Type.Optional(Type.String()),
-  industry_sector_id: Type.Optional(Type.Number()),
   industry_sector_name: Type.Optional(Type.String()),
-  acquisition_channel_id: Type.Optional(Type.Number()),
   acquisition_channel_name: Type.Optional(Type.String()),
-  customer_tier_id: Type.Optional(Type.Number()),
   customer_tier_name: Type.Optional(Type.String()),
 });
 
@@ -56,6 +52,16 @@ const CreateClientSchema = Type.Object({
 const UpdateClientSchema = Type.Partial(CreateClientSchema);
 
 export async function clientRoutes(fastify: FastifyInstance) {
+  // Test endpoint
+  fastify.get('/api/v1/client/test', async (request, reply) => {
+    try {
+      const result = await db.execute(sql`SELECT id, name FROM app.d_client LIMIT 2`);
+      return { success: true, count: result.length, data: result };
+    } catch (error) {
+      return { error: String(error) };
+    }
+  });
+
   // List clients with filtering
   fastify.get('/api/v1/client', {
     schema: {
@@ -64,22 +70,16 @@ export async function clientRoutes(fastify: FastifyInstance) {
         search: Type.Optional(Type.String()),
         client_type: Type.Optional(Type.String()),
         biz_id: Type.Optional(Type.String()),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
-      response: {
-        200: Type.Object({
-          data: Type.Array(ClientSchema),
-          total: Type.Number(),
-          limit: Type.Number(),
-          offset: Type.Number(),
-        }),
-        403: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
     },
   }, async (request, reply) => {
-    const { active, search, client_type, biz_id, limit = 50, offset = 0 } = request.query as any;
+    const { active, search, client_type, biz_id, page, limit = 20, offset } = request.query as any;
+
+    // Calculate offset from page if page is provided
+    const actualOffset = page !== undefined ? (page - 1) * limit : (offset || 0);
 
 
     try {
@@ -111,39 +111,27 @@ export async function clientRoutes(fastify: FastifyInstance) {
           c.id, c.name, c."descr", c.tags, c.metadata as attr, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts,
           c.client_number, c.client_type, c.client_status, c.primary_contact_name,
           c.primary_email, c.primary_phone, c.city,
-          c.opportunity_funnel_level_id, ofl.level_name as opportunity_funnel_level_name,
-          c.industry_sector_id, isl.level_name as industry_sector_name,
-          c.acquisition_channel_id, acl.level_name as acquisition_channel_name,
-          c.customer_tier_id, ctl.level_name as customer_tier_name
+          c.opportunity_funnel_level_name,
+          c.industry_sector_name,
+          c.acquisition_channel_name,
+          c.customer_tier_name
         FROM app.d_client c
-        LEFT JOIN app.setting_opportunity_funnel_level ofl ON c.opportunity_funnel_level_id = ofl.level_id
-        LEFT JOIN app.setting_industry_sector isl ON c.industry_sector_id = isl.level_id
-        LEFT JOIN app.setting_acquisition_channel acl ON c.acquisition_channel_id = acl.level_id
-        LEFT JOIN app.setting_customer_tier ctl ON c.customer_tier_id = ctl.level_id
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY c.name ASC NULLS LAST, c.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
+        LIMIT ${limit} OFFSET ${actualOffset}
       `);
 
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true,
-      };
-      
-      const filteredData = clients.map(client => 
-        filterUniversalColumns(client, userPermissions)
-      );
-
       return {
-        data: filteredData,
+        data: clients,
         total,
         limit,
-        offset,
+        offset: actualOffset,
+        page: page || Math.floor(actualOffset / limit) + 1,
       };
     } catch (error) {
-      fastify.log.error('Error fetching clients:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
+      fastify.log.error('Error fetching clients:', error);
+      console.error('CLIENT API ERROR:', error);
+      return reply.status(500).send({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -171,15 +159,11 @@ export async function clientRoutes(fastify: FastifyInstance) {
           c.id, c.name, c."descr", c.tags, c.metadata as attr, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts,
           c.client_number, c.client_type, c.client_status, c.primary_contact_name,
           c.primary_email, c.primary_phone, c.city,
-          c.opportunity_funnel_level_id, ofl.level_name as opportunity_funnel_level_name,
-          c.industry_sector_id, isl.level_name as industry_sector_name,
-          c.acquisition_channel_id, acl.level_name as acquisition_channel_name,
-          c.customer_tier_id, ctl.level_name as customer_tier_name
+          c.opportunity_funnel_level_name,
+          c.industry_sector_name,
+          c.acquisition_channel_name,
+          c.customer_tier_name
         FROM app.d_client c
-        LEFT JOIN app.setting_opportunity_funnel_level ofl ON c.opportunity_funnel_level_id = ofl.level_id
-        LEFT JOIN app.setting_industry_sector isl ON c.industry_sector_id = isl.level_id
-        LEFT JOIN app.setting_acquisition_channel acl ON c.acquisition_channel_id = acl.level_id
-        LEFT JOIN app.setting_customer_tier ctl ON c.customer_tier_id = ctl.level_id
         WHERE c.id = ${id}
       `);
 
@@ -229,15 +213,11 @@ export async function clientRoutes(fastify: FastifyInstance) {
           c.id, c.name, c."descr", c.tags, c.metadata as attr, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts,
           c.client_number, c.client_type, c.client_status, c.primary_contact_name,
           c.primary_email, c.primary_phone, c.city,
-          c.opportunity_funnel_level_id, ofl.level_name as opportunity_funnel_level_name,
-          c.industry_sector_id, isl.level_name as industry_sector_name,
-          c.acquisition_channel_id, acl.level_name as acquisition_channel_name,
-          c.customer_tier_id, ctl.level_name as customer_tier_name
+          c.opportunity_funnel_level_name,
+          c.industry_sector_name,
+          c.acquisition_channel_name,
+          c.customer_tier_name
         FROM app.d_client c
-        LEFT JOIN app.setting_opportunity_funnel_level ofl ON c.opportunity_funnel_level_id = ofl.level_id
-        LEFT JOIN app.setting_industry_sector isl ON c.industry_sector_id = isl.level_id
-        LEFT JOIN app.setting_acquisition_channel acl ON c.acquisition_channel_id = acl.level_id
-        LEFT JOIN app.setting_customer_tier ctl ON c.customer_tier_id = ctl.level_id
         WHERE c.id = ${id}
       `);
 

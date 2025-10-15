@@ -10,6 +10,7 @@ import { FormDataPreviewPage } from './pages/FormDataPreviewPage';
 import { WikiEditorPage } from './pages/WikiEditorPage';
 import { WikiViewPage } from './pages/WikiViewPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { LabelsPage } from './pages/LabelsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { BillingPage } from './pages/BillingPage';
@@ -18,6 +19,7 @@ import { BillingPage } from './pages/BillingPage';
 import { EntityMainPage } from './pages/EntityMainPage';
 import { EntityDetailPage } from './pages/EntityDetailPage';
 import { EntityChildListPage } from './pages/EntityChildListPage';
+import { EntityCreatePage } from './pages/EntityCreatePage';
 import { PublicFormPage } from './pages/PublicFormPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -75,6 +77,18 @@ function AppRoutes() {
       <Route path="/worksite" element={<ProtectedRoute><EntityMainPage entityType="worksite" /></ProtectedRoute>} />
       <Route path="/client" element={<ProtectedRoute><EntityMainPage entityType="client" /></ProtectedRoute>} />
       <Route path="/position" element={<ProtectedRoute><EntityMainPage entityType="position" /></ProtectedRoute>} />
+
+      {/* Universal Entity Create Routes */}
+      <Route path="/biz/new" element={<ProtectedRoute><EntityCreatePage entityType="biz" /></ProtectedRoute>} />
+      <Route path="/office/new" element={<ProtectedRoute><EntityCreatePage entityType="office" /></ProtectedRoute>} />
+      <Route path="/project/new" element={<ProtectedRoute><EntityCreatePage entityType="project" /></ProtectedRoute>} />
+      <Route path="/task/new" element={<ProtectedRoute><EntityCreatePage entityType="task" /></ProtectedRoute>} />
+      <Route path="/artifact/new" element={<ProtectedRoute><EntityCreatePage entityType="artifact" /></ProtectedRoute>} />
+      <Route path="/employee/new" element={<ProtectedRoute><EntityCreatePage entityType="employee" /></ProtectedRoute>} />
+      <Route path="/role/new" element={<ProtectedRoute><EntityCreatePage entityType="role" /></ProtectedRoute>} />
+      <Route path="/worksite/new" element={<ProtectedRoute><EntityCreatePage entityType="worksite" /></ProtectedRoute>} />
+      <Route path="/client/new" element={<ProtectedRoute><EntityCreatePage entityType="client" /></ProtectedRoute>} />
+      <Route path="/position/new" element={<ProtectedRoute><EntityCreatePage entityType="position" /></ProtectedRoute>} />
 
       {/* Universal Entity Detail Routes with Child Entities */}
 
@@ -146,6 +160,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/labels"
+        element={
+          <ProtectedRoute>
+            <LabelsPage />
           </ProtectedRoute>
         }
       />
