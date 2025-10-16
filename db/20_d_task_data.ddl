@@ -72,10 +72,14 @@ CREATE TABLE app.d_task_data (
 
 
     -- Additional data fields
-    update_type varchar(50) DEFAULT 'comment', -- comment, status_change, assignment, attachment
+    update_type varchar(50) DEFAULT 'comment', -- comment, status_change, assignment, attachment, form
     hours_logged decimal(8,2),
     status_change_from varchar(50),
     status_change_to varchar(50),
+
+    -- Metadata for storing additional context (e.g., form submissions)
+    -- For form updates: {form_id, form_name, submission_id, submission_data, submission_timestamp}
+    metadata jsonb DEFAULT '{}'::jsonb,
 
     -- Temporal fields
     created_ts timestamptz DEFAULT now(),

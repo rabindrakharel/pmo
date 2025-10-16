@@ -15,6 +15,7 @@ const TaskDataSchema = Type.Object({
   hours_logged: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
   status_change_from: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   status_change_to: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  metadata: Type.Optional(Type.Any()),
   created_ts: Type.String(),
   updated_ts: Type.String(),
   updated_by_name: Type.Optional(Type.String()),
@@ -28,6 +29,7 @@ const CreateTaskDataSchema = Type.Object({
   hours_logged: Type.Optional(Type.Number()),
   status_change_from: Type.Optional(Type.String()),
   status_change_to: Type.Optional(Type.String()),
+  metadata: Type.Optional(Type.Any()),
   stage: Type.Optional(Type.String()),
 });
 
@@ -85,6 +87,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           td.hours_logged,
           td.status_change_from,
           td.status_change_to,
+          COALESCE(td.metadata, '{}'::jsonb) as metadata,
           td.created_ts,
           td.updated_ts,
           e.name as updated_by_name
@@ -161,7 +164,8 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           update_type,
           hours_logged,
           status_change_from,
-          status_change_to
+          status_change_to,
+          metadata
         )
         VALUES (
           ${data.task_id},
@@ -172,7 +176,8 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           ${data.update_type || 'comment'},
           ${data.hours_logged || null},
           ${data.status_change_from || null},
-          ${data.status_change_to || null}
+          ${data.status_change_to || null},
+          ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb
         )
         RETURNING
           id,
@@ -185,6 +190,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           hours_logged,
           status_change_from,
           status_change_to,
+          metadata,
           created_ts,
           updated_ts
       `);
@@ -257,6 +263,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           td.hours_logged,
           td.status_change_from,
           td.status_change_to,
+          COALESCE(td.metadata, '{}'::jsonb) as metadata,
           td.created_ts,
           td.updated_ts,
           e.name as updated_by_name

@@ -10,6 +10,7 @@ Complete toolkit for platform operations, database management, API testing, and 
 tools/
 ├── README.md          # This guide
 ├── start-all.sh       # Start all services (DB + API + Web)
+├── restart-api.sh     # Restart API server only
 ├── db-import.sh       # Import database schema (28 DDL files)
 ├── test-api.sh        # Generic API testing tool
 ├── logs-api.sh        # View API server logs
@@ -27,7 +28,6 @@ tools/
 ```
 
 **What it does:**
-- ALways use start-all to restart api! 
 - Starts Docker services (PostgreSQL, Redis, MinIO, MailHog)
 - Imports database schema with all 28 DDL files
 - Starts API server on port 4000
@@ -37,6 +37,24 @@ tools/
 - Web App: http://localhost:5173
 - API: http://localhost:4000
 - API Docs: http://localhost:4000/docs
+
+### Restart API Server Only
+
+```bash
+./tools/restart-api.sh
+```
+
+**What it does:**
+- Stops the running API server process
+- Restarts API server on port 4000
+- Preserves Docker services (DB, Redis, MinIO, MailHog)
+- Keeps web application running
+
+**When to use:**
+- After making API code changes
+- After modifying environment variables
+- When API server becomes unresponsive
+- When you don't need to restart the entire stack
 
 ---
 
@@ -131,11 +149,23 @@ tools/
 # 1. Reimport database
 ./tools/db-import.sh
 
-# 2. Restart platform (stop and start-all)
-./tools/start-all.sh
+# 2. Restart API server
+./tools/restart-api.sh
 
 # 3. Test endpoints
 ./tools/test-api.sh GET /api/v1/project
+```
+
+### After API Code Changes
+```bash
+# 1. Restart API server
+./tools/restart-api.sh
+
+# 2. Monitor logs for errors
+./tools/logs-api.sh -f
+
+# 3. Test your changes
+./tools/test-api.sh GET /api/v1/your-endpoint
 ```
 
 ### Debugging Issues

@@ -98,3 +98,79 @@ CREATE TABLE app.d_form_head (
     -- Increments on schema changes, ID stays same
     version integer DEFAULT 1
 );
+
+-- =====================================================
+-- SAMPLE DATA - Form Definitions
+-- =====================================================
+
+-- Landscaping Form
+INSERT INTO app.d_form_head (
+    id,
+    name,
+    descr,
+    url,
+    form_type,
+    form_schema,
+    version,
+    active_flag
+) VALUES (
+    'ee8a6cfd-9d31-4705-b8f3-ad2d5589802c',
+    'Landscapingform',
+    'Landscapping form',
+    '/public/form/ee8a6cfd-9d31-4705-b8f3-ad2d5589802c',
+    'multi_step',
+    '{
+        "steps": [
+            {
+                "id": "step-1",
+                "name": "step_1",
+                "title": "General Information",
+                "description": "",
+                "fields": [
+                    {
+                        "name": "text_1760648879230",
+                        "label": "Text Input",
+                        "type": "text",
+                        "required": false
+                    },
+                    {
+                        "name": "email_1760648881366",
+                        "label": "Email",
+                        "type": "email",
+                        "required": false
+                    }
+                ]
+            },
+            {
+                "id": "step-1760648883781",
+                "name": "step_2",
+                "title": "Step 2",
+                "description": "",
+                "fields": [
+                    {
+                        "name": "datatable_1760648887217",
+                        "label": "Data Table",
+                        "type": "datatable",
+                        "required": false,
+                        "dataTableName": "table_1760648887217",
+                        "dataTableColumns": [
+                            {"name": "col1", "label": "Columnaa"},
+                            {"name": "col2", "label": "COLB"},
+                            {"name": "col3", "label": "COLC"}
+                        ],
+                        "dataTableDefaultRows": 1
+                    }
+                ]
+            }
+        ],
+        "currentStepIndex": 0
+    }'::jsonb,
+    1,
+    true
+) ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    descr = EXCLUDED.descr,
+    url = EXCLUDED.url,
+    form_type = EXCLUDED.form_type,
+    form_schema = EXCLUDED.form_schema,
+    updated_ts = now();

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Send, Paperclip, X as XIcon, ZoomIn, FileText } from 'lucide-react';
+import { MessageSquare, Send, Paperclip, X as XIcon, ZoomIn, FileText, ExternalLink, Table } from 'lucide-react';
 import { InteractiveForm } from '../form';
 
 interface TaskUpdate {
@@ -16,6 +16,13 @@ interface TaskUpdate {
   created_ts: string;
   updated_ts: string;
   updated_by_name?: string;
+  metadata?: {
+    form_id?: string;
+    form_name?: string;
+    submission_id?: string;
+    submission_data?: Record<string, any>;
+    submission_timestamp?: string;
+  };
 }
 
 interface TaskDataContainerProps {
@@ -93,12 +100,15 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
 
       if (response.ok) {
         const data = await response.json();
-        // Parse data_richtext from string to object if needed
+        // Parse data_richtext and metadata from string to object if needed
         const parsedUpdates = (data.data || []).map((update: any) => ({
           ...update,
           data_richtext: typeof update.data_richtext === 'string'
             ? JSON.parse(update.data_richtext)
-            : update.data_richtext
+            : update.data_richtext,
+          metadata: typeof update.metadata === 'string'
+            ? JSON.parse(update.metadata)
+            : update.metadata
         }));
         setUpdates(parsedUpdates);
       }
@@ -211,6 +221,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
           form_id: selectedFormId,
           form_name: selectedForm?.name,
           submission_id: submissionId,
+          submission_data: submissionData,  // Store the actual form data
           submission_timestamp: new Date().toISOString()
         }
       };
@@ -506,6 +517,73 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
     return { html, attachments };
   };
 
+  // Render form submission data in table format
+  const renderFormSubmissionData = (metadata: TaskUpdate['metadata']) => {
+    if (!metadata || !metadata.submission_data) return null;
+
+    const submissionData = metadata.submission_data;
+    const entries = Object.entries(submissionData);
+
+    if (entries.length === 0) return null;
+
+    return (
+      <div className="mt-4 space-y-3">
+        {/* Link to view/edit submission */}
+        {metadata.form_id && metadata.submission_id && (
+          <a
+            href={`/form/${metadata.form_id}/edit-submission?submissionId=${metadata.submission_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors"
+          >
+            <ExternalLink className="h-4 w-4 mr-2 stroke-[1.5]" />
+            View/Edit Form Submission
+          </a>
+        )}
+
+        {/* Submitted Data Table */}
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 flex items-center space-x-2">
+            <Table className="h-4 w-4 text-gray-600 stroke-[1.5]" />
+            <span className="text-sm font-normal text-gray-700">Submitted Data</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
+                    Field
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
+                    Value
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {entries.map(([key, value]) => (
+                  <tr key={key} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 text-sm font-normal text-gray-900 whitespace-nowrap">
+                      {key}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-700">
+                      {typeof value === 'object' ? (
+                        <pre className="text-xs bg-gray-50 p-2 rounded overflow-x-auto">
+                          {JSON.stringify(value, null, 2)}
+                        </pre>
+                      ) : (
+                        <span>{String(value)}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       {/* Image Preview Modal */}
@@ -751,6 +829,9 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
                       <div className="text-sm text-gray-800 leading-relaxed">
                         {renderRichText(update.data_richtext)}
                       </div>
+
+                      {/* Form Submission Data - Only show for form type updates */}
+                      {update.update_type === 'form' && renderFormSubmissionData(update.metadata)}
                     </div>
 
                     {/* Footer: Timestamp and actions */}
