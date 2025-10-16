@@ -126,10 +126,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
         conditions.push(sql`p.project_stage = ${project_stage}`);
       }
 
-      if (business_id) {
-        conditions.push(sql`p.business_id = ${business_id}`);
-      }
-
       if (search) {
         conditions.push(sql`(
           p.name ILIKE ${`%${search}%`} OR
@@ -149,7 +145,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const projects = await db.execute(sql`
         SELECT
           p.id, p.code, p.slug, p.name, p.descr, p.tags, p.metadata,
-          p.business_id, p.office_id, p.project_stage,
+          p.project_stage,
           p.budget_allocated, p.budget_spent,
           p.planned_start_date, p.planned_end_date, p.actual_start_date, p.actual_end_date,
           p.manager_employee_id, p.sponsor_employee_id, p.stakeholder_employee_ids,
@@ -443,26 +439,26 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       const offset = (page - 1) * limit;
       const wiki = await db.execute(sql`
-        SELECT w.id, w.title as name, w.summary as descr, w.tags, w.created, w.updated
+        SELECT w.id, w.name, w.summary as descr, w.tags, w.created_ts as created, w.updated_ts as updated
         FROM app.d_wiki w
-        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = w.id
-        WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity_type = 'project'
-          AND eh.child_entity_type = 'wiki'
-          AND eh.active_flag = true
+        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = w.id::text
+        WHERE eim.parent_entity_id = ${projectId}
+          AND eim.parent_entity_type = 'project'
+          AND eim.child_entity_type = 'wiki'
+          AND eim.active_flag = true
           AND w.active_flag = true
-        ORDER BY w.created DESC
+        ORDER BY w.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
         FROM app.d_wiki w
-        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = w.id
-        WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity_type = 'project'
-          AND eh.child_entity_type = 'wiki'
-          AND eh.active_flag = true
+        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = w.id::text
+        WHERE eim.parent_entity_id = ${projectId}
+          AND eim.parent_entity_type = 'project'
+          AND eim.child_entity_type = 'wiki'
+          AND eim.active_flag = true
           AND w.active_flag = true
       `);
 
@@ -517,17 +513,27 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       const offset = (page - 1) * limit;
       const forms = await db.execute(sql`
-        SELECT id, name, descr, tags, created, updated
-        FROM app.d_form_head
-        WHERE project_id = ${projectId} AND active_flag = true
-        ORDER BY created DESC
+        SELECT f.id, f.name, f.descr, f.tags, f.created, f.updated, eim.relationship_type
+        FROM app.d_entity_id_map eim
+        INNER JOIN app.d_form_head f ON f.id::text = eim.child_entity_id
+        WHERE eim.parent_entity_type = 'project'
+          AND eim.parent_entity_id = ${projectId}
+          AND eim.child_entity_type = 'form'
+          AND eim.active_flag = true
+          AND f.active_flag = true
+        ORDER BY f.created DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.d_form_head
-        WHERE project_id = ${projectId} AND active_flag = true
+        FROM app.d_entity_id_map eim
+        INNER JOIN app.d_form_head f ON f.id::text = eim.child_entity_id
+        WHERE eim.parent_entity_type = 'project'
+          AND eim.parent_entity_id = ${projectId}
+          AND eim.child_entity_type = 'form'
+          AND eim.active_flag = true
+          AND f.active_flag = true
       `);
 
       return {
@@ -657,7 +663,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const project = await db.execute(sql`
         SELECT
           id, code, slug, name, descr, tags, metadata,
-          business_id, office_id, project_stage,
+          project_stage,
           budget_allocated, budget_spent,
           planned_start_date, planned_end_date, actual_start_date, actual_end_date,
           manager_employee_id, sponsor_employee_id, stakeholder_employee_ids,
@@ -1024,9 +1030,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'Access denied for this project' });
       }
 
-      // Query tasks using project_id foreign key (simpler than entity_id_map)
+      // Use d_entity_id_map to find tasks linked to this project
       const conditions = [
-        sql`t.project_id = ${projectId}`,
+        sql`eim.parent_entity_type = 'project'`,
+        sql`eim.parent_entity_id = ${projectId}`,
+        sql`eim.child_entity_type = 'task'`,
+        sql`eim.active_flag = true`,
         sql`t.active_flag = true`
       ];
 
@@ -1041,12 +1050,13 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const tasks = await db.execute(sql`
         SELECT
           t.id, t.slug, t.code, t.name, t.descr, t.tags, t.metadata,
-          t.project_id, t.business_id, t.office_id,
           t.assignee_employee_ids, t.stage, t.priority_level,
           t.estimated_hours, t.actual_hours, t.story_points,
           t.parent_task_id, t.dependency_task_ids,
-          t.from_ts, t.to_ts, t.active_flag, t.created_ts, t.updated_ts, t.version
-        FROM app.d_task t
+          t.from_ts, t.to_ts, t.active_flag, t.created_ts, t.updated_ts, t.version,
+          eim.relationship_type
+        FROM app.d_entity_id_map eim
+        INNER JOIN app.d_task t ON t.id::text = eim.child_entity_id
         WHERE ${sql.join(conditions, sql` AND `)}
         ORDER BY t.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -1055,7 +1065,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // Get total count
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.d_task t
+        FROM app.d_entity_id_map eim
+        INNER JOIN app.d_task t ON t.id::text = eim.child_entity_id
         WHERE ${sql.join(conditions, sql` AND `)}
       `);
 
@@ -1111,24 +1122,24 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const forms = await db.execute(sql`
         SELECT f.*, COALESCE(f.name, 'Untitled Form') as name, f.descr
         FROM app.d_form_head f
-        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = f.id
-        WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity_type = 'project'
-          AND eh.child_entity_type = 'form'
-          AND eh.active_flag = true
+        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = f.id::text
+        WHERE eim.parent_entity_id = ${projectId}
+          AND eim.parent_entity_type = 'project'
+          AND eim.child_entity_type = 'form'
+          AND eim.active_flag = true
           AND f.active_flag = true
-        ORDER BY f.created DESC
+        ORDER BY f.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
         FROM app.d_form_head f
-        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = f.id
-        WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity_type = 'project'
-          AND eh.child_entity_type = 'form'
-          AND eh.active_flag = true
+        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = f.id::text
+        WHERE eim.parent_entity_id = ${projectId}
+          AND eim.parent_entity_type = 'project'
+          AND eim.child_entity_type = 'form'
+          AND eim.active_flag = true
           AND f.active_flag = true
       `);
 
@@ -1184,24 +1195,24 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const artifacts = await db.execute(sql`
         SELECT a.*, COALESCE(a.name, 'Untitled Artifact') as name, a.descr
         FROM app.d_artifact a
-        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = a.id
-        WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity_type = 'project'
-          AND eh.child_entity_type = 'artifact'
-          AND eh.active_flag = true
+        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = a.id::text
+        WHERE eim.parent_entity_id = ${projectId}
+          AND eim.parent_entity_type = 'project'
+          AND eim.child_entity_type = 'artifact'
+          AND eim.active_flag = true
           AND a.active_flag = true
-        ORDER BY a.created DESC
+        ORDER BY a.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
         FROM app.d_artifact a
-        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = a.id
-        WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity_type = 'project'
-          AND eh.child_entity_type = 'artifact'
-          AND eh.active_flag = true
+        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = a.id::text
+        WHERE eim.parent_entity_id = ${projectId}
+          AND eim.parent_entity_type = 'project'
+          AND eim.child_entity_type = 'artifact'
+          AND eim.active_flag = true
           AND a.active_flag = true
       `);
 

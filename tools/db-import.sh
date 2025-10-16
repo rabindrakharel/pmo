@@ -177,7 +177,6 @@ validate_all_ddls() {
         "27_d_reports.ddl"
         "28_d_report_data.ddl"
         "29_d_entity_map.ddl"
-        "30_rel_emp_role.ddl"
         "31_d_entity.ddl"
         "33_d_entity_id_map.ddl"
         "34_d_entity_id_rbac_map.ddl"
@@ -263,7 +262,6 @@ import_ddls() {
 
     # Final layer - Entity registry, type mappings, relationships, and RBAC (must come last in specific order)
     execute_sql "$DB_PATH/29_d_entity_map.ddl" "Entity type linkage rules (valid parent-child types)"
-    execute_sql "$DB_PATH/30_rel_emp_role.ddl" "Employee-role relationships"
     execute_sql "$DB_PATH/31_d_entity.ddl" "Entity registry framework (all entity instances)"
     execute_sql "$DB_PATH/33_d_entity_id_map.ddl" "Entity instance relationships (parent-child linkages)"
     execute_sql "$DB_PATH/34_d_entity_id_rbac_map.ddl" "RBAC permission mapping"
@@ -308,9 +306,8 @@ validate_schema() {
     local position_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_position;" 2>/dev/null | xargs || echo "0")
 
     # Relationship and mapping tables
-    local entity_map_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.entity_id_map;" 2>/dev/null | xargs || echo "0")
+    local entity_map_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_entity_id_map;" 2>/dev/null | xargs || echo "0")
     local rbac_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.entity_id_rbac_map;" 2>/dev/null | xargs || echo "0")
-    local emp_role_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.rel_emp_role;" 2>/dev/null | xargs || echo "0")
 
     # Meta configuration tables
     local office_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_datalabel_office_level;" 2>/dev/null | xargs || echo "0")
@@ -340,7 +337,6 @@ validate_schema() {
     print_status $CYAN "   Relationships & RBAC:"
     print_status $CYAN "     Entity mappings: $entity_map_count"
     print_status $CYAN "     RBAC permissions: $rbac_count"
-    print_status $CYAN "     Employee-role relations: $emp_role_count"
 
     print_status $CYAN "   Meta Configuration:"
     print_status $CYAN "     Office levels: $office_meta_count"

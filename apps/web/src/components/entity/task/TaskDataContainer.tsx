@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Send, Paperclip, X as XIcon, ZoomIn } from 'lucide-react';
+import { MessageSquare, Send, Paperclip, X as XIcon, ZoomIn, FileText } from 'lucide-react';
+import { InteractiveForm } from '../form';
 
 interface TaskUpdate {
   id: string;
@@ -34,8 +35,15 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
   const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<{ url: string; name: string } | null>(null);
 
+  // Form-based update states
+  const [forms, setForms] = useState<any[]>([]);
+  const [selectedFormId, setSelectedFormId] = useState<string>('');
+  const [selectedForm, setSelectedForm] = useState<any>(null);
+  const [loadingForms, setLoadingForms] = useState(false);
+
   useEffect(() => {
     loadUpdates();
+    loadForms();
 
     // Setup global function for image preview
     (window as any).openImagePreview = (url: string, name: string) => {
@@ -46,6 +54,13 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
       delete (window as any).openImagePreview;
     };
   }, [taskId]);
+
+  // Load forms when updateType changes to 'form'
+  useEffect(() => {
+    if (updateType === 'form') {
+      loadForms();
+    }
+  }, [updateType]);
 
   // Helper function to format relative time (JIRA-style)
   const formatRelativeTime = (timestamp: string): string => {
@@ -91,6 +106,143 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
       console.error('Failed to load task updates:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadForms = async () => {
+    setLoadingForms(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`http://localhost:4000/api/v1/task/${taskId}/form`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setForms(data.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to load task forms:', error);
+    } finally {
+      setLoadingForms(false);
+    }
+  };
+
+  const handleFormSelect = async (formId: string) => {
+    setSelectedFormId(formId);
+    if (!formId) {
+      setSelectedForm(null);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`http://localhost:4000/api/v1/form/${formId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const formData = await response.json();
+        // Parse schema if it's a string
+        if (formData.schema && typeof formData.schema === 'string') {
+          formData.schema = JSON.parse(formData.schema);
+        }
+        setSelectedForm(formData);
+      }
+    } catch (error) {
+      console.error('Failed to load form details:', error);
+    }
+  };
+
+  const handleFormSubmitSuccess = async (submissionData: any) => {
+    // Step 1: Submit the form data to the form data table
+    // Step 2: Create a task update referencing that form submission
+    try {
+      const token = localStorage.getItem('auth_token');
+      const userId = localStorage.getItem('user_id');
+
+      // Step 1: Submit form data to form data table
+      console.log('📝 Submitting form data to form table:', { formId: selectedFormId, submissionData });
+
+      const formSubmitResponse = await fetch(`http://localhost:4000/api/v1/form/${selectedFormId}/submit`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          submissionData: submissionData,
+          submissionStatus: 'submitted'
+        }),
+      });
+
+      if (!formSubmitResponse.ok) {
+        const errorData = await formSubmitResponse.json();
+        throw new Error(`Failed to submit form: ${errorData.error || formSubmitResponse.statusText}`);
+      }
+
+      const formSubmitResult = await formSubmitResponse.json();
+      const submissionId = formSubmitResult.data?.id || formSubmitResult.id;
+
+      console.log('✅ Form data saved successfully. Submission ID:', submissionId);
+
+      // Step 2: Create task update with reference to form submission
+      const deltaOps: any[] = [
+        { insert: `Form "${selectedForm?.name}" submitted\n\n`, attributes: { bold: true } },
+        { insert: 'Form submission recorded. ', attributes: { italic: true } },
+        { insert: `View submission details in the form's data table.\n`, attributes: { italic: true } },
+      ];
+
+      const delta = { ops: deltaOps };
+
+      const taskUpdatePayload = {
+        task_id: taskId,
+        project_id: projectId,
+        updated_by_empid: userId,
+        data_richtext: delta,
+        update_type: 'form',
+        hours_logged: hoursLogged ? parseFloat(hoursLogged) : undefined,
+        stage: 'saved',
+        metadata: {
+          form_id: selectedFormId,
+          form_name: selectedForm?.name,
+          submission_id: submissionId,
+          submission_timestamp: new Date().toISOString()
+        }
+      };
+
+      const taskUpdateResponse = await fetch(`http://localhost:4000/api/v1/task/${taskId}/data`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(taskUpdatePayload),
+      });
+
+      if (!taskUpdateResponse.ok) {
+        const errorData = await taskUpdateResponse.json();
+        throw new Error(`Failed to create task update: ${errorData.error || taskUpdateResponse.statusText}`);
+      }
+
+      console.log('✅ Task update created successfully');
+
+      // Reset form state and refresh
+      setSelectedFormId('');
+      setSelectedForm(null);
+      setHoursLogged('');
+      await loadUpdates();
+      if (onUpdatePosted) onUpdatePosted();
+
+      // Show success message
+      alert(`Form submitted successfully! The submission is now available in the form's data table.`);
+    } catch (error) {
+      console.error('Failed to post form-based update:', error);
+      alert(`Error: ${error instanceof Error ? error.message : 'Failed to submit form'}`);
     }
   };
 
@@ -403,6 +555,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
               <option value="status_change">Status Change</option>
               <option value="assignment">Assignment</option>
               <option value="attachment">Attachment</option>
+              <option value="form">Form</option>
             </select>
 
             <div className="flex items-center space-x-2">
@@ -419,16 +572,77 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
             </div>
           </div>
 
-          {/* Text Editor */}
-          <div className="bg-white rounded-lg border border-gray-300">
-            <textarea
-              value={editorContent}
-              onChange={(e) => setEditorContent(e.target.value)}
-              placeholder="Write your update... Describe progress, issues, or any relevant information."
-              className="w-full min-h-[150px] p-4 text-sm border-0 focus:ring-0 focus:outline-none resize-vertical"
-              rows={6}
-            />
-          </div>
+          {/* Conditional Content: Text Editor or Form Selector */}
+          {updateType === 'form' ? (
+            // Form Selection and Interactive Form
+            <div className="space-y-4">
+              {/* Form Selector */}
+              <div className="bg-white rounded-lg border border-blue-300 p-4">
+                <div className="flex items-center space-x-2 mb-3">
+                  <FileText className="h-5 w-5 text-blue-600 stroke-[1.5]" />
+                  <label className="text-sm font-normal text-gray-700">Select Form:</label>
+                </div>
+                {loadingForms ? (
+                  <div className="text-sm text-gray-500">Loading forms...</div>
+                ) : forms.length === 0 ? (
+                  <div className="text-sm text-gray-500 py-3">
+                    No forms are linked to this task. Please associate forms with this task first.
+                  </div>
+                ) : (
+                  <select
+                    value={selectedFormId}
+                    onChange={(e) => handleFormSelect(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Choose a form...</option>
+                    {forms.map((form) => (
+                      <option key={form.id} value={form.id}>
+                        {form.name || 'Untitled Form'}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Interactive Form - Reusing existing component (DRY principle) */}
+              {selectedForm && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <div className="text-sm font-normal text-blue-800 mb-3 flex items-center space-x-2">
+                    <FileText className="h-4 w-4 stroke-[1.5]" />
+                    <span>Fill out: {selectedForm.name}</span>
+                  </div>
+                  <InteractiveForm
+                    formId={selectedFormId}
+                    fields={(() => {
+                      const schema = selectedForm.schema || {};
+                      const steps = schema.steps || [];
+                      return steps.flatMap((step: any) =>
+                        (step.fields || []).map((field: any) => ({
+                          ...field,
+                          id: field.id || field.name || crypto.randomUUID(),
+                          stepId: step.id
+                        }))
+                      );
+                    })()}
+                    steps={selectedForm.schema?.steps || []}
+                    skipApiSubmission={true}
+                    onSubmitSuccess={handleFormSubmitSuccess}
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            // Text Editor for other update types
+            <div className="bg-white rounded-lg border border-gray-300">
+              <textarea
+                value={editorContent}
+                onChange={(e) => setEditorContent(e.target.value)}
+                placeholder="Write your update... Describe progress, issues, or any relevant information."
+                className="w-full min-h-[150px] p-4 text-sm border-0 focus:ring-0 focus:outline-none resize-vertical"
+                rows={6}
+              />
+            </div>
+          )}
 
           {/* Attachment Preview */}
           {attachments.length > 0 && (

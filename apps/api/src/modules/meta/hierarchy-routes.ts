@@ -147,6 +147,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       const parentTableMap: Record<string, string> = {
         'biz': 'app.d_business',
         'project': 'app.d_project',
+        'task': 'app.d_task',
         'hr': 'app.d_office',
         'org': 'app.d_office',
         'client': 'app.d_client',
@@ -198,7 +199,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         if (accessibleIds.length > 0) {
           const entityTableMap: Record<string, string> = {
             'project': 'app.d_project',
-            'task': 'app.d_task', 
+            'task': 'app.d_task',
             'wiki': 'app.d_wiki',
             'form': 'app.d_form_head',
             'artifact': 'app.d_artifact',
@@ -208,21 +209,35 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           if (actionTable) {
             const parentColumnMap: Record<string, Record<string, string>> = {
               'project': { 'biz': 'biz_id', 'client': 'clients' },
-              'task': { 'project': 'project_id', 'biz': 'biz_id', 'worksite': 'worksite_id' },
-              'wiki': { 'biz': 'biz_id', 'project': 'project_id' },
-              'form': { 'biz': 'biz_id', 'project': 'project_id', 'worksite': 'worksite_id' },
-              'artifact': { 'biz': 'biz_id', 'project': 'project_id' },
+              'task': { 'project': 'metadata->\'project_id\'', 'biz': 'metadata->\'business_id\'', 'worksite': 'worksite_id' },
+              'wiki': { 'biz': 'biz_id', 'project': 'project_id', 'task': 'task_id' },
+              'form': { 'biz': 'biz_id', 'project': 'project_id', 'task': 'task_id', 'worksite': 'worksite_id' },
+              'artifact': { 'biz': 'biz_id', 'project': 'project_id', 'task': 'task_id' },
             };
 
             const parentColumn = parentColumnMap[entityTypeCode]?.[parentEntity];
             if (parentColumn) {
-              const countResult = await db.execute(sql`
-                SELECT COUNT(*) as count 
-                FROM ${sql.raw(actionTable)} 
-                WHERE id = ANY(${accessibleIds}) 
-                  AND ${sql.raw(parentColumn)} = ${parentId}
-                  AND active_flag = true
-              `);
+              // Handle JSONB extraction for task metadata
+              let countResult;
+              if (entityTypeCode === 'task' && parentColumn.includes('metadata')) {
+                // Extract from JSONB
+                const jsonbField = parentColumn.split('->')[1].replace(/'/g, '');
+                countResult = await db.execute(sql`
+                  SELECT COUNT(*) as count
+                  FROM ${sql.raw(actionTable)}
+                  WHERE id = ANY(${accessibleIds})
+                    AND (metadata->>${jsonbField})::uuid = ${parentId}::uuid
+                    AND active_flag = true
+                `);
+              } else {
+                countResult = await db.execute(sql`
+                  SELECT COUNT(*) as count
+                  FROM ${sql.raw(actionTable)}
+                  WHERE id = ANY(${accessibleIds})
+                    AND ${sql.raw(parentColumn)} = ${parentId}
+                    AND active_flag = true
+                `);
+              }
               contextFilteredCount = parseInt(String(countResult[0]?.count || '0'));
             }
           }

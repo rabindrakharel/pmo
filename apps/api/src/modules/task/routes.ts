@@ -124,28 +124,16 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Direct RBAC filtering - only show tasks user has access to via tasks or parent projects
+      // Direct RBAC filtering - only show tasks user has access to
       const baseConditions = [
-        sql`(
-          EXISTS (
-            SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.empid = ${userId}
-              AND rbac.entity = 'task'
-              AND (rbac.entity_id = t.id::text OR rbac.entity_id = 'all')
-              AND rbac.active_flag = true
-              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND 0 = ANY(rbac.permission)
-          )
-          OR
-          EXISTS (
-            SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.empid = ${userId}
-              AND rbac.entity = 'project'
-              AND (rbac.entity_id = t.project_id::text OR rbac.entity_id = 'all')
-              AND rbac.active_flag = true
-              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND 0 = ANY(rbac.permission)
-          )
+        sql`EXISTS (
+          SELECT 1 FROM app.entity_id_rbac_map rbac
+          WHERE rbac.empid = ${userId}
+            AND rbac.entity = 'task'
+            AND (rbac.entity_id = t.id::text OR rbac.entity_id = 'all')
+            AND rbac.active_flag = true
+            AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+            AND 0 = ANY(rbac.permission)
         )`
       ];
 
@@ -212,7 +200,6 @@ export async function taskRoutes(fastify: FastifyInstance) {
           t.id, t.slug, t.code, t.name, t.descr,
           COALESCE(t.tags, '[]'::jsonb) as tags,
           COALESCE(t.metadata, '{}'::jsonb) as metadata,
-          t.project_id, t.business_id, t.office_id,
           t.assignee_employee_ids,
           t.stage,
           t.priority_level,
@@ -220,6 +207,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
           t.story_points,
           t.parent_task_id,
           t.dependency_task_ids,
+          -- Extract IDs from metadata JSONB
+          (t.metadata->>'project_id')::text as project_id,
+          (t.metadata->>'business_id')::text as business_id,
+          (t.metadata->>'office_id')::text as office_id,
           t.from_ts, t.to_ts,
           t.active_flag,
           t.created_ts, t.updated_ts,
@@ -276,7 +267,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' }),
       }),
       response: {
-        200: TaskSchema,
+        // Schema removed to allow flexible response based on actual database columns
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -312,11 +303,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
           id, slug, code, name, descr,
           COALESCE(tags, '[]'::jsonb) as tags,
           COALESCE(metadata, '{}'::jsonb) as metadata,
-          project_id, business_id, office_id,
           assignee_employee_ids,
           stage, priority_level,
           estimated_hours, actual_hours, story_points,
           parent_task_id, dependency_task_ids,
+          -- Extract IDs from metadata JSONB
+          (metadata->>'project_id')::text as project_id,
+          (metadata->>'business_id')::text as business_id,
+          (metadata->>'office_id')::text as office_id,
           from_ts, to_ts, active_flag,
           created_ts, updated_ts, version
         FROM app.d_task
@@ -1130,6 +1124,154 @@ export async function taskRoutes(fastify: FastifyInstance) {
       };
     } catch (error) {
       fastify.log.error('Error fetching task activity:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get forms linked to task
+  fastify.get('/api/v1/task/:id/form', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      querystring: Type.Object({
+        page: Type.Optional(Type.Integer({ minimum: 1 })),
+        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+      })
+    }
+  }, async function (request, reply) {
+    try {
+      const { id: taskId } = request.params as { id: string };
+      const { page = 1, limit = 20 } = request.query as any;
+      const userId = request.user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Direct RBAC check for task access
+      const taskAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'task'
+          AND (rbac.entity_id = ${taskId}::text OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
+
+      if (taskAccess.length === 0) {
+        return reply.status(403).send({ error: 'Access denied for this task' });
+      }
+
+      const offset = (page - 1) * limit;
+      const forms = await db.execute(sql`
+        SELECT f.*, COALESCE(f.name, 'Untitled Form') as name, f.descr
+        FROM app.d_form_head f
+        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = f.id::text
+        WHERE eim.parent_entity_id = ${taskId}
+          AND eim.parent_entity_type = 'task'
+          AND eim.child_entity_type = 'form'
+          AND eim.active_flag = true
+          AND f.active_flag = true
+        ORDER BY f.created_ts DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as total
+        FROM app.d_form_head f
+        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = f.id::text
+        WHERE eim.parent_entity_id = ${taskId}
+          AND eim.parent_entity_type = 'task'
+          AND eim.child_entity_type = 'form'
+          AND eim.active_flag = true
+          AND f.active_flag = true
+      `);
+
+      return {
+        data: forms,
+        total: Number(countResult[0]?.total || 0),
+        page,
+        limit
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching task forms:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get artifacts linked to task
+  fastify.get('/api/v1/task/:id/artifact', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      querystring: Type.Object({
+        page: Type.Optional(Type.Integer({ minimum: 1 })),
+        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+      })
+    }
+  }, async function (request, reply) {
+    try {
+      const { id: taskId } = request.params as { id: string };
+      const { page = 1, limit = 20 } = request.query as any;
+      const userId = request.user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Direct RBAC check for task access
+      const taskAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'task'
+          AND (rbac.entity_id = ${taskId}::text OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
+
+      if (taskAccess.length === 0) {
+        return reply.status(403).send({ error: 'Access denied for this task' });
+      }
+
+      const offset = (page - 1) * limit;
+      const artifacts = await db.execute(sql`
+        SELECT a.*, COALESCE(a.name, 'Untitled Artifact') as name, a.descr
+        FROM app.d_artifact a
+        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = a.id::text
+        WHERE eim.parent_entity_id = ${taskId}
+          AND eim.parent_entity_type = 'task'
+          AND eim.child_entity_type = 'artifact'
+          AND eim.active_flag = true
+          AND a.active_flag = true
+        ORDER BY a.created_ts DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as total
+        FROM app.d_artifact a
+        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = a.id::text
+        WHERE eim.parent_entity_id = ${taskId}
+          AND eim.parent_entity_type = 'task'
+          AND eim.child_entity_type = 'artifact'
+          AND eim.active_flag = true
+          AND a.active_flag = true
+      `);
+
+      return {
+        data: artifacts,
+        total: Number(countResult[0]?.total || 0),
+        page,
+        limit
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching task artifacts:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

@@ -113,9 +113,7 @@ CREATE TABLE app.d_project (
     tags jsonb DEFAULT '[]'::jsonb,
     metadata jsonb DEFAULT '{}'::jsonb,
 
-    -- Project relationships
-    business_id uuid ,
-    office_id uuid ,
+    -- Project relationships to parent entity are managed via entity_id_map so no FK needed 
 
     -- Project fields
     project_stage text, -- Project stage name (denormalized from meta_project_stage)
@@ -146,7 +144,7 @@ CREATE TABLE app.d_project (
 -- Strategic Corporate Project
 INSERT INTO app.d_project (
     id, slug, code, name, descr, tags, metadata,
-    business_id, office_id, project_stage,
+    project_stage,
     budget_allocated, budget_spent,
     planned_start_date, planned_end_date, actual_start_date,
     manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
@@ -157,9 +155,7 @@ INSERT INTO app.d_project (
     'Digital Transformation Initiative 2024',
     'Comprehensive digital transformation project to modernize operations, implement new PMO systems, and enhance customer service capabilities across all business units. CEO-sponsored strategic initiative.',
     '["digital_transformation", "strategic", "modernization", "pmo", "customer_service"]'::jsonb,
-    '{"project_type": "strategic", "priority": "high", "complexity": "high", "risk_level": "medium", "customer_impact": "high"}'::jsonb,
-    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    '11111111-1111-1111-1111-111111111111',
+    '{"project_type": "strategic", "priority": "high", "complexity": "high", "risk_level": "medium", "customer_impact": "high", "business_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "office_id": "11111111-1111-1111-1111-111111111111"}'::jsonb,
     'In Progress',
     750000.00, 285000.00,
     '2024-01-15', '2024-12-31', '2024-01-20',
@@ -171,7 +167,7 @@ INSERT INTO app.d_project (
 -- Landscaping Service Project
 INSERT INTO app.d_project (
     id, slug, code, name, descr, tags, metadata,
-    business_id, office_id, project_stage,
+    project_stage,
     budget_allocated, budget_spent,
     planned_start_date, planned_end_date, actual_start_date,
     manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
@@ -182,9 +178,7 @@ INSERT INTO app.d_project (
     'Fall 2024 Landscaping Campaign',
     'Seasonal landscaping campaign targeting residential and commercial properties for fall cleanup, winterization, and spring preparation services. Focus on customer retention and service expansion.',
     '["landscaping", "seasonal", "campaign", "fall", "cleanup", "winterization"]'::jsonb,
-    '{"project_type": "operational", "priority": "high", "complexity": "medium", "risk_level": "low", "seasonal": true}'::jsonb,
-    'dddddddd-dddd-dddd-dddd-dddddddddddd',
-    '44444444-4444-4444-4444-444444444444',
+    '{"project_type": "operational", "priority": "high", "complexity": "medium", "risk_level": "low", "seasonal": true, "business_id": "dddddddd-dddd-dddd-dddd-dddddddddddd", "office_id": "44444444-4444-4444-4444-444444444444"}'::jsonb,
     'Planning',
     150000.00, 45000.00,
     '2024-09-01', '2024-11-30', '2024-09-05',
@@ -196,7 +190,7 @@ INSERT INTO app.d_project (
 -- HVAC Modernization Project
 INSERT INTO app.d_project (
     id, slug, code, name, descr, tags, metadata,
-    business_id, office_id, project_stage,
+    project_stage,
     budget_allocated, budget_spent,
     planned_start_date, planned_end_date, actual_start_date,
     manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
@@ -207,9 +201,7 @@ INSERT INTO app.d_project (
     'HVAC Equipment and Service Modernization',
     'Comprehensive modernization of HVAC service offerings including smart systems integration, energy efficiency solutions, and preventive maintenance programs for commercial clients.',
     '["hvac", "modernization", "smart_systems", "energy_efficiency", "preventive_maintenance"]'::jsonb,
-    '{"project_type": "operational", "priority": "medium", "complexity": "high", "risk_level": "medium", "innovation": true}'::jsonb,
-    'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
-    '44444444-4444-4444-4444-444444444444',
+    '{"project_type": "operational", "priority": "medium", "complexity": "high", "risk_level": "medium", "innovation": true, "business_id": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee", "office_id": "44444444-4444-4444-4444-444444444444"}'::jsonb,
     'Initiation',
     300000.00, 75000.00,
     '2024-10-01', '2025-03-31', NULL,
@@ -221,7 +213,7 @@ INSERT INTO app.d_project (
 -- Corporate Office Expansion
 INSERT INTO app.d_project (
     id, slug, code, name, descr, tags, metadata,
-    business_id, office_id, project_stage,
+    project_stage,
     budget_allocated, budget_spent,
     planned_start_date, planned_end_date, actual_start_date,
     manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
@@ -232,9 +224,7 @@ INSERT INTO app.d_project (
     'Corporate Office Expansion Project',
     'Physical expansion of corporate headquarters to accommodate growing team, enhance collaborative spaces, and implement modern office technologies. Strategic investment in company culture and efficiency.',
     '["corporate", "expansion", "headquarters", "infrastructure", "culture", "efficiency"]'::jsonb,
-    '{"project_type": "infrastructure", "priority": "medium", "complexity": "medium", "risk_level": "low", "internal": true}'::jsonb,
-    'cccccccc-cccc-cccc-cccc-cccccccccccc',
-    '11111111-1111-1111-1111-111111111111',
+    '{"project_type": "infrastructure", "priority": "medium", "complexity": "medium", "risk_level": "low", "internal": true, "business_id": "cccccccc-cccc-cccc-cccc-cccccccccccc", "office_id": "11111111-1111-1111-1111-111111111111"}'::jsonb,
     'Planning',
     500000.00, 125000.00,
     '2024-11-01', '2025-04-30', NULL,
@@ -246,7 +236,7 @@ INSERT INTO app.d_project (
 -- Customer Service Excellence Initiative
 INSERT INTO app.d_project (
     id, slug, code, name, descr, tags, metadata,
-    business_id, office_id, project_stage,
+    project_stage,
     budget_allocated, budget_spent,
     planned_start_date, planned_end_date, actual_start_date,
     manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
@@ -257,9 +247,7 @@ INSERT INTO app.d_project (
     'Customer Service Excellence Initiative',
     'Comprehensive program to enhance customer satisfaction through improved service delivery, response times, communication protocols, and feedback management across all service departments.',
     '["customer_service", "excellence", "satisfaction", "communication", "quality"]'::jsonb,
-    '{"project_type": "service_improvement", "priority": "high", "complexity": "medium", "risk_level": "low", "customer_facing": true}'::jsonb,
-    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-    '22222222-2222-2222-2222-222222222222',
+    '{"project_type": "service_improvement", "priority": "high", "complexity": "medium", "risk_level": "low", "customer_facing": true, "business_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "office_id": "22222222-2222-2222-2222-222222222222"}'::jsonb,
     'Execution',
     200000.00, 80000.00,
     '2024-08-01', '2024-12-15', '2024-08-05',

@@ -27,6 +27,7 @@ tools/
 ```
 
 **What it does:**
+- ALways use start-all to restart api! 
 - Starts Docker services (PostgreSQL, Redis, MinIO, MailHog)
 - Imports database schema with all 28 DDL files
 - Starts API server on port 4000

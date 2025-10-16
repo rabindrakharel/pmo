@@ -11,7 +11,8 @@ interface InteractiveFormProps {
   steps?: FormStep[];
   initialData?: Record<string, any>;
   isEditMode?: boolean;
-  onSubmitSuccess?: () => void;
+  onSubmitSuccess?: (formData?: Record<string, any>) => void;
+  skipApiSubmission?: boolean; // When true, only calls onSubmitSuccess without API call
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
@@ -23,7 +24,8 @@ export function InteractiveForm({
   steps = [],
   initialData = {},
   isEditMode = false,
-  onSubmitSuccess
+  onSubmitSuccess,
+  skipApiSubmission = false
 }: InteractiveFormProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [formData, setFormData] = useState<Record<string, any>>(initialData);
@@ -137,6 +139,25 @@ export function InteractiveForm({
     setSubmitStatus('idle');
 
     try {
+      // Skip API submission if this form is being used for task updates
+      if (skipApiSubmission) {
+        // Just pass the form data to parent callback
+        setSubmitStatus('success');
+        setSubmitMessage('Form data captured successfully!');
+
+        if (onSubmitSuccess) {
+          onSubmitSuccess(formData);
+        }
+
+        // Reset after short delay
+        setTimeout(() => {
+          setFormData({});
+          setCurrentStepIndex(0);
+          setSubmitStatus('idle');
+        }, 1000);
+        return;
+      }
+
       const token = localStorage.getItem('auth_token');
 
       // Use PUT for edit mode, POST for new submissions
@@ -176,7 +197,7 @@ export function InteractiveForm({
         }
         setSubmitStatus('idle');
         if (onSubmitSuccess) {
-          onSubmitSuccess();
+          onSubmitSuccess(formData);
         }
       }, 2000);
     } catch (err) {

@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Database,
   Search,
+  Trash2,
   // Entity icons (from rules.md and entityConfig.ts)
   MapPin,        // office, worksite
   Building2,     // business
@@ -35,9 +36,13 @@ interface Linkage {
   parent_entity_type: string;
   parent_entity_id: string;
   parent_name?: string;
+  parent_code?: string;
+  parent_descr?: string;
   child_entity_type: string;
   child_entity_id: string;
   child_name?: string;
+  child_code?: string;
+  child_descr?: string;
   relationship_type: string;
   active_flag: boolean;
   created_ts: string;
@@ -65,7 +70,6 @@ export function LinkagePage() {
   const [validChildTypes, setValidChildTypes] = useState<string[]>([]);
   const [selectedChildType, setSelectedChildType] = useState<string>('');
   const [childInstances, setChildInstances] = useState<EntityInstance[]>([]);
-  const [selectedChildIds, setSelectedChildIds] = useState<string[]>([]);
   const [childSearchQuery, setChildSearchQuery] = useState<string>('');
 
   // State for current linkages table
@@ -139,7 +143,6 @@ export function LinkagePage() {
       loadChildInstances(selectedChildType);
     } else {
       setChildInstances([]);
-      setSelectedChildIds([]);
     }
   }, [selectedChildType]);
 
@@ -154,20 +157,6 @@ export function LinkagePage() {
     }
   }, [selectedParentTypes, selectedChildType, selectedParentId]);
 
-  // Pre-check existing linkages when child instances load
-  useEffect(() => {
-    if (selectedParentId && currentLinkages.length > 0) {
-      // Find all child IDs that are already linked to this parent
-      const linkedChildIds = currentLinkages
-        .filter(linkage => linkage.parent_entity_id === selectedParentId)
-        .map(linkage => linkage.child_entity_id);
-
-      // Don't override user selections, only set if nothing is selected
-      if (selectedChildIds.length === 0 && linkedChildIds.length > 0) {
-        setSelectedChildIds(linkedChildIds);
-      }
-    }
-  }, [currentLinkages, selectedParentId]);
 
   const loadValidChildTypes = async (parentType: string) => {
     try {
@@ -256,7 +245,7 @@ export function LinkagePage() {
 
       const data = await response.json();
 
-      // Enrich with entity names from d_entity
+      // Enrich with entity names, codes, and descriptions from d_entity
       const enrichedLinkages = await Promise.all((data.data || []).map(async (linkage: Linkage) => {
         try {
           const parentResponse = await fetch(
@@ -271,10 +260,18 @@ export function LinkagePage() {
           const parentData = parentResponse.ok ? await parentResponse.json() : null;
           const childData = childResponse.ok ? await childResponse.json() : null;
 
+          // Extract parent data
+          const parent = parentData?.data || parentData || {};
+          const child = childData?.data || childData || {};
+
           return {
             ...linkage,
-            parent_name: parentData?.data?.name || parentData?.name || 'Unknown',
-            child_name: childData?.data?.name || childData?.name || 'Unknown'
+            parent_name: parent.name || 'Unknown',
+            parent_code: parent.code || '',
+            parent_descr: parent.descr || parent.description || '',
+            child_name: child.name || 'Unknown',
+            child_code: child.code || '',
+            child_descr: child.descr || child.description || ''
           };
         } catch {
           return linkage;
@@ -332,87 +329,73 @@ export function LinkagePage() {
     setSelectedParentInstance(instance);
   };
 
-  const handleChildToggle = (childId: string) => {
-    if (selectedChildIds.includes(childId)) {
-      setSelectedChildIds(selectedChildIds.filter(id => id !== childId));
-    } else {
-      setSelectedChildIds([...selectedChildIds, childId]);
-    }
-  };
 
-  const handleCreateLinkages = async () => {
-    if (!selectedParentId || selectedChildIds.length === 0) {
-      setError('Please select a parent entity and at least one child entity');
-      return;
-    }
+  // Create a single linkage (for + icon)
+  const handleCreateSingleLinkage = async (childId: string) => {
+    if (!selectedParentId) return;
 
     setError(null);
-    setSuccess(null);
     setLoading(true);
 
     try {
       const token = localStorage.getItem('auth_token');
-      let successCount = 0;
-      let errorCount = 0;
+      const response = await fetch(`${API_BASE_URL}/api/v1/linkage`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          parent_entity_type: selectedParentTypes[0],
+          parent_entity_id: selectedParentId,
+          child_entity_type: selectedChildType,
+          child_entity_id: childId,
+          relationship_type: 'contains'
+        })
+      });
 
-      for (const childId of selectedChildIds) {
-        try {
-          const response = await fetch(`${API_BASE_URL}/api/v1/linkage`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              parent_entity_type: selectedParentTypes[0],
-              parent_entity_id: selectedParentId,
-              child_entity_type: selectedChildType,
-              child_entity_id: childId,
-              relationship_type: 'contains'
-            })
-          });
+      if (!response.ok) throw new Error('Failed to create linkage');
 
-          if (response.ok) {
-            successCount++;
-          } else {
-            errorCount++;
-          }
-        } catch {
-          errorCount++;
-        }
-      }
-
-      if (successCount > 0) {
-        setSuccess(`Successfully created ${successCount} linkage(s)`);
-        setSelectedChildIds([]);
-        loadCurrentLinkages();
-      }
-      if (errorCount > 0) {
-        setError(`Failed to create ${errorCount} linkage(s)`);
-      }
+      setSuccess('Linkage created successfully');
+      loadCurrentLinkages();
     } catch (err: any) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Failed to create linkage');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteLinkage = async (linkageId: string) => {
-    if (!confirm('Are you sure you want to delete this linkage?')) return;
+  // Delete a linkage by child ID (for X icon)
+  const handleUnlinkChild = async (childId: string) => {
+    if (!selectedParentId) return;
+
+    // Find the linkage ID for this parent-child pair
+    const linkage = currentLinkages.find(
+      l => l.parent_entity_id === selectedParentId && l.child_entity_id === childId
+    );
+
+    if (!linkage) return;
+
+    if (!confirm('Are you sure you want to unlink this entity?')) return;
+
+    setError(null);
+    setLoading(true);
 
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE_URL}/api/v1/linkage/${linkageId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/linkage/${linkage.id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (!response.ok) throw new Error('Failed to delete linkage');
 
-      setSuccess('Linkage deleted successfully');
+      setSuccess('Linkage removed successfully');
       loadCurrentLinkages();
     } catch (err: any) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Failed to delete linkage');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -426,14 +409,42 @@ export function LinkagePage() {
     return entity?.IconComponent || Database;
   };
 
+  // Filter parent instances based on search query
+  const filteredParentInstances = useMemo(() => {
+    if (!parentSearchQuery.trim()) return parentInstances;
+    const query = parentSearchQuery.toLowerCase();
+    return parentInstances.filter(instance =>
+      instance.name.toLowerCase().includes(query) ||
+      instance.code?.toLowerCase().includes(query) ||
+      instance.descr?.toLowerCase().includes(query)
+    );
+  }, [parentInstances, parentSearchQuery]);
+
+  // Filter child instances based on search query
+  const filteredChildInstances = useMemo(() => {
+    if (!childSearchQuery.trim()) return childInstances;
+    const query = childSearchQuery.toLowerCase();
+    return childInstances.filter(instance =>
+      instance.name.toLowerCase().includes(query) ||
+      instance.code?.toLowerCase().includes(query) ||
+      instance.descr?.toLowerCase().includes(query)
+    );
+  }, [childInstances, childSearchQuery]);
+
   return (
     <Layout>
       <div className="h-full flex flex-col bg-gray-50">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-3">
-          <div className="flex items-center gap-2">
-            <Link2 className="h-4 w-4 text-blue-600" />
-            <h1 className="text-sm font-normal text-gray-900">Entity Linkage Management</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Link2 className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+              <div>
+                <h1 className="text-sm font-normal text-gray-800">Entity Linkage Management</h1>
+                <p className="text-sm text-gray-500">Manage relationships between parent and child entities</p>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -465,68 +476,93 @@ export function LinkagePage() {
           <div className="grid grid-cols-2 gap-4 h-full">
             {/* Left Panel: Parent Entity Selection */}
             <div className="bg-white rounded border border-gray-300 flex flex-col overflow-hidden shadow-sm">
+              {/* Parent Entity Type Selection - Header */}
               <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
-                <h2 className="text-xs font-normal text-gray-700">1. Select Parent Entity</h2>
+                <div className="flex flex-wrap gap-1.5">
+                  {parentEntityTypes.map(type => {
+                    const IconComponent = type.IconComponent;
+                    return (
+                      <button
+                        key={type.value}
+                        onClick={() => handleParentTypeToggle(type.value)}
+                        className={`flex items-center gap-1 px-2 py-1 rounded border text-xs font-normal transition-all ${
+                          selectedParentTypes.includes(type.value)
+                            ? 'bg-blue-50 border-blue-400 text-blue-700 shadow-sm'
+                            : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
+                        }`}
+                      >
+                        <IconComponent className="h-3 w-3 stroke-[1.5]" />
+                        <span>{type.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="p-4 space-y-4">
-                {/* Parent Entity Type Selection - Single Row */}
+                {/* Search Bar */}
                 <div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {parentEntityTypes.map(type => {
-                      const IconComponent = type.IconComponent;
-                      return (
-                        <button
-                          key={type.value}
-                          onClick={() => handleParentTypeToggle(type.value)}
-                          className={`flex items-center gap-1 px-2 py-1 rounded border text-xs font-normal transition-all ${
-                            selectedParentTypes.includes(type.value)
-                              ? 'bg-blue-50 border-blue-400 text-blue-700 shadow-sm'
-                              : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
-                          }`}
-                        >
-                          <IconComponent className="h-3 w-3 stroke-[1.5]" />
-                          <span>{type.label}</span>
-                        </button>
-                      );
-                    })}
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search parent entity by name..."
+                      value={parentSearchQuery}
+                      onChange={(e) => setParentSearchQuery(e.target.value)}
+                      className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-400 focus:ring-0"
+                    />
                   </div>
                 </div>
 
-                {/* Parent Entity Instance Selection - Scrollable */}
+                {/* Parent Entity Instance Selection - Data Table */}
                 {selectedParentTypes.length > 0 && (
                   <div className="flex-1 flex flex-col min-h-0">
-                    <label className="block text-xs font-normal text-gray-600 mb-2">
-                      Select Specific {getEntityLabel(selectedParentTypes[0])}
-                    </label>
                     {loading ? (
                       <div className="text-xs text-gray-400 py-6 text-center">Loading...</div>
-                    ) : parentInstances.length === 0 ? (
+                    ) : filteredParentInstances.length === 0 ? (
                       <div className="text-xs text-gray-400 py-6 text-center">
-                        No {getEntityLabel(selectedParentTypes[0])} instances found
+                        {parentSearchQuery ? `No matches found for "${parentSearchQuery}"` : `No ${getEntityLabel(selectedParentTypes[0])} instances found`}
                       </div>
                     ) : (
-                      <div className="overflow-y-auto space-y-1.5 pr-2" style={{ maxHeight: '280px' }}>
-                        {parentInstances.map(instance => (
-                          <button
-                            key={instance.id}
-                            onClick={() => handleParentInstanceSelect(instance)}
-                            className={`w-full text-left px-2.5 py-2 rounded border transition-all ${
-                              selectedParentId === instance.id
-                                ? 'bg-blue-50 border-blue-400 shadow-sm'
-                                : 'bg-white border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-                            }`}
-                          >
-                            <div className="font-normal text-xs text-gray-900">{instance.name}</div>
-                            {instance.code && (
-                              <div className="text-[11px] text-gray-500 mt-0.5">Code: {instance.code}</div>
-                            )}
-                            {instance.descr && (
-                              <div className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">{instance.descr}</div>
-                            )}
-                            <div className="text-[10px] text-gray-400 mt-0.5 font-mono">ID: {instance.id.substring(0, 8)}...</div>
-                          </button>
-                        ))}
+                      <div className="overflow-y-auto border border-gray-200 rounded max-h-[600px]">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50 sticky top-0 z-10">
+                            <tr>
+                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
+                                Name
+                              </th>
+                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
+                                Code
+                              </th>
+                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
+                                Description
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {filteredParentInstances.map(instance => (
+                              <tr
+                                key={instance.id}
+                                onClick={() => handleParentInstanceSelect(instance)}
+                                className={`cursor-pointer transition-colors ${
+                                  selectedParentId === instance.id
+                                    ? 'bg-blue-50'
+                                    : 'hover:bg-gray-50'
+                                }`}
+                              >
+                                <td className="px-3 py-1.5 text-xs text-gray-900 font-normal">
+                                  {instance.name}
+                                </td>
+                                <td className="px-3 py-1.5 text-xs text-gray-500">
+                                  {instance.code || '-'}
+                                </td>
+                                <td className="px-3 py-1.5 text-xs text-gray-500 truncate max-w-xs">
+                                  {instance.descr || '-'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </div>
@@ -536,16 +572,12 @@ export function LinkagePage() {
 
             {/* Right Panel: Child Entity Selection */}
             <div className="bg-white rounded border border-gray-300 flex flex-col overflow-hidden shadow-sm">
+              {/* Child Entity Type Selection - Header */}
               <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
-                <h2 className="text-xs font-normal text-gray-700">2. Select Child Entities</h2>
-              </div>
-
-              <div className="p-4 space-y-4 flex flex-col h-full">
-                {/* Child Entity Type Selection - Single Row */}
                 {selectedParentTypes.length > 0 && (
-                  <div>
+                  <>
                     {validChildTypes.length === 0 ? (
-                      <div className="text-xs text-gray-400 py-4 text-center">
+                      <div className="text-xs text-gray-400 py-1 text-center">
                         No valid child types for {getEntityLabel(selectedParentTypes[0])}
                       </div>
                     ) : (
@@ -569,86 +601,120 @@ export function LinkagePage() {
                         })}
                       </div>
                     )}
-                  </div>
+                  </>
                 )}
+              </div>
 
-                {/* Child Entity Instance Selection - Scrollable */}
+              <div className="p-4 space-y-4 flex flex-col h-full">
+                {/* Search Bar */}
+                <div>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search child entity by name..."
+                      value={childSearchQuery}
+                      onChange={(e) => setChildSearchQuery(e.target.value)}
+                      className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-400 focus:ring-0"
+                    />
+                  </div>
+                </div>
+
+                {/* Child Entity Instance Selection - Data Table */}
                 {selectedChildType && (
                   <div className="flex-1 flex flex-col min-h-0">
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-xs font-normal text-gray-600">
-                        Select {getEntityLabel(selectedChildType)} Instances to Link
-                      </label>
-                      {selectedChildIds.length > 0 && (
-                        <span className="text-xs text-blue-600 font-normal">
-                          {selectedChildIds.length} selected
-                        </span>
-                      )}
-                    </div>
                     {loading ? (
                       <div className="text-xs text-gray-400 py-6 text-center">Loading...</div>
-                    ) : childInstances.length === 0 ? (
+                    ) : filteredChildInstances.length === 0 ? (
                       <div className="text-xs text-gray-400 py-6 text-center">
-                        No {getEntityLabel(selectedChildType)} instances found
+                        {childSearchQuery ? `No matches found for "${childSearchQuery}"` : `No ${getEntityLabel(selectedChildType)} instances found`}
                       </div>
                     ) : (
-                      <div className="overflow-y-auto space-y-1.5 pr-2" style={{ maxHeight: '280px' }}>
-                        {childInstances.map(instance => {
-                          const isLinked = currentLinkages.some(
-                            linkage => linkage.parent_entity_id === selectedParentId &&
-                                      linkage.child_entity_id === instance.id
-                          );
-                          return (
-                            <label
-                              key={instance.id}
-                              className={`flex items-start gap-2 px-2.5 py-2 rounded border cursor-pointer transition-all ${
-                                selectedChildIds.includes(instance.id)
-                                  ? 'bg-green-50 border-green-400 shadow-sm'
-                                  : isLinked
-                                  ? 'bg-blue-50 border-blue-300'
-                                  : 'bg-white border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedChildIds.includes(instance.id)}
-                                onChange={() => handleChildToggle(instance.id)}
-                                className="mt-0.5 w-3.5 h-3.5"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <div className="font-normal text-xs text-gray-900">{instance.name}</div>
-                                  {isLinked && (
-                                    <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-normal bg-blue-100 text-blue-700">
-                                      <Check className="h-2.5 w-2.5 mr-0.5" />
-                                      Linked
-                                    </span>
-                                  )}
-                                </div>
-                                {instance.code && (
-                                  <div className="text-[11px] text-gray-500 mt-0.5">Code: {instance.code}</div>
-                                )}
-                                {instance.descr && (
-                                  <div className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">{instance.descr}</div>
-                                )}
-                              </div>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Link Button */}
-                    {selectedParentId && selectedChildIds.length > 0 && (
-                      <div className="pt-3 border-t border-gray-200 mt-3">
-                        <button
-                          onClick={handleCreateLinkages}
-                          disabled={loading}
-                          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded border border-blue-700 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-normal shadow-sm transition-all"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          Create {selectedChildIds.length} Linkage{selectedChildIds.length > 1 ? 's' : ''}
-                        </button>
+                      <div className="overflow-y-auto border border-gray-200 rounded max-h-[600px]">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50 sticky top-0 z-10">
+                            <tr>
+                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
+                                Name
+                              </th>
+                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
+                                Code
+                              </th>
+                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
+                                Description
+                              </th>
+                              <th className="px-3 py-1.5 text-center text-[11px] font-normal text-gray-600 bg-gray-50">
+                                Status
+                              </th>
+                              <th className="px-3 py-1.5 text-center text-[11px] font-normal text-gray-600 bg-gray-50">
+                                Action
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {filteredChildInstances.map(instance => {
+                              const isLinked = currentLinkages.some(
+                                linkage => linkage.parent_entity_id === selectedParentId &&
+                                          linkage.child_entity_id === instance.id
+                              );
+                              return (
+                                <tr
+                                  key={instance.id}
+                                  className={`transition-colors ${
+                                    isLinked ? 'bg-blue-50' : 'hover:bg-gray-50'
+                                  }`}
+                                >
+                                  <td className="px-3 py-1.5 text-xs text-gray-900 font-normal">
+                                    {instance.name}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-xs text-gray-500">
+                                    {instance.code || '-'}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-xs text-gray-500 truncate max-w-xs">
+                                    {instance.descr || '-'}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-center">
+                                    {isLinked ? (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-normal bg-blue-100 text-blue-700">
+                                        <Check className="h-2.5 w-2.5 mr-0.5" />
+                                        Linked
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] text-gray-400">-</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-center">
+                                    {isLinked ? (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleUnlinkChild(instance.id);
+                                        }}
+                                        disabled={loading}
+                                        className="inline-flex items-center justify-center p-1 rounded hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Unlink this entity"
+                                      >
+                                        <X className="h-3.5 w-3.5 text-red-600 stroke-[2]" />
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleCreateSingleLinkage(instance.id);
+                                        }}
+                                        disabled={loading}
+                                        className="inline-flex items-center justify-center p-1 rounded hover:bg-green-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Link this entity"
+                                      >
+                                        <Plus className="h-3.5 w-3.5 text-green-600 stroke-[2]" />
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </div>
@@ -658,96 +724,6 @@ export function LinkagePage() {
           </div>
         </div>
 
-        {/* Bottom Panel: Current Linkages Table */}
-        {selectedParentTypes.length > 0 && selectedChildType && (
-          <div className="px-6 pb-6">
-            <div className="bg-white rounded border border-gray-300 overflow-hidden shadow-sm">
-              <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Database className="h-3.5 w-3.5 text-gray-600" />
-                  <h2 className="text-xs font-normal text-gray-700">
-                    Current Linkages: {getEntityLabel(selectedParentTypes[0])} → {getEntityLabel(selectedChildType)}
-                  </h2>
-                </div>
-                <span className="text-[11px] text-gray-500">
-                  {currentLinkages.length} linkage{currentLinkages.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-
-              <div className="max-h-64 overflow-y-auto">
-                {loading ? (
-                  <div className="py-8 text-center text-xs text-gray-400">Loading linkages...</div>
-                ) : currentLinkages.length === 0 ? (
-                  <div className="py-8 text-center text-xs text-gray-400">
-                    No linkages found for this parent-child combination
-                  </div>
-                ) : (
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-[11px] font-normal text-gray-600">
-                          <div className="flex items-center gap-1">
-                            {React.createElement(getEntityIconComponent(selectedParentTypes[0]), {
-                              className: 'h-3 w-3 stroke-[1.5]'
-                            })}
-                            <span>{getEntityLabel(selectedParentTypes[0])}</span>
-                          </div>
-                        </th>
-                        <th className="px-3 py-2 text-center text-[11px] font-normal text-gray-600">Relation</th>
-                        <th className="px-3 py-2 text-left text-[11px] font-normal text-gray-600">
-                          <div className="flex items-center gap-1">
-                            {React.createElement(getEntityIconComponent(selectedChildType), {
-                              className: 'h-3 w-3 stroke-[1.5]'
-                            })}
-                            <span>{getEntityLabel(selectedChildType)}</span>
-                          </div>
-                        </th>
-                        <th className="px-3 py-2 text-center text-[11px] font-normal text-gray-600">Status</th>
-                        <th className="px-3 py-2 text-center text-[11px] font-normal text-gray-600">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {currentLinkages.map(linkage => (
-                        <tr key={linkage.id} className="hover:bg-gray-50">
-                          <td className="px-3 py-2 text-xs">
-                            <div className="font-normal text-gray-900">{linkage.parent_name}</div>
-                            <div className="text-[10px] text-gray-400 font-mono">{linkage.parent_entity_id.substring(0, 8)}...</div>
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            <ChevronRight className="h-3 w-3 text-gray-400 mx-auto" />
-                          </td>
-                          <td className="px-3 py-2 text-xs">
-                            <div className="font-normal text-gray-900">{linkage.child_name}</div>
-                            <div className="text-[10px] text-gray-400 font-mono">{linkage.child_entity_id.substring(0, 8)}...</div>
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            {linkage.active_flag ? (
-                              <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-normal bg-green-100 text-green-700">
-                                Active
-                              </span>
-                            ) : (
-                              <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-normal bg-gray-100 text-gray-600">
-                                Inactive
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            <button
-                              onClick={() => handleDeleteLinkage(linkage.id)}
-                              className="text-red-600 hover:text-red-700 text-[11px] font-normal"
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </Layout>
   );

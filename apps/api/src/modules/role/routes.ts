@@ -372,11 +372,16 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Role not found' });
       }
 
-      // Check if role is assigned to any employees
+      // Check if role is assigned to any employees using d_entity_id_map
       const assignedEmployees = await db.execute(sql`
-        SELECT COUNT(*) as count FROM app.rel_emp_role WHERE role_id = ${id} AND active_flag = true
+        SELECT COUNT(*) as count
+        FROM app.d_entity_id_map
+        WHERE parent_entity_type = 'role'
+          AND parent_entity_id = ${id}
+          AND child_entity_type = 'employee'
+          AND active_flag = true
       `);
-      
+
       if (Number(assignedEmployees[0]?.count || 0) > 0) {
         return reply.status(400).send({ error: 'Cannot delete role that is assigned to employees' });
       }
@@ -391,6 +396,212 @@ export async function roleRoutes(fastify: FastifyInstance) {
       return reply.status(204).send();
     } catch (error) {
       fastify.log.error('Error deleting role:');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get role dynamic child entity tabs - for tab navigation
+  fastify.get('/api/v1/role/:id/dynamic-child-entity-tabs', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      response: {
+        200: Type.Object({
+          action_entities: Type.Array(Type.Object({
+            actionEntity: Type.String(),
+            count: Type.Number(),
+            label: Type.String(),
+            icon: Type.Optional(Type.String())
+          })),
+          role_id: Type.String()
+        }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const { id: roleId } = request.params as { id: string };
+      const userId = (request as any).user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Direct RBAC check for role access
+      const roleAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'role'
+          AND (rbac.entity_id = ${roleId}::text OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
+
+      if (roleAccess.length === 0) {
+        return reply.status(403).send({ error: 'Insufficient permissions to view this role' });
+      }
+
+      // Check if role exists
+      const role = await db.execute(sql`
+        SELECT id FROM app.d_role WHERE id = ${roleId} AND active_flag = true
+      `);
+
+      if (role.length === 0) {
+        return reply.status(404).send({ error: 'Role not found' });
+      }
+
+      // Get action summaries for this role
+      const actionSummaries = [];
+
+      // Count employees assigned to this role
+      const employeeCount = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM app.d_employee e
+        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = e.id::text
+        WHERE eim.parent_entity_id = ${roleId}
+          AND eim.parent_entity_type = 'role'
+          AND eim.child_entity_type = 'employee'
+          AND eim.active_flag = true
+          AND e.active_flag = true
+      `);
+      actionSummaries.push({
+        actionEntity: 'employee',
+        count: Number(employeeCount[0]?.count || 0),
+        label: 'Employees',
+        icon: 'Users'
+      });
+
+      return {
+        action_entities: actionSummaries,
+        role_id: roleId
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching role action summaries:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get employees assigned to a role
+  fastify.get('/api/v1/role/:id/employee', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      querystring: Type.Object({
+        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+        offset: Type.Optional(Type.Integer({ minimum: 0 })),
+        active: Type.Optional(Type.Boolean())
+      }),
+      response: {
+        200: Type.Object({
+          data: Type.Array(Type.Any()),
+          total: Type.Number(),
+          limit: Type.Number(),
+          offset: Type.Number()
+        }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const { id: roleId } = request.params as { id: string };
+      const { limit = 50, offset = 0, active } = request.query as any;
+      const userId = (request as any).user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Direct RBAC check for role access
+      const roleAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'role'
+          AND (rbac.entity_id = ${roleId}::text OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
+
+      if (roleAccess.length === 0) {
+        return reply.status(403).send({ error: 'Access denied for this role' });
+      }
+
+      // Check if role exists
+      const role = await db.execute(sql`
+        SELECT id FROM app.d_role WHERE id = ${roleId} AND active_flag = true
+      `);
+
+      if (role.length === 0) {
+        return reply.status(404).send({ error: 'Role not found' });
+      }
+
+      // Build conditions for employee filtering
+      const conditions = [
+        sql`eim.parent_entity_type = 'role'`,
+        sql`eim.parent_entity_id = ${roleId}`,
+        sql`eim.child_entity_type = 'employee'`,
+        sql`eim.active_flag = true`
+      ];
+
+      if (active !== undefined) {
+        conditions.push(sql`e.active_flag = ${active}`);
+      } else {
+        conditions.push(sql`e.active_flag = true`);
+      }
+
+      // Get employees linked to this role via d_entity_id_map
+      const employees = await db.execute(sql`
+        SELECT
+          e.id,
+          e.name,
+          e.email,
+          e.phone,
+          e.employee_type,
+          e.position_level,
+          e.hire_date,
+          e.termination_date,
+          e.active_flag as active,
+          e.from_ts as "fromTs",
+          e.to_ts as "toTs",
+          e.created_ts as created,
+          e.updated_ts as updated,
+          e.tags,
+          e.attr,
+          eim.relationship_type,
+          eim.from_ts as relationship_from_ts,
+          eim.to_ts as relationship_to_ts
+        FROM app.d_entity_id_map eim
+        INNER JOIN app.d_employee e ON e.id::text = eim.child_entity_id
+        WHERE ${sql.join(conditions, sql` AND `)}
+        ORDER BY e.name ASC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      // Get total count
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as total
+        FROM app.d_entity_id_map eim
+        INNER JOIN app.d_employee e ON e.id::text = eim.child_entity_id
+        WHERE ${sql.join(conditions, sql` AND `)}
+      `);
+
+      return {
+        data: employees,
+        total: Number(countResult[0]?.total || 0),
+        limit,
+        offset
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching role employees:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

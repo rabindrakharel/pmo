@@ -259,7 +259,7 @@ export async function empRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' }),
       }),
       response: {
-        200: Type.Any(),
+        // Removed Type.Any() - let Fastify serialize naturally without schema validation
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -327,7 +327,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       fastify.log.info(`Filtered data keys: ${Object.keys(filtered).join(', ')}`);
       fastify.log.info(`Filtered data: ${JSON.stringify(filtered).substring(0, 200)}`);
 
-      return filtered;
+      return reply.send(filtered);
     } catch (error) {
       fastify.log.error('Error fetching employee:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

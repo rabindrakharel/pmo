@@ -248,48 +248,593 @@ AND entity = 'biz' AND entity_id = <specific_business_id> AND 1 = ANY(permission
 
 
 Flow diagram:
+Complete Flow Diagrams: Task, Project, Business
+
+  ---
+  1. Project Entity Flow
 
   URL: /project/84215ccb-313d-48f8-9c37-4398f28c0b1f/task
 
-  App.tsx (Line 152-157)
-  ├─ Route path="/project/:id" → EntityDetailPage (parentType="project")
+  App.tsx (Lines 95-100)
+  ├─ Route path="/project/:id" → EntityDetailPage (entityType="project")
   │   └─ Route path="task" → EntityChildListPage (parentType="project", childType="task")
   │
   EntityDetailPage.tsx
   ├─ useParams() → id = "84215ccb-313d-48f8-9c37-4398f28c0b1f"
   ├─ props: { entityType: "project" }
-  ├─ Renders tabs at top
-  └─ Line 376: <Outlet /> → This renders the nested child route
+  ├─ Line 33: config = getEntityConfig("project")
+  │   └─ entityConfig.ts:88-167 → project configuration
+  │       ├─ childEntities: ['task', 'wiki', 'artifact', 'form']
+  │       ├─ apiEndpoint: '/api/v1/project'
+  │       └─ columns, fields, supportedViews
+  ├─ Line 69-91: loadData() → API call
+  │   └─ api.projectApi.get(id) → GET /api/v1/project/84215ccb...
+  ├─ Line 138-145: useDynamicChildEntityTabs()
+  │   └─ Creates tabs: ['Overview', 'Tasks', 'Wiki', 'Artifacts', 'Forms']
+  ├─ Line 278-289: <DynamicChildEntityTabs> renders tab buttons
+  └─ Line 379: <Outlet /> → Renders nested child route
       │
-      └─ EntityChildListPage.tsx (Line 30)
+      └─ EntityChildListPage.tsx (Lines 1-281)
           ├─ props: { parentType: "project", childType: "task" }
-          ├─ useParams() → id = "84215ccb-313d-48f8-9c37-4398f28c0b1f" (inherited from parent route)
+          ├─ useParams() → { id: parentId } = "84215ccb-313d-48f8-9c37-4398f28c0b1f"
           ├─ Line 33: config = getEntityConfig("task")
-          ├─ Line 67-103: loadChildData() → Calls API
-          └─ Renders one of three views:
-              ├─ Table View → FilteredDataTable
+          │   └─ entityConfig.ts:172-267 → task configuration
+          ├─ Line 73-94: loadChildData() → API call
+          │   ├─ Try: api.projectApi.getTasks(parentId)
+          │   │   └─ GET /api/v1/project/84215ccb.../task
+          │   └─ Fallback: api.taskApi.list({ parentId, parentType: "project" })
+          │       └─ Backend query:
+          │           SELECT t.* FROM app.d_task t
+          │           INNER JOIN app.d_entity_id_map eim
+          │             ON eim.child_entity_id = t.id::text
+          │           WHERE eim.parent_entity_id = '84215ccb...'
+          │             AND eim.parent_entity_type = 'project'
+          │             AND eim.child_entity_type = 'task'
+          │
+          └─ Line 200-281: Renders based on view mode
+              ├─ Table View (default) → FilteredDataTable
+              │   └─ Uses config.columns from entityConfig.ts:177-244
               ├─ Kanban View → KanbanBoard
+              │   └─ groupByField: 'stage' (config.kanban.groupByField)
               └─ Grid View → GridView
 
-  Step-by-step breakdown:
+  ---
+  2. Task Entity Flow
 
-  1. App.tsx:152-157 - Routing configuration
-  <Route path="/project/:id" element={<EntityDetailPage entityType="project" />}>
+  URL: /task/b2222222-2222-2222-2222-222222222222/form
+
+  App.tsx (Lines 130-133)
+  ├─ Route path="/task/:id" → EntityDetailPage (entityType="task")
+  │   └─ Route path="form" → EntityChildListPage (parentType="task", childType="form")
+  │
+  EntityDetailPage.tsx
+  ├─ useParams() → id = "b2222222-2222-2222-2222-222222222222"
+  ├─ props: { entityType: "task" }
+  ├─ Line 33: config = getEntityConfig("task")
+  │   └─ entityConfig.ts:172-267 → task configuration
+  │       ├─ childEntities: ['form', 'artifact']
+  │       ├─ apiEndpoint: '/api/v1/task'
+  │       ├─ supportedViews: ['table', 'kanban']
+  │       └─ kanban: { groupByField: 'stage', metaTable: 'setting_task_stage' }
+  ├─ Line 69-91: loadData() → API call
+  │   └─ api.taskApi.get(id) → GET /api/v1/task/b2222222...
+  ├─ Line 138-145: useDynamicChildEntityTabs()
+  │   └─ Creates tabs: ['Overview', 'Forms', 'Artifacts']
+  ├─ Line 278-289: <DynamicChildEntityTabs> renders tab buttons
+  └─ Line 379: <Outlet /> → Renders nested child route
+      │
+      └─ EntityChildListPage.tsx (Lines 1-281)
+          ├─ props: { parentType: "task", childType: "form" }
+          ├─ useParams() → { id: parentId } = "b2222222-2222-2222-2222-222222222222"
+          ├─ Line 33: config = getEntityConfig("form")
+          │   └─ entityConfig.ts:272-412 → form configuration
+          ├─ Line 73-94: loadChildData() → API call
+          │   ├─ Try: api.taskApi.getForms(parentId)
+          │   │   └─ GET /api/v1/task/b2222222.../form  ✅ NEW ENDPOINT
+          │   │       └─ Backend (task/routes.ts:1131-1203):
+          │   │           -- RBAC Check
+          │   │           SELECT 1 FROM app.entity_id_rbac_map rbac
+          │   │           WHERE rbac.empid = userId
+          │   │             AND rbac.entity = 'task'
+          │   │             AND (rbac.entity_id = 'b2222222...' OR rbac.entity_id = 'all')
+          │   │             AND 0 = ANY(rbac.permission)
+          │   │
+          │   │           -- Get Forms
+          │   │           SELECT f.*, COALESCE(f.name, 'Untitled Form') as name
+          │   │           FROM app.d_form_head f
+          │   │           INNER JOIN app.d_entity_id_map eim
+          │   │             ON eim.child_entity_id = f.id::text
+          │   │           WHERE eim.parent_entity_id = 'b2222222...'
+          │   │             AND eim.parent_entity_type = 'task'
+          │   │             AND eim.child_entity_type = 'form'
+          │   │             AND eim.active_flag = true
+          │   │             AND f.active_flag = true
+          │   │
+          │   └─ Fallback: api.formApi.list({ parentId, parentType: "task" })
+          │
+          └─ Line 200-281: Renders based on view mode
+              └─ Table View (default) → FilteredDataTable
+                  └─ Uses config.columns from entityConfig.ts:277-349
+
+  ---
+  3. Business Entity Flow
+
+  URL: /biz/dddddddd-dddd-dddd-dddd-dddddddddddd/project
+
+  App.tsx (Lines 103-109)
+  ├─ Route path="/biz/:id" → EntityDetailPage (entityType="biz")
+  │   └─ Route path="project" → EntityChildListPage (parentType="biz", childType="project")
+  │
+  EntityDetailPage.tsx
+  ├─ useParams() → id = "dddddddd-dddd-dddd-dddd-dddddddddddd"
+  ├─ props: { entityType: "biz" }
+  ├─ Line 33: config = getEntityConfig("biz")
+  │   └─ entityConfig.ts:514-612 → biz configuration
+  │       ├─ childEntities: ['project', 'task', 'wiki', 'artifact', 'form']
+  │       ├─ apiEndpoint: '/api/v1/biz'
+  │       ├─ hierarchical: { levels: 3, levelNames: ['Department', 'Division', 'Corporate'] }
+  │       └─ supportedViews: ['table']
+  ├─ Line 69-91: loadData() → API call
+  │   └─ api.bizApi.get(id) → GET /api/v1/biz/dddddddd...
+  ├─ Line 138-145: useDynamicChildEntityTabs()
+  │   └─ Creates tabs: ['Overview', 'Projects', 'Tasks', 'Wiki', 'Artifacts', 'Forms']
+  ├─ Line 278-289: <DynamicChildEntityTabs> renders tab buttons
+  └─ Line 379: <Outlet /> → Renders nested child route
+      │
+      └─ EntityChildListPage.tsx (Lines 1-281)
+          ├─ props: { parentType: "biz", childType: "project" }
+          ├─ useParams() → { id: parentId } = "dddddddd-dddd-dddd-dddd-dddddddddddd"
+          ├─ Line 33: config = getEntityConfig("project")
+          │   └─ entityConfig.ts:88-167 → project configuration
+          ├─ Line 73-94: loadChildData() → API call
+          │   ├─ Try: api.bizApi.getProjects(parentId)
+          │   │   └─ GET /api/v1/biz/dddddddd.../project
+          │   │       └─ Backend (biz/routes.ts):
+          │   │           SELECT p.* FROM app.d_project p
+          │   │           INNER JOIN app.d_entity_id_map eim
+          │   │             ON eim.child_entity_id = p.id::text
+          │   │           WHERE eim.parent_entity_id = 'dddddddd...'
+          │   │             AND eim.parent_entity_type = 'biz'
+          │   │             AND eim.child_entity_type = 'project'
+          │   │             AND eim.active_flag = true
+          │   │             AND p.active_flag = true
+          │   │
+          │   └─ Fallback: api.projectApi.list({ parentId, parentType: "biz" })
+          │
+          └─ Line 200-281: Renders based on view mode
+              └─ Table View (default) → FilteredDataTable
+                  └─ Uses config.columns from entityConfig.ts:93-150
+
+  ---
+  Layer-by-Layer Architecture Comparison
+
+  | Layer                 | Project                                                       | Task                                                       | Business
+                             | Implementation                          |
+  |-----------------------|---------------------------------------------------------------|------------------------------------------------------------|-----------------------------------
+  ---------------------------|-----------------------------------------|
+  | 1. Sidebar Navigation | /project                                                      | /task                                                      | /biz
+                             | Layout.tsx:70-86 - Same array structure |
+  | 2. List Route         | <Route path="/project">                                       | <Route path="/task">                                       | <Route path="/biz">
+                             | App.tsx:69,70,67 - Identical pattern    |
+  | 3. List Component     | <EntityMainPage entityType="project" />                       | <EntityMainPage entityType="task" />                       | <EntityMainPage entityType="biz" 
+  />                          | Same universal component                |
+  | 4. Detail Route       | <Route path="/project/:id">                                   | <Route path="/task/:id">                                   | <Route path="/biz/:id">
+                             | App.tsx:95,130,103 - Nested routes      |
+  | 5. Detail Component   | <EntityDetailPage entityType="project" />                     | <EntityDetailPage entityType="task" />                     | <EntityDetailPage entityType="biz"
+   />                        | Same universal component                |
+  | 6. Child Route        | <Route path="task">                                           | <Route path="form">                                        | <Route path="project">
+                             | App.tsx:96,131,104 - Dynamic tabs       |
+  | 7. Child Component    | <EntityChildListPage parentType="project" childType="task" /> | <EntityChildListPage parentType="task" childType="form" /> | <EntityChildListPage 
+  parentType="biz" childType="project" /> | Same universal component                |
+  | 8. Configuration      | entityConfig.ts:88-167                                        | entityConfig.ts:172-267                                    | entityConfig.ts:514-612
+                             | Central config file                     |
+  | 9. API Endpoint       | /api/v1/project/:id/task                                      | /api/v1/task/:id/form ✅ NEW                                | /api/v1/biz/:id/project
+                              | Fastify routes                          |
+  | 10. Database Query    | d_entity_id_map INNER JOIN                                    | d_entity_id_map INNER JOIN                                 | d_entity_id_map INNER JOIN
+                             | Universal schema                        |
+  | 11. RBAC Check        | entity_id_rbac_map WHERE entity='project'                     | entity_id_rbac_map WHERE entity='task'                     | entity_id_rbac_map WHERE
+  entity='biz'                        | Same permission table                   |
+
+  ---
+  Key Architecture Principles
+
+  1. 100% Universal Components
+
+  - EntityMainPage serves ALL entity list pages
+  - EntityDetailPage serves ALL entity detail pages
+  - EntityChildListPage serves ALL child entity tabs
+  - Layout provides navigation for ALL entities
+
+  2. Configuration-Driven Behavior
+
+  - Single source of truth: entityConfig.ts
+  - Defines: columns, fields, views, child entities, API endpoints
+  - Components read config at runtime via getEntityConfig(entityType)
+
+  3. Three-Tier Routing Pattern
+
+  TIER 1: /entity           → EntityMainPage (list)
+  TIER 2: /entity/:id       → EntityDetailPage (detail + tabs)
+  TIER 3: /entity/:id/child → EntityChildListPage (filtered child list)
+
+  4. Universal Database Schema
+
+  - app.d_entity_id_map: Stores ALL parent-child relationships
+    - Columns: parent_entity_type, parent_entity_id, child_entity_type, child_entity_id
+    - Example: ('project', '84215ccb...', 'task', 'f1111111...')
+  - app.entity_id_rbac_map: Stores ALL permissions
+    - Columns: empid, entity, entity_id, permission[]
+    - Permission array: {0:view, 1:edit, 2:share, 3:delete, 4:create}
+
+  5. Identical API Patterns
+
+  All child entity endpoints follow same structure:
+  GET /api/v1/{parent_entity}/:id/{child_entity}
+  ├─ RBAC check using entity_id_rbac_map
+  ├─ Query using INNER JOIN with d_entity_id_map
+  ├─ Pagination (page, limit)
+  └─ Response: { data, total, page, limit }
+
+ 
+  Detailed Architecture Similarities: Task, Project, and Business
+
+  1. NAVIGATION LAYER - Sidebar (Layout.tsx)
+
+  Similarity Pattern: Single Navigation Array Configuration
+
+  All three entities (task, project, biz) share the exact same sidebar architecture:
+
+  Location: /home/rabin/projects/pmo/apps/web/src/components/shared/layout/Layout.tsx:70-86
+
+  const mainNavigationItems = [
+    { name: 'Business', href: '/biz', icon: Building2, category: 'organizational' },
+    { name: 'Project', href: '/project', icon: FolderOpen, category: 'operational' },
+    { name: 'Task', href: '/task', icon: CheckSquare, category: 'operational' },
+    // ... other entities
+  ];
+
+  Key Similarities:
+
+  - Same Data Structure: All entities use identical { name, href, icon, category } schema
+  - Same Rendering Logic: Lines 203-224 - All entities render using same component logic
+  - Same Active State: Lines 205, 211-212 - isActive determined by currentPage === item.href
+  - Same Icon System: All icons imported from lucide-react (lines 3-22)
+  - Same Click Handler: Line 215 - onClick={() => setCurrentPage(item.href)}
+
+  ---
+  2. ROUTING LAYER - App.tsx
+
+  Similarity Pattern: Universal Route Template
+
+  All three entities follow the same 3-tier routing hierarchy:
+
+  Location: /home/rabin/projects/pmo/apps/web/src/App.tsx:67-133
+
+  // TIER 1: List Route (Main Page)
+  <Route path="/project" element={<EntityMainPage entityType="project" />} />
+  <Route path="/task" element={<EntityMainPage entityType="task" />} />
+  <Route path="/biz" element={<EntityMainPage entityType="biz" />} />
+
+  // TIER 2: Detail Route (Detail Page)
+  <Route path="/project/:id" element={<EntityDetailPage entityType="project" />} />
+  <Route path="/task/:id" element={<EntityDetailPage entityType="task" />} />
+  <Route path="/biz/:id" element={<EntityDetailPage entityType="biz" />} />
+
+  // TIER 3: Child Entity Routes (Nested)
+  <Route path="/project/:id">
     <Route path="task" element={<EntityChildListPage parentType="project" childType="task" />} />
   </Route>
-  2. EntityDetailPage receives:
-    - entityType="project" as a prop (from route element)
-    - id from URL params via useParams()
-    - Renders <Outlet /> at line 376 which is where child routes render
-  3. EntityChildListPage receives:
-    - parentType="project" as a prop (from route element)
-    - childType="task" as a prop (from route element)
-    - id from URL params via useParams() - this gets the parent's ID from the URL
-    - Accesses parent ID as parentId via const { id: parentId } = useParams()
-  4. Data loading in EntityChildListPage:
-    - Line 73-94: Tries to call projectApi.getTasks(parentId)
-    - If that doesn't exist, falls back to taskApi.list({ parentId, parentType: "project" })
-  5. Rendering based on view mode (lines 200+):
-    - Table view: <FilteredDataTable parentId={parentId} parentType={parentType} childType={childType} />
-    - Kanban view: <KanbanBoard columns={kanbanColumns} onCardMove={handleCardMove} />
-    - Grid view: <GridView items={data} titleField={...} />
+  <Route path="/task/:id">
+    <Route path="form" element={<EntityChildListPage parentType="task" childType="form" />} />
+  </Route>
+  <Route path="/biz/:id">
+    <Route path="project" element={<EntityChildListPage parentType="biz" childType="project" />} />
+  </Route>
+
+  Key Similarities:
+
+  - Identical Component: All use EntityMainPage for list view
+  - Identical Component: All use EntityDetailPage for detail view
+  - Identical Component: All use EntityChildListPage for child entities
+  - Same Prop Pattern: All receive entityType prop (e.g., entityType="task")
+  - Same Nesting: All use React Router's <Outlet /> for child routes
+
+  ---
+  3. ENTITY MAIN PAGE (List View)
+
+  Similarity Pattern: Universal Entity Table
+
+  Location: /home/rabin/projects/pmo/apps/web/src/pages/shared/EntityMainPage.tsx
+
+  All three entities share the exact same component with different configurations:
+
+  export function EntityMainPage({ entityType }: EntityMainPageProps) {
+    const config = getEntityConfig(entityType);  // Line 31 - Config lookup
+
+    // UNIVERSAL FEATURES (shared by all):
+    const handleRowClick = (item: any) => {
+      navigate(`/${entityType}/${item.id}`);     // Line 67 - Same navigation
+    };
+
+    return (
+      <FilteredDataTable                         // Line 152 - Same table component
+        entityType={entityType}
+        onRowClick={handleRowClick}
+      />
+    );
+  }
+
+  Key Similarities:
+
+  - Same Component Structure: Lines 29-266 - All entities use identical JSX structure
+  - Same Data Loading: Lines 44-64 - Dynamic API call via api[${entityType}Api].list()
+  - Same Row Click Handler: Lines 66-68 - Navigate to /${entityType}/${id}
+  - Same Create Button: Lines 249-255 - Navigate to /${entityType}/new
+  - Same View Modes: Table, Kanban, Grid all use same rendering logic (lines 148-220)
+
+  Configuration-Driven Differences:
+
+  Project Config (entityConfig.ts:88-167):
+  project: {
+    columns: [...],           // Custom columns
+    childEntities: ['task', 'wiki', 'artifact', 'form'],
+    supportedViews: ['table']
+  }
+
+  Task Config (entityConfig.ts:172-267):
+  task: {
+    columns: [...],           // Custom columns
+    childEntities: ['form', 'artifact'],
+    supportedViews: ['table', 'kanban']
+  }
+
+  Business Config (entityConfig.ts:514-612):
+  biz: {
+    columns: [...],           // Custom columns
+    childEntities: ['project'],
+    supportedViews: ['table'],
+    hierarchical: { levels: 3, ... }
+  }
+
+  ---
+  4. ENTITY DETAIL PAGE
+
+  Similarity Pattern: Universal Detail View with Dynamic Tabs
+
+  Location: /home/rabin/projects/pmo/apps/web/src/pages/shared/EntityDetailPage.tsx
+
+  All three entities use the exact same detail page component:
+
+  export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
+    const { id } = useParams();                           // Line 29
+    const config = getEntityConfig(entityType);           // Line 32
+
+    // UNIVERSAL FEATURES:
+    const loadData = async () => {
+      const apiModule = (api as any)[`${entityType}Api`]; // Line 116
+      const response = await apiModule.get(id);           // Line 121
+    };
+
+    // DYNAMIC TABS (based on config.childEntities)
+    const { tabs } = useDynamicChildEntityTabs(entityType, id); // Line 45
+
+    return (
+      <>
+        <DynamicChildEntityTabs tabs={allTabs} />        // Line 280
+        {isOverviewTab ? (
+          <EntityFormContainer />                         // Line 340
+        ) : (
+          <Outlet />  // Child entity table                Line 379
+        )}
+      </>
+    );
+  }
+
+  Key Similarities:
+
+  - Same Data Fetching: Lines 110-144 - Dynamic API call via ${entityType}Api.get(id)
+  - Same Header: Lines 221-238 - Back button + entity name display
+  - Same Edit Mode: Lines 240-274 - Edit/Save/Cancel button logic
+  - Same Tab System: Lines 278-289 - DynamicChildEntityTabs component
+  - Same Overview Tab: Lines 292-360 - Entity field display using EntityFormContainer
+  - Same Child Routing: Line 379 - <Outlet /> renders child entity tables
+
+  Dynamic Behavior Based on Config:
+
+  Project Detail (/project/:id):
+  - Shows 4 tabs: Overview, Task, Wiki, Artifact, Form (from childEntities: ['task', 'wiki', 'artifact', 'form'])
+  - Clicking "Task" tab → navigates to /project/:id/task
+  - Renders EntityChildListPage parentType="project" childType="task"
+
+  Task Detail (/task/:id):
+  - Shows 2 tabs: Overview, Form, Artifact (from childEntities: ['form', 'artifact'])
+  - Clicking "Form" tab → navigates to /task/:id/form
+  - Renders EntityChildListPage parentType="task" childType="form"
+
+  Business Detail (/biz/:id):
+  - Shows 1 tab: Overview, Project (from childEntities: ['project'])
+  - Clicking "Project" tab → navigates to /biz/:id/project
+  - Renders EntityChildListPage parentType="biz" childType="project"
+
+  ---
+  5. API ARCHITECTURE
+
+  Similarity Pattern: Parallel Endpoint Structure
+
+  All three entities have identical API endpoint patterns:
+
+  Project API (apps/api/src/modules/project/routes.ts):
+  GET    /api/v1/project           // List all projects
+  GET    /api/v1/project/:id       // Get single project
+  POST   /api/v1/project           // Create project
+  PUT    /api/v1/project/:id       // Update project
+  DELETE /api/v1/project/:id       // Delete project
+
+  // Child entity endpoints
+  GET    /api/v1/project/:id/task
+  GET    /api/v1/project/:id/wiki
+  GET    /api/v1/project/:id/artifact
+  GET    /api/v1/project/:id/form
+
+  Task API (apps/api/src/modules/task/routes.ts:1131-1277):
+  GET    /api/v1/task           // List all tasks
+  GET    /api/v1/task/:id       // Get single task
+  POST   /api/v1/task           // Create task
+  PUT    /api/v1/task/:id       // Update task
+  DELETE /api/v1/task/:id       // Delete task
+
+  // Child entity endpoints (just added!)
+  GET    /api/v1/task/:id/form
+  GET    /api/v1/task/:id/artifact
+
+  Business API (apps/api/src/modules/biz/routes.ts):
+  GET    /api/v1/biz           // List all business units
+  GET    /api/v1/biz/:id       // Get single business unit
+  POST   /api/v1/biz           // Create business unit
+  PUT    /api/v1/biz/:id       // Update business unit
+  DELETE /api/v1/biz/:id       // Delete business unit
+
+  // Child entity endpoints
+  GET    /api/v1/biz/:id/project
+  GET    /api/v1/biz/:id/task
+  GET    /api/v1/biz/:id/wiki
+  GET    /api/v1/biz/:id/artifact
+  GET    /api/v1/biz/:id/form
+
+  Key Similarities in API Implementation:
+
+  1. RBAC Pattern (identical across all):
+  const taskAccess = await db.execute(sql`
+    SELECT 1 FROM app.entity_id_rbac_map rbac
+    WHERE rbac.empid = ${userId}
+      AND rbac.entity = 'task'                    // Entity type
+      AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+      AND rbac.active_flag = true
+      AND 0 = ANY(rbac.permission)                // View permission
+  `);
+
+  2. Child Entity Query Pattern (identical across all):
+  // Example: /api/v1/task/:id/form endpoint
+  const forms = await db.execute(sql`
+    SELECT f.*, COALESCE(f.name, 'Untitled Form') as name
+    FROM app.d_form_head f
+    INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = f.id::text
+    WHERE eim.parent_entity_id = ${taskId}
+      AND eim.parent_entity_type = 'task'         // Parent type
+      AND eim.child_entity_type = 'form'          // Child type
+      AND eim.active_flag = true
+      AND f.active_flag = true
+    ORDER BY f.created_ts DESC
+    LIMIT ${limit} OFFSET ${offset}
+  `);
+
+  3. Response Format (identical across all):
+  return {
+    data: items,
+    total: Number(countResult[0]?.total || 0),
+    page,
+    limit
+  };
+
+  ---
+  6. DATABASE ARCHITECTURE
+
+  Similarity Pattern: Unified Entity Relationship Model
+
+  All three entities use the same database pattern:
+
+  Core Entity Tables:
+  - app.d_project - Projects table
+  - app.d_task - Tasks table
+  - app.d_business - Business units table
+
+  Universal Relationship Table:
+  - app.d_entity_id_map - Links ALL parent-child relationships
+
+  -- Example relationships in d_entity_id_map:
+  parent_entity_type = 'project', parent_entity_id = 'abc123', child_entity_type = 'task', child_entity_id = 'def456'
+  parent_entity_type = 'task',    parent_entity_id = 'def456', child_entity_type = 'form', child_entity_id = 'ghi789'
+  parent_entity_type = 'biz',     parent_entity_id = 'xyz999', child_entity_type = 'project', child_entity_id = 'abc123'
+
+  Universal RBAC Table:
+  - app.entity_id_rbac_map - Permissions for ALL entities
+
+  -- Example permissions:
+  entity = 'task',    entity_id = 'all',    permission = {0,1,2,3,4}  -- All task permissions
+  entity = 'project', entity_id = 'abc123', permission = {0,1}        -- View/edit specific project
+  entity = 'biz',     entity_id = 'all',    permission = {0}          -- View all business units
+
+  ---
+  7. CONFIGURATION SYSTEM
+
+  Similarity Pattern: Declarative Entity Config
+
+  All entities are defined in one centralized config file:
+
+  Location: /home/rabin/projects/pmo/apps/web/src/lib/entityConfig.ts
+
+  export const entityConfigs: Record<string, EntityConfig> = {
+    project: {
+      name: 'project',
+      displayName: 'Project',
+      pluralName: 'Projects',
+      apiEndpoint: '/api/v1/project',
+      columns: [...],              // Table columns
+      fields: [...],               // Form fields
+      supportedViews: ['table'],
+      childEntities: ['task', 'wiki', 'artifact', 'form']
+    },
+
+    task: {
+      name: 'task',
+      displayName: 'Task',
+      pluralName: 'Tasks',
+      apiEndpoint: '/api/v1/task',
+      columns: [...],
+      fields: [...],
+      supportedViews: ['table', 'kanban'],
+      kanban: { groupByField: 'stage', ... },
+      childEntities: ['form', 'artifact']
+    },
+
+    biz: {
+      name: 'biz',
+      displayName: 'Business Unit',
+      pluralName: 'Business Units',
+      apiEndpoint: '/api/v1/biz',
+      columns: [...],
+      fields: [...],
+      supportedViews: ['table'],
+      hierarchical: { levels: 3, ... },
+      childEntities: ['project']
+    }
+  };
+
+  What the Config Controls:
+
+  - Table Columns: Which columns appear in EntityMainPage table
+  - Form Fields: Which fields appear in EntityDetailPage form
+  - Child Tabs: Which tabs appear in EntityDetailPage based on childEntities
+  - API Endpoint: Where to fetch data from
+  - View Modes: Table/Kanban/Grid availability
+  - Special Features: Kanban config, hierarchical config, etc.
+
+  ---
+  SUMMARY: Core Architectural Similarities
+
+  | Layer              | Similarity                                            | Evidence                                         |
+  |--------------------|-------------------------------------------------------|--------------------------------------------------|
+  | Sidebar Navigation | All entities use same mainNavigationItems array       | Layout.tsx:70-86                                 |
+  | Routing            | All use same 3-tier route pattern (list/detail/child) | App.tsx:67-133                                   |
+  | List Page          | All use same EntityMainPage component                 | EntityMainPage.tsx:29-266                        |
+  | Detail Page        | All use same EntityDetailPage component               | EntityDetailPage.tsx:28-383                      |
+  | API Endpoints      | All follow same REST pattern + child endpoints        | task/routes.ts, project/routes.ts, biz/routes.ts |
+  | Database           | All use d_entity_id_map for relationships             | d_entity_id_map table                            |
+  | RBAC               | All use entity_id_rbac_map for permissions            | entity_id_rbac_map table                         |
+  | Configuration      | All defined in single entityConfigs object            | entityConfig.ts:84-1520                          |
+
+  The system is 100% universal - adding a new entity only requires:
+  1. Creating config entry in entityConfig.ts
+  2. Adding routes in App.tsx
+  3. Creating API endpoints following the pattern
+  4. Defining database table + populating d_entity_id_map for relationships

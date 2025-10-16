@@ -234,7 +234,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' })
       }),
       querystring: Type.Object({
-        active: Type.Optional(Type.Boolean()),
+        active_flag: Type.Optional(Type.Boolean()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
@@ -255,26 +255,40 @@ export async function bizRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'Access denied for this business unit' });
       }
 
-      const conditions = [sql`business_id = ${bizId}`];
-      if (active !== undefined) {
-        conditions.push(sql`active_flag = ${active}`);
+      // Use d_entity_id_map to find projects linked to this business
+      const conditions = [
+        sql`eim.parent_entity_type = 'business'`,
+        sql`eim.parent_entity_id = ${bizId}`,
+        sql`eim.child_entity_type = 'project'`,
+        sql`eim.active_flag = true`
+      ];
+
+      if (active_flag !== undefined) {
+        conditions.push(sql`p.active_flag = ${active_flag}`);
       }
 
       const projects = await db.execute(sql`
         SELECT
-          id, name, "descr", project_type, priority_level, project_status, project_stage,
-          planned_start_date, planned_end_date, budget_allocated, budget_currency,
-          created, updated
-        FROM app.d_project
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY created DESC
+          p.id, p.slug, p.code, p.name, p.descr, p.tags, p.metadata,
+          p.project_stage,
+          p.budget_allocated, p.budget_spent,
+          p.planned_start_date, p.planned_end_date,
+          p.actual_start_date, p.actual_end_date,
+          p.manager_employee_id, p.sponsor_employee_id, p.stakeholder_employee_ids,
+          p.from_ts, p.to_ts, p.active_flag, p.created_ts, p.updated_ts, p.version,
+          eim.relationship_type
+        FROM app.d_entity_id_map eim
+        INNER JOIN app.d_project p ON p.id::text = eim.child_entity_id
+        WHERE ${sql.join(conditions, sql` AND `)}
+        ORDER BY p.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.d_project
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        FROM app.d_entity_id_map eim
+        INNER JOIN app.d_project p ON p.id::text = eim.child_entity_id
+        WHERE ${sql.join(conditions, sql` AND `)}
       `);
 
       return {
@@ -286,7 +300,8 @@ export async function bizRoutes(fastify: FastifyInstance) {
       };
     } catch (error) {
       fastify.log.error('Error fetching business unit projects:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
+      console.error('Full error details:', error);
+      return reply.status(500).send({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -306,7 +321,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
   }, async function (request, reply) {
     try {
       const { id: bizId } = request.params as { id: string };
-      const { active_flag = true, limit = 50, offset = 0 } = request.query as any;
+      const { active = true, limit = 50, offset = 0 } = request.query as any;
       const userId = request.user?.sub;
 
       if (!userId) {
@@ -319,32 +334,49 @@ export async function bizRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'Access denied for this business unit' });
       }
 
-      // Get tasks associated with business unit (via projects)
-      const conditions = [];
+      // Get tasks associated with business unit (via projects using entity_id_map for both hops)
+      // Hop 1: business → projects via entity_id_map
+      // Hop 2: projects → tasks via entity_id_map
+      const conditions = [
+        sql`eim_biz_proj.parent_entity_type = 'business'`,
+        sql`eim_biz_proj.parent_entity_id = ${bizId}`,
+        sql`eim_biz_proj.child_entity_type = 'project'`,
+        sql`eim_biz_proj.active_flag = true`,
+        sql`eim_proj_task.parent_entity_type = 'project'`,
+        sql`eim_proj_task.child_entity_type = 'task'`,
+        sql`eim_proj_task.active_flag = true`,
+        sql`t.active_flag = true`
+      ];
+
       if (active !== undefined) {
         conditions.push(sql`t.active_flag = ${active}`);
       }
 
       const tasks = await db.execute(sql`
-        SELECT DISTINCT
-          t.id, t.name, t."descr", t.task_type, t.priority_level, t.task_status, t.task_stage,
-          t.planned_start_date, t.planned_end_date, t.estimated_hours, t.actual_hours,
-          t.created, t.updated, t.project_id,
+        SELECT
+          t.id, t.slug, t.code, t.name, t.descr, t.tags, t.metadata,
+          t.assignee_employee_ids, t.stage, t.priority_level,
+          t.estimated_hours, t.actual_hours, t.story_points,
+          t.parent_task_id, t.dependency_task_ids,
+          t.from_ts, t.to_ts, t.active_flag, t.created_ts, t.updated_ts, t.version,
           p.name as project_name
-        FROM app.d_task t
-        INNER JOIN app.d_project p ON t.project_id = p.id
-        WHERE p.business_id = ${bizId}
-        ${conditions.length > 0 ? sql`AND ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY t.created DESC
+        FROM app.d_entity_id_map eim_biz_proj
+        INNER JOIN app.d_entity_id_map eim_proj_task
+          ON eim_proj_task.parent_entity_id = eim_biz_proj.child_entity_id
+        INNER JOIN app.d_task t ON t.id::text = eim_proj_task.child_entity_id
+        INNER JOIN app.d_project p ON p.id::text = eim_biz_proj.child_entity_id
+        WHERE ${sql.join(conditions, sql` AND `)}
+        ORDER BY t.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
       const countResult = await db.execute(sql`
         SELECT COUNT(DISTINCT t.id) as total
-        FROM app.d_task t
-        INNER JOIN app.d_project p ON t.project_id = p.id
-        WHERE p.business_id = ${bizId}
-        ${conditions.length > 0 ? sql`AND ${sql.join(conditions, sql` AND `)}` : sql``}
+        FROM app.d_entity_id_map eim_biz_proj
+        INNER JOIN app.d_entity_id_map eim_proj_task
+          ON eim_proj_task.parent_entity_id = eim_biz_proj.child_entity_id
+        INNER JOIN app.d_task t ON t.id::text = eim_proj_task.child_entity_id
+        WHERE ${sql.join(conditions, sql` AND `)}
       `);
 
       return {
@@ -356,7 +388,8 @@ export async function bizRoutes(fastify: FastifyInstance) {
       };
     } catch (error) {
       fastify.log.error('Error fetching business unit tasks:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
+      console.error('Full task error details:', error);
+      return reply.status(500).send({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -368,7 +401,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' })
       }),
       querystring: Type.Object({
-        active: Type.Optional(Type.Boolean()),
+        active_flag: Type.Optional(Type.Boolean()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
@@ -389,29 +422,34 @@ export async function bizRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'Access denied for this business unit' });
       }
 
-      const conditions = [];
-      if (active !== undefined) {
-        conditions.push(sql`f.active_flag = ${active}`);
+      // Use d_entity_id_map to find forms linked to this business
+      const conditions = [
+        sql`eim.parent_entity_type = 'business'`,
+        sql`eim.parent_entity_id = ${bizId}`,
+        sql`eim.child_entity_type = 'form'`,
+        sql`eim.active_flag = true`
+      ];
+
+      if (active_flag !== undefined) {
+        conditions.push(sql`f.active_flag = ${active_flag}`);
       }
 
       const forms = await db.execute(sql`
-        SELECT DISTINCT
-          f.id, f.name, f."descr", f.form_type, f.form_status, f.form_category,
-          f.created, f.updated, f.form_schema, f.form_ui_schema
-        FROM app.ops_formlog_head f
-        INNER JOIN app.d_project p ON f.project_id = p.id
-        WHERE p.business_id = ${bizId}
-        ${conditions.length > 0 ? sql`AND ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY f.created DESC
+        SELECT
+          f.*,
+          eim.relationship_type
+        FROM app.d_entity_id_map eim
+        INNER JOIN app.d_form_head f ON f.id::text = eim.child_entity_id
+        WHERE ${sql.join(conditions, sql` AND `)}
+        ORDER BY f.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
       const countResult = await db.execute(sql`
-        SELECT COUNT(DISTINCT f.id) as total
-        FROM app.ops_formlog_head f
-        INNER JOIN app.d_project p ON f.project_id = p.id
-        WHERE p.business_id = ${bizId}
-        ${conditions.length > 0 ? sql`AND ${sql.join(conditions, sql` AND `)}` : sql``}
+        SELECT COUNT(*) as total
+        FROM app.d_entity_id_map eim
+        INNER JOIN app.d_form_head f ON f.id::text = eim.child_entity_id
+        WHERE ${sql.join(conditions, sql` AND `)}
       `);
 
       return {
@@ -435,7 +473,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' })
       }),
       querystring: Type.Object({
-        active: Type.Optional(Type.Boolean()),
+        active_flag: Type.Optional(Type.Boolean()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
@@ -456,26 +494,34 @@ export async function bizRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'Access denied for this business unit' });
       }
 
-      const conditions = [sql`business_id = ${bizId}`];
-      if (active !== undefined) {
-        conditions.push(sql`active_flag = ${active}`);
+      // Use d_entity_id_map to find artifacts linked to this business
+      const conditions = [
+        sql`eim.parent_entity_type = 'business'`,
+        sql`eim.parent_entity_id = ${bizId}`,
+        sql`eim.child_entity_type = 'artifact'`,
+        sql`eim.active_flag = true`
+      ];
+
+      if (active_flag !== undefined) {
+        conditions.push(sql`a.active_flag = ${active_flag}`);
       }
 
       const artifacts = await db.execute(sql`
         SELECT
-          id, name, "descr", artifact_type, file_name, file_size, mime_type,
-          storage_url, version_number, is_current_version,
-          created, updated
-        FROM app.d_artifact
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY created DESC
+          a.*,
+          eim.relationship_type
+        FROM app.d_entity_id_map eim
+        INNER JOIN app.d_artifact a ON a.id::text = eim.child_entity_id
+        WHERE ${sql.join(conditions, sql` AND `)}
+        ORDER BY a.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.d_artifact
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        FROM app.d_entity_id_map eim
+        INNER JOIN app.d_artifact a ON a.id::text = eim.child_entity_id
+        WHERE ${sql.join(conditions, sql` AND `)}
       `);
 
       return {
@@ -499,7 +545,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' })
       }),
       querystring: Type.Object({
-        active: Type.Optional(Type.Boolean()),
+        active_flag: Type.Optional(Type.Boolean()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
@@ -520,26 +566,34 @@ export async function bizRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'Access denied for this business unit' });
       }
 
-      const conditions = [sql`business_id = ${bizId}`];
-      if (active !== undefined) {
-        conditions.push(sql`active_flag = ${active}`);
+      // Use d_entity_id_map to find wiki pages linked to this business
+      const conditions = [
+        sql`eim.parent_entity_type = 'business'`,
+        sql`eim.parent_entity_id = ${bizId}`,
+        sql`eim.child_entity_type = 'wiki'`,
+        sql`eim.active_flag = true`
+      ];
+
+      if (active_flag !== undefined) {
+        conditions.push(sql`w.active_flag = ${active_flag}`);
       }
 
       const wikis = await db.execute(sql`
         SELECT
-          id, title, slug, content_preview, wiki_category, wiki_status,
-          tags, is_published, view_count,
-          created, updated, author_id
-        FROM app.d_wiki
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY created DESC
+          w.*,
+          eim.relationship_type
+        FROM app.d_entity_id_map eim
+        INNER JOIN app.d_wiki w ON w.id::text = eim.child_entity_id
+        WHERE ${sql.join(conditions, sql` AND `)}
+        ORDER BY w.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.d_wiki
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        FROM app.d_entity_id_map eim
+        INNER JOIN app.d_wiki w ON w.id::text = eim.child_entity_id
+        WHERE ${sql.join(conditions, sql` AND `)}
       `);
 
       return {

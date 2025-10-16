@@ -106,10 +106,7 @@ CREATE TABLE app.d_task (
     tags jsonb DEFAULT '[]'::jsonb,
     metadata jsonb DEFAULT '{}'::jsonb,
 
-    -- Task relationships (direct FKs as specified)
-    project_id uuid NOT NULL ,
-    business_id uuid ,
-    office_id uuid ,
+    -- Task to parent entity relationships no FK needed as the relationships are managed via entity_id_map
 
     -- Task assignment
     assignee_employee_ids uuid[] DEFAULT '{}',
@@ -140,7 +137,7 @@ CREATE TABLE app.d_task (
 -- Digital Transformation Project Tasks
 INSERT INTO app.d_task (
     id, slug, code, name, descr, tags, metadata,
-    project_id, business_id, office_id, assignee_employee_ids,
+    assignee_employee_ids,
     stage, priority_level, estimated_hours, actual_hours, story_points
 ) VALUES (
     'a1111111-1111-1111-1111-111111111111',
@@ -149,17 +146,14 @@ INSERT INTO app.d_task (
     'Digital Transformation Stakeholder Analysis',
     'Comprehensive analysis of all stakeholders across business units to identify requirements, concerns, and success criteria for the digital transformation initiative.',
     '["stakeholder_analysis", "requirements", "strategic_planning"]'::jsonb,
-    '{"task_type": "analysis", "deliverable": "stakeholder_matrix", "approval_required": true}'::jsonb,
-    '93106ffb-402e-43a7-8b26-5287e37a1b0e',
-    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    '11111111-1111-1111-1111-111111111111',
+    '{"task_type": "analysis", "deliverable": "stakeholder_matrix", "approval_required": true, "project_id": "93106ffb-402e-43a7-8b26-5287e37a1b0e", "business_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "office_id": "11111111-1111-1111-1111-111111111111"}'::jsonb,
     ARRAY['8260b1b0-5efc-4611-ad33-ee76c0cf7f13']::uuid[],
     'In Progress', 'high', 40.0, 28.5, 8
 );
 
 INSERT INTO app.d_task (
     id, slug, code, name, descr, tags, metadata,
-    project_id, business_id, office_id, assignee_employee_ids,
+    assignee_employee_ids,
     stage, priority_level, estimated_hours, actual_hours, story_points
 ) VALUES (
     'a2222222-2222-2222-2222-222222222222',
@@ -168,10 +162,7 @@ INSERT INTO app.d_task (
     'PMO Software Vendor Evaluation',
     'Evaluate and score potential PMO software vendors based on functionality, integration capabilities, cost, and implementation timeline. CEO approval required for final selection.',
     '["vendor_evaluation", "pmo_software", "procurement"]'::jsonb,
-    '{"task_type": "evaluation", "deliverable": "vendor_comparison_matrix", "ceo_approval": true}'::jsonb,
-    '93106ffb-402e-43a7-8b26-5287e37a1b0e',
-    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    '11111111-1111-1111-1111-111111111111',
+    '{"task_type": "evaluation", "deliverable": "vendor_comparison_matrix", "ceo_approval": true, "project_id": "93106ffb-402e-43a7-8b26-5287e37a1b0e", "business_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "office_id": "11111111-1111-1111-1111-111111111111"}'::jsonb,
     ARRAY['8260b1b0-5efc-4611-ad33-ee76c0cf7f13']::uuid[],
     'Planning', 'critical', 60.0, 15.0, 13
 );
@@ -179,7 +170,7 @@ INSERT INTO app.d_task (
 -- Fall Landscaping Campaign Tasks
 INSERT INTO app.d_task (
     id, slug, code, name, descr, tags, metadata,
-    project_id, business_id, office_id, assignee_employee_ids,
+    assignee_employee_ids,
     stage, priority_level, estimated_hours, actual_hours, story_points
 ) VALUES (
     'b1111111-1111-1111-1111-111111111111',
@@ -188,17 +179,14 @@ INSERT INTO app.d_task (
     'Fall Campaign Marketing Strategy',
     'Develop comprehensive marketing strategy for fall landscaping campaign including customer targeting, pricing strategy, service packages, and promotional materials.',
     '["marketing_strategy", "campaign", "pricing", "promotion"]'::jsonb,
-    '{"task_type": "strategic_planning", "deliverable": "marketing_plan", "budget_required": 15000}'::jsonb,
-    '84215ccb-313d-48f8-9c37-4398f28c0b1f',
-    'dddddddd-dddd-dddd-dddd-dddddddddddd',
-    '44444444-4444-4444-4444-444444444444',
+    '{"task_type": "strategic_planning", "deliverable": "marketing_plan", "budget_required": 15000, "project_id": "84215ccb-313d-48f8-9c37-4398f28c0b1f", "business_id": "dddddddd-dddd-dddd-dddd-dddddddddddd", "office_id": "44444444-4444-4444-4444-444444444444"}'::jsonb,
     ARRAY['8260b1b0-5efc-4611-ad33-ee76c0cf7f13']::uuid[],
     'Completed', 'high', 32.0, 35.0, 5
 );
 
 INSERT INTO app.d_task (
     id, slug, code, name, descr, tags, metadata,
-    project_id, business_id, office_id, assignee_employee_ids,
+    assignee_employee_ids,
     stage, priority_level, estimated_hours, actual_hours, story_points
 ) VALUES (
     'b2222222-2222-2222-2222-222222222222',
@@ -207,10 +195,7 @@ INSERT INTO app.d_task (
     'Fall Campaign Resource Planning',
     'Plan and allocate human resources, equipment, and materials for fall landscaping campaign. Ensure adequate capacity to meet projected demand and service commitments.',
     '["resource_planning", "capacity", "equipment", "staffing"]'::jsonb,
-    '{"task_type": "operations_planning", "deliverable": "resource_allocation_plan", "equipment_audit": true}'::jsonb,
-    '84215ccb-313d-48f8-9c37-4398f28c0b1f',
-    'dddddddd-dddd-dddd-dddd-dddddddddddd',
-    '44444444-4444-4444-4444-444444444444',
+    '{"task_type": "operations_planning", "deliverable": "resource_allocation_plan", "equipment_audit": true, "project_id": "84215ccb-313d-48f8-9c37-4398f28c0b1f", "business_id": "dddddddd-dddd-dddd-dddd-dddddddddddd", "office_id": "44444444-4444-4444-4444-444444444444"}'::jsonb,
     ARRAY['8260b1b0-5efc-4611-ad33-ee76c0cf7f13']::uuid[],
     'In Progress', 'high', 24.0, 18.0, 3
 );
@@ -218,7 +203,7 @@ INSERT INTO app.d_task (
 -- HVAC Modernization Tasks
 INSERT INTO app.d_task (
     id, slug, code, name, descr, tags, metadata,
-    project_id, business_id, office_id, assignee_employee_ids,
+    assignee_employee_ids,
     stage, priority_level, estimated_hours, actual_hours, story_points
 ) VALUES (
     'c1111111-1111-1111-1111-111111111111',
@@ -227,10 +212,7 @@ INSERT INTO app.d_task (
     'Smart HVAC Market Research',
     'Research emerging smart HVAC technologies, market trends, and customer demand for energy-efficient solutions. Identify competitive advantages and partnership opportunities.',
     '["market_research", "smart_technology", "energy_efficiency", "competitive_analysis"]'::jsonb,
-    '{"task_type": "research", "deliverable": "market_analysis_report", "partnership_exploration": true}'::jsonb,
-    '72304dab-202c-39e7-8a26-3287d26a0c2d',
-    'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
-    '44444444-4444-4444-4444-444444444444',
+    '{"task_type": "research", "deliverable": "market_analysis_report", "partnership_exploration": true, "project_id": "72304dab-202c-39e7-8a26-3287d26a0c2d", "business_id": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee", "office_id": "44444444-4444-4444-4444-444444444444"}'::jsonb,
     ARRAY['8260b1b0-5efc-4611-ad33-ee76c0cf7f13']::uuid[],
     'Planning', 'medium', 48.0, 12.0, 8
 );
@@ -238,7 +220,7 @@ INSERT INTO app.d_task (
 -- Corporate Office Expansion Tasks
 INSERT INTO app.d_task (
     id, slug, code, name, descr, tags, metadata,
-    project_id, business_id, office_id, assignee_employee_ids,
+    assignee_employee_ids,
     stage, priority_level, estimated_hours, actual_hours, story_points
 ) VALUES (
     'd1111111-1111-1111-1111-111111111111',
@@ -247,10 +229,7 @@ INSERT INTO app.d_task (
     'Corporate Office Space Planning',
     'Design optimal office layout incorporating collaborative spaces, private offices, meeting rooms, and modern amenities. Focus on employee productivity and company culture enhancement.',
     '["space_planning", "office_design", "productivity", "culture", "collaboration"]'::jsonb,
-    '{"task_type": "design", "deliverable": "office_layout_plans", "employee_input": true}'::jsonb,
-    '61203bac-101b-28d6-7a15-2176c15a0b1c',
-    'cccccccc-cccc-cccc-cccc-cccccccccccc',
-    '11111111-1111-1111-1111-111111111111',
+    '{"task_type": "design", "deliverable": "office_layout_plans", "employee_input": true, "project_id": "61203bac-101b-28d6-7a15-2176c15a0b1c", "business_id": "cccccccc-cccc-cccc-cccc-cccccccccccc", "office_id": "11111111-1111-1111-1111-111111111111"}'::jsonb,
     ARRAY['8260b1b0-5efc-4611-ad33-ee76c0cf7f13']::uuid[],
     'Planning', 'medium', 56.0, 20.0, 8
 );
@@ -258,7 +237,7 @@ INSERT INTO app.d_task (
 -- Customer Service Excellence Tasks
 INSERT INTO app.d_task (
     id, slug, code, name, descr, tags, metadata,
-    project_id, business_id, office_id, assignee_employee_ids,
+    assignee_employee_ids,
     stage, priority_level, estimated_hours, actual_hours, story_points
 ) VALUES (
     'e1111111-1111-1111-1111-111111111111',
@@ -267,10 +246,7 @@ INSERT INTO app.d_task (
     'Customer Service Process Optimization',
     'Analyze and optimize current customer service processes to reduce response times, improve issue resolution, and enhance overall customer satisfaction across all touchpoints.',
     '["process_optimization", "response_time", "customer_satisfaction", "touchpoint_analysis"]'::jsonb,
-    '{"task_type": "process_improvement", "deliverable": "optimized_service_processes", "training_required": true}'::jsonb,
-    '50192aab-000a-17c5-6904-1065b04a0a0b',
-    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-    '22222222-2222-2222-2222-222222222222',
+    '{"task_type": "process_improvement", "deliverable": "optimized_service_processes", "training_required": true, "project_id": "50192aab-000a-17c5-6904-1065b04a0a0b", "business_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "office_id": "22222222-2222-2222-2222-222222222222"}'::jsonb,
     ARRAY['8260b1b0-5efc-4611-ad33-ee76c0cf7f13']::uuid[],
     'In Progress', 'high', 40.0, 32.0, 5
 );
@@ -278,7 +254,7 @@ INSERT INTO app.d_task (
 -- Strategic CEO oversight tasks
 INSERT INTO app.d_task (
     id, slug, code, name, descr, tags, metadata,
-    project_id, business_id, office_id, assignee_employee_ids,
+    assignee_employee_ids,
     stage, priority_level, estimated_hours, actual_hours, story_points
 ) VALUES (
     'f1111111-1111-1111-1111-111111111111',
@@ -287,10 +263,7 @@ INSERT INTO app.d_task (
     'Quarterly Business Performance Review',
     'Comprehensive quarterly review of all business units, projects, and key performance indicators. Assess progress against strategic objectives and identify areas for improvement or investment.',
     '["quarterly_review", "performance", "kpi_analysis", "strategic_assessment"]'::jsonb,
-    '{"task_type": "executive_review", "deliverable": "quarterly_performance_report", "board_presentation": true}'::jsonb,
-    '93106ffb-402e-43a7-8b26-5287e37a1b0e',
-    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    '11111111-1111-1111-1111-111111111111',
+    '{"task_type": "executive_review", "deliverable": "quarterly_performance_report", "board_presentation": true, "project_id": "93106ffb-402e-43a7-8b26-5287e37a1b0e", "business_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "office_id": "11111111-1111-1111-1111-111111111111"}'::jsonb,
     ARRAY['8260b1b0-5efc-4611-ad33-ee76c0cf7f13']::uuid[],
     'In Progress', 'critical', 20.0, 8.0, 13
 );
