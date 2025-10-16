@@ -234,10 +234,7 @@ export async function empRoutes(fastify: FastifyInstance) {
         const parsedEmp = {
           ...emp,
           tags: Array.isArray(emp.tags) ? emp.tags : (emp.tags ? JSON.parse(emp.tags) : []),
-          skills: Array.isArray(emp.skills) ? emp.skills : (emp.skills ? JSON.parse(emp.skills) : []),
-          certifications: Array.isArray(emp.certifications) ? emp.certifications : (emp.certifications ? JSON.parse(emp.certifications) : []),
-          languages: Array.isArray(emp.languages) ? emp.languages : (emp.languages ? JSON.parse(emp.languages) : ['en']),
-          emergency_contact: emp.emergency_contact || {},
+          metadata: emp.metadata || {}
         };
         return filterUniversalColumns(parsedEmp, userPermissions);
       });
@@ -507,7 +504,7 @@ export async function empRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      updateFields.push(sql`updated = NOW()`);
+      updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
         UPDATE app.d_employee 
@@ -561,8 +558,8 @@ export async function empRoutes(fastify: FastifyInstance) {
       }
 
       await db.execute(sql`
-        UPDATE app.d_employee 
-        SET active_flag = false, to_ts = NOW(), updated = NOW()
+        UPDATE app.d_employee
+        SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
         WHERE id = ${id}
       `);
 

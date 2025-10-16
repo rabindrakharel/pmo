@@ -87,7 +87,7 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
 
   const settingsSubItems = [
     { name: 'Data Labels', href: '/labels', icon: Tag },
-    { name: 'Data Linkage', href: '/settings', icon: LinkIcon },
+    { name: 'Data Linkage', href: '/linkage', icon: LinkIcon },
   ];
 
   const profileNavigationItems = [

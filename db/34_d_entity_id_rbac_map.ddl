@@ -51,6 +51,36 @@
 --   - Works with entity_id_hierarchy_mapping for relationship-based permissions
 --   - Integrates with role-based assignments via rel_emp_role
 --
+-- Parent-Child Entity Relationships:
+--   This RBAC system enforces permissions across the following parent-child
+--   entity relationships managed by entity_id_map. Child entities may inherit
+--   view permissions from parent entities in some workflows.
+--
+--   PARENT ENTITY     → CHILD ENTITIES
+--   =====================================
+--   business (biz)    → project
+--   project           → task, artifact, wiki, form
+--   office            → task, artifact, wiki, form
+--   client            → project, artifact, form
+--   role              → employee
+--   task              → form, artifact
+--   form              → artifact
+--   employee          → (no children)
+--   wiki              → (no children)
+--   artifact          → (no children)
+--   worksite          → (no children, standalone)
+--   position          → (no children, standalone)
+--   reports           → (no children, standalone)
+--
+--   Permission Inheritance Notes:
+--   - Editing a parent entity does NOT automatically grant edit access to children
+--   - Creating a child entity requires BOTH parent edit permission AND child create permission
+--   - Example: Creating a task under a project requires:
+--     * entity='project', entity_id=<uuid>, permission contains 1 (edit parent)
+--     * entity='task', entity_id='all', permission contains 4 (create child)
+--   - Deleting a parent does NOT cascade delete children; children remain accessible
+--   - RBAC checks are performed at the child entity level for all operations
+--
 -- Audit and Compliance:
 --   - Complete audit trail with granted_by_empid tracking
 --   - Temporal tracking with granted_ts and expires_ts
@@ -107,7 +137,7 @@ FROM app.d_employee e
 CROSS JOIN (VALUES
   ('office'), ('biz'), ('business'), ('project'), ('task'), ('worksite'), ('client'),
   ('role'), ('position'), ('artifact'), ('wiki'), ('form'), ('report'), ('employee'),
-  ('org'), ('hr')
+  ('org'), ('hr'), ('linkage')
 ) AS entities(entity_type)
 WHERE e.email = 'james.miller@huronhome.ca';
 

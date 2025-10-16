@@ -507,47 +507,20 @@ export async function formRoutes(fastify: FastifyInstance) {
       const hasSubstantiveChanges = schemaChanged;
 
       if (hasSubstantiveChanges) {
-        // CREATE NEW VERSION: Archive old version and create new one
-
-        // 1. Set current version to inactive with to_ts
-        await db.execute(sql`
-          UPDATE app.d_form_head
-          SET active_flag = false,
-              to_ts = NOW(),
-              updated_ts = NOW()
-          WHERE id = ${id}
-        `);
-
-        // 2. Create new version with incremented version number
+        // IN-PLACE VERSION UPDATE: Keep same ID, increment version
         const newVersion = (current.version || 1) + 1;
 
         const result = await db.execute(sql`
-          INSERT INTO app.d_form_head (
-            slug,
-            code,
-            name,
-            descr,
-            url,
-            tags,
-            form_type,
-            form_schema,
-            active_flag,
-            version,
-            from_ts
-          )
-          VALUES (
-            ${current.slug},
-            ${current.code},
-            ${data.name !== undefined ? data.name : current.name},
-            ${data.descr !== undefined ? data.descr : current.descr},
-            ${current.url},
-            ${data.tags !== undefined ? JSON.stringify(data.tags) : current.tags},
-            ${data.formType !== undefined ? data.formType : current.form_type},
-            ${JSON.stringify(data.schema)},
-            true,
-            ${newVersion},
-            NOW()
-          )
+          UPDATE app.d_form_head
+          SET
+            name = ${data.name !== undefined ? data.name : current.name},
+            descr = ${data.descr !== undefined ? data.descr : current.descr},
+            tags = ${data.tags !== undefined ? JSON.stringify(data.tags) : current.tags},
+            form_type = ${data.formType !== undefined ? data.formType : current.form_type},
+            form_schema = ${JSON.stringify(data.schema)},
+            version = ${newVersion},
+            updated_ts = NOW()
+          WHERE id = ${id}
           RETURNING
             id,
             slug,
@@ -566,19 +539,9 @@ export async function formRoutes(fastify: FastifyInstance) {
             version
         `);
 
-        const newForm = result[0];
+        fastify.log.info(`Updated form to version ${newVersion}: ${id}`);
 
-        // 3. Grant same permissions to new version as the old one
-        await db.execute(sql`
-          INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, active_flag, granted_ts)
-          SELECT empid, entity, ${newForm.id}::text, permission, active_flag, NOW()
-          FROM app.entity_id_rbac_map
-          WHERE entity = 'form' AND entity_id = ${id}::text
-        `);
-
-        fastify.log.info(`Created new form version: ${newForm.id} (version ${newVersion}) from ${id}`);
-
-        return newForm;
+        return result[0];
       } else {
         // IN-PLACE UPDATE: No schema changes, just update metadata
         const updateFields: any[] = [];

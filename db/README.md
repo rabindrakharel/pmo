@@ -67,10 +67,10 @@ James Miller Account:
 ```
 app (schema)
 ├── Core Business Entities (13 tables)
-│   ├── d_office, d_business, ops_project_head, ops_task_head
+│   ├── d_office, d_business, d_project, d_task
 │   ├── d_employee, d_client, d_worksite
 │   ├── d_role, d_position
-│   └── d_artifact, d_wiki, ops_formlog_head, d_reports
+│   └── d_artifact, d_wiki, d_form_head, d_reports
 │
 ├── Settings/Configuration (16 tables)
 │   ├── setting_datalabel_office_level, setting_datalabel_business_level

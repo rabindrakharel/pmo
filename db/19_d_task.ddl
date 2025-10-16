@@ -1,6 +1,100 @@
 -- =====================================================
 -- TASK ENTITY (d_task) - HEAD TABLE
--- Task management with head/data pattern
+-- Task management with Kanban workflow, assignments, and estimation
+-- =====================================================
+--
+-- BUSINESS PURPOSE:
+-- Tracks individual work items within projects. Supports Kanban workflow (stages),
+-- priority levels, time estimation, team assignments, and task dependencies.
+-- Primary child entity of projects; displayed in table and Kanban board views.
+--
+-- API SEMANTICS & LIFECYCLE:
+--
+-- 1. CREATE TASK
+--    • Endpoint: POST /api/v1/task
+--    • Body: {name, code, project_id, stage, priority_level, assignee_employee_ids[], estimated_hours}
+--    • Returns: {id: "new-uuid", version: 1, ...}
+--    • Database: INSERT with version=1, active_flag=true, created_ts=now()
+--    • RBAC: Requires permission 4 (create) on entity='task', entity_id='all'
+--    • Business Rule: Creates entity_id_map entry linking to project_id
+--
+-- 2. UPDATE TASK (Stage Changes, Assignments, Hour Tracking)
+--    • Endpoint: PUT /api/v1/task/{id}
+--    • Body: {stage: "In Progress", actual_hours: 15.5, assignee_employee_ids: ["uuid1", "uuid2"]}
+--    • Returns: {id: "same-uuid", version: 2, updated_ts: "new-timestamp"}
+--    • Database: UPDATE SET stage=$1, actual_hours=$2, assignee_employee_ids=$3, version=version+1, updated_ts=now() WHERE id=$4
+--    • SCD Behavior: IN-PLACE UPDATE
+--      - Same ID (preserves relationships to artifacts/forms)
+--      - version increments (audit trail)
+--      - updated_ts refreshed
+--      - stage field drives Kanban column placement
+--    • RBAC: Requires permission 1 (edit) on entity='task', entity_id={id} OR 'all'
+--    • Business Rule: Stage transitions (Backlog → To Do → In Progress → Done) trigger UI updates
+--
+-- 3. DRAG-DROP STAGE CHANGE (Kanban Board)
+--    • Frontend Action: User drags task card from "To Do" column to "In Progress" column
+--    • Endpoint: PUT /api/v1/task/{id}
+--    • Body: {stage: "In Progress"}
+--    • Database: UPDATE SET stage=$1, updated_ts=now(), version=version+1 WHERE id=$2
+--    • Frontend: KanbanBoard component re-renders; card moves to new column
+--
+-- 4. INLINE EDIT (Table View)
+--    • Frontend Action: User clicks priority badge in table row, selects "Critical"
+--    • Endpoint: PUT /api/v1/task/{id}
+--    • Body: {priority_level: "critical"}
+--    • Database: UPDATE SET priority_level=$1, updated_ts=now(), version=version+1 WHERE id=$2
+--    • Frontend: FilteredDataTable re-fetches data; badge updates color to red
+--
+-- 5. LIST TASKS (Project-Filtered, RBAC Applied)
+--    • Endpoint: GET /api/v1/project/{project_id}/task?stage=In Progress&limit=50
+--    • Database:
+--      SELECT t.* FROM d_task t
+--      WHERE t.project_id=$1 AND t.stage=$2 AND t.active_flag=true
+--      ORDER BY t.priority_level DESC, t.created_ts DESC
+--      LIMIT $3
+--    • RBAC: Filtered via project-level permissions (if user can view project, can view tasks)
+--    • Frontend: Renders in EntityChildListPage with table or Kanban view
+--
+-- 6. GET TASK DETAILS
+--    • Endpoint: GET /api/v1/task/{id}
+--    • Database: SELECT * FROM d_task WHERE id=$1 AND active_flag=true
+--    • RBAC: Checks entity_id_rbac_map for view permission
+--    • Frontend: EntityDetailPage renders fields + tabs for artifacts/forms
+--
+-- 7. SOFT DELETE TASK
+--    • Endpoint: DELETE /api/v1/task/{id}
+--    • Database: UPDATE SET active_flag=false, to_ts=now() WHERE id=$1
+--    • RBAC: Requires permission 3 (delete)
+--    • Business Rule: Hides from Kanban/table views; preserves artifacts/forms
+--
+-- KEY SCD FIELDS:
+-- • id: Stable UUID (never changes, preserves child relationships)
+-- • version: Increments on updates (audit trail)
+-- • from_ts: Record creation timestamp (never modified)
+-- • to_ts: Soft delete timestamp (NULL=active, timestamptz=deleted)
+-- • active_flag: Soft delete flag (true=active, false=deleted)
+-- • created_ts: Original creation time (never modified)
+-- • updated_ts: Last modification time (refreshed on UPDATE)
+--
+-- KEY BUSINESS FIELDS:
+-- • stage: Workflow state (Backlog, To Do, In Progress, In Review, Blocked, Done, Cancelled)
+--   - Loaded from setting_datalabel_task_stage via /api/v1/setting?category=task_stage
+--   - Drives Kanban column placement
+--   - Updated via inline editing or drag-drop
+-- • priority_level: Urgency (low, medium, high, critical, urgent)
+--   - Loaded from setting_datalabel_task_priority via /api/v1/setting?category=task_priority
+--   - Affects sort order in lists
+-- • estimated_hours vs actual_hours: Time tracking for project burn-down
+-- • assignee_employee_ids[]: Array of UUIDs for multi-user assignment
+-- • parent_task_id: Subtask hierarchy support
+-- • dependency_task_ids[]: Task dependencies for scheduling
+--
+-- RELATIONSHIPS:
+-- • project_id → d_project (which project owns this task) - DIRECT FK
+-- • assignee_employee_ids[] → d_employee (who is assigned)
+-- • parent_task_id → d_task (subtask hierarchy)
+-- • task_id ← entity_id_map (artifacts/forms linked via mapping table)
+--
 -- =====================================================
 
 CREATE TABLE app.d_task (

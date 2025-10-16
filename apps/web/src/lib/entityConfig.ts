@@ -572,7 +572,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
     ],
 
     supportedViews: ['table'],
-    defaultView: 'table'
+    defaultView: 'table',
+
+    childEntities: ['artifact']
   },
 
   // --------------------------------------------------------------------------
@@ -604,13 +606,13 @@ export const entityConfigs: Record<string, EntityConfig> = {
         )
       },
       {
-        key: 'level_id',
+        key: 'level_name',
         title: 'Level',
         sortable: true,
         filterable: true,
         loadOptionsFromSettings: true,
         inlineEditable: true,
-        render: (value, record) => record.level_name ? renderBadge(record.level_name, {
+        render: (value, record) => value ? renderBadge(value, {
           'Department': 'bg-blue-100 text-blue-800',
           'Division': 'bg-purple-100 text-purple-800',
           'Corporate': 'bg-green-100 text-green-800',
@@ -653,8 +655,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'code', label: 'Code', type: 'text', required: true },
       { key: 'slug', label: 'Slug', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'level_id', label: 'Level', type: 'number', required: true },
-      { key: 'level_name', label: 'Level Name', type: 'text', required: true },
+      { key: 'level_name', label: 'Level Name', type: 'select', required: true, loadOptionsFromSettings: true },
       { key: 'parent_id', label: 'Parent Unit', type: 'select', options: [] },
       { key: 'office_id', label: 'Office', type: 'select', options: [] },
       { key: 'budget_allocated', label: 'Budget Allocated (CAD)', type: 'number' },
@@ -673,10 +674,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
       levels: 3,
       levelNames: ['Department', 'Division', 'Corporate'],
       metaTable: 'setting_business_level',
-      levelField: 'level_id'
+      levelField: 'level_name'
     },
 
-    childEntities: ['project', 'task', 'wiki', 'artifact', 'form']
+    childEntities: ['project']
   },
 
   // --------------------------------------------------------------------------
@@ -744,7 +745,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       levelField: 'level_id'
     },
 
-    childEntities: ['worksite', 'employee', 'wiki', 'task', 'artifact', 'form']
+    childEntities: ['task', 'artifact', 'wiki', 'form']
   },
 
   // --------------------------------------------------------------------------
@@ -857,7 +858,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
     ],
 
     supportedViews: ['table'],
-    defaultView: 'table'
+    defaultView: 'table',
+
+    childEntities: ['employee']
   },
 
   // --------------------------------------------------------------------------
@@ -902,9 +905,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     grid: {
       cardFields: ['name', 'descr']
-    },
-
-    childEntities: ['task', 'form']
+    }
   },
 
   // --------------------------------------------------------------------------
@@ -1033,7 +1034,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     supportedViews: ['table'],
     defaultView: 'table',
 
-    childEntities: ['project', 'task', 'wiki', 'artifact', 'form']
+    childEntities: ['project', 'artifact', 'form']
   },
 
   // --------------------------------------------------------------------------

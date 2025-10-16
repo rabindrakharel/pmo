@@ -264,14 +264,69 @@ export function GeoLocationInput({ disabled = false }: { disabled?: boolean }) {
   );
 }
 
+// =====================================================
 // DataTable Input Component
+// =====================================================
+//
+// PURPOSE:
+// Renders a dynamic table with editable cells for form data collection.
+// Supports adding/removing rows and columns, inline column label editing.
+//
+// DATA STORAGE PATTERN (FLATTENED):
+// Instead of storing data as nested arrays/objects, DataTable flattens
+// all cell values into a flat key-value structure using this pattern:
+//
+//   Key Pattern: {dataTableName}__{columnName}_{rowNumber}
+//
+// EXAMPLE:
+// For a table named "inventory" with 3 columns and 2 rows:
+//   {
+//     "inventory__col1_1": "Item A",
+//     "inventory__col2_1": "10",
+//     "inventory__col3_1": "$5.00",
+//     "inventory__col1_2": "Item B",
+//     "inventory__col2_2": "25",
+//     "inventory__col3_2": "$3.50"
+//   }
+//
+// BENEFITS OF FLATTENING:
+// 1. Simple key-value queries: Access any cell via submissionData->>'inventory__col1_2'
+// 2. Efficient updates: Update single cell without rebuilding entire table structure
+// 3. Consistent with other form fields: All fields stored as top-level key-value pairs
+// 4. Easy filtering: Extract all keys for a table using prefix match (startsWith)
+// 5. No nesting depth issues: Postgres JSONB queries stay simple
+//
+// DATA FLOW:
+// 1. User types in cell → handleCellChange() → builds key "tableName__col_row"
+// 2. Updates tableData state with flattened structure
+// 3. Calls onChange(tableData) → merges into parent formData
+// 4. On submit: All flattened keys go into submission_data JSONB in database
+// 5. On load: Extracts keys matching prefix from initialData (useEffect + useRef)
+//
+// LOADING INITIAL DATA:
+// - useEffect watches initialData and dataTableName
+// - Filters keys matching pattern: dataTableName__*
+// - Uses useRef to prevent re-initialization on every formData change
+// - Loads data ONCE to avoid losing user input during typing
+//
+// PROPS:
+// - dataTableName: Unique table identifier (used in key prefix)
+// - columns: Array of {name, label} defining table structure
+// - rows: Number of rows to display
+// - disabled: Whether table is read-only
+// - onChange: Callback receiving flattened data object
+// - onStructureChange: Callback when rows/columns are added/removed
+// - initialData: Form data object containing existing table values
+//
+// =====================================================
 export function DataTableInput({
   dataTableName = '',
   columns = [{ name: 'col1', label: 'Column 1' }, { name: 'col2', label: 'Column 2' }, { name: 'col3', label: 'Column 3' }],
   rows = 1,
   disabled = false,
   onChange,
-  onStructureChange
+  onStructureChange,
+  initialData
 }: {
   dataTableName?: string;
   columns?: Array<{ name: string; label: string }>;
@@ -279,6 +334,7 @@ export function DataTableInput({
   disabled?: boolean;
   onChange?: (data: Record<string, string>) => void;
   onStructureChange?: (rows: number, columns: Array<{ name: string; label: string }>) => void;
+  initialData?: Record<string, any>;
 }) {
   const [tableData, setTableData] = useState<Record<string, string>>({});
   const [numRows, setNumRows] = useState(rows);
@@ -293,7 +349,31 @@ export function DataTableInput({
     setTableCols(columns);
   }, [columns]);
 
+  // Load initial data into table (for edit mode) - only once
+  const hasLoadedRef = useRef(false);
+  useEffect(() => {
+    if (initialData && dataTableName && !hasLoadedRef.current) {
+      const extractedData: Record<string, string> = {};
+      const prefix = `${dataTableName}__`;
+
+      // Extract all keys that match the datatable pattern
+      Object.keys(initialData).forEach(key => {
+        if (key.startsWith(prefix)) {
+          extractedData[key] = initialData[key];
+        }
+      });
+
+      if (Object.keys(extractedData).length > 0) {
+        console.log('📊 DataTableInput: Loading initial data (ONCE)', { dataTableName, extractedData });
+        setTableData(extractedData);
+        hasLoadedRef.current = true;
+      }
+    }
+  }, [initialData, dataTableName]);
+
   const handleCellChange = (rowIndex: number, colName: string, value: string) => {
+    // Generate flattened key: tableName__columnName_rowNumber
+    // Example: "inventory__col1_1", "schedule__employee_3"
     const key = `${dataTableName}__${colName}_${rowIndex + 1}`;
     const newData = { ...tableData, [key]: value };
     setTableData(newData);

@@ -12,6 +12,7 @@
 | **[🗄️ Database Schema](./db/README.md)** | 5-layer RBAC architecture with 20+ tables | Canadian business context, DDL files, relationships |
 | **[🛠️ Management Tools](./tools/README.md)** | 16 platform operation tools | Start/stop, database import, API testing, RBAC debugging |
 | **[🧪 API Testing Guide](./tools/API_TESTING.md)** | Generic API testing with `test-api.sh` | Test any endpoint, examples, form workflows |
+strictly use tools to run api.
 
 ---
 
@@ -86,8 +87,8 @@ DATA MODEL:
 
   1. d_office - Office locations (4-level hierarchy: Office→District→Region→Corporate)
   2. d_business - Business units (3-level hierarchy: Dept→Division→Corporate)
-  3. ops_project_head - Projects with budgets, timelines, stakeholders
-  4. ops_task_head - Tasks linked to projects
+  3. d_project - Projects with budgets, timelines, stakeholders
+  4. d_task - Tasks linked to projects
   5. d_employee - Users with authentication & RBAC (includes James Miller)
   6. d_client - Customer entities
   7. d_worksite - Work site locations
@@ -95,24 +96,27 @@ DATA MODEL:
   9. d_position - Employee positions (16 records)
   10. d_artifact - Documents & file attachments
   11. d_wiki - Knowledge base
-  12. ops_formlog_head - Form definitions
+  12. d_form_head - Form definitions
   13. d_reports - Report definitions
 
-  2️⃣ Settings/Configuration Tables (13 tables):
+  2️⃣ Settings/Configuration Tables (16 tables):
 
-  1. setting_office_level - Office hierarchy (4 levels)
-  2. setting_business_level - Business hierarchy (3 levels)
-  3. setting_project_stage - Project lifecycle stages (7 stages)
-  4. setting_task_stage - Task workflow stages (7 stages)
-  5. setting_position_level - Position hierarchy (8 levels)
-  6. setting_opportunity_funnel_level - Sales pipeline stages
-  7. setting_industry_sector - Client industry classifications
-  8. setting_acquisition_channel - Client acquisition sources
-  9. setting_customer_tier - Customer service tiers
-  10. setting_project_status - Project status values
-  11. setting_task_status - Task status values
-  12. setting_hr_level - HR/employee hierarchy levels
-  13. setting_client_level - Client classification levels
+  1. setting_datalabel_office_level - Office hierarchy (4 levels)
+  2. setting_datalabel_business_level - Business hierarchy (3 levels)
+  3. setting_datalabel_project_stage - Project lifecycle stages
+  4. setting_datalabel_task_stage - Task workflow stages
+  5. setting_datalabel_position_level - Position hierarchy
+  6. setting_datalabel_opportunity_funnel_level - Sales pipeline stages
+  7. setting_datalabel_industry_sector - Client industry classifications
+  8. setting_datalabel_acquisition_channel - Client acquisition sources
+  9. setting_datalabel_customer_tier - Customer service tiers
+  10. setting_datalabel_client_level - Client classification levels
+  11. setting_datalabel_client_status - Client status values
+  12. setting_datalabel_task_priority - Task priority levels
+  13. setting_datalabel_task_update_type - Task update categories
+  14. setting_datalabel_wiki_publication_status - Wiki publication states
+  15. setting_datalabel_form_approval_status - Form approval workflow states
+  16. setting_datalabel_form_submission_status - Form submission states
 
 ---
 

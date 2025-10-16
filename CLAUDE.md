@@ -13,6 +13,300 @@
 | **[🛠️ Management Tools](./tools/README.md)** | 16 platform operation tools | Start/stop, database import, API testing, RBAC debugging |
 | **[🧪 API Testing Guide](./tools/API_TESTING.md)** | Generic API testing with `test-api.sh` | Test any endpoint, examples, form workflows |
 
+Strictly run API using tools
+
+# PMO Platform Management Tools
+
+Complete toolkit for platform operations, database management, API testing, and monitoring.
+
+---
+
+## 📁 Tools Directory
+
+```
+tools/
+├── README.md          # This guide
+├── start-all.sh       # Start all services (DB + API + Web)
+├── db-import.sh       # Import database schema (28 DDL files)
+├── test-api.sh        # Generic API testing tool
+├── logs-api.sh        # View API server logs
+└── logs-web.sh        # View web application logs
+```
+
+---
+
+## 🚀 Quick Start
+
+### Start the Platform
+
+```bash
+./tools/start-all.sh
+```
+
+**What it does:**
+- Starts Docker services (PostgreSQL, Redis, MinIO, MailHog)
+- Imports database schema with all 28 DDL files
+- Starts API server on port 4000
+- Starts web application on port 5173
+
+**Access:**
+- Web App: http://localhost:5173
+- API: http://localhost:4000
+- API Docs: http://localhost:4000/docs
+
+---
+
+## 🧪 Test API Endpoints
+
+### Quick Testing
+
+```bash
+# Test any endpoint
+./tools/test-api.sh <METHOD> <ENDPOINT> [JSON_DATA]
+
+# Examples
+./tools/test-api.sh GET /api/v1/form
+./tools/test-api.sh POST /api/v1/form '{"name":"Test","schema":{"steps":[]}}'
+./tools/test-api.sh PUT /api/v1/form/uuid '{"name":"Updated"}'
+./tools/test-api.sh DELETE /api/v1/form/uuid
+```
+
+**Features:**
+- Auto-authentication with James Miller account
+- Colored HTTP status indicators
+- JSON formatting with `jq`
+- Supports GET, POST, PUT, DELETE
+
+**More examples:** See commands below or test different endpoints
+
+---
+
+## 🗄️ Database Management
+
+### Import/Reset Database
+
+```bash
+./tools/db-import.sh
+```
+
+**What it does:**
+- Drops existing schema
+- Imports 28 DDL files in dependency order
+- Validates schema integrity
+- Loads sample data (5 employees, 5 projects, 8 tasks, etc.)
+
+**Options:**
+```bash
+./tools/db-import.sh --dry-run       # Validate without importing
+./tools/db-import.sh --verbose       # Detailed output
+./tools/db-import.sh --skip-validation  # Skip post-import checks
+```
+
+**When to use:**
+- Initial setup
+- After schema changes
+- Data corruption recovery
+- Development data refresh
+
+---
+
+## 📊 View Logs
+
+### API Server Logs
+
+```bash
+./tools/logs-api.sh [lines]      # View last N lines (default: 100)
+./tools/logs-api.sh -f           # Follow logs in real-time
+```
+
+### Web Application Logs
+
+```bash
+./tools/logs-web.sh [lines]      # View last N lines (default: 100)
+./tools/logs-web.sh -f           # Follow logs in real-time
+```
+
+---
+
+## 📋 Common Workflows
+
+### Development Setup
+```bash
+# 1. Start everything
+./tools/start-all.sh
+
+# 2. Test API is working
+./tools/test-api.sh GET /api/v1/form
+
+# 3. Monitor API logs
+./tools/logs-api.sh -f
+```
+
+### After Schema Changes
+```bash
+# 1. Reimport database
+./tools/db-import.sh
+
+# 2. Restart platform (stop and start-all)
+./tools/start-all.sh
+
+# 3. Test endpoints
+./tools/test-api.sh GET /api/v1/project
+```
+
+### Debugging Issues
+```bash
+# 1. Check API logs
+./tools/logs-api.sh
+
+# 2. Check web logs
+./tools/logs-web.sh
+
+# 3. Test specific endpoint
+./tools/test-api.sh GET /api/v1/employee
+```
+
+---
+
+## 🔧 Environment Variables
+
+### Database Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DB_HOST` | `localhost` | Database host |
+| `DB_PORT` | `5434` | Database port |
+| `DB_USER` | `app` | Database user |
+| `DB_PASSWORD` | `app` | Database password |
+| `DB_NAME` | `app` | Database name |
+
+### API Testing Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `API_URL` | `http://localhost:4000` | API base URL |
+| `API_TEST_EMAIL` | `james.miller@huronhome.ca` | Login email |
+| `API_TEST_PASSWORD` | `password123` | Login password |
+| `NO_AUTH` | (unset) | Skip authentication |
+
+**Example:**
+```bash
+API_URL=http://staging.api.com ./tools/test-api.sh GET /api/v1/form
+```
+
+---
+
+## 🌐 Service Ports
+
+| Service | Port | URL |
+|---------|------|-----|
+| Web Application | 5173 | http://localhost:5173 |
+| API Server | 4000 | http://localhost:4000 |
+| API Documentation | 4000 | http://localhost:4000/docs |
+| PostgreSQL | 5434 | localhost:5434 |
+| Redis | 6379 | localhost:6379 |
+| MinIO Console | 9001 | http://localhost:9001 |
+| MailHog | 8025 | http://localhost:8025 |
+
+**Default Credentials:**
+- Database: `app` / `app`
+- MinIO: `minio` / `minio123`
+- Test Account: `james.miller@huronhome.ca` / `password123`
+
+---
+
+## 📚 Additional Documentation
+
+- **[Database Schema](../db/README.md)** - DDL files and data model
+- **[API Documentation](../apps/api/README.md)** - Backend architecture
+- **[Frontend Guide](../apps/web/README.md)** - UI/UX documentation
+- **[Main README](../README.md)** - Project overview
+
+
+
+
+# Huron Home Services - PMO Enterprise Platform 🏡
+
+> **Complete Canadian Home Services Management System** - Production-ready PMO platform with comprehensive data model, unified RBAC, and industry-specific business intelligence
+
+## 📖 Documentation Index & Project Overview
+
+| Document | Purpose | Key Topics |
+|----------|---------|------------|
+| **[🏠 Main README](./README.md)** | Project overview and quick start | Architecture, getting started, business context |
+| **[🌐 Frontend Guide](./apps/web/README.md)** | React 19 hierarchical navigation UI/UX | 12 entity types, RBAC integration, modern components |
+| **[🔧 Backend API](./apps/api/README.md)** | Enterprise Fastify API with unified RBAC | 11 modules, JWT auth, 113+ permissions |
+| **[🗄️ Database Schema](./db/README.md)** | 5-layer RBAC architecture with 20+ tables | Canadian business context, DDL files, relationships |
+| **[🛠️ Management Tools](./tools/README.md)** | 16 platform operation tools | Start/stop, database import, API testing, RBAC debugging |
+| **[🧪 API Testing Guide](./tools/API_TESTING.md)** | Generic API testing with `test-api.sh` | Test any endpoint, examples, form workflows |
+strictly use tools to run api.
+
+---
+
+## 🎨 UI/UX Design System
+
+### Centralized Icon Configuration
+
+**Location:** `apps/web/src/lib/entityIcons.ts`
+
+All entity icons across the application are centralized in a single configuration file to ensure consistency between:
+- Sidebar navigation
+- Settings page dropdowns
+- Entity detail pages
+- Any component that displays entity-related icons
+
+#### Icon Mappings
+
+**Main Entities:**
+```typescript
+business/biz      → Building2 (Building icon)
+project           → FolderOpen (Folder icon)
+office            → MapPin (Location pin icon)
+client            → Users (Multiple users icon)
+role              → UserCheck (User with checkmark icon)
+employee          → Users (Multiple users icon)
+wiki              → BookOpen (Open book icon)
+form              → FileText (Document icon)
+task              → CheckSquare (Checkbox icon)
+artifact          → FileText (Document icon)
+```
+
+**Settings/Metadata Entities:**
+```typescript
+projectStatus, projectStage        → CheckSquare (matches task)
+taskStatus, taskStage              → CheckSquare (matches task)
+businessLevel, orgLevel            → Building2 (matches business)
+hrLevel, clientLevel               → Users (matches employee/client)
+positionLevel                      → UserCheck (matches role)
+opportunityFunnelLevel             → Users (matches client)
+industrySector, acquisitionChannel → Building2/Users
+```
+
+#### Usage
+
+```typescript
+// Import centralized icons
+import { ENTITY_ICONS, ENTITY_GROUPS, getEntityIcon } from '../lib/entityIcons';
+
+// Get icon for an entity
+const ProjectIcon = ENTITY_ICONS.project;  // Returns FolderOpen
+
+// Get icon dynamically
+const icon = getEntityIcon('task');  // Returns CheckSquare
+
+// Use entity group configuration
+const projectGroup = ENTITY_GROUPS.project;
+// { name: 'Project', icon: FolderOpen, color: 'blue' }
+```
+
+#### Benefits
+
+✅ **Single Source of Truth** - Change icon in one place, updates everywhere
+✅ **Visual Consistency** - Sidebar and settings use identical icons
+✅ **Type Safety** - TypeScript ensures icon consistency
+✅ **Easy Maintenance** - Add new entities without touching multiple files
+✅ **Self-Documenting** - Clear mapping of entity → icon relationships
+
 
 
 DATA MODEL:
@@ -20,8 +314,8 @@ DATA MODEL:
 
   1. d_office - Office locations (4-level hierarchy: Office→District→Region→Corporate)
   2. d_business - Business units (3-level hierarchy: Dept→Division→Corporate)
-  3. ops_project_head - Projects with budgets, timelines, stakeholders
-  4. ops_task_head - Tasks linked to projects
+  3. d_project - Projects with budgets, timelines, stakeholders
+  4. d_task - Tasks linked to projects
   5. d_employee - Users with authentication & RBAC (includes James Miller)
   6. d_client - Customer entities
   7. d_worksite - Work site locations
@@ -29,16 +323,27 @@ DATA MODEL:
   9. d_position - Employee positions (16 records)
   10. d_artifact - Documents & file attachments
   11. d_wiki - Knowledge base
-  12. ops_formlog_head - Form definitions
+  12. d_form_head - Form definitions
   13. d_reports - Report definitions
 
-  2️⃣ Metadata/Configuration Tables (5 tables):
+  2️⃣ Settings/Configuration Tables (16 tables):
 
-  1. meta_office_level - Office hierarchy (4 levels)
-  2. meta_business_level - Business hierarchy (3 levels)
-  3. meta_project_stage - Project lifecycle stages (7 stages)
-  4. meta_task_stage - Task workflow stages (7 stages)
-  5. meta_position_level - Position hierarchy (8 levels)
+  1. setting_datalabel_office_level - Office hierarchy (4 levels)
+  2. setting_datalabel_business_level - Business hierarchy (3 levels)
+  3. setting_datalabel_project_stage - Project lifecycle stages
+  4. setting_datalabel_task_stage - Task workflow stages
+  5. setting_datalabel_position_level - Position hierarchy
+  6. setting_datalabel_opportunity_funnel_level - Sales pipeline stages
+  7. setting_datalabel_industry_sector - Client industry classifications
+  8. setting_datalabel_acquisition_channel - Client acquisition sources
+  9. setting_datalabel_customer_tier - Customer service tiers
+  10. setting_datalabel_client_level - Client classification levels
+  11. setting_datalabel_client_status - Client status values
+  12. setting_datalabel_task_priority - Task priority levels
+  13. setting_datalabel_task_update_type - Task update categories
+  14. setting_datalabel_wiki_publication_status - Wiki publication states
+  15. setting_datalabel_form_approval_status - Form approval workflow states
+  16. setting_datalabel_form_submission_status - Form submission states
 
 ---
 

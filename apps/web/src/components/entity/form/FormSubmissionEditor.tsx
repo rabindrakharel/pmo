@@ -176,6 +176,29 @@ export function FormSubmissionEditor({
     return unwrap(value);
   }, []);
 
+  // DATATABLE KEY PRESERVATION LOGIC:
+  // This function normalizes submission data by matching keys to form field definitions.
+  // However, datatable fields use a special flattened key pattern that doesn't match
+  // any single field name, so we need special handling.
+  //
+  // DATATABLE KEY PATTERN: {dataTableName}__{columnName}_{rowNumber}
+  //   Examples: "inventory__col1_1", "schedule__employee_name_3", "table__price_2"
+  //
+  // PROBLEM:
+  // The default field lookup (resolveFieldForKey) won't find these keys because:
+  //   - Field name might be "datatable_1760567271140"
+  //   - But actual keys are "table_1760567271140__col1_1", "table_1760567271140__col2_1"
+  //   - These don't match any field.name, field.id, or field.label
+  //
+  // SOLUTION:
+  // Detect keys matching datatable pattern (contains "__" and ends with "_number")
+  // and preserve them as-is without trying to resolve to a field name.
+  //
+  // REGEX BREAKDOWN:
+  //   - key.includes('__') → Must contain double underscore (separator)
+  //   - /_\d+$/.test(key) → Must end with underscore + digits (row number)
+  //   - Example matches: "table__col1_1" ✅, "schedule__name_12" ✅
+  //   - Example non-matches: "email_123" ❌, "textarea__value" ❌
   const normalizeSubmissionValues = useCallback(
     (raw: any) => {
       if (!raw || typeof raw !== 'object') return {};
@@ -184,6 +207,16 @@ export function FormSubmissionEditor({
 
       const assignValue = (key: string | null | undefined, value: any) => {
         if (!key) return;
+
+        // Preserve datatable flattened keys without field lookup
+        // Pattern: tablename__columnname_rownumber (e.g., "inventory__col1_1")
+        if (key.includes('__') && /_\d+$/.test(key)) {
+          console.log('📊 Preserving datatable key:', key, '=', value);
+          result[key] = normalizeLeafValue(value);
+          return;
+        }
+
+        // For all other keys, try to resolve to a field name
         const field = resolveFieldForKey(key);
         if (field) {
           result[field.name] = normalizeLeafValue(value);

@@ -13,9 +13,10 @@ import { WikiEditorPage, WikiViewPage } from './pages/wiki';
 // Profile & Settings Pages
 import { ProfilePage } from './pages/profile';
 import { LabelsPage } from './pages/labels';
-import { SettingsPage, DataLabelPage, DataLinkagePage } from './pages/setting';
+import { SettingsPage, DataLabelPage } from './pages/setting';
 import { SecurityPage } from './pages/security';
 import { BillingPage } from './pages/billing';
+import { LinkagePage } from './pages/LinkagePage';
 
 // Shared/Universal Components
 import { EntityMainPage, EntityDetailPage, EntityChildListPage, EntityCreatePage } from './pages/shared';
@@ -152,6 +153,7 @@ function AppRoutes() {
 
       {/* Artifact Detail Route */}
       <Route path="/artifact/:id" element={<ProtectedRoute><EntityDetailPage entityType="artifact" /></ProtectedRoute>} />
+
       {/* Profile Navigation Pages */}
       <Route
         path="/profile"
@@ -186,10 +188,10 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/settings/data-linkage"
+        path="/linkage"
         element={
           <ProtectedRoute>
-            <DataLinkagePage />
+            <LinkagePage />
           </ProtectedRoute>
         }
       />

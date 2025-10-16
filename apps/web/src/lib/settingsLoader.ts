@@ -49,6 +49,7 @@ export const FIELD_TO_SETTING_MAP: Record<string, string> = {
 
   // Business fields
   'level_id': 'business_level', // Context-dependent
+  'level_name': 'business_level',
   'business_level_id': 'business_level',
 
   // Office fields
@@ -163,7 +164,8 @@ export async function loadSettingOptions(
     const options: SettingOption[] = data
       .filter((item: any) => item.active_flag !== false) // Only active items
       .map((item: any) => ({
-        value: item.level_id !== undefined ? item.level_id : item.id,
+        // Use level_name as value for text-based fields, otherwise use level_id or id
+        value: item.level_name || (item.level_id !== undefined ? item.level_id : item.id),
         label: item.level_name || item.name || item.title || String(item.id),
         metadata: {
           level_id: item.level_id,

@@ -1,65 +1,100 @@
--- ============================================================================
--- XXVIII. EMPLOYEE ENTITIES
--- ============================================================================
-
--- ============================================================================
--- SEMANTICS:
--- ============================================================================
+-- =====================================================
+-- EMPLOYEE ENTITY (d_employee) - CORE PERSONNEL ENTITY
+-- User accounts, authentication, RBAC foundation, and HR management
+-- =====================================================
 --
--- Purpose:
---   Employee entities representing human resources within the organization.
---   Manages personnel data, authentication credentials, contact information,
---   organizational assignments, and compliance tracking for the PMO system.
+-- BUSINESS PURPOSE:
+-- Central employee/user table managing authentication, RBAC identity, contact info,
+-- organizational assignments, and compliance data. Every RBAC permission in
+-- entity_id_rbac_map references an employee via empid field.
 --
--- Entity Type: employee
--- Entity Classification: Core Personnel Entity (foundation for RBAC and assignments)
+-- API SEMANTICS & LIFECYCLE:
 --
--- Parent Entities:
---   - office (employees are assigned to office locations)
---   - biz (employees belong to business units)
---   - position (employees hold organizational positions)
+-- 1. LOGIN / AUTHENTICATION
+--    • Endpoint: POST /api/v1/auth/login
+--    • Body: {email: "james.miller@huronhome.ca", password: "password123"}
+--    • Database: SELECT id, email, password_hash, name FROM d_employee WHERE email=$1 AND active_flag=true
+--    • Verification: bcrypt.compare($password, password_hash)
+--    • Returns: {token: "JWT", user: {sub: id, email, name}}
+--    • Business Rule: JWT token contains employee.id as 'sub' claim for RBAC lookups
 --
--- Action Entities:
---   - project (employees are assigned to projects)
---   - task (employees are assigned tasks)
---   - role (employees are assigned roles via rel_emp_role)
---   - form (employees submit and approve forms)
---   - artifact (employees create and manage artifacts)
---   - wiki (employees contribute to knowledge base)
+-- 2. CREATE EMPLOYEE (HR Onboarding)
+--    • Endpoint: POST /api/v1/employee
+--    • Body: {name, email, employee_number, employee_type, title, manager_employee_id}
+--    • Database: INSERT with version=1, active_flag=true, password_hash=bcrypt.hash(temp_password)
+--    • RBAC: Requires permission 4 (create) on entity='employee', entity_id='all'
+--    • Business Rule: Auto-sends welcome email with password reset link
 --
--- Employee Types and Classifications:
---   - Full-time: Regular full-time employees
---   - Part-time: Regular part-time employees
---   - Contract: Contract workers and consultants
---   - Temporary: Temporary workers
---   - Intern: Student interns and co-op students
+-- 3. UPDATE EMPLOYEE (Profile, Org Changes, Compensation)
+--    • Endpoint: PUT /api/v1/employee/{id}
+--    • Body: {title, department, manager_employee_id, salary_band, remote_work_eligible}
+--    • Database: UPDATE SET [fields], version=version+1, updated_ts=now() WHERE id=$1
+--    • SCD Behavior: IN-PLACE UPDATE (title changes don't create history)
+--    • RBAC: Requires permission 1 (edit) - may have field-level restrictions
 --
--- New Design Integration:
---   - Maps to entity_id_hierarchy_mapping for parent-child relationships
---   - No direct foreign keys to other entities (follows new standard)
---   - Supports RBAC via entity_id_rbac_map table
---   - Uses common field structure across all entities
---   - Includes metadata jsonb field for extensibility
---   - Authentication handled via email/password with JWT tokens
+-- 4. SOFT DELETE / TERMINATION
+--    • Endpoint: DELETE /api/v1/employee/{id}
+--    • Database: UPDATE SET active_flag=false, to_ts=now(), termination_date=now() WHERE id=$1
+--    • Business Rule: Preserves authentication history; RBAC permissions remain but ineffective
 --
--- Authentication and Security:
---   - Primary authentication via email and hashed password
---   - JWT token-based session management
---   - RBAC permissions via entity_id_rbac_map
---   - Support for password reset and account lockout
---   - Audit trail for security compliance
+-- 5. LIST EMPLOYEES (Directory View)
+--    • Endpoint: GET /api/v1/employee?department=Operations&employee_type=full-time
+--    • Database:
+--      SELECT e.* FROM d_employee e
+--      WHERE active_flag=true
+--        AND EXISTS (SELECT 1 FROM entity_id_rbac_map WHERE empid=$user_id AND entity='employee' AND 0=ANY(permission))
+--      ORDER BY name ASC
+--    • RBAC: Filtered by view permission
+--    • Frontend: Renders in EntityMainPage as searchable employee directory
 --
--- UI Navigation Model:
---   - Appears in sidebar menu as "Employee"
---   - Main page shows FilteredDataTable with searchable/filterable employees
---   - Row click navigates to Employee Detail Page
---   - Detail page shows Overview tab + child entity tabs (projects, tasks, etc.)
---   - Inline editing available on detail page with RBAC permission checks
---   - Employee directory and organizational chart views
+-- 6. PASSWORD RESET
+--    • Endpoint: POST /api/v1/auth/reset-password
+--    • Body: {email}
+--    • Database: UPDATE SET password_reset_token=$1, password_reset_expires=now()+interval '1 hour' WHERE email=$2
+--    • Returns: Email sent with reset link
 --
--- ============================================================================
--- DDL:
--- ============================================================================
+-- 7. ACCOUNT LOCKOUT (Security)
+--    • Trigger: 5 failed login attempts
+--    • Database: UPDATE SET failed_login_attempts=failed_login_attempts+1, account_locked_until=now()+interval '30 minutes'
+--    • Business Rule: Auto-unlocks after 30 minutes or admin intervention
+--
+-- KEY SCD FIELDS:
+-- • id: Stable UUID (RBAC identity, never changes)
+-- • version: Increments on org/profile updates
+-- • from_ts: Hire date (original record creation)
+-- • to_ts: Termination date (soft delete timestamp)
+-- • active_flag: Employment status (true=active, false=terminated)
+-- • created_ts: Account creation
+-- • updated_ts: Last profile modification
+--
+-- KEY BUSINESS FIELDS:
+-- • email: Unique login identifier (username)
+-- • password_hash: bcrypt hashed password (never returned by API)
+-- • employee_number: HR system identifier
+-- • employee_type: full-time, part-time, contract, temporary, intern
+-- • manager_employee_id: Reporting structure (self-referencing FK)
+-- • last_login_ts: Session tracking
+-- • failed_login_attempts: Security lockout mechanism
+--
+-- AUTHENTICATION FLOW:
+-- 1. User submits email/password → API checks d_employee.email
+-- 2. bcrypt verifies password_hash
+-- 3. JWT issued with {sub: employee.id, email, name}
+-- 4. All subsequent requests include JWT → Middleware extracts employee.id
+-- 5. entity_id_rbac_map queries use employee.id as empid for permission checks
+--
+-- RBAC INTEGRATION:
+-- • Every permission in entity_id_rbac_map has empid = d_employee.id
+-- • Employee's permissions queried as: SELECT * FROM entity_id_rbac_map WHERE empid={token.sub}
+-- • Termination (active_flag=false) doesn't delete permissions but makes them ineffective
+--
+-- RELATIONSHIPS:
+-- • manager_employee_id → d_employee (self-reference for org chart)
+-- • empid ← entity_id_rbac_map (all RBAC permissions)
+-- • assignee_employee_ids[] ← d_task (task assignments)
+-- • manager_employee_id ← d_project (project management)
+--
+-- =====================================================
 
 CREATE TABLE app.d_employee (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

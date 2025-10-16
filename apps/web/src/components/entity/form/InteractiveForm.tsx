@@ -33,10 +33,44 @@ export function InteractiveForm({
   const [submitMessage, setSubmitMessage] = useState('');
 
   // Update formData when initialData changes (for edit mode)
+  // DATATABLE UNFLATTENING LOGIC:
+  // When loading saved form submissions, datatable data may arrive in two formats:
+  //
+  // FORMAT 1 (NESTED): { "datatable_1760567271140": { "table__col1_1": "value", "table__col2_1": "value2" } }
+  //   - This happens when data is saved with field name as wrapper
+  //   - We need to "unflatten" by merging nested object into root level
+  //
+  // FORMAT 2 (FLAT): { "table__col1_1": "value", "table__col2_1": "value2", "email_123": "test@test.com" }
+  //   - This is the correct format that DataTableInput expects
+  //   - No transformation needed
+  //
+  // WHY UNFLATTEN?
+  // DataTableInput component looks for keys matching pattern: {dataTableName}__{columnName}_{rowNumber}
+  // If these keys are nested under "datatable_XXX" wrapper, the component won't find them.
+  //
+  // SOLUTION:
+  // Detect field names starting with "datatable_" that contain nested objects,
+  // merge their contents into root level, and remove the wrapper key.
   React.useEffect(() => {
     if (initialData && Object.keys(initialData).length > 0) {
       console.log('📥 InteractiveForm: Loading initial data', initialData);
-      setFormData(initialData);
+
+      // Start with a copy of initialData
+      const flattenedData = { ...initialData };
+
+      // Look for nested datatable wrappers
+      Object.keys(initialData).forEach(key => {
+        if (key.startsWith('datatable_') && typeof initialData[key] === 'object' && initialData[key] !== null) {
+          // This is a nested datatable object - merge it into root level
+          // Example: { "datatable_123": { "table__col1_1": "A" } } → { "table__col1_1": "A" }
+          Object.assign(flattenedData, initialData[key]);
+          delete flattenedData[key]; // Remove the wrapper key
+          console.log('📊 Unflattened datatable field:', key, '→', initialData[key]);
+        }
+      });
+
+      console.log('📥 InteractiveForm: Flattened data for DataTable', flattenedData);
+      setFormData(flattenedData);
     }
   }, [initialData]);
 
@@ -331,6 +365,8 @@ export function InteractiveForm({
         );
 
       case 'datatable':
+        // For datatable, we need to pass the whole formData because datatable stores
+        // its data as multiple keys: tableName__colName_rowNum
         return (
           <>
             <DataTableInput
@@ -338,7 +374,11 @@ export function InteractiveForm({
               columns={field.dataTableColumns || [{ name: 'col1', label: 'Column 1' }, { name: 'col2', label: 'Column 2' }, { name: 'col3', label: 'Column 3' }]}
               rows={field.dataTableDefaultRows || 1}
               disabled={false}
-              onChange={(data) => handleFieldChange(field.name, data)}
+              onChange={(data) => {
+                // Merge datatable data into formData
+                setFormData(prev => ({ ...prev, ...data }));
+              }}
+              initialData={formData}
             />
             {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
           </>

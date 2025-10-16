@@ -1,6 +1,115 @@
 -- =====================================================
--- ARTIFACT ENTITY (d_artifact) - HEAD TABLE
--- Document and file management with head/data pattern
+-- ARTIFACT ENTITY (d_artifact) - CONTENT ENTITY
+-- Document and file management with version control and access controls
+-- =====================================================
+--
+-- BUSINESS PURPOSE:
+-- Manages documents, templates, images, videos, and other file artifacts linked to projects, tasks,
+-- or standalone repositories. Supports version control, security classification, and visibility controls.
+-- Actual file content stored separately (MinIO/S3); this table tracks metadata and relationships.
+--
+-- API SEMANTICS & LIFECYCLE:
+--
+-- 1. CREATE ARTIFACT (Upload Document/File)
+--    • Endpoint: POST /api/v1/artifact (multipart/form-data)
+--    • Body: {name, code, artifact_type, file, primary_entity_type, primary_entity_id, visibility, security_classification}
+--    • Returns: {id: "new-uuid", version: 1, file_size_bytes, ...}
+--    • Database: INSERT with version=1, active_flag=true, is_latest_version=true, created_ts=now()
+--    • File Storage: Uploads file to MinIO/S3 bucket; stores reference in d_artifact_data
+--    • RBAC: Requires permission 4 (create) on entity='artifact', entity_id='all'
+--    • Business Rule: File metadata extracted (size, format); virus scanning may be applied
+--
+-- 2. UPDATE ARTIFACT METADATA (Rename, Recategorize, Change Visibility)
+--    • Endpoint: PUT /api/v1/artifact/{id}
+--    • Body: {name, descr, tags, visibility, security_classification}
+--    • Returns: {id: "same-uuid", version: 2, updated_ts: "new-timestamp"}
+--    • Database: UPDATE SET [fields], version=version+1, updated_ts=now() WHERE id=$1
+--    • SCD Behavior: IN-PLACE UPDATE
+--      - Same ID (preserves file reference and entity relationships)
+--      - version increments (audit trail)
+--      - updated_ts refreshed
+--      - File content remains unchanged (only metadata updated)
+--    • RBAC: Requires permission 1 (edit) on entity='artifact', entity_id={id} OR 'all'
+--    • Business Rule: Metadata changes don't affect file content or download URL
+--
+-- 3. UPLOAD NEW VERSION (Replace File Content)
+--    • Endpoint: POST /api/v1/artifact/{parent_id}/version (multipart/form-data)
+--    • Body: {file}
+--    • Returns: {id: "new-uuid", version: 1, parent_artifact_id: "parent_id", is_latest_version: true}
+--    • Database:
+--      - UPDATE old_artifact SET is_latest_version=false WHERE id=$parent_id
+--      - INSERT new_artifact WITH parent_artifact_id=$parent_id, is_latest_version=true
+--    • Business Rule: Creates NEW artifact record linking to parent; previous version remains accessible
+--
+-- 4. SOFT DELETE ARTIFACT
+--    • Endpoint: DELETE /api/v1/artifact/{id}
+--    • Database: UPDATE SET active_flag=false, to_ts=now() WHERE id=$1
+--    • RBAC: Requires permission 3 (delete)
+--    • Business Rule: Hides from lists; preserves file in storage for recovery/audit
+--
+-- 5. LIST ARTIFACTS (Filtered by Type, Entity, Security Level)
+--    • Endpoint: GET /api/v1/artifact?artifact_type=document&primary_entity_id={uuid}&limit=50
+--    • Database:
+--      SELECT a.* FROM d_artifact a
+--      WHERE a.active_flag=true
+--        AND a.is_latest_version=true
+--        AND EXISTS (
+--          SELECT 1 FROM entity_id_rbac_map rbac
+--          WHERE rbac.empid=$user_id
+--            AND rbac.entity='artifact'
+--            AND (rbac.entity_id=a.id::text OR rbac.entity_id='all')
+--            AND 0=ANY(rbac.permission)  -- View permission
+--        )
+--      ORDER BY a.created_ts DESC
+--      LIMIT $1 OFFSET $2
+--    • RBAC: User sees ONLY artifacts they have view access to
+--    • Frontend: Renders in EntityMainPage or EntityChildListPage with file icons
+--
+-- 6. GET SINGLE ARTIFACT (WITH DOWNLOAD URL)
+--    • Endpoint: GET /api/v1/artifact/{id}
+--    • Database: SELECT * FROM d_artifact WHERE id=$1 AND active_flag=true
+--    • File Storage: Generates signed URL for download from MinIO/S3
+--    • RBAC: Checks entity_id_rbac_map for view permission
+--    • Frontend: Displays file details with download button
+--
+-- 7. DOWNLOAD ARTIFACT
+--    • Endpoint: GET /api/v1/artifact/{id}/download
+--    • File Storage: Returns file stream from MinIO/S3 via signed URL
+--    • RBAC: Requires permission 0 (view) on entity='artifact', entity_id={id}
+--    • Business Rule: Download tracked for audit; security_classification enforced
+--
+-- 8. GET ARTIFACT VERSION HISTORY
+--    • Endpoint: GET /api/v1/artifact/{id}/versions
+--    • Database:
+--      SELECT a.* FROM d_artifact a
+--      WHERE (a.id=$1 OR a.parent_artifact_id=$1)
+--        AND a.active_flag=true
+--      ORDER BY a.created_ts DESC
+--    • Frontend: Version history list with restore option
+--
+-- KEY SCD FIELDS:
+-- • id: Stable UUID (never changes for a version, preserves file reference)
+-- • version: Increments on metadata updates (NOT file content changes)
+-- • from_ts: Artifact creation timestamp (never modified)
+-- • to_ts: Artifact deletion timestamp (NULL=active, timestamptz=deleted)
+-- • active_flag: Artifact status (true=active, false=deleted)
+-- • created_ts: Original creation time (never modified)
+-- • updated_ts: Last modification time (refreshed on UPDATE)
+--
+-- KEY BUSINESS FIELDS:
+-- • artifact_type: File classification ('document', 'template', 'image', 'video', etc.)
+-- • file_format: Extension ('pdf', 'docx', 'xlsx', 'png', 'jpg', 'mp4', etc.)
+-- • file_size_bytes: File size in bytes (for storage tracking and download estimates)
+-- • visibility: Access level ('public', 'internal', 'restricted', 'private')
+-- • security_classification: Confidentiality level ('general', 'confidential', 'restricted')
+-- • parent_artifact_id: Version chain (NULL for original, UUID for versions)
+-- • is_latest_version: Current version flag (only one record has true per version chain)
+--
+-- RELATIONSHIPS:
+-- • parent_artifact_id → d_artifact (version chain for file updates)
+-- • primary_entity_type, primary_entity_id: Links artifact to project/task/etc via entity_id_map
+-- • artifact_id ← d_artifact_data (file content storage references)
+--
 -- =====================================================
 
 CREATE TABLE app.d_artifact (

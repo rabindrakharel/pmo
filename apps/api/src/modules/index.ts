@@ -27,7 +27,7 @@ import { hierarchyRoutes } from './meta/hierarchy-routes.js';
 import { singleEntityRoutes } from './entity/single-entity-routes.js';
 import { parentActionEntityRoutes } from './entity/parent-action-entity-routes.js';
 import { rbacRoutes } from './rbac/routes.js';
-import { linkageRoutes } from './linkage/routes.js';
+import { linkageModule } from './linkage/index.js';
 
 /**
  * Register all API route modules with entity-based RBAC functionality
@@ -66,8 +66,8 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   // RBAC permission checking routes
   await rbacRoutes(fastify);
 
-  // Linkage routes (entity relationship management)
-  await linkageRoutes(fastify);
+  // Linkage routes (entity relationship management - both type and instance)
+  await linkageModule(fastify);
 
   // Entity-based API routes (all require entity-based RBAC)
   await empRoutes(fastify);

@@ -21,7 +21,6 @@ const BizSchema = Type.Object({
   descr: Type.Optional(Type.String()),
   tags: Type.Optional(Type.Array(Type.String())),
   parent_id: Type.Optional(Type.String()),
-  level_id: Type.Number(),
   level_name: Type.String(),
   office_id: Type.Optional(Type.String()),
   budget_allocated: Type.Optional(Type.Number()),
@@ -41,7 +40,6 @@ const CreateBizSchema = Type.Object({
   descr: Type.Optional(Type.String()),
   tags: Type.Optional(Type.Array(Type.String())),
   parent_id: Type.Optional(Type.String({ format: 'uuid' })),
-  level_id: Type.Number({ minimum: 0 }),
   level_name: Type.String({ minLength: 1 }),
   office_id: Type.Optional(Type.String({ format: 'uuid' })),
   budget_allocated: Type.Optional(Type.Number()),
@@ -59,7 +57,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       querystring: Type.Object({
         active_flag: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
-        level_id: Type.Optional(Type.Number()),
+        level_name: Type.Optional(Type.String()),
         parent_id: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
@@ -77,7 +75,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      active_flag, search, level_id, parent_id,
+      active_flag, search, level_name, parent_id,
       limit = 50, offset = 0
     } = request.query as any;
     const userId = (request as any).user?.sub;
@@ -105,8 +103,8 @@ export async function bizRoutes(fastify: FastifyInstance) {
         baseConditions.push(sql`b.active_flag = ${active_flag}`);
       }
 
-      if (level_id !== undefined) {
-        baseConditions.push(sql`b.level_id = ${level_id}`);
+      if (level_name !== undefined) {
+        baseConditions.push(sql`b.level_name = ${level_name}`);
       }
 
       if (parent_id) {
@@ -133,11 +131,11 @@ export async function bizRoutes(fastify: FastifyInstance) {
       const bizUnits = await db.execute(sql`
         SELECT
           b.id, b.slug, b.code, b.name, b.descr, b.tags, b.parent_id,
-          b.level_id, b.level_name, b.office_id, b.budget_allocated, b.manager_employee_id,
+          b.level_name, b.office_id, b.budget_allocated, b.manager_employee_id,
           b.from_ts, b.to_ts, b.active_flag, b.created_ts, b.updated_ts, b.version
         FROM app.d_business b
         WHERE ${sql.join(baseConditions, sql` AND `)}
-        ORDER BY b.level_id ASC, b.name ASC
+        ORDER BY b.level_name ASC, b.name ASC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -199,12 +197,13 @@ export async function bizRoutes(fastify: FastifyInstance) {
       }
 
       const children = await db.execute(sql`
-        SELECT 
-          id, name, "descr", level_id, level_name, is_leaf_level, is_root_level,
-          biz_unit_type, profit_center, cost_center_code, created, updated
+        SELECT
+          id, name, descr, level_name, parent_id, tags,
+          budget_allocated, manager_employee_id, office_id,
+          from_ts, to_ts, active_flag, created_ts, updated_ts, version
         FROM app.d_business
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY level_id ASC, name ASC
+        ORDER BY level_name ASC, name ASC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -765,7 +764,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
     try {
       const bizUnit = await db.execute(sql`
         SELECT
-          id, name, descr, tags, parent_id, level_id, level_name,
+          id, name, descr, tags, parent_id, level_name,
           slug, code, from_ts, to_ts, active_flag, created_ts, updated_ts, version,
           office_id, budget_allocated, manager_employee_id
         FROM app.d_business
@@ -855,25 +854,21 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       const result = await db.execute(sql`
         INSERT INTO app.d_business (
-          name, "descr", slug, code, level_id, level_name, is_leaf_level, is_root_level, parent_id,
-          cost_center_code, biz_unit_type, profit_center, tags, attr, active
+          name, descr, slug, code, level_name, parent_id,
+          office_id, budget_allocated, manager_employee_id, tags, active_flag
         )
         VALUES (
-          ${data.name}, 
+          ${data.name},
           ${data.descr || null},
-          ${data.slug || null}, 
-          ${data.code || null}, 
-          ${data.level_id}, 
+          ${data.slug || null},
+          ${data.code || null},
           ${data.level_name},
-          ${is_leaf_level},
-          ${is_root_level},
           ${data.parent_id || null},
-          ${data.cost_center_code || null}, 
-          ${data.biz_unit_type || 'operational'}, 
-          ${data.profit_center !== false},
+          ${data.office_id || null},
+          ${data.budget_allocated || null},
+          ${data.manager_employee_id || null},
           ${data.tags ? JSON.stringify(data.tags) : '[]'}::jsonb,
-          ${data.attr ? JSON.stringify(data.attr) : '{}'}::jsonb,
-          ${data.active !== false}
+          ${data.active_flag !== false}
         )
         RETURNING *
       `);
@@ -938,18 +933,16 @@ export async function bizRoutes(fastify: FastifyInstance) {
       const updateFields = [];
       
       if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
-      if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
+      if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
       if (data.slug !== undefined) updateFields.push(sql`slug = ${data.slug}`);
       if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
-      if (data.level_id !== undefined) updateFields.push(sql`level_id = ${data.level_id}`);
       if (data.level_name !== undefined) updateFields.push(sql`level_name = ${data.level_name}`);
       if (data.parent_id !== undefined) updateFields.push(sql`parent_id = ${data.parent_id}`);
-      if (data.cost_center_code !== undefined) updateFields.push(sql`cost_center_code = ${data.cost_center_code}`);
-      if (data.biz_unit_type !== undefined) updateFields.push(sql`biz_unit_type = ${data.biz_unit_type}`);
-      if (data.profit_center !== undefined) updateFields.push(sql`profit_center = ${data.profit_center}`);
+      if (data.office_id !== undefined) updateFields.push(sql`office_id = ${data.office_id}`);
+      if (data.budget_allocated !== undefined) updateFields.push(sql`budget_allocated = ${data.budget_allocated}`);
+      if (data.manager_employee_id !== undefined) updateFields.push(sql`manager_employee_id = ${data.manager_employee_id}`);
       if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
-      if (data.attr !== undefined) updateFields.push(sql`attr = ${JSON.stringify(data.attr)}::jsonb`);
-      if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
+      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });

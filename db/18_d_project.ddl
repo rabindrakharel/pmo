@@ -1,6 +1,107 @@
 -- =====================================================
--- PROJECT ENTITY (d_project)
--- Core project management entity
+-- PROJECT ENTITY (d_project) - CORE ENTITY
+-- Project management with budget tracking, timelines, and team assignments
+-- =====================================================
+--
+-- BUSINESS PURPOSE:
+-- Tracks projects with budgets, schedules, team assignments, and lifecycle stages.
+-- Projects are the primary container for tasks, artifacts, wiki pages, and forms.
+-- Supports hierarchical organization through business units and offices.
+--
+-- API SEMANTICS & LIFECYCLE:
+--
+-- 1. CREATE PROJECT
+--    • Endpoint: POST /api/v1/project
+--    • Body: {name, code, slug, project_stage, budget_allocated, planned_start_date, business_id}
+--    • Returns: {id: "new-uuid", version: 1, ...}
+--    • Database: INSERT with version=1, active_flag=true, created_ts=now()
+--    • RBAC: Requires permission 4 (create) on entity='project', entity_id='all'
+--    • Business Rule: Creates entity_id_map entries for business/office relationships
+--
+-- 2. UPDATE PROJECT (Inline Edits, Stage Changes, Budget Updates)
+--    • Endpoint: PUT /api/v1/project/{id}
+--    • Body: {project_stage, budget_spent, actual_end_date, stakeholder_employee_ids}
+--    • Returns: {id: "same-uuid", version: 2, updated_ts: "new-timestamp"}
+--    • Database: UPDATE SET [fields], version=version+1, updated_ts=now() WHERE id=$1
+--    • SCD Behavior: IN-PLACE UPDATE
+--      - Same ID (preserves all child entity relationships)
+--      - version increments (audit trail)
+--      - updated_ts refreshed
+--      - NO archival (project_stage can change: Planning → Execution → Closure)
+--    • RBAC: Requires permission 1 (edit) on entity='project', entity_id={id} OR 'all'
+--    • Business Rule: Stage changes trigger frontend Kanban column moves
+--
+-- 3. SOFT DELETE PROJECT
+--    • Endpoint: DELETE /api/v1/project/{id}
+--    • Database: UPDATE SET active_flag=false, to_ts=now() WHERE id=$1
+--    • RBAC: Requires permission 3 (delete)
+--    • Business Rule: Hides from lists but preserves all child entities and relationships
+--
+-- 4. LIST PROJECTS (With RBAC Filtering)
+--    • Endpoint: GET /api/v1/project?project_stage=Execution&business_id={uuid}&limit=50
+--    • Database:
+--      SELECT p.* FROM d_project p
+--      WHERE active_flag=true
+--        AND EXISTS (
+--          SELECT 1 FROM entity_id_rbac_map rbac
+--          WHERE rbac.empid=$user_id
+--            AND rbac.entity='project'
+--            AND (rbac.entity_id=p.id::text OR rbac.entity_id='all')
+--            AND 0=ANY(rbac.permission)  -- View permission
+--        )
+--      ORDER BY name ASC, created_ts DESC
+--      LIMIT $1 OFFSET $2
+--    • RBAC: User sees ONLY projects they have view access to
+--    • Frontend: Renders in EntityMainPage with table/kanban views
+--
+-- 5. GET SINGLE PROJECT (With Child Entity Counts)
+--    • Endpoint: GET /api/v1/project/{id}
+--    • Database: SELECT * FROM d_project WHERE id=$1 AND active_flag=true
+--    • RBAC: Checks entity_id_rbac_map for view permission
+--    • Frontend: EntityDetailPage renders fields + tabs for tasks/wiki/artifacts/forms
+--
+-- 6. GET PROJECT CHILD ENTITIES
+--    • Endpoint: GET /api/v1/project/{id}/task?status=In Progress&limit=20
+--    • Database:
+--      SELECT t.* FROM d_task t
+--      WHERE t.project_id=$1 AND t.active_flag=true
+--      ORDER BY t.created_ts DESC
+--    • Relationship: Direct FK (t.project_id) OR via entity_id_map
+--    • Frontend: Renders in DynamicChildEntityTabs component
+--
+-- 7. GET PROJECT ACTION SUMMARIES (Tab Counts)
+--    • Endpoint: GET /api/v1/project/{id}/dynamic-child-entity-tabs
+--    • Returns: {action_entities: [{actionEntity: "task", count: 8, label: "Tasks", icon: "CheckSquare"}, ...]}
+--    • Database: Counts via entity_id_map JOINs:
+--      SELECT COUNT(*) FROM d_task t
+--      INNER JOIN entity_id_map eim ON eim.child_entity_id=t.id
+--      WHERE eim.parent_entity_id=$1 AND eim.parent_entity_type='project'
+--    • Frontend: Renders tab badges with counts
+--
+-- KEY SCD FIELDS:
+-- • id: Stable UUID (never changes, preserves child relationships)
+-- • version: Increments on updates (audit trail of changes)
+-- • from_ts: Record creation timestamp (never modified)
+-- • to_ts: Soft delete timestamp (NULL=active, timestamptz=deleted)
+-- • active_flag: Soft delete flag (true=active, false=deleted/archived)
+-- • created_ts: Original creation time (never modified)
+-- • updated_ts: Last modification time (refreshed on UPDATE)
+--
+-- KEY BUSINESS FIELDS:
+-- • project_stage: Workflow state (Initiation, Planning, Execution, Monitoring, Closure, On Hold, Cancelled)
+--   - Loaded from setting_datalabel_project_stage via /api/v1/setting?category=project_stage
+--   - Drives Kanban column placement in frontend
+--   - Updated via inline editing or drag-drop in UI
+-- • budget_allocated vs budget_spent: Financial tracking
+-- • planned_* vs actual_*: Timeline tracking (start/end dates)
+-- • manager_employee_id, sponsor_employee_id, stakeholder_employee_ids[]: Team assignments
+--
+-- RELATIONSHIPS:
+-- • business_id → d_business (which business unit owns this project)
+-- • office_id → d_office (which office manages this project)
+-- • project_id ← d_task (tasks belong to project via FK)
+-- • project_id ← entity_id_map (tasks/wiki/artifacts/forms linked via mapping table)
+--
 -- =====================================================
 
 CREATE TABLE app.d_project (

@@ -1,66 +1,128 @@
 -- ============================================================================
--- XXII. CLIENT ENTITIES
--- ============================================================================
-
--- ============================================================================
--- SEMANTICS:
+-- CLIENT ENTITY (d_client) - CORE ENTITY
+-- Customer relationship management across residential, commercial, municipal, industrial sectors
 -- ============================================================================
 --
--- Purpose:
---   Client entities representing customers, stakeholders, and service recipients
---   across residential, commercial, municipal, and industrial sectors. Provides
---   foundation for relationship management, service delivery, contract management,
---   and revenue tracking across all client engagement types. These are clients of the software subscriber. 
+-- BUSINESS PURPOSE:
+-- Manages customer entities representing service recipients across all sectors (residential,
+-- commercial, municipal, industrial). Provides foundation for relationship management, service
+-- delivery, contract tracking, and revenue attribution. Clients own projects and receive services.
 --
--- Entity Type: client
--- Entity Classification: Standalone Entity (can be parent or action entity)
+-- API SEMANTICS & LIFECYCLE:
 --
--- Parent Entities:
---   - biz (business units manage client relationships)
---   - org (geographic client assignment and service delivery)
+-- 1. CREATE CLIENT
+--    • Endpoint: POST /api/v1/client
+--    • Body: {name, code, client_number, client_type, client_status, primary_contact_name, primary_email, primary_phone, primary_address, city, province}
+--    • Returns: {id: "new-uuid", version: 1, ...}
+--    • Database: INSERT with version=1, active_flag=true, created_ts=now()
+--    • RBAC: Requires permission 4 (create) on entity='client', entity_id='all'
+--    • Business Rule: client_number must be unique; client_type validates against ('residential', 'commercial', 'municipal', 'industrial')
 --
--- Action Entities:
---   - project (projects delivered for clients)
---   - task (tasks performed for specific clients)
---   - form (client service forms and assessments)
---   - artifact (client documentation, contracts, reports)
---   - wiki (client-specific knowledge and procedures)
+-- 2. UPDATE CLIENT (Contact Changes, Status Updates, Relationship Upgrades)
+--    • Endpoint: PUT /api/v1/client/{id}
+--    • Body: {primary_contact_name, primary_email, client_status, opportunity_funnel_level_name, customer_tier_name}
+--    • Returns: {id: "same-uuid", version: 2, updated_ts: "new-timestamp"}
+--    • Database: UPDATE SET [fields], version=version+1, updated_ts=now() WHERE id=$1
+--    • SCD Behavior: IN-PLACE UPDATE
+--      - Same ID (preserves all project relationships and service history)
+--      - version increments (audit trail)
+--      - updated_ts refreshed
+--      - NO archival (client tier can change: Lead → Prospect → Active Customer)
+--    • RBAC: Requires permission 1 (edit) on entity='client', entity_id={id} OR 'all'
+--    • Business Rule: Changing opportunity_funnel_level_name reflects sales pipeline progress
 --
--- Client Categories:
---   - residential: Individual homeowners and residential properties
---   - commercial: Business clients including retail, office, healthcare
---   - municipal: Government entities and public sector organizations
---   - industrial: Manufacturing and large-scale industrial facilities
+-- 3. SOFT DELETE CLIENT (Account Closure)
+--    • Endpoint: DELETE /api/v1/client/{id}
+--    • Database: UPDATE SET active_flag=false, to_ts=now(), client_status='inactive' WHERE id=$1
+--    • RBAC: Requires permission 3 (delete)
+--    • Business Rule: Preserves all historical projects and service records; client hidden from active lists
 --
--- Client Hierarchy Levels:
---   - Level 0: CEO (Chief Executive Officer with final decision authority)
---   - Level 1: Director (Director level with departmental authority)
---   - Level 2: Senior Manager (Senior Manager with program oversight)
---   - Level 3: Manager (Manager with team leadership)
---   - Level 4: Technical Lead (Technical Lead with subject matter expertise)
+-- 4. LIST CLIENTS (Filtered by Type, Status, Tier)
+--    • Endpoint: GET /api/v1/client?client_type=commercial&customer_tier_name=Enterprise&limit=50
+--    • Database:
+--      SELECT c.* FROM d_client c
+--      WHERE c.active_flag=true
+--        AND EXISTS (
+--          SELECT 1 FROM entity_id_rbac_map rbac
+--          WHERE rbac.empid=$user_id
+--            AND rbac.entity='client'
+--            AND (rbac.entity_id=c.id::text OR rbac.entity_id='all')
+--            AND 0=ANY(rbac.permission)  -- View permission
+--        )
+--      ORDER BY c.customer_tier_name DESC, c.name ASC
+--      LIMIT $1 OFFSET $2
+--    • RBAC: User sees ONLY clients they have view access to
+--    • Frontend: Renders in EntityMainPage with table view + advanced filtering
 --
--- New Design Integration:
---   - Maps to entity_id_hierarchy_mapping for parent-child relationships
---   - No direct foreign keys to other entities (follows new standard)
---   - Supports RBAC via entity_id_rbac_map table
---   - Uses common field structure across all entities
---   - Includes metadata jsonb field for extensibility
---   - Supports client hierarchy via meta_client_level references
+-- 5. GET SINGLE CLIENT
+--    • Endpoint: GET /api/v1/client/{id}
+--    • Database: SELECT * FROM d_client WHERE id=$1 AND active_flag=true
+--    • RBAC: Checks entity_id_rbac_map for view permission
+--    • Frontend: EntityDetailPage renders fields + tabs for projects/tasks/forms
 --
--- Legacy Design Elements Retained:
---   - Client identification and categorization
---   - Contact information and communication preferences
---   - Business information and financial attributes
---   - Service preferences and special requirements
---   - Relationship management and value tracking
+-- 6. GET CLIENT PROJECTS
+--    • Endpoint: GET /api/v1/client/{id}/project?project_stage=Execution&limit=20
+--    • Database:
+--      SELECT p.* FROM d_project p
+--      INNER JOIN entity_id_map eim ON eim.child_entity_id=p.id
+--      WHERE eim.parent_entity_id=$1
+--        AND eim.parent_entity_type='client'
+--        AND eim.child_entity_type='project'
+--        AND p.active_flag=true
+--      ORDER BY p.created_ts DESC
+--    • Relationship: Via entity_id_map (flexible client-project relationships)
+--    • Frontend: Renders in DynamicChildEntityTabs component
 --
--- UI Navigation Model:
---   - Appears in sidebar menu as "Client"
---   - Main page shows FilteredDataTable with searchable/filterable clients
---   - Row click navigates to Client Detail Page
---   - Detail page shows Overview tab + child entity tabs (projects, tasks, etc.)
---   - Inline editing available on detail page with RBAC permission checks
-
+-- 7. GET CLIENT REVENUE SUMMARY
+--    • Endpoint: GET /api/v1/client/{id}/revenue-summary
+--    • Database: Aggregates project budgets and metadata fields
+--      SELECT
+--        c.metadata->>'lifetime_value' AS lifetime_value,
+--        c.metadata->>'annual_contract_value' AS annual_contract_value,
+--        COUNT(p.id) AS project_count,
+--        SUM(p.budget_spent) AS total_project_spending
+--      FROM d_client c
+--      LEFT JOIN entity_id_map eim ON eim.parent_entity_id=c.id AND eim.parent_entity_type='client'
+--      LEFT JOIN d_project p ON p.id=eim.child_entity_id AND p.active_flag=true
+--      WHERE c.id=$1
+--      GROUP BY c.id
+--    • Business Rule: Provides client lifetime value and project spending analytics
+--
+-- 8. SALES PIPELINE MOVEMENT (Opportunity Funnel)
+--    • Frontend Action: User moves client from "Lead" to "Qualified" in pipeline view
+--    • Endpoint: PUT /api/v1/client/{id}
+--    • Body: {opportunity_funnel_level_name: "Qualified"}
+--    • Database: UPDATE SET opportunity_funnel_level_name=$1, updated_ts=now(), version=version+1 WHERE id=$2
+--    • Business Rule: opportunity_funnel_level_name loads from setting_datalabel_opportunity_funnel_level
+--
+-- KEY SCD FIELDS:
+-- • id: Stable UUID (never changes, preserves project relationships and service history)
+-- • version: Increments on updates (audit trail of contact changes, tier upgrades)
+-- • from_ts: Client acquisition date (never modified)
+-- • to_ts: Account closure timestamp (NULL=active, timestamptz=closed)
+-- • active_flag: Account status (true=active, false=closed/archived)
+-- • created_ts: Original creation time (never modified)
+-- • updated_ts: Last modification time (refreshed on UPDATE)
+--
+-- KEY BUSINESS FIELDS:
+-- • client_number: Unique client identifier (e.g., CL-RES-001, CL-COM-002)
+-- • client_type: Sector classification ('residential', 'commercial', 'municipal', 'industrial')
+-- • client_status: Account status ('active', 'inactive', 'prospect', 'former')
+-- • opportunity_funnel_level_name: Sales pipeline stage (Lead, Qualified, Proposal, Contract Signed)
+--   - Loaded from setting_datalabel_opportunity_funnel_level via /api/v1/setting?category=opportunity_funnel_level
+-- • customer_tier_name: Service tier ('Standard', 'Premium', 'Enterprise', 'Government')
+--   - Loaded from setting_datalabel_customer_tier via /api/v1/setting?category=customer_tier
+-- • industry_sector_name: Industry classification (Residential, Commercial Real Estate, Healthcare, Education)
+--   - Loaded from setting_datalabel_industry_sector via /api/v1/setting?category=industry_sector
+-- • acquisition_channel_name: How client was acquired (Referral, Organic Search, Cold Outreach)
+--   - Loaded from setting_datalabel_acquisition_channel via /api/v1/setting?category=acquisition_channel
+-- • primary_contact_name, primary_email, primary_phone: Main contact details
+-- • metadata: JSONB field storing lifetime_value, annual_contract_value, service_categories, payment_terms
+--
+-- RELATIONSHIPS:
+-- • client_id ← entity_id_map (projects/tasks/forms linked to clients via mapping table)
+-- • NO direct foreign keys (follows flexible relationship model)
+--
 -- ============================================================================
 -- DDL:
 -- ============================================================================
