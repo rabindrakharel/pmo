@@ -111,6 +111,7 @@
 CREATE TABLE app.d_entity (
     entity_type varchar(50) NOT NULL,
     entity_id uuid NOT NULL,
+    order_id int4 GENERATED ALWAYS AS IDENTITY, --ordering need only, sidebar ordering
     entity_name varchar(255) NOT NULL,
     entity_slug varchar(100),
     entity_code varchar(100),

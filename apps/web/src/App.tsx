@@ -1,14 +1,14 @@
-import React from 'react';
+import React, { Fragment } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FullscreenProvider } from './contexts/FullscreenContext';
 import { LoginForm } from './components/shared';
 
 // Form Pages
-import { FormBuilderPage, FormEditPage, FormViewPage, FormDataPreviewPage, PublicFormPage } from './pages/form';
+import { FormBuilderPage, FormEditPage, FormDataPreviewPage, PublicFormPage } from './pages/form';
 
 // Wiki Pages
-import { WikiEditorPage, WikiViewPage } from './pages/wiki';
+import { WikiEditorPage } from './pages/wiki';
 
 // Profile & Settings Pages
 import { ProfilePage } from './pages/profile';
@@ -20,6 +20,9 @@ import { LinkagePage } from './pages/LinkagePage';
 
 // Shared/Universal Components
 import { EntityMainPage, EntityDetailPage, EntityChildListPage, EntityCreatePage } from './pages/shared';
+
+// Entity Configuration
+import { entityConfigs } from './lib/entityConfig';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -50,9 +53,50 @@ function AppRoutes() {
     );
   }
 
+  // Core entities that use standard auto-generated routing
+  const coreEntities = ['biz', 'office', 'project', 'task', 'employee', 'role', 'worksite', 'client', 'position', 'artifact'];
+
+  // Generate routes for all core entities from entityConfig
+  const generateEntityRoutes = () => {
+    return coreEntities.map(entityType => {
+      const config = entityConfigs[entityType];
+      if (!config) return null;
+
+      return (
+        <Fragment key={entityType}>
+          {/* List Route */}
+          <Route
+            path={`/${entityType}`}
+            element={<ProtectedRoute><EntityMainPage entityType={entityType} /></ProtectedRoute>}
+          />
+
+          {/* Create Route */}
+          <Route
+            path={`/${entityType}/new`}
+            element={<ProtectedRoute><EntityCreatePage entityType={entityType} /></ProtectedRoute>}
+          />
+
+          {/* Detail Route with Child Entity Routes */}
+          <Route
+            path={`/${entityType}/:id`}
+            element={<ProtectedRoute><EntityDetailPage entityType={entityType} /></ProtectedRoute>}
+          >
+            {config.childEntities?.map(childType => (
+              <Route
+                key={childType}
+                path={childType}
+                element={<EntityChildListPage parentType={entityType} childType={childType} />}
+              />
+            ))}
+          </Route>
+        </Fragment>
+      );
+    });
+  };
+
   return (
     <Routes>
-      {/* Public Routes - No authentication required */}
+      {/* Public Routes */}
       <Route path="/public/form/:id" element={<PublicFormPage />} />
 
       <Route
@@ -63,81 +107,18 @@ function AppRoutes() {
         path="/"
         element={<Navigate to="/project" replace />}
       />
-      {/* Universal Entity List Routes */}
-      <Route path="/biz" element={<ProtectedRoute><EntityMainPage entityType="biz" /></ProtectedRoute>} />
-      <Route path="/office" element={<ProtectedRoute><EntityMainPage entityType="office" /></ProtectedRoute>} />
-      <Route path="/project" element={<ProtectedRoute><EntityMainPage entityType="project" /></ProtectedRoute>} />
-      <Route path="/task" element={<ProtectedRoute><EntityMainPage entityType="task" /></ProtectedRoute>} />
+
+      {/* Auto-Generated Entity Routes */}
+      {generateEntityRoutes()}
+
+      {/* Special Routes - Wiki (custom create/edit pages) */}
       <Route path="/wiki" element={<ProtectedRoute><EntityMainPage entityType="wiki" /></ProtectedRoute>} />
-      <Route path="/artifact" element={<ProtectedRoute><EntityMainPage entityType="artifact" /></ProtectedRoute>} />
+      <Route path="/wiki/new" element={<ProtectedRoute><WikiEditorPage /></ProtectedRoute>} />
+      <Route path="/wiki/:id" element={<ProtectedRoute><EntityDetailPage entityType="wiki" /></ProtectedRoute>} />
+      <Route path="/wiki/:id/edit" element={<ProtectedRoute><WikiEditorPage /></ProtectedRoute>} />
+
+      {/* Special Routes - Form (custom builder/editor pages) */}
       <Route path="/form" element={<ProtectedRoute><EntityMainPage entityType="form" /></ProtectedRoute>} />
-      <Route path="/employee" element={<ProtectedRoute><EntityMainPage entityType="employee" /></ProtectedRoute>} />
-      <Route path="/role" element={<ProtectedRoute><EntityMainPage entityType="role" /></ProtectedRoute>} />
-      <Route path="/worksite" element={<ProtectedRoute><EntityMainPage entityType="worksite" /></ProtectedRoute>} />
-      <Route path="/client" element={<ProtectedRoute><EntityMainPage entityType="client" /></ProtectedRoute>} />
-      <Route path="/position" element={<ProtectedRoute><EntityMainPage entityType="position" /></ProtectedRoute>} />
-
-      {/* Universal Entity Create Routes */}
-      <Route path="/biz/new" element={<ProtectedRoute><EntityCreatePage entityType="biz" /></ProtectedRoute>} />
-      <Route path="/office/new" element={<ProtectedRoute><EntityCreatePage entityType="office" /></ProtectedRoute>} />
-      <Route path="/project/new" element={<ProtectedRoute><EntityCreatePage entityType="project" /></ProtectedRoute>} />
-      <Route path="/task/new" element={<ProtectedRoute><EntityCreatePage entityType="task" /></ProtectedRoute>} />
-      <Route path="/artifact/new" element={<ProtectedRoute><EntityCreatePage entityType="artifact" /></ProtectedRoute>} />
-      <Route path="/employee/new" element={<ProtectedRoute><EntityCreatePage entityType="employee" /></ProtectedRoute>} />
-      <Route path="/role/new" element={<ProtectedRoute><EntityCreatePage entityType="role" /></ProtectedRoute>} />
-      <Route path="/worksite/new" element={<ProtectedRoute><EntityCreatePage entityType="worksite" /></ProtectedRoute>} />
-      <Route path="/client/new" element={<ProtectedRoute><EntityCreatePage entityType="client" /></ProtectedRoute>} />
-      <Route path="/position/new" element={<ProtectedRoute><EntityCreatePage entityType="position" /></ProtectedRoute>} />
-
-      {/* Universal Entity Detail Routes with Child Entities */}
-
-      {/* Project Routes */}
-      <Route path="/project/:id" element={<ProtectedRoute><EntityDetailPage entityType="project" /></ProtectedRoute>}>
-        <Route path="task" element={<EntityChildListPage parentType="project" childType="task" />} />
-        <Route path="wiki" element={<EntityChildListPage parentType="project" childType="wiki" />} />
-        <Route path="artifact" element={<EntityChildListPage parentType="project" childType="artifact" />} />
-        <Route path="form" element={<EntityChildListPage parentType="project" childType="form" />} />
-      </Route>
-
-      {/* Business Routes */}
-      <Route path="/biz/:id" element={<ProtectedRoute><EntityDetailPage entityType="biz" /></ProtectedRoute>}>
-        <Route path="project" element={<EntityChildListPage parentType="biz" childType="project" />} />
-        <Route path="task" element={<EntityChildListPage parentType="biz" childType="task" />} />
-        <Route path="wiki" element={<EntityChildListPage parentType="biz" childType="wiki" />} />
-        <Route path="artifact" element={<EntityChildListPage parentType="biz" childType="artifact" />} />
-        <Route path="form" element={<EntityChildListPage parentType="biz" childType="form" />} />
-      </Route>
-
-      {/* Office Routes */}
-      <Route path="/office/:id" element={<ProtectedRoute><EntityDetailPage entityType="office" /></ProtectedRoute>}>
-        <Route path="biz" element={<EntityChildListPage parentType="office" childType="biz" />} />
-        <Route path="project" element={<EntityChildListPage parentType="office" childType="project" />} />
-        <Route path="task" element={<EntityChildListPage parentType="office" childType="task" />} />
-        <Route path="worksite" element={<EntityChildListPage parentType="office" childType="worksite" />} />
-        <Route path="employee" element={<EntityChildListPage parentType="office" childType="employee" />} />
-        <Route path="wiki" element={<EntityChildListPage parentType="office" childType="wiki" />} />
-        <Route path="artifact" element={<EntityChildListPage parentType="office" childType="artifact" />} />
-        <Route path="form" element={<EntityChildListPage parentType="office" childType="form" />} />
-      </Route>
-
-      {/* Worksite Routes */}
-      <Route path="/worksite/:id" element={<ProtectedRoute><EntityDetailPage entityType="worksite" /></ProtectedRoute>}>
-        <Route path="task" element={<EntityChildListPage parentType="worksite" childType="task" />} />
-        <Route path="form" element={<EntityChildListPage parentType="worksite" childType="form" />} />
-      </Route>
-
-      {/* Task Routes */}
-      <Route path="/task/:id" element={<ProtectedRoute><EntityDetailPage entityType="task" /></ProtectedRoute>}>
-        <Route path="form" element={<EntityChildListPage parentType="task" childType="form" />} />
-        <Route path="artifact" element={<EntityChildListPage parentType="task" childType="artifact" />} />
-      </Route>
-
-      {/* Simple Detail Routes (no children) */}
-      <Route path="/employee/:id" element={<ProtectedRoute><EntityDetailPage entityType="employee" /></ProtectedRoute>} />
-      <Route path="/role/:id" element={<ProtectedRoute><EntityDetailPage entityType="role" /></ProtectedRoute>} />
-      <Route path="/client/:id" element={<ProtectedRoute><EntityDetailPage entityType="client" /></ProtectedRoute>} />
-      <Route path="/position/:id" element={<ProtectedRoute><EntityDetailPage entityType="position" /></ProtectedRoute>} />
-      {/* Form Special Routes (Builder/Editor/Viewer) */}
       <Route path="/form/new" element={<ProtectedRoute><FormBuilderPage /></ProtectedRoute>} />
       <Route path="/form/:id" element={<ProtectedRoute><EntityDetailPage entityType="form" /></ProtectedRoute>}>
         <Route path="form-data" element={<div />} />
@@ -145,14 +126,6 @@ function AppRoutes() {
       </Route>
       <Route path="/form/:id/edit" element={<ProtectedRoute><FormEditPage /></ProtectedRoute>} />
       <Route path="/form/:formId/data/:submissionId" element={<ProtectedRoute><FormDataPreviewPage /></ProtectedRoute>} />
-
-      {/* Wiki Detail Route - Uses EntityDetailPage for viewing, WikiEditorPage for editing */}
-      <Route path="/wiki/:id" element={<ProtectedRoute><EntityDetailPage entityType="wiki" /></ProtectedRoute>} />
-      <Route path="/wiki/new" element={<ProtectedRoute><WikiEditorPage /></ProtectedRoute>} />
-      <Route path="/wiki/:id/edit" element={<ProtectedRoute><WikiEditorPage /></ProtectedRoute>} />
-
-      {/* Artifact Detail Route */}
-      <Route path="/artifact/:id" element={<ProtectedRoute><EntityDetailPage entityType="artifact" /></ProtectedRoute>} />
 
       {/* Profile Navigation Pages */}
       <Route

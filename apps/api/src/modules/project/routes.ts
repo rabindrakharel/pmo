@@ -3,11 +3,12 @@ import { Type } from '@sinclair/typebox';
 // RBAC implemented directly via database joins - no separate permission gates
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import { 
-  getUniversalColumnMetadata, 
+import {
+  getUniversalColumnMetadata,
   filterUniversalColumns,
-  getColumnsByMetadata 
+  getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
+import { createBulkChildEntityEndpoints } from '../../lib/child-entity-route-factory.js';
 
 // Schema based on actual d_project table structure from db/XV_d_project.ddl
 const ProjectSchema = Type.Object({
@@ -1082,149 +1083,10 @@ export async function projectRoutes(fastify: FastifyInstance) {
     }
   });
 
-  fastify.get('/api/v1/project/:id/form', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      querystring: Type.Object({
-        page: Type.Optional(Type.Integer({ minimum: 1 })),
-        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
-      })
-    }
-  }, async function (request, reply) {
-    try {
-      const { id: projectId } = request.params as { id: string };
-      const { page = 1, limit = 20 } = request.query as any;
-      const userId = request.user?.sub;
-
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // Direct RBAC check for project access
-      const projectAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'project'
-          AND (rbac.entity_id = ${projectId}::text OR rbac.entity_id = 'all')
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
-      `);
-
-      if (projectAccess.length === 0) {
-        return reply.status(403).send({ error: 'Access denied for this project' });
-      }
-
-      const offset = (page - 1) * limit;
-      const forms = await db.execute(sql`
-        SELECT f.*, COALESCE(f.name, 'Untitled Form') as name, f.descr
-        FROM app.d_form_head f
-        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = f.id::text
-        WHERE eim.parent_entity_id = ${projectId}
-          AND eim.parent_entity_type = 'project'
-          AND eim.child_entity_type = 'form'
-          AND eim.active_flag = true
-          AND f.active_flag = true
-        ORDER BY f.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_form_head f
-        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = f.id::text
-        WHERE eim.parent_entity_id = ${projectId}
-          AND eim.parent_entity_type = 'project'
-          AND eim.child_entity_type = 'form'
-          AND eim.active_flag = true
-          AND f.active_flag = true
-      `);
-
-      return {
-        data: forms,
-        total: Number(countResult[0]?.total || 0),
-        page,
-        limit
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching project forms:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  fastify.get('/api/v1/project/:id/artifact', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      querystring: Type.Object({
-        page: Type.Optional(Type.Integer({ minimum: 1 })),
-        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
-      })
-    }
-  }, async function (request, reply) {
-    try {
-      const { id: projectId } = request.params as { id: string };
-      const { page = 1, limit = 20 } = request.query as any;
-      const userId = request.user?.sub;
-
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // Direct RBAC check for project access
-      const projectAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'project'
-          AND (rbac.entity_id = ${projectId}::text OR rbac.entity_id = 'all')
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
-      `);
-
-      if (projectAccess.length === 0) {
-        return reply.status(403).send({ error: 'Access denied for this project' });
-      }
-
-      const offset = (page - 1) * limit;
-      const artifacts = await db.execute(sql`
-        SELECT a.*, COALESCE(a.name, 'Untitled Artifact') as name, a.descr
-        FROM app.d_artifact a
-        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = a.id::text
-        WHERE eim.parent_entity_id = ${projectId}
-          AND eim.parent_entity_type = 'project'
-          AND eim.child_entity_type = 'artifact'
-          AND eim.active_flag = true
-          AND a.active_flag = true
-        ORDER BY a.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_artifact a
-        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = a.id::text
-        WHERE eim.parent_entity_id = ${projectId}
-          AND eim.parent_entity_type = 'project'
-          AND eim.child_entity_type = 'artifact'
-          AND eim.active_flag = true
-          AND a.active_flag = true
-      `);
-
-      return {
-        data: artifacts,
-        total: Number(countResult[0]?.total || 0),
-        page,
-        limit
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching project artifacts:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
+  // ========================================
+  // CHILD ENTITY ENDPOINTS (Using Factory Pattern)
+  // ========================================
+  // Replaces 150+ lines of duplicate code with 1 line
+  // Automatically creates endpoints: /form, /artifact
+  createBulkChildEntityEndpoints(fastify, 'project', ['form', 'artifact']);
 }
