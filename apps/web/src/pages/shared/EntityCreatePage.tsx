@@ -4,7 +4,7 @@ import { ArrowLeft, Save } from 'lucide-react';
 import { Layout, EntityFormContainer } from '../../components/shared';
 import { getEntityConfig } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
-import * as api from '../../lib/api';
+import { APIFactory } from '../../lib/api';
 
 /**
  * EntityCreatePage
@@ -77,14 +77,9 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
         }
       }
 
-      // Get API module for this entity
-      const apiModule = (api as any)[`${entityType}Api`];
-      if (!apiModule || !apiModule.create) {
-        throw new Error(`API module for ${entityType} not found`);
-      }
-
-      // Create the entity
-      const created = await apiModule.create(formData);
+      // Type-safe API call using APIFactory
+      const api = APIFactory.getAPI(entityType);
+      const created = await api.create(formData);
 
       // Navigate to the detail page
       const createdId = created.id || created.data?.id;

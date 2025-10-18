@@ -5,7 +5,7 @@
 
 CREATE TABLE app.d_wiki_data (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    wiki_id uuid NOT NULL  ON DELETE CASCADE,
+    wiki_id uuid NOT NULL REFERENCES app.d_wiki(id) ON DELETE CASCADE,
 
     -- Content storage
     content_markdown text,

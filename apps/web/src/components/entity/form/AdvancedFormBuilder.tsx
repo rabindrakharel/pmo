@@ -25,6 +25,7 @@ const FIELD_TYPES_PALETTE = [
   { type: 'select' as FieldType, label: 'Select', hint: 'Dropdown menu', icon: <ChevronDown className="h-4 w-4" /> },
   { type: 'radio' as FieldType, label: 'Radio Buttons', hint: 'Single choice', icon: <Radio className="h-4 w-4" /> },
   { type: 'checkbox' as FieldType, label: 'Checkboxes', hint: 'Multiple choices', icon: <CheckSquare className="h-4 w-4" /> },
+  { type: 'taskcheck' as FieldType, label: 'Task Checkbox', hint: 'Single checkbox with timestamp', icon: <CheckSquare className="h-4 w-4" /> },
   { type: 'datetime' as FieldType, label: 'Date/Time', hint: 'Date and time picker', icon: <Calendar className="h-4 w-4" /> },
   { type: 'file' as FieldType, label: 'File Upload', hint: 'Upload files', icon: <Upload className="h-4 w-4" /> },
   { type: 'range' as FieldType, label: 'Range Slider', hint: 'Numeric range', icon: <Sliders className="h-4 w-4" /> },
@@ -69,9 +70,9 @@ export function AdvancedFormBuilder({
 
   // Helper to restore form state from saved schema
   const restoreFormState = (formData: any) => {
-    if (!formData || !formData.schema) return null;
+    if (!formData || !formData.form_schema) return null;
 
-    const schema = formData.schema;
+    const schema = formData.form_schema;
 
     if (schema?.steps && Array.isArray(schema.steps)) {
       // Restore steps
@@ -301,7 +302,7 @@ export function AdvancedFormBuilder({
         descr: descr || undefined,
         taskSpecific: !!taskId,
         taskId,
-        schema: multiStepSchema,
+        form_schema: multiStepSchema,
         isDraft: true,
         formBuilderState: {
           steps,
@@ -354,7 +355,7 @@ export function AdvancedFormBuilder({
         descr: descr || undefined,
         taskSpecific: !!taskId,
         taskId,
-        schema: multiStepSchema,
+        form_schema: multiStepSchema,
         isMultiStep: steps.length > 1,
         totalSteps: steps.length,
         stepConfiguration: steps,

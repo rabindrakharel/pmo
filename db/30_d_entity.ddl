@@ -1,0 +1,281 @@
+-- =====================================================
+-- ENTITY TYPE METADATA TABLE (d_entity)
+-- Stores entity TYPE definitions with parent-child relationships and icons
+-- =====================================================
+--
+-- BUSINESS PURPOSE:
+-- Maintains metadata for all entity TYPES in the system including parent-child relationships,
+-- icons, labels, and hierarchical structures. This is the single source of truth for entity
+-- type definitions and their relationships, used for dynamic UI generation (tabs, navigation).
+--
+-- RELATIONSHIP TO d_entity_instance_id:
+-- • d_entity: Stores entity TYPE metadata (what types exist, their relationships, icons)
+-- • d_entity_instance_id: Stores entity INSTANCE data (actual UUIDs, names of specific entities)
+--
+-- Example:
+-- • d_entity has ONE row for "project" type with child_entities=[task, wiki, artifact, form]
+-- • d_entity_instance_id has MANY rows for each project instance (Project A, Project B, etc.)
+--
+-- API SEMANTICS & LIFECYCLE:
+--
+-- 1. GET ENTITY TYPE METADATA
+--    • Endpoint: GET /api/v1/entity/type/:entity_type
+--    • Database: SELECT * FROM d_entity WHERE entity_type=$1
+--    • Returns: Entity type with icon, label, child_entities array
+--    • Frontend: Used for dynamic tab generation, navigation
+--
+-- 2. GET ALL ENTITY TYPES
+--    • Endpoint: GET /api/v1/entity/types
+--    • Database: SELECT * FROM d_entity ORDER BY display_order
+--    • Returns: All entity types with metadata
+--    • Frontend: Used for entity type pickers, navigation menus
+--
+-- 3. GET CHILD ENTITY TYPES FOR PARENT
+--    • Endpoint: GET /api/v1/entity/type/:entity_type/children
+--    • Database: SELECT child_entities FROM d_entity WHERE entity_type=$1
+--    • Returns: Array of child entity metadata with icons and labels
+--    • Frontend: DynamicChildEntityTabs component
+--
+-- PARENT-CHILD ENTITY TYPE MAPPING:
+--   This table stores the canonical parent-child relationships for entity types.
+--
+--   PARENT ENTITY TYPE → CHILD ENTITY TYPES
+--   =====================================================
+--   office             → task, artifact, wiki, form
+--   business           → project
+--   project            → task, wiki, artifact, form
+--   task               → form, artifact
+--   client             → project, artifact, form
+--   role               → employee
+--   form               → artifact
+--   employee           → (no children - leaf node)
+--   wiki               → (no children - leaf node)
+--   artifact           → (no children - leaf node)
+--   worksite           → (no children - leaf node)
+--   position           → (no children - leaf node)
+--   reports            → (no children - leaf node)
+--
+-- KEY FIELDS:
+-- • entity_type: Entity type identifier ('office', 'business', 'project', 'task', etc.)
+-- • entity_name: Display name for the entity type (Office, Business, Project, Task, etc.)
+-- • entity_slug: URL-friendly identifier
+-- • ui_label: UI display label for the entity type plural (Offices, Businesses, Projects, Tasks, etc.)
+-- • ui_icon: Lucide icon name (e.g., 'FolderOpen', 'CheckSquare', 'Users')
+-- • child_entities: JSONB array of child entity metadata
+--   Format: [{"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1}, ...]
+-- • display_order: Order for UI display (sidebar, menus, etc.)
+-- • active_flag: Whether this entity type is currently active in the system
+--
+-- RELATIONSHIPS:
+-- • This table defines the schema for d_entity_instance_id instances
+-- • child_entities defines valid parent-child types in d_entity_id_map
+-- • Used by frontend for dynamic component generation
+--
+-- =====================================================
+
+CREATE TABLE app.d_entity (
+    entity_type varchar(50) NOT NULL PRIMARY KEY,
+    entity_name varchar(100) NOT NULL,
+    entity_slug varchar(100) NOT NULL,
+    ui_label varchar(100) NOT NULL,
+    ui_icon varchar(50),
+    child_entities jsonb DEFAULT '[]'::jsonb,
+    display_order int4 NOT NULL DEFAULT 999,
+    active_flag boolean DEFAULT true,
+    created_ts timestamptz DEFAULT now(),
+    updated_ts timestamptz DEFAULT now()
+);
+
+-- Create indexes for common query patterns
+CREATE INDEX idx_d_entity_active ON app.d_entity(active_flag) WHERE active_flag = true;
+CREATE INDEX idx_d_entity_display_order ON app.d_entity(display_order);
+CREATE INDEX idx_d_entity_child_entities_gin ON app.d_entity USING gin(child_entities);
+
+COMMENT ON TABLE app.d_entity IS 'Entity TYPE metadata with parent-child relationships and icons - single source of truth for entity type definitions';
+COMMENT ON COLUMN app.d_entity.entity_type IS 'Entity type identifier (office, business, project, task, etc.)';
+COMMENT ON COLUMN app.d_entity.ui_label IS 'UI display label for entity type plural (Offices, Businesses, Projects, Tasks, etc.)';
+COMMENT ON COLUMN app.d_entity.ui_icon IS 'Lucide icon name for UI display (FolderOpen, CheckSquare, Users, etc.)';
+COMMENT ON COLUMN app.d_entity.child_entities IS 'JSONB array of child entity metadata: [{"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1}]';
+
+-- =====================================================
+-- DATA CURATION
+-- Populate entity TYPE metadata with parent-child relationships
+-- =====================================================
+
+-- Office entity type (has 4 child types)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'office',
+  'Office',
+  'office',
+  'Offices',
+  'MapPin',
+  '[
+    {"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1},
+    {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 2},
+    {"entity": "wiki", "ui_icon": "BookOpen", "ui_label": "Wiki", "order": 3},
+    {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 4}
+  ]'::jsonb,
+  10
+);
+
+-- Business entity type (has 1 child type)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'business',
+  'Business',
+  'business',
+  'Businesses',
+  'Building2',
+  '[
+    {"entity": "project", "ui_icon": "FolderOpen", "ui_label": "Projects", "order": 1}
+  ]'::jsonb,
+  20
+);
+
+-- Project entity type (has 4 child types)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'project',
+  'Project',
+  'project',
+  'Projects',
+  'FolderOpen',
+  '[
+    {"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1},W
+    {"entity": "wiki", "ui_icon": "BookOpen", "ui_label": "Wiki", "order": 2},
+    {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 3},
+  ]'::jsonb,
+  30
+);
+
+-- Task entity type (has 2 child types)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'task',
+  'Task',
+  'task',
+  'Tasks',
+  'CheckSquare',
+  '[
+    {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 1},
+    {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 2}
+  ]'::jsonb,
+  40
+);
+
+-- Client entity type (has 3 child types)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'client',
+  'Client',
+  'client',
+  'Clients',
+  'Users',
+  '[
+    {"entity": "project", "ui_icon": "FolderOpen", "ui_label": "Projects", "order": 1},
+    {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 2},
+    {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 3}
+  ]'::jsonb,
+  50
+);
+
+-- Role entity type (has 1 child type)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'role',
+  'Role',
+  'role',
+  'Roles',
+  'UserCheck',
+  '[
+    {"entity": "employee", "ui_icon": "Users", "ui_label": "Employees", "order": 1}
+  ]'::jsonb,
+  60
+);
+
+-- Form entity type (has 1 child type)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'form',
+  'Form',
+  'form',
+  'Forms',
+  'FileText',
+  '[
+    {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 1}
+  ]'::jsonb,
+  70
+);
+
+-- Employee entity type (leaf node - no children)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'employee',
+  'Employee',
+  'employee',
+  'Employees',
+  'Users',
+  '[]'::jsonb,
+  80
+);
+
+-- Wiki entity type (leaf node - no children)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'wiki',
+  'Wiki',
+  'wiki',
+  'Wiki Pages',
+  'BookOpen',
+  '[]'::jsonb,
+  90
+);
+
+-- Artifact entity type (leaf node - no children)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'artifact',
+  'Artifact',
+  'artifact',
+  'Artifacts',
+  'FileText',
+  '[]'::jsonb,
+  100
+);
+
+-- Worksite entity type (leaf node - no children)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'worksite',
+  'Worksite',
+  'worksite',
+  'Worksites',
+  'MapPin',
+  '[]'::jsonb,
+  110
+);
+
+-- Position entity type (leaf node - no children)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'position',
+  'Position',
+  'position',
+  'Positions',
+  'Briefcase',
+  '[]'::jsonb,
+  120
+);
+
+-- Reports entity type (leaf node - no children)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'reports',
+  'Reports',
+  'reports',
+  'Reports',
+  'BarChart',
+  '[]'::jsonb,
+  130
+);

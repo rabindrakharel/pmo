@@ -12,19 +12,19 @@ const WikiSchema = Type.Object({
   summary: Type.Optional(Type.String()),
   tags: Type.Optional(Type.Array(Type.String())),
   content: Type.Optional(Type.Any()),
-  contentMarkdown: Type.Optional(Type.String()),
-  contentHtml: Type.Optional(Type.String()),
-  wikiType: Type.Optional(Type.String()),
+  content_markdown: Type.Optional(Type.String()),
+  content_html: Type.Optional(Type.String()),
+  wiki_type: Type.Optional(Type.String()),
   category: Type.Optional(Type.String()),
-  publicationStatus: Type.Optional(Type.String()),
+  publication_status: Type.Optional(Type.String()),
   visibility: Type.Optional(Type.String()),
-  active: Type.Boolean(),
-  fromTs: Type.String(),
-  toTs: Type.Optional(Type.String()),
-  createdTs: Type.String(),
-  updatedTs: Type.String(),
+  active_flag: Type.Boolean(),
+  from_ts: Type.String(),
+  to_ts: Type.Optional(Type.String()),
+  created_ts: Type.String(),
+  updated_ts: Type.String(),
   version: Type.Optional(Type.Number()),
-  attr: Type.Optional(Type.Any()),
+  metadata: Type.Optional(Type.Any()),
 });
 
 const CreateWikiSchema = Type.Object({
@@ -35,13 +35,13 @@ const CreateWikiSchema = Type.Object({
   summary: Type.Optional(Type.String()),
   tags: Type.Optional(Type.Array(Type.String())),
   content: Type.Optional(Type.Any()),
-  contentMarkdown: Type.Optional(Type.String()),
-  contentHtml: Type.Optional(Type.String()),
-  wikiType: Type.Optional(Type.String()),
+  content_markdown: Type.Optional(Type.String()),
+  content_html: Type.Optional(Type.String()),
+  wiki_type: Type.Optional(Type.String()),
   category: Type.Optional(Type.String()),
-  publicationStatus: Type.Optional(Type.String()),
+  publication_status: Type.Optional(Type.String()),
   visibility: Type.Optional(Type.String()),
-  attr: Type.Optional(Type.Any()),
+  metadata: Type.Optional(Type.Any()),
 });
 
 const UpdateWikiSchema = Type.Partial(CreateWikiSchema);
@@ -54,6 +54,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       querystring: Type.Object({
         search: Type.Optional(Type.String()),
         tag: Type.Optional(Type.String()),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
@@ -62,68 +63,89 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           data: Type.Array(WikiSchema),
           total: Type.Number(),
           limit: Type.Number(),
-          offset: Type.Number(),
+          offset: Type.Optional(Type.Number()),
+          page: Type.Optional(Type.Number()),
         })
       }
     }
   }, async (request, reply) => {
-    const { search, tag, limit = 50, offset = 0 } = request.query as any;
-    
+    const { search, tag, page, limit = 20, offset: offsetParam } = request.query as any;
+
+    // Calculate offset: use page if provided, otherwise use offset param, default to 0
+    const offset = page ? (page - 1) * limit : (offsetParam || 0);
+
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
     try {
-      const conditions = [];
-      
+      // RBAC filtering - only show wiki entries user has access to
+      const baseConditions = [
+        sql`w.active_flag = true`,
+        sql`(
+          EXISTS (
+            SELECT 1 FROM app.entity_id_rbac_map rbac
+            WHERE rbac.empid = ${userId}
+              AND rbac.entity = 'wiki'
+              AND (rbac.entity_id = w.id::text OR rbac.entity_id = 'all')
+              AND rbac.active_flag = true
+              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+              AND 0 = ANY(rbac.permission)
+          )
+        )`
+      ];
+
+      const conditions = [...baseConditions];
+
       if (search) {
-        conditions.push(sql`(name ILIKE '%' || ${search} || '%' OR slug ILIKE '%' || ${search} || '%')`);
+        conditions.push(sql`(w.name ILIKE ${`%${search}%`} OR w.slug ILIKE ${`%${search}%`})`);
       }
       if (tag) {
-        conditions.push(sql`${tag} = ANY(tags)`);
+        conditions.push(sql`${tag} = ANY(w.tags)`);
       }
 
-      // Always filter for active records in count too
-      const countBaseCondition = sql`active_flag = true`;
-      const countAllConditions = conditions.length > 0
-        ? sql`WHERE ${countBaseCondition} AND ${sql.join(conditions, sql` AND `)}`
-        : sql`WHERE ${countBaseCondition}`;
-
       const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total FROM app.d_wiki
-        ${countAllConditions}
+        SELECT COUNT(*) as total FROM app.d_wiki w
+        WHERE ${sql.join(conditions, sql` AND `)}
       `);
       const total = Number(countResult[0]?.total || 0);
 
-      // Always filter for active records
-      const baseCondition = sql`active_flag = true`;
-      const allConditions = conditions.length > 0
-        ? sql`WHERE ${baseCondition} AND ${sql.join(conditions, sql` AND `)}`
-        : sql`WHERE ${baseCondition}`;
-
       const rows = await db.execute(sql`
         SELECT
-          id,
-          name,
-          code,
-          slug,
-          descr,
-          tags,
-          metadata,
-          wiki_type,
-          category,
-          publication_status,
-          visibility,
-          keywords,
-          summary,
-          active_flag,
-          created_ts,
-          updated_ts,
-          version,
-          metadata as attr
-        FROM app.d_wiki
-        ${allConditions}
-        ORDER BY updated_ts DESC
+          w.id,
+          w.name,
+          w.code,
+          w.slug,
+          w.descr,
+          w.tags,
+          w.metadata,
+          w.wiki_type,
+          w.category,
+          w.publication_status,
+          w.visibility,
+          w.keywords,
+          w.summary,
+          w.active_flag,
+          w.from_ts,
+          w.to_ts,
+          w.created_ts,
+          w.updated_ts,
+          w.version
+        FROM app.d_wiki w
+        WHERE ${sql.join(conditions, sql` AND `)}
+        ORDER BY w.updated_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return { data: rows, total, limit, offset };
+      const response: any = { data: rows, total, limit };
+      if (page) {
+        response.page = page;
+      } else {
+        response.offset = offset;
+      }
+
+      return response;
     } catch (e) {
       fastify.log.error('Error listing wiki: ' + String(e));
       return reply.status(500).send({ error: 'Internal server error' });
@@ -171,7 +193,6 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           w.created_ts,
           w.updated_ts,
           w.version,
-          w.metadata as attr,
           wd.content_markdown,
           wd.content_html,
           wd.content_metadata,
@@ -220,32 +241,32 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           ${data.name},
           ${data.descr || null},
           ${JSON.stringify(data.tags || [])}::jsonb,
-          ${JSON.stringify(data.attr || {})}::jsonb,
-          ${data.wikiType || 'page'},
+          ${JSON.stringify(data.metadata || {})}::jsonb,
+          ${data.wiki_type || 'page'},
           ${data.category || null},
-          ${data.publicationStatus || 'draft'},
+          ${data.publication_status || 'draft'},
           ${data.visibility || 'internal'},
           ${data.summary || null},
           true,
           1
         )
-        RETURNING id, slug, code, name, descr, tags, metadata as attr, wiki_type as "wikiType",
-                  category, publication_status as "publicationStatus", visibility, summary,
-                  active_flag as active, from_ts as "fromTs", to_ts as "toTs",
-                  created_ts as "createdTs", updated_ts as "updatedTs", version
+        RETURNING id, slug, code, name, descr, tags, metadata, wiki_type,
+                  category, publication_status, visibility, summary,
+                  active_flag, from_ts, to_ts,
+                  created_ts, updated_ts, version
       `);
 
       const wiki = wikiResult[0];
 
       // Insert into d_wiki_data (content table) if content provided
-      if (data.contentMarkdown || data.contentHtml) {
+      if (data.content_markdown || data.content_html) {
         await db.execute(sql`
           INSERT INTO app.d_wiki_data (
             wiki_id, content_markdown, content_html, stage, updated_by_empid, update_type
           ) VALUES (
             ${wiki.id},
-            ${data.contentMarkdown || null},
-            ${data.contentHtml || null},
+            ${data.content_markdown || null},
+            ${data.content_html || null},
             'saved',
             ${userId},
             'content_edit'
@@ -294,21 +315,21 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         updateFields.push(`tags = $${values.length + 1}::jsonb`);
         values.push(JSON.stringify(data.tags));
       }
-      if (data.attr !== undefined) {
+      if (data.metadata !== undefined) {
         updateFields.push(`metadata = $${values.length + 1}::jsonb`);
-        values.push(JSON.stringify(data.attr));
+        values.push(JSON.stringify(data.metadata));
       }
-      if (data.wikiType !== undefined) {
+      if (data.wiki_type !== undefined) {
         updateFields.push(`wiki_type = $${values.length + 1}`);
-        values.push(data.wikiType);
+        values.push(data.wiki_type);
       }
       if (data.category !== undefined) {
         updateFields.push(`category = $${values.length + 1}`);
         values.push(data.category);
       }
-      if (data.publicationStatus !== undefined) {
+      if (data.publication_status !== undefined) {
         updateFields.push(`publication_status = $${values.length + 1}`);
-        values.push(data.publicationStatus);
+        values.push(data.publication_status);
       }
       if (data.visibility !== undefined) {
         updateFields.push(`visibility = $${values.length + 1}`);
@@ -320,23 +341,23 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       const updated = await db.execute(sql.raw(`
         UPDATE app.d_wiki SET ${updateFields.join(', ')}
         WHERE id = '${id}' AND active_flag = true
-        RETURNING id, slug, code, name, descr, tags, metadata as attr, wiki_type as "wikiType",
-                  category, publication_status as "publicationStatus", visibility, summary,
-                  active_flag as active, from_ts as "fromTs", to_ts as "toTs",
-                  created_ts as "createdTs", updated_ts as "updatedTs", version
+        RETURNING id, slug, code, name, descr, tags, metadata, wiki_type,
+                  category, publication_status, visibility, summary,
+                  active_flag, from_ts, to_ts,
+                  created_ts, updated_ts, version
       `));
 
       if (!updated.length) return reply.status(404).send({ error: 'Not found' });
 
       // Update or insert content in d_wiki_data if provided
-      if (data.contentMarkdown !== undefined || data.contentHtml !== undefined) {
+      if (data.content_markdown !== undefined || data.content_html !== undefined) {
         await db.execute(sql`
           INSERT INTO app.d_wiki_data (
             wiki_id, content_markdown, content_html, stage, updated_by_empid, update_type
           ) VALUES (
             ${id},
-            ${data.contentMarkdown || null},
-            ${data.contentHtml || null},
+            ${data.content_markdown || null},
+            ${data.content_html || null},
             'saved',
             ${userId},
             'content_edit'

@@ -6,7 +6,7 @@ import { KanbanBoard, KanbanColumn } from '../../components/shared/ui/KanbanBoar
 import { GridView } from '../../components/shared/ui/GridView';
 import { useViewMode } from '../../lib/hooks/useViewMode';
 import { getEntityConfig } from '../../lib/entityConfig';
-import * as api from '../../lib/api';
+import { APIFactory } from '../../lib/api';
 
 /**
  * Universal EntityChildListPage
@@ -23,12 +23,20 @@ import * as api from '../../lib/api';
 
 interface EntityChildListPageProps {
   parentType: string;
-  childType: string;
+  childType?: string; // Now optional, can be read from URL params
 }
 
-export function EntityChildListPage({ parentType, childType }: EntityChildListPageProps) {
-  const { id: parentId } = useParams<{ id: string }>();
+export function EntityChildListPage({ parentType, childType: propChildType }: EntityChildListPageProps) {
+  const { id: parentId, childType: urlChildType } = useParams<{ id: string; childType?: string }>();
   const navigate = useNavigate();
+
+  // Use childType from URL params if provided, otherwise fall back to prop
+  const childType = urlChildType || propChildType;
+
+  if (!childType) {
+    throw new Error('childType must be provided either as prop or URL parameter');
+  }
+
   const config = getEntityConfig(childType);
   const parentConfig = getEntityConfig(parentType);
   const [view, setView] = useViewMode(`${parentType}_${childType}`);
@@ -53,11 +61,10 @@ export function EntityChildListPage({ parentType, childType }: EntityChildListPa
 
   const loadParentData = async () => {
     try {
-      const apiModule = (api as any)[`${parentType}Api`];
-      if (apiModule && apiModule.get) {
-        const response = await apiModule.get(parentId);
-        setParentData(response.data || response);
-      }
+      // Type-safe API call using APIFactory
+      const api = APIFactory.getAPI(parentType);
+      const response = await api.get(parentId!);
+      setParentData(response.data || response);
     } catch (err) {
       console.error(`Failed to load parent ${parentType}:`, err);
     }
@@ -68,29 +75,24 @@ export function EntityChildListPage({ parentType, childType }: EntityChildListPa
       setLoading(true);
       setError(null);
 
-      // Dynamic API call for child entities
-      const apiModule = (api as any)[`${parentType}Api`];
-      if (!apiModule) {
-        throw new Error(`API module for ${parentType} not found`);
-      }
+      // Type-safe API call using APIFactory
+      const parentApi = APIFactory.getAPI(parentType);
 
       // Call parent-specific child endpoint (e.g., projectApi.getTasks(parentId))
       const methodName = `get${childType.charAt(0).toUpperCase() + childType.slice(1)}s`;
-      if (apiModule[methodName]) {
-        const response = await apiModule[methodName](parentId, { page: 1, pageSize: 100 });
+      if ((parentApi as any)[methodName]) {
+        const response = await (parentApi as any)[methodName](parentId, { page: 1, pageSize: 100 });
         setData(response.data || []);
       } else {
         // Fallback: use generic child API with parent filter
-        const childApiModule = (api as any)[`${childType}Api`];
-        if (childApiModule && childApiModule.list) {
-          const response = await childApiModule.list({
-            page: 1,
-            pageSize: 100,
-            parentId,
-            parentType
-          });
-          setData(response.data || []);
-        }
+        const childApi = APIFactory.getAPI(childType);
+        const response = await childApi.list({
+          page: 1,
+          pageSize: 100,
+          parentId,
+          parentType
+        });
+        setData(response.data || []);
       }
     } catch (err) {
       console.error(`Failed to load ${childType}:`, err);
@@ -140,9 +142,15 @@ export function EntityChildListPage({ parentType, childType }: EntityChildListPa
       item.id === itemId ? { ...item, [config.kanban!.groupByField]: toColumn } : item
     ));
 
-    // TODO: Call API to update
-    // const apiModule = (api as any)[`${childType}Api`];
-    // await apiModule.update(itemId, { [config.kanban.groupByField]: toColumn });
+    // Type-safe API call to update
+    try {
+      const api = APIFactory.getAPI(childType);
+      await api.update(itemId, { [config.kanban.groupByField]: toColumn });
+    } catch (err) {
+      console.error(`Failed to update ${childType}:`, err);
+      // Revert optimistic update on error
+      loadChildData();
+    }
   };
 
   // Prepare Kanban columns (if kanban view is supported)

@@ -135,7 +135,21 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
                   ))}
                 </div>
               )}
-              
+
+              {f.type === 'taskcheck' && (
+                <div className="space-y-2">
+                  <label className="flex items-start space-x-3">
+                    <input disabled type="checkbox" className="mt-0.5 rounded text-blue-600 h-4 w-4" />
+                    <div className="flex-1">
+                      <span className="text-sm text-gray-700">{label}</span>
+                      <div className="text-xs text-gray-400 mt-1">
+                        Tracks completion with timestamp when checked
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              )}
+
               {f.type === 'datetime' && (
                 <ModernDateTimePicker 
                   disabled={true}

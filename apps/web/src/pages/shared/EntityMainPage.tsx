@@ -7,7 +7,7 @@ import { GridView } from '../../components/shared/ui/GridView';
 import { useViewMode } from '../../lib/hooks/useViewMode';
 import { getEntityConfig, ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
-import * as api from '../../lib/api';
+import { APIFactory } from '../../lib/api';
 
 /**
  * Universal EntityMainPage
@@ -46,13 +46,9 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
       setLoading(true);
       setError(null);
 
-      // Dynamic API call based on entity type
-      const apiModule = (api as any)[`${entityType}Api`];
-      if (!apiModule || !apiModule.list) {
-        throw new Error(`API module for ${entityType} not found`);
-      }
-
-      const response = await apiModule.list({ page: 1, pageSize: 100 });
+      // Type-safe API call using APIFactory
+      const api = APIFactory.getAPI(entityType);
+      const response = await api.list({ page: 1, pageSize: 100 });
       setData(response.data || []);
     } catch (err) {
       console.error(`Failed to load ${entityType}:`, err);
@@ -98,9 +94,15 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
       item.id === itemId ? { ...item, [config.kanban!.groupByField]: toColumn } : item
     ));
 
-    // TODO: Call API to update
-    // const apiModule = (api as any)[`${entityType}Api`];
-    // await apiModule.update(itemId, { [config.kanban.groupByField]: toColumn });
+    // Type-safe API call to update
+    try {
+      const api = APIFactory.getAPI(entityType);
+      await api.update(itemId, { [config.kanban.groupByField]: toColumn });
+    } catch (err) {
+      console.error(`Failed to update ${entityType}:`, err);
+      // Revert optimistic update on error
+      loadData();
+    }
   };
 
   // Prepare Kanban columns (if kanban view is supported)

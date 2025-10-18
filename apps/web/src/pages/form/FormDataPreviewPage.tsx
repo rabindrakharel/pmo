@@ -49,9 +49,9 @@ export function FormDataPreviewPage() {
       console.log('✅ Form loaded successfully:', {
         id: form.id,
         name: form.name,
-        schema: form.schema,
-        hasSteps: !!form.schema?.steps,
-        stepCount: form.schema?.steps?.length || 0
+        schema: form.form_schema,
+        hasSteps: !!form.form_schema?.steps,
+        stepCount: form.form_schema?.steps?.length || 0
       });
 
       // Load submission data

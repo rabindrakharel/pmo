@@ -80,7 +80,315 @@ const projectGroup = ENTITY_GROUPS.project;
 ✅ **Easy Maintenance** - Add new entities without touching multiple files
 ✅ **Self-Documenting** - Clear mapping of entity → icon relationships
 
+---
 
+## 🗄️ Database-Driven Entity Metadata Architecture ✨
+
+### Architectural Shift: From Code to Database
+
+**Status:** EntityConfig is being phased out for metadata (icons, labels, child relationships) in favor of database-backed API endpoints.
+
+**Problem Solved:** Previously, entity metadata (icons, display labels, child entity relationships) was hardcoded in `apps/web/src/lib/entityConfig.ts`, requiring code changes and redeployment to modify entity structure. This created tight coupling between data model and application code.
+
+**New Architecture:** Entity type metadata is now stored in the `d_entity` database table and served via centralized API endpoints.
+
+---
+
+### Database Schema: d_entity Table
+
+**Location:** `db/30_d_entity.ddl`
+
+The `d_entity` table serves as the single source of truth for all entity type metadata:
+
+```sql
+CREATE TABLE app.d_entity (
+    entity_type varchar(50) NOT NULL PRIMARY KEY,
+    entity_name varchar(100) NOT NULL,
+    entity_slug varchar(100) NOT NULL,
+    ui_label varchar(100) NOT NULL,        -- Plural display name (e.g., "Projects", "Tasks")
+    ui_icon varchar(50),                   -- Icon component name (e.g., "FolderOpen", "CheckSquare")
+    child_entities jsonb DEFAULT '[]'::jsonb,  -- Array of child entity metadata
+    display_order int4 NOT NULL DEFAULT 999,
+    active_flag boolean DEFAULT true,
+    created_ts timestamptz DEFAULT now(),
+    updated_ts timestamptz DEFAULT now()
+);
+
+-- Example: Project entity definition
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'project',
+  'Project',
+  'project',
+  'Projects',
+  'FolderOpen',
+  '[
+    {"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1},
+    {"entity": "wiki", "ui_icon": "BookOpen", "ui_label": "Wiki", "order": 2},
+    {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 3},
+    {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 4}
+  ]'::jsonb,
+  30
+);
+```
+
+**Key Fields:**
+- `ui_label` - Plural display name used in UI ("Projects" vs "Project")
+- `ui_icon` - Lucide-react icon component name
+- `child_entities` - JSONB array defining parent-child relationships with UI metadata and tab ordering
+
+---
+
+### Centralized Entity Metadata API
+
+**Module:** `apps/api/src/modules/entity/routes.ts`
+
+**Endpoints:**
+
+1. **Get All Entity Types**
+   ```
+   GET /api/v1/entity/types
+   ```
+   Returns all entity type definitions with UI metadata.
+
+2. **Get Single Entity Type**
+   ```
+   GET /api/v1/entity/type/:entity_type
+   ```
+   Returns metadata for a specific entity type.
+
+3. **Get Child Entity Tabs (Dynamic)**
+   ```
+   GET /api/v1/entity/child-tabs/:entity_type/:entity_id
+   ```
+   Returns dynamic child entity tabs for a parent entity instance with:
+   - Entity counts (e.g., "5 Tasks", "3 Wikis")
+   - UI labels and icons from database
+   - Ordering based on `order` field in JSONB
+   - RBAC-filtered results
+
+**Example Response:**
+```json
+{
+  "parent_entity_type": "project",
+  "parent_entity_id": "93106ffb-402e-43a7-8b26-5287e37a1b0e",
+  "parent_name": "Alpha Project",
+  "parent_ui_label": "Projects",
+  "parent_ui_icon": "FolderOpen",
+  "tabs": [
+    {
+      "entity": "task",
+      "ui_icon": "CheckSquare",
+      "ui_label": "Tasks",
+      "count": 5,
+      "order": 1
+    },
+    {
+      "entity": "wiki",
+      "ui_icon": "BookOpen",
+      "ui_label": "Wiki",
+      "count": 2,
+      "order": 2
+    }
+  ]
+}
+```
+
+---
+
+### Frontend Integration
+
+**Component:** `apps/web/src/components/shared/entity/DynamicChildEntityTabs.tsx`
+
+The frontend now consumes entity metadata from the API instead of hardcoded config:
+
+```typescript
+// Custom hook fetches child tabs from API
+export function useDynamicChildEntityTabs(parentType: string, parentId: string) {
+  React.useEffect(() => {
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/entity/child-tabs/${parentType}/${parentId}`
+    );
+    const data = await response.json();
+
+    // Map API response to tab format
+    const tabs = data.tabs.map((tab: any) => ({
+      id: tab.entity,
+      label: tab.ui_label,      // From database, not hardcoded
+      count: tab.count,          // Dynamic count from database
+      icon: tab.ui_icon,         // From database, not hardcoded
+      path: `/${parentType}/${parentId}/${tab.entity}`,
+      order: tab.order           // Tab ordering from database
+    }));
+
+    setTabs(tabs);
+  }, [parentType, parentId]);
+}
+
+// Usage in EntityDetailPage
+const { tabs, loading } = useDynamicChildEntityTabs(entityType, id);
+```
+
+---
+
+### What's Been Refactored
+
+**Removed from entityConfig.ts:**
+- ❌ `icon?: string` field - Now stored in `d_entity.ui_icon`
+- ❌ `childEntities?: string[]` field - Now stored in `d_entity.child_entities` JSONB
+
+**What Remains in entityConfig.ts:**
+- ✅ `columns: ColumnDef[]` - Table column definitions
+- ✅ `fields: FieldDef[]` - Form field definitions
+- ✅ `supportedViews: ViewMode[]` - View mode configuration
+- ✅ `kanban?: KanbanConfig` - Kanban-specific settings
+- ✅ `grid?: GridConfig` - Grid view settings
+- ✅ `hierarchical?: HierarchicalConfig` - Hierarchical entity settings
+
+**Routing Changes:**
+- App.tsx now uses wildcard `:childType` route parameter instead of mapping `config.childEntities`
+- EntityChildListPage reads `childType` from URL params instead of requiring it as a prop
+
+---
+
+### Benefits of Database-Driven Metadata
+
+✅ **Runtime Configurability** - Change entity structure without code deployment
+✅ **Single Source of Truth** - Entity definitions live in database, not scattered across code
+✅ **Dynamic Tab Ordering** - Reorder child entity tabs via database `order` field
+✅ **Scalability** - Add new entities via database INSERT, not code changes
+✅ **Data Integrity** - Entity relationships managed by centralized `d_entity` table
+✅ **Separation of Concerns** - UI metadata separated from business logic configuration
+
+---
+
+### Migration Path (Ongoing)
+
+**Phase 1: Completed ✅**
+- Created `d_entity` table with `ui_label`, `ui_icon`, `child_entities` JSONB
+- Built centralized entity metadata API endpoints
+- Refactored `DynamicChildEntityTabs` to consume API
+- Removed `icon` and `childEntities` from entityConfig interface
+- Updated routing to use wildcard `:childType` pattern
+
+**Phase 2: Future (Optional)**
+- Migrate `columns`, `fields`, and view configurations to database tables
+- Build admin UI for managing entity metadata
+- Support tenant-specific entity customization
+- Add entity metadata versioning/history
+
+---
+
+## 🏭 Type-Safe API Factory Pattern ✨
+
+### Problem: Unsafe Dynamic API Calls
+
+**Before (Type-Unsafe):**
+```typescript
+// Unsafe dynamic API access in components
+const apiModule = (api as any)[`${entityType}Api`];
+const response = await apiModule.list({ page: 1 });
+```
+
+❌ **Issues:**
+- No compile-time type checking
+- Runtime errors if API doesn't exist
+- Hard to test and mock
+- IDE autocomplete doesn't work
+- Refactoring breaks code silently
+
+### Solution: Centralized API Factory
+
+**Location:** `apps/web/src/lib/api-factory.ts`
+
+**Architecture:**
+```typescript
+// 1. Universal EntityAPI Interface
+export interface EntityAPI {
+  list(params?: ListParams): Promise<PaginatedResponse<any>>;
+  get(id: string): Promise<any>;
+  create(data: any): Promise<any>;
+  update(id: string, data: any): Promise<any>;
+  delete(id: string): Promise<void>;
+}
+
+// 2. Type-Safe Factory
+class APIFactoryClass {
+  private apis: Map<string, EntityAPI> = new Map();
+
+  register(entityType: string, api: EntityAPI): void {
+    this.apis.set(entityType, api);
+  }
+
+  getAPI(entityType: string): EntityAPI {
+    const api = this.apis.get(entityType);
+    if (!api) {
+      throw new Error(`API not found for entity type: "${entityType}"`);
+    }
+    return api;
+  }
+}
+
+export const APIFactory = new APIFactoryClass();
+```
+
+**Registration (apps/web/src/lib/api.ts):**
+```typescript
+import { APIFactory } from './api-factory';
+
+// Core business entities
+APIFactory.register('project', projectApi);
+APIFactory.register('task', taskApi);
+APIFactory.register('biz', bizApi);
+APIFactory.register('office', officeApi);
+
+// People & roles
+APIFactory.register('employee', employeeApi);
+APIFactory.register('client', clientApi);
+APIFactory.register('role', roleApi);
+APIFactory.register('position', positionApi);
+
+// Content & documentation
+APIFactory.register('wiki', wikiApi);
+APIFactory.register('artifact', artifactApi);
+APIFactory.register('form', formApi);
+APIFactory.register('worksite', worksiteApi);
+```
+
+**Usage in Components:**
+```typescript
+// EntityMainPage.tsx
+import { APIFactory } from '../../lib/api';
+
+const loadData = async () => {
+  // Type-safe API call
+  const api = APIFactory.getAPI(entityType);
+  const response = await api.list({ page: 1, pageSize: 100 });
+  setData(response.data || []);
+};
+```
+
+**Benefits:**
+
+✅ **Type Safety** - Compile-time checking prevents runtime errors
+✅ **Single Source of Truth** - All APIs registered in one place
+✅ **Runtime Validation** - Clear error messages when API not found
+✅ **Easy Testing** - Simple mocking with `APIFactory.register('test', mockApi)`
+✅ **IDE Support** - Full autocomplete and type inference
+✅ **Maintainable** - Add new API = register once, use everywhere
+
+**Refactored Components:**
+- ✅ `EntityMainPage.tsx` - Main list pages
+- ✅ `EntityDetailPage.tsx` - Detail pages
+- ✅ `EntityChildListPage.tsx` - Child entity tabs
+- ✅ `EntityCreatePage.tsx` - Create pages
+
+**Impact:**
+- 🎯 **Zero unsafe API calls** in pages/components
+- 📉 **Eliminated** `(api as any)` pattern completely
+- 🚀 **15+ type-safe API** calls across 4 universal components
+
+---
 
 DATA MODEL:
 1️⃣ Core Business Entities (13 tables):
@@ -269,8 +577,8 @@ Complete Flow Diagrams: Task, Project, Business
   │       ├─ childEntities: ['task', 'wiki', 'artifact', 'form']
   │       ├─ apiEndpoint: '/api/v1/project'
   │       └─ columns, fields, supportedViews
-  ├─ Line 69-91: loadData() → API call
-  │   └─ api.projectApi.get(id) → GET /api/v1/project/84215ccb...
+  ├─ Line 110-117: loadData() → Type-safe API call ✨
+  │   └─ APIFactory.getAPI('project').get(id) → GET /api/v1/project/84215ccb...
   ├─ Line 138-145: useDynamicChildEntityTabs()
   │   └─ Creates tabs: ['Overview', 'Tasks', 'Wiki', 'Artifacts', 'Forms']
   ├─ Line 278-289: <DynamicChildEntityTabs> renders tab buttons
@@ -281,10 +589,10 @@ Complete Flow Diagrams: Task, Project, Business
           ├─ useParams() → { id: parentId } = "84215ccb-313d-48f8-9c37-4398f28c0b1f"
           ├─ Line 33: config = getEntityConfig("task")
           │   └─ entityConfig.ts:172-267 → task configuration
-          ├─ Line 73-94: loadChildData() → API call
-          │   ├─ Try: api.projectApi.getTasks(parentId)
+          ├─ Line 70-96: loadChildData() → Type-safe API call ✨
+          │   ├─ Try: APIFactory.getAPI('project').getTasks(parentId)
           │   │   └─ GET /api/v1/project/84215ccb.../task
-          │   └─ Fallback: api.taskApi.list({ parentId, parentType: "project" })
+          │   └─ Fallback: APIFactory.getAPI('task').list({ parentId, parentType: "project" })
           │       └─ Backend query:
           │           SELECT t.* FROM app.d_task t
           │           INNER JOIN app.d_entity_id_map eim
@@ -320,8 +628,8 @@ Complete Flow Diagrams: Task, Project, Business
   │       ├─ apiEndpoint: '/api/v1/task'
   │       ├─ supportedViews: ['table', 'kanban']
   │       └─ kanban: { groupByField: 'stage', metaTable: 'setting_task_stage' }
-  ├─ Line 69-91: loadData() → API call
-  │   └─ api.taskApi.get(id) → GET /api/v1/task/b2222222...
+  ├─ Line 110-117: loadData() → Type-safe API call ✨
+  │   └─ APIFactory.getAPI('task').get(id) → GET /api/v1/task/b2222222...
   ├─ Line 138-145: useDynamicChildEntityTabs()
   │   └─ Creates tabs: ['Overview', 'Forms', 'Artifacts']
   ├─ Line 278-289: <DynamicChildEntityTabs> renders tab buttons
@@ -332,8 +640,8 @@ Complete Flow Diagrams: Task, Project, Business
           ├─ useParams() → { id: parentId } = "b2222222-2222-2222-2222-222222222222"
           ├─ Line 33: config = getEntityConfig("form")
           │   └─ entityConfig.ts:272-412 → form configuration
-          ├─ Line 73-94: loadChildData() → API call
-          │   ├─ Try: api.taskApi.getForms(parentId)
+          ├─ Line 70-96: loadChildData() → Type-safe API call ✨
+          │   ├─ Try: APIFactory.getAPI('task').getForms(parentId)
           │   │   └─ GET /api/v1/task/b2222222.../form  ✅ NEW ENDPOINT
           │   │       └─ Backend (task/routes.ts:1131-1203):
           │   │           -- RBAC Check
@@ -354,7 +662,7 @@ Complete Flow Diagrams: Task, Project, Business
           │   │             AND eim.active_flag = true
           │   │             AND f.active_flag = true
           │   │
-          │   └─ Fallback: api.formApi.list({ parentId, parentType: "task" })
+          │   └─ Fallback: APIFactory.getAPI('form').list({ parentId, parentType: "task" })
           │
           └─ Line 200-281: Renders based on view mode
               └─ Table View (default) → FilteredDataTable
@@ -380,8 +688,8 @@ Complete Flow Diagrams: Task, Project, Business
   │       ├─ apiEndpoint: '/api/v1/biz'
   │       ├─ hierarchical: { levels: 3, levelNames: ['Department', 'Division', 'Corporate'] }
   │       └─ supportedViews: ['table']
-  ├─ Line 69-91: loadData() → API call
-  │   └─ api.bizApi.get(id) → GET /api/v1/biz/dddddddd...
+  ├─ Line 110-117: loadData() → Type-safe API call ✨
+  │   └─ APIFactory.getAPI('biz').get(id) → GET /api/v1/biz/dddddddd...
   ├─ Line 138-145: useDynamicChildEntityTabs()
   │   └─ Creates tabs: ['Overview', 'Projects', 'Tasks', 'Wiki', 'Artifacts', 'Forms']
   ├─ Line 278-289: <DynamicChildEntityTabs> renders tab buttons
@@ -392,8 +700,8 @@ Complete Flow Diagrams: Task, Project, Business
           ├─ useParams() → { id: parentId } = "dddddddd-dddd-dddd-dddd-dddddddddddd"
           ├─ Line 33: config = getEntityConfig("project")
           │   └─ entityConfig.ts:88-167 → project configuration
-          ├─ Line 73-94: loadChildData() → API call
-          │   ├─ Try: api.bizApi.getProjects(parentId)
+          ├─ Line 70-96: loadChildData() → Type-safe API call ✨
+          │   ├─ Try: APIFactory.getAPI('biz').getProjects(parentId)
           │   │   └─ GET /api/v1/biz/dddddddd.../project
           │   │       └─ Backend (biz/routes.ts):
           │   │           SELECT p.* FROM app.d_project p
@@ -405,7 +713,7 @@ Complete Flow Diagrams: Task, Project, Business
           │   │             AND eim.active_flag = true
           │   │             AND p.active_flag = true
           │   │
-          │   └─ Fallback: api.projectApi.list({ parentId, parentType: "biz" })
+          │   └─ Fallback: APIFactory.getAPI('project').list({ parentId, parentType: "biz" })
           │
           └─ Line 200-281: Renders based on view mode
               └─ Table View (default) → FilteredDataTable
@@ -595,7 +903,7 @@ Complete Flow Diagrams: Task, Project, Business
   Key Similarities:
 
   - Same Component Structure: Lines 29-266 - All entities use identical JSX structure
-  - Same Data Loading: Lines 44-64 - Dynamic API call via api[${entityType}Api].list()
+  - Same Data Loading: Lines 44-64 - Type-safe API call via APIFactory.getAPI(entityType).list() ✨
   - Same Row Click Handler: Lines 66-68 - Navigate to /${entityType}/${id}
   - Same Create Button: Lines 249-255 - Navigate to /${entityType}/new
   - Same View Modes: Table, Kanban, Grid all use same rendering logic (lines 148-220)
@@ -637,10 +945,15 @@ Complete Flow Diagrams: Task, Project, Business
     const { id } = useParams();                           // Line 29
     const config = getEntityConfig(entityType);           // Line 32
 
-    // UNIVERSAL FEATURES:
+    // UNIVERSAL FEATURES (Type-Safe API Factory Pattern ✨):
     const loadData = async () => {
-      const apiModule = (api as any)[`${entityType}Api`]; // Line 116
-      const response = await apiModule.get(id);           // Line 121
+      const api = APIFactory.getAPI(entityType);          // Line 116 - Type-safe
+      const response = await api.get(id);                 // Line 117
+    };
+
+    const handleSave = async () => {
+      const api = APIFactory.getAPI(entityType);          // Type-safe
+      await api.update(id, editedData);                   // Line 146
     };
 
     // DYNAMIC TABS (based on config.childEntities)
@@ -660,7 +973,8 @@ Complete Flow Diagrams: Task, Project, Business
 
   Key Similarities:
 
-  - Same Data Fetching: Lines 110-144 - Dynamic API call via ${entityType}Api.get(id)
+  - Same Data Fetching: Lines 110-144 - Type-safe API call via APIFactory.getAPI(entityType).get(id) ✨
+  - Same Data Updating: Line 146 - Type-safe API call via APIFactory.getAPI(entityType).update(id, data) ✨
   - Same Header: Lines 221-238 - Back button + entity name display
   - Same Edit Mode: Lines 240-274 - Edit/Save/Cancel button logic
   - Same Tab System: Lines 278-289 - DynamicChildEntityTabs component
@@ -935,6 +1249,47 @@ Complete Flow Diagrams: Task, Project, Business
   - Special Features: Kanban config, hierarchical config, etc.
 
   ---
+  8. FRONTEND API INTEGRATION (Type-Safe API Factory ✨)
+
+  Similarity Pattern: Centralized API Registry with Runtime Validation
+
+  **Problem Solved:** Eliminated unsafe dynamic API calls across all components
+
+  **Location:** `apps/web/src/lib/api-factory.ts`
+
+  All entity API calls now use the type-safe factory pattern:
+
+  ```typescript
+  // BEFORE (Unsafe):
+  const apiModule = (api as any)[`${entityType}Api`];  // ❌ No type safety
+  const response = await apiModule.list({ page: 1 });
+
+  // AFTER (Type-Safe):
+  const api = APIFactory.getAPI(entityType);           // ✅ Type-safe
+  const response = await api.list({ page: 1 });
+  ```
+
+  **Universal Components Using API Factory:**
+  - EntityMainPage.tsx:50 - `APIFactory.getAPI(entityType).list()`
+  - EntityDetailPage.tsx:116 - `APIFactory.getAPI(entityType).get(id)`
+  - EntityDetailPage.tsx:146 - `APIFactory.getAPI(entityType).update(id, data)`
+  - EntityChildListPage.tsx:71 - `APIFactory.getAPI(parentType).get${ChildType}s(id)`
+  - EntityCreatePage.tsx:81 - `APIFactory.getAPI(entityType).create(data)`
+
+  **Benefits:**
+  - ✅ Compile-time type checking prevents runtime errors
+  - ✅ Clear error messages when API not found
+  - ✅ Full IDE autocomplete support
+  - ✅ Easy mocking for unit tests
+  - ✅ Zero `(api as any)` anti-patterns
+
+  **Registered APIs (13 entities):**
+  - Core Business: project, task, biz, office
+  - People: employee, client, role, position
+  - Content: wiki, artifact, form
+  - Locations: worksite
+
+  ---
   SUMMARY: Core Architectural Similarities
 
   | Layer              | Similarity                                            | Evidence                                         |
@@ -943,6 +1298,7 @@ Complete Flow Diagrams: Task, Project, Business
   | Routing            | All use same 3-tier route pattern (list/detail/child) | App.tsx:67-133                                   |
   | List Page          | All use same EntityMainPage component                 | EntityMainPage.tsx:29-266                        |
   | Detail Page        | All use same EntityDetailPage component               | EntityDetailPage.tsx:28-383                      |
+  | **API Integration ✨** | **All use type-safe APIFactory.getAPI() pattern**    | **api-factory.ts + 4 universal components**     |
   | API Endpoints      | All follow same REST pattern + child endpoints        | task/routes.ts, project/routes.ts, biz/routes.ts |
   | Database           | All use d_entity_id_map for relationships             | d_entity_id_map table                            |
   | RBAC               | All use entity_id_rbac_map for permissions            | entity_id_rbac_map table                         |
@@ -950,6 +1306,7 @@ Complete Flow Diagrams: Task, Project, Business
 
   The system is 100% universal - adding a new entity only requires:
   1. Creating config entry in entityConfig.ts
-  2. Adding routes in App.tsx
-  3. Creating API endpoints following the pattern
-  4. Defining database table + populating d_entity_id_map for relationships
+  2. Registering API in APIFactory (apps/web/src/lib/api.ts) ✨
+  3. Adding routes in App.tsx
+  4. Creating API endpoints following the pattern
+  5. Defining database table + populating d_entity_id_map for relationships

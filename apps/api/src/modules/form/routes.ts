@@ -12,13 +12,13 @@ const FormSchema = Type.Object({
   descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   url: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   tags: Type.Optional(Type.Any()),
-  formType: Type.String(),
-  schema: Type.Any(), // form_schema JSONB
-  fromTs: Type.String(),
-  toTs: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  active: Type.Boolean(),
-  createdTs: Type.String(),
-  updatedTs: Type.String(),
+  form_type: Type.String(),
+  form_schema: Type.Any(),
+  from_ts: Type.String(),
+  to_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  active_flag: Type.Boolean(),
+  created_ts: Type.String(),
+  updated_ts: Type.String(),
   version: Type.Number(),
 });
 
@@ -27,10 +27,10 @@ const CreateFormSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
   tags: Type.Optional(Type.Array(Type.String())),
-  formType: Type.Optional(Type.String()),
-  schema: Type.Optional(Type.Any()), // Full form schema from UI
+  form_type: Type.Optional(Type.String()),
+  form_schema: Type.Optional(Type.Any()),
   version: Type.Optional(Type.Number()),
-  active: Type.Optional(Type.Boolean()),
+  active_flag: Type.Optional(Type.Boolean()),
 });
 
 const UpdateFormSchema = Type.Partial(CreateFormSchema);
@@ -41,12 +41,12 @@ export async function formRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
-        active: Type.Optional(Type.Boolean()),
-        formType: Type.Optional(Type.String()),
+        active_flag: Type.Optional(Type.Boolean()),
+        form_type: Type.Optional(Type.String()),
         search: Type.Optional(Type.String()),
         page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        showAllVersions: Type.Optional(Type.Boolean()), // New: show all versions
+        show_all_versions: Type.Optional(Type.Boolean()),
       }),
       response: {
         200: Type.Object({
@@ -66,12 +66,12 @@ export async function formRoutes(fastify: FastifyInstance) {
       }
 
       const {
-        active = true,
-        formType,
+        active_flag = true,
+        form_type,
         search,
         page = 1,
         limit = 20,
-        showAllVersions = false,
+        show_all_versions = false,
       } = request.query as any;
 
       const offset = (page - 1) * limit;
@@ -92,12 +92,12 @@ export async function formRoutes(fastify: FastifyInstance) {
         )`
       ];
 
-      if (active !== undefined) {
-        conditions.push(sql`f.active_flag = ${active}`);
+      if (active_flag !== undefined) {
+        conditions.push(sql`f.active_flag = ${active_flag}`);
       }
 
-      if (formType) {
-        conditions.push(sql`f.form_type = ${formType}`);
+      if (form_type) {
+        conditions.push(sql`f.form_type = ${form_type}`);
       }
 
       if (search) {
@@ -107,7 +107,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         )`);
       }
 
-      if (showAllVersions) {
+      if (show_all_versions) {
         // Show all versions - simple query
         const countResult = await db.execute(sql`
           SELECT COUNT(*) as total
@@ -125,13 +125,13 @@ export async function formRoutes(fastify: FastifyInstance) {
             f.descr,
             f.url,
             f.tags,
-            f.form_type as "formType",
-            f.form_schema as "schema",
-            f.from_ts as "fromTs",
-            f.to_ts as "toTs",
-            f.active_flag as "active",
-            f.created_ts as "createdTs",
-            f.updated_ts as "updatedTs",
+            f.form_type,
+            f.form_schema,
+            f.from_ts,
+            f.to_ts,
+            f.active_flag,
+            f.created_ts,
+            f.updated_ts,
             f.version
           FROM app.d_form_head f
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
@@ -163,13 +163,13 @@ export async function formRoutes(fastify: FastifyInstance) {
             f.descr,
             f.url,
             f.tags,
-            f.form_type as "formType",
-            f.form_schema as "schema",
-            f.from_ts as "fromTs",
-            f.to_ts as "toTs",
-            f.active_flag as "active",
-            f.created_ts as "createdTs",
-            f.updated_ts as "updatedTs",
+            f.form_type,
+            f.form_schema,
+            f.from_ts,
+            f.to_ts,
+            f.active_flag,
+            f.created_ts,
+            f.updated_ts,
             f.version
           FROM app.d_form_head f
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
@@ -219,13 +219,13 @@ export async function formRoutes(fastify: FastifyInstance) {
           f.descr,
           f.url,
           f.tags,
-          f.form_type as "formType",
-          f.form_schema as "schema",
-          f.from_ts as "fromTs",
-          f.to_ts as "toTs",
-          f.active_flag as "active",
-          f.created_ts as "createdTs",
-          f.updated_ts as "updatedTs",
+          f.form_type,
+          f.form_schema,
+          f.from_ts,
+          f.to_ts,
+          f.active_flag,
+          f.created_ts,
+          f.updated_ts,
           f.version
         FROM app.d_form_head f
         WHERE f.slug = ${slug}
@@ -290,13 +290,13 @@ export async function formRoutes(fastify: FastifyInstance) {
           f.descr,
           f.url,
           f.tags,
-          f.form_type as "formType",
-          f.form_schema as "schema",
-          f.from_ts as "fromTs",
-          f.to_ts as "toTs",
-          f.active_flag as "active",
-          f.created_ts as "createdTs",
-          f.updated_ts as "updatedTs",
+          f.form_type,
+          f.form_schema,
+          f.from_ts,
+          f.to_ts,
+          f.active_flag,
+          f.created_ts,
+          f.updated_ts,
           f.version
         FROM app.d_form_head f
         WHERE f.id = ${id}
@@ -383,9 +383,9 @@ export async function formRoutes(fastify: FastifyInstance) {
           ${data.name},
           ${data.descr || null},
           ${JSON.stringify(data.tags || [])},
-          ${data.formType || 'multi_step'},
-          ${JSON.stringify(data.schema || {steps: []})},
-          ${data.active !== false},
+          ${data.form_type || 'multi_step'},
+          ${JSON.stringify(data.form_schema || {steps: []})},
+          ${data.active_flag !== false},
           ${data.version || 1}
         )
         RETURNING
@@ -395,13 +395,13 @@ export async function formRoutes(fastify: FastifyInstance) {
           name,
           descr,
           tags,
-          form_type as "formType",
-          form_schema as "schema",
-          from_ts as "fromTs",
-          to_ts as "toTs",
-          active_flag as "active",
-          created_ts as "createdTs",
-          updated_ts as "updatedTs",
+          form_type,
+          form_schema,
+          from_ts,
+          to_ts,
+          active_flag,
+          created_ts,
+          updated_ts,
           version
       `);
 
@@ -501,8 +501,8 @@ export async function formRoutes(fastify: FastifyInstance) {
       const current = currentForm[0] as any;
 
       // Detect if meaningful changes occurred (schema changes trigger versioning)
-      const schemaChanged = data.schema !== undefined &&
-        JSON.stringify(data.schema) !== JSON.stringify(current.form_schema);
+      const schemaChanged = data.form_schema !== undefined &&
+        JSON.stringify(data.form_schema) !== JSON.stringify(current.form_schema);
 
       const hasSubstantiveChanges = schemaChanged;
 
@@ -515,9 +515,9 @@ export async function formRoutes(fastify: FastifyInstance) {
           SET
             name = ${data.name !== undefined ? data.name : current.name},
             descr = ${data.descr !== undefined ? data.descr : current.descr},
-            tags = ${data.tags !== undefined ? JSON.stringify(data.tags) : current.tags},
-            form_type = ${data.formType !== undefined ? data.formType : current.form_type},
-            form_schema = ${JSON.stringify(data.schema)},
+            tags = ${data.tags !== undefined ? JSON.stringify(data.tags) : (typeof current.tags === 'string' ? current.tags : JSON.stringify(current.tags))},
+            form_type = ${data.form_type !== undefined ? data.form_type : current.form_type},
+            form_schema = ${JSON.stringify(data.form_schema)},
             version = ${newVersion},
             updated_ts = NOW()
           WHERE id = ${id}
@@ -529,13 +529,13 @@ export async function formRoutes(fastify: FastifyInstance) {
             descr,
             url,
             tags,
-            form_type as "formType",
-            form_schema as "schema",
-            from_ts as "fromTs",
-            to_ts as "toTs",
-            active_flag as "active",
-            created_ts as "createdTs",
-            updated_ts as "updatedTs",
+            form_type,
+            form_schema,
+            from_ts,
+            to_ts,
+            active_flag,
+            created_ts,
+            updated_ts,
             version
         `);
 
@@ -549,8 +549,8 @@ export async function formRoutes(fastify: FastifyInstance) {
         if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
         if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
         if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}`);
-        if (data.formType !== undefined) updateFields.push(sql`form_type = ${data.formType}`);
-        if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
+        if (data.form_type !== undefined) updateFields.push(sql`form_type = ${data.form_type}`);
+        if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
 
         // Always update timestamp
         updateFields.push(sql`updated_ts = NOW()`);
@@ -571,13 +571,13 @@ export async function formRoutes(fastify: FastifyInstance) {
             descr,
             url,
             tags,
-            form_type as "formType",
-            form_schema as "schema",
-            from_ts as "fromTs",
-            to_ts as "toTs",
-            active_flag as "active",
-            created_ts as "createdTs",
-            updated_ts as "updatedTs",
+            form_type,
+            form_schema,
+            from_ts,
+            to_ts,
+            active_flag,
+            created_ts,
+            updated_ts,
             version
         `);
 
@@ -601,11 +601,6 @@ export async function formRoutes(fastify: FastifyInstance) {
         id: Type.String(),
         submissionId: Type.String(),
       }),
-      response: {
-        200: Type.Any(),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-      },
     },
   }, async (request, reply) => {
     try {
@@ -643,19 +638,19 @@ export async function formRoutes(fastify: FastifyInstance) {
       const formData = await db.execute(sql`
         SELECT
           fd.id::text,
-          fd.form_id::text as "formId",
-          fd.submission_data as "submissionData",
-          fd.submission_status as "submissionStatus",
+          fd.form_id::text,
+          fd.submission_data,
+          fd.submission_status,
           fd.stage,
-          fd.submitted_by_empid::text as "submittedByEmpid",
-          fd.submission_ip_address as "submissionIpAddress",
-          fd.submission_user_agent as "submissionUserAgent",
-          fd.approval_status as "approvalStatus",
-          fd.approved_by_empid::text as "approvedByEmpid",
-          fd.approval_notes as "approvalNotes",
-          fd.approved_at as "approvedAt",
-          fd.created_ts as "createdTs",
-          fd.updated_ts as "updatedTs"
+          fd.submitted_by_empid::text,
+          fd.submission_ip_address,
+          fd.submission_user_agent,
+          fd.approval_status,
+          fd.approved_by_empid::text,
+          fd.approval_notes,
+          fd.approved_at,
+          fd.created_ts,
+          fd.updated_ts
         FROM app.d_form_data fd
         WHERE fd.form_id = ${id}::uuid
           AND fd.id = ${submissionId}::uuid
@@ -672,9 +667,20 @@ export async function formRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Submission not found' });
       }
 
-      const result = formData[0];
+      const result = formData[0] as any;
+
+      // Parse JSONB fields if they're strings
+      if (result.submission_data && typeof result.submission_data === 'string') {
+        try {
+          result.submission_data = JSON.parse(result.submission_data);
+        } catch (e) {
+          fastify.log.warn('Failed to parse submission_data JSON');
+        }
+      }
+
       fastify.log.info(`Returning submission data with ${Object.keys(result).length} fields`);
-      fastify.log.info(`Result object:`, JSON.stringify(result));
+      fastify.log.info(`Result keys: ${Object.keys(result).join(', ')}`);
+      fastify.log.info(`submission_data type: ${typeof result.submission_data}`);
 
       // Explicitly return with reply.send to ensure proper serialization
       return reply.status(200).send(result);
@@ -753,19 +759,19 @@ export async function formRoutes(fastify: FastifyInstance) {
       const formData = await db.execute(sql`
         SELECT
           fd.id,
-          fd.form_id as "formId",
-          fd.submission_data as "submissionData",
-          fd.submission_status as "submissionStatus",
+          fd.form_id,
+          fd.submission_data,
+          fd.submission_status,
           fd.stage,
-          fd.submitted_by_empid as "submittedByEmpid",
-          fd.submission_ip_address as "submissionIpAddress",
-          fd.submission_user_agent as "submissionUserAgent",
-          fd.approval_status as "approvalStatus",
-          fd.approved_by_empid as "approvedByEmpid",
-          fd.approval_notes as "approvalNotes",
-          fd.approved_at as "approvedAt",
-          fd.created_ts as "createdTs",
-          fd.updated_ts as "updatedTs"
+          fd.submitted_by_empid,
+          fd.submission_ip_address,
+          fd.submission_user_agent,
+          fd.approval_status,
+          fd.approved_by_empid,
+          fd.approval_notes,
+          fd.approved_at,
+          fd.created_ts,
+          fd.updated_ts
         FROM app.d_form_data fd
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY fd.created_ts DESC
@@ -978,13 +984,13 @@ export async function formRoutes(fastify: FastifyInstance) {
           f.descr,
           f.url,
           f.tags,
-          f.form_type as "formType",
-          f.form_schema as "schema",
-          f.from_ts as "fromTs",
-          f.to_ts as "toTs",
-          f.active_flag as "active",
-          f.created_ts as "createdTs",
-          f.updated_ts as "updatedTs",
+          f.form_type,
+          f.form_schema,
+          f.from_ts,
+          f.to_ts,
+          f.active_flag,
+          f.created_ts,
+          f.updated_ts,
           f.version
         FROM app.d_form_head f
         WHERE f.id = ${id}

@@ -160,14 +160,14 @@ export function WikiEditorPage() {
               .toLowerCase()
               .replace(/[^a-z0-9]+/g, '-')
               .replace(/(^-|-$)/g, ''),
-        contentHtml: renderBlocksToHtml(blocks),
-        contentMarkdown: '',
+        content_html: renderBlocksToHtml(blocks),
+        content_markdown: '',
         content: { type: 'blocks', blocks },
         tags,
-        attr: { icon, cover, path: pagePath },
-        publicationStatus: 'draft',
+        metadata: { attr: { icon, cover, path: pagePath } },
+        publication_status: 'draft',
         visibility: 'internal',
-        wikiType: 'page',
+        wiki_type: 'page',
       };
       if (editing && id) {
         await wikiApi.update(id, payload);
@@ -220,6 +220,27 @@ export function WikiEditorPage() {
       <div className="relative z-10 flex min-h-screen flex-col">
         <main className="w-full flex-1 py-8 sm:py-10">
           <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 space-y-6">
+            {/* Save Button Bar */}
+            <div className="flex items-center justify-between">
+              <h1 className="text-2xl font-bold text-gray-900">
+                {editing ? 'Edit Wiki Page' : 'Create New Wiki Page'}
+              </h1>
+              <button
+                onClick={onSave}
+                disabled={saving || !title.trim()}
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+              >
+                {saving ? (
+                  <>
+                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Wiki Page'
+                )}
+              </button>
+            </div>
+
             <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
               <div className="flex min-h-[3rem] items-center gap-2 overflow-x-auto pb-1">
                     <div className="flex items-center gap-2">

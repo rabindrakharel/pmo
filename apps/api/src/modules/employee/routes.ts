@@ -128,7 +128,7 @@ export async function empRoutes(fastify: FastifyInstance) {
         employee_type: Type.Optional(Type.String()),
         department: Type.Optional(Type.String()),
         remote_work_eligible: Type.Optional(Type.Boolean()),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 10000 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
       response: {
@@ -373,8 +373,8 @@ export async function empRoutes(fastify: FastifyInstance) {
       
       const result = await db.execute(sql`
         INSERT INTO app.d_employee (
-          name, "descr", employee_number, email, phone, 
-          first_name, last_name, preferred_name, date_of_birth,
+          name, "descr", employee_number, email, phone,
+          first_name, last_name, preferred_name, birthdate,
           hire_date, termination_date, employment_status, employee_type,
           hr_position_id, primary_org_id, reports_to_employee_id,
           salary_annual, hourly_rate, overtime_eligible, benefits_eligible,
@@ -383,11 +383,11 @@ export async function empRoutes(fastify: FastifyInstance) {
           tags, attr, active
         )
         VALUES (
-          ${data.name}, 
-          ${data.descr || null}, 
+          ${data.name},
+          ${data.descr || null},
           ${data.employee_number},
-          ${data.email}, 
-          ${data.phone || null}, 
+          ${data.email},
+          ${data.phone || null},
           ${data.first_name},
           ${data.last_name},
           ${data.preferred_name || null},
@@ -474,7 +474,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       if (data.first_name !== undefined) updateFields.push(sql`first_name = ${data.first_name}`);
       if (data.last_name !== undefined) updateFields.push(sql`last_name = ${data.last_name}`);
       if (data.preferred_name !== undefined) updateFields.push(sql`preferred_name = ${data.preferred_name}`);
-      if (data.date_of_birth !== undefined) updateFields.push(sql`date_of_birth = ${data.date_of_birth}`);
+      if (data.date_of_birth !== undefined) updateFields.push(sql`birthdate = ${data.date_of_birth}`);
       if (data.hire_date !== undefined) updateFields.push(sql`hire_date = ${data.hire_date}`);
       if (data.termination_date !== undefined) updateFields.push(sql`termination_date = ${data.termination_date}`);
       if (data.employment_status !== undefined) updateFields.push(sql`employment_status = ${data.employment_status}`);

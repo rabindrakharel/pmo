@@ -157,9 +157,9 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
 
       if (response.ok) {
         const formData = await response.json();
-        // Parse schema if it's a string
-        if (formData.schema && typeof formData.schema === 'string') {
-          formData.schema = JSON.parse(formData.schema);
+        // Parse form_schema if it's a string
+        if (formData.form_schema && typeof formData.form_schema === 'string') {
+          formData.form_schema = JSON.parse(formData.form_schema);
         }
         setSelectedForm(formData);
       }
@@ -692,7 +692,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
                   <InteractiveForm
                     formId={selectedFormId}
                     fields={(() => {
-                      const schema = selectedForm.schema || {};
+                      const schema = selectedForm.form_schema || {};
                       const steps = schema.steps || [];
                       return steps.flatMap((step: any) =>
                         (step.fields || []).map((field: any) => ({
@@ -702,7 +702,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
                         }))
                       );
                     })()}
-                    steps={selectedForm.schema?.steps || []}
+                    steps={selectedForm.form_schema?.steps || []}
                     skipApiSubmission={true}
                     onSubmitSuccess={handleFormSubmitSuccess}
                   />

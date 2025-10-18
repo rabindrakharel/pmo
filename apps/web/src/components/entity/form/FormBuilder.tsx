@@ -12,7 +12,7 @@ import { DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensor
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-export type FieldType = 'text' | 'number' | 'select' | 'datetime' | 'textarea' | 'email' | 'phone' | 'url' | 'checkbox' | 'radio' | 'file' | 'range' | 'signature' | 'initials' | 'address' | 'geolocation' | 'image_capture' | 'video_capture' | 'qr_scanner' | 'barcode_scanner' | 'wiki' | 'datatable';
+export type FieldType = 'text' | 'number' | 'select' | 'datetime' | 'textarea' | 'email' | 'phone' | 'url' | 'checkbox' | 'radio' | 'file' | 'range' | 'signature' | 'initials' | 'address' | 'geolocation' | 'image_capture' | 'video_capture' | 'qr_scanner' | 'barcode_scanner' | 'wiki' | 'datatable' | 'taskcheck';
 
 export interface BuilderField {
   id: string;
@@ -89,6 +89,7 @@ export const getFieldIcon = (type: FieldType) => {
     barcode_scanner: <Barcode className="h-4 w-4" />,
     wiki: <BookOpen className="h-4 w-4" />,
     datatable: <Table className="h-4 w-4" />,
+    taskcheck: <CheckSquare className="h-4 w-4" />,
   };
   return iconMap[type] || <Type className="h-4 w-4" />;
 };

@@ -6,7 +6,7 @@ import { WikiContentRenderer } from '../../components/entity/wiki';
 import { TaskDataContainer } from '../../components/entity/task';
 import { FormDataTable, InteractiveForm, FormSubmissionEditor } from '../../components/entity/form';
 import { getEntityConfig } from '../../lib/entityConfig';
-import * as api from '../../lib/api';
+import { APIFactory } from '../../lib/api';
 
 /**
  * Universal EntityDetailPage
@@ -38,11 +38,11 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   const [editedData, setEditedData] = useState<any>({});
   const [formDataRefreshKey, setFormDataRefreshKey] = useState(0);
 
-  // Check if this entity has child entities
-  const hasChildEntities = config && config.childEntities && config.childEntities.length > 0;
-
-  // Fetch dynamic child entity tabs - only if entity has children
+  // Fetch dynamic child entity tabs from API
   const { tabs, loading: tabsLoading } = useDynamicChildEntityTabs(entityType, id || '');
+
+  // Check if this entity has child entities (based on API response)
+  const hasChildEntities = tabs && tabs.length > 0;
 
   // Determine current tab from URL
   const pathParts = location.pathname.split('/').filter(Boolean);
@@ -112,21 +112,17 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
       setLoading(true);
       setError(null);
 
-      // Dynamic API call based on entity type
-      const apiModule = (api as any)[`${entityType}Api`];
-      if (!apiModule || !apiModule.get) {
-        throw new Error(`API module for ${entityType} not found`);
-      }
-
-      const response = await apiModule.get(id);
+      // Type-safe API call using APIFactory
+      const api = APIFactory.getAPI(entityType);
+      const response = await api.get(id!);
       let responseData = response.data || response;
 
       // Special handling for form entity - parse schema if it's a string
-      if (entityType === 'form' && responseData.schema && typeof responseData.schema === 'string') {
+      if (entityType === 'form' && responseData.form_schema && typeof responseData.form_schema === 'string') {
         try {
           responseData = {
             ...responseData,
-            schema: JSON.parse(responseData.schema)
+            form_schema: JSON.parse(responseData.form_schema)
           };
         } catch (e) {
           console.error('Failed to parse form schema:', e);
@@ -145,9 +141,27 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
 
   const handleSave = async () => {
     try {
-      const apiModule = (api as any)[`${entityType}Api`];
-      await apiModule.update(id, editedData);
-      setData(editedData);
+      // Normalize date fields to YYYY-MM-DD format for API validation
+      const normalizedData = { ...editedData };
+
+      // Find all date fields from config and normalize them
+      config.fields.forEach(field => {
+        if (field.type === 'date' && normalizedData[field.key]) {
+          const value = normalizedData[field.key];
+          // If value is a string with timestamp, extract just the date part
+          if (typeof value === 'string' && value.includes('T')) {
+            normalizedData[field.key] = value.split('T')[0];
+          } else if (value instanceof Date) {
+            // If it's a Date object, convert to YYYY-MM-DD
+            normalizedData[field.key] = value.toISOString().split('T')[0];
+          }
+        }
+      });
+
+      // Type-safe API call using APIFactory
+      const api = APIFactory.getAPI(entityType);
+      await api.update(id!, normalizedData);
+      setData(normalizedData);
       setIsEditing(false);
       // Optionally show success toast
     } catch (err) {
@@ -302,7 +316,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             <div className="space-y-4 bg-blue-50 border border-blue-100 rounded-xl p-6 shadow-sm">
               {(() => {
                 // Extract and prepare fields from schema
-                const schema = data.schema || {};
+                const schema = data.form_schema || {};
                 const steps = schema.steps || [];
                 const fields = steps.flatMap((step: any) =>
                   (step.fields || []).map((field: any) => ({
@@ -314,7 +328,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
 
                 console.log('Interactive Form Debug:', {
                   formId: id,
-                  hasSchema: !!data.schema,
+                  hasSchema: !!data.form_schema,
                   stepsCount: steps.length,
                   fieldsCount: fields.length,
                   steps,
@@ -360,7 +374,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
           )
         ) : currentChildEntity === 'form-data' ? (
           // Form Data Tab - Show form submissions
-          <FormDataTable formId={id!} formSchema={data.schema} refreshKey={formDataRefreshKey} />
+          <FormDataTable formId={id!} formSchema={data.form_schema} refreshKey={formDataRefreshKey} />
         ) : currentChildEntity === 'edit-submission' ? (
           <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 shadow-sm">
             <FormSubmissionEditor

@@ -8,6 +8,7 @@ import {
   filterUniversalColumns,
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
+import { createBulkChildEntityEndpoints } from '../../lib/child-entity-route-factory.js';
 
 // Schema based on actual d_office table structure
 const OfficeSchema = Type.Object({
@@ -580,4 +581,8 @@ export async function officeRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
+
+  // Create child entity endpoints for office
+  // Based on d_entity.child_entities: task, artifact, wiki, form
+  createBulkChildEntityEndpoints(fastify, 'office', ['task', 'artifact', 'wiki', 'form']);
 }

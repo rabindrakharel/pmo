@@ -226,13 +226,13 @@ const getDefaultTabs = (parentType: string, parentId: string): HeaderTab[] => {
   return tabs;
 };
 
-// Hook for generating tabs from API data
+// Hook for generating tabs from centralized entity metadata API
 export function useDynamicChildEntityTabs(parentType: string, parentId: string) {
   const [tabs, setTabs] = React.useState<HeaderTab[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const fetchActionSummaries = async () => {
+    const fetchChildTabs = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem('auth_token');
@@ -244,17 +244,8 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
           return;
         }
 
-        // Check if this entity type has children (leaf entities like employee, role, client don't)
-        const leafEntities = ['employee', 'role', 'client', 'position', 'form'];
-        if (leafEntities.includes(parentType)) {
-          // Don't fetch tabs for leaf entities
-          setTabs([]);
-          setLoading(false);
-          return;
-        }
-
-        // Fetch dynamic child entity tabs
-        const response = await fetch(`${API_BASE_URL}/api/v1/${parentType}/${parentId}/dynamic-child-entity-tabs`, {
+        // Fetch child tabs from centralized entity metadata API
+        const response = await fetch(`${API_BASE_URL}/api/v1/entity/child-tabs/${parentType}/${parentId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -264,65 +255,29 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
         if (response.ok) {
           const data = await response.json();
 
-          // Helper function to get the correct route path for API-generated tabs
-          const getApiEntityRoutePath = (parentType: string, parentId: string, entityTypeCode: string): string => {
-            // Handle entity type code to route mapping with singular naming
-            const entityRouteMap: Record<string, string> = {
-              'task': 'task',
-              'tasks': 'task',
-              'wiki': 'wiki',
-              'form': 'form',
-              'forms': 'form',
-              'artifact': 'artifact',
-              'artifacts': 'artifact',
-              'project': 'project',
-              'projects': 'project',
-              'employee': 'employee',
-              'employees': 'employee',
-              'worksite': 'worksite',
-              'worksites': 'worksite',
-              'role': 'role',
-              'roles': 'role',
-            };
+          // If no tabs returned (leaf entity or no children), show overview only
+          if (!data.tabs || data.tabs.length === 0) {
+            setTabs([
+              {
+                id: 'overview',
+                label: 'Overview',
+                path: `/${parentType}/${parentId}`,
+                icon: getEntityIcon(parentType),
+              }
+            ]);
+            setLoading(false);
+            return;
+          }
 
-            const routeSegment = entityRouteMap[entityTypeCode] || entityTypeCode;
-            return `/${parentType}/${parentId}/${routeSegment}`;
-          };
-
-          // Process action entities - all tabs are always accessible
-
-          // Convert API data to tabs - all tabs are always accessible
-          const generatedTabs: HeaderTab[] = data.action_entities.map((entity: any) => {
-            const entityRouteMap: Record<string, string> = {
-              'task': 'task',
-              'tasks': 'task',
-              'wiki': 'wiki',
-              'form': 'form',
-              'forms': 'form',
-              'artifact': 'artifact',
-              'artifacts': 'artifact',
-              'project': 'project',
-              'projects': 'project',
-              'employee': 'employee',
-              'employees': 'employee',
-              'worksite': 'worksite',
-              'worksites': 'worksite',
-              'role': 'role',
-              'roles': 'role',
-            };
-
-            const routeSegment = entityRouteMap[entity.actionEntity] || entity.actionEntity;
-
-            return {
-              id: routeSegment, // Use consistent route segment as ID
-              label: entity.label,
-              count: entity.count,
-              icon: getEntityIcon(entity.actionEntity),
-              path: getApiEntityRoutePath(parentType, parentId, entity.actionEntity),
-              disabled: false, // All tabs are always enabled
-              tooltip: undefined, // No permission-based tooltips
-            };
-          });
+          // Convert API data to tab format - tabs are already ordered from API
+          const generatedTabs: HeaderTab[] = data.tabs.map((tab: any) => ({
+            id: tab.entity,
+            label: tab.ui_label,
+            count: tab.count,
+            icon: getEntityIcon(tab.entity),
+            path: `/${parentType}/${parentId}/${tab.entity}`,
+            disabled: false,
+          }));
 
           // Add overview tab at the beginning
           setTabs([
@@ -347,7 +302,7 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
         }
       } catch (error) {
         // Fallback to default tabs if API call fails
-        console.warn('Error fetching action summaries, using default tabs:', error);
+        console.warn('Error fetching child tabs from entity metadata API, using default tabs:', error);
         setTabs(getDefaultTabs(parentType, parentId));
       } finally {
         setLoading(false);
@@ -355,7 +310,7 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
     };
 
     if (parentId) {
-      fetchActionSummaries();
+      fetchChildTabs();
     }
   }, [parentType, parentId]);
 

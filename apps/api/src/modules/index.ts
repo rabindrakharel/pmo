@@ -26,6 +26,7 @@ import { taskDataRoutes } from './task-data/routes.js';
 import { hierarchyRoutes } from './meta/hierarchy-routes.js';
 import { singleEntityRoutes } from './entity/single-entity-routes.js';
 import { parentActionEntityRoutes } from './entity/parent-action-entity-routes.js';
+import { entityRoutes } from './entity/routes.js';
 import { rbacRoutes } from './rbac/routes.js';
 import { linkageModule } from './linkage/index.js';
 
@@ -62,6 +63,8 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   // Parent/action entity routes
   await parentActionEntityRoutes(fastify);
 
+  // Entity type metadata routes (d_entity - parent-child relationships, icons)
+  await entityRoutes(fastify);
 
   // RBAC permission checking routes
   await rbacRoutes(fastify);

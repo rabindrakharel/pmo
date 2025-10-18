@@ -17,8 +17,8 @@ export function FormEditPage() {
       try {
         const form = await formApi.get(id);
         // Parse schema if it's a string
-        if (form.schema && typeof form.schema === 'string') {
-          form.schema = JSON.parse(form.schema);
+        if (form.form_schema && typeof form.form_schema === 'string') {
+          form.form_schema = JSON.parse(form.form_schema);
         }
         setFormData(form);
       } catch (e) {

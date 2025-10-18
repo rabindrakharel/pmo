@@ -30,8 +30,8 @@ export function PublicFormPage() {
       const data = await response.json();
 
       // Parse schema if it's a string
-      if (data.schema && typeof data.schema === 'string') {
-        data.schema = JSON.parse(data.schema);
+      if (data.form_schema && typeof data.form_schema === 'string') {
+        data.form_schema = JSON.parse(data.form_schema);
       }
 
       setForm(data);
@@ -122,7 +122,7 @@ export function PublicFormPage() {
     );
   }
 
-  const schema = form?.schema || {};
+  const schema = form?.form_schema || {};
   const steps = schema.steps || [];
   const fields = steps.flatMap((step: any) =>
     (step.fields || []).map((field: any) => ({

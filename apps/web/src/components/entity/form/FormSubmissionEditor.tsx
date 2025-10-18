@@ -60,34 +60,42 @@ export function FormSubmissionEditor({
   const hasLoadedOnceRef = useRef<boolean>(Boolean(submission));
 
   const schema = useMemo(() => {
-    const rawSchema = form?.schema;
+    console.log('📋 Form object received:', form);
+    const rawSchema = form?.form_schema || form?.schema;
+    console.log('📋 Raw schema:', rawSchema);
     if (!rawSchema) {
+      console.warn('⚠️ No schema found in form object');
       return { steps: [] };
     }
     if (typeof rawSchema === 'string') {
       try {
-        return JSON.parse(rawSchema);
+        const parsed = JSON.parse(rawSchema);
+        console.log('📋 Parsed schema:', parsed);
+        return parsed;
       } catch (err) {
         console.error('Failed to parse form schema string:', err);
         return { steps: [] };
       }
     }
+    console.log('📋 Using schema as object:', rawSchema);
     return rawSchema;
   }, [form]);
 
   const steps: FormStep[] = useMemo(() => {
     const schemaSteps = Array.isArray(schema?.steps) ? schema.steps : [];
-    return schemaSteps.map((step: any, index: number) => ({
+    const result = schemaSteps.map((step: any, index: number) => ({
       id: step.id || `step-${index + 1}`,
       name: step.name || `step_${index + 1}`,
       title: step.title || `Step ${index + 1}`,
       description: step.description || '',
     }));
+    console.log('📋 Generated steps:', result);
+    return result;
   }, [schema]);
 
   const fields: BuilderField[] = useMemo(() => {
     const schemaSteps = Array.isArray(schema?.steps) ? schema.steps : [];
-    return schemaSteps.flatMap((step: any, stepIndex: number) => {
+    const result = schemaSteps.flatMap((step: any, stepIndex: number) => {
       const stepFields = Array.isArray(step?.fields) ? step.fields : [];
       return stepFields.map((field: any) => ({
         ...field,
@@ -95,6 +103,8 @@ export function FormSubmissionEditor({
         stepId: step.id || `step-${stepIndex + 1}`,
       }));
     });
+    console.log('📋 Generated fields:', result);
+    return result;
   }, [schema]);
 
   const fieldLookups = useMemo(() => {
@@ -164,6 +174,7 @@ export function FormSubmissionEditor({
         'value' in input &&
         Object.keys(input).length <= 2
       ) {
+        console.log('🔄 Unwrapping object with value property:', input, '→', input.value);
         return input.value;
       }
       return input;
@@ -173,7 +184,11 @@ export function FormSubmissionEditor({
       return value.map(unwrap);
     }
 
-    return unwrap(value);
+    const result = unwrap(value);
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      console.log('🔍 normalizeLeafValue - preserving object:', value, '→', result);
+    }
+    return result;
   }, []);
 
   // DATATABLE KEY PRESERVATION LOGIC:
@@ -218,8 +233,14 @@ export function FormSubmissionEditor({
 
         // For all other keys, try to resolve to a field name
         const field = resolveFieldForKey(key);
+        const normalizedValue = normalizeLeafValue(value);
         if (field) {
-          result[field.name] = normalizeLeafValue(value);
+          console.log('✅ Matched field key:', key, '→', field.name, '=', normalizedValue);
+          result[field.name] = normalizedValue;
+        } else {
+          // If no field match found, preserve the key as-is (it might be a valid field name already)
+          console.log('⚠️ No field match for key:', key, '- preserving as-is, value:', normalizedValue);
+          result[key] = normalizedValue;
         }
       };
 
@@ -330,7 +351,8 @@ export function FormSubmissionEditor({
         setIsRefreshing(false);
       }
     },
-    [formId, submissionId, submission, internalSubmission],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [formId, submissionId],
   );
 
   React.useEffect(() => {
@@ -342,24 +364,28 @@ export function FormSubmissionEditor({
       return;
     }
 
-    if (submission) {
+    // Only set from submission prop if we don't already have data
+    if (submission && !hasLoadedOnceRef.current) {
       console.log('🔄 FormSubmissionEditor received submission state', submission);
+      const parsedStatePayload = parseSubmissionData(
+        submission?.submissionData ?? submission?.submission_data ?? null,
+      );
+
+      if (parsedStatePayload) {
+        setInternalSubmission(submission);
+        setLoading(false);
+        setError(null);
+        hasLoadedOnceRef.current = true;
+        return;
+      }
     }
 
-    const parsedStatePayload = parseSubmissionData(
-      submission?.submissionData ?? submission?.submission_data ?? null,
-    );
-
-    if (submission && parsedStatePayload) {
-      setInternalSubmission(submission);
-      setLoading(false);
-      setError(null);
-      hasLoadedOnceRef.current = true;
-      return;
+    // Only fetch if we haven't loaded yet
+    if (!hasLoadedOnceRef.current) {
+      fetchSubmission({ forceFullLoading: true });
     }
-
-    fetchSubmission({ forceFullLoading: !hasLoadedOnceRef.current });
-  }, [submissionId, submission, fetchSubmission]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [submissionId]);
 
   const initialData = useMemo(() => {
     if (!internalSubmission) return {};
@@ -369,8 +395,12 @@ export function FormSubmissionEditor({
       internalSubmission.submissionData ?? internalSubmission.submission_data ?? null,
     );
 
+    console.log('📦 Parsed submission data:', raw);
+
     if (raw) {
-      return normalizeSubmissionValues(raw);
+      const normalized = normalizeSubmissionValues(raw);
+      console.log('✨ Normalized data from raw:', normalized);
+      return normalized;
     }
 
     const normalized = normalizeSubmissionValues(internalSubmission);

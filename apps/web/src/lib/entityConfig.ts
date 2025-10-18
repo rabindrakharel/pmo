@@ -63,7 +63,6 @@ export interface EntityConfig {
   displayName: string;
   pluralName: string;
   apiEndpoint: string;
-  icon?: string; // lucide-react icon name
 
   // Table configuration
   columns: ColumnDef[];
@@ -74,9 +73,6 @@ export interface EntityConfig {
   // Supported view modes
   supportedViews: ViewMode[];
   defaultView: ViewMode;
-
-  // Child entities (for tabs)
-  childEntities?: string[];
 
   // Hierarchical configuration (for office/business)
   hierarchical?: {
@@ -159,7 +155,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Project',
     pluralName: 'Projects',
     apiEndpoint: '/api/v1/project',
-    icon: 'FolderOpen',
 
     columns: [
       {
@@ -230,9 +225,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     ],
 
     supportedViews: ['table'],
-    defaultView: 'table',
-
-    childEntities: ['task', 'wiki', 'artifact', 'form']
+    defaultView: 'table'
   },
 
   // --------------------------------------------------------------------------
@@ -243,7 +236,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Task',
     pluralName: 'Tasks',
     apiEndpoint: '/api/v1/task',
-    icon: 'CheckSquare',
 
     columns: [
       {
@@ -330,9 +322,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       groupByField: 'stage',
       metaTable: 'setting_task_stage',
       cardFields: ['name', 'priority_level', 'estimated_hours', 'assignee_employee_ids']
-    },
-
-    childEntities: ['form', 'artifact']
+    }
   },
 
   // --------------------------------------------------------------------------
@@ -343,7 +333,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Wiki',
     pluralName: 'Wiki Pages',
     apiEndpoint: '/api/v1/wiki',
-    icon: 'BookOpen',
 
     columns: [
       {
@@ -456,7 +445,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Artifact',
     pluralName: 'Artifacts',
     apiEndpoint: '/api/v1/artifact',
-    icon: 'FileText',
 
     columns: [
       {
@@ -527,7 +515,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Form',
     pluralName: 'Forms',
     apiEndpoint: '/api/v1/form',
-    icon: 'FileText',
 
     columns: [
       {
@@ -572,9 +559,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     ],
 
     supportedViews: ['table'],
-    defaultView: 'table',
-
-    childEntities: ['artifact']
+    defaultView: 'table'
   },
 
   // --------------------------------------------------------------------------
@@ -585,7 +570,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Business Unit',
     pluralName: 'Business Units',
     apiEndpoint: '/api/v1/biz',
-    icon: 'Building2',
 
     columns: [
       {
@@ -675,9 +659,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       levelNames: ['Department', 'Division', 'Corporate'],
       metaTable: 'setting_business_level',
       levelField: 'level_name'
-    },
-
-    childEntities: ['project']
+    }
   },
 
   // --------------------------------------------------------------------------
@@ -688,7 +670,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Office',
     pluralName: 'Offices',
     apiEndpoint: '/api/v1/office',
-    icon: 'MapPin',
 
     columns: [
       {
@@ -743,9 +724,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       levelNames: ['Office', 'District', 'Region', 'Corporate'],
       metaTable: 'setting_office_level',
       levelField: 'level_id'
-    },
-
-    childEntities: ['task', 'artifact', 'wiki', 'form']
+    }
   },
 
   // --------------------------------------------------------------------------
@@ -756,7 +735,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Employee',
     pluralName: 'Employees',
     apiEndpoint: '/api/v1/employee',
-    icon: 'Users',
 
     columns: [
       {
@@ -826,7 +804,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Role',
     pluralName: 'Roles',
     apiEndpoint: '/api/v1/role',
-    icon: 'Shield',
 
     columns: [
       {
@@ -858,9 +835,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     ],
 
     supportedViews: ['table'],
-    defaultView: 'table',
-
-    childEntities: ['employee']
+    defaultView: 'table'
   },
 
   // --------------------------------------------------------------------------
@@ -871,7 +846,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Worksite',
     pluralName: 'Worksites',
     apiEndpoint: '/api/v1/worksite',
-    icon: 'MapPin',
 
     columns: [
       {
@@ -916,7 +890,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Client',
     pluralName: 'Clients',
     apiEndpoint: '/api/v1/client',
-    icon: 'Building',
 
     columns: [
       {
@@ -1032,9 +1005,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     ],
 
     supportedViews: ['table'],
-    defaultView: 'table',
-
-    childEntities: ['project', 'artifact', 'form']
+    defaultView: 'table'
   },
 
   // --------------------------------------------------------------------------
@@ -1045,7 +1016,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Position',
     pluralName: 'Positions',
     apiEndpoint: '/api/v1/position',
-    icon: 'Briefcase',
 
     columns: [
       {
@@ -1086,7 +1056,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Project Stage',
     pluralName: 'Project Stages',
     apiEndpoint: '/api/v1/setting?category=project_stage',
-    icon: 'KanbanSquare',
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
@@ -1126,7 +1095,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Project Status',
     pluralName: 'Project Statuses',
     apiEndpoint: '/api/v1/setting?category=project_status',
-    icon: 'ListChecks',
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
@@ -1165,7 +1133,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Task Stage',
     pluralName: 'Task Stages',
     apiEndpoint: '/api/v1/setting?category=task_stage',
-    icon: 'KanbanSquare',
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
@@ -1205,7 +1172,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Task Status',
     pluralName: 'Task Statuses',
     apiEndpoint: '/api/v1/setting?category=task_status',
-    icon: 'ListChecks',
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
@@ -1244,7 +1210,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Business Level',
     pluralName: 'Business Levels',
     apiEndpoint: '/api/v1/setting?category=business_level',
-    icon: 'Building2',
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
@@ -1283,7 +1248,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Office Level',
     pluralName: 'Office Levels',
     apiEndpoint: '/api/v1/setting?category=office_level',
-    icon: 'MapPin',
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
@@ -1322,7 +1286,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'HR Level',
     pluralName: 'HR Levels',
     apiEndpoint: '/api/v1/setting?category=hr_level',
-    icon: 'Crown',
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
@@ -1361,7 +1324,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Client Level',
     pluralName: 'Client Levels',
     apiEndpoint: '/api/v1/setting?category=client_level',
-    icon: 'Users',
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
@@ -1400,7 +1362,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Position Level',
     pluralName: 'Position Levels',
     apiEndpoint: '/api/v1/setting?category=position_level',
-    icon: 'Star',
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
@@ -1439,7 +1400,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Opportunity Funnel Level',
     pluralName: 'Opportunity Funnel Levels',
     apiEndpoint: '/api/v1/setting?category=opportunity_funnel_level',
-    icon: 'TrendingUp',
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
@@ -1478,7 +1438,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Industry Sector',
     pluralName: 'Industry Sectors',
     apiEndpoint: '/api/v1/setting?category=industry_sector',
-    icon: 'Building',
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
@@ -1517,7 +1476,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Acquisition Channel',
     pluralName: 'Acquisition Channels',
     apiEndpoint: '/api/v1/setting?category=acquisition_channel',
-    icon: 'Radio',
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
@@ -1556,7 +1514,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Customer Tier',
     pluralName: 'Customer Tiers',
     apiEndpoint: '/api/v1/setting?category=customer_tier',
-    icon: 'Award',
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },

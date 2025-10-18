@@ -81,13 +81,11 @@ function AppRoutes() {
             path={`/${entityType}/:id`}
             element={<ProtectedRoute><EntityDetailPage entityType={entityType} /></ProtectedRoute>}
           >
-            {config.childEntities?.map(childType => (
-              <Route
-                key={childType}
-                path={childType}
-                element={<EntityChildListPage parentType={entityType} childType={childType} />}
-              />
-            ))}
+            {/* Wildcard route for any child entity type */}
+            <Route
+              path=":childType"
+              element={<EntityChildListPage parentType={entityType} childType="" />}
+            />
           </Route>
         </Fragment>
       );

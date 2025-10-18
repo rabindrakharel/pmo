@@ -37,13 +37,13 @@ export function FormViewPage() {
         const data = await formApi.get(id);
 
         // Parse schema if it's a string
-        if (data.schema && typeof data.schema === 'string') {
-          data.schema = JSON.parse(data.schema);
+        if (data.form_schema && typeof data.form_schema === 'string') {
+          data.form_schema = JSON.parse(data.form_schema);
         }
 
         setForm(data);
 
-        const schema = data?.schema || {};
+        const schema = data?.form_schema || {};
 
         // Handle multi-step forms
         if (schema.steps && Array.isArray(schema.steps)) {

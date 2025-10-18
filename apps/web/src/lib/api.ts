@@ -597,3 +597,46 @@ export const positionApi = {
     return response.data;
   },
 };
+
+// ========================================
+// API FACTORY REGISTRATION
+// ========================================
+
+import { APIFactory } from './api-factory';
+
+/**
+ * Register all entity APIs in the factory for type-safe access
+ *
+ * This eliminates the need for unsafe dynamic API calls like:
+ * const apiModule = (api as any)[`${entityType}Api`];
+ *
+ * Instead, use the type-safe factory:
+ * const api = APIFactory.getAPI(entityType);
+ */
+
+// Core business entities
+APIFactory.register('project', projectApi);
+APIFactory.register('task', taskApi);
+APIFactory.register('biz', bizApi);
+APIFactory.register('business', businessApi); // Alias for biz
+APIFactory.register('office', officeApi);
+APIFactory.register('org', orgApi); // Alias for office
+
+// People & roles
+APIFactory.register('employee', employeeApi);
+APIFactory.register('client', clientApi);
+APIFactory.register('role', roleApi);
+APIFactory.register('position', positionApi);
+
+// Content & documentation
+APIFactory.register('wiki', wikiApi);
+APIFactory.register('artifact', artifactApi);
+APIFactory.register('form', formApi);
+
+// Locations
+APIFactory.register('worksite', worksiteApi);
+
+/**
+ * Export the APIFactory for use in components
+ */
+export { APIFactory } from './api-factory';

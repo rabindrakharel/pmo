@@ -329,6 +329,50 @@ export function InteractiveForm({
           </>
         );
 
+      case 'taskcheck':
+        // TaskCheck: Single checkbox that stores { checked: boolean, timestamp: string | null }
+        console.log('🔲 TaskCheck field:', field.name, 'value:', value);
+        const taskCheckValue = value || { checked: false, timestamp: null };
+        console.log('🔲 TaskCheck parsed:', taskCheckValue);
+        const isChecked = taskCheckValue.checked === true;
+        const checkedAt = taskCheckValue.timestamp;
+
+        return (
+          <>
+            <div className="space-y-2">
+              <label className="flex items-start space-x-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={(e) => {
+                    const newValue = {
+                      checked: e.target.checked,
+                      timestamp: e.target.checked ? new Date().toISOString() : null
+                    };
+                    handleFieldChange(field.name, newValue);
+                  }}
+                  className="mt-0.5 rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                  required={field.required}
+                />
+                <div className="flex-1">
+                  <span className="text-sm text-gray-700 group-hover:text-gray-900">
+                    {field.label || field.name}
+                  </span>
+                  {isChecked && checkedAt && (
+                    <div className="text-xs text-green-600 mt-1 flex items-center space-x-1">
+                      <CheckCircle className="h-3 w-3" />
+                      <span>
+                        Checked on {new Date(checkedAt).toLocaleDateString()} at {new Date(checkedAt).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </label>
+            </div>
+            {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
+          </>
+        );
+
       case 'datetime':
         return (
           <>

@@ -177,7 +177,8 @@ validate_all_ddls() {
         "27_d_reports.ddl"
         "28_d_report_data.ddl"
         "29_d_entity_map.ddl"
-        "31_d_entity.ddl"
+        "30_d_entity.ddl"
+        "31_d_entity_instance_id.ddl"
         "33_d_entity_id_map.ddl"
         "34_d_entity_id_rbac_map.ddl"
     )
@@ -260,9 +261,10 @@ import_ddls() {
     execute_sql "$DB_PATH/27_d_reports.ddl" "Report entities"
     execute_sql "$DB_PATH/28_d_report_data.ddl" "Report data entities"
 
-    # Final layer - Entity registry, type mappings, relationships, and RBAC (must come last in specific order)
+    # Final layer - Entity type metadata, instance registry, type mappings, relationships, and RBAC (must come last in specific order)
     execute_sql "$DB_PATH/29_d_entity_map.ddl" "Entity type linkage rules (valid parent-child types)"
-    execute_sql "$DB_PATH/31_d_entity.ddl" "Entity registry framework (all entity instances)"
+    execute_sql "$DB_PATH/30_d_entity.ddl" "Entity TYPE metadata (parent-child relationships, icons)"
+    execute_sql "$DB_PATH/31_d_entity_instance_id.ddl" "Entity INSTANCE registry (all entity instances with UUIDs)"
     execute_sql "$DB_PATH/33_d_entity_id_map.ddl" "Entity instance relationships (parent-child linkages)"
     execute_sql "$DB_PATH/34_d_entity_id_rbac_map.ddl" "RBAC permission mapping"
 
@@ -369,10 +371,12 @@ validate_schema() {
 print_summary() {
     print_status $PURPLE "📋 IMPORT SUMMARY"
     print_status $PURPLE "=================="
-    print_status $CYAN "• PMO Enterprise schema with 28 DDL files imported"
+    print_status $CYAN "• PMO Enterprise schema with 29 DDL files imported"
     print_status $CYAN "• Head/data pattern for temporal entities"
     print_status $CYAN "• 4-level office hierarchy (Office → District → Region → Corporate)"
     print_status $CYAN "• 3-level business hierarchy"
+    print_status $CYAN "• Entity TYPE metadata (d_entity) with parent-child relationships and icons"
+    print_status $CYAN "• Entity INSTANCE registry (d_entity_instance_id) for all entity instances"
     print_status $CYAN "• Entity mapping framework for parent-child relationships"
     print_status $CYAN "• RBAC permission system"
     print_status $CYAN "• Full content management (Tasks, Artifacts, Forms, Wiki, Reports)"
@@ -391,7 +395,7 @@ print_summary() {
 
 # Main execution
 main() {
-    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 28 DDL FILES"
+    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 29 DDL FILES"
     print_status $PURPLE "==============================================="
 
     if [ "$DRY_RUN" = true ]; then
