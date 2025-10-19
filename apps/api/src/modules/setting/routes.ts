@@ -16,6 +16,7 @@ const SettingItemSchema = Type.Object({
   sort_id: Type.Optional(Type.Number()),
   sort_order: Type.Optional(Type.Number()),
   color_code: Type.Optional(Type.String()),
+  parent_id: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
   country_code: Type.Optional(Type.String()),
   salary_band_min: Type.Optional(Type.Number()),
   salary_band_max: Type.Optional(Type.Number()),
@@ -43,6 +44,7 @@ const CreateSettingItemSchema = Type.Object({
   level_id: Type.Optional(Type.Number()),
   sort_id: Type.Optional(Type.Number()),
   sort_order: Type.Optional(Type.Number()),
+  parent_id: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
   country_code: Type.Optional(Type.String()),
   salary_band_min: Type.Optional(Type.Number()),
   salary_band_max: Type.Optional(Type.Number()),
@@ -119,6 +121,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
             level_id,
             sort_order,
             color_code,
+            parent_id,
             null as tags,
             null as attr,
             created_ts as from_ts,
@@ -164,6 +167,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
             level_id,
             sort_order,
             color_code,
+            parent_id,
             null as tags,
             null as attr,
             created_ts as from_ts,
@@ -294,6 +298,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
             level_descr,
             level_id,
             sort_order,
+            parent_id,
             null as tags,
             null as attr,
             created_ts as from_ts,
@@ -374,6 +379,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
             level_descr as descr,
             level_id,
             sort_order,
+            parent_id,
             null as tags,
             null as attr,
             created_ts as from_ts,
@@ -434,6 +440,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
             level_descr as descr,
             level_id,
             sort_order,
+            parent_id,
             null as tags,
             null as attr,
             created_ts as from_ts,
@@ -454,6 +461,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
             level_descr as descr,
             level_id,
             sort_order,
+            parent_id,
             null as tags,
             null as attr,
             created_ts as from_ts,
@@ -474,6 +482,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
             level_descr as descr,
             level_id,
             sort_order,
+            parent_id,
             null as tags,
             null as attr,
             created_ts as from_ts,
@@ -774,6 +783,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
       if (data.is_default !== undefined) updateFields.push(sql`is_default = ${data.is_default}`);
       if (data.wip_limit !== undefined && category.includes('status')) updateFields.push(sql`wip_limit = ${data.wip_limit}`);
       if (data.sort_order !== undefined) updateFields.push(sql`sort_order = ${data.sort_order}`);
+      if (data.parent_id !== undefined) updateFields.push(sql`parent_id = ${data.parent_id}`);
       if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
 
       if (updateFields.length === 0) {

@@ -24,9 +24,9 @@ const FormSchema = Type.Object({
 
 // Create schema
 const CreateFormSchema = Type.Object({
-  name: Type.String({ minLength: 1 }),
+  name: Type.Optional(Type.String({ minLength: 1 })),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Array(Type.String())),
+  tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String(), Type.Any()])),
   form_type: Type.Optional(Type.String()),
   form_schema: Type.Optional(Type.Any()),
   version: Type.Optional(Type.Number()),
@@ -330,9 +330,10 @@ export async function formRoutes(fastify: FastifyInstance) {
     schema: {
       body: CreateFormSchema,
       response: {
-        201: FormSchema,
+        // Removed schema validation - let Fastify serialize naturally
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
       },
     },
   }, async (request, reply) => {
@@ -343,6 +344,9 @@ export async function formRoutes(fastify: FastifyInstance) {
       }
 
       const data = request.body as any;
+
+      // Auto-generate required fields if missing
+      if (!data.name) data.name = 'Untitled';
 
       // Check create permission (permission 4 on 'all')
       const hasPermission = await db.execute(sql`

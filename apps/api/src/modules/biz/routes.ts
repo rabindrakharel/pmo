@@ -35,13 +35,13 @@ const BizSchema = Type.Object({
 });
 
 const CreateBizSchema = Type.Object({
-  slug: Type.String({ minLength: 1 }),
-  code: Type.String({ minLength: 1 }),
-  name: Type.String({ minLength: 1 }),
+  slug: Type.Optional(Type.String({ minLength: 1 })),
+  code: Type.Optional(Type.String({ minLength: 1 })),
+  name: Type.Optional(Type.String({ minLength: 1 })),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Array(Type.String())),
+  tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String()])),
   parent_id: Type.Optional(Type.String({ format: 'uuid' })),
-  level_name: Type.String({ minLength: 1 }),
+  level_name: Type.Optional(Type.String({ minLength: 1 })),
   office_id: Type.Optional(Type.String({ format: 'uuid' })),
   budget_allocated: Type.Optional(Type.Number()),
   manager_employee_id: Type.Optional(Type.String({ format: 'uuid' })),
@@ -306,310 +306,6 @@ export async function bizRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get tasks within a business unit
-  fastify.get('/api/v1/biz/:id/task', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      querystring: Type.Object({
-        active: Type.Optional(Type.Boolean()),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 })),
-      }),
-    },
-  }, async function (request, reply) {
-    try {
-      const { id: bizId } = request.params as { id: string };
-      const { active = true, limit = 50, offset = 0 } = request.query as any;
-      const userId = request.user?.sub;
-
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // Check if user has access to this business unit
-      const hasAccess = await hasPermissionOnEntityId(userId, 'biz', bizId, 'view');
-      if (!hasAccess) {
-        return reply.status(403).send({ error: 'Access denied for this business unit' });
-      }
-
-      // Get tasks associated with business unit (via projects using entity_id_map for both hops)
-      // Hop 1: business → projects via entity_id_map
-      // Hop 2: projects → tasks via entity_id_map
-      const conditions = [
-        sql`eim_biz_proj.parent_entity_type = 'business'`,
-        sql`eim_biz_proj.parent_entity_id = ${bizId}`,
-        sql`eim_biz_proj.child_entity_type = 'project'`,
-        sql`eim_biz_proj.active_flag = true`,
-        sql`eim_proj_task.parent_entity_type = 'project'`,
-        sql`eim_proj_task.child_entity_type = 'task'`,
-        sql`eim_proj_task.active_flag = true`,
-        sql`t.active_flag = true`
-      ];
-
-      if (active !== undefined) {
-        conditions.push(sql`t.active_flag = ${active}`);
-      }
-
-      const tasks = await db.execute(sql`
-        SELECT
-          t.id, t.slug, t.code, t.name, t.descr, t.tags, t.metadata,
-          t.assignee_employee_ids, t.stage, t.priority_level,
-          t.estimated_hours, t.actual_hours, t.story_points,
-          t.parent_task_id, t.dependency_task_ids,
-          t.from_ts, t.to_ts, t.active_flag, t.created_ts, t.updated_ts, t.version,
-          p.name as project_name
-        FROM app.d_entity_id_map eim_biz_proj
-        INNER JOIN app.d_entity_id_map eim_proj_task
-          ON eim_proj_task.parent_entity_id = eim_biz_proj.child_entity_id
-        INNER JOIN app.d_task t ON t.id::text = eim_proj_task.child_entity_id
-        INNER JOIN app.d_project p ON p.id::text = eim_biz_proj.child_entity_id
-        WHERE ${sql.join(conditions, sql` AND `)}
-        ORDER BY t.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      const countResult = await db.execute(sql`
-        SELECT COUNT(DISTINCT t.id) as total
-        FROM app.d_entity_id_map eim_biz_proj
-        INNER JOIN app.d_entity_id_map eim_proj_task
-          ON eim_proj_task.parent_entity_id = eim_biz_proj.child_entity_id
-        INNER JOIN app.d_task t ON t.id::text = eim_proj_task.child_entity_id
-        WHERE ${sql.join(conditions, sql` AND `)}
-      `);
-
-      return {
-        data: tasks,
-        total: Number(countResult[0]?.total || 0),
-        limit,
-        offset,
-        business_id: bizId,
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching business unit tasks:', error as any);
-      console.error('Full task error details:', error);
-      return reply.status(500).send({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) });
-    }
-  });
-
-  // Get forms within a business unit
-  fastify.get('/api/v1/biz/:id/form', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      querystring: Type.Object({
-        active_flag: Type.Optional(Type.Boolean()),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 })),
-      }),
-    },
-  }, async function (request, reply) {
-    try {
-      const { id: bizId } = request.params as { id: string };
-      const { active_flag = true, limit = 50, offset = 0 } = request.query as any;
-      const userId = request.user?.sub;
-
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // Check if user has access to this business unit
-      const hasAccess = await hasPermissionOnEntityId(userId, 'biz', bizId, 'view');
-      if (!hasAccess) {
-        return reply.status(403).send({ error: 'Access denied for this business unit' });
-      }
-
-      // Use d_entity_id_map to find forms linked to this business
-      const conditions = [
-        sql`eim.parent_entity_type = 'business'`,
-        sql`eim.parent_entity_id = ${bizId}`,
-        sql`eim.child_entity_type = 'form'`,
-        sql`eim.active_flag = true`
-      ];
-
-      if (active_flag !== undefined) {
-        conditions.push(sql`f.active_flag = ${active_flag}`);
-      }
-
-      const forms = await db.execute(sql`
-        SELECT
-          f.*,
-          eim.relationship_type
-        FROM app.d_entity_id_map eim
-        INNER JOIN app.d_form_head f ON f.id::text = eim.child_entity_id
-        WHERE ${sql.join(conditions, sql` AND `)}
-        ORDER BY f.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_entity_id_map eim
-        INNER JOIN app.d_form_head f ON f.id::text = eim.child_entity_id
-        WHERE ${sql.join(conditions, sql` AND `)}
-      `);
-
-      return {
-        data: forms,
-        total: Number(countResult[0]?.total || 0),
-        limit,
-        offset,
-        business_id: bizId,
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching business unit forms:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // Get artifacts within a business unit
-  fastify.get('/api/v1/biz/:id/artifact', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      querystring: Type.Object({
-        active_flag: Type.Optional(Type.Boolean()),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 })),
-      }),
-    },
-  }, async function (request, reply) {
-    try {
-      const { id: bizId } = request.params as { id: string };
-      const { active_flag = true, limit = 50, offset = 0 } = request.query as any;
-      const userId = request.user?.sub;
-
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // Check if user has access to this business unit
-      const hasAccess = await hasPermissionOnEntityId(userId, 'biz', bizId, 'view');
-      if (!hasAccess) {
-        return reply.status(403).send({ error: 'Access denied for this business unit' });
-      }
-
-      // Use d_entity_id_map to find artifacts linked to this business
-      const conditions = [
-        sql`eim.parent_entity_type = 'business'`,
-        sql`eim.parent_entity_id = ${bizId}`,
-        sql`eim.child_entity_type = 'artifact'`,
-        sql`eim.active_flag = true`
-      ];
-
-      if (active_flag !== undefined) {
-        conditions.push(sql`a.active_flag = ${active_flag}`);
-      }
-
-      const artifacts = await db.execute(sql`
-        SELECT
-          a.*,
-          eim.relationship_type
-        FROM app.d_entity_id_map eim
-        INNER JOIN app.d_artifact a ON a.id::text = eim.child_entity_id
-        WHERE ${sql.join(conditions, sql` AND `)}
-        ORDER BY a.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_entity_id_map eim
-        INNER JOIN app.d_artifact a ON a.id::text = eim.child_entity_id
-        WHERE ${sql.join(conditions, sql` AND `)}
-      `);
-
-      return {
-        data: artifacts,
-        total: Number(countResult[0]?.total || 0),
-        limit,
-        offset,
-        business_id: bizId,
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching business unit artifacts:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // Get wiki pages within a business unit
-  fastify.get('/api/v1/biz/:id/wiki', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      querystring: Type.Object({
-        active_flag: Type.Optional(Type.Boolean()),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 })),
-      }),
-    },
-  }, async function (request, reply) {
-    try {
-      const { id: bizId } = request.params as { id: string };
-      const { active_flag = true, limit = 50, offset = 0 } = request.query as any;
-      const userId = request.user?.sub;
-
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // Check if user has access to this business unit
-      const hasAccess = await hasPermissionOnEntityId(userId, 'biz', bizId, 'view');
-      if (!hasAccess) {
-        return reply.status(403).send({ error: 'Access denied for this business unit' });
-      }
-
-      // Use d_entity_id_map to find wiki pages linked to this business
-      const conditions = [
-        sql`eim.parent_entity_type = 'business'`,
-        sql`eim.parent_entity_id = ${bizId}`,
-        sql`eim.child_entity_type = 'wiki'`,
-        sql`eim.active_flag = true`
-      ];
-
-      if (active_flag !== undefined) {
-        conditions.push(sql`w.active_flag = ${active_flag}`);
-      }
-
-      const wikis = await db.execute(sql`
-        SELECT
-          w.*,
-          eim.relationship_type
-        FROM app.d_entity_id_map eim
-        INNER JOIN app.d_wiki w ON w.id::text = eim.child_entity_id
-        WHERE ${sql.join(conditions, sql` AND `)}
-        ORDER BY w.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_entity_id_map eim
-        INNER JOIN app.d_wiki w ON w.id::text = eim.child_entity_id
-        WHERE ${sql.join(conditions, sql` AND `)}
-      `);
-
-      return {
-        data: wikis,
-        total: Number(countResult[0]?.total || 0),
-        limit,
-        offset,
-        business_id: bizId,
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching business unit wiki pages:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
   // Get business dynamic child entity tabs - for tab navigation
   fastify.get('/api/v1/biz/:id/dynamic-child-entity-tabs', {
     preHandler: [fastify.authenticate],
@@ -846,11 +542,11 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
   // Create business unit
   fastify.post('/api/v1/biz', {
-    
+    preHandler: [fastify.authenticate],
     schema: {
       body: CreateBizSchema,
       response: {
-        201: BizSchema,
+        // Removed schema validation - let Fastify serialize naturally
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -863,6 +559,12 @@ export async function bizRoutes(fastify: FastifyInstance) {
     if (!userId) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
+
+    // Auto-generate required fields if missing
+    if (!data.name) data.name = 'Untitled';
+    if (!data.slug) data.slug = `biz-${Date.now()}`;
+    if (!data.code) data.code = `BIZ-${Date.now()}`;
+    if (!data.level_name) data.level_name = 'Department'; // Default to Department level
 
     try {
       // If creating under a parent, check create permissions

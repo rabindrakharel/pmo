@@ -4,6 +4,8 @@ import {
   loadFieldOptions,
   type SettingOption
 } from '../../../lib/settingsLoader';
+import { SequentialStateVisualizer } from './SequentialStateVisualizer';
+import { isSequentialStateField } from '../../../lib/sequentialStateConfig';
 
 /**
  * EntityFormContainer
@@ -71,17 +73,31 @@ export function EntityFormContainer({
   const renderField = (field: FieldDef) => {
     const value = data[field.key];
 
+    // Check if this is a sequential state field
+    const hasDynamicOptions = field.loadOptionsFromSettings && settingOptions.has(field.key);
+    const options = hasDynamicOptions
+      ? settingOptions.get(field.key)!
+      : field.options || [];
+    const isSequentialField = field.type === 'select'
+      && isSequentialStateField(field.key, hasDynamicOptions)
+      && options.length > 0;
+
     if (!isEditing) {
       // Display mode
       if (field.type === 'date' && value) {
         return new Date(value).toLocaleDateString();
       }
       if (field.type === 'select') {
-        // Check if this field has dynamically loaded options
-        const hasDynamicOptions = field.loadOptionsFromSettings && settingOptions.has(field.key);
-        const options = hasDynamicOptions
-          ? settingOptions.get(field.key)!
-          : field.options || [];
+        // Use sequential state visualizer for workflow stages/funnels
+        if (isSequentialField) {
+          return (
+            <SequentialStateVisualizer
+              states={options}
+              currentState={value}
+              editable={false}
+            />
+          );
+        }
 
         const option = options.find((opt: any) => String(opt.value) === String(value));
         return option?.label || (value ?? '-');
@@ -199,12 +215,19 @@ export function EntityFormContainer({
         );
       case 'select':
       case 'multiselect': {
-        // Check if this field should load options from settings
-        const hasDynamicOptions = field.loadOptionsFromSettings && settingOptions.has(field.key);
-        const selectOptions = hasDynamicOptions
-          ? settingOptions.get(field.key)!
-          : field.options || [];
+        // Use sequential state visualizer for workflow stages/funnels in edit mode
+        if (isSequentialField) {
+          return (
+            <SequentialStateVisualizer
+              states={options}
+              currentState={value}
+              editable={true}
+              onStateChange={(newValue) => onChange(field.key, newValue)}
+            />
+          );
+        }
 
+        // Regular dropdown for non-sequential fields
         return (
           <select
             value={value !== undefined && value !== null ? String(value) : ''}
@@ -225,7 +248,7 @@ export function EntityFormContainer({
             required={field.required && mode === 'create'}
           >
             <option value="">Select...</option>
-            {selectOptions.map((opt: any) => (
+            {options.map((opt: any) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>

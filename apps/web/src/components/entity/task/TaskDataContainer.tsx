@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MessageSquare, Send, Paperclip, X as XIcon, ZoomIn, FileText, ExternalLink, Table } from 'lucide-react';
 import { InteractiveForm } from '../form';
+import { Button } from '../../shared/button/Button';
 
 interface TaskUpdate {
   id: string;
@@ -622,20 +623,63 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
       {/* New Update Form */}
       <div className="p-6 border-b border-gray-200 bg-gray-50">
         <div className="space-y-4">
-          {/* Update Type Selector */}
-          <div className="flex items-center space-x-4">
-            <select
-              value={updateType}
-              onChange={(e) => setUpdateType(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="comment">Comment</option>
-              <option value="status_change">Status Change</option>
-              <option value="assignment">Assignment</option>
-              <option value="attachment">Attachment</option>
-              <option value="form">Form</option>
-            </select>
+          {/* Update Type Tabs */}
+          <div className="space-y-4">
+            {/* Tab Buttons */}
+            <div className="flex items-center space-x-2 border-b border-gray-300">
+              <button
+                onClick={() => setUpdateType('comment')}
+                className={`px-4 py-2 text-sm font-normal transition-colors border-b-2 ${
+                  updateType === 'comment'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                }`}
+              >
+                Comment
+              </button>
+              <button
+                onClick={() => setUpdateType('status_change')}
+                className={`px-4 py-2 text-sm font-normal transition-colors border-b-2 ${
+                  updateType === 'status_change'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                }`}
+              >
+                Status Change
+              </button>
+              <button
+                onClick={() => setUpdateType('assignment')}
+                className={`px-4 py-2 text-sm font-normal transition-colors border-b-2 ${
+                  updateType === 'assignment'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                }`}
+              >
+                Assignment
+              </button>
+              <button
+                onClick={() => setUpdateType('attachment')}
+                className={`px-4 py-2 text-sm font-normal transition-colors border-b-2 ${
+                  updateType === 'attachment'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                }`}
+              >
+                Attachment
+              </button>
+              <button
+                onClick={() => setUpdateType('form')}
+                className={`px-4 py-2 text-sm font-normal transition-colors border-b-2 ${
+                  updateType === 'form'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                }`}
+              >
+                Form
+              </button>
+            </div>
 
+            {/* Hours Logged Input */}
             <div className="flex items-center space-x-2">
               <label className="text-sm text-gray-600">Hours Logged:</label>
               <input
@@ -768,14 +812,14 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
                 <span className="text-xs text-blue-600 animate-pulse">Uploading...</span>
               )}
             </div>
-            <button
+            <Button
+              variant="primary"
               onClick={handlePostUpdate}
               disabled={posting || (!editorContent.trim() && attachments.length === 0)}
-              className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              icon={Send}
             >
-              <Send className="h-4 w-4 mr-2 stroke-[1.5]" />
               {posting ? 'Posting...' : 'Post Update'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

@@ -101,8 +101,27 @@ export async function roleRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
+      // Transform database results to match schema
+      const transformedRoles = roles.map((role: any) => ({
+        id: role.id,
+        name: role.name,
+        descr: role.descr,
+        roleType: role.role_code,
+        roleCategory: role.role_category,
+        authorityLevel: role.reporting_level,
+        approvalLimit: role.required_experience_years,
+        delegationAllowed: role.is_management_role,
+        active: role.active_flag,
+        fromTs: role.from_ts,
+        toTs: role.to_ts,
+        created: role.created_ts,
+        updated: role.updated_ts,
+        tags: role.tags,
+        attr: role.metadata
+      }));
+
       return {
-        data: roles,
+        data: transformedRoles,
         total,
         limit,
         offset,
@@ -157,7 +176,26 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Role not found' });
       }
 
-      return role[0];
+      // Transform database result to match schema
+      const transformedRole = {
+        id: role[0].id,
+        name: role[0].name,
+        descr: role[0].descr,
+        roleType: role[0].role_code,
+        roleCategory: role[0].role_category,
+        authorityLevel: role[0].reporting_level,
+        approvalLimit: role[0].required_experience_years,
+        delegationAllowed: role[0].is_management_role,
+        active: role[0].active_flag,
+        fromTs: role[0].from_ts,
+        toTs: role[0].to_ts,
+        created: role[0].created_ts,
+        updated: role[0].updated_ts,
+        tags: role[0].tags,
+        attr: role[0].metadata
+      };
+
+      return transformedRole;
     } catch (error) {
       fastify.log.error('Error fetching role:');
       return reply.status(500).send({ error: 'Internal server error' });
@@ -215,7 +253,26 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to create role' });
       }
 
-      return reply.status(201).send(result[0]);
+      // Transform database result to match schema
+      const transformedRole = {
+        id: result[0].id,
+        name: result[0].name,
+        descr: result[0].descr,
+        roleType: result[0].role_code,
+        roleCategory: result[0].role_category,
+        authorityLevel: result[0].reporting_level,
+        approvalLimit: result[0].required_experience_years,
+        delegationAllowed: result[0].is_management_role,
+        active: result[0].active_flag,
+        fromTs: result[0].from_ts,
+        toTs: result[0].to_ts,
+        created: result[0].created_ts,
+        updated: result[0].updated_ts,
+        tags: result[0].tags,
+        attr: result[0].metadata
+      };
+
+      return reply.status(201).send(transformedRole);
     } catch (error) {
       fastify.log.error('Error creating role:');
       return reply.status(500).send({ error: 'Internal server error' });
@@ -337,7 +394,26 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to update role' });
       }
 
-      return result[0];
+      // Transform database result to match schema
+      const transformedRole = {
+        id: result[0].id,
+        name: result[0].name,
+        descr: result[0].descr,
+        roleType: result[0].role_code,
+        roleCategory: result[0].role_category,
+        authorityLevel: result[0].reporting_level,
+        approvalLimit: result[0].required_experience_years,
+        delegationAllowed: result[0].is_management_role,
+        active: result[0].active_flag,
+        fromTs: result[0].from_ts,
+        toTs: result[0].to_ts,
+        created: result[0].created_ts,
+        updated: result[0].updated_ts,
+        tags: result[0].tags,
+        attr: result[0].metadata
+      };
+
+      return transformedRole;
     } catch (error) {
       fastify.log.error('Error updating role:');
       return reply.status(500).send({ error: 'Internal server error' });
@@ -565,8 +641,10 @@ export async function roleRoutes(fastify: FastifyInstance) {
           e.name,
           e.email,
           e.phone,
+          e.employee_number,
           e.employee_type,
-          e.position_level,
+          e.title,
+          e.department,
           e.hire_date,
           e.termination_date,
           e.active_flag,
@@ -575,7 +653,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
           e.created_ts,
           e.updated_ts,
           e.tags,
-          e.attr,
+          e.metadata,
           eim.relationship_type,
           eim.from_ts as relationship_from_ts,
           eim.to_ts as relationship_to_ts
@@ -659,9 +737,28 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Role not found' });
       }
 
+      // Transform database result to match schema
+      const transformedRole = {
+        id: role[0].id,
+        name: role[0].name,
+        descr: role[0].descr,
+        roleType: role[0].role_code,
+        roleCategory: role[0].role_category,
+        authorityLevel: role[0].reporting_level,
+        approvalLimit: role[0].required_experience_years,
+        delegationAllowed: role[0].is_management_role,
+        active: role[0].active_flag,
+        fromTs: role[0].from_ts,
+        toTs: role[0].to_ts,
+        created: role[0].created_ts,
+        updated: role[0].updated_ts,
+        tags: role[0].tags,
+        attr: role[0].metadata
+      };
+
       // Get role permissions from entity-based RBAC
       const permissions = await db.execute(sql`
-        SELECT 
+        SELECT
           'role' as "scopeType",
           r.id as "scopeId",
           r.name as "scopeName",
@@ -672,7 +769,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       `);
 
       return {
-        role: role[0],
+        role: transformedRole,
         permissions,
       };
     } catch (error) {

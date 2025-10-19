@@ -5,6 +5,7 @@ import { Layout, EntityFormContainer } from '../../components/shared';
 import { getEntityConfig } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { APIFactory } from '../../lib/api';
+import { Button } from '../../components/shared/button/Button';
 
 /**
  * EntityCreatePage
@@ -134,31 +135,23 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
 
           {/* Save/Cancel buttons */}
           <div className="flex items-center space-x-2">
-            <button
+            <Button
+              variant="secondary"
+              icon={ArrowLeft}
               onClick={handleCancel}
-              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors"
               disabled={loading}
             >
-              <ArrowLeft className="h-4 w-4 mr-2 stroke-[1.5]" />
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
+              icon={Save}
               onClick={handleSubmit}
-              className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading}
+              loading={loading}
             >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2 stroke-[1.5]" />
-                  Create {config.displayName}
-                </>
-              )}
-            </button>
+              {loading ? 'Creating...' : `Create ${config.displayName}`}
+            </Button>
           </div>
         </div>
 

@@ -6,7 +6,7 @@ interface ButtonProps {
   onClick?: () => void;
   href?: string;
   className?: string;
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   icon?: LucideIcon;
   loading?: boolean;
@@ -28,14 +28,15 @@ export function Button({
   tooltip,
   type = 'button',
 }: ButtonProps) {
-  // Standardized base classes for all buttons
-  const baseClasses = 'inline-flex items-center border text-sm font-normal rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1';
+  // Standardized base classes for all buttons - Softer, professional appearance
+  const baseClasses = 'inline-flex items-center border text-sm font-normal rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 shadow-sm';
 
   const variantClasses = {
-    primary: 'border-blue-600 text-white bg-blue-600 hover:bg-blue-700 hover:border-blue-700 focus:ring-blue-500 disabled:bg-gray-300 disabled:border-gray-300 disabled:text-gray-500',
-    secondary: 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 focus:ring-gray-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200',
-    danger: 'border-red-600 text-white bg-red-600 hover:bg-red-700 hover:border-red-700 focus:ring-red-500 disabled:bg-gray-300 disabled:border-gray-300 disabled:text-gray-500',
-    ghost: 'border-transparent text-gray-700 hover:bg-gray-50 focus:ring-gray-500 disabled:text-gray-400',
+    primary: 'border-slate-600 text-white bg-gradient-to-b from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 hover:shadow-md focus:ring-slate-400 disabled:bg-gradient-to-b disabled:from-gray-300 disabled:to-gray-300 disabled:border-gray-300 disabled:text-gray-500 disabled:shadow-none',
+    secondary: 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 hover:shadow focus:ring-gray-400 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none',
+    danger: 'border-red-500 text-white bg-gradient-to-b from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 hover:shadow-md focus:ring-red-400 disabled:bg-gradient-to-b disabled:from-gray-300 disabled:to-gray-300 disabled:border-gray-300 disabled:text-gray-500 disabled:shadow-none',
+    success: 'border-emerald-500 text-white bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 hover:shadow-md focus:ring-emerald-400 disabled:bg-gradient-to-b disabled:from-gray-300 disabled:to-gray-300 disabled:border-gray-300 disabled:text-gray-500 disabled:shadow-none',
+    ghost: 'border-transparent text-gray-700 hover:bg-gray-100 hover:shadow-sm focus:ring-gray-400 disabled:text-gray-400 disabled:shadow-none',
   };
 
   const sizeClasses = {

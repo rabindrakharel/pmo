@@ -28,12 +28,12 @@ const WikiSchema = Type.Object({
 });
 
 const CreateWikiSchema = Type.Object({
-  name: Type.String({ minLength: 1 }),
-  slug: Type.String({ minLength: 1 }),
+  name: Type.Optional(Type.String({ minLength: 1 })),
+  slug: Type.Optional(Type.String({ minLength: 1 })),
   code: Type.Optional(Type.String()),
   descr: Type.Optional(Type.String()),
   summary: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Array(Type.String())),
+  tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String(), Type.Any()])),
   content: Type.Optional(Type.Any()),
   content_markdown: Type.Optional(Type.String()),
   content_html: Type.Optional(Type.String()),
@@ -41,7 +41,7 @@ const CreateWikiSchema = Type.Object({
   category: Type.Optional(Type.String()),
   publication_status: Type.Optional(Type.String()),
   visibility: Type.Optional(Type.String()),
-  metadata: Type.Optional(Type.Any()),
+  metadata: Type.Optional(Type.Union([Type.Object({}), Type.String(), Type.Any()])),
 });
 
 const UpdateWikiSchema = Type.Partial(CreateWikiSchema);
@@ -221,14 +221,26 @@ export async function wikiRoutes(fastify: FastifyInstance) {
   // Create
   fastify.post('/api/v1/wiki', {
     preHandler: [fastify.authenticate],
-    schema: { body: CreateWikiSchema, response: { 201: WikiSchema } }
+    schema: {
+      body: CreateWikiSchema,
+      response: {
+        // Removed schema validation - let Fastify serialize naturally
+        400: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
   }, async (request, reply) => {
     const data = request.body as any;
     const userId = (request as any).user?.sub || '8260b1b0-5efc-4611-ad33-ee76c0cf7f13';
 
+    // Auto-generate required fields if missing
+    if (!data.name) data.name = 'Untitled';
+    if (!data.slug) data.slug = `wiki-${Date.now()}`;
+    if (!data.code) data.code = `WIKI-${Date.now().toString(36).toUpperCase()}`;
+
     try {
-      // Generate code if not provided
-      const code = data.code || `WIKI-${Date.now().toString(36).toUpperCase()}`;
+      // Use auto-generated code
+      const code = data.code;
 
       // Insert into d_wiki (head table)
       const wikiResult = await db.execute(sql`

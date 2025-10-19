@@ -48,12 +48,12 @@ const TaskSchema = Type.Object({
 // Task Records are deprecated - using single table approach from DDL
 
 const CreateTaskSchema = Type.Object({
-  slug: Type.String({ minLength: 1 }),
-  code: Type.String({ minLength: 1 }),
-  name: Type.String({ minLength: 1 }),
+  slug: Type.Optional(Type.String({ minLength: 1 })),
+  code: Type.Optional(Type.String({ minLength: 1 })),
+  name: Type.Optional(Type.String({ minLength: 1 })),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Any()),
-  metadata: Type.Optional(Type.Any()),
+  tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String(), Type.Any()])),
+  metadata: Type.Optional(Type.Union([Type.Object({}), Type.String(), Type.Any()])),
 
   // Assignment
   assignee_employee_ids: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
@@ -341,7 +341,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     schema: {
       body: CreateTaskSchema,
       response: {
-        201: TaskSchema,
+        // Removed schema validation - let Fastify serialize naturally
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -354,6 +354,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
     if (!userId) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
+
+    // Auto-generate required fields if missing
+    if (!data.name) data.name = 'Untitled';
+    if (!data.slug) data.slug = `task-${Date.now()}`;
+    if (!data.code) data.code = `TASK-${Date.now()}`;
 
     // Direct RBAC check for task create permission
     const taskCreateAccess = await db.execute(sql`

@@ -7,6 +7,7 @@ import { TaskDataContainer } from '../../components/entity/task';
 import { FormDataTable, InteractiveForm, FormSubmissionEditor } from '../../components/entity/form';
 import { getEntityConfig } from '../../lib/entityConfig';
 import { APIFactory } from '../../lib/api';
+import { Button } from '../../components/shared/button/Button';
 
 /**
  * Universal EntityDetailPage
@@ -216,12 +217,13 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
       <Layout>
         <div className="text-center py-12">
           <p className="text-red-600">{error || 'Data not found'}</p>
-          <button
+          <Button
+            variant="primary"
             onClick={loadData}
-            className="mt-4 inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+            className="mt-4"
           >
             Retry
-          </button>
+          </Button>
         </div>
       </Layout>
     );
@@ -253,7 +255,9 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
           {/* Edit/Save/Cancel buttons */}
           <div className="flex items-center space-x-2">
             {!isEditing ? (
-              <button
+              <Button
+                variant="secondary"
+                icon={Edit2}
                 onClick={() => {
                   // Special handling for form entity - navigate to edit page
                   if (entityType === 'form') {
@@ -262,27 +266,25 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                     setIsEditing(true);
                   }
                 }}
-                className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors"
               >
-                <Edit2 className="h-4 w-4 mr-2 stroke-[1.5]" />
                 Edit
-              </button>
+              </Button>
             ) : (
               <>
-                <button
+                <Button
+                  variant="secondary"
+                  icon={X}
                   onClick={handleCancel}
-                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors"
                 >
-                  <X className="h-4 w-4 mr-2 stroke-[1.5]" />
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
+                  icon={Save}
                   onClick={handleSave}
-                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors"
                 >
-                  <Save className="h-4 w-4 mr-2 stroke-[1.5]" />
                   Save
-                </button>
+                </Button>
               </>
             )}
           </div>

@@ -44,21 +44,21 @@ const ProjectSchema = Type.Object({
 });
 
 const CreateProjectSchema = Type.Object({
-  name: Type.String({ minLength: 1 }),
-  slug: Type.String({ minLength: 1 }),
-  code: Type.String({ minLength: 1 }),
+  name: Type.Optional(Type.String({ minLength: 1 })),
+  slug: Type.Optional(Type.String({ minLength: 1 })),
+  code: Type.Optional(Type.String({ minLength: 1 })),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Any()),
-  metadata: Type.Optional(Type.Any()),
+  tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String()])),
+  metadata: Type.Optional(Type.Union([Type.Object({}), Type.String()])),
   business_id: Type.Optional(Type.String({ format: 'uuid' })),
   office_id: Type.Optional(Type.String({ format: 'uuid' })),
   project_stage: Type.Optional(Type.String()),
   budget_allocated: Type.Optional(Type.Number()),
   budget_spent: Type.Optional(Type.Number()),
-  planned_start_date: Type.Optional(Type.String({ format: 'date' })),
-  planned_end_date: Type.Optional(Type.String({ format: 'date' })),
-  actual_start_date: Type.Optional(Type.String({ format: 'date' })),
-  actual_end_date: Type.Optional(Type.String({ format: 'date' })),
+  planned_start_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
+  planned_end_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
+  actual_start_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
+  actual_end_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
   manager_employee_id: Type.Optional(Type.String({ format: 'uuid' })),
   sponsor_employee_id: Type.Optional(Type.String({ format: 'uuid' })),
   stakeholder_employee_ids: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
@@ -690,7 +690,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     schema: {
       body: CreateProjectSchema,
       response: {
-        201: ProjectSchema,
+        // Removed schema validation - let Fastify serialize naturally
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -698,6 +698,11 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const data = request.body as any;
+
+    // Auto-generate required fields if missing
+    if (!data.name) data.name = 'Untitled';
+    if (!data.slug) data.slug = `project-${Date.now()}`;
+    if (!data.code) data.code = `PROJECT-${Date.now()}`;
 
     const userId = (request as any).user?.sub;
     if (!userId) {
@@ -754,48 +759,31 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       const result = await db.execute(sql`
         INSERT INTO app.d_project (
-          project_code, project_type, priority_level, slug,
-          budget_allocated, budget_currency, biz_id, locations, worksites,
-          project_managers, project_sponsors, project_leads, clients, approvers,
+          slug, code, name, descr, tags, metadata,
+          project_stage,
+          budget_allocated, budget_spent,
           planned_start_date, planned_end_date, actual_start_date, actual_end_date,
-          milestones, deliverables, estimated_hours, actual_hours, 
-          project_stage, project_status, security_classification, 
-          compliance_requirements, risk_assessment,
-          name, "descr", tags, attr, active
+          manager_employee_id, sponsor_employee_id, stakeholder_employee_ids,
+          active_flag
         )
         VALUES (
-          ${data.project_code || null}, 
-          ${data.project_type || 'development'}, 
-          ${data.priority_level || 'medium'}, 
-          ${data.slug || null},
-          ${data.budget_allocated || null}, 
-          ${data.budget_currency || 'CAD'}, 
-          ${data.biz_id || null}, 
-          ${data.locations ? JSON.stringify(data.locations) : '[]'}::uuid[],
-          ${data.worksites ? JSON.stringify(data.worksites) : '[]'}::uuid[],
-          ${data.project_managers ? JSON.stringify(data.project_managers) : '[]'}::uuid[],
-          ${data.project_sponsors ? JSON.stringify(data.project_sponsors) : '[]'}::uuid[],
-          ${data.project_leads ? JSON.stringify(data.project_leads) : '[]'}::uuid[],
-          ${data.clients ? JSON.stringify(data.clients) : '[]'}::jsonb,
-          ${data.approvers ? JSON.stringify(data.approvers) : '[]'}::uuid[],
+          ${data.slug || `project-${Date.now()}`},
+          ${data.code || data.project_code || `PROJ-${Date.now()}`},
+          ${data.name || 'Untitled Project'},
+          ${data.descr || null},
+          ${data.tags ? JSON.stringify(data.tags) : '[]'}::jsonb,
+          ${data.metadata || data.attr ? JSON.stringify(data.metadata || data.attr || {}) : '{}'}::jsonb,
+          ${data.project_stage || null},
+          ${data.budget_allocated || null},
+          ${data.budget_spent || 0},
           ${data.planned_start_date || null},
           ${data.planned_end_date || null},
           ${data.actual_start_date || null},
           ${data.actual_end_date || null},
-          ${data.milestones ? JSON.stringify(data.milestones) : '[]'}::jsonb,
-          ${data.deliverables ? JSON.stringify(data.deliverables) : '[]'}::jsonb,
-          ${data.estimated_hours || null},
-          ${data.actual_hours || null},
-          ${data.project_stage || null},
-          ${data.project_status || null},
-          ${data.security_classification || 'internal'},
-          ${data.compliance_requirements ? JSON.stringify(data.compliance_requirements) : '[]'}::jsonb,
-          ${data.risk_assessment ? JSON.stringify(data.risk_assessment) : '{}'}::jsonb,
-          ${data.name}, 
-          ${data.descr || null},
-          ${data.tags ? JSON.stringify(data.tags) : '[]'}::jsonb,
-          ${data.attr ? JSON.stringify(data.attr) : '{}'}::jsonb,
-          ${data.active !== false}
+          ${data.manager_employee_id || null},
+          ${data.sponsor_employee_id || null},
+          ${data.stakeholder_employee_ids && data.stakeholder_employee_ids.length > 0 ? `{${data.stakeholder_employee_ids.join(',')}}` : '{}'}::uuid[],
+          ${data.active_flag !== false && data.active !== false}
         )
         RETURNING *
       `);
@@ -804,14 +792,27 @@ export async function projectRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to create project' });
       }
 
+      const newProject = result[0] as any;
+
+      // Register the project in d_entity_instance_id for global entity operations
+      await db.execute(sql`
+        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
+        VALUES ('project', ${newProject.id}::uuid, ${newProject.name}, ${newProject.slug}, ${newProject.code})
+        ON CONFLICT (entity_type, entity_id) DO UPDATE
+        SET entity_name = EXCLUDED.entity_name,
+            entity_slug = EXCLUDED.entity_slug,
+            entity_code = EXCLUDED.entity_code,
+            updated_ts = NOW()
+      `);
+
       const userPermissions = {
         canSeePII: true, // Creator can see their data
         canSeeFinancial: true,
         canSeeSystemFields: true,
         canSeeSafetyInfo: true,
       };
-      
-      return reply.status(201).send(filterUniversalColumns(result[0], userPermissions));
+
+      return reply.status(201).send(filterUniversalColumns(newProject, userPermissions));
     } catch (error) {
       fastify.log.error('Error creating project:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

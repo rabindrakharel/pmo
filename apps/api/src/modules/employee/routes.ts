@@ -66,22 +66,22 @@ const EmployeeSchema = Type.Object({
 });
 
 const CreateEmployeeSchema = Type.Object({
-  name: Type.String({ minLength: 1 }),
+  name: Type.Optional(Type.String({ minLength: 1 })),
   descr: Type.Optional(Type.String()),
-  
+
   // Employee identification
-  employee_number: Type.String({ minLength: 1 }),
-  email: Type.String({ format: 'email' }),
+  employee_number: Type.Optional(Type.String({ minLength: 1 })),
+  email: Type.Optional(Type.String({ format: 'email' })),
   phone: Type.Optional(Type.String()),
-  
+
   // Personal information
-  first_name: Type.String({ minLength: 1 }),
-  last_name: Type.String({ minLength: 1 }),
+  first_name: Type.Optional(Type.String({ minLength: 1 })),
+  last_name: Type.Optional(Type.String({ minLength: 1 })),
   preferred_name: Type.Optional(Type.String()),
   date_of_birth: Type.Optional(Type.String({ format: 'date' })),
-  
+
   // Employment details
-  hire_date: Type.String({ format: 'date' }),
+  hire_date: Type.Optional(Type.String({ format: 'date' })),
   termination_date: Type.Optional(Type.String({ format: 'date' })),
   employment_status: Type.Optional(Type.String()),
   employee_type: Type.Optional(Type.String()),
@@ -115,7 +115,37 @@ const CreateEmployeeSchema = Type.Object({
   active: Type.Optional(Type.Boolean()),
 });
 
-const UpdateEmployeeSchema = Type.Partial(CreateEmployeeSchema);
+const UpdateEmployeeSchema = Type.Object({
+  name: Type.Optional(Type.String({ minLength: 1 })),
+  descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+
+  // Employee identification
+  employee_number: Type.Optional(Type.String({ minLength: 1 })),
+  email: Type.Optional(Type.String({ format: 'email' })),
+  phone: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+
+  // Personal information
+  first_name: Type.Optional(Type.String({ minLength: 1 })),
+  last_name: Type.Optional(Type.String({ minLength: 1 })),
+  preferred_name: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  date_of_birth: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
+
+  // Employment details
+  hire_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
+  termination_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
+  employment_status: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  employee_type: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+
+  // Organizational assignment
+  title: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  department: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  manager_employee_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
+
+  // Standard fields
+  tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String()])),
+  metadata: Type.Optional(Type.Union([Type.Object({}), Type.String()])),
+  active: Type.Optional(Type.Boolean()),
+});
 
 export async function empRoutes(fastify: FastifyInstance) {
   // List employees
@@ -336,11 +366,11 @@ export async function empRoutes(fastify: FastifyInstance) {
 
   // Create employee
   fastify.post('/api/v1/employee', {
-    
+
     schema: {
       body: CreateEmployeeSchema,
       response: {
-        201: EmployeeSchema,
+        // Removed Type.Any() - let Fastify serialize naturally without schema validation
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -349,6 +379,40 @@ export async function empRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const data = request.body as any;
 
+    // Auto-generate missing required fields
+    if (!data.employee_number) {
+      // Generate unique employee number
+      const count = await db.execute(sql`SELECT COUNT(*) as count FROM app.d_employee`);
+      const nextNumber = (Number(count[0]?.count || 0) + 1).toString().padStart(4, '0');
+      data.employee_number = `EMP-${nextNumber}`;
+    }
+
+    if (!data.email) {
+      // Generate temporary email
+      data.email = `employee-${data.employee_number}@temp.huronhome.ca`;
+    }
+
+    if (!data.hire_date) {
+      // Default to today
+      data.hire_date = new Date().toISOString().split('T')[0];
+    }
+
+    if (!data.first_name || !data.last_name) {
+      // Try to split name if provided
+      if (data.name) {
+        const nameParts = data.name.trim().split(' ');
+        data.first_name = data.first_name || nameParts[0] || 'New';
+        data.last_name = data.last_name || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Employee');
+      } else {
+        data.first_name = data.first_name || 'New';
+        data.last_name = data.last_name || 'Employee';
+      }
+    }
+
+    if (!data.name) {
+      // Generate name from first_name and last_name
+      data.name = `${data.first_name} ${data.last_name}`;
+    }
 
     try {
       // Check for unique employee number if provided
@@ -374,13 +438,10 @@ export async function empRoutes(fastify: FastifyInstance) {
       const result = await db.execute(sql`
         INSERT INTO app.d_employee (
           name, "descr", employee_number, email, phone,
-          first_name, last_name, preferred_name, birthdate,
-          hire_date, termination_date, employment_status, employee_type,
-          hr_position_id, primary_org_id, reports_to_employee_id,
-          salary_annual, hourly_rate, overtime_eligible, benefits_eligible,
-          certifications, skills, languages, education_level,
-          remote_eligible, travel_required, security_clearance, emergency_contact,
-          tags, attr, active
+          first_name, last_name, title, department,
+          hire_date, termination_date, employee_type,
+          manager_employee_id,
+          tags, metadata, active_flag
         )
         VALUES (
           ${data.name},
@@ -390,29 +451,14 @@ export async function empRoutes(fastify: FastifyInstance) {
           ${data.phone || null},
           ${data.first_name},
           ${data.last_name},
-          ${data.preferred_name || null},
-          ${data.date_of_birth || null},
-          ${data.hire_date}, 
+          ${data.title || null},
+          ${data.department || null},
+          ${data.hire_date},
           ${data.termination_date || null},
-          ${data.employment_status || 'active'}, 
           ${data.employee_type || 'full-time'},
-          ${data.hr_position_id || null},
-          ${data.primary_org_id || null},
-          ${data.reports_to_employee_id || null},
-          ${data.salary_annual || null},
-          ${data.hourly_rate || null},
-          ${data.overtime_eligible !== false},
-          ${data.benefits_eligible !== false},
-          ${data.certifications ? JSON.stringify(data.certifications) : '[]'}::jsonb,
-          ${data.skills ? JSON.stringify(data.skills) : '[]'}::jsonb,
-          ${data.languages ? JSON.stringify(data.languages) : '["en"]'}::jsonb,
-          ${data.education_level || null},
-          ${data.remote_eligible || false},
-          ${data.travel_required || false},
-          ${data.security_clearance || null},
-          ${data.emergency_contact ? JSON.stringify(data.emergency_contact) : '{}'}::jsonb,
+          ${data.manager_employee_id || null},
           ${data.tags ? JSON.stringify(data.tags) : '[]'}::jsonb,
-          ${data.attr ? JSON.stringify(data.attr) : '{}'}::jsonb,
+          ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
           ${data.active !== false}
         )
         RETURNING *
@@ -444,7 +490,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       }),
       body: UpdateEmployeeSchema,
       response: {
-        200: EmployeeSchema,
+        // Removed Type.Any() - let Fastify serialize naturally without schema validation
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -475,10 +521,13 @@ export async function empRoutes(fastify: FastifyInstance) {
       if (data.last_name !== undefined) updateFields.push(sql`last_name = ${data.last_name}`);
       if (data.preferred_name !== undefined) updateFields.push(sql`preferred_name = ${data.preferred_name}`);
       if (data.date_of_birth !== undefined) updateFields.push(sql`birthdate = ${data.date_of_birth}`);
+      if (data.title !== undefined) updateFields.push(sql`title = ${data.title}`);
+      if (data.department !== undefined) updateFields.push(sql`department = ${data.department}`);
       if (data.hire_date !== undefined) updateFields.push(sql`hire_date = ${data.hire_date}`);
       if (data.termination_date !== undefined) updateFields.push(sql`termination_date = ${data.termination_date}`);
       if (data.employment_status !== undefined) updateFields.push(sql`employment_status = ${data.employment_status}`);
       if (data.employee_type !== undefined) updateFields.push(sql`employee_type = ${data.employee_type}`);
+      if (data.manager_employee_id !== undefined) updateFields.push(sql`manager_employee_id = ${data.manager_employee_id}`);
       if (data.hr_position_id !== undefined) updateFields.push(sql`hr_position_id = ${data.hr_position_id}`);
       if (data.primary_org_id !== undefined) updateFields.push(sql`primary_org_id = ${data.primary_org_id}`);
       if (data.reports_to_employee_id !== undefined) updateFields.push(sql`reports_to_employee_id = ${data.reports_to_employee_id}`);
@@ -496,8 +545,19 @@ export async function empRoutes(fastify: FastifyInstance) {
       if (data.emergency_contact !== undefined) {
         updateFields.push(sql`emergency_contact = ${JSON.stringify(data.emergency_contact)}::jsonb`);
       }
-      if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
-      if (data.attr !== undefined) updateFields.push(sql`attr = ${JSON.stringify(data.attr)}::jsonb`);
+
+      // Handle tags - can be array or JSON string
+      if (data.tags !== undefined) {
+        const tagsValue = typeof data.tags === 'string' ? data.tags : JSON.stringify(data.tags);
+        updateFields.push(sql`tags = ${tagsValue}::jsonb`);
+      }
+
+      // Handle metadata - can be object or JSON string
+      if (data.metadata !== undefined) {
+        const metadataValue = typeof data.metadata === 'string' ? data.metadata : JSON.stringify(data.metadata);
+        updateFields.push(sql`metadata = ${metadataValue}::jsonb`);
+      }
+
       if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
 
       if (updateFields.length === 0) {

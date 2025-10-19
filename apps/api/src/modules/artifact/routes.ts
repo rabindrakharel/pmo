@@ -39,12 +39,12 @@ const ArtifactSchema = Type.Object({
 });
 
 const CreateArtifactSchema = Type.Object({
-  name: Type.String({ minLength: 1 }),
+  name: Type.Optional(Type.String({ minLength: 1 })),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Array(Type.String())),
-  attr: Type.Optional(Type.Any()),
+  tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String(), Type.Any()])),
+  attr: Type.Optional(Type.Union([Type.Object({}), Type.String(), Type.Any()])),
   artifact_code: Type.Optional(Type.String()),
-  artifact_type: Type.String(),
+  artifact_type: Type.Optional(Type.String()),
   model_type: Type.Optional(Type.String()),
   version: Type.Optional(Type.String()),
   source_type: Type.Optional(Type.String()),
@@ -160,52 +160,57 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Create artifact  
+  // Create artifact
   fastify.post('/api/v1/artifact', {
-    
+    preHandler: [fastify.authenticate],
     schema: {
       tags: ['artifact'],
       summary: 'Create artifact',
       body: CreateArtifactSchema,
-      response: { 201: ArtifactSchema },
+      response: {
+        // Removed schema validation - let Fastify serialize naturally
+        400: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      },
     },
   }, async (request, reply) => {
     const data = request.body as any;
     const userId = (request as any).user?.sub || 'system';
 
+    // Auto-generate required fields if missing
+    if (!data.name) data.name = 'Untitled';
+    if (!data.artifact_type) data.artifact_type = 'document'; // Default to document type
+
+    // Auto-generate slug and code (required NOT NULL fields)
+    const slug = data.slug || `artifact-${Date.now()}`;
+    const code = data.code || `ART-${Date.now()}`;
+
     try {
       const result = await db.execute(sql`
         INSERT INTO app.d_artifact (
-          name, descr, tags, attr, artifact_code, artifact_type, model_type,
-          version, source_type, storage, uri, checksum, file_size_bytes,
-          mime_type, confidentiality_level, approval_status, language,
-          publication_date, expiry_date, review_date, author_employee_id,
-          owner_employee_id, active, from_ts
+          slug, code, name, descr, tags, metadata, artifact_type,
+          file_format, file_size_bytes,
+          primary_entity_type, primary_entity_id,
+          visibility, security_classification,
+          parent_artifact_id, is_latest_version,
+          active_flag
         ) VALUES (
+          ${slug},
+          ${code},
           ${data.name},
           ${data.descr || null},
           ${JSON.stringify(data.tags || [])}::jsonb,
-          ${JSON.stringify(data.attr || {})}::jsonb,
-          ${data.artifact_code || null},
+          ${JSON.stringify(data.attr || data.metadata || {})}::jsonb,
           ${data.artifact_type},
-          ${data.model_type || null},
-          ${data.version || null},
-          ${data.source_type || 'url'},
-          ${data.storage || null},
-          ${data.uri || null},
-          ${data.checksum || null},
+          ${data.file_format || null},
           ${data.file_size_bytes || null},
-          ${data.mime_type || null},
-          ${data.confidentiality_level || null},
-          ${data.approval_status || null},
-          ${data.language || null},
-          ${data.publication_date || null},
-          ${data.expiry_date || null},
-          ${data.review_date || null},
-          ${data.author_employee_id || userId},
-          ${userId},
-          true,
-          NOW()
+          ${data.primary_entity_type || null},
+          ${data.primary_entity_id || null},
+          ${data.visibility || 'internal'},
+          ${data.security_classification || 'general'},
+          ${data.parent_artifact_id || null},
+          ${data.is_latest_version !== false},
+          ${data.active_flag !== false && data.active !== false}
         ) RETURNING *
       `);
 

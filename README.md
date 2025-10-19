@@ -82,6 +82,345 @@ const projectGroup = ENTITY_GROUPS.project;
 
 ---
 
+### Standardized Button Component System
+
+**Location:** `apps/web/src/components/shared/button/Button.tsx`
+
+**Documentation:** `apps/web/BUTTON_STANDARDS.md`
+
+All buttons use a centralized `Button` component to ensure consistent styling, colors, and behavior.
+
+#### Button Variants
+
+**1. Primary (Slate)** - Main actions like Save, Submit, Create
+```tsx
+<Button variant="primary" onClick={handleSave}>Save</Button>
+```
+- Soft slate gradient with subtle depth
+- Colors: `gradient from-slate-600 to-slate-700` → `hover: from-slate-700 to-slate-800`
+- Enhanced shadow on hover for professional appearance
+
+**2. Secondary (Gray/White)** - Default actions like Cancel, Back, Edit
+```tsx
+<Button variant="secondary" onClick={handleCancel}>Cancel</Button>
+```
+- Clean white background with subtle border
+- Colors: `bg-white border-gray-300` → `hover:bg-gray-50`
+- Subtle shadow enhancement on hover
+
+**3. Danger (Red)** - Destructive actions like Delete
+```tsx
+<Button variant="danger" onClick={handleDelete}>Delete</Button>
+```
+- Softer red gradient, less glaring than standard red
+- Colors: `gradient from-red-500 to-red-600` → `hover: from-red-600 to-red-700`
+- Shadow depth increases on hover
+
+**4. Success (Emerald)** - Success/confirmation actions
+```tsx
+<Button variant="success" onClick={handleConfirm}>Confirm</Button>
+```
+- Sophisticated emerald gradient instead of bright green
+- Colors: `gradient from-emerald-500 to-emerald-600` → `hover: from-emerald-600 to-emerald-700`
+- Enhanced shadow on hover
+
+**5. Ghost (Transparent)** - Subtle/tertiary actions
+```tsx
+<Button variant="ghost" onClick={handleAction}>More</Button>
+```
+- Minimal visual impact, transparent background
+- Colors: `border-transparent` → `hover:bg-gray-100`
+- Light shadow appears on hover
+
+#### Button Features
+
+**With Icons:**
+```tsx
+import { Save } from 'lucide-react';
+<Button variant="primary" icon={Save}>Save Changes</Button>
+```
+
+**Loading State:**
+```tsx
+<Button variant="primary" loading={isSaving}>
+  {isSaving ? 'Saving...' : 'Save'}
+</Button>
+```
+
+**Sizes:**
+```tsx
+<Button variant="primary" size="sm">Small</Button>   // px-2.5 py-1
+<Button variant="primary" size="md">Medium</Button>  // px-3 py-1.5 (default)
+<Button variant="primary" size="lg">Large</Button>   // px-4 py-2
+```
+
+**Disabled State:**
+```tsx
+<Button variant="primary" disabled={!isValid}>Submit</Button>
+```
+
+#### Design Philosophy
+
+**Professional, Low-Glare Appearance:**
+- Subtle gradients instead of flat colors for depth
+- Softer color tones (slate instead of bright blue, emerald instead of bright green)
+- Shadow-based depth instead of harsh color contrast
+- Smooth transitions (150ms) for polished interactions
+- Rounded corners (rounded-md) for modern appearance
+
+**Color Standards:**
+- PRIMARY: Slate gradient (`slate-600` to `slate-700`) - Professional, non-glaring
+- SUCCESS: Emerald gradient (`emerald-500` to `emerald-600`) - Sophisticated green
+- DANGER: Soft red gradient (`red-500` to `red-600`) - Less harsh than standard red
+- SECONDARY: Clean white with subtle gray border - Minimal visual weight
+- GHOST: Transparent, minimal footprint - Only visible on hover
+
+**Accessibility:**
+- All buttons include focus ring states
+- Disabled states use consistent gray tones
+- Shadow effects removed on disabled states
+
+#### Usage Example
+
+```tsx
+import { Button } from '../components/shared/button/Button';
+import { Save } from 'lucide-react';
+
+<Button variant="primary" icon={Save} onClick={handleSave}>
+  Save
+</Button>
+```
+
+---
+
+### Sequential State Visualization Pattern
+
+**Location:** `apps/web/src/components/shared/entity/SequentialStateVisualizer.tsx`
+
+**Configuration:** `apps/web/src/lib/sequentialStateConfig.ts`
+
+All workflow stages, sales funnels, and sequential states are visualized using an interactive timeline component that shows progression from left to right.
+
+#### What are Sequential States?
+
+Sequential states represent ordered progressions through workflows, pipelines, or stages where entities move from one state to the next in a defined sequence.
+
+**Examples:**
+- **Project Stages:** Initiation → Planning → Execution → Monitoring → Closure
+- **Task Stages:** Backlog → To Do → In Progress → In Review → Done → Blocked
+- **Opportunity Funnel:** Lead → Qualified → Site Visit → Proposal → Negotiation → Contract Signed
+- **Publication Status:** Draft → Under Review → Published → Archived
+- **Approval Status:** Pending → Under Review → Approved → Rejected
+
+#### Visual Design
+
+**Read-Only Mode (Display):**
+```
+  ●───────●───────●───────●───────●
+Lead   Qualified  (PROPOSAL)  Negotiation  Contract
+                   [Highlighted]
+```
+
+**Interactive Mode (Edit/Create):**
+- Hover: Circles scale up, labels highlight
+- Click: Jump directly to any state
+- Tooltip: "Click to set state to [name]"
+- Current state: Blue circle with checkmark, ring effect
+- Past states: Light blue with checkmarks
+- Future states: Gray, dimmed
+
+#### How It Works
+
+**Automatic Detection:**
+
+The system automatically uses sequential state visualization for fields that match these patterns:
+
+```typescript
+SEQUENTIAL_STATE_PATTERNS = [
+  'stage',      // project_stage, task_stage
+  'funnel',     // opportunity_funnel_level
+  'pipeline',   // sales_pipeline
+  'status',     // workflow_status, publication_status
+  'level'       // opportunity_funnel_level
+]
+```
+
+**Field Examples:**
+- `project_stage` → Auto-detects as sequential ✅
+- `task_stage` → Auto-detects as sequential ✅
+- `opportunity_funnel_level_name` → Auto-detects as sequential ✅
+- `active_flag` → Excluded (boolean, not sequential) ❌
+
+**Usage in Entity Forms:**
+
+The visualizer automatically replaces standard dropdowns for sequential fields:
+
+```typescript
+// In EntityFormContainer.tsx
+// Display mode: Shows timeline visualization
+<SequentialStateVisualizer
+  states={options}
+  currentState={value}
+  editable={false}
+/>
+
+// Edit mode: Interactive timeline
+<SequentialStateVisualizer
+  states={options}
+  currentState={value}
+  editable={true}
+  onStateChange={(newValue) => onChange(field.key, newValue)}
+/>
+```
+
+#### Configuration Management
+
+**Central Configuration File:** `apps/web/src/lib/sequentialStateConfig.ts`
+
+**1. Pattern Definitions:**
+```typescript
+export const SEQUENTIAL_STATE_PATTERNS = [
+  'stage', 'funnel', 'pipeline', 'status', 'level'
+];
+```
+
+**2. Exclusions (Fields to Skip):**
+```typescript
+export const SEQUENTIAL_STATE_EXCLUSIONS = [
+  'active_flag',        // Boolean, not workflow
+  'office_level_id',    // Hierarchical, not sequential
+  'business_level_id'   // Hierarchical, not sequential
+];
+```
+
+**3. Explicit Includes (Always Use Visualizer):**
+```typescript
+export const SEQUENTIAL_STATE_EXPLICIT_INCLUDES = [
+  'project_stage',
+  'task_stage',
+  'opportunity_funnel_level_name',
+  'publication_status',
+  'submission_status',
+  'approval_status'
+];
+```
+
+**4. Field-Specific Customization:**
+```typescript
+export const SEQUENTIAL_STATE_FIELD_CONFIGS = {
+  'project_stage': {
+    fieldKey: 'project_stage',
+    label: 'Project Stage',
+    showPastAsCompleted: true,
+    allowJumping: true
+  }
+};
+```
+
+#### Adding New Sequential Fields
+
+**Option 1: Add to Patterns (Most Common)**
+```typescript
+// In sequentialStateConfig.ts
+export const SEQUENTIAL_STATE_PATTERNS = [
+  'stage', 'funnel', 'pipeline', 'status', 'level',
+  'workflow'  // ← Add new pattern
+];
+```
+
+**Option 2: Add Specific Field**
+```typescript
+export const SEQUENTIAL_STATE_EXPLICIT_INCLUDES = [
+  'my_custom_workflow'  // ← Add specific field
+];
+```
+
+**Option 3: Exclude Specific Field**
+```typescript
+export const SEQUENTIAL_STATE_EXCLUSIONS = [
+  'my_non_sequential_status'  // ← Exclude from pattern
+];
+```
+
+#### Integration with Settings Tables
+
+Sequential state fields automatically load options from database settings tables:
+
+```typescript
+// Field definition in entityConfig.ts
+{
+  key: 'project_stage',
+  label: 'Stage',
+  type: 'select',
+  loadOptionsFromSettings: true  // ← Loads from DB
+}
+```
+
+**Backend Query:**
+```bash
+GET /api/v1/setting?category=project_stage
+```
+
+**Response:**
+```json
+{
+  "data": [
+    { "value": "Initiation", "label": "Initiation", "sort_order": 1 },
+    { "value": "Planning", "label": "Planning", "sort_order": 2 },
+    { "value": "Execution", "label": "Execution", "sort_order": 3 }
+  ]
+}
+```
+
+The `sort_order` field determines the left-to-right sequence in the visualization.
+
+#### Database Tables for Sequential States
+
+**Settings tables that power sequential visualizations:**
+
+1. `setting_datalabel_project_stage` - Project lifecycle stages
+2. `setting_datalabel_task_stage` - Task workflow stages
+3. `setting_datalabel_opportunity_funnel_level` - Sales pipeline
+4. `setting_datalabel_wiki_publication_status` - Wiki publishing workflow
+5. `setting_datalabel_form_submission_status` - Form submission states
+6. `setting_datalabel_form_approval_status` - Form approval workflow
+
+Each table includes:
+- `level_name` - The state name (e.g., "Planning")
+- `sort_order` - Sequential ordering (1, 2, 3...)
+- `active_flag` - Whether the state is currently available
+- `level_descr` - Description/tooltip text
+
+#### Benefits
+
+✅ **Consistent UX** - All sequential states use same visualization across the app
+✅ **Visual Progress** - Users see where they are in the workflow at a glance
+✅ **Interactive** - Click any state to jump directly (in edit/create modes)
+✅ **Automatic** - No code changes needed for new sequential fields
+✅ **Centralized Config** - All patterns defined in one place
+✅ **Database-Driven** - States loaded from settings tables
+✅ **Self-Documenting** - Visual representation makes workflows clear
+
+#### Real-World Examples
+
+**Project Detail Page (/project/:id):**
+- Field: `project_stage`
+- Display: ● Initiation → ● Planning → ● **Execution** → ○ Monitoring → ○ Closure
+- Current: Execution (highlighted with blue ring and checkmark)
+
+**Task Kanban Board:**
+- Field: `stage`
+- Columns automatically generated from sequential states
+- Drag-drop moves task to next stage
+- Visual shows progression: Backlog → To Do → **In Progress** → In Review → Done
+
+**Client Detail Page (/client/:id):**
+- Field: `opportunity_funnel_level_name`
+- Display: ● Lead → ● Qualified → ● Site Visit → ● **Proposal Sent** → ○ Negotiation → ○ Contract Signed
+- Sales team sees exactly where client is in the sales process
+
+---
+
 ## 🗄️ Database-Driven Entity Metadata Architecture ✨
 
 ### Architectural Shift: From Code to Database

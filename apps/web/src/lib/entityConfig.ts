@@ -54,6 +54,10 @@ export interface FieldDef {
    * When true, options will be dynamically loaded from settings tables.
    * The field key will be mapped to the appropriate settings category.
    * Example: project_stage → loads from setting_project_stage table
+   *
+   * NOTE: Fields with loadOptionsFromSettings may automatically use
+   * SequentialStateVisualizer if they match patterns defined in
+   * lib/sequentialStateConfig.ts (e.g., stage, funnel, status, level)
    */
   loadOptionsFromSettings?: boolean;
 }
