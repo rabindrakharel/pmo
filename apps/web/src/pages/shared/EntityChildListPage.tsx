@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus } from 'lucide-react';
-import { FilteredDataTable, ViewSwitcher } from '../../components/shared';
+import { FilteredDataTable, ViewSwitcher, EntityEditModal } from '../../components/shared';
 import { KanbanBoard, KanbanColumn } from '../../components/shared/ui/KanbanBoard';
 import { GridView } from '../../components/shared/ui/GridView';
 import { useViewMode } from '../../lib/hooks/useViewMode';
 import { getEntityConfig } from '../../lib/entityConfig';
 import { APIFactory } from '../../lib/api';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 /**
  * Universal EntityChildListPage
@@ -44,6 +46,8 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [parentData, setParentData] = useState<any>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
 
   // Fetch parent data for breadcrumb/header
   useEffect(() => {
@@ -107,8 +111,82 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
     navigate(`/${childType}/${item.id}`);
   };
 
-  const handleCreateClick = () => {
-    navigate(`/${parentType}/${parentId}/${childType}/new`);
+  /**
+   * Create-then-link-then-edit workflow (Using Existing APIs)
+   *
+   * Step 1: Create minimal child entity using existing universal create endpoint
+   * Step 2: Create parent-child linkage using existing linkage API
+   * Step 3: Navigate to child entity detail page for editing
+   */
+  const handleCreateClick = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('auth_token');
+
+      // STEP 1: Create child entity with minimal/empty data
+      // User will fill in all fields via the edit modal
+      const timestamp = Date.now();
+      const createResponse = await fetch(
+        `${API_BASE_URL}/api/v1/${childType}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            name: 'Untitled',  // Minimal placeholder - user will replace in modal
+            code: `${childType.toUpperCase()}-${timestamp}`,  // Auto-generated unique code
+            slug: `${childType}-${timestamp}`,  // Auto-generated unique slug
+            descr: '',  // Empty - user will provide
+            tags: [],
+            metadata: {}
+          })
+        }
+      );
+
+      if (!createResponse.ok) {
+        const error = await createResponse.json();
+        throw new Error(error.error || 'Failed to create entity');
+      }
+
+      const newEntity = await createResponse.json();
+      const newEntityId = newEntity.id;
+
+      // STEP 2: Create parent-child linkage
+      const linkageResponse = await fetch(
+        `${API_BASE_URL}/api/v1/linkage`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            parent_entity_type: parentType,
+            parent_entity_id: parentId,
+            child_entity_type: childType,
+            child_entity_id: newEntityId,
+            relationship_type: 'contains'
+          })
+        }
+      );
+
+      if (!linkageResponse.ok) {
+        console.error('Linkage creation failed, but entity created');
+        // Don't throw - entity is created, linkage can be fixed later
+      }
+
+      // STEP 3: Open modal to edit the newly created entity
+      setEditingEntityId(newEntityId);
+      setIsEditModalOpen(true);
+
+    } catch (err) {
+      console.error(`Failed to create ${childType}:`, err);
+      alert(err instanceof Error ? err.message : `Failed to create ${childType}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBack = () => {
@@ -268,39 +346,63 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
   };
 
   return (
-    <div className="h-full flex flex-col space-y-4">
-      {/* Header with View Switcher and Create Button */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <h2 className="text-sm font-normal text-gray-800">
-            {config.pluralName}
-          </h2>
+    <>
+      <div className="h-full flex flex-col space-y-4">
+        {/* Header with View Switcher and Create Button */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <h2 className="text-sm font-normal text-gray-800">
+              {config.pluralName}
+            </h2>
+          </div>
+
+          {/* View Switcher and Create Button */}
+          <div className="flex items-center space-x-3">
+            {config.supportedViews.length > 1 && (
+              <ViewSwitcher
+                currentView={view}
+                supportedViews={config.supportedViews}
+                onChange={setView}
+              />
+            )}
+            <button
+              onClick={handleCreateClick}
+              disabled={loading}
+              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Plus className="h-4 w-4 mr-2 stroke-[1.5]" />
+              {loading ? 'Creating...' : `Create ${config.displayName}`}
+            </button>
+          </div>
         </div>
 
-        {/* View Switcher and Create Button */}
-        <div className="flex items-center space-x-3">
-          {config.supportedViews.length > 1 && (
-            <ViewSwitcher
-              currentView={view}
-              supportedViews={config.supportedViews}
-              onChange={setView}
-            />
-          )}
-          <button
-            onClick={handleCreateClick}
-            className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors"
-          >
-            <Plus className="h-4 w-4 mr-2 stroke-[1.5]" />
-            Create {config.displayName}
-          </button>
+        {/* Content */}
+        <div className="flex-1 min-h-0">
+          {renderContent()}
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 min-h-0">
-        {renderContent()}
-      </div>
-    </div>
+      {/* Entity Edit Modal */}
+      {editingEntityId && (
+        <EntityEditModal
+          entityType={childType}
+          entityId={editingEntityId}
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingEntityId(null);
+          }}
+          onSave={() => {
+            // Refresh the child list after save
+            if (view !== 'table') {
+              loadChildData();
+            }
+            setIsEditModalOpen(false);
+            setEditingEntityId(null);
+          }}
+        />
+      )}
+    </>
   );
 }
 

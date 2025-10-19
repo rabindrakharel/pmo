@@ -8,7 +8,7 @@ import {
   filterUniversalColumns,
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
-import { createBulkChildEntityEndpoints } from '../../lib/child-entity-route-factory.js';
+import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 
 // Schema based on actual d_office table structure
 const OfficeSchema = Type.Object({
@@ -522,67 +522,19 @@ export async function officeRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Delete organization (soft delete)
-  fastify.delete('/api/v1/office/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
-      response: {
-        204: Type.Null(),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+  // Delete office with cascading cleanup (soft delete)
+  // Uses universal delete factory pattern - deletes from:
+  // 1. app.d_office (base entity table)
+  // 2. app.d_entity_instance_id (entity registry)
+  // 3. app.d_entity_id_map (linkages in both directions)
+  createEntityDeleteEndpoint(fastify, 'office');
 
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    // Direct RBAC check for org delete access
-    const orgDeleteAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}::uuid
-        AND rbac.entity = 'office'
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 3 = ANY(rbac.permission)
-    `);
-
-    if (orgDeleteAccess.length === 0) {
-      return reply.status(403).send({ error: 'Insufficient permissions to delete this organization' });
-    }
-
-    try {
-      const existing = await db.execute(sql`
-        SELECT id FROM app.d_office WHERE id = ${id}
-      `);
-
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Organization not found' });
-      }
-
-      // Soft delete (using SCD Type 2 pattern)
-      await db.execute(sql`
-        UPDATE app.d_office
-        SET active_flag = false, to_ts = NOW(), updated = NOW()
-        WHERE id = ${id}
-      `);
-
-      return reply.status(204).send();
-    } catch (error) {
-      (fastify.log as any).error('Error deleting organization:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // Create child entity endpoints for office
-  // Based on d_entity.child_entities: task, artifact, wiki, form
-  createBulkChildEntityEndpoints(fastify, 'office', ['task', 'artifact', 'wiki', 'form']);
+  // ========================================
+  // CHILD ENTITY CREATION
+  // ========================================
+  // Child entities (task, artifact, wiki, form) are created using:
+  // 1. Universal entity create endpoint: POST /api/v1/:childType
+  // 2. Linkage API: POST /api/v1/linkage to link child to parent
+  // 3. Navigate to child detail page for editing
+  // No special endpoints needed - reuses existing universal APIs
 }

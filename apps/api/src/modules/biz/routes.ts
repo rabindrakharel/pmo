@@ -11,6 +11,7 @@ import {
   hasPermissionOnEntityId,
   hasCreatePermissionForEntityType
 } from '../rbac/entity-permission-rbac-gate.js';
+import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 
 // Schema based on actual d_business table structure
 const BizSchema = Type.Object({
@@ -1029,54 +1030,10 @@ export async function bizRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Delete business unit (soft delete)
-  fastify.delete('/api/v1/biz/:id', {
-    
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
-      response: {
-        204: Type.Null(),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const userId = request.user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    // Check if employee has permission to delete this specific business unit
-    const hasDeleteAccess = await hasPermissionOnEntityId(userId, 'biz', id, 'delete');
-    if (!hasDeleteAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to delete this business unit' });
-    }
-
-    try {
-      const existing = await db.execute(sql`
-        SELECT id FROM app.d_business WHERE id = ${id}
-      `);
-      
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Business unit not found' });
-      }
-
-      // Soft delete (using SCD Type 2 pattern)
-      await db.execute(sql`
-        UPDATE app.d_business
-        SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
-        WHERE id = ${id}
-      `);
-
-      return reply.status(204).send();
-    } catch (error) {
-      fastify.log.error('Error deleting business unit:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
+  // Delete business unit with cascading cleanup (soft delete)
+  // Uses universal delete factory pattern - deletes from:
+  // 1. app.d_business (base entity table)
+  // 2. app.d_entity_instance_id (entity registry)
+  // 3. app.d_entity_id_map (linkages in both directions)
+  createEntityDeleteEndpoint(fastify, 'biz');
 }

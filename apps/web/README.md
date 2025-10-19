@@ -1,1395 +1,930 @@
-# PMO Web Application - Frontend Architecture
+# PMO Web Application
+
+> **React 19 Enterprise Frontend with Universal Entity Architecture**
 
 ## Overview
 
-This is a React-based Project Management Office (PMO) web application built with TypeScript, Vite, and Tailwind CSS. The application follows a hierarchical entity-relationship model with role-based access control (RBAC) handled entirely at the API level.
+The PMO Web Application is a modern, configuration-driven React frontend that provides a complete user interface for the Project Management Office platform. Built on React 19 with TypeScript, Vite, and Tailwind CSS, it features universal entity components, dynamic routing, centralized configuration, and RBAC integration.
 
-## Core Architecture
+**Key Achievement:** Reduced 72+ entity-specific page components to just 4 universal components through metadata-driven architecture.
 
-### Security Model
-- **Frontend**: No permission checking - displays all data provided by API
-- **Backend**: Complete RBAC implementation via database joins
-- **Single Source of Truth**: API determines what users can see and do
-- **JWT Authentication**: All API calls authenticated with Bearer tokens
+## Quick Start
 
+```bash
+# Install dependencies
+pnpm install
 
-### 🏗️ **Layout Components**
-```
-apps/web/src/components/layout/
-└── Layout.tsx                          # Main application layout with sidebar navigation
-```
+# Start development server
+pnpm dev
 
-### 🧩 **UI Components**
+# Build for production
+pnpm build
 
-#### **Core UI Primitives**
-```
-apps/web/src/components/ui/
-├── DataTable.tsx                       # Enhanced data table with selection, sorting, filtering
-├── GridView.tsx                        # Grid layout component for card-based displays
-└── TreeView.tsx                        # Hierarchical tree view component
+# Preview production build
+pnpm preview
 ```
 
-#### **Common Reusable Components**
-```
-apps/web/src/components/common/
-├── ActionButtons.tsx                   # Individual action button components
-├── ActionButtonsBar.tsx               # Action button bar layout (Create, Share, Delete)
-├── Button.tsx                          # Base button component without RBAC
-├── CreateButton.tsx                    # Create button component
-├── DynamicChildEntityTabs.tsx         # Dynamic tab navigation for entity detail pages
-├── EntityAssignmentDataTable.tsx      # Assignment data table for entity relationships
-├── FloatingFullscreenToggle.tsx       # Floating fullscreen toggle button
-├── FullscreenToggle.tsx               # Fullscreen toggle component
-├── GlobalSearch.tsx                    # Global search functionality
-├── InlineEditField.tsx                # Click-to-edit field component
-├── RBACButton.tsx                      # RBAC-aware button component (legacy)
-├── ScopeFilters.tsx                   # Scope filtering components
-└── StatsGrid.tsx                      # Statistics grid layout for metrics cards
-```
+**Access Points:**
+- Web Application: http://localhost:5173
+- API Backend: http://localhost:4000
 
-#### **Specialized Components**
-```
-apps/web/src/components/
-├── FilteredDataTable.tsx              # Configuration-driven data table with action buttons
-└── SimpleDataTable.tsx               # Basic data table component
-```
+## Technology Stack
 
-#### **Authentication Components**
-```
-apps/web/src/components/auth/
-└── LoginForm.tsx                      # User login form component
-```
+| Technology | Purpose | Version |
+|------------|---------|---------|
+| **React** | UI library | 19.x |
+| **TypeScript** | Type safety | 5.x |
+| **Vite** | Build tool | 5.x |
+| **Tailwind CSS** | Utility-first CSS | 3.x |
+| **React Router** | Client-side routing | 6.x |
+| **Lucide React** | Icon library | Latest |
+| **TanStack Table** | Data tables | 8.x |
 
-#### **Form Components**
+## Architecture Philosophy
+
+### The Universal Component Pattern
+
+Instead of creating separate page components for each entity type (24+ entities × 3 pages = 72+ files), the application uses **3 universal page components** driven by centralized configuration.
+
+**Before (Traditional Approach):**
 ```
-apps/web/src/components/forms/
-├── FormBuilder.tsx                    # Dynamic form builder interface
-└── FormPreview.tsx                    # Form preview and rendering component
+pages/
+├── project/ProjectListPage.tsx          # 280 lines
+├── project/ProjectDetailPage.tsx        # 350 lines
+├── project/ProjectCreatePage.tsx        # 200 lines
+├── task/TaskListPage.tsx                # 280 lines
+├── task/TaskDetailPage.tsx              # 350 lines
+├── task/TaskCreatePage.tsx              # 200 lines
+... 72+ files total
 ```
 
-#### **Editor Components**
+**After (Universal Architecture):**
 ```
-apps/web/src/components/editor/
-├── CodeBlock.tsx                      # Code block editor component
-└── ModularEditor.tsx                  # Modular rich text editor
-```
-
-#### **Wiki Components**
-```
-apps/web/src/components/wiki/
-└── BlockEditor.tsx                    # Block-based wiki editor
+pages/shared/
+├── EntityMainPage.tsx                   # 280 lines - works for ALL entities
+├── EntityDetailPage.tsx                 # 527 lines - works for ALL entities
+├── EntityCreatePage.tsx                 # 150 lines - works for ALL entities
+└── EntityChildListPage.tsx              # 281 lines - works for ALL child tabs
 ```
 
----
+**Result:** ~94% code reduction, single source of truth, consistent UX
 
-## 📄 **Pages Directory Structure**
+### Core Architecture Principles
 
-### 🏠 **Main Entity Pages** (List Views)
-```
-apps/web/src/pages/
-├── DashboardPage.tsx                  # Main dashboard with overview metrics
-├── ProjectPage.tsx                    # Projects list page with data table
-├── BusinessPage.tsx                   # Business units list page
-├── TaskPage.tsx                       # Tasks list page
-├── EmployeePage.tsx                   # Employees list page
-├── OrgPage.tsx                        # Organizations list page
-├── RolePage.tsx                       # Roles list page
-├── WikiPage.tsx                       # Wiki pages list
-├── ArtifactPage.tsx                   # Artifacts list page
-├── FormPage.tsx                       # Forms list page
-├── MetaPage.tsx                       # Metadata management page
-├── SecurityPage.tsx                   # Security and permissions page
-├── SettingsPage.tsx                   # Application settings page
-├── ProfilePage.tsx                    # User profile page
-└── BillingPage.tsx                    # Billing and subscription page
-```
+1. **Configuration-Driven** - `entityConfig.ts` defines all entity behavior
+2. **Type-Safe API Factory** - `api-factory.ts` eliminates unsafe dynamic API calls
+3. **Universal Components** - One component works for all 24+ entity types
+4. **Database-Driven Metadata** - Icons, labels, child relationships from `d_entity` table
+5. **Settings-Driven Dropdowns** - Dynamic options loaded from 16 settings tables
+6. **RBAC at API Level** - Frontend displays all data, API enforces permissions
 
-### 🏢 **Business Entity Pages**
-```
-apps/web/src/pages/business/
-├── index.ts                           # Business module exports
-├── BusinessDetailPage.tsx             # Business unit detail page with editable fields
-├── BusinessProjectPage.tsx           # Business unit projects (filtered)
-├── BusinessTaskPage.tsx              # Business unit tasks (filtered)
-├── BusinessWikiPage.tsx               # Business unit wiki pages (filtered)
-├── BusinessArtifactPage.tsx           # Business unit artifacts (filtered)
-└── BusinessFormPage.tsx               # Business unit forms (filtered)
-```
+## Project Structure
 
-### 📁 **Project Entity Pages**
 ```
-apps/web/src/pages/project/
-├── index.ts                           # Project module exports
-├── ProjectDetailPage.tsx              # Project detail page with editable fields
-├── ProjectTaskPage.tsx                # Project tasks with Kanban/Grid views
-├── ProjectWikiPage.tsx                # Project wiki pages (filtered)
-├── ProjectArtifactPage.tsx            # Project artifacts (filtered)
-└── ProjectFormPage.tsx                # Project forms (filtered)
-```
-
-### ✅ **Task Entity Pages**
-```
-apps/web/src/pages/task/
-├── TaskArtifactPage.tsx               # Task artifacts (filtered)
-└── TaskFormPage.tsx                   # Task forms (filtered)
-```
-
-### 🏛️ **Organization Entity Pages**
-```
-apps/web/src/pages/org/
-├── OrgDetailPage.tsx                  # Organization detail page
-├── OrgEmployeePage.tsx                # Organization employees (filtered)
-├── OrgTaskPage.tsx                    # Organization tasks (filtered)
-├── OrgWikiPage.tsx                    # Organization wiki pages (filtered)
-├── OrgArtifactPage.tsx                # Organization artifacts (filtered)
-├── OrgFormPage.tsx                    # Organization forms (filtered)
-└── OrgWorksitePage.tsx                # Organization worksites (filtered)
-```
-
-### 👤 **Employee & Role Pages**
-```
-apps/web/src/pages/
-├── employee/
-│   └── EmployeeDetailPage.tsx         # Employee detail page
-└── role/
-    └── RoleDetailPage.tsx             # Role detail page
-```
-
-### 🏗️ **Worksite Pages**
-```
-apps/web/src/pages/worksite/
-├── WorksiteDetailPage.tsx             # Worksite detail page
-├── WorksiteTaskPage.tsx               # Worksite tasks (filtered)
-└── WorksiteFormPage.tsx               # Worksite forms (filtered)
-```
-
-### ⚙️ **Metadata Management Pages**
-```
-apps/web/src/pages/meta/
-├── index.ts                           # Meta module exports
-├── businessLevel.tsx                  # Business hierarchy levels
-├── hrLevel.tsx                        # HR levels and roles
-├── orgLevel.tsx                       # Organization levels
-├── projectStage.tsx                   # Project stages configuration
-├── projectStatus.tsx                  # Project status configuration
-├── taskStage.tsx                      # Task stages configuration
-└── taskStatus.tsx                     # Task status configuration
+apps/web/src/
+├── pages/
+│   ├── shared/                          # 4 Universal Components
+│   │   ├── EntityMainPage.tsx           # List page (table/kanban/grid views)
+│   │   ├── EntityDetailPage.tsx         # Detail page with tabs
+│   │   ├── EntityCreatePage.tsx         # Create page with dynamic form
+│   │   └── EntityChildListPage.tsx      # Child entity list (filtered)
+│   ├── form/                            # Form-specific pages
+│   │   ├── FormBuilderPage.tsx          # Form schema builder
+│   │   ├── FormEditPage.tsx             # Form instance editor
+│   │   ├── FormViewPage.tsx             # Form submission viewer
+│   │   └── PublicFormPage.tsx           # Public form submission
+│   ├── wiki/                            # Wiki-specific pages
+│   │   ├── WikiEditorPage.tsx           # Rich text wiki editor
+│   │   └── WikiViewPage.tsx             # Wiki page viewer
+│   ├── setting/                         # Settings management
+│   │   ├── SettingsPage.tsx             # Universal settings page (1 component for 16 settings!)
+│   │   └── DataLabelPage.tsx            # Data label management
+│   ├── labels/                          # Label management
+│   │   └── LabelsPage.tsx               # JSONB label editor
+│   ├── security/                        # Security pages
+│   │   └── SecurityPage.tsx             # RBAC management
+│   ├── profile/                         # User profile
+│   │   └── ProfilePage.tsx              # User profile settings
+│   ├── billing/                         # Billing (future)
+│   │   └── BillingPage.tsx              # Subscription management
+│   ├── client/                          # Client-specific
+│   │   └── client.tsx                   # Client page
+│   └── LinkagePage.tsx                  # Entity relationship viewer
+│
+├── components/
+│   ├── shared/
+│   │   ├── layout/
+│   │   │   └── Layout.tsx               # Main app layout with sidebar
+│   │   ├── entity/
+│   │   │   ├── DynamicChildEntityTabs.tsx  # Dynamic tab system
+│   │   │   ├── EntityFormContainer.tsx     # Form rendering
+│   │   │   └── TaskDataContainer.tsx       # Task-specific container
+│   │   ├── data-table/
+│   │   │   ├── DataTable.tsx            # Base table with sorting/filtering
+│   │   │   ├── FilteredDataTable.tsx    # Entity-aware table
+│   │   │   └── EntityAssignmentDataTable.tsx  # Assignment table
+│   │   ├── ui/
+│   │   │   ├── Button.tsx               # Button primitives
+│   │   │   ├── GridView.tsx             # Card grid layout
+│   │   │   └── TreeView.tsx             # Hierarchical tree
+│   │   ├── ActionButtons.tsx            # Action button components
+│   │   ├── InlineEditField.tsx          # Click-to-edit fields
+│   │   ├── GlobalSearch.tsx             # Global search
+│   │   └── StatsGrid.tsx                # Metrics cards
+│   ├── form/
+│   │   ├── FormBuilder.tsx              # Drag-drop form builder
+│   │   ├── FormPreview.tsx              # Form preview
+│   │   └── InteractiveForm.tsx          # Form renderer
+│   ├── wiki/
+│   │   ├── BlockEditor.tsx              # Block-based editor
+│   │   └── WikiContentRenderer.tsx      # Wiki markdown renderer
+│   ├── editor/
+│   │   ├── ModularEditor.tsx            # Rich text editor
+│   │   └── CodeBlock.tsx                # Code block component
+│   └── auth/
+│       └── LoginForm.tsx                # Authentication form
+│
+├── lib/
+│   ├── entityConfig.ts                  # **1,600+ lines - Single source of truth**
+│   ├── api-factory.ts                   # Type-safe API registry
+│   ├── api.ts                           # API client implementations
+│   ├── entityIcons.ts                   # Centralized icon system
+│   ├── settingsLoader.ts                # Dynamic settings loader
+│   └── hooks/
+│       └── useViewMode.ts               # View mode persistence
+│
+├── App.tsx                              # Route definitions
+└── main.tsx                             # React entry point
 ```
 
-### 📝 **Standalone Detail Pages**
-```
-apps/web/src/pages/
-└── TaskDetailPage.tsx                 # Standalone task detail page
-```
+## The Central Configuration System
 
-### 📋 **Form-Related Pages**
-```
-apps/web/src/pages/
-├── FormBuilderPage.tsx                # Form creation and building interface
-├── FormEditPage.tsx                   # Form editing interface
-└── FormViewPage.tsx                   # Form viewing and submission interface
-```
+### 1. Entity Configuration (`entityConfig.ts`)
 
-### 📖 **Wiki-Related Pages**
-```
-apps/web/src/pages/
-├── WikiEditorPage.tsx                 # Wiki page editor
-└── WikiViewPage.tsx                   # Wiki page viewer
-```
+**Location:** `apps/web/src/lib/entityConfig.ts` (1,600+ lines)
 
----
+**Purpose:** Single source of truth for ALL entity behavior across the application.
 
-## 🗂️ **Organization Patterns**
+**What it defines:**
+- **Columns** - Table column definitions with custom render functions
+- **Fields** - Form field definitions with validation rules
+- **View Modes** - Supported views (table, kanban, grid)
+- **Child Entities** - Parent-child relationships for tabs
+- **Kanban Config** - Kanban board settings (grouping, card fields)
+- **Grid Config** - Grid view settings (card fields, images)
+- **API Endpoints** - Backend API routes
+- **Settings Integration** - Which fields load from settings tables
 
-### **Main Pages Structure**
-Each main entity follows this pattern:
-- **List Page**: `EntityPage.tsx` - Shows data table with action buttons
-- **Detail Page**: `entity/EntityDetailPage.tsx` - Shows editable entity details
-- **Child Pages**: `entity/EntityChildPage.tsx` - Shows filtered child entities
-
-### **Navigation Flow**
-```
-Main Page (List) → Detail Page → Child Entity Pages
-     ↓                 ↓              ↓
-ProjectPage.tsx → ProjectDetailPage.tsx → ProjectTaskPage.tsx
-                                       → ProjectWikiPage.tsx
-                                       → ProjectArtifactPage.tsx
-                                       → ProjectFormPage.tsx
-```
-
-### **Component Hierarchy**
-```
-Layout.tsx (Root Shell)
-├── DynamicChildEntityTabs (Tab Navigation)
-├── ActionButtonsBar (Action Buttons)
-├── FilteredDataTable (Data Display)
-├── StatsGrid (Metrics Display)
-└── InlineEditField (Field Editing)
-```
-
-### **File Naming Conventions**
-- **Pages**: `PascalCase` ending with `Page.tsx`
-- **Components**: `PascalCase` descriptive names
-- **Directories**: `lowercase` or `camelCase`
-- **Index files**: `index.ts` for module exports
-
-
-
-### Technology Stack
-- **Frontend**: React 19 + TypeScript + Vite + TailwindCSS
-- **Backend**: Fastify + TypeScript + PostgreSQL + Redis
-- **Database**: PostgreSQL 16+ with PostGIS, pgcrypto, uuid-ossp
-- **Infrastructure**: Docker Compose (PostgreSQL, Redis, MinIO, MailHog)
-- **Tooling**: pnpm workspaces, ESLint, Prettier, tsx
-- **Authentication**: JWT with fastify-jwt
-- **Package Manager**: pnpm 8.15.1+
-
-### System Components
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   React Web     │───▶│   Fastify API   │───▶│  PostgreSQL DB  │
-│   Port: 5173    │    │   Port: 4000    │    │   Port: 5434    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │                       ▼                       │
-         │              ┌─────────────────┐              │
-         │              │   Redis Cache   │              │
-         │              │   Port: 6379    │              │
-         │              └─────────────────┘              │
-         │                                               │
-         ▼                                               ▼
-┌─────────────────┐                           ┌─────────────────┐
-│   TailwindCSS   │                                       └─────────────────┘
-```
-
-
-
-## Navigation Structure
-
-### Main Navigation Flow
-1. **Application Load** → Dashboard with overview metrics
-2. **Sidebar Click** → Entity Main Page with data table and action buttons
-3. **Row Click** → Entity Detail Page with editable fields and child tabs
-4. **Tab Click** → Child Entity filtered data tables
-5. **Child Row Click** → Child Entity Detail Page (recursive structure)
-
-### Sidebar Entities
-Each sidebar button corresponds to a main entity type:
-
-- **Dashboard** - Overview metrics and charts
-- **Projects** - Project management and tracking
-- **Business Units** - Organizational hierarchy management
-- **Tasks** - Task management and assignment
-- **Employees** - Personnel management
-- **Organizations** - Client/partner organizations
-- **Roles** - User role management
-- **Wikis** - Knowledge base articles
-- **Artifacts** - Document and file management
-- **Forms** - Dynamic form management
-
-## Page Architecture
-
-### Main Pages (Entity List Views)
-
-#### Structure Components
-- **Page Header**: Entity icon, title, and description
-- **Stats Grid**: Key metrics cards with icons and values
-- **Action Buttons Bar**: Create, Share Selected, Delete Selected buttons
-- **Data Table**: Searchable, filterable, sortable table with bulk selection
-
-#### Data Flow
-- **API Route**: `GET /api/v1/{entity}`
-- **Hook**: Entity-specific API hooks (e.g., `projectApi.list()`)
-- **State**: Pagination, loading, data arrays
-- **Actions**: Individual row actions (View, Edit, Share, Delete) + bulk operations
-
-#### Key Features
-- **Bulk Selection**: Checkbox column with select all/none functionality
-- **Action Buttons**: Create (top right), Share/Delete (appear when items selected)
-- **Real-time Updates**: Auto-refresh after create/delete operations
-- **Responsive Design**: Adaptive layouts for different screen sizes
-
-### Detail Pages (Entity Edit Views)
-
-#### Structure Components
-- **Dynamic Child Entity Tabs**: Overview + child entity tabs with counts
-- **Action Bar**: Edit, Share, and other entity-specific actions
-- **Entity Information Cards**: Grouped editable fields by category
-- **Inline Edit Fields**: Click-to-edit functionality with save/cancel
-- **Child Entity Tables**: Filtered data tables for related entities
-
-#### Data Flow
-- **API Route**: `GET /api/v1/{entity}/{id}`
-- **Hook**: `useDynamicChildEntityTabs()` for dynamic tab generation
-- **State**: Entity data, editing states, field values
-- **Navigation**: Dynamic routing based on entity relationships
-
-#### Child Entity Relationships
-- **Projects** → Tasks, Wiki, Artifacts, Forms
-- **Business Units** → Projects, Employees, Tasks
-- **Tasks** → Artifacts, Forms
-- **Organizations** → Employees, Projects, Worksites
-
-## Core Reusable Components
-
-### ActionButtonsBar
-**Purpose**: Consistent action button layout above data tables
-
-**Features**:
-- Create button (always visible) with entity-specific labeling
-- Share Selected button (appears when items selected)
-- Delete Selected button (appears when items selected)
-- Selection count display
-- Support for additional custom actions
-
-**State Management**: Receives selection count and callbacks from parent component
-
-### DataTable (Enhanced)
-**Purpose**: Advanced data table with selection, sorting, filtering, and actions
-
-**Features**:
-- Bulk selection with checkboxes and select-all functionality
-- Individual row actions (View, Edit, Share, Delete)
-- Advanced filtering with dropdown options per column
-- Column visibility toggle and ordering
-- Responsive design with horizontal scrolling
-- Sticky headers and action columns
-- Loading states and empty data handling
-
-**Selection System**: Checkbox column with indeterminate states for partial selections
-
-### DynamicChildEntityTabs
-**Purpose**: Dynamic tab navigation for entity detail pages
-
-**Features**:
-- Fetches dynamic child entity tabs from API to build tabs
-- Shows entity counts per tab (e.g., "Tasks (5)")
-- Back button navigation to parent entity
-- Active tab highlighting
-- Responsive design for mobile devices
-
-**API Integration**: Uses `/api/v1/{entity}/{id}/dynamic-child-entity-tabs` endpoint
-
-### FilteredDataTable
-**Purpose**: Complete data table solution with optional action buttons, bulk operations, and inline editing
-
-**Features**:
-- Configuration-driven column definitions via entity configuration service
-- Pre-filtered data based on parent entity relationship
-- Built-in row actions and click handlers
-- Optional action buttons bar (Create, Share Selected, Delete Selected)
-- Bulk selection with checkbox column and select all/none functionality
-- Integration with ActionButtonsBar component
-- Supports all standard DataTable features (search, filter, sort, pagination)
-- **Inline editing** support for quick field updates directly in the table
-- Granular action icon visibility controls (Edit, Delete, View)
-
-**Props**:
-- `entityType` (required): The entity type for configuration lookup
-- `parentType` (optional): Parent entity type for filtered data
-- `parentId` (optional): Parent entity ID for filtered data
-- `onRowClick` (optional): Custom row click handler
-- `showActionButtons` (default: false): Show action button bar above table
-- `createLabel` (optional): Custom create button label
-- `onCreateClick` (optional): Custom create handler
-- `createHref` (optional): Create button navigation link
-- `onBulkShare` (optional): Bulk share handler
-- `onBulkDelete` (optional): Bulk delete handler
-- **`inlineEditable`** (default: false): Enable inline editing mode - when true, clicking edit icon allows editing fields directly in the table row
-- **`showEditIcon`** (default: true): Show/hide edit icon in row actions
-- **`showDeleteIcon`** (default: true): Show/hide delete icon in row actions
-- **`showActionIcons`** (default: true): Show/hide view icon in row actions (master toggle for action column)
-
-**Inline Editing Behavior**:
-When `inlineEditable={true}`:
-- Clicking the edit icon (pencil) activates inline editing for that row
-- All editable fields in the row become input fields
-- "Save" and "Cancel" buttons appear in the actions column
-- Save button commits changes via PUT request to the entity API endpoint
-- Cancel button discards changes and exits editing mode
-- Only one row can be edited at a time
-
-**Usage**: Primary component for main entity pages and child entity displays in detail page tabs
-
-**Example - Settings Page with Inline Editing**:
-```tsx
-<FilteredDataTable
-  entityType="businessLevel"
-  inlineEditable={true}
-  showEditIcon={true}
-  showDeleteIcon={true}
-  showActionIcons={false}  // Hide view icon for settings pages
-/>
-```
-
-**Example - Standard List Page**:
-```tsx
-<FilteredDataTable
-  entityType="project"
-  showActionButtons={true}
-  createLabel="New Project"
-  onBulkDelete={handleBulkDelete}
-/>
-```
-
-### InlineEditField
-**Purpose**: Click-to-edit functionality for detail page fields
-
-**Features**:
-- Multiple input types (text, textarea, select, date, number)
-- Save/cancel action buttons
-- Validation and error handling
-- Custom render functions for display values
-- Loading states during save operations
-
-**Interaction**: Click field → Edit mode → Save/Cancel → API update → Refresh display
-
-### StatsGrid
-**Purpose**: Metrics display with consistent card layout
-
-**Features**:
-- Responsive grid layout (1-4 columns)
-- Icon integration with color theming
-- Value formatting (numbers, percentages, currency)
-- Hover effects and visual hierarchy
-
-**Usage**: Main pages to show key entity metrics and KPIs
-
-## API Integration Patterns
-
-### Authentication Flow
-1. Login request → JWT token storage
-2. All subsequent requests include `Authorization: Bearer {token}` header
-3. Token validation and user identification on backend
-4. RBAC filtering applied to all data responses
-
-### Data Fetching Patterns
-- **List Endpoints**: `GET /api/v1/{entity}` with pagination and filtering
-- **Detail Endpoints**: `GET /api/v1/{entity}/{id}` with related data
-- **Child Endpoints**: `GET /api/v1/{parent}/{id}/{child}` for filtered relationships
-- **Dynamic Child Entity Tabs**: `GET /api/v1/{entity}/{id}/dynamic-child-entity-tabs` for tab navigation
-
-### State Management
-- **React Hooks**: useState for local component state
-- **API Hooks**: Custom hooks for entity-specific operations
-- **Real-time Updates**: Immediate refetch after mutations
-- **Optimistic Updates**: UI updates before API confirmation
-
-## User Interaction Journey
-
-### Typical User Flow
-1. **Login** → JWT token obtained and stored
-2. **Dashboard Load** → Overview metrics displayed
-3. **Sidebar Navigation** → Click entity button (e.g., "Projects")
-4. **Main Page Load** → Projects table with action buttons loads
-5. **Bulk Selection** → Check multiple project rows
-6. **Bulk Action** → Click "Delete Selected" → Confirmation dialog
-7. **Individual Action** → Click project row → Navigate to detail page
-8. **Detail Page** → Editable project fields with child entity tabs
-9. **Tab Navigation** → Click "Tasks" tab → Filtered task table
-10. **Child Navigation** → Click task row → Task detail page
-11. **Edit Operations** → Click field → Edit mode → Save changes
-12. **Navigation Back** → Back button or sidebar navigation
-
-### Error Handling
-- **Network Errors**: Toast notifications with retry options
-- **Validation Errors**: Inline field error messages
-- **Permission Errors**: API-level filtering (no frontend error needed)
-- **Loading States**: Skeleton screens and loading indicators
-
-## Configuration System
-
-### Entity Configuration
-- **Dynamic Field Definitions**: API-driven column and form configurations
-- **UI Behavior Settings**: Visibility, editability, rendering options
-- **Relationship Mappings**: Parent-child entity connections
-- **Validation Rules**: Field-level validation and formatting
-
-### Responsive Design
-- **Mobile-First**: Designed for mobile devices with desktop enhancements
-- **Flexible Layouts**: CSS Grid and Flexbox for adaptive designs
-- **Touch-Friendly**: Appropriate touch targets and gestures
-- **Performance Optimized**: Lazy loading and virtual scrolling for large datasets
-
-This architecture provides a scalable, maintainable frontend that efficiently handles complex entity relationships while maintaining security through API-level RBAC enforcement.
-
-
-Summary: DataTable Props Usage Across Different Pages
-
-  Settings Pages (e.g., Customer Tier, Project Status)
-
-  <FilteredDataTable
-    entityType="customerTier"
-    inlineEditable={true}        // ✅ Inline editing ENABLED
-    showEditIcon={true}          // ✅ Show edit icon
-    showDeleteIcon={false}       // ❌ Usually FALSE for settings
-    showActionIcons={true}       // ✅ Show action icons
-  />
-
-  Why inline editing works well in settings:
-  - Simple fields: level_id, level_name, level_descr, sort_order
-  - No custom render functions: Fields display plain text
-  - Quick edits: Users can edit directly without leaving the page
-
-  ---
-  Client/Project Pages (Regular Entity Pages)
-
-  <FilteredDataTable
-    entityType="client"
-    inlineEditable={true}        // ✅ Can enable inline editing
-    showEditIcon={true}          // ✅ Show edit icon
-    showDeleteIcon={true}        // ✅ Show delete icon (soft delete)
-    showActionIcons={true}       // ✅ Show action icons
-  />
-
-  Current issue with client page:
-  - Complex columns: Custom render functions for badges, truncation, formatting
-  - Many fields: name, descr, city, client_number, contact info, + 4 setting references
-  - Inline editing shows input for ALL fields: Even fields with badges/custom rendering
-
-  The fix I applied:
-  - Added inlineEditable to the dependency array of rowActions useMemo in FilteredDataTable.tsx
-  - This ensures the edit handler properly triggers inline editing mode
-
-  ---
-  Key Differences
-
-  | Aspect           | Settings Pages                             | Client/Project Pages                        |
-  |------------------|--------------------------------------------|---------------------------------------------|
-  | Fields           | Simple (level_id, level_name, level_descr) | Complex (many fields, references, metadata) |
-  | Render Functions | Minimal                                    | Many (badges, links, formatting)            |
-  | Inline Editing   | Works great                                | Works but shows plain inputs                |
-  | Delete           | Usually disabled                           | Enabled (soft delete)                       |
-  | Use Case         | Quick config changes                       | Full entity management                      |
-
-  ---
-  The Inline Editing Flow (Fixed)
-
-  1. User clicks Edit icon → rowActions[edit].onClick(record) called
-  2. FilteredDataTable.handleAction('edit', record):
-  if (inlineEditable) {
-    setEditingRow(record.id);       // Mark this row as editing
-    setEditedData({ ...record });   // Copy all fields to temp storage
-  }
-  3. DataTable receives updated props:
-  editingRow={record.id}  // Now matches this row's ID
-  4. DataTable detects isEditing=true (line 731):
-  const isEditing = inlineEditable && editingRow === recordId;
-  5. Row renders in edit mode (lines 801-808):
-    - Background turns blue
-    - All columns show <input> fields
-    - Save/Cancel buttons appear in Actions column
-  6. User edits field → onInlineEdit(rowId, field, value) called
-  7. User clicks Save → onSaveInlineEdit(record) → API call
-  8. User clicks Cancel → onCancelInlineEdit() → reset state
-
-
-  Settings sidebar and Settings page:
-  The Solution: 1 reusable component (SettingsPage.tsx) with 92 lines that handles ALL 12 settings using dynamic props.
-
-  ---
-  How It Works (The Magic Explained)
-
-  Core Concept: Dynamic Entity Type Prop
-
-  // Instead of 13 separate pages, ONE component handles everything:
-  <FilteredDataTable
-    entityType={activeTab}  // ← This changes based on selected tab
-    inlineEditable={true}
-  />
-
-  When activeTab changes from 'projectStatus' to 'businessLevel':
-  1. React re-renders FilteredDataTable with new entityType prop
-  2. FilteredDataTable looks up configuration for that entity in entityConfig.ts
-  3. Automatically fetches correct API endpoint
-  4. Displays appropriate columns
-  5. Enables inline editing functionality
-
-  Same component, different data! 🎯
-
-  ---
-  The 4 Key Components
-
-  1. State Management (SettingsPage.tsx:20-21)
-
-  const [activeTab, setActiveTab] = useState<SettingTab>('projectStatus');
-  - Single state variable tracks which setting is currently displayed
-  - Changes when user clicks a tab
-
-  2. Tab Configuration (SettingsPage.tsx:23-36)
-
-  const tabs = [
-    { id: 'projectStatus', label: 'Project Status', icon: KanbanSquare },
-    { id: 'businessLevel', label: 'Business Level', icon: Building2 },
-    // ... 10 more settings
-  ];
-  - Adding a new setting? Just add 1 line to this array!
-  - Reordering tabs? Just rearrange array elements!
-
-  3. Dynamic Tab Navigation (SettingsPage.tsx:54-77)
-
-  {tabs.map((tab) => (
-    <button onClick={() => setActiveTab(tab.id)}>
-      <Icon /> {tab.label}
-    </button>
-  ))}
-  - Automatically renders all tabs from configuration
-  - Clicking a tab updates activeTab state
-  - Active tab gets highlighted styling
-
-  4. Reusable Data Table (SettingsPage.tsx:81-84)
-
-  <FilteredDataTable
-    entityType={activeTab}  // Dynamic!
-    inlineEditable={true}
-  />
-  - This is where the DRY principle shines!
-  - Same component instance reused for all 12 settings
-  - Only the entityType prop changes
-  - FilteredDataTable handles everything else automatically
-
----
-
-## 🎨 Centralized Icon System
-
-### Overview
-The application uses a **centralized icon management system** that provides consistent icons across all entity types throughout the application. This eliminates icon duplication and ensures visual consistency.
-
-**Location:** `/apps/web/src/lib/entityIcons.ts`
-
-### Key Features
-
-#### 1. **Single Source of Truth**
-All entity icons are defined in one central location:
+**Example Configuration:**
 
 ```typescript
-import { Building2, FolderOpen, MapPin, Users, CheckSquare } from 'lucide-react';
+export const entityConfigs: Record<string, EntityConfig> = {
+  project: {
+    name: 'project',
+    displayName: 'Project',
+    pluralName: 'Projects',
+    apiEndpoint: '/api/v1/project',
+
+    // Table columns
+    columns: [
+      {
+        key: 'name',
+        title: 'Project Name',
+        sortable: true,
+        filterable: true,
+        render: (value) => value
+      },
+      {
+        key: 'project_stage',
+        title: 'Stage',
+        loadOptionsFromSettings: true,  // Auto-loads from setting_datalabel_project_stage
+        inlineEditable: true,            // Enable inline editing
+        render: (value, record) => renderBadge(record.project_stage_name, colorMap)
+      }
+    ],
+
+    // Form fields
+    fields: [
+      { key: 'name', label: 'Project Name', type: 'text', required: true },
+      { key: 'project_stage', label: 'Stage', type: 'select', loadOptionsFromSettings: true },
+      { key: 'budget_allocated', label: 'Budget', type: 'number' }
+    ],
+
+    // View modes
+    supportedViews: ['table', 'kanban'],
+    defaultView: 'table',
+
+    // Child entities (creates tabs on detail page)
+    childEntities: ['task', 'wiki', 'artifact', 'form']
+  },
+
+  // ... 23 more entity configurations
+};
+```
+
+### 2. API Factory (`api-factory.ts`)
+
+**Location:** `apps/web/src/lib/api-factory.ts`
+
+**Problem Solved:** Eliminated unsafe `(api as any)[entityType + 'Api']` pattern
+
+**Pattern:**
+
+```typescript
+// BEFORE (Type-Unsafe):
+const apiModule = (api as any)[`${entityType}Api`];  // No type safety
+const response = await apiModule.list({ page: 1 });
+
+// AFTER (Type-Safe):
+const api = APIFactory.getAPI(entityType);           // Compile-time checking
+const response = await api.list({ page: 1 });
+```
+
+**Registration:**
+
+```typescript
+// apps/web/src/lib/api.ts
+import { APIFactory } from './api-factory';
+
+// Register all entity APIs
+APIFactory.register('project', projectApi);
+APIFactory.register('task', taskApi);
+APIFactory.register('client', clientApi);
+// ... 21 total entities
+```
+
+**Benefits:**
+- Zero unsafe API calls
+- Full IDE autocomplete
+- Runtime validation
+- Clear error messages
+
+### 3. Entity Icons (`entityIcons.ts`)
+
+**Location:** `apps/web/src/lib/entityIcons.ts`
+
+**Purpose:** Centralized icon management for consistency across sidebar, settings, tabs, etc.
+
+```typescript
+import { Building2, FolderOpen, CheckSquare, Users } from 'lucide-react';
 
 export const ENTITY_ICONS: Record<string, LucideIcon> = {
-  // Main entities
   business: Building2,
   project: FolderOpen,
-  office: MapPin,
-  client: Users,
   task: CheckSquare,
+  client: Users,
+  employee: Users,
   // ... 20+ entity types
 };
+
+export function getEntityIcon(entityType: string): LucideIcon {
+  return ENTITY_ICONS[entityType] || FileText;
+}
 ```
 
-#### 2. **Dynamic Icon Retrieval**
-Use the `getEntityIcon()` helper function to dynamically retrieve icons:
+### 4. Settings Loader (`settingsLoader.ts`)
+
+**Location:** `apps/web/src/lib/settingsLoader.ts`
+
+**Purpose:** Dynamically load dropdown options from 16 settings tables
+
+**How it works:**
 
 ```typescript
-import { getEntityIcon } from '../lib/entityIcons';
+// 1. Field marked with loadOptionsFromSettings
+{
+  key: 'project_stage',
+  type: 'select',
+  loadOptionsFromSettings: true  // Triggers settings loader
+}
 
-// In component
-const EntityIcon = getEntityIcon('project');  // Returns FolderOpen
-<EntityIcon className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+// 2. Settings loader maps field to category
+'project_stage' → 'projectStage' → '/api/v1/setting?category=projectStage'
+
+// 3. API returns setting data
+[
+  { level_id: 0, level_name: 'Initiation', color_code: '#3B82F6' },
+  { level_id: 1, level_name: 'Planning', color_code: '#10B981' },
+  ...
+]
+
+// 4. Transformed to dropdown options
+[
+  { value: 0, label: 'Initiation' },
+  { value: 1, label: 'Planning' },
+  ...
+]
+
+// 5. Cached for 5 minutes
 ```
 
-#### 3. **Entity Groups**
-Pre-defined entity groups with consistent theming:
+**16 Settings Categories:**
+- `projectStage`, `projectStatus`
+- `taskStage`, `taskPriority`, `taskUpdateType`
+- `businessLevel`, `officeLevel`, `positionLevel`, `clientLevel`
+- `customerTier`, `opportunityFunnelLevel`
+- `industrySector`, `acquisitionChannel`, `clientStatus`
+- `formSubmissionStatus`, `formApprovalStatus`, `wikiPublicationStatus`
+
+## Universal Page Components
+
+### 1. EntityMainPage (List View)
+
+**File:** `apps/web/src/pages/shared/EntityMainPage.tsx` (280 lines)
+
+**Purpose:** Universal list page for ALL entities
+
+**Features:**
+- Multi-view support (table, kanban, grid)
+- Dynamic header with entity icon
+- Create button
+- View mode persistence
+- Search and filtering
+
+**Routing:**
 
 ```typescript
-export const ENTITY_GROUPS = {
-  project: { name: 'Project', icon: FolderOpen, color: 'blue' },
-  task: { name: 'Task', icon: CheckSquare, color: 'purple' },
-  business: { name: 'Business', icon: Building2, color: 'green' },
-  employee: { name: 'Employee', icon: Users, color: 'orange' },
-  client: { name: 'Client', icon: Users, color: 'pink' }
-};
+// App.tsx - Same component, different entity types
+<Route path="/project" element={<EntityMainPage entityType="project" />} />
+<Route path="/task" element={<EntityMainPage entityType="task" />} />
+<Route path="/client" element={<EntityMainPage entityType="client" />} />
+// ... 24+ entities, same component!
 ```
 
-### Usage Examples
+**Data Flow:**
 
-#### EntityMainPage.tsx
 ```typescript
-import { getEntityIcon } from '../lib/entityIcons';
+export function EntityMainPage({ entityType }: { entityType: string }) {
+  const config = getEntityConfig(entityType);  // Get configuration
+  const [view, setView] = useViewMode(entityType);  // Persist view preference
 
-export function EntityMainPage({ entityType }: EntityMainPageProps) {
-  const EntityIcon = getEntityIcon(entityType);
+  const loadData = async () => {
+    const api = APIFactory.getAPI(entityType);  // Type-safe API call
+    const response = await api.list({ page: 1, pageSize: 100 });
+    setData(response.data || []);
+  };
 
   return (
     <div>
-      <EntityIcon className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+      {/* Dynamic header */}
+      <EntityIcon className="h-5 w-5" />
       <h1>{config.pluralName}</h1>
+
+      {/* View mode switcher */}
+      {config.supportedViews.length > 1 && <ViewModeSwitcher />}
+
+      {/* Render based on view mode */}
+      {view === 'table' && <FilteredDataTable entityType={entityType} />}
+      {view === 'kanban' && <KanbanBoard config={config.kanban} />}
+      {view === 'grid' && <GridView items={data} config={config.grid} />}
     </div>
   );
 }
 ```
 
-#### SettingsPage.tsx
-```typescript
-import { ENTITY_ICONS } from '../lib/entityIcons';
+### 2. EntityDetailPage (Detail View)
 
-const settings = [
-  { id: 'projectStage', label: 'Project Stage', icon: ENTITY_ICONS.projectStage },
-  { id: 'taskStage', label: 'Task Stage', icon: ENTITY_ICONS.taskStage }
-];
-```
+**File:** `apps/web/src/pages/shared/EntityDetailPage.tsx` (527 lines)
 
-### Design Standards
-
-All icons follow consistent styling:
-- **Size:** `h-5 w-5` for headers, `h-4 w-4` for inline elements
-- **Color:** `text-gray-600` for neutral icons
-- **Stroke:** `stroke-[1.5]` for consistent visual weight
-- **Spacing:** `mr-3` for header icons, `mr-2` for inline icons
-
-**Example:**
-```typescript
-<FolderOpen className="h-5 w-5 text-gray-600 stroke-[1.5] mr-3" />
-```
-
-### Benefits
-
-✅ **Consistency** - Same icon used everywhere for each entity type
-✅ **Maintainability** - Change icon once, updates everywhere
-✅ **Type Safety** - TypeScript ensures valid entity types
-✅ **No Duplication** - No gradient backgrounds or letter avatars for entity icons
-✅ **Professional Design** - Clean, minimalist, consistent appearance
-
----
-
-## 🏗️ Central Configuration Architecture
-
-This project leverages a **centralized, metadata-driven configuration system** that eliminates code duplication and provides a unified approach to handling 24+ entity types across the platform.
-
-### Overview
-
-Instead of creating separate page components, API handlers, and UI configurations for each of the 24+ entities (project, task, client, office, employee, settings, etc.), the system uses:
-
-1. **Frontend Entity Config** (`entityConfig.ts`) - Single source of truth for UI behavior
-2. **Backend Universal Schema** (`universal-schema-metadata.ts`) - Column-level metadata classification
-3. **Settings Loader** (`settingsLoader.ts`) - Dynamic dropdown population from database
-4. **Three Universal Page Components** - Reusable components that work for ANY entity type
-5. **Dynamic Routing** - Routes map entity types to the same universal components
-
-**Benefits:**
-- 📉 **94% code reduction** - ~72 component files → 4 core files
-- ✅ **Single source of truth** - Change once, applies everywhere
-- 🚀 **Fast entity addition** - Add new entity in 4 steps (~50 lines of config)
-- 🔒 **Type safety** - TypeScript interfaces ensure config consistency
-- 🎯 **Consistent UX** - All entities look and behave the same way
-
----
-
-### 1️⃣ Frontend Entity Configuration (`entityConfig.ts`)
-
-**Location:** `/apps/web/src/lib/entityConfig.ts` (1,600+ lines)
-
-**Purpose:** Centralized configuration that defines the complete behavior, appearance, and capabilities of ALL entities in the system. Acts as a "schema registry" or "metadata catalog" for the entire frontend application.
-
-**Key Responsibilities:**
-
-#### A. Column Definitions (Table View)
-Defines how data appears in data tables, including rendering, sorting, and filtering:
-
-```typescript
-columns: [
-  {
-    key: 'name',
-    title: 'Client Name',
-    sortable: true,
-    filterable: true,
-    render: (value, record) => /* Custom rendering */
-  },
-  {
-    key: 'customer_tier_id',
-    title: 'Customer Tier',
-    loadOptionsFromSettings: true,  // Loads from setting_customer_tier
-    inlineEditable: true,            // Enable inline editing
-    render: (value, record) => renderBadge(record.customer_tier_name, colorMap)
-  }
-]
-```
+**Purpose:** Universal detail page with dynamic tabs
 
 **Features:**
-- Custom render functions for badges, links, truncation
-- `loadOptionsFromSettings: true` - Automatically loads dropdown options from settings tables
-- `inlineEditable: true` - Enables click-to-edit in data tables
-- Sortable and filterable column configuration
-
-#### B. Field Definitions (Forms & Detail View)
-Defines how data is edited and displayed on detail pages and forms:
-
-```typescript
-fields: [
-  { key: 'name', label: 'Client Name', type: 'text', required: true },
-  { key: 'opportunity_funnel_level_id', label: 'Opportunity Funnel',
-    type: 'select', loadOptionsFromSettings: true },
-  { key: 'tags', label: 'Tags', type: 'array' },
-  { key: 'metadata', label: 'Metadata', type: 'jsonb' }
-]
-```
-
-**Supported Field Types:**
-- **Basic:** text, textarea, richtext, number, date
-- **Selection:** select, multiselect (with static or dynamic options)
-- **Complex:** jsonb (JSON editor), array (tag input)
-- **Flags:** required, readonly, disabled, validation rules, placeholders
-
-#### C. View Mode Configuration
-Entities can support multiple view modes for different data visualization needs:
-
-```typescript
-supportedViews: ['table', 'kanban', 'grid'],
-defaultView: 'table'
-```
-
-**View Modes:**
-- **Table:** Sortable, filterable data table with bulk actions
-- **Kanban:** Drag-and-drop board grouped by status/stage (task.stage, project.stage)
-- **Grid:** Card-based grid layout with thumbnails (artifacts, employees)
-
-#### D. Settings Integration
-The `loadOptionsFromSettings` flag enables automatic dropdown population from database settings tables:
-
-```typescript
-{
-  key: 'project_stage',
-  type: 'select',
-  loadOptionsFromSettings: true  // Loads from setting_project_stage via settingsLoader
-}
-```
-
-**How it works:**
-1. Field key `project_stage` maps to `setting_project_stage` via `FIELD_TO_SETTING_MAP`
-2. `settingsLoader.ts` fetches `/api/v1/setting?category=projectStage`
-3. Results are cached for 5 minutes to minimize API calls
-4. Dropdown options auto-populate with active values from database
-
-  E. Child Entity Relationships
-
-  Defines which entities can be children (tabs on
-  detail page):
-
-  childEntities: ['project', 'task', 'wiki',
-  'artifact', 'form']
-
-  Example: Client entity (line 1007) can have
-  projects, tasks, wikis, artifacts, and forms as
-  children.
-
-  F. Kanban-Specific Configuration
-
-  For entities with kanban view support:
-
-  kanban: {
-    groupByField: 'stage',  // Field to group 
-  cards by
-    metaTable: 'setting_task_stage',  // Where 
-  stage values come from
-    cardFields: ['name', 'priority_level',
-  'estimated_hours']  // Fields shown on cards
-  }
-
-  G. Grid-Specific Configuration
-
-  For entities with grid view support:
-
-  grid: {
-    cardFields: ['name', 'email',
-  'employee_number', 'phone'],
-    imageField: 'uri'  // Optional image field for
-   thumbnails
-  }
-
-  Helper Functions (lines 86-129)
-
-  - formatDate(dateString): Formats dates as
-  YYYY-MM-DD (Canadian format)
-  - formatCurrency(amount, currency): Formats as
-  $X,XXX.XX CAD
-  - renderBadge(value, colorMap): Creates colored
-  badge pills (green for "Active", red for
-  "Blocked")
-  - renderTags(tags[]): Renders tag chips with "+N
-   more" for overflow
-
-  Entity Registry
-
-  24+ Entity Configurations (lines 135-1557):
-
-  Core Entities (13):
-  1. project - Project management with budget,
-  timeline, stakeholders
-  2. task - Tasks with priority, stages, hour
-  tracking
-  3. wiki - Knowledge base pages with publication
-  status
-  4. artifact - Document/file management
-  5. form - Dynamic form definitions with schema
-  6. biz - Business units (3-level hierarchy)
-  7. office - Office locations (4-level hierarchy)
-  8. employee - Employee directory
-  9. role - Organizational roles
-  10. worksite - Work site locations
-  11. client - Customer relationship management
-  12. position - Job positions
-  13. (Plus more...)
-
-  Settings/Meta Entities (11):
-  - projectStage, projectStatus
-  - taskStage, taskStatus
-  - businessLevel, orgLevel, hrLevel, clientLevel,
-   positionLevel
-  - opportunityFunnelLevel, industrySector,
-  acquisitionChannel, customerTier
-
-  API Integration
-
-  Each entity config includes apiEndpoint:
-
-  apiEndpoint: '/api/v1/client'  // For core 
-  entities
-  apiEndpoint:
-  '/api/v1/setting?category=customerTier'  // For 
-  settings
-
-  This tells the universal components which API
-  endpoints to call.
-
-  ---
-  2. Universal Entity Components
-
-  A. EntityMainPage.tsx (List/Index Page)
-
-  Location: /home/rabin/projects/pmo/apps/web/src/
-  pages/EntityMainPage.tsx (280 lines)
-
-  Purpose: Universal listing page that works for
-  ANY entity type. One component replaces 24+
-  individual list pages.
-
-  Key Features:
-
-  1. Dynamic Data Loading (lines 45-65):
-  const apiModule = (api as
-  any)[`${entityType}Api`];
-  const response = await apiModule.list({ page: 1,
-   pageSize: 100 });
-
-  2. Multi-View Support (lines 149-218):
-    - Table View: Uses FilteredDataTable component
-    - Kanban View: Uses KanbanBoard component with
-   drag-and-drop
-    - Grid View: Uses GridView component with card
-   layout
-  3. View Mode Persistence (line 33):
-  const [view, setView] = useViewMode(entityType);
-    // Persists to localStorage
-
-  4. Dynamic Header (lines 224-256):
-    - Entity icon (first letter or lucide icon)
-    - Entity plural name (from config)
-    - View switcher (only if multiple views
-  supported)
-    - Create button with dynamic label
-  5. Bulk Operations (lines 75-90):
-    - Bulk share handler
-    - Bulk delete handler with confirmation
-
-  Routing Example (lines 267-280):
-  // Single component, multiple routes
-  <Route path="/project" element={<EntityMainPage 
-  entityType="project" />} />
-  <Route path="/task" element={<EntityMainPage 
-  entityType="task" />} />
-  <Route path="/client" element={<EntityMainPage 
-  entityType="client" />} />
-  // ... 24+ entities, same component!
-
-  B. EntityDetailPage.tsx (Detail/Show Page)
-
-  Location: /home/rabin/projects/pmo/apps/web/src/
-  pages/EntityDetailPage.tsx (542 lines)
-
-  Purpose: Universal detail/show page that
-  displays entity data and child entity tabs.
-
-  Key Features:
-
-  1. Dynamic Data Loading (lines 112-146):
-  const apiModule = (api as
-  any)[`${entityType}Api`];
-  const response = await apiModule.get(id);
-
-  2. Inline Editing (lines 148-168):
-    - Toggle between view and edit mode
-    - Field-level editing based on field type
-    - Save/Cancel buttons
-    - Special handling for form entities (navigate
-   to edit page)
-  3. Dynamic Field Rendering (lines 218-345):
-    - View Mode: Formatted display (dates, badges,
-   JSON)
-    - Edit Mode: Input fields based on type (text,
-   select, textarea, date, jsonb, array)
-    - Custom rendering for each field type
-  4. Child Entity Tabs (lines 59-104):
-    - Overview tab (always first)
-    - Dynamic tabs from API based on entity
-  relationships
-    - Special handling for form entity (Form Data,
-   Edit Submission tabs)
-  5. Special Entity Handlers:
-    - Wiki (lines 424-429): WikiContentRenderer
-  for rich content
-    - Form (lines 430-466): InteractiveForm for
-  live form preview
-    - Task (lines 492-501): TaskDataContainer for
-  task-specific data
-  6. Nested Routing (line 522):
-  <Outlet />  // Renders EntityChildListPage for 
-  child entity tabs
-
-  Routing Example (lines 529-542):
-  <Route path="/project/:id"
-  element={<EntityDetailPage entityType="project" 
-  />}>
-    <Route path="task" 
-  element={<EntityChildListPage childType="task" 
-  />} />
-    <Route path="wiki" 
-  element={<EntityChildListPage childType="wiki" 
-  />} />
-  </Route>
-
-  C. EntityChildListPage.tsx
-
-  Location: /home/rabin/projects/pmo/apps/web/src/
-  pages/EntityChildListPage.tsx
-
-  Purpose: Renders child entity lists within
-  parent entity detail pages (e.g., tasks within a
-   project).
-
-  Key Features:
-
-  1. Parent-Child Context:
-  const { id: parentId } = useParams();  // Gets 
-  parent ID from URL
-  const parentType = 'project';  // Passed as prop
-  const childType = 'task';  // Passed as prop
-
-  2. Filtered Data Loading:
-    - Calls API with parent context:
-  /api/v1/project/{parentId}/task
-    - FilteredDataTable receives parentId and
-  parentType props
-  3. Multi-View Support:
-    - Table view (default)
-    - Kanban view (if child entity supports it)
-    - Grid view (if child entity supports it)
-
-  ---
-  3. Data Flow Architecture
-
-  User clicks "/client"
-           ↓
-  App.tsx routes to: <EntityMainPage
-  entityType="client" />
-           ↓
-  EntityMainPage.tsx:
-    1. getEntityConfig('client') → Loads client
-  configuration
-    2. Determines current view mode
-  (table/kanban/grid)
-    3. For table view: Renders <FilteredDataTable
-  entityType="client" />
-    4. For other views: Calls clientApi.list() and
-   renders appropriate view
-           ↓
-  FilteredDataTable.tsx:
-    1. config = getEntityConfig('client')
-    2. columns = config.columns → [name, city,
-  customer_tier_name, ...]
-    3. fetchData() → Calls /api/v1/client
-    4. Renders DataTable with dynamic columns
-           ↓
-  DataTable.tsx:
-    1. Renders table with sorting, filtering,
-  pagination
-    2. Applies custom render functions from column
-   config
-    3. Shows colored badges for customer_tier_name
-    4. Handles inline editing (if enabled)
-
-  ---
-  4. Benefits of This Architecture
-
-  ✅ DRY Principle (Don't Repeat Yourself)
-
-  - Before: 24 entity types × 3 pages each (list,
-  detail, edit) = 72+ component files
-  - After: 3 universal components + 1 config file
-  = 4 files total
-  - Code Reduction: ~94% reduction in component
-  files
-
-  ✅ Single Source of Truth
-
-  - All entity behavior defined in entityConfig.ts
-  - Change once, applies everywhere
-  - Example: Add new column to client? Edit one
-  place in config, appears in table + forms
-
-  ✅ Type Safety
-
-  - TypeScript interfaces ensure config
-  consistency
-  - Compiler catches missing required fields
-  - IntelliSense autocomplete for all config
-  options
-
-  ✅ Easy to Extend
-
-  Adding a new entity requires:
-  1. Add database table (DDL)
-  2. Add API routes (backend)
-  3. Add entity config (frontend) - ~50 lines
-  4. Add route in App.tsx - 1 line
-
-  Example: Adding "vendor" entity:
-  // In entityConfig.ts
-  vendor: {
-    name: 'vendor',
-    displayName: 'Vendor',
-    pluralName: 'Vendors',
-    apiEndpoint: '/api/v1/vendor',
-    columns: [...],
-    fields: [...],
-    supportedViews: ['table', 'grid'],
-    defaultView: 'table'
-  }
-
-  // In App.tsx
-  <Route path="/vendor" element={<EntityMainPage 
-  entityType="vendor" />} />
-  <Route path="/vendor/:id" 
-  element={<EntityDetailPage entityType="vendor" 
-  />} />
-
-  ✅ Consistent UX
-
-  - All entities look and behave the same way
-  - Users learn once, apply everywhere
-  - Reduces cognitive load
-
-  ✅ Testability
-
-  - Test universal components once
-  - Config changes don't require new tests
-  - Easier to maintain
-
-  ---
----
-
-### 2️⃣ Backend Universal Schema Metadata (`universal-schema-metadata.ts`)
-
-**Location:** `/apps/api/src/lib/universal-schema-metadata.ts` (790+ lines)
-
-**Purpose:** Automatically classifies database columns based on naming conventions to apply consistent behavior for API restrictions, UI rendering, and permission handling across ALL entities without table-specific metadata.
-
-**Key Features:**
-
-#### Pattern-Based Column Classification
-The system analyzes column names and automatically applies metadata:
-
-```typescript
-// Exact match patterns
-'email': { 'api:pii_masking': true, 'ui:search': true, 'ui:email': true }
-'password_hash': { 'api:auth_field': true }  // Never expose
-'budget_allocated': { 'api:financial_masking': true, 'financial': true }
-
-// Regex pattern rules
-/_status$/ → { 'workflow': true, 'ui:status': true, 'ui:badge': true }
-/_date$/ → { 'temporal': true, 'ui:date': true }
-/^is_/ → { 'ui:toggle': true }
-/_percentage$/ → { 'ui:percentage': true, 'ui:progress': true }
-```
-
-#### Metadata Categories
-
-**API Restrictions:**
-- `api:auth_field` - Never expose (password_hash, etc.)
-- `api:pii_masking` - Mask PII unless authorized (email, phone, salary)
-- `api:financial_masking` - Restrict financial data (budget, amounts)
-- `api:system_field` - Read-only system fields (id, version, created_ts)
-
-**UI Field Types:**
-- `ui:email`, `ui:phone`, `ui:url`, `ui:date`, `ui:number`
-- `ui:textarea`, `ui:json`, `ui:toggle`, `ui:multiselect`
-- `ui:percentage`, `ui:currency`, `ui:geographic`
-
-**UI Display Modes:**
-- `ui:badge` - Colored badge/pill display
-- `ui:progress` - Progress bar
-- `ui:tags` - Tag chips
-- `ui:status` - Status indicator
-- `ui:timeline` - Timeline/date display
-
-**Special Behaviors:**
-- `flexible` - JSON/JSONB fields for key-value data
-- `audit` - Audit trail fields (created_ts, updated_ts)
-- `hierarchy` - Self-referencing parent fields
-- `permission` - Permission-related arrays
-- `financial` - Budget/cost fields
-- `workflow` - Status/stage fields
-
-#### Usage in API Endpoints
-```typescript
-import { filterUniversalColumns, getUniversalComponentProps } from './universal-schema-metadata';
-
-// Filter response data based on user permissions
-const filtered = filterUniversalColumns(data, {
-  canSeePII: user.role === 'admin',
-  canSeeFinancial: user.hasPermission('view_financials')
-});
-
-// Get UI props for dynamic forms
-const props = getUniversalComponentProps('email');
-// Returns: { type: 'email', searchable: true, category: 'contact' }
-```
-
-**Benefits:**
-- ✅ **Zero configuration** - Works automatically for new columns following naming conventions
-- 🔒 **Security by default** - PII and financial data automatically protected
-- 🎨 **Consistent UI** - Same field names render the same way across entities
-- 📊 **Smart defaults** - Searchable, sortable, filterable fields auto-detected
-
----
-
-### 3️⃣ Settings Loader (`settingsLoader.ts`)
-
-**Location:** `/apps/web/src/lib/settingsLoader.ts` (270 lines)
-
-**Purpose:** Provides centralized, cached loading of dropdown options from database settings tables for forms, inline editing, and filters.
-
-#### Key Features
-
-**Field-to-Settings Mapping:**
-```typescript
-const FIELD_TO_SETTING_MAP = {
-  'project_stage': 'projectStage',        // → setting_project_stage
-  'opportunity_funnel_level_id': 'opportunityFunnelLevel',
-  'customer_tier_id': 'customerTier',
-  'industry_sector_id': 'industrySector'
-  // ... 13 total settings categories
-};
-```
-
-**Automatic API Endpoint Resolution:**
-```typescript
-loadFieldOptions('project_stage')
-  ↓ maps to category 'projectStage'
-  ↓ resolves to endpoint '/api/v1/setting?category=projectStage'
-  ↓ fetches and caches results for 5 minutes
-  ↓ returns [{value: 0, label: 'Initiation'}, {value: 1, label: 'Planning'}, ...]
-```
-
-**Usage in Components:**
-```typescript
-import { loadFieldOptions, clearSettingsCache } from '@/lib/settingsLoader';
-
-// Load options for a field
-const options = await loadFieldOptions('project_stage');
-
-// Batch load multiple fields
-const optionsMap = await batchLoadFieldOptions(['project_stage', 'customer_tier_id']);
-
-// Clear cache after updates
-clearSettingsCache('projectStage');
-```
-
-**Benefits:**
-- ⚡ **Performance** - 5-minute cache minimizes database queries
-- 🔄 **Real-time** - Dropdown options reflect current database state
-- 🎯 **Single source of truth** - Settings managed in database, not hardcoded
-- 🧩 **Reusable** - One function works for all setting-driven fields
-
----
-
-### 🔄 Complete Data Flow Example
-
-**Scenario:** User edits "Project Stage" field on a project
-
-```
-1. Frontend (EntityDetailPage)
-   - Renders edit form with field: { key: 'project_stage', loadOptionsFromSettings: true }
-   ↓
-2. Settings Loader
-   - Detects loadOptionsFromSettings flag
-   - Maps 'project_stage' → 'projectStage' category
-   - Checks cache, if miss fetches: /api/v1/setting?category=projectStage
-   ↓
-3. Backend API (/api/v1/setting)
-   - Universal settings endpoint
-   - Queries: SELECT * FROM setting_project_stage WHERE active=true
-   - Applies universal-schema-metadata to classify columns
-   - Returns: [{level_id: 0, level_name: 'Initiation', color_code: '#3B82F6'}, ...]
-   ↓
-4. Settings Loader (continued)
-   - Transforms to: [{value: 0, label: 'Initiation'}, {value: 1, label: 'Planning'}, ...]
-   - Caches results for 5 minutes
-   ↓
-5. Frontend (continued)
-   - Dropdown populates with options
-   - User selects "Execution" (value: 2)
-   - Saves via PUT /api/v1/project/:id
-   ↓
-6. Backend API (PUT /api/v1/project/:id)
-   - Receives: { project_stage: 2 }
-   - Validates against setting_project_stage
-   - Updates database
-   - Clears relevant caches
-```
-
----
-
-### 📚 Entity Configuration Complete Example
-
-**Client Entity Configuration:**
-
-```typescript
-client: {
-  name: 'client',
-  apiEndpoint: '/api/v1/client',
-
-  columns: [
-    { key: 'name', title: 'Client Name', sortable: true, filterable: true },
-    {
-      key: 'customer_tier_id',
-      title: 'Customer Tier',
-      loadOptionsFromSettings: true,  // Auto-loads from setting_customer_tier
-      inlineEditable: true,            // Click-to-edit in table
-      render: (v, record) => renderBadge(record.customer_tier_name)
-    }
-  ],
-
-  fields: [
-    { key: 'name', label: 'Client Name', type: 'text', required: true },
-    { key: 'customer_tier_id', type: 'select', loadOptionsFromSettings: true }
-  ],
-
-  supportedViews: ['table', 'grid'],
-  defaultView: 'table',
-  childEntities: ['project', 'task']
-}
-```
+- Overview tab with editable fields
+- Dynamic child entity tabs (from API)
+- Inline editing
+- Special renderers (wiki, form)
+- Nested routing for child tabs
 
 **Routing:**
+
 ```typescript
-// App.tsx - Single universal component handles all clients
-<Route path="/client" element={<EntityMainPage entityType="client" />} />
-<Route path="/client/:id" element={<EntityDetailPage entityType="client" />}>
-  <Route path="project" element={<EntityChildListPage childType="project" />} />
+<Route path="/project/:id" element={<EntityDetailPage entityType="project" />}>
+  <Route path="task" element={<EntityChildListPage childType="task" />} />
+  <Route path="wiki" element={<EntityChildListPage childType="wiki" />} />
+  <Route path="artifact" element={<EntityChildListPage childType="artifact" />} />
 </Route>
 ```
 
+**Data Flow:**
+
+```typescript
+export function EntityDetailPage({ entityType }: { entityType: string }) {
+  const { id } = useParams();
+  const config = getEntityConfig(entityType);
+
+  // Type-safe API call
+  const loadData = async () => {
+    const api = APIFactory.getAPI(entityType);
+    const response = await api.get(id);
+    setData(response.data);
+  };
+
+  // Dynamic tabs from API
+  const { tabs } = useDynamicChildEntityTabs(entityType, id);
+  // Returns: [
+  //   { id: 'overview', label: 'Overview', ... },
+  //   { id: 'task', label: 'Tasks (12)', count: 12, ... },
+  //   { id: 'wiki', label: 'Wiki (3)', count: 3, ... }
+  // ]
+
+  return (
+    <div>
+      <DynamicChildEntityTabs tabs={tabs} />
+
+      {isOverviewTab ? (
+        <EntityFormContainer fields={config.fields} data={data} />
+      ) : (
+        <Outlet />  {/* Renders EntityChildListPage */}
+      )}
+    </div>
+  );
+}
+```
+
+### 3. EntityChildListPage (Child Entity Tab)
+
+**File:** `apps/web/src/pages/shared/EntityChildListPage.tsx` (281 lines)
+
+**Purpose:** Display child entities in parent detail page tabs
+
+**Example:** Tasks tab on project detail page
+
+**Data Flow:**
+
+```typescript
+export function EntityChildListPage({
+  parentType,  // "project"
+  childType    // "task"
+}: EntityChildListPageProps) {
+  const { id: parentId } = useParams();  // Inherited from parent route
+  const config = getEntityConfig(childType);
+
+  const loadData = async () => {
+    const api = APIFactory.getAPI(parentType);  // projectApi
+    const response = await api.getTasks(parentId);  // GET /api/v1/project/:id/task
+    setData(response.data || []);
+  };
+
+  return (
+    <FilteredDataTable
+      entityType={childType}
+      parentType={parentType}
+      parentId={parentId}
+      onRowClick={(item) => navigate(`/${childType}/${item.id}`)}
+    />
+  );
+}
+```
+
+### 4. EntityCreatePage (Create Page)
+
+**File:** `apps/web/src/pages/shared/EntityCreatePage.tsx` (150 lines)
+
+**Purpose:** Universal create page with dynamic form
+
+**Data Flow:**
+
+```typescript
+export function EntityCreatePage({ entityType }: { entityType: string }) {
+  const config = getEntityConfig(entityType);
+
+  const handleSubmit = async (formData: any) => {
+    const api = APIFactory.getAPI(entityType);
+    await api.create(formData);  // POST /api/v1/{entity}
+    navigate(`/${entityType}`);
+  };
+
+  return (
+    <Form fields={config.fields} onSubmit={handleSubmit} />
+  );
+}
+```
+
+## Routing Architecture
+
+### Auto-Generated Routes
+
+**File:** `apps/web/src/App.tsx`
+
+Routes are generated programmatically from `entityConfig`:
+
+```typescript
+const coreEntities = ['project', 'task', 'biz', 'office', 'employee', 'client', ...];
+
+const generateEntityRoutes = () => {
+  return coreEntities.map(entityType => {
+    const config = entityConfigs[entityType];
+    return (
+      <Fragment key={entityType}>
+        {/* List route */}
+        <Route path={`/${entityType}`}
+               element={<EntityMainPage entityType={entityType} />} />
+
+        {/* Create route */}
+        <Route path={`/${entityType}/new`}
+               element={<EntityCreatePage entityType={entityType} />} />
+
+        {/* Detail + child routes */}
+        <Route path={`/${entityType}/:id`}
+               element={<EntityDetailPage entityType={entityType} />}>
+          {config.childEntities?.map(childType => (
+            <Route key={childType}
+                   path={childType}
+                   element={<EntityChildListPage childType={childType} />} />
+          ))}
+        </Route>
+      </Fragment>
+    );
+  });
+};
+
+<Routes>
+  {generateEntityRoutes()}  {/* Generates 30+ routes from 10 entities */}
+</Routes>
+```
+
+**Benefits:**
+- Single source of truth
+- Impossible to have inconsistent routes
+- Add new entity = add 1 line to array
+- Zero duplication
+
+### URL Structure
+
+```
+/project                           → EntityMainPage (project list)
+/project/new                       → EntityCreatePage (create project)
+/project/:id                       → EntityDetailPage (project detail)
+/project/:id/task                  → EntityChildListPage (project tasks)
+/project/:id/wiki                  → EntityChildListPage (project wiki)
+
+/task                              → EntityMainPage (task list)
+/task/:id                          → EntityDetailPage (task detail)
+/task/:id/form                     → EntityChildListPage (task forms)
+```
+
+## Component Architecture
+
+### Data Table Components
+
+**Hierarchy:**
+
+```
+DataTable.tsx (base)
+└── FilteredDataTable.tsx (entity-aware)
+    └── EntityAssignmentDataTable.tsx (specialized)
+```
+
+**DataTable.tsx** - Base table with sorting, filtering, pagination
+- Generic reusable table
+- No entity awareness
+- Props: `columns`, `data`, `onRowClick`
+
+**FilteredDataTable.tsx** - Entity-aware table
+- Loads config from `entityConfig.ts`
+- Type-safe API calls via `APIFactory`
+- Inline editing support
+- Action buttons (Create, Bulk Delete, Bulk Share)
+
+```typescript
+<FilteredDataTable
+  entityType="project"
+  showActionButtons={true}
+  inlineEditable={false}
+  onRowClick={(item) => navigate(`/project/${item.id}`)}
+/>
+```
+
+### Dynamic Child Entity Tabs
+
+**Component:** `DynamicChildEntityTabs.tsx`
+
+**Purpose:** Generate tabs from API data
+
+**API Call:**
+
+```typescript
+GET /api/v1/project/:id/child-tabs
+
+Response:
+{
+  "tabs": [
+    { "entity": "task", "ui_label": "Tasks", "ui_icon": "CheckSquare", "count": 12, "order": 1 },
+    { "entity": "wiki", "ui_label": "Wiki", "ui_icon": "BookOpen", "count": 3, "order": 2 }
+  ]
+}
+```
+
+**Rendering:**
+
+```typescript
+export function DynamicChildEntityTabs({ parentType, parentId }: Props) {
+  const { tabs } = useDynamicChildEntityTabs(parentType, parentId);
+
+  return (
+    <div className="flex gap-2">
+      {tabs.map(tab => (
+        <Link
+          key={tab.entity}
+          to={`/${parentType}/${parentId}/${tab.entity}`}
+          className={isActive ? 'active' : ''}
+        >
+          <Icon name={tab.ui_icon} />
+          {tab.ui_label} ({tab.count})
+        </Link>
+      ))}
+    </div>
+  );
+}
+```
+
+## Settings Page Architecture
+
+**File:** `apps/web/src/pages/setting/SettingsPage.tsx` (92 lines)
+
+**Achievement:** 1 component handles ALL 16 settings tables
+
+**Before:** Would require 16 separate pages
+**After:** 1 universal page with tab switcher
+
+**How it works:**
+
+```typescript
+export function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<SettingTab>('projectStage');
+
+  const tabs = [
+    { id: 'projectStage', label: 'Project Stage', icon: KanbanSquare },
+    { id: 'taskStage', label: 'Task Stage', icon: CheckSquare },
+    { id: 'customerTier', label: 'Customer Tier', icon: Users },
+    // ... 13 more settings
+  ];
+
+  return (
+    <div>
+      {/* Tab navigation */}
+      {tabs.map(tab => (
+        <button onClick={() => setActiveTab(tab.id)}>
+          <Icon /> {tab.label}
+        </button>
+      ))}
+
+      {/* Universal data table - entityType changes based on tab */}
+      <FilteredDataTable
+        entityType={activeTab}  // Dynamic!
+        inlineEditable={true}
+        showEditIcon={true}
+        showDeleteIcon={false}
+      />
+    </div>
+  );
+}
+```
+
 **Result:**
-- `/client` → Client list with inline editable customer tier
-- `/client/:id` → Client detail with dropdown populated from database
-- `/client/:id/project` → Projects for that client
-- All powered by ~50 lines of config + universal components
+- 16 settings × 300 lines = 4,800 lines saved
+- Add new setting = add 1 line to tabs array
+- Consistent UX across all settings
+
+## Styling & Design System
+
+### Tailwind CSS
+
+**Configuration:** `apps/web/tailwind.config.js`
+
+**Custom Theme:**
+- Extended color palette for badges
+- Custom spacing for entity cards
+- Responsive breakpoints for data tables
+
+### Component Standards
+
+**Icons:**
+- Size: `h-5 w-5` for headers, `h-4 w-4` for inline
+- Color: `text-gray-600` neutral, `text-blue-600` active
+- Stroke: `stroke-[1.5]` consistent weight
+
+**Badges:**
+```typescript
+<span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+  Active
+</span>
+```
+
+**Buttons:**
+- Primary: `bg-blue-600 hover:bg-blue-700 text-white`
+- Secondary: `border border-gray-300 hover:bg-gray-50 text-gray-700`
+- Danger: `bg-red-600 hover:bg-red-700 text-white`
+
+## State Management
+
+### React Hooks
+
+- `useState` - Component-local state
+- `useEffect` - Data fetching, subscriptions
+- `useParams` - URL parameters
+- `useNavigate` - Programmatic navigation
+- `useMemo` - Expensive computations
+
+### Custom Hooks
+
+**useViewMode** - Persist view preference
+
+```typescript
+const [view, setView] = useViewMode('project');
+// Reads from localStorage: 'viewMode_project'
+// Returns: 'table' | 'kanban' | 'grid'
+```
+
+**useDynamicChildEntityTabs** - Fetch child tabs
+
+```typescript
+const { tabs, loading } = useDynamicChildEntityTabs('project', projectId);
+```
+
+## Authentication
+
+### JWT Authentication
+
+1. User logs in via `LoginForm.tsx`
+2. JWT token stored in localStorage
+3. `api.ts` includes token in all requests: `Authorization: Bearer <token>`
+4. Invalid token → redirect to login
+
+### No Frontend RBAC
+
+- Frontend displays all data provided by API
+- API enforces all RBAC permissions
+- No permission checks in React components
+
+## Performance Optimizations
+
+### Code Splitting
+
+```typescript
+// Lazy load heavy components
+const FormBuilderPage = lazy(() => import('./pages/form/FormBuilderPage'));
+const WikiEditorPage = lazy(() => import('./pages/wiki/WikiEditorPage'));
+```
+
+### Memoization
+
+```typescript
+// Expensive column renders
+const columns = useMemo(() => config.columns.map(...), [config]);
+```
+
+### Virtual Scrolling
+
+- Large data tables use TanStack Table with virtualization
+- Only renders visible rows
+
+## Adding a New Entity
+
+To add a new entity to the application:
+
+1. **Add configuration** to `entityConfig.ts`:
+   ```typescript
+   vendor: {
+     name: 'vendor',
+     displayName: 'Vendor',
+     pluralName: 'Vendors',
+     apiEndpoint: '/api/v1/vendor',
+     columns: [...],
+     fields: [...],
+     supportedViews: ['table', 'grid'],
+     childEntities: []
+   }
+   ```
+
+2. **Register API** in `api-factory.ts`:
+   ```typescript
+   APIFactory.register('vendor', vendorApi);
+   ```
+
+3. **Add route** to `App.tsx`:
+   ```typescript
+   const coreEntities = [...existing, 'vendor'];
+   ```
+
+4. **Add icon** to `entityIcons.ts`:
+   ```typescript
+   export const ENTITY_ICONS = {
+     ...existing,
+     vendor: Truck  // Lucide icon
+   };
+   ```
+
+**That's it!** The universal components handle everything else automatically.
+
+## Testing
+
+### Test User
+
+**Email:** `james.miller@huronhome.ca`
+**Password:** `password123`
+
+### Development Testing
+
+```bash
+# Start both API and web servers
+cd /home/rabin/projects/pmo
+./tools/start-all.sh
+```
+
+### Browser Testing
+
+1. Open http://localhost:5173
+2. Login with test credentials
+3. Navigate through entities
+4. Test CRUD operations
+5. Check browser console for errors
+
+## Build & Deployment
+
+### Development Build
+
+```bash
+pnpm dev
+```
+
+### Production Build
+
+```bash
+pnpm build
+# Output: apps/web/dist/
+```
+
+### Environment Variables
+
+**File:** `apps/web/.env`
+
+```bash
+VITE_API_URL=http://localhost:4000
+VITE_APP_NAME=PMO Platform
+VITE_APP_VERSION=1.0.0
+```
+
+### Docker Deployment
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY apps/web/dist ./dist
+RUN npm install -g serve
+EXPOSE 5173
+CMD ["serve", "-s", "dist", "-l", "5173"]
+```
+
+## Troubleshooting
+
+### API Connection Issues
+
+```typescript
+// Check API_URL in api.ts
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+```
+
+### Settings Not Loading
+
+```typescript
+// Clear settings cache
+import { clearSettingsCache } from '@/lib/settingsLoader';
+clearSettingsCache();  // Clears all cached settings
+```
+
+### TypeScript Errors
+
+```bash
+# Regenerate types
+pnpm tsc --noEmit
+```
+
+## Key Files Reference
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| `lib/entityConfig.ts` | Central entity configuration | 1,600+ |
+| `lib/api-factory.ts` | Type-safe API registry | 174 |
+| `lib/api.ts` | API client implementations | 649 |
+| `lib/settingsLoader.ts` | Dynamic settings loader | 270 |
+| `pages/shared/EntityMainPage.tsx` | Universal list page | 280 |
+| `pages/shared/EntityDetailPage.tsx` | Universal detail page | 527 |
+| `pages/setting/SettingsPage.tsx` | Universal settings page | 92 |
+| `App.tsx` | Route definitions | 300+ |
+
+## Support & Documentation
+
+- **Main README:** `/home/rabin/projects/pmo/README.md`
+- **API Documentation:** `/home/rabin/projects/pmo/apps/api/README.md`
+- **Database Schema:** `/home/rabin/projects/pmo/db/README.md`
+- **Management Tools:** `/home/rabin/projects/pmo/tools/README.md`
+
+---
+
+**Last Updated:** 2025-10-18
+**Framework:** React 19
+**Build Tool:** Vite 5
+**Total Components:** 50+
+**Universal Components:** 4
+**Code Reduction:** ~94%

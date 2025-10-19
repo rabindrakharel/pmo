@@ -1,367 +1,156 @@
-# PMO Database Documentation
+# PMO Database Schema
 
-> **Enterprise Project Management Office (PMO) Database Schema**
-> Version: 4.0 | Schema: `app` | PostgreSQL 14+
-
-## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Database Architecture](#database-architecture)
-- [Entity Catalog](#entity-catalog)
-- [Relationship Model](#relationship-model)
-- [RBAC Permission System](#rbac-permission-system)
-- [Query Patterns](#query-patterns)
-- [ER Diagram](#er-diagram)
-- [Import & Setup](#import--setup)
-
----
+> **Enterprise PostgreSQL Database with Universal Entity-Relationship Architecture**
 
 ## Overview
 
-The PMO database is designed to support a comprehensive Project Management Office system for **Huron Home Services**, a Canadian service company managing landscaping, HVAC, plumbing, and other home services. The database follows a **flexible, relationship-driven architecture** with no direct foreign keys between most entities.
+The PMO Database is a comprehensive PostgreSQL schema designed to support a complete Project Management Office system for Huron Home Services, a Canadian service company. The database features a flexible, relationship-driven architecture with no direct foreign keys between core entities, enabling dynamic parent-child relationships and fine-grained RBAC permissions.
 
-DDL FILE CONTENTS: 
-Each ddl file has 3 sections: 
-semantics: why that table is needed, how it is related to other table, how are front end api and uiux, business logic served using the schema?
-ddl: create table statements 
-data curation: insert statements
+**Total:** 40 DDL files defining 35+ tables across 3 categories
 
-HOW TO CURATE DATA: 
-When you curate data, Please make sure data is curated with proper dependencies on other table.
-Once data is curated, Always reimport the data using tools: /home/rabin/projects/pmo/tools/db-import.sh
-If you create a new .ddl file, then you must add the .ddl file in the import util, and then run it: /home/rabin/projects/pmo/tools/db-import.sh
+## Quick Facts
 
-Data must be only curated for user:
-James Miller Account:
-  - ID: 8260b1b0-5efc-4611-ad33-ee76c0cf7f13
-  - Email: james.miller@huronhome.ca
-  - Password: password123
-
-  and project: Fall 2024 Landscaping Campaign, id:84215ccb-313d-48f8-9c37-4398f28c0b1f
-
-
-
-
-### Key Design Principles
-
-1. **No Direct Foreign Keys** - All entity relationships managed through `entity_id_map`
-2. **Hierarchical Organizations** - Offices (4 levels), Business units (3 levels)
-3. **Array-Based RBAC** - Permission arrays `{0,1,2,3,4}` for fine-grained access control
-4. **Common Field Structure** - All entities share: `id`, `slug`, `code`, `name`, `descr`, `tags`, temporal fields
-5. **Metadata-Driven** - Configurable hierarchies and stages via `meta_*` tables
-6. **SCD Type 2** - Temporal tracking with `from_ts`, `to_ts`, `active_flag`
-
-### Business Context
-
-- **Organization:** Huron Home Services Corporation
-- **Location:** Ontario, Canada
-- **Services:** Landscaping, Snow Removal, HVAC, Plumbing, Solar Energy
-- **Use Cases:** Project tracking, task management, employee RBAC, client management
-
----
+| Metric | Count | Description |
+|--------|-------|-------------|
+| **Total DDL Files** | 40 | Complete schema definition |
+| **Setting Tables** | 16 | Configuration & dropdown options |
+| **Core Entity Tables** | 13 | Business data entities |
+| **Relationship Tables** | 4 | Entity mappings & RBAC |
+| **Metadata Tables** | 2 | Entity type definitions |
+| **Total Tables** | 35+ | All tables across schema |
 
 ## Database Architecture
 
-### Schema Structure
+### Schema: `app`
 
-```
-app (schema)
-├── Core Business Entities (13 tables)
-│   ├── d_office, d_business, d_project, d_task
-│   ├── d_employee, d_client, d_worksite
-│   ├── d_role, d_position
-│   └── d_artifact, d_wiki, d_form_head, d_reports
-│
-├── Settings/Configuration (16 tables)
-│   ├── setting_datalabel_office_level, setting_datalabel_business_level
-│   ├── setting_datalabel_project_stage, setting_datalabel_task_stage
-│   ├── setting_datalabel_client_level, setting_datalabel_customer_tier
-│   ├── setting_datalabel_position_level, setting_datalabel_opportunity_funnel_level
-│   ├── setting_datalabel_industry_sector, setting_datalabel_acquisition_channel
-│   ├── setting_datalabel_client_status, setting_datalabel_task_priority
-│   ├── setting_datalabel_task_update_type, setting_datalabel_form_submission_status
-│   ├── setting_datalabel_form_approval_status, setting_datalabel_wiki_publication_status
-│
-└── Relationships & RBAC (3 tables)
-    ├── entity_id_map (parent-child relationships)
-    ├── entity_id_rbac_map (fine-grained permissions)
-    └── rel_emp_role (employee-role assignments)
-```
-
-### Total: 32 Tables
-
-| Category | Count | Purpose |
-|----------|-------|---------|
-| **Data Entities** | 13 | Core business objects |
-| **Settings** | 16 | Configuration, hierarchies & dropdown options |
-| **Relationships** | 3 | Mappings & permissions |
-
----
-
-## Entity Catalog
-
-### 1️⃣ Core Business Entities (13 tables)
-
-#### Organizational Entities
-
-**`d_office`** - Physical Office Locations
-- **Hierarchy:** 4 levels (Office → District → Region → Corporate)
-- **Key Fields:** `id`, `code`, `name`, `level_id`, `parent_id`, `address`, `city`, `province`
-- **Records:** 5 offices across Ontario
-- **Purpose:** Geographic organization, office-based filtering
-
-**`d_business`** - Business Units & Departments
-- **Hierarchy:** 3 levels (Department → Division → Corporate)
-- **Key Fields:** `id`, `code`, `name`, `level_id`, `parent_id`, `office_id`
-- **Records:** 6 business units (Landscaping, HVAC, Plumbing, etc.)
-- **Purpose:** Organizational hierarchy, business unit management
-
-#### Project Management Entities
-
-**`d_project`** - Projects
-- **Key Fields:** `id`, `code`, `name`, `project_stage`, `budget_allocated`, `budget_spent`
-- **Team Fields:** `manager_employee_id`, `sponsor_employee_id`, `stakeholder_employee_ids[]`
-- **Timeline:** `planned_start_date`, `planned_end_date`, `actual_start_date`, `actual_end_date`
-- **Records:** 5 active projects
-- **Purpose:** Project tracking, budget management, timeline planning
-- **Sample:** "Digital Transformation Initiative 2024", "Fall 2024 Landscaping Campaign"
-
-**`d_task`** - Tasks
-- **Key Fields:** `id`, `code`, `name`, `stage`, `priority_level`, `project_id`
-- **Assignment:** `assignee_employee_ids[]`
-- **Estimation:** `estimated_hours`, `actual_hours`, `story_points`
-- **Dependencies:** `parent_task_id`, `dependency_task_ids[]`
-- **Records:** 8 tasks across multiple projects
-- **Purpose:** Task management, work tracking, dependency management
-
-#### Personnel Entities
-
-**`d_employee`** - Employees & User Accounts
-- **Key Fields:** `id`, `email`, `password_hash`, `employee_number`
-- **Authentication:** JWT-based, bcrypt password hashing
-- **Contact:** `phone`, `mobile`, `emergency_contact_name`, `emergency_contact_phone`
-- **Employment:** `employee_type`, `department`, `title`, `hire_date`, `manager_employee_id`
-- **Records:** 5 employees including James Miller (CEO)
-- **Purpose:** User authentication, RBAC, organizational chart
-
-**`d_role`** - Organizational Roles
-- **Key Fields:** `id`, `code`, `name`, `role_type`, `responsibilities`
-- **Records:** 22 roles
-- **Purpose:** Role definitions, responsibility assignment
-
-**`d_position`** - Employee Positions
-- **Key Fields:** `id`, `code`, `name`, `level_id`, `department`
-- **Records:** 16 positions
-- **Purpose:** Job titles, organizational structure
-
-#### Client & Site Entities
-
-**`d_client`** - Client Entities
-- **Key Fields:** `id`, `name`, `client_number`, `client_type`, `client_status`
-- **Contact:** `primary_contact_name`, `primary_email`, `primary_phone`
-- **Address:** `primary_address`, `city`, `province`, `postal_code`, `country`
-- **Business:** `business_legal_name`, `business_type`, `gst_hst_number`
-- **Marketing/Sales:** `opportunity_funnel_level_id`, `industry_sector_id`, `acquisition_channel_id`, `customer_tier_id`
-- **Records:** 3 clients (Thompson Family, Martinez Family, Square One Shopping)
-- **Purpose:** Customer relationship management, sales pipeline tracking
-- **Table:** `app.d_client`
-
-**`d_worksite`** - Work Site Locations
-- **Key Fields:** `id`, `code`, `name`, `site_type`, `client_id`
-- **Location:** `address`, `city`, `province`, `latitude`, `longitude`
-- **Records:** 6 worksites
-- **Purpose:** Job site tracking, location management
-
-#### Content Management Entities
-
-**`d_artifact`** - Documents & Artifacts
-- **Key Fields:** `id`, `name`, `artifact_type`, `file_path`, `mime_type`, `project_id`
-- **Records:** 0 (ready for use)
-- **Purpose:** File attachments, document management
-
-**`d_wiki`** - Wiki Knowledge Base
-- **Key Fields:** `id`, `title`, `slug`, `content`, `published`, `project_id`
-- **Records:** 0 (ready for use)
-- **Purpose:** Documentation, knowledge management
-
-**`d_form_head`** - Form Definitions
-- **Key Fields:** `id`, `name`, `form_type`, `schema`, `project_id`
-- **Records:** 0 (ready for use)
-- **Purpose:** Form templates, data collection
-
-**`d_reports`** - Report Definitions
-- **Key Fields:** `id`, `name`, `report_type`, `query_definition`
-- **Records:** 0 (ready for use)
-- **Purpose:** Report templates, analytics
-
----
-
-### 2️⃣ Settings & Configuration Tables (16 tables)
-
-These tables define configurable hierarchies, workflow stages, and dropdown options throughout the system. All setting tables now use the `setting_datalabel_*` naming convention. Settings are dynamically loaded by the frontend via the universal `/api/v1/setting?category=<name>` endpoint.
-
-**`setting_datalabel_office_level`** - Office Hierarchy Levels
-- **Levels:** 4 (Office → District → Region → Corporate)
-- **Records:** 4
-- **Usage:** Defines office organizational structure
-- **File:** `setting_datalabel__office_level.ddl`
-
-**`setting_datalabel_business_level`** - Business Hierarchy Levels
-- **Levels:** 3 (Department → Division → Corporate)
-- **Records:** 3
-- **Usage:** Defines business unit hierarchy
-- **File:** `setting_datalabel__business_level.ddl`
-
-**`setting_datalabel_project_stage`** - Project Lifecycle Stages
-- **Stages:** Initiation, Planning, Execution, Monitoring, Closure, On Hold, Cancelled
-- **Records:** 7
-- **Usage:** Kanban columns, project filtering with color coding
-- **File:** `setting_datalabel__project_stage.ddl`
-
-**`setting_datalabel_task_stage`** - Task Workflow Stages
-- **Stages:** Backlog, To Do, In Progress, In Review, Blocked, Done, Cancelled
-- **Records:** 7
-- **Usage:** Kanban board columns, task workflow with color coding
-- **File:** `setting_datalabel__task_stage.ddl`
-
-**`setting_datalabel_client_level`** - Client Classification Levels
-- **Levels:** CEO, VP, Director, Manager, Coordinator
-- **Records:** 5
-- **Usage:** Client hierarchy and authority levels
-- **File:** `setting_datalabel__client_level.ddl`
-
-**`setting_datalabel_customer_tier`** - Customer Service Tiers
-- **Tiers:** Standard, Plus, Premium, Enterprise, Government, Strategic
-- **Records:** 6
-- **Usage:** Service level differentiation, client segmentation
-- **Referenced by:** `d_client.customer_tier_id`
-- **File:** `setting_datalabel__customer_tier.ddl`
-
-**`setting_datalabel_position_level`** - Position Hierarchy Levels
-- **Levels:** CEO/President, C-Suite, VP, Director, Manager, Supervisor, Team Lead, Individual Contributor
-- **Records:** 8
-- **Usage:** Employee position classification and organizational structure
-- **File:** `setting_datalabel__position_level.ddl`
-
-**`setting_datalabel_opportunity_funnel_level`** - Sales Pipeline Stages
-- **Stages:** Lead, Qualified, Site Visit Scheduled, Proposal Sent, Negotiation, Contract Signed, Lost, On Hold
-- **Records:** 8
-- **Usage:** Client opportunity tracking through sales funnel
-- **File:** `setting_datalabel__opportunity_funnel_level.ddl`
-
-**`setting_datalabel_industry_sector`** - Industry Classifications
-- **Sectors:** Residential, Commercial Real Estate, Healthcare, Education, Hospitality, Municipal/Government, Industrial, Property Management
-- **Records:** 8
-- **Usage:** Client industry categorization
-- **File:** `setting_datalabel__industry_sector.ddl`
-
-**`setting_datalabel_acquisition_channel`** - Customer Acquisition Sources
-- **Channels:** Organic Search, Paid Search, Social Media Organic, Paid Social Media, Referral, Direct, Email Marketing, Content Marketing, etc.
-- **Records:** 15+
-- **Usage:** Marketing analytics, lead source tracking
-- **File:** `setting_datalabel__acquisition_channel.ddl`
-
-**`setting_datalabel_client_status`** - Client Status Values
-- **Status:** Active, Inactive, Prospect, Archived, Suspended, Churned
-- **Records:** 6
-- **Usage:** Client lifecycle status tracking
-- **File:** `setting_datalabel__client_status.ddl`
-
-**`setting_datalabel_task_priority`** - Task Priority Levels
-- **Priorities:** Low, Medium, High, Critical, Urgent
-- **Records:** 5
-- **Usage:** Task prioritization and scheduling
-- **File:** `setting_datalabel__task_priority.ddl`
-
-**`setting_datalabel_task_update_type`** - Task Update/Activity Types
-- **Types:** Comment, Status Change, Assignment, Attachment, Description Update, Deadline Change, Priority Change
-- **Records:** 7
-- **Usage:** Task activity logging and audit trail
-- **File:** `setting_datalabel__task_update_type.ddl`
-
-**`setting_datalabel_form_submission_status`** - Form Submission Status
-- **Status:** Draft, Submitted, Under Review, Approved, Rejected, Withdrawn
-- **Records:** 6
-- **Usage:** Form submission workflow tracking
-- **File:** `setting_datalabel__form_submission_status.ddl`
-
-**`setting_datalabel_form_approval_status`** - Form Approval Status
-- **Status:** Pending, Approved, Rejected, Conditional, Escalated
-- **Records:** 5
-- **Usage:** Form approval workflow management
-- **File:** `setting_datalabel__form_approval_status.ddl`
-
-**`setting_datalabel_wiki_publication_status`** - Wiki Publication Status
-- **Status:** Draft, Review, Published, Archived, Deprecated, Private
-- **Records:** 6
-- **Usage:** Wiki content lifecycle management
-- **File:** `setting_datalabel__wiki_publication_status.ddl`
-
----
-
-### 3️⃣ Relationship & RBAC Tables (4 tables)
-
-**`entity_map`** - Central Entity Registry
-- **Purpose:** Tracks all entity instances across the system
-- **Key Fields:** `entity_type`, `entity_id`, `entity_name`, `entity_slug`, `entity_code`
-- **Records:** 0 (legacy table, replaced by entity_id_map)
-
-**`entity_id_map`** - Parent-Child Relationships
-- **Purpose:** Maps relationships between entity instances (NO FOREIGN KEYS)
-- **Key Fields:** `parent_entity_type`, `parent_entity_id`, `child_entity_type`, `child_entity_id`, `relationship_type`
-- **Records:** 14 relationships
-- **Examples:**
-  - `business → project` (owns)
-  - `project → task` (contains)
-  - `project → artifact` (contains)
-  - `office → business` (hosts)
-
-**`entity_id_rbac_map`** - RBAC Permission System
-- **Purpose:** Fine-grained access control for all entities
-- **Key Fields:** `empid`, `entity`, `entity_id`, `permission[]`, `active_flag`
-- **Permission Array:** `{0,1,2,3,4}` → `{View, Edit, Share, Delete, Create}`
-- **Special Values:**
-  - `entity_id = 'all'` → Type-level permissions (access to ALL instances)
-  - `entity_id = '<uuid>'` → Instance-level permissions (access to ONE instance)
-- **Records:** 16 for James Miller (CEO with full access)
-
-**`rel_emp_role`** - Employee-Role Assignments
-- **Purpose:** Links employees to organizational roles
-- **Key Fields:** `employee_id`, `role_id`, `from_ts`, `to_ts`
-- **Records:** 1
-
----
-
-## Relationship Model
-
-### No Direct Foreign Keys Design
-
-Instead of traditional foreign keys, relationships are managed through the `entity_id_map` table:
+All tables live in the `app` schema for clean namespacing.
 
 ```sql
--- Traditional approach (NOT USED):
+CREATE SCHEMA IF NOT EXISTS app;
+SET search_path TO app;
+```
+
+### Table Categories
+
+```
+app (PostgreSQL schema)
+├── Setting Tables (16)                    # Configuration & dropdowns
+│   ├── setting_datalabel_project_stage
+│   ├── setting_datalabel_task_stage
+│   ├── setting_datalabel_customer_tier
+│   └── ... 13 more settings
+│
+├── Core Entity Tables (13)                # Business data
+│   ├── d_employee                         # Users & authentication
+│   ├── d_project                          # Projects
+│   ├── d_task                             # Tasks
+│   ├── d_client                           # Clients/CRM
+│   ├── d_biz (d_business)                 # Business units
+│   ├── d_office                           # Office locations
+│   ├── d_worksite                         # Work sites
+│   ├── d_role                             # Organizational roles
+│   ├── d_position                         # Employee positions
+│   ├── d_wiki                             # Knowledge base
+│   ├── d_form_head                        # Form definitions
+│   ├── d_artifact                         # Documents
+│   └── d_reports                          # Report definitions
+│
+├── Data Tables (4)                        # Submission/instance data
+│   ├── d_task_data                        # Task submission data
+│   ├── d_form_data                        # Form submission data
+│   ├── d_wiki_data                        # Wiki page versions
+│   └── d_artifact_data                    # Artifact versions
+│
+├── Relationship Tables (4)                # Mappings & permissions
+│   ├── d_entity_id_map                    # Parent-child relationships
+│   ├── d_entity_id_rbac_map               # RBAC permissions
+│   ├── rel_emp_role                       # Employee-role assignments
+│   └── d_entity_map (legacy)              # Deprecated
+│
+└── Metadata Tables (2)                    # Entity type definitions
+    ├── d_entity                           # Entity type metadata
+    └── d_entity_instance_id               # Entity instance registry
+```
+
+## Key Design Principles
+
+### 1. No Direct Foreign Keys
+
+**Principle:** All parent-child relationships are managed through `d_entity_id_map` table, not foreign keys.
+
+**Why:**
+- Flexibility to add new entity types without schema changes
+- Dynamic parent-child relationships
+- Support for many-to-many relationships
+- No cascade delete issues
+
+**Example:**
+
+```sql
+-- TRADITIONAL (NOT USED):
 -- ALTER TABLE d_task ADD FOREIGN KEY (project_id) REFERENCES d_project(id);
 
--- PMO approach (USED):
-INSERT INTO entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
-SELECT 'project', t.project_id, 'task', t.id
-FROM d_task t;
+-- PMO APPROACH (USED):
+INSERT INTO app.d_entity_id_map (
+  parent_entity_type, parent_entity_id,
+  child_entity_type, child_entity_id,
+  relationship_type
+) VALUES (
+  'project', '84215ccb-313d-48f8-9c37-4398f28c0b1f',
+  'task', 'f1111111-1111-1111-1111-111111111111',
+  'contains'
+);
 ```
 
-### Entity Relationship Patterns
+### 2. Universal Entity Structure
 
-```
-office (1) ──hosts──> business (N)
-business (1) ──owns──> project (N)
-project (1) ──contains──> task (N)
-project (1) ──contains──> artifact (N)
-project (1) ──contains──> wiki (N)
-project (1) ──contains──> form (N)
-employee (N) ──assigned_to──> task (N)
-employee (N) ──assigned_to──> role (N)
+All core entity tables share a common field structure:
+
+```sql
+-- Identity & Naming
+id          UUID PRIMARY KEY DEFAULT gen_random_uuid()
+slug        VARCHAR(100) UNIQUE NOT NULL
+code        VARCHAR(50) UNIQUE NOT NULL
+name        VARCHAR(200) NOT NULL
+descr       TEXT
+
+-- Flexible Data Storage
+tags        JSONB DEFAULT '[]'::JSONB    -- Searchable tags
+metadata    JSONB DEFAULT '{}'::JSONB    -- Custom key-value data
+
+-- Temporal Tracking (SCD Type 2)
+from_ts     TIMESTAMPTZ DEFAULT NOW()
+to_ts       TIMESTAMPTZ                  -- NULL = current version
+active_flag BOOLEAN DEFAULT TRUE
+
+-- Audit Fields
+created_ts  TIMESTAMPTZ DEFAULT NOW()
+updated_ts  TIMESTAMPTZ DEFAULT NOW()
+version     INTEGER DEFAULT 1
 ```
 
-### Hierarchical Relationships
+### 3. Array-Based RBAC
+
+Permissions stored as integer arrays in `d_entity_id_rbac_map`:
+
+```sql
+permission INTEGER[] DEFAULT '{}'
+
+-- Permission codes:
+-- 0 = View (read access)
+-- 1 = Edit (modify data)
+-- 2 = Share (grant permissions)
+-- 3 = Delete (soft delete)
+-- 4 = Create (create new entities)
+
+-- Example: Full access
+permission = '{0,1,2,3,4}'
+
+-- Example: Read-only
+permission = '{0}'
+```
+
+### 4. Hierarchical Organizations
 
 **Office Hierarchy (4 levels):**
 ```
@@ -378,154 +167,614 @@ Corporate (level_id: 2, parent_id: NULL)
     └── Department (level_id: 0, parent_id: division_id)
 ```
 
----
+### 5. Settings-Driven Configuration
 
-## RBAC Permission System
-
-### Permission Array Structure
+16 settings tables provide dynamic dropdown options:
 
 ```sql
-permission integer[] = {0, 1, 2, 3, 4}
+-- Example: Project stages
+SELECT * FROM app.setting_datalabel_project_stage;
+
+-- Result:
+level_id | level_name    | color_code | sort_order
+---------|---------------|------------|------------
+0        | Initiation    | #3B82F6    | 0
+1        | Planning      | #10B981    | 1
+2        | Execution     | #F59E0B    | 2
+3        | Monitoring    | #8B5CF6    | 3
+4        | Closure       | #6B7280    | 4
 ```
 
-| Code | Name | Description | API Action |
-|------|------|-------------|------------|
-| **0** | View | Read access to entity data | `GET /api/v1/project/:id` |
-| **1** | Edit | Modify existing entity data | `PUT /api/v1/project/:id` |
-| **2** | Share | Share entity with other users | Custom share endpoints |
-| **3** | Delete | Soft delete entity | `DELETE /api/v1/project/:id` |
-| **4** | Create | Create new entities | `POST /api/v1/project` |
+## DDL File Organization
 
-### Permission Scopes
+### Import Order (40 files)
 
-**Type-Level Permissions** (`entity_id = 'all'`)
-- Grants access to **ALL instances** of that entity type
-- Example: James Miller has `entity='project', entity_id='all', permission={0,1,2,3,4}`
-- Result: Can view, edit, share, delete, and create ANY project
+**Files are imported in dependency order by `/home/rabin/projects/pmo/tools/db-import.sh`**
 
-**Instance-Level Permissions** (`entity_id = '<uuid>'`)
-- Grants access to **ONE specific instance**
-- Example: `entity='project', entity_id='93106ffb-...', permission={0,1}`
-- Result: Can only view and edit that one specific project
+```
+1. Schema Creation
+   └── 0_schemaCreate.ddl                   # DROP SCHEMA app CASCADE; CREATE SCHEMA app;
 
-### Permission Check Queries
+2. Settings Tables (16 files)
+   ├── setting_datalabel__office_level.ddl
+   ├── setting_datalabel__business_level.ddl
+   ├── setting_datalabel__project_stage.ddl
+   ├── setting_datalabel__task_stage.ddl
+   ├── setting_datalabel__task_priority.ddl
+   ├── setting_datalabel__client_level.ddl
+   ├── setting_datalabel__client_status.ddl
+   ├── setting_datalabel__customer_tier.ddl
+   ├── setting_datalabel__position_level.ddl
+   ├── setting_datalabel__opportunity_funnel_level.ddl
+   ├── setting_datalabel__industry_sector.ddl
+   ├── setting_datalabel__acquisition_channel.ddl
+   ├── setting_datalabel__task_update_type.ddl
+   ├── setting_datalabel__form_submission_status.ddl
+   ├── setting_datalabel__form_approval_status.ddl
+   └── setting_datalabel__wiki_publication_status.ddl
 
-**Can user view a specific project?**
+3. Entity Registry Framework (1 file)
+   └── 29_d_entity_map.ddl                  # Legacy entity registry
+
+4. Core Entity Tables (23 files)
+   ├── 11_d_employee.ddl                    # Employees (required first for RBAC)
+   ├── 12_d_office.ddl                      # Office locations
+   ├── 13_d_business.ddl                    # Business units
+   ├── 14_d_client.ddl                      # Clients
+   ├── 15_d_role.ddl                        # Roles
+   ├── 16_d_position.ddl                    # Positions
+   ├── 17_d_worksite.ddl                    # Worksites
+   ├── 18_d_project.ddl                     # Projects
+   ├── 19_d_task.ddl                        # Task definitions
+   ├── 20_d_task_data.ddl                   # Task submissions
+   ├── 21_d_artifact.ddl                    # Artifact definitions
+   ├── 22_d_artifact_data.ddl               # Artifact versions
+   ├── 23_d_form_head.ddl                   # Form definitions
+   ├── 24_d_form_data.ddl                   # Form submissions
+   ├── 25_d_wiki.ddl                        # Wiki page definitions
+   ├── 26_d_wiki_data.ddl                   # Wiki page versions
+   ├── 27_d_reports.ddl                     # Report definitions
+   ├── 28_d_report_data.ddl                 # Report instances
+   ├── 30_d_entity.ddl                      # Entity type metadata (NEW)
+   ├── 31_d_entity_instance_id.ddl          # Entity instance registry
+   ├── 33_d_entity_id_map.ddl               # Parent-child relationships
+   ├── 34_d_entity_id_rbac_map.ddl          # RBAC permissions
+   └── 35_rel_emp_role.ddl                  # Employee-role assignments
+```
+
+### DDL File Structure
+
+Each DDL file follows a 3-section format:
+
 ```sql
+-- ===============================
+-- SECTION 1: SEMANTICS
+-- ===============================
+-- Why this table exists
+-- How it relates to other tables
+-- How frontend/API/business logic use it
+
+-- ===============================
+-- SECTION 2: DDL
+-- ===============================
+CREATE TABLE app.d_project (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code VARCHAR(50) UNIQUE NOT NULL,
+  name VARCHAR(200) NOT NULL,
+  ...
+);
+
+-- ===============================
+-- SECTION 3: DATA CURATION
+-- ===============================
+INSERT INTO app.d_project (id, code, name, ...) VALUES
+('84215ccb-313d-48f8-9c37-4398f28c0b1f', 'PRJ-2024-001', 'Fall 2024 Landscaping Campaign', ...);
+```
+
+## Core Entity Tables (13 tables)
+
+### d_employee - User Accounts & Authentication
+
+**Purpose:** User authentication, RBAC, organizational chart
+
+**Key Fields:**
+- `id` - UUID (referenced in RBAC)
+- `email` - Unique login identifier
+- `password_hash` - bcrypt hashed password
+- `employee_number` - Business identifier
+- `manager_employee_id` - Self-referencing hierarchy
+
+**Sample Data:** 5 employees including James Miller (CEO)
+
+**DDL File:** `11_d_employee.ddl`
+
+### d_project - Project Management
+
+**Purpose:** Project tracking, budget management, timeline planning
+
+**Key Fields:**
+- `project_stage` - References `setting_datalabel_project_stage`
+- `budget_allocated`, `budget_spent` - Financial tracking
+- `manager_employee_id`, `sponsor_employee_id` - Ownership
+- `stakeholder_employee_ids[]` - Array of stakeholders
+- `planned_start_date`, `actual_start_date` - Timeline
+
+**Sample Data:** 5 projects including "Fall 2024 Landscaping Campaign"
+
+**DDL File:** `18_d_project.ddl`
+
+### d_task - Task Management
+
+**Purpose:** Task tracking, work assignment, dependency management
+
+**Key Fields:**
+- `stage` - References `setting_datalabel_task_stage`
+- `priority_level` - References `setting_datalabel_task_priority`
+- `assignee_employee_ids[]` - Array of assignees
+- `estimated_hours`, `actual_hours` - Time tracking
+- `parent_task_id` - Self-referencing for subtasks
+- `dependency_task_ids[]` - Task dependencies
+
+**Sample Data:** 8 tasks across multiple projects
+
+**DDL File:** `19_d_task.ddl`
+
+### d_client - Client/CRM Management
+
+**Purpose:** Customer relationship management, sales pipeline
+
+**Key Fields:**
+- `client_type` - Residential, Commercial, etc.
+- `client_status` - References `setting_datalabel_client_status`
+- `customer_tier_id` - References `setting_datalabel_customer_tier`
+- `opportunity_funnel_level_id` - Sales pipeline stage
+- `industry_sector_id` - Industry classification
+- `acquisition_channel_id` - Marketing source
+
+**Sample Data:** 3 clients (Thompson Family, Martinez Family, Square One Shopping)
+
+**DDL File:** `14_d_client.ddl`
+
+### d_biz (d_business) - Business Unit Hierarchy
+
+**Purpose:** Organizational hierarchy, business unit management
+
+**Key Fields:**
+- `level_id` - References `setting_datalabel_business_level` (0-2)
+- `parent_id` - Self-referencing hierarchy
+- `office_id` - Primary office location
+
+**Hierarchy Levels:**
+- 0 = Department
+- 1 = Division
+- 2 = Corporate
+
+**Sample Data:** 6 business units (Landscaping, HVAC, Plumbing, etc.)
+
+**DDL File:** `13_d_business.ddl`
+
+### d_office - Office Location Hierarchy
+
+**Purpose:** Geographic organization, office-based filtering
+
+**Key Fields:**
+- `level_id` - References `setting_datalabel_office_level` (0-3)
+- `parent_id` - Self-referencing hierarchy
+- `address`, `city`, `province`, `postal_code` - Location data
+
+**Hierarchy Levels:**
+- 0 = Office
+- 1 = District
+- 2 = Region
+- 3 = Corporate
+
+**Sample Data:** 5 offices across Ontario
+
+**DDL File:** `12_d_office.ddl`
+
+### Other Core Entities
+
+| Entity | Purpose | Key Features | DDL File |
+|--------|---------|--------------|----------|
+| **d_worksite** | Work site locations | GPS coordinates, site types | `17_d_worksite.ddl` |
+| **d_role** | Organizational roles | 22 predefined roles | `15_d_role.ddl` |
+| **d_position** | Employee positions | 16 positions with levels | `16_d_position.ddl` |
+| **d_wiki** | Knowledge base | Rich text content, publication status | `25_d_wiki.ddl` |
+| **d_form_head** | Form definitions | JSON schema, multi-step forms | `23_d_form_head.ddl` |
+| **d_artifact** | Document management | File paths, MIME types, versioning | `21_d_artifact.ddl` |
+| **d_reports** | Report definitions | SQL queries, visualization configs | `27_d_reports.ddl` |
+
+## Settings Tables (16 tables)
+
+All settings tables follow the same structure:
+
+```sql
+CREATE TABLE app.setting_datalabel_<name> (
+  level_id INTEGER PRIMARY KEY,
+  level_name VARCHAR(100) NOT NULL,
+  level_descr TEXT,
+  color_code VARCHAR(7),           -- Hex color for badges
+  sort_order INTEGER,
+  active_flag BOOLEAN DEFAULT TRUE,
+  created_ts TIMESTAMPTZ DEFAULT NOW(),
+  updated_ts TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### Settings Table Registry
+
+| Table | Values | Purpose | API Category |
+|-------|--------|---------|--------------|
+| `setting_datalabel_project_stage` | 7 | Project lifecycle stages | `projectStage` |
+| `setting_datalabel_task_stage` | 7 | Task workflow stages | `taskStage` |
+| `setting_datalabel_task_priority` | 5 | Task priorities | `taskPriority` |
+| `setting_datalabel_task_update_type` | 7 | Task activity types | `taskUpdateType` |
+| `setting_datalabel_office_level` | 4 | Office hierarchy | `officeLevel` |
+| `setting_datalabel_business_level` | 3 | Business hierarchy | `businessLevel` |
+| `setting_datalabel_position_level` | 8 | Position hierarchy | `positionLevel` |
+| `setting_datalabel_client_level` | 5 | Client classification | `clientLevel` |
+| `setting_datalabel_client_status` | 6 | Client lifecycle status | `clientStatus` |
+| `setting_datalabel_customer_tier` | 6 | Service tiers | `customerTier` |
+| `setting_datalabel_opportunity_funnel_level` | 8 | Sales pipeline stages | `opportunityFunnelLevel` |
+| `setting_datalabel_industry_sector` | 8 | Industry classifications | `industrySector` |
+| `setting_datalabel_acquisition_channel` | 15+ | Marketing channels | `acquisitionChannel` |
+| `setting_datalabel_form_submission_status` | 6 | Form submission workflow | `formSubmissionStatus` |
+| `setting_datalabel_form_approval_status` | 5 | Form approval workflow | `formApprovalStatus` |
+| `setting_datalabel_wiki_publication_status` | 6 | Wiki content lifecycle | `wikiPublicationStatus` |
+
+### Settings API Integration
+
+Frontend loads settings via universal API endpoint:
+
+```typescript
+// Frontend request
+GET /api/v1/setting?category=projectStage
+
+// Response
+[
+  { "level_id": 0, "level_name": "Initiation", "color_code": "#3B82F6" },
+  { "level_id": 1, "level_name": "Planning", "color_code": "#10B981" },
+  ...
+]
+```
+
+## Relationship Tables
+
+### d_entity_id_map - Parent-Child Relationships
+
+**Purpose:** Universal parent-child relationship mapping (replaces foreign keys)
+
+**Structure:**
+
+```sql
+CREATE TABLE app.d_entity_id_map (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  parent_entity_type VARCHAR(50) NOT NULL,      -- 'project', 'biz', 'office'
+  parent_entity_id TEXT NOT NULL,                -- UUID as text
+  child_entity_type VARCHAR(50) NOT NULL,        -- 'task', 'artifact', 'wiki'
+  child_entity_id TEXT NOT NULL,                 -- UUID as text
+  relationship_type VARCHAR(50),                 -- 'contains', 'owns', 'assigned_to'
+  active_flag BOOLEAN DEFAULT TRUE,
+  created_ts TIMESTAMPTZ DEFAULT NOW(),
+  updated_ts TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**Example Data:**
+
+```sql
+-- Project contains tasks
+parent_entity_type = 'project'
+parent_entity_id = '84215ccb-313d-48f8-9c37-4398f28c0b1f'
+child_entity_type = 'task'
+child_entity_id = 'f1111111-1111-1111-1111-111111111111'
+
+-- Business owns project
+parent_entity_type = 'biz'
+parent_entity_id = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
+child_entity_type = 'project'
+child_entity_id = '84215ccb-313d-48f8-9c37-4398f28c0b1f'
+```
+
+**Query Pattern:**
+
+```sql
+-- Get tasks for a project
+SELECT t.*
+FROM app.d_task t
+INNER JOIN app.d_entity_id_map eim
+  ON eim.child_entity_id = t.id::TEXT
+WHERE eim.parent_entity_id = '84215ccb-313d-48f8-9c37-4398f28c0b1f'
+  AND eim.parent_entity_type = 'project'
+  AND eim.child_entity_type = 'task'
+  AND eim.active_flag = TRUE
+  AND t.active_flag = TRUE;
+```
+
+**DDL File:** `33_d_entity_id_map.ddl`
+
+### d_entity_id_rbac_map - RBAC Permissions
+
+**Purpose:** Fine-grained access control for all entities
+
+**Structure:**
+
+```sql
+CREATE TABLE app.d_entity_id_rbac_map (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  empid UUID NOT NULL,                           -- Employee ID
+  entity VARCHAR(50) NOT NULL,                   -- Entity type
+  entity_id TEXT NOT NULL,                       -- 'all' or specific UUID
+  permission INTEGER[] DEFAULT '{}',             -- {0,1,2,3,4}
+  active_flag BOOLEAN DEFAULT TRUE,
+  created_ts TIMESTAMPTZ DEFAULT NOW(),
+  updated_ts TIMESTAMPTZ DEFAULT NOW(),
+
+  UNIQUE(empid, entity, entity_id)
+);
+
+-- Composite index for fast permission lookups
+CREATE INDEX idx_rbac_emp_entity ON app.d_entity_id_rbac_map(empid, entity, entity_id);
+```
+
+**Permission Scopes:**
+
+```sql
+-- Type-level: Access to ALL projects
+entity = 'project'
+entity_id = 'all'
+permission = '{0,1,2,3,4}'  -- Full access
+
+-- Instance-level: Access to ONE specific project
+entity = 'project'
+entity_id = '84215ccb-313d-48f8-9c37-4398f28c0b1f'
+permission = '{0,1}'  -- View and edit only
+```
+
+**Query Pattern:**
+
+```sql
+-- Check if user can view a project
 SELECT EXISTS (
-  SELECT 1 FROM app.entity_id_rbac_map
-  WHERE empid = :user_id
+  SELECT 1 FROM app.d_entity_id_rbac_map
+  WHERE empid = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
     AND entity = 'project'
-    AND (entity_id = :project_id OR entity_id = 'all')
-    AND 0 = ANY(permission)  -- View permission
-    AND active_flag = true
-) AS has_view_permission;
+    AND (entity_id = '84215ccb-313d-48f8-9c37-4398f28c0b1f' OR entity_id = 'all')
+    AND 0 = ANY(permission)
+    AND active_flag = TRUE
+) AS can_view;
 ```
 
-**Can user create projects?**
+**DDL File:** `34_d_entity_id_rbac_map.ddl`
+
+### rel_emp_role - Employee-Role Assignments
+
+**Purpose:** Many-to-many relationship between employees and roles
+
+**Structure:**
+
 ```sql
-SELECT EXISTS (
-  SELECT 1 FROM app.entity_id_rbac_map
-  WHERE empid = :user_id
-    AND entity = 'project'
-    AND entity_id = 'all'  -- Must be type-level
-    AND 4 = ANY(permission)  -- Create permission
-    AND active_flag = true
-) AS has_create_permission;
+CREATE TABLE app.rel_emp_role (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id UUID NOT NULL,
+  role_id UUID NOT NULL,
+  from_ts TIMESTAMPTZ DEFAULT NOW(),
+  to_ts TIMESTAMPTZ,
+  active_flag BOOLEAN DEFAULT TRUE
+);
 ```
 
-**Can user create project AND assign to business?**
+**DDL File:** `35_rel_emp_role.ddl`
+
+## Metadata Tables
+
+### d_entity - Entity Type Metadata (NEW)
+
+**Purpose:** Database-driven entity metadata (icons, labels, child relationships)
+
+**Replaces:** Hardcoded `entityConfig.childEntities` in frontend
+
+**Structure:**
+
 ```sql
-SELECT
-  CASE WHEN (
-    -- Permission 1: Can create projects
-    EXISTS (
-      SELECT 1 FROM app.entity_id_rbac_map
-      WHERE empid = :user_id
-        AND entity = 'project'
-        AND entity_id = 'all'
-        AND 4 = ANY(permission)
-        AND active_flag = true
-    )
-    AND
-    -- Permission 2: Can edit specific business
-    EXISTS (
-      SELECT 1 FROM app.entity_id_rbac_map
-      WHERE empid = :user_id
-        AND entity IN ('biz', 'business')
-        AND (entity_id = :business_id OR entity_id = 'all')
-        AND 1 = ANY(permission)
-        AND active_flag = true
-    )
-  ) THEN 'AUTHORIZED'
-  ELSE 'DENIED'
-  END AS authorization_result;
+CREATE TABLE app.d_entity (
+  entity_type VARCHAR(50) NOT NULL PRIMARY KEY,
+  entity_name VARCHAR(100) NOT NULL,
+  entity_slug VARCHAR(100) NOT NULL,
+  ui_label VARCHAR(100) NOT NULL,              -- "Projects", "Tasks"
+  ui_icon VARCHAR(50),                          -- "FolderOpen", "CheckSquare"
+  child_entities JSONB DEFAULT '[]'::JSONB,    -- Child entity metadata
+  display_order INTEGER NOT NULL DEFAULT 999,
+  active_flag BOOLEAN DEFAULT TRUE,
+  created_ts TIMESTAMPTZ DEFAULT NOW(),
+  updated_ts TIMESTAMPTZ DEFAULT NOW()
+);
 ```
 
----
+**Example Data:**
+
+```sql
+INSERT INTO app.d_entity (entity_type, entity_name, ui_label, ui_icon, child_entities)
+VALUES (
+  'project',
+  'Project',
+  'Projects',
+  'FolderOpen',
+  '[
+    {"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1},
+    {"entity": "wiki", "ui_icon": "BookOpen", "ui_label": "Wiki", "order": 2},
+    {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 3}
+  ]'::JSONB
+);
+```
+
+**API Endpoint:**
+```
+GET /api/v1/entity/child-tabs/:entityType/:entityId
+```
+
+**DDL File:** `30_d_entity.ddl`
+
+## Database Setup
+
+### Import All DDL Files
+
+```bash
+# Full schema import (drops and recreates)
+./tools/db-import.sh
+
+# Dry run (validation only)
+./tools/db-import.sh --dry-run
+
+# Verbose output
+./tools/db-import.sh --verbose
+
+# Skip post-import validation
+./tools/db-import.sh --skip-validation
+```
+
+**What it does:**
+1. Drops `app` schema (CASCADE)
+2. Creates fresh `app` schema
+3. Imports 40 DDL files in dependency order
+4. Validates schema integrity
+5. Displays import summary
+
+### Database Connection
+
+**Default PostgreSQL Configuration:**
+
+```bash
+Host: localhost
+Port: 5434
+Database: app
+User: app
+Password: app
+Schema: app
+```
+
+**Connection String:**
+```
+postgresql://app:app@localhost:5434/app
+```
+
+### Manual Schema Import
+
+```bash
+# Connect to database
+psql -h localhost -p 5434 -U app -d app
+
+# Import single DDL file
+\i /home/rabin/projects/pmo/db/18_d_project.ddl
+
+# Import all files manually
+\i /home/rabin/projects/pmo/db/0_schemaCreate.ddl
+\i /home/rabin/projects/pmo/db/setting_datalabel__project_stage.ddl
+... (repeat for all 40 files)
+```
+
+## Sample Data
+
+### Test User Account
+
+**James Miller (CEO / System Administrator)**
+
+```sql
+-- Credentials
+Email: james.miller@huronhome.ca
+Password: password123 (bcrypt hashed in database)
+ID: 8260b1b0-5efc-4611-ad33-ee76c0cf7f13
+
+-- Permissions: Full access to 16 entity types
+SELECT entity, entity_id, permission
+FROM app.d_entity_id_rbac_map
+WHERE empid = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13';
+
+-- Result: 16 rows with entity_id='all' and permission='{0,1,2,3,4}'
+```
+
+### Test Project
+
+**Fall 2024 Landscaping Campaign**
+
+```sql
+ID: 84215ccb-313d-48f8-9c37-4398f28c0b1f
+Code: PRJ-2024-001
+Name: Fall 2024 Landscaping Campaign
+Manager: James Miller
+```
+
+### Sample Entity Counts
+
+```sql
+SELECT COUNT(*) FROM app.d_employee;    -- 5 employees
+SELECT COUNT(*) FROM app.d_project;     -- 5 projects
+SELECT COUNT(*) FROM app.d_task;        -- 8 tasks
+SELECT COUNT(*) FROM app.d_client;      -- 3 clients
+SELECT COUNT(*) FROM app.d_role;        -- 22 roles
+SELECT COUNT(*) FROM app.d_position;    -- 16 positions
+```
 
 ## Query Patterns
 
 ### 1. List Projects with RBAC Filtering
 
 ```sql
--- Get all projects the user can view
 SELECT p.*
 FROM app.d_project p
-WHERE p.active_flag = true
+WHERE p.active_flag = TRUE
   AND EXISTS (
-    SELECT 1 FROM app.entity_id_rbac_map rbac
+    SELECT 1 FROM app.d_entity_id_rbac_map rbac
     WHERE rbac.empid = :user_id
       AND rbac.entity = 'project'
-      AND (rbac.entity_id = p.id::text OR rbac.entity_id = 'all')
-      AND 0 = ANY(rbac.permission)  -- View permission
-      AND rbac.active_flag = true
+      AND (rbac.entity_id = p.id::TEXT OR rbac.entity_id = 'all')
+      AND 0 = ANY(rbac.permission)
+      AND rbac.active_flag = TRUE
   )
 ORDER BY p.name ASC;
 ```
 
-### 2. Get Tasks for a Specific Project
+### 2. Get Child Entities
 
 ```sql
--- Using entity_id_map for relationship
+-- Get tasks for a project
 SELECT t.*
 FROM app.d_task t
-INNER JOIN app.entity_id_map eim
-  ON eim.child_entity_type = 'task'
-  AND eim.child_entity_id = t.id
-WHERE eim.parent_entity_type = 'project'
-  AND eim.parent_entity_id = :project_id
-  AND eim.active_flag = true
-  AND t.active_flag = true
-ORDER BY t.priority_level DESC, t.created_ts DESC;
+INNER JOIN app.d_entity_id_map eim
+  ON eim.child_entity_id = t.id::TEXT
+WHERE eim.parent_entity_id = :project_id
+  AND eim.parent_entity_type = 'project'
+  AND eim.child_entity_type = 'task'
+  AND eim.active_flag = TRUE
+  AND t.active_flag = TRUE
+ORDER BY t.created_ts DESC;
 ```
 
-### 3. Get Project with Child Entity Counts
+### 3. Get Child Entity Counts
 
 ```sql
 SELECT
-  p.*,
-  (SELECT COUNT(*) FROM app.entity_id_map eim
+  p.id,
+  p.name,
+  (SELECT COUNT(*) FROM app.d_entity_id_map eim
    WHERE eim.parent_entity_type = 'project'
-     AND eim.parent_entity_id = p.id
+     AND eim.parent_entity_id = p.id::TEXT
      AND eim.child_entity_type = 'task'
-     AND eim.active_flag = true) AS task_count,
-  (SELECT COUNT(*) FROM app.entity_id_map eim
+     AND eim.active_flag = TRUE) AS task_count,
+  (SELECT COUNT(*) FROM app.d_entity_id_map eim
    WHERE eim.parent_entity_type = 'project'
-     AND eim.parent_entity_id = p.id
-     AND eim.child_entity_type = 'artifact'
-     AND eim.active_flag = true) AS artifact_count
+     AND eim.parent_entity_id = p.id::TEXT
+     AND eim.child_entity_type = 'wiki'
+     AND eim.active_flag = TRUE) AS wiki_count
 FROM app.d_project p
-WHERE p.id = :project_id
-  AND p.active_flag = true;
+WHERE p.id = :project_id;
 ```
 
-### 4. Hierarchical Office Query
+### 4. Hierarchical Query (Office Tree)
 
 ```sql
--- Get all offices in a specific region
 WITH RECURSIVE office_tree AS (
-  -- Anchor: Start with region office
+  -- Anchor: Start with region
   SELECT * FROM app.d_office
   WHERE level_id = 2 AND id = :region_id
 
@@ -539,304 +788,140 @@ SELECT * FROM office_tree
 ORDER BY level_id DESC, name ASC;
 ```
 
-### 5. Employee Permissions Summary
+### 5. Permission Summary
 
 ```sql
--- Get all entity types an employee has access to
 SELECT
-  entity AS entity_type,
-  entity_id AS scope,
-  permission AS permissions,
+  entity,
+  entity_id,
+  permission,
   CASE
-    WHEN entity_id = 'all' THEN 'Full access to ALL instances'
+    WHEN entity_id = 'all' THEN 'Full access to all instances'
     ELSE 'Limited to specific instance'
-  END AS access_description
-FROM app.entity_id_rbac_map
+  END AS access_scope
+FROM app.d_entity_id_rbac_map
 WHERE empid = :user_id
-  AND active_flag = true
-ORDER BY entity;
+  AND active_flag = TRUE
+ORDER BY entity, entity_id;
 ```
 
-### 6. Create Project with Relationship
+## Database Maintenance
 
-```sql
--- Step 1: Insert project
-INSERT INTO app.d_project (code, name, descr, business_id, manager_employee_id)
-VALUES ('PRJ-001', 'New Project', 'Description', :business_id, :manager_id)
-RETURNING id;
+### Adding New DDL File
 
--- Step 2: Create relationship in entity_id_map
-INSERT INTO app.entity_id_map (
-  parent_entity_type, parent_entity_id,
-  child_entity_type, child_entity_id,
-  relationship_type
-) VALUES (
-  'business', :business_id,
-  'project', :project_id,
-  'owns'
-);
-```
+1. **Create file** in `/home/rabin/projects/pmo/db/`
+   - Follow naming: `<number>_d_<entity>.ddl` or `setting_datalabel_<name>.ddl`
+   - Include 3 sections: semantics, DDL, data curation
 
----
+2. **Add to import script** in `/home/rabin/projects/pmo/tools/db-import.sh`
+   ```bash
+   DDL_FILES=(
+     ...existing files...
+     "41_d_myentity.ddl"
+   )
+   ```
 
-## ER Diagram
-
-### High-Level Entity Relationships
-
-```
-┌─────────────┐
-│   Office    │ (4-level hierarchy)
-└──────┬──────┘
-       │ hosts
-       ▼
-┌─────────────┐
-│  Business   │ (3-level hierarchy)
-└──────┬──────┘
-       │ owns
-       ▼
-┌─────────────┐       ┌─────────────┐
-│   Project   │◄──────┤  Employee   │
-└──────┬──────┘       └─────────────┘
-       │ contains         │ assigned_to
-       ├──────────────────┤
-       ▼                  ▼
-┌─────────────┐       ┌─────────────┐
-│    Task     │       │    Role     │
-└─────────────┘       └─────────────┘
-       │ contains
-       ├──────┬──────┬──────┐
-       ▼      ▼      ▼      ▼
-  ┌────────┐ ┌────┐ ┌────┐ ┌────────┐
-  │Artifact│ │Wiki│ │Form│ │ Report │
-  └────────┘ └────┘ └────┘ └────────┘
-
-┌─────────────┐       ┌─────────────┐
-│   Client    │       │  Worksite   │
-└─────────────┘       └─────────────┘
-```
-
-### RBAC Model
-
-```
-┌──────────────────────────────────────────┐
-│          entity_id_rbac_map              │
-├──────────────────────────────────────────┤
-│ empid (employee)                         │
-│ entity (project, task, biz, etc.)        │
-│ entity_id ('all' or specific UUID)       │
-│ permission[] {0,1,2,3,4}                 │
-│   0 = View, 1 = Edit, 2 = Share          │
-│   3 = Delete, 4 = Create                 │
-└──────────────────────────────────────────┘
-```
-
----
-
-## Import & Setup
-
-### Quick Start
-
-```bash
-# 1. Start infrastructure (PostgreSQL, Redis)
-docker-compose up -d
-
-# 2. Import all DDL files (drops and recreates schema)
-bash /home/rabin/projects/pmo/tools/db-import.sh
-
-# 3. Verify import
-psql -h localhost -p 5434 -U app -d app -c "\dt app.*"
-```
-
-### Import Order
-
-The DDL files are imported in dependency order with all settings loaded first:
-
-```
-0. 0_schemaCreate.ddl                               - Drop and recreate schema
-1. setting_datalabel__office_level.ddl              - Office hierarchy (4 levels)
-2. setting_datalabel__business_level.ddl            - Business hierarchy (3 levels)
-3. setting_datalabel__project_stage.ddl             - Project stages
-4. setting_datalabel__task_stage.ddl                - Task stages
-5. setting_datalabel__client_level.ddl              - Client levels
-6. setting_datalabel__customer_tier.ddl             - Customer tiers
-7. setting_datalabel__position_level.ddl            - Position levels
-8. setting_datalabel__opportunity_funnel_level.ddl  - Sales funnel stages
-9. setting_datalabel__industry_sector.ddl           - Industry sectors
-10. setting_datalabel__acquisition_channel.ddl      - Acquisition channels
-11. setting_datalabel__client_status.ddl            - Client status values
-12. setting_datalabel__task_priority.ddl            - Task priorities
-13. setting_datalabel__task_update_type.ddl         - Task update types
-14. setting_datalabel__form_submission_status.ddl   - Form submission status
-15. setting_datalabel__form_approval_status.ddl     - Form approval status
-16. setting_datalabel__wiki_publication_status.ddl  - Wiki publication status
-17. X_entity_map.ddl                                - Entity registry framework
-18. XI_d_employee.ddl                               - Employees (required for RBAC)
-19. XII_d_office.ddl                                - Office entities
-20. XIII_d_business.ddl                             - Business entities
-21. XIV_d_client.ddl                                - Client entities
-22. XV_d_role.ddl                                   - Role entities
-23. XVI_d_position.ddl                              - Position entities
-24. XVII_d_worksite.ddl                             - Worksite entities
-25. XVIII_d_project.ddl                             - Project entities
-26. XIX_d_task.ddl                                  - Task head entities
-27. XX_d_task_data.ddl                              - Task data entities
-28. XXI_d_artifact.ddl                              - Artifact head entities
-29. XXII_d_artifact_data.ddl                        - Artifact data entities
-30. XXIII_d_form_head.ddl                           - Form head entities
-31. XXIV_d_form_data.ddl                            - Form data entities
-32. XXV_d_wiki.ddl                                  - Wiki entities
-33. XXVI_d_wiki_data.ddl                            - Wiki data entities
-34. XXVII_d_reports.ddl                             - Report entities
-35. XXVIII_d_report_data.ddl                        - Report data entities
-36. XXIX_entity_id_map.ddl                          - Parent-child relationships
-37. XXX_entity_id_rbac_map.ddl                      - RBAC permissions
-38. XXXI_rel_emp_role.ddl                           - Employee-role assignments
-```
-
-**Total: 38 DDL files** (1 schema + 16 settings + 21 entities/relationships)
-
-### Recent Architectural Changes
-
-**2025-10-14 - DDL File Reorganization:**
-- ✅ Renamed all setting files from `I_setting_*.ddl` to `setting_datalabel__*.ddl`
-- ✅ Updated all table names from `app.setting_*` to `app.setting_datalabel_*`
-- ✅ Renamed `0_initial_setup.ddl` to `0_schemaCreate.ddl`
-- ✅ Reorganized import order in `db-import.sh` with all 16 settings first
-- ✅ Added 6 new setting tables for enhanced data labeling
-- ✅ Validated all 38 DDL files with dry-run test
-
-**Previous Changes - Client Entity Implementation:**
-- ✅ Created `app.d_client` table with comprehensive fields
-- ✅ Created `app.setting_datalabel_customer_tier` lookup table (6 tiers)
-- ✅ Integrated with existing setting tables (opportunity_funnel, industry_sector, acquisition_channel)
-- ✅ Added 3 sample clients spanning residential and commercial segments
-- ✅ API endpoint `/api/v1/client` fully functional with JOIN-based enrichment
-
-### Default User Credentials
-
-After import, you can log in with:
-
-- **Email:** `james.miller@huronhome.ca`
-- **Password:** `password123`
-- **Role:** CEO / System Administrator
-- **Permissions:** Full access to all 16 entity types
-
-### Verification Queries
-
-```sql
--- Check employee count
-SELECT COUNT(*) FROM app.d_employee;  -- Expected: 5
-
--- Check RBAC for James Miller
-SELECT entity, entity_id, permission
-FROM app.entity_id_rbac_map
-WHERE empid = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
-ORDER BY entity;  -- Expected: 16 rows
-
--- Check projects
-SELECT id, code, name FROM app.d_project;  -- Expected: 5
-
--- Check entity relationships
-SELECT parent_entity_type, child_entity_type, COUNT(*)
-FROM app.entity_id_map
-GROUP BY parent_entity_type, child_entity_type;  -- Expected: 14 total
-
--- Verify setting tables (new naming convention)
-SELECT COUNT(*) FROM app.setting_datalabel_office_level;       -- Expected: 4
-SELECT COUNT(*) FROM app.setting_datalabel_task_priority;      -- Expected: 5
-SELECT COUNT(*) FROM app.setting_datalabel_customer_tier;      -- Expected: 6
-SELECT COUNT(*) FROM app.setting_datalabel_project_stage;      -- Expected: 7
-SELECT COUNT(*) FROM app.setting_datalabel_industry_sector;    -- Expected: 8
-```
-
----
-
-## Common Field Structure
-
-All entity tables share these common fields:
-
-```sql
--- Identity & Naming
-id          uuid PRIMARY KEY DEFAULT gen_random_uuid()
-slug        varchar(100) UNIQUE NOT NULL
-code        varchar(50) UNIQUE NOT NULL
-name        varchar(200) NOT NULL
-descr       text
-
--- Flexible Data Storage
-tags        jsonb DEFAULT '[]'::jsonb    -- Array of tags
-metadata    jsonb DEFAULT '{}'::jsonb    -- Flexible JSON data
-
--- Temporal Tracking (SCD Type 2)
-from_ts     timestamptz DEFAULT now()
-to_ts       timestamptz                  -- NULL = current version
-active_flag boolean DEFAULT true
-
--- Audit Fields
-created_ts  timestamptz DEFAULT now()
-updated_ts  timestamptz DEFAULT now()
-version     integer DEFAULT 1
-```
-
----
-
-## API Integration Notes
-
-### REST API Patterns
-
-The database supports these API patterns:
-
-1. **List with RBAC:** `GET /api/v1/project` - Returns only projects user can view
-2. **Get by ID:** `GET /api/v1/project/:id` - Checks user has view permission
-3. **Create:** `POST /api/v1/project` - Checks user has create permission
-4. **Update:** `PUT /api/v1/project/:id` - Checks user has edit permission
-5. **Delete:** `DELETE /api/v1/project/:id` - Soft delete, checks delete permission
-6. **Child entities:** `GET /api/v1/project/:id/task` - Returns tasks for project
-
-### Authentication Flow
-
-1. User logs in: `POST /api/v1/auth/login`
-2. Server validates `d_employee.email` and `password_hash` (bcrypt)
-3. Server generates JWT token with `{ sub: employee_id, email, name }`
-4. Client includes token: `Authorization: Bearer <token>`
-5. API middleware validates token, extracts `employee_id`
-6. API queries `entity_id_rbac_map` to check permissions
-
----
-
-## Maintenance & Best Practices
-
-### Adding a New Entity Type
-
-1. Create DDL file: `db/XX_d_<entity>.ddl`
-2. Add to `db-import.sh` validation and import sections
-3. Add RBAC entry in `XXVII_entity_id_rbac_map.ddl` for admin users
-4. Update `entity_id_map` relationships if needed
-5. Create corresponding API routes with RBAC checks
+3. **Run import**
+   ```bash
+   ./tools/db-import.sh
+   ```
 
 ### Data Curation Guidelines
 
+**IMPORTANT:** Only curate data for test user James Miller
+
+```sql
+-- Always use James Miller's ID
+empid = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
+
+-- Always use Fall 2024 project for test data
+project_id = '84215ccb-313d-48f8-9c37-4398f28c0b1f'
+```
+
+**Best Practices:**
 - Use meaningful `code` values (e.g., `PRJ-2024-001`)
-- Generate unique `slug` from name (e.g., `digital-transformation-2024`)
+- Generate unique `slug` from name (e.g., `fall-2024-landscaping`)
+- Set `active_flag = TRUE` for current records
+- Use `to_ts` for soft deletes
 - Store flexible data in `metadata` JSONB field
 - Use `tags` array for searchable categorization
-- Always set `active_flag = true` for current records
-- Use `to_ts` for soft deletes or historical versions
 
----
+## Indexes & Performance
+
+### Composite Indexes
+
+```sql
+-- RBAC lookups
+CREATE INDEX idx_rbac_emp_entity
+  ON app.d_entity_id_rbac_map(empid, entity, entity_id);
+
+-- Entity relationships
+CREATE INDEX idx_entity_map_parent
+  ON app.d_entity_id_map(parent_entity_id, child_entity_type);
+
+CREATE INDEX idx_entity_map_child
+  ON app.d_entity_id_map(child_entity_id);
+
+-- Active flag filtering
+CREATE INDEX idx_project_active ON app.d_project(active_flag) WHERE active_flag = TRUE;
+CREATE INDEX idx_task_active ON app.d_task(active_flag) WHERE active_flag = TRUE;
+```
+
+### Query Optimization
+
+- All RBAC checks use indexed columns
+- `entity_id_map` queries use indexed joins
+- Partial indexes on `active_flag` for performance
+- JSONB GIN indexes on `tags` and `metadata` fields
+
+## Troubleshooting
+
+### Connection Issues
+
+```bash
+# Check if Postgres is running
+docker ps | grep postgres
+
+# Test connection
+psql -h localhost -p 5434 -U app -d app -c "SELECT NOW();"
+```
+
+### Schema Validation
+
+```bash
+# Check table count
+psql -h localhost -p 5434 -U app -d app -c "\dt app.*"
+
+# Verify sample data
+psql -h localhost -p 5434 -U app -d app -c "SELECT COUNT(*) FROM app.d_employee;"
+```
+
+### Import Issues
+
+```bash
+# Dry run first
+./tools/db-import.sh --dry-run
+
+# Verbose output
+./tools/db-import.sh --verbose
+
+# Check logs
+./tools/logs-api.sh
+```
 
 ## Support & Documentation
 
-- **Database Tools:** `/home/rabin/projects/pmo/tools/`
-- **DDL Files:** `/home/rabin/projects/pmo/db/`
-- **API Documentation:** See `/home/rabin/projects/pmo/apps/api/README.md`
-- **Import Script:** `tools/db-import.sh`
-- **Test Script:** `tools/test-api-endpoints.sh`
+- **Main README:** `/home/rabin/projects/pmo/README.md`
+- **API Documentation:** `/home/rabin/projects/pmo/apps/api/README.md`
+- **Frontend Guide:** `/home/rabin/projects/pmo/apps/web/README.md`
+- **Management Tools:** `/home/rabin/projects/pmo/tools/README.md`
+- **Import Script:** `/home/rabin/projects/pmo/tools/db-import.sh`
 
 ---
 
-**Last Updated:** 2025-10-14
+**Last Updated:** 2025-10-18
 **Schema Version:** 4.1
 **Database:** PostgreSQL 14+
+**Total DDL Files:** 40
+**Total Tables:** 35+
 **Organization:** Huron Home Services Corporation
-**Total Tables:** 32 (13 entities + 16 settings + 3 relationships)

@@ -9,7 +9,7 @@ import {
   filterUniversalColumns,
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
-import { createBulkChildEntityEndpoints } from '../../lib/child-entity-route-factory.js';
+import { universalEntityDelete } from '../../lib/entity-delete-route-factory.js';
 
 const TaskSchema = Type.Object({
   id: Type.String(),
@@ -19,11 +19,6 @@ const TaskSchema = Type.Object({
   descr: Type.Optional(Type.String()),
   tags: Type.Any(), // jsonb
   metadata: Type.Any(), // jsonb
-
-  // Relationships
-  project_id: Type.String(),
-  business_id: Type.Optional(Type.String()),
-  office_id: Type.Optional(Type.String()),
 
   // Assignment
   assignee_employee_ids: Type.Optional(Type.Any()), // uuid[]
@@ -59,11 +54,6 @@ const CreateTaskSchema = Type.Object({
   descr: Type.Optional(Type.String()),
   tags: Type.Optional(Type.Any()),
   metadata: Type.Optional(Type.Any()),
-
-  // Relationships
-  project_id: Type.String({ format: 'uuid' }),
-  business_id: Type.Optional(Type.String({ format: 'uuid' })),
-  office_id: Type.Optional(Type.String({ format: 'uuid' })),
 
   // Assignment
   assignee_employee_ids: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
@@ -381,71 +371,32 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Create task using new normalized structure
+      // Create task using actual DDL structure (matches 19_d_task.ddl)
       const result = await db.execute(sql`
         INSERT INTO app.d_task (
-          name, "descr", task_number, task_type, task_category,
-          project_id, project_name, project_code,
-          task_status, priority_level, urgency_level,
-          assigned_to_employee_id, assigned_to_employee_name, assigned_crew_id, task_owner_id,
-          planned_start_date, planned_end_date, actual_start_date, actual_end_date,
-          estimated_hours, actual_hours,
-          worksite_id, client_id, service_address, location_notes,
-          work_scope, materials_required, equipment_required, safety_requirements,
-          completion_percentage, quality_score, client_satisfaction_score, rework_required,
-          estimated_cost, actual_cost, billable_hours, billing_rate,
-          predecessor_tasks, successor_tasks, blocking_issues,
-          client_communication_required, permit_required, inspection_required, documentation_complete,
-          tags, attr, active
+          slug, code, name, descr, tags, metadata,
+          assignee_employee_ids,
+          stage, priority_level,
+          estimated_hours, actual_hours, story_points,
+          parent_task_id, dependency_task_ids,
+          active_flag
         )
         VALUES (
+          ${data.slug},
+          ${data.code},
           ${data.name},
           ${data.descr || null},
-          ${data.task_number},
-          ${data.task_type || 'installation'},
-          ${data.task_category || 'operational'},
-          ${data.project_id},
-          ${data.project_name || null},
-          ${data.project_code || null},
-          ${data.task_status || 'planned'},
-          ${data.priority_level || 'medium'},
-          ${data.urgency_level || 'normal'},
-          ${data.assigned_to_employee_id || null},
-          ${data.assigned_to_employee_name || null},
-          ${data.assigned_crew_id || null},
-          ${data.task_owner_id || null},
-          ${data.planned_start_date || null},
-          ${data.planned_end_date || null},
-          ${data.actual_start_date || null},
-          ${data.actual_end_date || null},
-          ${data.estimated_hours || null},
-          ${data.actual_hours || null},
-          ${data.worksite_id || null},
-          ${data.client_id || null},
-          ${data.service_address || null},
-          ${data.location_notes || null},
-          ${data.work_scope || null},
-          ${data.materials_required ? JSON.stringify(data.materials_required) : '[]'}::jsonb,
-          ${data.equipment_required ? JSON.stringify(data.equipment_required) : '[]'}::jsonb,
-          ${data.safety_requirements ? JSON.stringify(data.safety_requirements) : '[]'}::jsonb,
-          ${data.completion_percentage || 0.0},
-          ${data.quality_score || null},
-          ${data.client_satisfaction_score || null},
-          ${data.rework_required || false},
-          ${data.estimated_cost || null},
-          ${data.actual_cost || null},
-          ${data.billable_hours || null},
-          ${data.billing_rate || null},
-          ${data.predecessor_tasks ? JSON.stringify(data.predecessor_tasks) : '[]'}::jsonb,
-          ${data.successor_tasks ? JSON.stringify(data.successor_tasks) : '[]'}::jsonb,
-          ${data.blocking_issues ? JSON.stringify(data.blocking_issues) : '[]'}::jsonb,
-          ${data.client_communication_required || false},
-          ${data.permit_required || false},
-          ${data.inspection_required || false},
-          ${data.documentation_complete || false},
           ${data.tags ? JSON.stringify(data.tags) : '[]'}::jsonb,
-          ${data.attr ? JSON.stringify(data.attr) : '{}'}::jsonb,
-          ${data.active !== false}
+          ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
+          ${data.assignee_employee_ids ? `{${data.assignee_employee_ids.join(',')}}` : '{}'}::uuid[],
+          ${data.stage || null},
+          ${data.priority_level || 'medium'},
+          ${data.estimated_hours || null},
+          ${data.actual_hours || 0},
+          ${data.story_points || null},
+          ${data.parent_task_id || null},
+          ${data.dependency_task_ids ? `{${data.dependency_task_ids.join(',')}}` : '{}'}::uuid[],
+          true
         )
         RETURNING *
       `);
@@ -454,14 +405,27 @@ export async function taskRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to create task' });
       }
 
+      const newTask = result[0] as any;
+
+      // Register the task in d_entity_instance_id for global entity operations
+      await db.execute(sql`
+        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
+        VALUES ('task', ${newTask.id}::uuid, ${newTask.name}, ${newTask.slug}, ${newTask.code})
+        ON CONFLICT (entity_type, entity_id) DO UPDATE
+        SET entity_name = EXCLUDED.entity_name,
+            entity_slug = EXCLUDED.entity_slug,
+            entity_code = EXCLUDED.entity_code,
+            updated_ts = NOW()
+      `);
+
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
         canSeeSystemFields: true,
         canSeeSafetyInfo: true,
       };
-      
-      return reply.status(201).send(filterUniversalColumns(result[0], userPermissions));
+
+      return reply.status(201).send(filterUniversalColumns(newTask, userPermissions));
     } catch (error) {
       fastify.log.error('Error creating task:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -518,63 +482,32 @@ export async function taskRoutes(fastify: FastifyInstance) {
       }
 
       const updateFields = [];
-      
+
+      // Update only fields that exist in d_task DDL (19_d_task.ddl)
       if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
-      if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
-      if (data.task_number !== undefined) updateFields.push(sql`task_number = ${data.task_number}`);
-      if (data.task_type !== undefined) updateFields.push(sql`task_type = ${data.task_type}`);
-      if (data.task_category !== undefined) updateFields.push(sql`task_category = ${data.task_category}`);
-      if (data.project_id !== undefined) updateFields.push(sql`project_id = ${data.project_id}`);
-      if (data.project_name !== undefined) updateFields.push(sql`project_name = ${data.project_name}`);
-      if (data.project_code !== undefined) updateFields.push(sql`project_code = ${data.project_code}`);
-      if (data.task_status !== undefined) updateFields.push(sql`task_status = ${data.task_status}`);
+      if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
+      if (data.slug !== undefined) updateFields.push(sql`slug = ${data.slug}`);
+      if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
+      if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
+      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
+      if (data.assignee_employee_ids !== undefined) updateFields.push(sql`assignee_employee_ids = ${data.assignee_employee_ids ? `{${data.assignee_employee_ids.join(',')}}` : '{}'}::uuid[]`);
+      if (data.stage !== undefined) updateFields.push(sql`stage = ${data.stage}`);
       if (data.priority_level !== undefined) updateFields.push(sql`priority_level = ${data.priority_level}`);
-      if (data.urgency_level !== undefined) updateFields.push(sql`urgency_level = ${data.urgency_level}`);
-      if (data.assigned_to_employee_id !== undefined) updateFields.push(sql`assigned_to_employee_id = ${data.assigned_to_employee_id}`);
-      if (data.assigned_to_employee_name !== undefined) updateFields.push(sql`assigned_to_employee_name = ${data.assigned_to_employee_name}`);
-      if (data.assigned_crew_id !== undefined) updateFields.push(sql`assigned_crew_id = ${data.assigned_crew_id}`);
-      if (data.task_owner_id !== undefined) updateFields.push(sql`task_owner_id = ${data.task_owner_id}`);
-      if (data.planned_start_date !== undefined) updateFields.push(sql`planned_start_date = ${data.planned_start_date}`);
-      if (data.planned_end_date !== undefined) updateFields.push(sql`planned_end_date = ${data.planned_end_date}`);
-      if (data.actual_start_date !== undefined) updateFields.push(sql`actual_start_date = ${data.actual_start_date}`);
-      if (data.actual_end_date !== undefined) updateFields.push(sql`actual_end_date = ${data.actual_end_date}`);
       if (data.estimated_hours !== undefined) updateFields.push(sql`estimated_hours = ${data.estimated_hours}`);
       if (data.actual_hours !== undefined) updateFields.push(sql`actual_hours = ${data.actual_hours}`);
-      if (data.worksite_id !== undefined) updateFields.push(sql`worksite_id = ${data.worksite_id}`);
-      if (data.client_id !== undefined) updateFields.push(sql`client_id = ${data.client_id}`);
-      if (data.service_address !== undefined) updateFields.push(sql`service_address = ${data.service_address}`);
-      if (data.location_notes !== undefined) updateFields.push(sql`location_notes = ${data.location_notes}`);
-      if (data.work_scope !== undefined) updateFields.push(sql`work_scope = ${data.work_scope}`);
-      if (data.materials_required !== undefined) updateFields.push(sql`materials_required = ${JSON.stringify(data.materials_required)}::jsonb`);
-      if (data.equipment_required !== undefined) updateFields.push(sql`equipment_required = ${JSON.stringify(data.equipment_required)}::jsonb`);
-      if (data.safety_requirements !== undefined) updateFields.push(sql`safety_requirements = ${JSON.stringify(data.safety_requirements)}::jsonb`);
-      if (data.completion_percentage !== undefined) updateFields.push(sql`completion_percentage = ${data.completion_percentage}`);
-      if (data.quality_score !== undefined) updateFields.push(sql`quality_score = ${data.quality_score}`);
-      if (data.client_satisfaction_score !== undefined) updateFields.push(sql`client_satisfaction_score = ${data.client_satisfaction_score}`);
-      if (data.rework_required !== undefined) updateFields.push(sql`rework_required = ${data.rework_required}`);
-      if (data.estimated_cost !== undefined) updateFields.push(sql`estimated_cost = ${data.estimated_cost}`);
-      if (data.actual_cost !== undefined) updateFields.push(sql`actual_cost = ${data.actual_cost}`);
-      if (data.billable_hours !== undefined) updateFields.push(sql`billable_hours = ${data.billable_hours}`);
-      if (data.billing_rate !== undefined) updateFields.push(sql`billing_rate = ${data.billing_rate}`);
-      if (data.predecessor_tasks !== undefined) updateFields.push(sql`predecessor_tasks = ${JSON.stringify(data.predecessor_tasks)}::jsonb`);
-      if (data.successor_tasks !== undefined) updateFields.push(sql`successor_tasks = ${JSON.stringify(data.successor_tasks)}::jsonb`);
-      if (data.blocking_issues !== undefined) updateFields.push(sql`blocking_issues = ${JSON.stringify(data.blocking_issues)}::jsonb`);
-      if (data.client_communication_required !== undefined) updateFields.push(sql`client_communication_required = ${data.client_communication_required}`);
-      if (data.permit_required !== undefined) updateFields.push(sql`permit_required = ${data.permit_required}`);
-      if (data.inspection_required !== undefined) updateFields.push(sql`inspection_required = ${data.inspection_required}`);
-      if (data.documentation_complete !== undefined) updateFields.push(sql`documentation_complete = ${data.documentation_complete}`);
-      if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
-      if (data.attr !== undefined) updateFields.push(sql`attr = ${JSON.stringify(data.attr)}::jsonb`);
-      if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
+      if (data.story_points !== undefined) updateFields.push(sql`story_points = ${data.story_points}`);
+      if (data.parent_task_id !== undefined) updateFields.push(sql`parent_task_id = ${data.parent_task_id}`);
+      if (data.dependency_task_ids !== undefined) updateFields.push(sql`dependency_task_ids = ${data.dependency_task_ids ? `{${data.dependency_task_ids.join(',')}}` : '{}'}::uuid[]`);
+      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      updateFields.push(sql`updated = NOW()`);
+      updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_task 
+        UPDATE app.d_task
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -584,14 +517,28 @@ export async function taskRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to update task' });
       }
 
+      const updatedTask = result[0] as any;
+
+      // Sync with d_entity_instance_id registry when name/slug/code changes
+      if (data.name !== undefined || data.slug !== undefined || data.code !== undefined) {
+        await db.execute(sql`
+          UPDATE app.d_entity_instance_id
+          SET entity_name = ${updatedTask.name},
+              entity_slug = ${updatedTask.slug},
+              entity_code = ${updatedTask.code},
+              updated_ts = NOW()
+          WHERE entity_type = 'task' AND entity_id = ${id}::uuid
+        `);
+      }
+
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
         canSeeSystemFields: true,
         canSeeSafetyInfo: true,
       };
-      
-      return filterUniversalColumns(result[0], userPermissions);
+
+      return filterUniversalColumns(updatedTask, userPermissions);
     } catch (error) {
       fastify.log.error('Error updating task:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -645,12 +592,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Task not found' });
       }
 
-      // Soft delete task
-      await db.execute(sql`
-        UPDATE app.d_task 
-        SET active_flag = false, to_ts = NOW(), updated = NOW()
-        WHERE id = ${id}
-      `);
+      // Use universal delete factory for consistent cascading delete
+      await universalEntityDelete('task', id);
 
       return reply.status(204).send();
     } catch (error) {
@@ -1130,9 +1073,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
   });
 
   // ========================================
-  // CHILD ENTITY ENDPOINTS (Using Factory Pattern)
+  // CHILD ENTITY CREATION
   // ========================================
-  // Replaces 150+ lines of duplicate code with 1 line
-  // Automatically creates endpoints: /form, /artifact
-  createBulkChildEntityEndpoints(fastify, 'task', ['form', 'artifact']);
+  // Child entities (form, artifact) are created using:
+  // 1. Universal entity create endpoint: POST /api/v1/:childType
+  // 2. Linkage API: POST /api/v1/linkage to link child to parent
+  // 3. Navigate to child detail page for editing
+  // No special endpoints needed - reuses existing universal APIs
 }

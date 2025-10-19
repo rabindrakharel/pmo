@@ -8,7 +8,7 @@ import {
   filterUniversalColumns,
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
-import { createBulkChildEntityEndpoints } from '../../lib/child-entity-route-factory.js';
+import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 
 // Schema based on actual d_project table structure from db/XV_d_project.ddl
 const ProjectSchema = Type.Object({
@@ -932,65 +932,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Delete project (soft delete)
-  fastify.delete('/api/v1/project/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
-      response: {
-        204: Type.Null(),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    // Direct RBAC check for project delete access
-    const projectDeleteAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'project'
-        AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 3 = ANY(rbac.permission)
-    `);
-
-    if (projectDeleteAccess.length === 0) {
-      return reply.status(403).send({ error: 'Insufficient permissions to delete this project' });
-    }
-
-    try {
-      const existing = await db.execute(sql`
-        SELECT id FROM app.d_project WHERE id = ${id}
-      `);
-      
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Project not found' });
-      }
-
-      // Soft delete (using SCD Type 2 pattern)
-      await db.execute(sql`
-        UPDATE app.d_project 
-        SET active_flag = false, to_ts = NOW(), updated = NOW()
-        WHERE id = ${id}
-      `);
-
-      return reply.status(204).send();
-    } catch (error) {
-      fastify.log.error('Error deleting project:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
+  // Delete project with cascading cleanup (soft delete)
+  // Uses universal delete factory pattern - deletes from:
+  // 1. app.d_project (base entity table)
+  // 2. app.d_entity_instance_id (entity registry)
+  // 3. app.d_entity_id_map (linkages in both directions)
+  createEntityDeleteEndpoint(fastify, 'project');
 
   // Add singular endpoint aliases for frontend compatibility
   fastify.get('/api/v1/project/:id/task', {
@@ -1084,9 +1031,11 @@ export async function projectRoutes(fastify: FastifyInstance) {
   });
 
   // ========================================
-  // CHILD ENTITY ENDPOINTS (Using Factory Pattern)
+  // CHILD ENTITY CREATION
   // ========================================
-  // Replaces 150+ lines of duplicate code with 1 line
-  // Automatically creates endpoints: /form, /artifact
-  createBulkChildEntityEndpoints(fastify, 'project', ['form', 'artifact']);
+  // Child entities (task, wiki, form, artifact) are created using:
+  // 1. Universal entity create endpoint: POST /api/v1/:childType
+  // 2. Linkage API: POST /api/v1/linkage to link child to parent
+  // 3. Navigate to child detail page for editing
+  // No special endpoints needed - reuses existing universal APIs
 }

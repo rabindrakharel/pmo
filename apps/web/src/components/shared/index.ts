@@ -72,3 +72,8 @@ export { DataTable } from './ui/DataTable';
 export { GridView } from './ui/GridView';
 export { KanbanBoard } from './ui/KanbanBoard';
 export { TreeView } from './ui/TreeView';
+
+// ============================================================================
+// MODAL COMPONENTS
+// ============================================================================
+export { EntityEditModal } from './modal/EntityEditModal';

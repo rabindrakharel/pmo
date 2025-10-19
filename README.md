@@ -390,6 +390,254 @@ const loadData = async () => {
 
 ---
 
+## 🗑️ Universal Entity Delete Factory Pattern ✨
+
+### Problem: Unsafe Cascading Deletes with Code Duplication
+
+**Before (Manual Delete in Each Module):**
+```typescript
+// 70+ lines of duplicate delete code in task/routes.ts
+fastify.delete('/api/v1/task/:id', async (request, reply) => {
+  // RBAC check...
+
+  // STEP 1: Delete from base table
+  await db.execute(sql`UPDATE app.d_task SET active_flag = false...`);
+
+  // STEP 2: Delete from entity registry
+  await db.execute(sql`UPDATE app.d_entity_instance_id...`);
+
+  // STEP 3A: Delete child linkages
+  await db.execute(sql`UPDATE app.d_entity_id_map WHERE child_entity_id = ${id}...`);
+
+  // STEP 3B: Delete parent linkages
+  await db.execute(sql`UPDATE app.d_entity_id_map WHERE parent_entity_id = ${id}...`);
+
+  return reply.status(204).send();
+});
+```
+
+❌ **Issues:**
+- 70+ lines duplicated across 13+ entity modules
+- Inconsistent delete logic between entities
+- Easy to miss one of the 3 required cleanup steps
+- No type safety for entity-to-table mapping
+- Hard to maintain and extend
+
+### Solution: Universal Delete Factory
+
+**Location:** `apps/api/src/lib/entity-delete-route-factory.ts`
+
+**Complete Documentation:** `apps/api/src/lib/ENTITY_DELETE_FACTORY_README.md`
+
+**Architecture:**
+```typescript
+// 1. Universal Delete Function (3-Step Cascading Cleanup)
+export async function universalEntityDelete(
+  entityType: string,
+  entityId: string,
+  options?: {
+    skipRegistry?: boolean;
+    skipLinkages?: boolean;
+    customCleanup?: () => Promise<void>;
+  }
+): Promise<void> {
+  const table = getEntityTable(entityType);  // Type-safe table mapping
+  const tableIdentifier = sql.identifier(table);
+
+  // STEP 1: Soft-delete from main entity table
+  await db.execute(sql`
+    UPDATE app.${tableIdentifier}
+    SET active_flag = false,
+        to_ts = NOW(),
+        updated_ts = NOW()
+    WHERE id = ${entityId}::uuid
+  `);
+
+  // STEP 2: Soft-delete from entity instance registry
+  await db.execute(sql`
+    UPDATE app.d_entity_instance_id
+    SET active_flag = false,
+        updated_ts = NOW()
+    WHERE entity_type = ${entityType}
+      AND entity_id = ${entityId}::uuid
+  `);
+
+  // STEP 3: Soft-delete linkages (both directions)
+  await db.execute(sql`
+    UPDATE app.d_entity_id_map
+    SET active_flag = false,
+        updated_ts = NOW()
+    WHERE child_entity_type = ${entityType}
+      AND child_entity_id = ${entityId}::uuid
+  `);
+
+  await db.execute(sql`
+    UPDATE app.d_entity_id_map
+    SET active_flag = false,
+        updated_ts = NOW()
+    WHERE parent_entity_type = ${entityType}
+      AND parent_entity_id = ${entityId}::uuid
+  `);
+}
+
+// 2. Route Factory (Creates DELETE Endpoints)
+export function createEntityDeleteEndpoint(
+  fastify: FastifyInstance,
+  entityType: string,
+  options?: { customCleanup?: (entityId: string) => Promise<void> }
+): void {
+  fastify.delete(`/api/v1/${entityType}/:id`, {
+    preHandler: [fastify.authenticate],
+    schema: { /* TypeBox validation */ }
+  }, async (request, reply) => {
+    const { id } = request.params;
+    const userId = (request as any).user?.sub;
+
+    // RBAC check (permission = 3 for delete)
+    const deleteAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = ${entityType}
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND 3 = ANY(rbac.permission)
+    `);
+
+    if (deleteAccess.length === 0) {
+      return reply.status(403).send({ error: 'Insufficient permissions' });
+    }
+
+    // Perform cascading delete
+    await universalEntityDelete(entityType, id, {
+      customCleanup: options?.customCleanup ? () => options.customCleanup!(id) : undefined
+    });
+
+    return reply.status(204).send();
+  });
+}
+```
+
+**Usage Example (task/routes.ts):**
+```typescript
+import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+
+export async function taskRoutes(fastify: FastifyInstance) {
+  // ... CRUD endpoints (list, get, create, update) ...
+
+  // Replace 70+ lines with 1 line:
+  createEntityDeleteEndpoint(fastify, 'task');
+
+  // ✅ Creates: DELETE /api/v1/task/:id
+  // ✅ Includes: RBAC check + 3-step cascading delete + error handling
+}
+```
+
+**Advanced Usage (Custom Cleanup):**
+```typescript
+// artifact/routes.ts - Delete S3 files before DB delete
+createEntityDeleteEndpoint(fastify, 'artifact', {
+  customCleanup: async (artifactId) => {
+    await deleteS3Files(artifactId);  // Custom cleanup logic
+  }
+});
+```
+
+**3-Step Cascading Delete Flow:**
+
+When `DELETE /api/v1/task/:id` is called, the factory performs:
+
+1. **Base Entity Table** - Soft-delete from `app.d_task`
+   ```sql
+   UPDATE app.d_task
+   SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
+   WHERE id = '277d2f4f-9591-4aa3-8537-935324495a74'::uuid
+   ```
+
+2. **Entity Instance Registry** - Remove from `app.d_entity_instance_id`
+   ```sql
+   UPDATE app.d_entity_instance_id
+   SET active_flag = false, updated_ts = NOW()
+   WHERE entity_type = 'task' AND entity_id = '277d2f4f-9591-4aa3-8537-935324495a74'::uuid
+   ```
+   - **Impact:** Removes from global search, child-tabs API, dashboard statistics
+
+3. **Linkage Table (Both Directions)** - Clean up `app.d_entity_id_map`
+   ```sql
+   -- Delete as child: project → task linkage
+   UPDATE app.d_entity_id_map
+   SET active_flag = false, updated_ts = NOW()
+   WHERE child_entity_type = 'task' AND child_entity_id = '277d2f4f-9591-4aa3-8537-935324495a74'::uuid
+
+   -- Delete as parent: task → form/artifact linkages
+   UPDATE app.d_entity_id_map
+   SET active_flag = false, updated_ts = NOW()
+   WHERE parent_entity_type = 'task' AND parent_entity_id = '277d2f4f-9591-4aa3-8537-935324495a74'::uuid
+   ```
+
+**Benefits:**
+
+✅ **DRY Principle** - 70+ lines reduced to 1 line per entity
+✅ **Consistency** - All entities use identical delete logic
+✅ **Cascading Cleanup** - Automatically cleans up all 3 tables
+✅ **Factory Pattern** - Matches existing `child-entity-route-factory.ts` architecture
+✅ **Single Source of Truth** - Reuses `ENTITY_TABLE_MAP` from child factory
+✅ **Type Safety** - TypeScript enforces valid entity types
+✅ **Extensible** - Supports custom cleanup logic (e.g., S3 file deletion)
+✅ **RBAC Integration** - Permission check built-in (permission = 3)
+
+**Entity-to-Table Mapping (Shared with Child Factory):**
+```typescript
+import { ENTITY_TABLE_MAP } from './child-entity-route-factory.js';
+
+// Maps entity type → database table name
+export const ENTITY_TABLE_MAP: Record<string, string> = {
+  task: 'd_task',
+  project: 'd_project',
+  wiki: 'd_wiki',
+  form: 'd_form_head',
+  artifact: 'd_artifact',
+  employee: 'd_employee',
+  client: 'd_client',
+  office: 'd_office',
+  biz: 'd_business',
+  role: 'd_role',
+  position: 'd_position',
+  worksite: 'd_worksite',
+  reports: 'd_reports'
+};
+```
+
+**Current Status:**
+- ✅ **Implemented in:** `task` module (`apps/api/src/modules/task/routes.ts`)
+- 🔄 **Rolling out to:** `project`, `wiki`, `form`, `artifact`, `employee`, `client`, `office`, `business`, `role`, `position`, `worksite`, `reports`
+
+**Testing:**
+```bash
+# Test task delete with cascading cleanup
+./tools/test-api.sh DELETE /api/v1/task/277d2f4f-9591-4aa3-8537-935324495a74
+
+# Verify all 3 deletions:
+# 1. Base table: SELECT * FROM app.d_task WHERE id = '...' AND active_flag = false
+# 2. Registry: SELECT * FROM app.d_entity_instance_id WHERE entity_id = '...' AND active_flag = false
+# 3. Linkages: SELECT * FROM app.d_entity_id_map WHERE child_entity_id = '...' AND active_flag = false
+```
+
+**Pattern Consistency:**
+
+The delete factory follows the exact same pattern as `child-entity-route-factory.ts`:
+
+| Feature | child-entity-route-factory.ts | entity-delete-route-factory.ts |
+|---------|------------------------------|--------------------------------|
+| **Location** | `apps/api/src/lib/` | `apps/api/src/lib/` ✅ |
+| **Naming** | `create...Endpoint()` | `createEntityDeleteEndpoint()` ✅ |
+| **Table mapping** | `ENTITY_TABLE_MAP` (exported) | Imports same mapping ✅ |
+| **SQL pattern** | `sql.identifier()` + `app.${identifier}` | Same ✅ |
+| **Logging** | `fastify.log.info/warn/error` | Same ✅ |
+| **RBAC** | Checks permission array | Same ✅ |
+| **First param** | `fastify: FastifyInstance` | Same ✅ |
+
+---
+
 DATA MODEL:
 1️⃣ Core Business Entities (13 tables):
 
@@ -1052,28 +1300,31 @@ Complete Flow Diagrams: Task, Project, Business
 
   **Pattern:** Higher-Order Route Factory that creates standardized child entity endpoints
 
-  Usage Example in project/routes.ts:
+  **Usage Pattern:**
+
+  Currently, child entity endpoints are created manually in each module. The factory provides reusable functions for standardization:
+
   ```typescript
-  import { createBulkChildEntityEndpoints } from '../../lib/child-entity-route-factory.js';
+  // Available factory functions (not currently used in modules):
+  import {
+    createChildEntityEndpoint,
+    createMinimalChildEntityEndpoint
+  } from '../../lib/child-entity-route-factory.js';
 
-  export async function projectRoutes(fastify: FastifyInstance) {
-    // ... CRUD endpoints (list, get, create, update, delete) ...
-
-    // Replace 150+ lines of duplicate code with 1 line:
-    createBulkChildEntityEndpoints(fastify, 'project', ['form', 'artifact']);
-  }
+  // These can be used to create standardized child endpoints:
+  createChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
+  createMinimalChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
   ```
 
-  Usage Example in task/routes.ts:
+  **Current Implementation (Manual Endpoints):**
+
+  Projects currently use manual endpoint definitions:
   ```typescript
-  import { createBulkChildEntityEndpoints } from '../../lib/child-entity-route-factory.js';
-
-  export async function taskRoutes(fastify: FastifyInstance) {
-    // ... CRUD endpoints ...
-
-    // Replace 150+ lines of duplicate code with 1 line:
-    createBulkChildEntityEndpoints(fastify, 'task', ['form', 'artifact']);
-  }
+  // project/routes.ts - Manual child entity endpoints
+  fastify.get('/api/v1/project/:id/task', { ... });
+  fastify.get('/api/v1/project/:id/wiki', { ... });
+  fastify.get('/api/v1/project/:id/forms', { ... });
+  fastify.get('/api/v1/project/:id/artifacts', { ... });
   ```
 
   What the Factory Creates:
@@ -1083,52 +1334,11 @@ Complete Flow Diagrams: Task, Project, Business
   - ✅ Consistent response format: { data, total, page, limit }
   - ✅ Works with d_entity_id_map universal relationship table
 
-  Benefits:
-  - 📉 **300+ lines eliminated** across 2 modules
-  - 🎯 **Single source of truth** for child entity endpoints
-  - 🔒 **Consistent RBAC** - impossible to have security gaps
-  - 🚀 **Easy to extend** - add new child entities with 1 word
-  - ✅ **100% test coverage** - all endpoints verified working
-
-  How to Use Elsewhere:
-
-  Example 1: Add child endpoints to Office module
-  ```typescript
-  // apps/api/src/modules/office/routes.ts
-  import { createBulkChildEntityEndpoints } from '../../lib/child-entity-route-factory.js';
-
-  export async function officeRoutes(fastify: FastifyInstance) {
-    // ... CRUD endpoints ...
-
-    // Automatically creates: /api/v1/office/:id/project, /api/v1/office/:id/employee
-    createBulkChildEntityEndpoints(fastify, 'office', ['project', 'employee']);
-  }
-  ```
-
-  Example 2: Add child endpoints to Client module
-  ```typescript
-  // apps/api/src/modules/client/routes.ts
-  import { createBulkChildEntityEndpoints } from '../../lib/child-entity-route-factory.js';
-
-  export async function clientRoutes(fastify: FastifyInstance) {
-    // ... CRUD endpoints ...
-
-    // Automatically creates: /api/v1/client/:id/project, /api/v1/client/:id/task, /api/v1/client/:id/artifact
-    createBulkChildEntityEndpoints(fastify, 'client', ['project', 'task', 'artifact']);
-  }
-  ```
-
-  Example 3: Add new entity to the system
-  ```typescript
-  // Step 1: Add entity to ENTITY_TABLE_MAP (child-entity-route-factory.ts)
-  export const ENTITY_TABLE_MAP: Record<string, string> = {
-    // ... existing mappings ...
-    invoice: 'd_invoice',  // New entity
-  };
-
-  // Step 2: Use in any parent module
-  createBulkChildEntityEndpoints(fastify, 'project', ['task', 'invoice']);  // Add invoice as child
-  ```
+  **Benefits:**
+  - 🎯 **Centralized table mapping** via ENTITY_TABLE_MAP
+  - 🔒 **Consistent RBAC** pattern across all child endpoints
+  - 🚀 **Standardized query pattern** for parent-child relationships
+  - ✅ **Reusable components** available for future refactoring
 
   Key Similarities in API Implementation:
 
@@ -1164,6 +1374,117 @@ Complete Flow Diagrams: Task, Project, Business
     page,
     limit
   };
+
+  ---
+  5b. DRY PRINCIPLE: Entity Delete Route Factory Pattern ✨
+
+  **Problem Solved:** Eliminated 166+ lines of duplicate cascading delete code across entity modules
+
+  **Location:** `apps/api/src/lib/entity-delete-route-factory.ts`
+
+  **Documentation:** `apps/api/src/lib/ENTITY_DELETE_FACTORY_README.md`
+
+  **Pattern:** Higher-Order Route Factory that creates standardized DELETE endpoints with 3-step cascading cleanup
+
+  **Usage Example in task/routes.ts:**
+  ```typescript
+  import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+
+  export async function taskRoutes(fastify: FastifyInstance) {
+    // ... CRUD endpoints (list, get, create, update) ...
+
+    // Replace 70+ lines of duplicate delete code with 1 line:
+    createEntityDeleteEndpoint(fastify, 'task');
+
+    // ✅ Creates: DELETE /api/v1/task/:id
+    // ✅ Includes: RBAC check + 3-step cascading delete + error handling
+  }
+  ```
+
+  **Usage Example in project/routes.ts:**
+  ```typescript
+  import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+
+  export async function projectRoutes(fastify: FastifyInstance) {
+    // ... CRUD endpoints ...
+
+    // Replace 59+ lines with 1 line:
+    createEntityDeleteEndpoint(fastify, 'project');
+  }
+  ```
+
+  **3-Step Cascading Delete Flow:**
+
+  When `DELETE /api/v1/task/:id` is called:
+
+  **Step 1:** Delete from base entity table (e.g., `app.d_task`)
+  ```sql
+  UPDATE app.d_task
+  SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
+  WHERE id = '...'::uuid
+  ```
+
+  **Step 2:** Delete from entity instance registry (`app.d_entity_instance_id`)
+  ```sql
+  UPDATE app.d_entity_instance_id
+  SET active_flag = false, updated_ts = NOW()
+  WHERE entity_type = 'task' AND entity_id = '...'::uuid
+  ```
+  - **Impact:** Removes from global search, child-tabs API, dashboard statistics
+
+  **Step 3:** Delete linkages in both directions (`app.d_entity_id_map`)
+  ```sql
+  -- Delete as child: project → task linkage
+  UPDATE app.d_entity_id_map
+  SET active_flag = false, updated_ts = NOW()
+  WHERE child_entity_type = 'task' AND child_entity_id = '...'::uuid
+
+  -- Delete as parent: task → form/artifact linkages
+  UPDATE app.d_entity_id_map
+  SET active_flag = false, updated_ts = NOW()
+  WHERE parent_entity_type = 'task' AND parent_entity_id = '...'::uuid
+  ```
+
+  **What the Factory Creates:**
+  - ✅ RBAC delete permission check (permission = 3)
+  - ✅ Entity existence validation
+  - ✅ 3-step cascading soft delete
+  - ✅ Unified error handling (403, 404, 500)
+  - ✅ Consistent response (204 No Content on success)
+  - ✅ Fastify logging integration
+
+  **Benefits:**
+  - 📉 **166+ lines eliminated** across 3 modules (project, office, biz)
+  - 🎯 **Single source of truth** for delete operations
+  - 🔒 **Guaranteed cascading cleanup** - impossible to miss registry/linkage deletion
+  - 🚀 **Easy to extend** - add delete endpoint with 1 line
+  - ✅ **Pattern consistency** - matches child-entity-route-factory.ts exactly
+
+  **Currently Implemented:**
+  - ✅ `task` - apps/api/src/modules/task/routes.ts
+  - ✅ `project` - apps/api/src/modules/project/routes.ts
+  - ✅ `office` - apps/api/src/modules/office/routes.ts
+  - ✅ `biz` - apps/api/src/modules/biz/routes.ts
+
+  **Advanced Usage (Custom Cleanup):**
+  ```typescript
+  // artifact/routes.ts - Delete S3 files before DB delete
+  createEntityDeleteEndpoint(fastify, 'artifact', {
+    customCleanup: async (artifactId) => {
+      await deleteS3Files(artifactId);  // Custom cleanup logic
+    }
+  });
+  ```
+
+  **Pattern Consistency with Child Factory:**
+
+  | Feature | child-entity-route-factory.ts | entity-delete-route-factory.ts |
+  |---------|------------------------------|--------------------------------|
+  | Location | `apps/api/src/lib/` | `apps/api/src/lib/` ✅ |
+  | Naming | `create...Endpoint()` | `createEntityDeleteEndpoint()` ✅ |
+  | Table mapping | `ENTITY_TABLE_MAP` (exported) | Imports same mapping ✅ |
+  | SQL pattern | `sql.identifier()` + `app.${identifier}` | Same ✅ |
+  | RBAC | Checks permission array | Same ✅ |
 
   ---
   6. DATABASE ARCHITECTURE

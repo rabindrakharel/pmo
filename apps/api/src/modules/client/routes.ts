@@ -427,7 +427,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
       const existing = await db.execute(sql`
         SELECT id FROM app.d_client WHERE id = ${id}
       `);
-      
+
       if (existing.length === 0) {
         return reply.status(404).send({ error: 'Client not found' });
       }
@@ -442,6 +442,82 @@ export async function clientRoutes(fastify: FastifyInstance) {
       return reply.status(204).send();
     } catch (error) {
       fastify.log.error('Error deleting client:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get client projects (child entity route)
+  fastify.get('/api/v1/client/:id/project', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      querystring: Type.Object({
+        page: Type.Optional(Type.Integer({ minimum: 1 })),
+        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+      })
+    }
+  }, async (request, reply) => {
+    try {
+      const { id: clientId } = request.params as { id: string };
+      const { page = 1, limit = 20 } = request.query as any;
+      const userId = (request as any).user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Check RBAC for client access
+      const clientAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'client'
+          AND (rbac.entity_id = ${clientId}::text OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
+
+      if (clientAccess.length === 0) {
+        return reply.status(403).send({ error: 'Access denied for this client' });
+      }
+
+      // Query child projects linked to this client
+      const offset = (page - 1) * limit;
+      const projects = await db.execute(sql`
+        SELECT p.*
+        FROM app.d_project p
+        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = p.id::text
+        WHERE eim.parent_entity_id = ${clientId}
+          AND eim.parent_entity_type = 'client'
+          AND eim.child_entity_type = 'project'
+          AND eim.active_flag = true
+          AND p.active_flag = true
+        ORDER BY p.created_ts DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      // Count total projects for pagination
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as total
+        FROM app.d_project p
+        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = p.id::text
+        WHERE eim.parent_entity_id = ${clientId}
+          AND eim.parent_entity_type = 'client'
+          AND eim.child_entity_type = 'project'
+          AND eim.active_flag = true
+          AND p.active_flag = true
+      `);
+
+      return {
+        data: projects,
+        total: Number(countResult[0]?.total || 0),
+        page,
+        limit
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching client projects:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

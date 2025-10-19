@@ -110,7 +110,7 @@ export function createChildEntityEndpoint(
  * Entity-to-Table Mapping
  *
  * Maps entity type names to their corresponding database table names.
- * Used by createBulkChildEntityEndpoints to automatically resolve table names.
+ * Used by child entity route factories to automatically resolve table names.
  */
 export const ENTITY_TABLE_MAP: Record<string, string> = {
   task: 'd_task',
@@ -128,32 +128,162 @@ export const ENTITY_TABLE_MAP: Record<string, string> = {
 };
 
 /**
- * Bulk Child Entity Endpoint Creator
+ * Create Minimal Child Entity Instance with Automatic Linkage
  *
- * Creates multiple child entity endpoints at once using the entity-to-table mapping.
+ * Creates a POST endpoint that:
+ * 1. Creates a new child entity instance with minimal data (ID + name + defaults)
+ * 2. Automatically creates the parent-child linkage in d_entity_id_map
+ * 3. Returns the new entity ID for immediate navigation to detail page
  *
- * @example
- * // Create all project child endpoints
- * createBulkChildEntityEndpoints(fastify, 'project', ['task', 'form', 'artifact', 'wiki']);
- *
- * // Create all task child endpoints
- * createBulkChildEntityEndpoints(fastify, 'task', ['form', 'artifact']);
+ * This implements the create-then-link-then-edit workflow:
+ * - Frontend calls: POST /api/v1/:parentType/:parentId/:childType/create-minimal
+ * - Backend creates child record + linkage
+ * - Frontend navigates to: /:childType/:newId for editing
  *
  * @param fastify - Fastify instance
- * @param parentEntity - Parent entity type
- * @param childEntities - Array of child entity types
+ * @param parentEntity - Parent entity type (e.g., 'project')
+ * @param childEntity - Child entity type (e.g., 'task')
+ * @param childTable - Database table name (e.g., 'd_task')
  */
-export function createBulkChildEntityEndpoints(
+export function createMinimalChildEntityEndpoint(
   fastify: FastifyInstance,
   parentEntity: string,
-  childEntities: string[]
+  childEntity: string,
+  childTable: string
 ) {
-  for (const childEntity of childEntities) {
-    const childTable = ENTITY_TABLE_MAP[childEntity];
-    if (!childTable) {
-      fastify.log.warn(`No table mapping found for entity: ${childEntity}`);
-      continue;
+  fastify.post(`/api/v1/${parentEntity}/:id/${childEntity}/create-minimal`, {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      body: Type.Object({
+        name: Type.Optional(Type.String())
+      }),
+      response: {
+        201: Type.Object({
+          id: Type.String(),
+          name: Type.String(),
+          message: Type.String()
+        }),
+        403: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
     }
-    createChildEntityEndpoint(fastify, parentEntity, childEntity, childTable);
-  }
+  }, async (request, reply) => {
+    try {
+      const { id: parentId } = request.params as { id: string };
+      const { name } = request.body as { name?: string };
+      const userId = (request as any).user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // Check parent access permission
+      const parentAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = ${parentEntity}
+          AND (rbac.entity_id = ${parentId}::text OR rbac.entity_id = 'all')
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 0 = ANY(rbac.permission)
+      `);
+
+      if (parentAccess.length === 0) {
+        return reply.status(403).send({ error: `Access denied for this ${parentEntity}` });
+      }
+
+      // Check child entity create permission
+      const createAccess = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = ${childEntity}
+          AND rbac.entity_id = 'all'
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+          AND 4 = ANY(rbac.permission)
+      `);
+
+      if (createAccess.length === 0) {
+        return reply.status(403).send({ error: `Insufficient permissions to create ${childEntity}` });
+      }
+
+      // Generate default values
+      const defaultName = name || `New ${childEntity.charAt(0).toUpperCase() + childEntity.slice(1)}`;
+      const timestamp = new Date().toISOString();
+      const autoCode = `${childEntity.toUpperCase()}-${Date.now()}`;
+      const autoSlug = `${childEntity}-${Date.now()}`;
+
+      const childTableIdentifier = sql.identifier(childTable);
+
+      // STEP 1: Create minimal child entity record
+      const createResult = await db.execute(sql`
+        INSERT INTO app.${childTableIdentifier} (
+          name,
+          code,
+          slug,
+          descr,
+          tags,
+          metadata,
+          active_flag,
+          created_ts,
+          updated_ts,
+          version
+        ) VALUES (
+          ${defaultName},
+          ${autoCode},
+          ${autoSlug},
+          'Draft - please complete the details',
+          '[]'::jsonb,
+          '{}'::jsonb,
+          true,
+          ${timestamp},
+          ${timestamp},
+          1
+        )
+        RETURNING id, name
+      `);
+
+      const newEntity = createResult[0];
+      const newEntityId = newEntity.id;
+
+      // STEP 2: Create parent-child linkage in d_entity_id_map
+      await db.execute(sql`
+        INSERT INTO app.d_entity_id_map (
+          parent_entity_type,
+          parent_entity_id,
+          child_entity_type,
+          child_entity_id,
+          relationship_type,
+          active_flag,
+          created_ts,
+          updated_ts
+        ) VALUES (
+          ${parentEntity},
+          ${parentId},
+          ${childEntity},
+          ${newEntityId}::text,
+          'contains',
+          true,
+          ${timestamp},
+          ${timestamp}
+        )
+      `);
+
+      fastify.log.info(`Created ${childEntity} ${newEntityId} and linked to ${parentEntity} ${parentId}`);
+
+      // STEP 3: Return entity ID for frontend navigation
+      return reply.status(201).send({
+        id: newEntityId,
+        name: defaultName,
+        message: `${childEntity} created successfully. Please complete the details.`
+      });
+
+    } catch (error: any) {
+      fastify.log.error(`Error creating minimal ${childEntity}:`, error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
 }

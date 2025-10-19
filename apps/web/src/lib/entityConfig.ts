@@ -122,22 +122,39 @@ export const renderBadge = (value: string, colorMap: Record<string, string>): Re
   );
 };
 
-export const renderTags = (tags?: string[]): React.ReactElement | null => {
-  if (!tags || tags.length === 0) return null;
+export const renderTags = (tags?: string[] | string): React.ReactElement | null => {
+  // Handle both array and JSON string formats
+  let tagsArray: string[] = [];
+
+  if (!tags) return null;
+
+  if (typeof tags === 'string') {
+    try {
+      tagsArray = JSON.parse(tags);
+    } catch {
+      // If parsing fails, treat as empty
+      return null;
+    }
+  } else if (Array.isArray(tags)) {
+    tagsArray = tags;
+  }
+
+  if (tagsArray.length === 0) return null;
+
   return React.createElement(
     'div',
     { className: 'flex flex-wrap gap-1' },
-    ...tags.slice(0, 2).map((tag, index) =>
+    ...tagsArray.slice(0, 2).map((tag, index) =>
       React.createElement(
         'span',
         { key: index, className: 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800' },
         tag
       )
     ),
-    tags.length > 2 ? React.createElement(
+    tagsArray.length > 2 ? React.createElement(
       'span',
       { className: 'text-xs text-gray-500' },
-      `+${tags.length - 2}`
+      `+${tagsArray.length - 2}`
     ) : null
   );
 };
