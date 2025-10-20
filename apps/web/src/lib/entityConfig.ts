@@ -11,7 +11,7 @@ import React from 'react';
 // Type Definitions
 // ============================================================================
 
-export type ViewMode = 'table' | 'kanban' | 'grid';
+export type ViewMode = 'table' | 'kanban' | 'grid' | 'graph';
 
 export interface ColumnDef {
   key: string;
@@ -939,7 +939,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         filterable: true
       },
       {
-        key: 'opportunity_funnel_level_name',
+        key: 'opportunity_funnel_stage_name',
         title: 'Opportunity Funnel',
         sortable: true,
         filterable: true,
@@ -1018,7 +1018,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'city', label: 'City', type: 'text' },
       { key: 'province', label: 'Province', type: 'text' },
       { key: 'postal_code', label: 'Postal Code', type: 'text' },
-      { key: 'opportunity_funnel_level_name', label: 'Opportunity Funnel', type: 'select', loadOptionsFromSettings: true },
+      { key: 'opportunity_funnel_stage_name', label: 'Opportunity Funnel', type: 'select', loadOptionsFromSettings: true },
       { key: 'industry_sector_name', label: 'Industry Sector', type: 'select', loadOptionsFromSettings: true },
       { key: 'acquisition_channel_name', label: 'Acquisition Channel', type: 'select', loadOptionsFromSettings: true },
       { key: 'customer_tier_name', label: 'Customer Tier', type: 'select', loadOptionsFromSettings: true },
@@ -1082,6 +1082,20 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
       { key: 'level_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
       { key: 'level_descr', title: 'Description', sortable: true, inlineEditable: true },
+      {
+        key: 'parent_id',
+        title: 'Parent Stage',
+        sortable: true,
+        align: 'left',
+        width: '150px',
+        render: (value, record, allData) => {
+          if (!value && value !== 0) return React.createElement('span', { className: 'text-gray-400' }, '-');
+          const parent = allData?.find((item: any) => item.level_id === value);
+          return parent
+            ? React.createElement('span', { className: 'text-gray-700' }, parent.level_name)
+            : React.createElement('span', { className: 'text-gray-400' }, `ID: ${value}`);
+        }
+      },
       { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
       {
         key: 'active_flag',
@@ -1104,7 +1118,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'color_code', label: 'Color Code', type: 'text', placeholder: '#3B82F6' }
     ],
 
-    supportedViews: ['table'],
+    supportedViews: ['table', 'graph'],
     defaultView: 'table'
   },
 
@@ -1159,6 +1173,20 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
       { key: 'level_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
       { key: 'level_descr', title: 'Description', sortable: true, inlineEditable: true },
+      {
+        key: 'parent_id',
+        title: 'Parent Stage',
+        sortable: true,
+        align: 'left',
+        width: '150px',
+        render: (value, record, allData) => {
+          if (!value && value !== 0) return React.createElement('span', { className: 'text-gray-400' }, '-');
+          const parent = allData?.find((item: any) => item.level_id === value);
+          return parent
+            ? React.createElement('span', { className: 'text-gray-700' }, parent.level_name)
+            : React.createElement('span', { className: 'text-gray-400' }, `ID: ${value}`);
+        }
+      },
       { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
       {
         key: 'active_flag',
@@ -1181,7 +1209,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'color_code', label: 'Color Code', type: 'text', placeholder: '#3B82F6' }
     ],
 
-    supportedViews: ['table'],
+    supportedViews: ['table', 'graph'],
     defaultView: 'table'
   },
 
@@ -1418,14 +1446,28 @@ export const entityConfigs: Record<string, EntityConfig> = {
   // --------------------------------------------------------------------------
   opportunityFunnelLevel: {
     name: 'opportunityFunnelLevel',
-    displayName: 'Opportunity Funnel Level',
-    pluralName: 'Opportunity Funnel Levels',
-    apiEndpoint: '/api/v1/setting?category=opportunity_funnel_level',
+    displayName: 'Opportunity Funnel Stage',
+    pluralName: 'Opportunity Funnel Stages',
+    apiEndpoint: '/api/v1/setting?category=opportunity_funnel_stage',
 
     columns: [
-      { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'level_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'level_descr', title: 'Description', sortable: true, inlineEditable: true },
+      { key: 'stage_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
+      { key: 'stage_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
+      { key: 'stage_descr', title: 'Description', sortable: true, inlineEditable: true },
+      {
+        key: 'parent_id',
+        title: 'Parent Stage',
+        sortable: true,
+        align: 'left',
+        width: '150px',
+        render: (value, record, allData) => {
+          if (!value && value !== 0) return React.createElement('span', { className: 'text-gray-400' }, '-');
+          const parent = allData?.find((item: any) => item.stage_id === value);
+          return parent
+            ? React.createElement('span', { className: 'text-gray-700' }, parent.stage_name)
+            : React.createElement('span', { className: 'text-gray-400' }, `ID: ${value}`);
+        }
+      },
       { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
       {
         key: 'active_flag',
@@ -1441,13 +1483,14 @@ export const entityConfigs: Record<string, EntityConfig> = {
     ],
 
     fields: [
-      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'level_name', label: 'Stage Name', type: 'text', required: true },
-      { key: 'level_descr', label: 'Description', type: 'textarea' },
-      { key: 'sort_order', label: 'Sort Order', type: 'number' }
+      { key: 'stage_id', label: 'Stage ID', type: 'number', required: true },
+      { key: 'stage_name', label: 'Stage Name', type: 'text', required: true },
+      { key: 'stage_descr', label: 'Description', type: 'textarea' },
+      { key: 'sort_order', label: 'Sort Order', type: 'number' },
+      { key: 'color_code', label: 'Color Code', type: 'text', placeholder: '#3B82F6' }
     ],
 
-    supportedViews: ['table'],
+    supportedViews: ['table', 'graph'],
     defaultView: 'table'
   },
 

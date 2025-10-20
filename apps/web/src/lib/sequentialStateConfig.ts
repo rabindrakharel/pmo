@@ -8,13 +8,11 @@
 /**
  * Field name patterns that indicate a sequential state field
  * These patterns are matched against field keys (case-insensitive)
+ * IMPORTANT: Only use 'stage' and 'funnel' to avoid matching non-sequential fields
  */
 export const SEQUENTIAL_STATE_PATTERNS = [
   'stage',      // project_stage, task_stage
-  'funnel',     // opportunity_funnel_level, sales_funnel
-  'pipeline',   // sales_pipeline, delivery_pipeline
-  'status',     // workflow_status, approval_status (but not active_flag)
-  'level'       // opportunity_funnel_level, maturity_level
+  'funnel'      // opportunity_funnel_stage, sales_funnel
 ] as const;
 
 /**
@@ -28,7 +26,13 @@ export const SEQUENTIAL_STATE_EXCLUSIONS = [
   'business_level_id',     // Hierarchical level, not sequential workflow
   'position_level_id',     // Hierarchical level, not sequential workflow
   'client_level_id',       // Hierarchical level, not sequential workflow
-  'hr_level_id'            // Hierarchical level, not sequential workflow
+  'hr_level_id',           // Hierarchical level, not sequential workflow
+  'priority_level',        // Priority level, not a sequential workflow
+  'priority',              // Priority field, not a sequential workflow
+  'status',                // Generic status, not a sequential workflow
+  'task_status',           // Task status, not a sequential workflow
+  'project_status',        // Project status, not a sequential workflow
+  'client_status'          // Client status, not a sequential workflow
 ] as const;
 
 /**
@@ -39,7 +43,7 @@ export const SEQUENTIAL_STATE_EXPLICIT_INCLUDES = [
   'project_stage',                    // Project workflow stages
   'task_stage',                       // Task workflow stages
   'stage',                            // Generic workflow stage
-  'opportunity_funnel_level_name',    // Client opportunity funnel
+  'opportunity_funnel_stage_name',    // Client opportunity funnel
   'publication_status',               // Wiki publication workflow
   'submission_status',                // Form submission workflow
   'approval_status'                   // Form approval workflow
@@ -82,8 +86,8 @@ export const SEQUENTIAL_STATE_FIELD_CONFIGS: Record<string, SequentialStateField
     showPastAsCompleted: true,
     allowJumping: true
   },
-  'opportunity_funnel_level_name': {
-    fieldKey: 'opportunity_funnel_level_name',
+  'opportunity_funnel_stage_name': {
+    fieldKey: 'opportunity_funnel_stage_name',
     label: 'Sales Funnel',
     showPastAsCompleted: true,
     allowJumping: true

@@ -11,7 +11,7 @@ export interface Column<T = any> {
   title: string;
   sortable?: boolean;
   filterable?: boolean;
-  render?: (value: any, record: T) => React.ReactNode;
+  render?: (value: any, record: T, allData?: T[]) => React.ReactNode;
   width?: string | number;
   align?: 'left' | 'center' | 'right';
   // For inline editing with dynamic options
@@ -811,7 +811,7 @@ export function DataTable<T = any>({
                               }}
                             >
                               {column.render
-                                ? column.render((record as any)[column.key], record)
+                                ? column.render((record as any)[column.key], record, data)
                                 : (record as any)[column.key]?.toString() || (
                                   <span className="text-gray-400 italic">—</span>
                                 )
@@ -947,7 +947,7 @@ export function DataTable<T = any>({
                               }}
                             >
                               {column.render
-                                ? column.render((record as any)[column.key], record)
+                                ? column.render((record as any)[column.key], record, data)
                                 : (record as any)[column.key]?.toString() || (
                                   <span className="text-gray-400 italic">—</span>
                                 )

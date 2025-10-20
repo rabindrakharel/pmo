@@ -20,7 +20,7 @@
 --
 -- 2. UPDATE CLIENT (Contact Changes, Status Updates, Relationship Upgrades)
 --    • Endpoint: PUT /api/v1/client/{id}
---    • Body: {primary_contact_name, primary_email, client_status, opportunity_funnel_level_name, customer_tier_name}
+--    • Body: {primary_contact_name, primary_email, client_status, opportunity_funnel_stage_name, customer_tier_name}
 --    • Returns: {id: "same-uuid", version: 2, updated_ts: "new-timestamp"}
 --    • Database: UPDATE SET [fields], version=version+1, updated_ts=now() WHERE id=$1
 --    • SCD Behavior: IN-PLACE UPDATE
@@ -29,7 +29,7 @@
 --      - updated_ts refreshed
 --      - NO archival (client tier can change: Lead → Prospect → Active Customer)
 --    • RBAC: Requires permission 1 (edit) on entity='client', entity_id={id} OR 'all'
---    • Business Rule: Changing opportunity_funnel_level_name reflects sales pipeline progress
+--    • Business Rule: Changing opportunity_funnel_stage_name reflects sales pipeline progress
 --
 -- 3. SOFT DELETE CLIENT (Account Closure)
 --    • Endpoint: DELETE /api/v1/client/{id}
@@ -91,9 +91,9 @@
 -- 8. SALES PIPELINE MOVEMENT (Opportunity Funnel)
 --    • Frontend Action: User moves client from "Lead" to "Qualified" in pipeline view
 --    • Endpoint: PUT /api/v1/client/{id}
---    • Body: {opportunity_funnel_level_name: "Qualified"}
---    • Database: UPDATE SET opportunity_funnel_level_name=$1, updated_ts=now(), version=version+1 WHERE id=$2
---    • Business Rule: opportunity_funnel_level_name loads from setting_datalabel_opportunity_funnel_level
+--    • Body: {opportunity_funnel_stage_name: "Qualified"}
+--    • Database: UPDATE SET opportunity_funnel_stage_name=$1, updated_ts=now(), version=version+1 WHERE id=$2
+--    • Business Rule: opportunity_funnel_stage_name loads from setting_datalabel_opportunity_funnel_stage
 --
 -- KEY SCD FIELDS:
 -- • id: Stable UUID (never changes, preserves project relationships and service history)
@@ -108,8 +108,8 @@
 -- • client_number: Unique client identifier (e.g., CL-RES-001, CL-COM-002)
 -- • client_type: Sector classification ('residential', 'commercial', 'municipal', 'industrial')
 -- • client_status: Account status ('active', 'inactive', 'prospect', 'former')
--- • opportunity_funnel_level_name: Sales pipeline stage (Lead, Qualified, Proposal, Contract Signed)
---   - Loaded from setting_datalabel_opportunity_funnel_level via /api/v1/setting?category=opportunity_funnel_level
+-- • opportunity_funnel_stage_name: Sales pipeline stage (Lead, Qualified, Proposal, Contract Signed)
+--   - Loaded from setting_datalabel_opportunity_funnel_stage via /api/v1/setting?category=opportunity_funnel_stage
 -- • customer_tier_name: Service tier ('Standard', 'Premium', 'Enterprise', 'Government')
 --   - Loaded from setting_datalabel_customer_tier via /api/v1/setting?category=customer_tier
 -- • industry_sector_name: Industry classification (Residential, Commercial Real Estate, Healthcare, Education)
@@ -167,7 +167,7 @@ CREATE TABLE app.d_client (
   business_number text,
 
   -- Sales and Marketing
-  opportunity_funnel_level_name text,  -- Setting name from setting_opportunity_funnel_level
+  opportunity_funnel_stage_name text,  -- Setting name from setting_opportunity_funnel_stage
   industry_sector_name text,           -- Setting name from setting_industry_sector
   acquisition_channel_name text,       -- Setting name from setting_acquisition_channel
   customer_tier_name text,             -- Setting name from setting_customer_tier
@@ -195,7 +195,7 @@ INSERT INTO app.d_client (
   slug, code, name, client_number, client_type, client_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  opportunity_funnel_level_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
+  opportunity_funnel_stage_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
   tags, metadata
 ) VALUES
 ('thompson-family-residence', 'CL-RES-001', 'Thompson Family Residence', 'CL-RES-001', 'residential', 'active',
@@ -217,7 +217,7 @@ INSERT INTO app.d_client (
   slug, code, name, client_number, client_type, client_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  opportunity_funnel_level_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
+  opportunity_funnel_stage_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
   tags, metadata
 ) VALUES
 ('martinez-family-home', 'CL-RES-002', 'Martinez Family Home', 'CL-RES-002', 'residential', 'active',
@@ -239,7 +239,7 @@ INSERT INTO app.d_client (
   slug, code, name, client_number, client_type, client_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  opportunity_funnel_level_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
+  opportunity_funnel_stage_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
   tags, metadata
 ) VALUES
 ('square-one-shopping', 'CL-COM-001', 'Square One Shopping Centre', 'CL-COM-001', 'commercial', 'active',
@@ -268,7 +268,7 @@ INSERT INTO app.d_client (
   slug, code, name, client_number, client_type, client_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  opportunity_funnel_level_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
+  opportunity_funnel_stage_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
   tags, metadata
 ) VALUES
 ('city-of-mississauga', 'CL-MUN-001', 'City of Mississauga', 'CL-MUN-001', 'municipal', 'active',
@@ -283,7 +283,7 @@ INSERT INTO app.d_client (
   slug, code, name, client_number, client_type, client_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  opportunity_funnel_level_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
+  opportunity_funnel_stage_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
   tags, metadata
 ) VALUES
 ('trillium-health', 'CL-COM-006', 'Trillium Health Partners', 'CL-COM-006', 'commercial', 'active',
@@ -305,7 +305,7 @@ INSERT INTO app.d_client (
   slug, code, name, client_number, client_type, client_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  opportunity_funnel_level_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
+  opportunity_funnel_stage_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
   tags, metadata
 ) VALUES
 ('magna-international', 'CL-COM-008', 'Magna International', 'CL-COM-008', 'commercial', 'active',

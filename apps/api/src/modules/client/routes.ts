@@ -29,7 +29,7 @@ const ClientSchema = Type.Object({
   primary_phone: Type.Optional(Type.String()),
   city: Type.Optional(Type.String()),
   // Sales and marketing fields - _name columns only
-  opportunity_funnel_level_name: Type.Optional(Type.String()),
+  opportunity_funnel_stage_name: Type.Optional(Type.String()),
   industry_sector_name: Type.Optional(Type.String()),
   acquisition_channel_name: Type.Optional(Type.String()),
   customer_tier_name: Type.Optional(Type.String()),
@@ -111,7 +111,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
           c.id, c.name, c."descr", c.tags, c.metadata as attr, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts,
           c.client_number, c.client_type, c.client_status, c.primary_contact_name,
           c.primary_email, c.primary_phone, c.city,
-          c.opportunity_funnel_level_name,
+          c.opportunity_funnel_stage_name,
           c.industry_sector_name,
           c.acquisition_channel_name,
           c.customer_tier_name
@@ -159,7 +159,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
           c.id, c.name, c."descr", c.tags, c.metadata as attr, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts,
           c.client_number, c.client_type, c.client_status, c.primary_contact_name,
           c.primary_email, c.primary_phone, c.city,
-          c.opportunity_funnel_level_name,
+          c.opportunity_funnel_stage_name,
           c.industry_sector_name,
           c.acquisition_channel_name,
           c.customer_tier_name
@@ -213,7 +213,7 @@ export async function clientRoutes(fastify: FastifyInstance) {
           c.id, c.name, c."descr", c.tags, c.metadata as attr, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts,
           c.client_number, c.client_type, c.client_status, c.primary_contact_name,
           c.primary_email, c.primary_phone, c.city,
-          c.opportunity_funnel_level_name,
+          c.opportunity_funnel_stage_name,
           c.industry_sector_name,
           c.acquisition_channel_name,
           c.customer_tier_name

@@ -11,7 +11,8 @@ tools/
 ├── README.md          # This guide
 ├── start-all.sh       # Start all services (DB + API + Web)
 ├── restart-api.sh     # Restart API server only
-├── db-import.sh       # Import database schema (28 DDL files)
+├── db-import.sh       # Import database schema (29 DDL files)
+├── run_query.sh       # Execute SQL queries against the database
 ├── test-api.sh        # Generic API testing tool
 ├── logs-api.sh        # View API server logs
 └── logs-web.sh        # View web application logs
@@ -93,7 +94,7 @@ tools/
 
 **What it does:**
 - Drops existing schema
-- Imports 28 DDL files in dependency order
+- Imports 29 DDL files in dependency order
 - Validates schema integrity
 - Loads sample data (5 employees, 5 projects, 8 tasks, etc.)
 
@@ -109,6 +110,44 @@ tools/
 - After schema changes
 - Data corruption recovery
 - Development data refresh
+
+### Run Database Queries
+
+```bash
+./tools/run_query.sh "SELECT * FROM app.d_project LIMIT 5;"
+```
+
+**What it does:**
+- Executes SQL queries directly against the database
+- Provides formatted output with color coding
+- Supports all PostgreSQL commands and queries
+- Uses same credentials as db-import script
+
+**Examples:**
+```bash
+# Query data
+./tools/run_query.sh "SELECT * FROM app.d_employee;"
+./tools/run_query.sh "SELECT COUNT(*) FROM app.d_project;"
+
+# Describe table structure
+./tools/run_query.sh "\d app.d_project"
+
+# List all tables
+./tools/run_query.sh "\dt app.*"
+
+# Query with joins
+./tools/run_query.sh "SELECT p.name, e.first_name FROM app.d_project p JOIN app.d_employee e ON p.owner_id = e.id;"
+
+# Check settings data
+./tools/run_query.sh "SELECT * FROM app.setting_datalabel_project_stage ORDER BY sort_order;"
+```
+
+**When to use:**
+- Quick data verification
+- Ad-hoc queries during development
+- Debugging data issues
+- Checking table structures
+- Verifying data imports
 
 ---
 
@@ -137,10 +176,13 @@ tools/
 # 1. Start everything
 ./tools/start-all.sh
 
-# 2. Test API is working
+# 2. Verify database
+./tools/run_query.sh "SELECT COUNT(*) FROM app.d_employee;"
+
+# 3. Test API is working
 ./tools/test-api.sh GET /api/v1/form
 
-# 3. Monitor API logs
+# 4. Monitor API logs
 ./tools/logs-api.sh -f
 ```
 
@@ -149,10 +191,13 @@ tools/
 # 1. Reimport database
 ./tools/db-import.sh
 
-# 2. Restart API server
+# 2. Verify schema changes
+./tools/run_query.sh "\d app.setting_datalabel_project_stage"
+
+# 3. Restart API server
 ./tools/restart-api.sh
 
-# 3. Test endpoints
+# 4. Test endpoints
 ./tools/test-api.sh GET /api/v1/project
 ```
 
@@ -170,13 +215,16 @@ tools/
 
 ### Debugging Issues
 ```bash
-# 1. Check API logs
+# 1. Check database data
+./tools/run_query.sh "SELECT * FROM app.d_employee WHERE id='8260b1b0-5efc-4611-ad33-ee76c0cf7f13';"
+
+# 2. Check API logs
 ./tools/logs-api.sh
 
-# 2. Check web logs
+# 3. Check web logs
 ./tools/logs-web.sh
 
-# 3. Test specific endpoint
+# 4. Test specific endpoint
 ./tools/test-api.sh GET /api/v1/employee
 ```
 

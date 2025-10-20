@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Tag, Search, ChevronDown, X, Wrench } from 'lucide-react';
-import { Layout, FilteredDataTable } from '../../components/shared';
+import { Layout, FilteredDataTable, EntityEditModal } from '../../components/shared';
 import { ENTITY_ICONS, ENTITY_GROUPS } from '../../lib/entityIcons';
+import { getEntityConfig } from '../../lib/entityConfig';
 
 type SettingTab =
   | 'projectStage'
@@ -33,6 +34,12 @@ export function LabelsPage() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // State for create/edit modal
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingEntityType, setEditingEntityType] = useState<string | null>(null);
+  const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Entity-grouped settings configuration using centralized icons
   const entityGroups: EntityGroup[] = [
@@ -130,6 +137,29 @@ export function LabelsPage() {
       pink: { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-200' },
     };
     return colors[color] || colors.blue;
+  };
+
+  // Handler for creating new label
+  const handleCreateClick = (entityType: string) => {
+    setEditingEntityType(entityType);
+    setEditingEntityId('new');
+    setIsCreateModalOpen(true);
+  };
+
+  // Handler for modal save
+  const handleModalSave = () => {
+    setIsCreateModalOpen(false);
+    setEditingEntityType(null);
+    setEditingEntityId(null);
+    // Trigger refresh of the table
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  // Handler for modal close
+  const handleModalClose = () => {
+    setIsCreateModalOpen(false);
+    setEditingEntityType(null);
+    setEditingEntityId(null);
   };
 
   return (
@@ -289,9 +319,14 @@ export function LabelsPage() {
                       {/* Data Table */}
                       <div className="p-4">
                         <FilteredDataTable
+                          key={`${settingId}-${refreshTrigger}`}
                           entityType={settingId}
+                          showActionButtons={true}
+                          createLabel={`Create ${setting?.label || 'Label'}`}
+                          onCreateClick={() => handleCreateClick(settingId)}
                           showActionIcons={true}
                           showEditIcon={true}
+                          showDeleteIcon={true}
                           inlineEditable={true}
                         />
                       </div>
@@ -303,6 +338,17 @@ export function LabelsPage() {
           </div>
         </div>
       </div>
+
+      {/* Create/Edit Modal */}
+      {editingEntityType && (
+        <EntityEditModal
+          entityType={editingEntityType}
+          entityId={editingEntityId}
+          isOpen={isCreateModalOpen}
+          onClose={handleModalClose}
+          onSave={handleModalSave}
+        />
+      )}
     </Layout>
   );
 }

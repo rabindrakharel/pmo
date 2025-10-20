@@ -82,7 +82,6 @@ CREATE TABLE app.setting_datalabel_task_stage (
     level_name varchar(50) NOT NULL UNIQUE,
     level_descr text,
     sort_order integer,
-    color_code varchar(7), -- Hex color for UI
     parent_id integer, -- Enables graph-like flow relationships between stages
     active_flag boolean DEFAULT true,
     created_ts timestamptz DEFAULT now()
@@ -98,14 +97,14 @@ CREATE INDEX idx_task_stage_parent ON app.setting_datalabel_task_stage(parent_id
 -- Task workflow stages with parent_id relationships showing typical flow graph
 -- parent_id represents the most common preceding stage (null for initial states)
 
-INSERT INTO app.setting_datalabel_task_stage (level_id, level_name, level_descr, sort_order, color_code, parent_id) VALUES
-(0, 'Backlog', 'Task identified but not started. Awaiting prioritization and sprint assignment.', 1, '#6B7280', NULL),
-(1, 'To Do', 'Task ready to be started. Assigned to current sprint and ready for work.', 2, '#3B82F6', 0),
-(2, 'In Progress', 'Task currently being worked on. Active development or execution phase.', 3, '#F59E0B', 1),
-(3, 'In Review', 'Task completed, awaiting review. Pending quality check or stakeholder approval.', 4, '#8B5CF6', 2),
-(4, 'Blocked', 'Task blocked by external dependency. Cannot progress until blocker is resolved.', 5, '#EF4444', 2),
-(5, 'Done', 'Task completed successfully. Deliverables accepted and verified. Terminal state.', 6, '#10B981', 3),
-(6, 'Cancelled', 'Task cancelled before completion. No longer relevant or needed. Terminal state.', 7, '#6B7280', NULL);
+INSERT INTO app.setting_datalabel_task_stage (level_id, level_name, level_descr, sort_order, parent_id) VALUES
+(0, 'Backlog', 'Task identified but not started. Awaiting prioritization and sprint assignment.', 1, NULL),
+(1, 'To Do', 'Task ready to be started. Assigned to current sprint and ready for work.', 2, 0),
+(2, 'In Progress', 'Task currently being worked on. Active development or execution phase.', 3, 1),
+(3, 'In Review', 'Task completed, awaiting review. Pending quality check or stakeholder approval.', 4, 2),
+(4, 'Blocked', 'Task blocked by external dependency. Cannot progress until blocker is resolved.', 5, 2),
+(5, 'Done', 'Task completed successfully. Deliverables accepted and verified. Terminal state.', 6, 3),
+(6, 'Cancelled', 'Task cancelled before completion. No longer relevant or needed. Terminal state.', 7, NULL);
 
 -- Add foreign key constraint to reference setting tables
 ALTER TABLE app.d_task

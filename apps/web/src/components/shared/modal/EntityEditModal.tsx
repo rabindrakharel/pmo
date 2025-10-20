@@ -23,7 +23,7 @@ import { APIFactory } from '../../../lib/api';
 
 interface EntityEditModalProps {
   entityType: string;
-  entityId: string;
+  entityId: string | null;
   isOpen: boolean;
   onClose: () => void;
   onSave?: () => void;
@@ -43,11 +43,22 @@ export function EntityEditModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Determine if this is create mode
+  const isCreateMode = !entityId || entityId === 'new';
+
   useEffect(() => {
-    if (isOpen && entityId) {
-      loadData();
+    if (isOpen) {
+      if (isCreateMode) {
+        // Create mode: Initialize with empty data
+        setLoading(false);
+        setData({});
+        setEditedData({});
+      } else if (entityId) {
+        // Edit mode: Load existing data
+        loadData();
+      }
     }
-  }, [isOpen, entityId, entityType]);
+  }, [isOpen, entityId, entityType, isCreateMode]);
 
   const loadData = async () => {
     try {
@@ -91,7 +102,14 @@ export function EntityEditModal({
       });
 
       const api = APIFactory.getAPI(entityType);
-      await api.update(entityId, normalizedData);
+
+      if (isCreateMode) {
+        // Create new record
+        await api.create(normalizedData);
+      } else {
+        // Update existing record
+        await api.update(entityId!, normalizedData);
+      }
 
       if (onSave) {
         onSave();
@@ -132,17 +150,23 @@ export function EntityEditModal({
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
         <div
-          className="relative bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
+          className="relative bg-white rounded-lg shadow-xl w-full max-h-[90vh] overflow-hidden"
+          style={{ maxWidth: '1165px' }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header - Matches EntityDetailPage header styling */}
           <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
             <div>
               <h2 className="text-sm font-normal text-gray-500">
-                {editedData?.name || editedData?.title || `${config.displayName} Details`}
-                <span className="text-xs font-light text-gray-500 ml-3">
-                  {config.displayName} · {entityId?.slice(0, 8)}...
-                </span>
+                {isCreateMode
+                  ? `Create New ${config.displayName}`
+                  : (editedData?.name || editedData?.title || `${config.displayName} Details`)
+                }
+                {!isCreateMode && (
+                  <span className="text-xs font-light text-gray-500 ml-3">
+                    {config.displayName} · {entityId?.slice(0, 8)}...
+                  </span>
+                )}
               </h2>
             </div>
 

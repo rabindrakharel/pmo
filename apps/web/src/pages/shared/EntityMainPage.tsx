@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react';
 import { Layout, FilteredDataTable, ViewSwitcher } from '../../components/shared';
 import { KanbanBoard, KanbanColumn } from '../../components/shared/ui/KanbanBoard';
 import { GridView } from '../../components/shared/ui/GridView';
+import { SequentialStateVisualizer } from '../../components/shared/entity/SequentialStateVisualizer';
 import { useViewMode } from '../../lib/hooks/useViewMode';
 import { getEntityConfig, ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
@@ -213,6 +214,36 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
             descriptionField={config.grid.cardFields[1] || 'descr'}
             badgeFields={config.grid.cardFields.slice(2) || []}
             imageField={config.grid.imageField}
+          />
+        </div>
+      );
+    }
+
+    // GRAPH VIEW (RAG timeline visualization)
+    if (view === 'graph') {
+      // Transform data to StateOption format for SequentialStateVisualizer
+      const states = data.map((item: any) => ({
+        value: item.stage_name || item.level_name || item.name || String(item.stage_id || item.level_id || item.id),
+        label: item.stage_name || item.level_name || item.name || String(item.stage_id || item.level_id || item.id),
+        sort_order: item.sort_order,
+        metadata: {
+          level_id: item.stage_id ?? item.level_id ?? item.id,
+          level_descr: item.stage_descr || item.level_descr || item.descr,
+          sort_order: item.sort_order,
+          color_code: item.color_code,
+          active_flag: item.active_flag,
+          parent_id: item.parent_id
+        }
+      }));
+
+      return (
+        <div className="bg-white rounded-lg shadow p-6">
+          <SequentialStateVisualizer
+            states={states}
+            currentState={null}
+            mode="horizontal"
+            editable={false}
+            className="w-full"
           />
         </div>
       );

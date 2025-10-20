@@ -193,13 +193,36 @@ import { Save } from 'lucide-react';
 
 ---
 
-### Sequential State Visualization Pattern
+### Sequential State Visualization - Universal Timeline Component
 
 **Location:** `apps/web/src/components/shared/entity/SequentialStateVisualizer.tsx`
 
 **Configuration:** `apps/web/src/lib/sequentialStateConfig.ts`
 
-All workflow stages, sales funnels, and sequential states are visualized using an interactive timeline component that shows progression from left to right.
+**Usage:** Entity detail pages, entity forms, settings graph views, labels management
+
+A single reusable component that visualizes all workflow stages, sales funnels, and sequential states using an interactive timeline with **consistent gray styling** showing progression from left to right.
+
+#### Visualization Features
+
+**Consistent Design:**
+- **Single color scheme** - All states use the same gray color (`#6B7280`)
+- **Hollow circles** for all states (only current state is filled)
+- **Checkmark icon** on the current active stage
+- **Lines touch circles directly** - No gaps between connectors and circles
+- **Solid lines** for completed progression, **dotted lines** for future states
+- **Clean typography** - No bold text, consistent font weight throughout
+- **Labels centered** directly below circles
+
+**Visual Example:**
+```
+○ ──── ○ ──── ● .... ○ .... ○
+Past   Past  Current Future Future
+Hollow Hollow Filled Hollow Hollow
+       ↑
+Solid lines    Dotted lines
+(Gray)         (Gray)
+```
 
 #### What are Sequential States?
 
@@ -214,20 +237,39 @@ Sequential states represent ordered progressions through workflows, pipelines, o
 
 #### Visual Design
 
-**Read-Only Mode (Display):**
-```
-  ●───────●───────●───────●───────●
-Lead   Qualified  (PROPOSAL)  Negotiation  Contract
-                   [Highlighted]
-```
+**Consistent Gray Color Scheme:**
 
-**Interactive Mode (Edit/Create):**
-- Hover: Circles scale up, labels highlight
-- Click: Jump directly to any state
-- Tooltip: "Click to set state to [name]"
-- Current state: Blue circle with checkmark, ring effect
-- Past states: Light blue with checkmarks
-- Future states: Gray, dimmed
+All states use a single gray color (`#6B7280`) for a clean, professional appearance:
+- **Circles:** All have gray borders, only active state is filled
+- **Lines:** Gray solid lines for completed, gray dotted lines for future
+- **Labels:** Gray text (`text-gray-600`) centered below circles
+- **No color coding** - Focus on progression, not colors
+
+**Display Modes:**
+
+**1. Horizontal Mode (Default):**
+```
+○ ──── ○ ──── ● .... ○ .... ○
+```
+- Hollow circles with gray borders
+- Lines touch circles directly (no gaps)
+- Solid lines for completed progression
+- Dotted lines for future states
+- Checkmark (✓) on current stage only
+- Labels positioned directly below circles
+
+**2. Compact Mode:**
+- Progress bar with percentage
+- Current stage name display
+- Expandable to show all stages
+
+**Interactive Features (Edit/Create Mode):**
+- **Hover:** Subtle scale effect (110%)
+- **Click:** Jump directly to any state
+- **Tooltip:** "Click to set state to [stage name]"
+- **Current State:** Filled gray circle + white checkmark
+- **Past States:** Hollow circles with gray borders, solid connecting lines
+- **Future States:** Hollow circles with gray borders, dotted connecting lines
 
 #### How It Works
 
@@ -365,9 +407,9 @@ GET /api/v1/setting?category=project_stage
 ```json
 {
   "data": [
-    { "value": "Initiation", "label": "Initiation", "sort_order": 1 },
-    { "value": "Planning", "label": "Planning", "sort_order": 2 },
-    { "value": "Execution", "label": "Execution", "sort_order": 3 }
+    { "value": "Initiation", "label": "Initiation", "sort_order": 1, "parent_id": null },
+    { "value": "Planning", "label": "Planning", "sort_order": 2, "parent_id": 0 },
+    { "value": "Execution", "label": "Execution", "sort_order": 3, "parent_id": 1 }
   ]
 }
 ```
@@ -380,16 +422,19 @@ The `sort_order` field determines the left-to-right sequence in the visualizatio
 
 1. `setting_datalabel_project_stage` - Project lifecycle stages
 2. `setting_datalabel_task_stage` - Task workflow stages
-3. `setting_datalabel_opportunity_funnel_level` - Sales pipeline
+3. `setting_datalabel_opportunity_funnel_stage` - Sales pipeline
 4. `setting_datalabel_wiki_publication_status` - Wiki publishing workflow
 5. `setting_datalabel_form_submission_status` - Form submission states
 6. `setting_datalabel_form_approval_status` - Form approval workflow
 
-Each table includes:
-- `level_name` - The state name (e.g., "Planning")
+**Each table includes:**
+- `level_name` or `stage_name` - The state name (e.g., "Planning")
 - `sort_order` - Sequential ordering (1, 2, 3...)
+- `parent_id` - Optional parent stage for hierarchical relationships
 - `active_flag` - Whether the state is currently available
-- `level_descr` - Description/tooltip text
+- `level_descr` or `stage_descr` - Description/tooltip text
+
+**Note:** The `color_code` field has been removed. All visualizations use consistent gray styling.
 
 #### Benefits
 
@@ -418,6 +463,179 @@ Each table includes:
 - Field: `opportunity_funnel_level_name`
 - Display: ● Lead → ● Qualified → ● Site Visit → ● **Proposal Sent** → ○ Negotiation → ○ Contract Signed
 - Sales team sees exactly where client is in the sales process
+
+#### Component Reusability - One Component, Multiple Use Cases
+
+The SequentialStateVisualizer is a universal component used throughout the platform:
+
+**Use Case 1: Entity Detail Pages**
+```typescript
+// Shows current state of a single entity (e.g., project is "In Progress")
+<SequentialStateVisualizer
+  states={projectStages}
+  currentState="In Progress"
+  editable={false}
+  mode="horizontal"
+/>
+```
+
+**Use Case 2: Entity Edit/Create Forms**
+```typescript
+// Interactive state selection in forms
+<SequentialStateVisualizer
+  states={projectStages}
+  currentState={formData.project_stage}
+  editable={true}
+  onStateChange={(newState) => updateField('project_stage', newState)}
+  mode="horizontal"
+/>
+```
+
+**Use Case 3: Settings Graph View**
+```typescript
+// Overview of all available stages/levels
+<SequentialStateVisualizer
+  states={allProjectStages}
+  currentState={null}
+  editable={false}
+  mode="horizontal"
+/>
+```
+
+**Access Settings Graph View:**
+```
+http://localhost:5173/labels → Select a label type → Click Graph icon
+```
+
+All settings entities with sequential data can be visualized:
+- Project Stages: Initiation → Planning → Execution → Monitoring → Closure
+- Task Stages: Backlog → To Do → In Progress → In Review → Done
+- Opportunity Funnel: Lead → Qualified → Site Visit → Proposal → Negotiation → Contract
+
+**Enable Graph View:**
+```typescript
+// In entityConfig.ts
+projectStage: {
+  supportedViews: ['table', 'graph'],  // ← Enables graph view
+  defaultView: 'table'
+}
+```
+
+**Benefits:**
+✅ **Single Source of Truth** - One component for all sequential state visualization
+✅ **Consistent UX** - Same gray color scheme and interactions everywhere
+✅ **DRY Principle** - No duplicate visualization code
+✅ **Maintainable** - Update visualization in one place, affects entire platform
+✅ **Flexible** - Same component adapts via props for different contexts
+✅ **Clean Design** - Professional monochrome appearance with clear progression indicators
+
+---
+
+### Labels Management - Full CRUD Interface
+
+**Location:** `apps/web/src/pages/labels/LabelsPage.tsx`
+
+**URL:** `http://localhost:5173/labels`
+
+**Purpose:** Centralized interface for managing all settings/datalabel tables with full Create, Read, Update, Delete capabilities.
+
+#### Features
+
+**Multi-Select Interface:**
+- Searchable dropdown to select which label types to manage
+- Multiple tables can be displayed simultaneously
+- Grouped by entity type (Project, Task, Business, Client, Employee)
+- Icon-based organization matching entity icons
+
+**Full CRUD Operations:**
+
+**1. CREATE:**
+- Click "Create [Label Type]" button above any data table
+- Modal opens with empty form
+- Fill required fields (ID, name, description, color code, etc.)
+- Save creates new label in database
+
+**2. READ:**
+- All labels displayed in data tables with parent ID columns
+- Table view shows all fields including parent relationships
+- Graph view for hierarchical visualization
+- Parent stage/level names resolved and displayed
+
+**3. UPDATE/EDIT:**
+- Click edit icon (pencil) on any row
+- Modal opens with existing data pre-filled
+- Modify fields as needed
+- Save updates the record
+- Also supports inline editing for simple fields
+
+**4. DELETE:**
+- Click delete icon (trash) on any row
+- Confirmation prompt appears
+- Record is soft-deleted from database
+- Table refreshes automatically
+
+#### Managed Label Types
+
+**Project Labels:**
+- Project Stage - Lifecycle stages with RAG colors
+
+**Task Labels:**
+- Task Stage - Workflow stages with parent relationships
+
+**Business Labels:**
+- Business Level - Organizational hierarchy
+- Org Level - Organization structure
+
+**Employee Labels:**
+- Position Level - Position hierarchy
+
+**Client Labels:**
+- Opportunity Funnel - Sales pipeline stages with branching
+- Industry Sector - Client industry classifications
+- Acquisition Channel - Client acquisition sources
+- Customer Tier - Service tier levels
+
+#### Parent-Child Relationships
+
+**Parent ID Column:**
+Tables now display parent relationships with resolved names:
+```
+┌────────┬──────────────┬─────────────────┬──────────────────┐
+│ ID     │ Name         │ Parent Stage    │ Sort Order       │
+├────────┼──────────────┼─────────────────┼──────────────────┤
+│ 0      │ Lead         │ -               │ 1                │
+│ 1      │ Qualified    │ Lead            │ 2                │  ← Shows parent name
+│ 3      │ Proposal     │ Qualified       │ 3                │  ← Not just ID
+│ 7      │ On Hold      │ Negotiation     │ 8                │  ← Resolved from parent_id
+└────────┴──────────────┴─────────────────┴──────────────────┘
+```
+
+**Benefits:**
+- See relationships at a glance
+- Understand hierarchical structure
+- Identify branches in workflows
+- Validate data consistency
+
+#### Color Code Management
+
+All color codes use standard hex format and follow RAG (Red-Amber-Green) principles:
+- **Gray (#6B7280)** - Initial/neutral states
+- **Blue (#3B82F6)** - In progress/active states
+- **Amber (#F59E0B)** - Warning/review states
+- **Green (#10B981)** - Success/completion states
+- **Red (#EF4444)** - Error/blocked/lost states
+- **Purple (#8B5CF6)** - Special/final states
+
+#### Integration
+
+Labels automatically appear in:
+- Entity form dropdowns (with sequential visualization)
+- Data table filters
+- Kanban board columns
+- Graph visualizations
+- Parent-child relationship displays
+
+All changes take effect immediately across the platform.
 
 ---
 
@@ -998,10 +1216,10 @@ DATA MODEL:
 
   1. setting_datalabel_office_level - Office hierarchy (4 levels)
   2. setting_datalabel_business_level - Business hierarchy (3 levels)
-  3. setting_datalabel_project_stage - Project lifecycle stages
-  4. setting_datalabel_task_stage - Task workflow stages
+  3. setting_datalabel_project_stage - Project lifecycle stages (with parent_id, color_code)
+  4. setting_datalabel_task_stage - Task workflow stages (with parent_id, color_code)
   5. setting_datalabel_position_level - Position hierarchy
-  6. setting_datalabel_opportunity_funnel_level - Sales pipeline stages
+  6. setting_datalabel_opportunity_funnel_stage - Sales pipeline stages (with parent_id, color_code, branching support)
   7. setting_datalabel_industry_sector - Client industry classifications
   8. setting_datalabel_acquisition_channel - Client acquisition sources
   9. setting_datalabel_customer_tier - Customer service tiers
@@ -1012,6 +1230,12 @@ DATA MODEL:
   14. setting_datalabel_wiki_publication_status - Wiki publication states
   15. setting_datalabel_form_approval_status - Form approval workflow states
   16. setting_datalabel_form_submission_status - Form submission states
+
+  **Enhanced Features:**
+  - **RAG Color Codes:** All stage/funnel tables include `color_code` field for visual consistency
+  - **Hierarchical Support:** Tables with `parent_id` support branching workflows (e.g., "On Hold", "Blocked")
+  - **Graph Visualization:** Hierarchical tables can be viewed as interactive graphs
+  - **Parent Name Resolution:** Data tables show parent names instead of just IDs
 
 ---
 

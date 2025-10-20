@@ -9,13 +9,15 @@ const SettingItemSchema = Type.Object({
   id: Type.String(),
   name: Type.Optional(Type.String()),
   level_name: Type.Optional(Type.String()),
+  stage_name: Type.Optional(Type.String()), // For stage-based settings (opportunity_funnel_stage, etc.)
   descr: Type.Optional(Type.String()),
   level_descr: Type.Optional(Type.String()),
+  stage_descr: Type.Optional(Type.String()), // For stage-based settings
   code: Type.Optional(Type.String()),
   level_id: Type.Optional(Type.Number()),
+  stage_id: Type.Optional(Type.Number()), // For stage-based settings
   sort_id: Type.Optional(Type.Number()),
   sort_order: Type.Optional(Type.Number()),
-  color_code: Type.Optional(Type.String()),
   parent_id: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
   country_code: Type.Optional(Type.String()),
   salary_band_min: Type.Optional(Type.Number()),
@@ -120,7 +122,6 @@ export async function settingRoutes(fastify: FastifyInstance) {
             level_descr,
             level_id,
             sort_order,
-            color_code,
             parent_id,
             null as tags,
             null as attr,
@@ -166,7 +167,6 @@ export async function settingRoutes(fastify: FastifyInstance) {
             level_descr,
             level_id,
             sort_order,
-            color_code,
             parent_id,
             null as tags,
             null as attr,
@@ -290,13 +290,13 @@ export async function settingRoutes(fastify: FastifyInstance) {
           ORDER BY level_id ASC
         `;
         categoryName = 'position_level';
-      } else if (category === 'opportunity_funnel_level') {
+      } else if (category === 'opportunity_funnel_stage') {
         query = sql`
           SELECT
-            level_id::text as id,
-            level_name,
-            level_descr,
-            level_id,
+            stage_id::text as id,
+            stage_name,
+            stage_descr,
+            stage_id,
             sort_order,
             parent_id,
             null as tags,
@@ -306,11 +306,11 @@ export async function settingRoutes(fastify: FastifyInstance) {
             active_flag,
             created_ts as created,
             created_ts as updated
-          FROM app.setting_datalabel_opportunity_funnel_level
+          FROM app.setting_datalabel_opportunity_funnel_stage
           WHERE active_flag = ${active !== false}
-          ORDER BY sort_order ASC, level_name ASC
+          ORDER BY sort_order ASC, stage_name ASC
         `;
-        categoryName = 'opportunity_funnel_level';
+        categoryName = 'opportunity_funnel_stage';
       } else if (category === 'industry_sector') {
         query = sql`
           SELECT
@@ -743,9 +743,9 @@ export async function settingRoutes(fastify: FastifyInstance) {
         case 'position_level':
           tableName = 'app.setting_datalabel_position_level';
           break;
-        case 'opportunity_funnel_level':
-          tableName = 'app.setting_datalabel_opportunity_funnel_level';
-          idField = 'level_id';
+        case 'opportunity_funnel_stage':
+          tableName = 'app.setting_datalabel_opportunity_funnel_stage';
+          idField = 'stage_id';
           break;
         case 'industry_sector':
           tableName = 'app.setting_datalabel_industry_sector';
@@ -791,7 +791,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
       }
 
       // Only add updated_ts if the table has it (most status/position tables have it, new level tables don't)
-      const hasUpdatedTs = !['opportunity_funnel_level', 'industry_sector', 'acquisition_channel', 'office_level', 'business_level', 'project_stage', 'task_stage'].some(t => tableName.includes(t));
+      const hasUpdatedTs = !['opportunity_funnel_stage', 'industry_sector', 'acquisition_channel', 'office_level', 'business_level', 'project_stage', 'task_stage'].some(t => tableName.includes(t));
       if (hasUpdatedTs) {
         updateFields.push(sql`updated_ts = NOW()`);
       }
@@ -881,9 +881,9 @@ export async function settingRoutes(fastify: FastifyInstance) {
         case 'position_level':
           tableName = 'app.setting_datalabel_position_level';
           break;
-        case 'opportunity_funnel_level':
-          tableName = 'app.setting_datalabel_opportunity_funnel_level';
-          idField = 'level_id';
+        case 'opportunity_funnel_stage':
+          tableName = 'app.setting_datalabel_opportunity_funnel_stage';
+          idField = 'stage_id';
           break;
         case 'industry_sector':
           tableName = 'app.setting_datalabel_industry_sector';
@@ -903,7 +903,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
 
       // Soft delete by setting active_flag = false
       // Only update to_ts and updated_ts if they exist (new tables don't have updated_ts or to_ts)
-      const hasTimestamps = !['opportunity_funnel_level', 'industry_sector', 'acquisition_channel', 'customer_tier'].some(t => tableName.includes(t));
+      const hasTimestamps = !['opportunity_funnel_stage', 'industry_sector', 'acquisition_channel', 'customer_tier'].some(t => tableName.includes(t));
 
       let updateQuery;
       if (hasTimestamps) {

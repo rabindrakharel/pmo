@@ -15,7 +15,6 @@ export interface SettingOption {
     level_id?: number;
     level_descr?: string;
     sort_order?: number;
-    color_code?: string;
     active_flag?: boolean;
   };
 }
@@ -41,7 +40,7 @@ export const FIELD_TO_SETTING_MAP: Record<string, string> = {
   'priority_level': 'task_priority',
 
   // Client fields
-  'opportunity_funnel_level_name': 'opportunity_funnel_level',
+  'opportunity_funnel_stage_name': 'opportunity_funnel_stage',
   'industry_sector_name': 'industry_sector',
   'acquisition_channel_name': 'acquisition_channel',
   'customer_tier_name': 'customer_tier',
@@ -82,7 +81,7 @@ export const SETTING_CATEGORY_TO_ENDPOINT: Record<string, string> = {
   'task_stage': '/api/v1/setting?category=task_stage',
   'task_status': '/api/v1/setting?category=task_status',
   'task_priority': '/api/v1/setting?category=task_priority',
-  'opportunity_funnel_level': '/api/v1/setting?category=opportunity_funnel_level',
+  'opportunity_funnel_stage': '/api/v1/setting?category=opportunity_funnel_stage',
   'industry_sector': '/api/v1/setting?category=industry_sector',
   'acquisition_channel': '/api/v1/setting?category=acquisition_channel',
   'customer_tier': '/api/v1/setting?category=customer_tier',
@@ -163,18 +162,24 @@ export async function loadSettingOptions(
     // Transform to SettingOption format
     const options: SettingOption[] = data
       .filter((item: any) => item.active_flag !== false) // Only active items
-      .map((item: any) => ({
-        // Use level_name as value for text-based fields, otherwise use level_id or id
-        value: item.level_name || (item.level_id !== undefined ? item.level_id : item.id),
-        label: item.level_name || item.name || item.title || String(item.id),
-        metadata: {
-          level_id: item.level_id,
-          level_descr: item.level_descr || item.descr,
-          sort_order: item.sort_order,
-          color_code: item.color_code,
-          active_flag: item.active_flag,
-        }
-      }))
+      .map((item: any) => {
+        // Support both stage_* and level_* field naming patterns
+        const name = item.stage_name || item.level_name || item.name || item.title;
+        const id = item.stage_id ?? item.level_id ?? item.id;
+        const descr = item.stage_descr || item.level_descr || item.descr;
+
+        return {
+          // Use name as value for text-based fields, otherwise use id
+          value: name || (id !== undefined ? id : item.id),
+          label: name || String(item.id),
+          metadata: {
+            level_id: id,
+            level_descr: descr,
+            sort_order: item.sort_order,
+            active_flag: item.active_flag,
+          }
+        };
+      })
       .sort((a, b) => {
         // Sort by sort_order if available, otherwise by label
         const orderA = a.metadata?.sort_order ?? 999;

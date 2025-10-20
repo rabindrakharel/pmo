@@ -55,11 +55,36 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editedData, setEditedData] = useState<any>({});
 
-  // Use columns directly from config
+  // Use columns directly from config, and add parent ID column if applicable
   const columns: Column[] = useMemo(() => {
     if (!config) return [];
-    return config.columns as Column[];
-  }, [config]);
+
+    const baseColumns = config.columns as Column[];
+
+    // Add parent ID column when viewing child entities
+    if (parentType && parentId) {
+      const parentDisplayName = parentType.charAt(0).toUpperCase() + parentType.slice(1);
+
+      const parentIdColumn: Column = {
+        key: 'parent_id',
+        title: `Parent (${parentDisplayName})`,
+        sortable: false,
+        filterable: false,
+        align: 'left',
+        width: '200px',
+        render: () => (
+          <span className="text-xs font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded">
+            {parentId.substring(0, 8)}...
+          </span>
+        )
+      };
+
+      // Add parent ID column as the first column
+      return [parentIdColumn, ...baseColumns];
+    }
+
+    return baseColumns;
+  }, [config, parentType, parentId]);
 
   // Define row actions based on props
   const rowActions: RowAction[] = useMemo(() => {
@@ -385,7 +410,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           rowActions={rowActions}
           onRowClick={handleRowClick}
           className="h-full"
-          selectable={showActionButtons}
+          selectable={showActionButtons && (!!onBulkDelete || !!onBulkShare)}
           selectedRows={selectedRows}
           onSelectionChange={setSelectedRows}
           inlineEditable={inlineEditable}

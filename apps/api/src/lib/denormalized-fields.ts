@@ -1,7 +1,7 @@
 /**
  * Helper functions for handling denormalized setting fields
  *
- * When updating *_id fields (like opportunity_funnel_level_id, level_id, etc.),
+ * When updating *_id fields (like opportunity_funnel_stage_id, level_id, etc.),
  * we need to also update the corresponding *_name fields by looking up the
  * level_name from the settings table.
  */
@@ -17,9 +17,9 @@ export const DENORMALIZED_FIELD_MAPPINGS: Record<string, {
   settingTable: string;
 }> = {
   // Client fields
-  'opportunity_funnel_level_id': {
-    nameField: 'opportunity_funnel_level_name',
-    settingTable: 'app.setting_opportunity_funnel_level'
+  'opportunity_funnel_stage_id': {
+    nameField: 'opportunity_funnel_stage_name',
+    settingTable: 'app.setting_opportunity_funnel_stage'
   },
   'industry_sector_id': {
     nameField: 'industry_sector_name',
