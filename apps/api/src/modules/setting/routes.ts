@@ -392,6 +392,27 @@ export async function settingRoutes(fastify: FastifyInstance) {
           ORDER BY sort_order ASC, level_name ASC
         `;
         categoryName = 'client_status';
+      } else if (category === 'client_service') {
+        query = sql`
+          SELECT
+            level_id::text as id,
+            level_name as name,
+            slug,
+            level_descr as descr,
+            level_id,
+            sort_order,
+            null as tags,
+            null as attr,
+            created_ts as from_ts,
+            null as to_ts,
+            active_flag as active,
+            created_ts as created,
+            updated_ts as updated
+          FROM app.setting_datalabel_client_service
+          WHERE active_flag = ${active !== false}
+          ORDER BY sort_order ASC, level_name ASC
+        `;
+        categoryName = 'client_service';
       } else if (category === 'task_priority') {
         query = sql`
           SELECT
@@ -759,6 +780,10 @@ export async function settingRoutes(fastify: FastifyInstance) {
           tableName = 'app.setting_datalabel_customer_tier';
           idField = 'level_id';
           break;
+        case 'client_service':
+          tableName = 'app.setting_datalabel_client_service';
+          idField = 'level_id';
+          break;
         default:
           return reply.status(400).send({ error: 'Invalid setting category' });
       }
@@ -895,6 +920,10 @@ export async function settingRoutes(fastify: FastifyInstance) {
           break;
         case 'customer_tier':
           tableName = 'app.setting_datalabel_customer_tier';
+          idField = 'level_id';
+          break;
+        case 'client_service':
+          tableName = 'app.setting_datalabel_client_service';
           idField = 'level_id';
           break;
         default:

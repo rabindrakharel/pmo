@@ -1,5 +1,5 @@
 import React from 'react';
-import { getFieldIcon, SignatureCanvas, AddressInput, GeoLocationInput, ModernDateTimePicker, StepProgressIndicator, DataTableInput } from './FormBuilder';
+import { getFieldIcon, SignatureCanvas, AddressInput, GeoLocationInput, ModernDateTimePicker, StepProgressIndicator, DataTableInput, SearchableSelect, SearchableMultiSelect, CurrencyInput, DateOnlyInput, TimeOnlyInput, ToggleInput, RatingInput, DurationInput, PercentageInput, CalculationField } from './FormBuilder';
 import { BuilderField, FormStep } from './FormBuilder';
 import { BookOpen, Upload, Layers } from 'lucide-react';
 import { ModularEditor } from '../../shared/editor/ModularEditor';
@@ -103,37 +103,99 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
               )}
               
               {f.type === 'select' && (
-                <select
-                  disabled
-                  className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 text-sm"
-                >
-                  <option>{f.placeholder || 'Choose an option'}</option>
-                  {f.options?.map((opt, i) => (
-                    <option key={i} value={opt}>{opt}</option>
-                  ))}
-                </select>
+                <>
+                  <SearchableSelect
+                    options={f.useDynamicOptions
+                      ? [{ value: 'preview', label: `Options from ${f.datalabelTable}...` }]
+                      : (f.options || []).map(opt => ({ value: opt, label: opt }))
+                    }
+                    value=""
+                    placeholder={f.placeholder || 'Search or select an option...'}
+                    disabled={true}
+                    className="w-full"
+                  />
+                  {f.useDynamicOptions && (
+                    <div className="mt-1 text-xs text-blue-600 flex items-center gap-1">
+                      <span className="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
+                      Dynamic options from <strong>{f.datalabelTable}</strong>
+                      ({f.datalabelDisplayColumn}) - <em>Searchable</em>
+                    </div>
+                  )}
+                </>
               )}
-              
+
+              {f.type === 'select_multiple' && (
+                <>
+                  <SearchableMultiSelect
+                    options={f.useDynamicOptions
+                      ? [{ value: 'preview', label: `Options from ${f.datalabelTable}...` }]
+                      : (f.options || []).map(opt => ({ value: opt, label: opt }))
+                    }
+                    value={[]}
+                    placeholder={f.placeholder || 'Search and select multiple...'}
+                    disabled={true}
+                    className="w-full"
+                  />
+                  {f.useDynamicOptions && (
+                    <div className="mt-1 text-xs text-blue-600 flex items-center gap-1">
+                      <span className="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
+                      Dynamic options from <strong>{f.datalabelTable}</strong>
+                      ({f.datalabelDisplayColumn}) - <em>Searchable, Multiple Selection</em>
+                    </div>
+                  )}
+                </>
+              )}
+
               {f.type === 'radio' && (
-                <div className="space-y-2">
-                  {f.options?.map((opt, i) => (
-                    <label key={i} className="flex items-center space-x-2">
-                      <input disabled type="radio" name={f.name} className="text-blue-600" />
-                      <span className="text-sm text-gray-700">{opt}</span>
-                    </label>
-                  ))}
-                </div>
+                <>
+                  <div className="space-y-2">
+                    {f.useDynamicOptions ? (
+                      <div className="text-sm text-gray-500 italic">
+                        Radio options will be loaded from {f.datalabelTable}
+                      </div>
+                    ) : (
+                      f.options?.map((opt, i) => (
+                        <label key={i} className="flex items-center space-x-2">
+                          <input disabled type="radio" name={f.name} className="text-blue-600" />
+                          <span className="text-sm text-gray-700">{opt}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  {f.useDynamicOptions && (
+                    <div className="mt-1 text-xs text-blue-600 flex items-center gap-1">
+                      <span className="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
+                      Dynamic options from <strong>{f.datalabelTable}</strong>
+                      ({f.datalabelDisplayColumn})
+                    </div>
+                  )}
+                </>
               )}
-              
+
               {f.type === 'checkbox' && (
-                <div className="space-y-2">
-                  {f.options?.map((opt, i) => (
-                    <label key={i} className="flex items-center space-x-2">
-                      <input disabled type="checkbox" className="rounded text-blue-600" />
-                      <span className="text-sm text-gray-700">{opt}</span>
-                    </label>
-                  ))}
-                </div>
+                <>
+                  <div className="space-y-2">
+                    {f.useDynamicOptions ? (
+                      <div className="text-sm text-gray-500 italic">
+                        Checkbox options will be loaded from {f.datalabelTable}
+                      </div>
+                    ) : (
+                      f.options?.map((opt, i) => (
+                        <label key={i} className="flex items-center space-x-2">
+                          <input disabled type="checkbox" className="rounded text-blue-600" />
+                          <span className="text-sm text-gray-700">{opt}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  {f.useDynamicOptions && (
+                    <div className="mt-1 text-xs text-blue-600 flex items-center gap-1">
+                      <span className="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
+                      Dynamic options from <strong>{f.datalabelTable}</strong>
+                      ({f.datalabelDisplayColumn})
+                    </div>
+                  )}
+                </>
               )}
 
               {f.type === 'taskcheck' && (
@@ -254,6 +316,65 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
                   columns={f.dataTableColumns || [{ name: 'col1', label: 'Column 1' }, { name: 'col2', label: 'Column 2' }, { name: 'col3', label: 'Column 3' }]}
                   rows={f.dataTableDefaultRows || 1}
                   disabled={true}
+                />
+              )}
+
+              {f.type === 'currency' && (
+                <CurrencyInput
+                  disabled={true}
+                  placeholder={f.placeholder || '0.00'}
+                  currencySymbol={f.currencySymbol || '$'}
+                />
+              )}
+
+              {f.type === 'date' && (
+                <DateOnlyInput
+                  disabled={true}
+                  placeholder={f.placeholder || 'Select date'}
+                />
+              )}
+
+              {f.type === 'time' && (
+                <TimeOnlyInput
+                  disabled={true}
+                  placeholder={f.placeholder || 'Select time'}
+                />
+              )}
+
+              {f.type === 'toggle' && (
+                <ToggleInput
+                  disabled={true}
+                  label={f.placeholder || 'Toggle option'}
+                />
+              )}
+
+              {f.type === 'rating' && (
+                <RatingInput
+                  disabled={true}
+                  maxRating={f.maxRating || 5}
+                />
+              )}
+
+              {f.type === 'duration' && (
+                <DurationInput
+                  disabled={true}
+                />
+              )}
+
+              {f.type === 'percentage' && (
+                <PercentageInput
+                  disabled={true}
+                  placeholder={f.placeholder || '0'}
+                  min={f.percentageMin ?? 0}
+                  max={f.percentageMax ?? 100}
+                />
+              )}
+
+              {f.type === 'calculation' && (
+                <CalculationField
+                  value={0}
+                  label={f.label || 'Calculated Value'}
+                  currencySymbol={f.currencySymbol || '$'}
                 />
               )}
 

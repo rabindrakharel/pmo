@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { getFieldIcon, SignatureCanvas, AddressInput, GeoLocationInput, ModernDateTimePicker, StepProgressIndicator, DataTableInput } from './FormBuilder';
+import React, { useState, useEffect } from 'react';
+import { getFieldIcon, SignatureCanvas, AddressInput, GeoLocationInput, ModernDateTimePicker, StepProgressIndicator, DataTableInput, SearchableSelect, SearchableMultiSelect, CurrencyInput, DateOnlyInput, TimeOnlyInput, ToggleInput, RatingInput, DurationInput, PercentageInput, CalculationField } from './FormBuilder';
 import { BuilderField, FormStep } from './FormBuilder';
 import { BookOpen, Upload, Layers, Send, CheckCircle, AlertCircle } from 'lucide-react';
 import { ModularEditor } from '../../shared/editor/ModularEditor';
@@ -33,6 +33,7 @@ export function InteractiveForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [submitMessage, setSubmitMessage] = useState('');
+  const [dynamicOptions, setDynamicOptions] = useState<Record<string, Array<{ value: string; label: string }>>>({});
 
   // Update formData when initialData changes (for edit mode)
   // DATATABLE UNFLATTENING LOGIC:
@@ -75,6 +76,56 @@ export function InteractiveForm({
       setFormData(flattenedData);
     }
   }, [initialData]);
+
+  // Fetch dynamic options for fields configured with datalabels
+  useEffect(() => {
+    const fetchDynamicOptions = async () => {
+      const fieldsWithDynamicOptions = fields.filter(f => f.useDynamicOptions && f.datalabelTable);
+
+      for (const field of fieldsWithDynamicOptions) {
+        const { datalabelTable, datalabelValueColumn, datalabelDisplayColumn } = field;
+
+        if (!datalabelTable || !datalabelValueColumn || !datalabelDisplayColumn) {
+          console.warn(`Field ${field.name} has incomplete datalabel configuration`);
+          continue;
+        }
+
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch(
+            `${API_BASE_URL}/api/v1/setting?category=${datalabelTable}`,
+            {
+              headers: token ? { Authorization: `Bearer ${token}` } : {}
+            }
+          );
+
+          if (!response.ok) {
+            console.error(`Failed to fetch options for ${datalabelTable}`);
+            continue;
+          }
+
+          const data = await response.json();
+
+          // Map the API response to value/label pairs
+          const options = (data.data || []).map((item: any) => ({
+            value: String(item[datalabelValueColumn] || ''),
+            label: String(item[datalabelDisplayColumn] || '')
+          }));
+
+          setDynamicOptions(prev => ({
+            ...prev,
+            [field.id]: options
+          }));
+
+          console.log(`✅ Loaded ${options.length} options for ${field.name} from ${datalabelTable}`);
+        } catch (error) {
+          console.error(`Error fetching dynamic options for ${field.name}:`, error);
+        }
+      }
+    };
+
+    fetchDynamicOptions();
+  }, [fields]);
 
   // If we have steps, filter fields by the current step
   const currentStep = steps[currentStepIndex];
@@ -262,69 +313,113 @@ export function InteractiveForm({
         );
 
       case 'select':
+        // Use dynamic options if configured, otherwise fall back to static options
+        const selectOptions = field.useDynamicOptions && dynamicOptions[field.id]
+          ? dynamicOptions[field.id]
+          : (field.options || []).map(opt => ({ value: opt, label: opt }));
+
         return (
           <>
-            <select
+            <SearchableSelect
+              options={selectOptions}
               value={value || ''}
-              onChange={(e) => handleFieldChange(field.name, e.target.value)}
-              className={baseInputClass}
+              onChange={(newValue) => handleFieldChange(field.name, newValue)}
+              placeholder={field.placeholder || 'Search or select an option...'}
               required={field.required}
-            >
-              <option value="">{field.placeholder || 'Choose an option'}</option>
-              {field.options?.map((opt, i) => (
-                <option key={i} value={opt}>{opt}</option>
-              ))}
-            </select>
+              className="w-full"
+            />
+            {field.useDynamicOptions && !dynamicOptions[field.id] && (
+              <p className="text-gray-500 text-xs mt-1">Loading options from {field.datalabelTable}...</p>
+            )}
+            {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
+          </>
+        );
+
+      case 'select_multiple':
+        // Use dynamic options if configured, otherwise fall back to static options
+        const multiSelectOptions = field.useDynamicOptions && dynamicOptions[field.id]
+          ? dynamicOptions[field.id]
+          : (field.options || []).map(opt => ({ value: opt, label: opt }));
+
+        return (
+          <>
+            <SearchableMultiSelect
+              options={multiSelectOptions}
+              value={Array.isArray(value) ? value : []}
+              onChange={(newValue) => handleFieldChange(field.name, newValue)}
+              placeholder={field.placeholder || 'Search and select multiple...'}
+              required={field.required}
+              className="w-full"
+            />
+            {field.useDynamicOptions && !dynamicOptions[field.id] && (
+              <p className="text-gray-500 text-xs mt-1">Loading options from {field.datalabelTable}...</p>
+            )}
             {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
           </>
         );
 
       case 'radio':
+        // Use dynamic options if configured, otherwise fall back to static options
+        const radioOptions = field.useDynamicOptions && dynamicOptions[field.id]
+          ? dynamicOptions[field.id]
+          : (field.options || []).map(opt => ({ value: opt, label: opt }));
+
         return (
           <>
             <div className="space-y-2">
-              {field.options?.map((opt, i) => (
+              {radioOptions.map((opt, i) => (
                 <label key={i} className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="radio"
                     name={field.name}
-                    value={opt}
-                    checked={value === opt}
+                    value={opt.value}
+                    checked={value === opt.value}
                     onChange={(e) => handleFieldChange(field.name, e.target.value)}
                     className="text-blue-600 focus:ring-blue-500"
                     required={field.required && i === 0}
                   />
-                  <span className="text-sm text-gray-700">{opt}</span>
+                  <span className="text-sm text-gray-700">{opt.label}</span>
                 </label>
               ))}
             </div>
+            {field.useDynamicOptions && !dynamicOptions[field.id] && (
+              <p className="text-gray-500 text-xs mt-1">Loading options from {field.datalabelTable}...</p>
+            )}
             {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
           </>
         );
 
       case 'checkbox':
+        // Use dynamic options if configured, otherwise fall back to static options
+        const checkboxOptions = field.useDynamicOptions && dynamicOptions[field.id]
+          ? dynamicOptions[field.id]
+          : (field.options || []).map(opt => ({ value: opt, label: opt }));
+
         return (
           <>
             <div className="space-y-2">
-              {field.options?.map((opt, i) => (
+              {checkboxOptions.map((opt, i) => (
                 <label key={i} className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    value={opt}
-                    checked={Array.isArray(value) && value.includes(opt)}
+                    value={opt.value}
+                    checked={Array.isArray(value) && value.includes(opt.value)}
                     onChange={(e) => {
                       const currentValues = Array.isArray(value) ? value : [];
                       const newValues = e.target.checked
-                        ? [...currentValues, opt]
-                        : currentValues.filter(v => v !== opt);
+                        ? [...currentValues, opt.value]
+                        : currentValues.filter(v => v !== opt.value);
                       handleFieldChange(field.name, newValues);
                     }}
                     className="rounded text-blue-600 focus:ring-blue-500"
                   />
-                  <span className="text-sm text-gray-700">{opt}</span>
+                  <span className="text-sm text-gray-700">{opt.label}</span>
                 </label>
               ))}
             </div>
+            {field.useDynamicOptions && !dynamicOptions[field.id] && (
+              <p className="text-gray-500 text-xs mt-1">Loading options from {field.datalabelTable}...</p>
+            )}
             {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
           </>
         );
@@ -464,6 +559,202 @@ export function InteractiveForm({
               disabled={true}
             />
           </div>
+        );
+
+      case 'currency':
+        return (
+          <>
+            <CurrencyInput
+              value={value || ''}
+              onChange={(newValue) => handleFieldChange(field.name, newValue)}
+              placeholder={field.placeholder || '0.00'}
+              currencySymbol={field.currencySymbol || '$'}
+              required={field.required}
+            />
+            {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
+          </>
+        );
+
+      case 'date':
+        return (
+          <>
+            <DateOnlyInput
+              value={value ? new Date(value) : undefined}
+              onChange={(date) => handleFieldChange(field.name, date?.toISOString())}
+              placeholder={field.placeholder || 'Select date'}
+              required={field.required}
+            />
+            {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
+          </>
+        );
+
+      case 'time':
+        return (
+          <>
+            <TimeOnlyInput
+              value={value || ''}
+              onChange={(time) => handleFieldChange(field.name, time)}
+              placeholder={field.placeholder || 'Select time'}
+              required={field.required}
+            />
+            {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
+          </>
+        );
+
+      case 'toggle':
+        return (
+          <>
+            <ToggleInput
+              value={value === true || value === 'true'}
+              onChange={(checked) => handleFieldChange(field.name, checked)}
+              label={field.placeholder}
+              required={field.required}
+            />
+            {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
+          </>
+        );
+
+      case 'rating':
+        return (
+          <>
+            <RatingInput
+              value={typeof value === 'number' ? value : parseInt(value) || 0}
+              onChange={(rating) => handleFieldChange(field.name, rating)}
+              maxRating={field.maxRating || 5}
+              required={field.required}
+            />
+            {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
+          </>
+        );
+
+      case 'duration':
+        return (
+          <>
+            <DurationInput
+              value={value || { hours: 0, minutes: 0 }}
+              onChange={(duration) => handleFieldChange(field.name, duration)}
+              required={field.required}
+            />
+            {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
+          </>
+        );
+
+      case 'percentage':
+        return (
+          <>
+            <PercentageInput
+              value={typeof value === 'number' ? value : parseFloat(value) || 0}
+              onChange={(percent) => handleFieldChange(field.name, percent)}
+              placeholder={field.placeholder || '0'}
+              min={field.percentageMin ?? 0}
+              max={field.percentageMax ?? 100}
+              required={field.required}
+            />
+            {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
+          </>
+        );
+
+      case 'calculation':
+        // Calculate value based on other fields
+        const calculatedValue = React.useMemo(() => {
+          console.log('🧮 Computing calculation for field:', field.name, 'mode:', field.calculationMode);
+
+          // Mode: Custom JavaScript Expression
+          if (field.calculationMode === 'expression' && field.calculationExpression) {
+            try {
+              // Create a safe context with field values and Math
+              const context: Record<string, any> = { Math };
+
+              // Extract all form field values and make them available as variables
+              Object.keys(formData).forEach(key => {
+                const val = formData[key];
+                // Parse numeric values
+                let numVal = val;
+                if (typeof val === 'string') {
+                  const parsed = parseFloat(val.replace(/[^0-9.-]/g, ''));
+                  numVal = isNaN(parsed) ? 0 : parsed;
+                } else if (typeof val === 'object' && val !== null) {
+                  // Handle duration objects {hours: X, minutes: Y}
+                  if ('hours' in val && 'minutes' in val) {
+                    numVal = (val.hours || 0) + (val.minutes || 0) / 60;
+                  } else {
+                    numVal = 0;
+                  }
+                }
+                context[key] = numVal;
+              });
+
+              console.log('📊 Context for expression:', context);
+              console.log('📝 Expression:', field.calculationExpression);
+
+              // Build a function from the expression with only safe context
+              const funcBody = `
+                "use strict";
+                const { ${Object.keys(context).join(', ')} } = this;
+                return (${field.calculationExpression});
+              `;
+
+              const func = new Function(funcBody);
+              const result = func.call(context);
+
+              console.log('✅ Expression result:', result);
+              return isNaN(result) ? 0 : result;
+            } catch (error) {
+              console.error('❌ Calculation expression error:', error);
+              return 0; // Return 0 on error
+            }
+          }
+
+          // Mode: Simple Operation (original logic)
+          if (!field.calculationFields || field.calculationFields.length === 0) {
+            return 0;
+          }
+
+          const values = field.calculationFields
+            .map(fieldName => {
+              const val = formData[fieldName];
+              const num = typeof val === 'string' ? parseFloat(val.replace(/[^0-9.-]/g, '')) : val;
+              return isNaN(num) ? 0 : num;
+            })
+            .filter(v => !isNaN(v));
+
+          if (values.length === 0) return 0;
+
+          switch (field.calculationOperation) {
+            case 'sum':
+              return values.reduce((a, b) => a + b, 0);
+            case 'subtract':
+              return values.reduce((a, b) => a - b);
+            case 'multiply':
+              return values.reduce((a, b) => a * b, 1);
+            case 'divide':
+              return values.reduce((a, b) => (b !== 0 ? a / b : a));
+            case 'average':
+              return values.reduce((a, b) => a + b, 0) / values.length;
+            case 'min':
+              return Math.min(...values);
+            case 'max':
+              return Math.max(...values);
+            default:
+              return values.reduce((a, b) => a + b, 0);
+          }
+        }, [formData, field.calculationFields, field.calculationOperation, field.calculationExpression, field.calculationMode]);
+
+        // Update formData with calculated value
+        React.useEffect(() => {
+          if (formData[field.name] !== calculatedValue) {
+            handleFieldChange(field.name, calculatedValue);
+          }
+        }, [calculatedValue]);
+
+        return (
+          <CalculationField
+            value={calculatedValue}
+            label={field.label}
+            currencySymbol={field.currencySymbol || '$'}
+            expression={field.calculationMode === 'expression' ? field.calculationExpression : undefined}
+            showExpression={field.calculationMode === 'expression'}
+          />
         );
 
       default:

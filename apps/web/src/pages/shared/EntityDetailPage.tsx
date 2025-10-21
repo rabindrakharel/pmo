@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Outlet, useLocation } from 'react-router-dom';
-import { ArrowLeft, Edit2, Save, X } from 'lucide-react';
+import { ArrowLeft, Edit2, Save, X, Palette } from 'lucide-react';
 import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityFormContainer } from '../../components/shared';
 import { WikiContentRenderer } from '../../components/entity/wiki';
 import { TaskDataContainer } from '../../components/entity/task';
 import { FormDataTable, InteractiveForm, FormSubmissionEditor } from '../../components/entity/form';
+import { EmailTemplateRenderer } from '../../components/entity/marketing';
 import { getEntityConfig } from '../../lib/entityConfig';
 import { APIFactory } from '../../lib/api';
 import { Button } from '../../components/shared/button/Button';
@@ -255,20 +256,34 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
           {/* Edit/Save/Cancel buttons */}
           <div className="flex items-center space-x-2">
             {!isEditing ? (
-              <Button
-                variant="secondary"
-                icon={Edit2}
-                onClick={() => {
-                  // Special handling for form entity - navigate to edit page
-                  if (entityType === 'form') {
-                    navigate(`/form/${id}/edit`);
-                  } else {
-                    setIsEditing(true);
-                  }
-                }}
-              >
-                Edit
-              </Button>
+              <>
+                {/* Special Design Email button for marketing entity */}
+                {entityType === 'marketing' && (
+                  <Button
+                    variant="primary"
+                    icon={Palette}
+                    onClick={() => navigate(`/marketing/${id}/design`)}
+                  >
+                    Design Email
+                  </Button>
+                )}
+                <Button
+                  variant="secondary"
+                  icon={Edit2}
+                  onClick={() => {
+                    // Special handling for form entity - navigate to edit page
+                    if (entityType === 'form') {
+                      navigate(`/form/${id}/edit`);
+                    } else if (entityType === 'marketing') {
+                      navigate(`/marketing/${id}/design`);
+                    } else {
+                      setIsEditing(true);
+                    }
+                  }}
+                >
+                  Edit
+                </Button>
+              </>
             ) : (
               <>
                 <Button
@@ -313,6 +328,11 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
               data={data}
               onEdit={() => navigate(`/wiki/${id}/edit`)}
             />
+          ) : entityType === 'marketing' ? (
+            // Special Email Template Renderer
+            <div className="space-y-4">
+              <EmailTemplateRenderer template={data} />
+            </div>
           ) : entityType === 'form' ? (
             // Special Interactive Form Renderer
             <div className="space-y-4 bg-blue-50 border border-blue-100 rounded-xl p-6 shadow-sm">

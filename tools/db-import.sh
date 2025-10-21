@@ -153,6 +153,7 @@ validate_all_ddls() {
         "setting_datalabel__industry_sector.ddl"
         "setting_datalabel__acquisition_channel.ddl"
         "setting_datalabel__client_status.ddl"
+        "setting_datalabel__client_service.ddl"
         "setting_datalabel__task_priority.ddl"
         "setting_datalabel__task_update_type.ddl"
         "setting_datalabel__form_submission_status.ddl"
@@ -165,6 +166,7 @@ validate_all_ddls() {
         "15_d_role.ddl"
         "16_d_position.ddl"
         "17_d_worksite.ddl"
+        "d_product.ddl"
         "18_d_project.ddl"
         "19_d_task.ddl"
         "20_d_task_data.ddl"
@@ -181,6 +183,11 @@ validate_all_ddls() {
         "31_d_entity_instance_id.ddl"
         "33_d_entity_id_map.ddl"
         "34_d_entity_id_rbac_map.ddl"
+        "35_d_email_template.ddl"
+        "fact_order.ddl"
+        "fact_invoice.ddl"
+        "fact_inventory.ddl"
+        "fact_shipment.ddl"
     )
 
     for file in "${ddl_files[@]}"; do
@@ -227,6 +234,7 @@ import_ddls() {
     execute_sql "$DB_PATH/setting_datalabel__industry_sector.ddl" "Industry sector settings"
     execute_sql "$DB_PATH/setting_datalabel__acquisition_channel.ddl" "Acquisition channel settings"
     execute_sql "$DB_PATH/setting_datalabel__client_status.ddl" "Client status settings"
+    execute_sql "$DB_PATH/setting_datalabel__client_service.ddl" "Client service settings"
     execute_sql "$DB_PATH/setting_datalabel__task_priority.ddl" "Task priority settings"
     execute_sql "$DB_PATH/setting_datalabel__task_update_type.ddl" "Task update type settings"
     execute_sql "$DB_PATH/setting_datalabel__form_submission_status.ddl" "Form submission status settings"
@@ -246,6 +254,9 @@ import_ddls() {
     execute_sql "$DB_PATH/16_d_position.ddl" "Position entities"
     execute_sql "$DB_PATH/17_d_worksite.ddl" "Worksite entities"
 
+    # Product dimension - Products catalog for materials, equipment, services
+    execute_sql "$DB_PATH/d_product.ddl" "Product dimension table"
+
     # Core project entities - Projects before tasks
     execute_sql "$DB_PATH/18_d_project.ddl" "Project entities"
     execute_sql "$DB_PATH/19_d_task.ddl" "Task head entities"
@@ -260,6 +271,15 @@ import_ddls() {
     execute_sql "$DB_PATH/26_d_wiki_data.ddl" "Wiki data entities"
     execute_sql "$DB_PATH/27_d_reports.ddl" "Report entities"
     execute_sql "$DB_PATH/28_d_report_data.ddl" "Report data entities"
+
+    # Fact tables - Transaction-level analytics (after all dimensions loaded)
+    execute_sql "$DB_PATH/fact_order.ddl" "Order fact table (customer orders)"
+    execute_sql "$DB_PATH/fact_invoice.ddl" "Invoice fact table (billing/revenue)"
+    execute_sql "$DB_PATH/fact_inventory.ddl" "Inventory fact table (stock movements)"
+    execute_sql "$DB_PATH/fact_shipment.ddl" "Shipment fact table (deliveries/logistics)"
+
+    # Marketing entities - Email templates
+    execute_sql "$DB_PATH/35_d_email_template.ddl" "Email template entities"
 
     # Final layer - Entity type metadata, instance registry, type mappings, relationships, and RBAC (must come last in specific order)
     execute_sql "$DB_PATH/29_d_entity_map.ddl" "Entity type linkage rules (valid parent-child types)"
@@ -307,6 +327,15 @@ validate_schema() {
     local role_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_role;" 2>/dev/null | xargs || echo "0")
     local position_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_position;" 2>/dev/null | xargs || echo "0")
 
+    # Product dimension
+    local product_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_product;" 2>/dev/null | xargs || echo "0")
+
+    # Fact tables
+    local order_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.fact_order;" 2>/dev/null | xargs || echo "0")
+    local invoice_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.fact_invoice;" 2>/dev/null | xargs || echo "0")
+    local inventory_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.fact_inventory;" 2>/dev/null | xargs || echo "0")
+    local shipment_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.fact_shipment;" 2>/dev/null | xargs || echo "0")
+
     # Relationship and mapping tables
     local entity_map_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_entity_id_map;" 2>/dev/null | xargs || echo "0")
     local rbac_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.entity_id_rbac_map;" 2>/dev/null | xargs || echo "0")
@@ -335,6 +364,15 @@ validate_schema() {
     print_status $CYAN "     Clients: $client_count"
     print_status $CYAN "     Roles: $role_count"
     print_status $CYAN "     Positions: $position_count"
+
+    print_status $CYAN "   Product Catalog:"
+    print_status $CYAN "     Products: $product_count"
+
+    print_status $CYAN "   Fact Tables (Transactions):"
+    print_status $CYAN "     Orders: $order_count"
+    print_status $CYAN "     Invoices: $invoice_count"
+    print_status $CYAN "     Inventory transactions: $inventory_count"
+    print_status $CYAN "     Shipments: $shipment_count"
 
     print_status $CYAN "   Relationships & RBAC:"
     print_status $CYAN "     Entity mappings: $entity_map_count"
@@ -371,10 +409,12 @@ validate_schema() {
 print_summary() {
     print_status $PURPLE "📋 IMPORT SUMMARY"
     print_status $PURPLE "=================="
-    print_status $CYAN "• PMO Enterprise schema with 29 DDL files imported"
+    print_status $CYAN "• PMO Enterprise schema with 44 DDL files imported"
     print_status $CYAN "• Head/data pattern for temporal entities"
     print_status $CYAN "• 4-level office hierarchy (Office → District → Region → Corporate)"
     print_status $CYAN "• 3-level business hierarchy"
+    print_status $CYAN "• Product catalog dimension (16 curated products)"
+    print_status $CYAN "• Fact tables: Orders, Invoices, Inventory, Shipments"
     print_status $CYAN "• Entity TYPE metadata (d_entity) with parent-child relationships and icons"
     print_status $CYAN "• Entity INSTANCE registry (d_entity_instance_id) for all entity instances"
     print_status $CYAN "• Entity mapping framework for parent-child relationships"
@@ -395,7 +435,7 @@ print_summary() {
 
 # Main execution
 main() {
-    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 29 DDL FILES"
+    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 44 DDL FILES"
     print_status $PURPLE "==============================================="
 
     if [ "$DRY_RUN" = true ]; then

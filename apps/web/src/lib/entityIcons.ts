@@ -7,6 +7,7 @@ import {
   BookOpen,
   FileText,
   CheckSquare,
+  Mail,
 } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 
@@ -34,6 +35,7 @@ export const ENTITY_ICONS: Record<string, LucideIcon> = {
   form: FileText,
   task: CheckSquare,
   artifact: FileText,
+  marketing: Mail,
 
   // Settings/metadata entities
   projectStage: CheckSquare,

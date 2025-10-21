@@ -598,6 +598,33 @@ export const positionApi = {
   },
 };
 
+export const marketingApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; status?: string }) {
+    const response = await apiClient.get('/api/v1/email-template', { params });
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/email-template/${id}`);
+    return response.data;
+  },
+
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/email-template', data);
+    return response.data;
+  },
+
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/email-template/${id}`, data);
+    return response.data;
+  },
+
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/email-template/${id}`);
+    return response.data;
+  },
+};
+
 // ========================================
 // API FACTORY REGISTRATION
 // ========================================
@@ -635,6 +662,9 @@ APIFactory.register('form', formApi);
 
 // Locations
 APIFactory.register('worksite', worksiteApi);
+
+// Marketing
+APIFactory.register('marketing', marketingApi);
 
 /**
  * Export the APIFactory for use in components

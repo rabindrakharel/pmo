@@ -10,6 +10,9 @@ import { FormBuilderPage, FormEditPage, FormDataPreviewPage, PublicFormPage } fr
 // Wiki Pages
 import { WikiEditorPage } from './pages/wiki';
 
+// Marketing Pages
+import { EmailDesignerPage } from './pages/marketing/EmailDesignerPage';
+
 // Profile & Settings Pages
 import { ProfilePage } from './pages/profile';
 import { LabelsPage } from './pages/labels';
@@ -57,7 +60,7 @@ function AppRoutes() {
   }
 
   // Core entities that use standard auto-generated routing
-  const coreEntities = ['biz', 'office', 'project', 'task', 'employee', 'role', 'worksite', 'client', 'position', 'artifact'];
+  const coreEntities = ['biz', 'office', 'project', 'task', 'employee', 'role', 'worksite', 'client', 'position', 'artifact', 'marketing'];
 
   // Generate routes for all core entities from entityConfig
   const generateEntityRoutes = () => {
@@ -127,6 +130,9 @@ function AppRoutes() {
       </Route>
       <Route path="/form/:id/edit" element={<ProtectedRoute><FormEditPage /></ProtectedRoute>} />
       <Route path="/form/:formId/data/:submissionId" element={<ProtectedRoute><FormDataPreviewPage /></ProtectedRoute>} />
+
+      {/* Special Routes - Marketing (email designer) */}
+      <Route path="/marketing/:id/design" element={<ProtectedRoute><EmailDesignerPage /></ProtectedRoute>} />
 
       {/* Profile Navigation Pages */}
       <Route

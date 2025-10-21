@@ -1606,6 +1606,104 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     supportedViews: ['table'],
     defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // MARKETING (Email Templates)
+  // --------------------------------------------------------------------------
+  marketing: {
+    name: 'marketing',
+    displayName: 'Email Template',
+    pluralName: 'Email Templates',
+    apiEndpoint: '/api/v1/email-template',
+
+    columns: [
+      {
+        key: 'name',
+        title: 'Template Name',
+        sortable: true,
+        filterable: true,
+        render: (value, record) => React.createElement(
+          'div',
+          null,
+          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
+          record.code && React.createElement('div', { className: 'text-sm text-gray-500' }, record.code)
+        )
+      },
+      {
+        key: 'subject',
+        title: 'Subject Line',
+        sortable: true,
+        filterable: true,
+        render: (value) => React.createElement('div', { className: 'max-w-md truncate text-gray-700' }, value || '-')
+      },
+      {
+        key: 'status',
+        title: 'Status',
+        sortable: true,
+        filterable: true,
+        inlineEditable: true,
+        render: (value) => renderBadge(value, {
+          'draft': 'bg-gray-100 text-gray-800',
+          'published': 'bg-green-100 text-green-800',
+          'archived': 'bg-red-100 text-red-800'
+        })
+      },
+      {
+        key: 'from_name',
+        title: 'From',
+        sortable: true,
+        render: (value, record) => React.createElement(
+          'div',
+          null,
+          React.createElement('div', { className: 'text-sm text-gray-900' }, value || '-'),
+          record.from_email && React.createElement('div', { className: 'text-xs text-gray-500' }, record.from_email)
+        )
+      },
+      {
+        key: 'updated_ts',
+        title: 'Last Updated',
+        sortable: true,
+        render: formatDate
+      },
+      {
+        key: 'tags',
+        title: 'Tags',
+        inlineEditable: true,
+        render: renderTags
+      }
+    ],
+
+    fields: [
+      { key: 'name', label: 'Template Name', type: 'text', required: true },
+      { key: 'code', label: 'Template Code', type: 'text' },
+      { key: 'slug', label: 'Slug', type: 'text' },
+      { key: 'subject', label: 'Email Subject', type: 'text', required: true },
+      { key: 'preview_text', label: 'Preview Text', type: 'text', placeholder: 'Text shown in email preview' },
+      { key: 'descr', label: 'Description', type: 'textarea' },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: [
+          { value: 'draft', label: 'Draft' },
+          { value: 'published', label: 'Published' },
+          { value: 'archived', label: 'Archived' }
+        ]
+      },
+      { key: 'from_name', label: 'From Name', type: 'text', placeholder: 'Huron Home Services' },
+      { key: 'from_email', label: 'From Email', type: 'text', placeholder: 'info@huronhome.ca' },
+      { key: 'reply_to_email', label: 'Reply To Email', type: 'text', placeholder: 'support@huronhome.ca' },
+      { key: 'tags', label: 'Tags', type: 'array' },
+      { key: 'template_schema', label: 'Template Content', type: 'jsonb', readonly: true }
+    ],
+
+    supportedViews: ['table', 'grid'],
+    defaultView: 'table',
+
+    grid: {
+      cardFields: ['name', 'subject', 'status', 'updated_ts']
+    }
   }
 };
 

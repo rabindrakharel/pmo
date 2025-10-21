@@ -21,6 +21,8 @@ import { positionRoutes } from './position/routes.js';
 import { worksiteRoutes } from './worksite/routes.js';
 import { reportsRoutes } from './reports/routes.js';
 import { taskDataRoutes } from './task-data/routes.js';
+import { emailTemplateRoutes } from './email-template/routes.js';
+import { uploadRoutes } from './upload/routes.js';
 
 // New hierarchical API modules
 import { hierarchyRoutes } from './meta/hierarchy-routes.js';
@@ -87,4 +89,8 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await worksiteRoutes(fastify);
   await reportsRoutes(fastify);
   await taskDataRoutes(fastify);
+  await emailTemplateRoutes(fastify);
+
+  // Upload routes (file upload to MinIO/S3)
+  await uploadRoutes(fastify);
 }

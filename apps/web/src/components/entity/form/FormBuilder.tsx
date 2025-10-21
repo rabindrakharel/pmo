@@ -5,14 +5,15 @@ import {
   ArrowLeft, Save, Plus, Search, Type, MessageSquare, Hash, Mail, Phone, Globe,
   ChevronDown, Radio, CheckSquare, Calendar, Upload, Sliders, PenTool, Home,
   Navigation, ChevronLeft, ChevronRight, Layers, X, Camera, Video, QrCode,
-  Barcode, BookOpen, Table
+  Barcode, BookOpen, Table, Check, DollarSign, CalendarDays, Clock, ToggleLeft,
+  Star, Timer, Calculator, Percent
 } from 'lucide-react';
 import { ModularEditor } from '../../shared/editor/ModularEditor';
 import { DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors, DragStartEvent, DragEndEvent, useDraggable, useDroppable } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-export type FieldType = 'text' | 'number' | 'select' | 'datetime' | 'textarea' | 'email' | 'phone' | 'url' | 'checkbox' | 'radio' | 'file' | 'range' | 'signature' | 'initials' | 'address' | 'geolocation' | 'image_capture' | 'video_capture' | 'qr_scanner' | 'barcode_scanner' | 'wiki' | 'datatable' | 'taskcheck';
+export type FieldType = 'text' | 'number' | 'select' | 'select_multiple' | 'datetime' | 'textarea' | 'email' | 'phone' | 'url' | 'checkbox' | 'radio' | 'file' | 'range' | 'signature' | 'initials' | 'address' | 'geolocation' | 'image_capture' | 'video_capture' | 'qr_scanner' | 'barcode_scanner' | 'wiki' | 'datatable' | 'taskcheck' | 'currency' | 'date' | 'time' | 'toggle' | 'rating' | 'duration' | 'calculation' | 'percentage';
 
 export interface BuilderField {
   id: string;
@@ -44,6 +45,28 @@ export interface BuilderField {
   dataTableRows?: number;
   dataTableDefaultRows?: number;
   dataTableDefaultCols?: number;
+  // Dynamic datalabel options (for select, radio, checkbox)
+  useDynamicOptions?: boolean;
+  datalabelTable?: string;
+  datalabelValueColumn?: string;
+  datalabelDisplayColumn?: string;
+  // Currency specific options
+  currencySymbol?: string;
+  currencyCode?: string;
+  // Rating specific options
+  maxRating?: number;
+  ratingIcon?: 'star' | 'heart' | 'thumb';
+  // Duration specific options
+  durationFormat?: 'hours_minutes' | 'minutes' | 'hours';
+  // Calculation specific options
+  calculationFormula?: string;
+  calculationFields?: string[];
+  calculationOperation?: 'sum' | 'subtract' | 'multiply' | 'divide' | 'average' | 'min' | 'max';
+  calculationExpression?: string; // Custom JavaScript expression
+  calculationMode?: 'simple' | 'expression'; // Simple operations or custom expression
+  // Percentage specific options
+  percentageMin?: number;
+  percentageMax?: number;
 }
 
 export interface FormStep {
@@ -74,6 +97,7 @@ export const getFieldIcon = (type: FieldType) => {
     phone: <Phone className="h-4 w-4" />,
     url: <Globe className="h-4 w-4" />,
     select: <ChevronDown className="h-4 w-4" />,
+    select_multiple: <CheckSquare className="h-4 w-4" />,
     radio: <Radio className="h-4 w-4" />,
     checkbox: <CheckSquare className="h-4 w-4" />,
     datetime: <Calendar className="h-4 w-4" />,
@@ -90,6 +114,14 @@ export const getFieldIcon = (type: FieldType) => {
     wiki: <BookOpen className="h-4 w-4" />,
     datatable: <Table className="h-4 w-4" />,
     taskcheck: <CheckSquare className="h-4 w-4" />,
+    currency: <DollarSign className="h-4 w-4" />,
+    date: <CalendarDays className="h-4 w-4" />,
+    time: <Clock className="h-4 w-4" />,
+    toggle: <ToggleLeft className="h-4 w-4" />,
+    rating: <Star className="h-4 w-4" />,
+    duration: <Timer className="h-4 w-4" />,
+    calculation: <Calculator className="h-4 w-4" />,
+    percentage: <Percent className="h-4 w-4" />,
   };
   return iconMap[type] || <Type className="h-4 w-4" />;
 };
@@ -261,6 +293,485 @@ export function GeoLocationInput({ disabled = false }: { disabled?: boolean }) {
           <span>{loading ? 'Getting...' : 'Get Location'}</span>
         </button>
       </div>
+    </div>
+  );
+}
+
+// =====================================================
+// Searchable Select Component (Combobox)
+// =====================================================
+//
+// PURPOSE:
+// Provides a searchable dropdown select input that combines:
+// - Text input for searching/filtering options
+// - Dropdown list for browsing all options
+// - Keyboard navigation (Arrow keys, Enter, Escape)
+//
+// FEATURES:
+// - Click to show all options
+// - Type to filter options in real-time
+// - Arrow keys to navigate filtered results
+// - Enter to select highlighted option
+// - Escape to close dropdown
+// - Clear button to reset selection
+// - Works with both static and dynamic options
+//
+// PROPS:
+// - options: Array of {value, label} objects
+// - value: Currently selected value
+// - onChange: Callback when selection changes
+// - placeholder: Placeholder text
+// - disabled: Whether input is disabled
+// - required: Whether field is required
+// - className: Additional CSS classes
+//
+// =====================================================
+export function SearchableSelect({
+  options = [],
+  value,
+  onChange,
+  placeholder = 'Search or select...',
+  disabled = false,
+  required = false,
+  className = ''
+}: {
+  options: Array<{ value: string; label: string }>;
+  value?: string;
+  onChange?: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  required?: boolean;
+  className?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Get the label for the selected value
+  const selectedOption = options.find(opt => opt.value === value);
+  const displayValue = selectedOption ? selectedOption.label : '';
+
+  // Filter options based on search term
+  const filteredOptions = useMemo(() => {
+    if (!searchTerm) return options;
+    const term = searchTerm.toLowerCase();
+    return options.filter(opt =>
+      opt.label.toLowerCase().includes(term) ||
+      opt.value.toLowerCase().includes(term)
+    );
+  }, [options, searchTerm]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Reset highlighted index when filtered options change
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [filteredOptions]);
+
+  // Scroll highlighted option into view
+  useEffect(() => {
+    if (isOpen && dropdownRef.current && highlightedIndex >= 0) {
+      const highlightedElement = dropdownRef.current.children[highlightedIndex] as HTMLElement;
+      if (highlightedElement) {
+        highlightedElement.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [highlightedIndex, isOpen]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setIsOpen(true);
+  };
+
+  const handleInputFocus = () => {
+    setIsOpen(true);
+    setSearchTerm('');
+  };
+
+  const handleOptionClick = (optionValue: string) => {
+    onChange?.(optionValue);
+    setIsOpen(false);
+    setSearchTerm('');
+    inputRef.current?.blur();
+  };
+
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange?.('');
+    setSearchTerm('');
+    setIsOpen(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setIsOpen(true);
+        setHighlightedIndex(prev =>
+          prev < filteredOptions.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setIsOpen(true);
+        setHighlightedIndex(prev => (prev > 0 ? prev - 1 : 0));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (isOpen && filteredOptions[highlightedIndex]) {
+          handleOptionClick(filteredOptions[highlightedIndex].value);
+        } else {
+          setIsOpen(true);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setIsOpen(false);
+        setSearchTerm('');
+        inputRef.current?.blur();
+        break;
+      case 'Tab':
+        setIsOpen(false);
+        setSearchTerm('');
+        break;
+    }
+  };
+
+  return (
+    <div ref={containerRef} className={`relative ${className}`}>
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={isOpen ? searchTerm : displayValue}
+          onChange={handleInputChange}
+          onFocus={handleInputFocus}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          disabled={disabled}
+          required={required}
+          className="w-full px-3 py-2 pr-20 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+          autoComplete="off"
+        />
+        <div className="absolute inset-y-0 right-0 flex items-center pr-2 gap-1">
+          {value && !disabled && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              tabIndex={-1}
+            >
+              <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+            </button>
+          )}
+          <Search className="h-4 w-4 text-gray-400 pointer-events-none" />
+          <ChevronDown
+            className={`h-4 w-4 text-gray-400 pointer-events-none transition-transform ${
+              isOpen ? 'transform rotate-180' : ''
+            }`}
+          />
+        </div>
+      </div>
+
+      {isOpen && !disabled && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+          {filteredOptions.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-gray-500 text-center">
+              No options found
+            </div>
+          ) : (
+            <div ref={dropdownRef}>
+              {filteredOptions.map((option, index) => {
+                const isSelected = option.value === value;
+                const isHighlighted = index === highlightedIndex;
+
+                return (
+                  <div
+                    key={option.value}
+                    onClick={() => handleOptionClick(option.value)}
+                    className={`px-3 py-2 text-sm cursor-pointer flex items-center justify-between ${
+                      isHighlighted
+                        ? 'bg-blue-50 text-blue-700'
+                        : isSelected
+                        ? 'bg-gray-50 text-gray-900'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                    onMouseEnter={() => setHighlightedIndex(index)}
+                  >
+                    <span className={isSelected ? 'font-medium' : ''}>
+                      {option.label}
+                    </span>
+                    {isSelected && (
+                      <Check className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =====================================================
+// Searchable Multi-Select Component (Dropdown Checklist)
+// =====================================================
+//
+// PURPOSE:
+// Provides a dropdown with searchable checkboxes for multiple selections:
+// - Click button/field to open dropdown
+// - Search box INSIDE dropdown filters options
+// - Checkboxes for each option
+// - Selected items displayed as tags
+// - Done button to close dropdown
+//
+// FEATURES:
+// - Click to open dropdown with search + checkboxes
+// - Search filters checkbox list in real-time
+// - Select/deselect multiple items via checkboxes
+// - Selected values shown as tags
+// - Remove individual tags with X button
+// - Clear all selections at once
+// - Done button closes dropdown
+// - Works with both static and dynamic options
+//
+// PROPS:
+// - options: Array of {value, label} objects
+// - value: Array of currently selected values
+// - onChange: Callback when selections change
+// - placeholder: Placeholder text
+// - disabled: Whether input is disabled
+// - required: Whether field is required
+// - className: Additional CSS classes
+//
+// =====================================================
+export function SearchableMultiSelect({
+  options = [],
+  value = [],
+  onChange,
+  placeholder = 'Select items...',
+  disabled = false,
+  required = false,
+  className = ''
+}: {
+  options: Array<{ value: string; label: string }>;
+  value?: string[];
+  onChange?: (value: string[]) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  required?: boolean;
+  className?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Filter options based on search term
+  const filteredOptions = useMemo(() => {
+    if (!searchTerm) return options;
+    const term = searchTerm.toLowerCase();
+    return options.filter(opt =>
+      opt.label.toLowerCase().includes(term) ||
+      opt.value.toLowerCase().includes(term)
+    );
+  }, [options, searchTerm]);
+
+  // Get labels for selected values
+  const selectedOptions = useMemo(() => {
+    return value.map(val => options.find(opt => opt.value === val)).filter(Boolean) as Array<{ value: string; label: string }>;
+  }, [value, options]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Focus search input when dropdown opens
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  const toggleDropdown = () => {
+    if (!disabled) {
+      setIsOpen(!isOpen);
+      setSearchTerm('');
+    }
+  };
+
+  const toggleOption = (optionValue: string) => {
+    const newValue = value.includes(optionValue)
+      ? value.filter(v => v !== optionValue)
+      : [...value, optionValue];
+    onChange?.(newValue);
+  };
+
+  const removeTag = (valueToRemove: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange?.(value.filter(v => v !== valueToRemove));
+  };
+
+  const handleDone = () => {
+    setIsOpen(false);
+    setSearchTerm('');
+  };
+
+  const handleClearAll = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange?.([]);
+  };
+
+  return (
+    <div ref={containerRef} className={`relative ${className}`}>
+      {/* Main button field */}
+      <button
+        type="button"
+        onClick={toggleDropdown}
+        disabled={disabled}
+        className={`w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-left focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 ${
+          isOpen ? 'ring-2 ring-blue-500 border-transparent' : ''
+        }`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1 flex flex-wrap items-center gap-1 min-h-[20px]">
+            {selectedOptions.length > 0 ? (
+              selectedOptions.map(option => (
+                <span
+                  key={option.value}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded"
+                >
+                  {option.label}
+                  {!disabled && (
+                    <span
+                      onClick={(e) => removeTag(option.value, e)}
+                      className="hover:bg-blue-200 rounded-full p-0.5 cursor-pointer"
+                    >
+                      <X className="h-3 w-3" />
+                    </span>
+                  )}
+                </span>
+              ))
+            ) : (
+              <span className="text-gray-500">{placeholder}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {value.length > 0 && !disabled && (
+              <span
+                onClick={handleClearAll}
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
+                title="Clear all"
+              >
+                <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+              </span>
+            )}
+            <ChevronDown
+              className={`h-4 w-4 text-gray-400 transition-transform ${
+                isOpen ? 'transform rotate-180' : ''
+              }`}
+            />
+          </div>
+        </div>
+      </button>
+
+      {/* Dropdown with search + checkboxes */}
+      {isOpen && !disabled && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg flex flex-col max-h-96">
+          {/* Search box inside dropdown */}
+          <div className="p-3 border-b border-gray-200">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search options..."
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          </div>
+
+          {/* Checkbox list */}
+          <div className="overflow-auto max-h-60 py-1">
+            {filteredOptions.length === 0 ? (
+              <div className="px-3 py-8 text-sm text-gray-500 text-center">
+                No options found
+              </div>
+            ) : (
+              filteredOptions.map((option) => {
+                const isSelected = value.includes(option.value);
+
+                return (
+                  <div
+                    key={option.value}
+                    onClick={() => toggleOption(option.value)}
+                    className={`px-3 py-2 text-sm cursor-pointer flex items-center gap-2 transition-colors ${
+                      isSelected
+                        ? 'bg-blue-50'
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {}} // Handled by parent div onClick
+                      className="rounded text-blue-600 focus:ring-blue-500 pointer-events-none"
+                      tabIndex={-1}
+                    />
+                    <span className={isSelected ? 'font-medium text-gray-900' : 'text-gray-700'}>
+                      {option.label}
+                    </span>
+                    {isSelected && (
+                      <Check className="h-4 w-4 text-blue-600 ml-auto flex-shrink-0" />
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Done button */}
+          <div className="border-t border-gray-200 p-2 bg-gray-50 rounded-b-lg">
+            <button
+              type="button"
+              onClick={handleDone}
+              className="w-full px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+            >
+              Done {value.length > 0 && `(${value.length} selected)`}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -527,6 +1038,404 @@ export function DataTableInput({
   );
 }
 
+// =====================================================
+// Currency Input Component
+// =====================================================
+export function CurrencyInput({
+  value = '',
+  onChange,
+  disabled = false,
+  placeholder = '0.00',
+  currencySymbol = '$',
+  required = false,
+  className = ''
+}: {
+  value?: string | number;
+  onChange?: (value: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  currencySymbol?: string;
+  required?: boolean;
+  className?: string;
+}) {
+  const [displayValue, setDisplayValue] = useState('');
+
+  useEffect(() => {
+    if (value) {
+      const numValue = typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]/g, '')) : value;
+      if (!isNaN(numValue)) {
+        setDisplayValue(numValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+      }
+    } else {
+      setDisplayValue('');
+    }
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value.replace(/[^0-9.]/g, '');
+    const parts = input.split('.');
+    if (parts.length > 2) return; // Prevent multiple decimals
+
+    setDisplayValue(input);
+    onChange?.(input);
+  };
+
+  const handleBlur = () => {
+    if (displayValue) {
+      const numValue = parseFloat(displayValue.replace(/,/g, ''));
+      if (!isNaN(numValue)) {
+        const formatted = numValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        setDisplayValue(formatted);
+        onChange?.(numValue.toString());
+      }
+    }
+  };
+
+  return (
+    <div className={`relative ${className}`}>
+      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
+        {currencySymbol}
+      </span>
+      <input
+        type="text"
+        value={displayValue}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        onFocus={(e) => {
+          const raw = displayValue.replace(/,/g, '');
+          setDisplayValue(raw);
+        }}
+        placeholder={placeholder}
+        disabled={disabled}
+        required={required}
+        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+      />
+    </div>
+  );
+}
+
+// =====================================================
+// Date Only Input Component (without time)
+// =====================================================
+export function DateOnlyInput({
+  value,
+  onChange,
+  disabled = false,
+  placeholder = 'Select date',
+  minDate,
+  maxDate,
+  required = false
+}: {
+  value?: Date | string;
+  onChange?: (date: Date | null) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  minDate?: Date;
+  maxDate?: Date;
+  required?: boolean;
+}) {
+  const dateValue = value ? (typeof value === 'string' ? new Date(value) : value) : undefined;
+
+  return (
+    <div className="relative">
+      <DatePicker
+        selected={dateValue}
+        onChange={onChange}
+        disabled={disabled}
+        placeholderText={placeholder}
+        dateFormat="MMM d, yyyy"
+        minDate={minDate}
+        maxDate={maxDate}
+        showPopperArrow={false}
+        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+        required={required}
+      />
+      <CalendarDays className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+    </div>
+  );
+}
+
+// =====================================================
+// Time Only Input Component (without date)
+// =====================================================
+export function TimeOnlyInput({
+  value = '',
+  onChange,
+  disabled = false,
+  placeholder = 'Select time',
+  required = false
+}: {
+  value?: string;
+  onChange?: (time: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  required?: boolean;
+}) {
+  return (
+    <div className="relative">
+      <input
+        type="time"
+        value={value}
+        onChange={(e) => onChange?.(e.target.value)}
+        disabled={disabled}
+        placeholder={placeholder}
+        required={required}
+        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+      />
+      <Clock className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+    </div>
+  );
+}
+
+// =====================================================
+// Toggle/Switch Input Component
+// =====================================================
+export function ToggleInput({
+  value = false,
+  onChange,
+  disabled = false,
+  label,
+  required = false
+}: {
+  value?: boolean;
+  onChange?: (checked: boolean) => void;
+  disabled?: boolean;
+  label?: string;
+  required?: boolean;
+}) {
+  return (
+    <div className="flex items-center space-x-3">
+      <button
+        type="button"
+        onClick={() => !disabled && onChange?.(!value)}
+        disabled={disabled}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+          value ? 'bg-blue-600' : 'bg-gray-200'
+        } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+        role="switch"
+        aria-checked={value}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+            value ? 'translate-x-6' : 'translate-x-1'
+          }`}
+        />
+      </button>
+      {label && (
+        <span className="text-sm text-gray-700">
+          {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// =====================================================
+// Rating Input Component (Stars)
+// =====================================================
+export function RatingInput({
+  value = 0,
+  onChange,
+  disabled = false,
+  maxRating = 5,
+  required = false
+}: {
+  value?: number;
+  onChange?: (rating: number) => void;
+  disabled?: boolean;
+  maxRating?: number;
+  required?: boolean;
+}) {
+  const [hoverRating, setHoverRating] = useState(0);
+
+  return (
+    <div className="flex items-center space-x-1">
+      {Array.from({ length: maxRating }, (_, i) => i + 1).map((rating) => (
+        <button
+          key={rating}
+          type="button"
+          onClick={() => !disabled && onChange?.(rating)}
+          onMouseEnter={() => !disabled && setHoverRating(rating)}
+          onMouseLeave={() => !disabled && setHoverRating(0)}
+          disabled={disabled}
+          className={`focus:outline-none ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+        >
+          <Star
+            className={`h-6 w-6 transition-colors ${
+              rating <= (hoverRating || value)
+                ? 'fill-yellow-400 text-yellow-400'
+                : 'text-gray-300'
+            }`}
+          />
+        </button>
+      ))}
+      <span className="ml-2 text-sm text-gray-600">
+        {value > 0 ? `${value}/${maxRating}` : 'No rating'}
+      </span>
+    </div>
+  );
+}
+
+// =====================================================
+// Duration Input Component (Hours + Minutes)
+// =====================================================
+export function DurationInput({
+  value = { hours: 0, minutes: 0 },
+  onChange,
+  disabled = false,
+  required = false
+}: {
+  value?: { hours: number; minutes: number } | string;
+  onChange?: (duration: { hours: number; minutes: number }) => void;
+  disabled?: boolean;
+  required?: boolean;
+}) {
+  // Parse value if it's a string like "2:30" or object
+  const parsedValue = typeof value === 'string'
+    ? { hours: parseInt(value.split(':')[0]) || 0, minutes: parseInt(value.split(':')[1]) || 0 }
+    : value;
+
+  const handleHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const hours = Math.max(0, parseInt(e.target.value) || 0);
+    onChange?.({ ...parsedValue, hours });
+  };
+
+  const handleMinutesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const minutes = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
+    onChange?.({ ...parsedValue, minutes });
+  };
+
+  return (
+    <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-1">
+        <input
+          type="number"
+          value={parsedValue.hours}
+          onChange={handleHoursChange}
+          min="0"
+          disabled={disabled}
+          required={required}
+          className="w-16 px-2 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50"
+        />
+        <span className="text-sm text-gray-600">hrs</span>
+      </div>
+      <span className="text-gray-400">:</span>
+      <div className="flex items-center space-x-1">
+        <input
+          type="number"
+          value={parsedValue.minutes}
+          onChange={handleMinutesChange}
+          min="0"
+          max="59"
+          disabled={disabled}
+          className="w-16 px-2 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50"
+        />
+        <span className="text-sm text-gray-600">min</span>
+      </div>
+      <Timer className="h-4 w-4 text-gray-400 ml-2" />
+    </div>
+  );
+}
+
+// =====================================================
+// Percentage Input Component
+// =====================================================
+export function PercentageInput({
+  value = 0,
+  onChange,
+  disabled = false,
+  placeholder = '0',
+  min = 0,
+  max = 100,
+  required = false
+}: {
+  value?: number | string;
+  onChange?: (value: number) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  min?: number;
+  max?: number;
+  required?: boolean;
+}) {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+
+  return (
+    <div className="relative">
+      <input
+        type="number"
+        value={numValue}
+        onChange={(e) => {
+          const val = parseFloat(e.target.value);
+          if (!isNaN(val)) {
+            onChange?.(Math.max(min, Math.min(max, val)));
+          }
+        }}
+        min={min}
+        max={max}
+        step="0.1"
+        disabled={disabled}
+        placeholder={placeholder}
+        required={required}
+        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+      />
+      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
+        %
+      </span>
+    </div>
+  );
+}
+
+// =====================================================
+// Calculation Field Component (Read-only calculated)
+// =====================================================
+export function CalculationField({
+  value = 0,
+  label,
+  currencySymbol = '$',
+  expression,
+  showExpression = false
+}: {
+  value?: number | string;
+  label?: string;
+  currencySymbol?: string;
+  expression?: string;
+  showExpression?: boolean;
+}) {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  const formatted = !isNaN(numValue)
+    ? numValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : '0.00';
+
+  // Debug logging
+  console.log('💰 CalculationField render:', { value, numValue, formatted, expression, showExpression });
+
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center space-x-2">
+          <Calculator className="h-5 w-5 text-blue-600" />
+          <span className="text-sm font-medium text-blue-900">{label || 'Calculated Value'}</span>
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="text-3xl font-bold text-blue-800">
+          {currencySymbol}{formatted}
+        </div>
+        <div className="text-xs text-blue-600 mt-1">Auto-calculated</div>
+      </div>
+      {showExpression && expression && (
+        <div className="mt-3 pt-3 border-t border-blue-300">
+          <div className="text-xs text-blue-700">
+            <span className="font-medium">Formula:</span>{' '}
+            <code className="bg-blue-100 px-2 py-0.5 rounded font-mono">{expression}</code>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Modern DateTime Picker Component
 export function ModernDateTimePicker({ 
   value, 
@@ -722,12 +1631,13 @@ export function DroppableFormCanvas({ children }: { children: React.ReactNode })
   );
 }
 
-export function SortableFieldCard({ field, selected, onSelect, onChange, onRemove }: {
+export function SortableFieldCard({ field, selected, onSelect, onChange, onRemove, allFields }: {
   field: BuilderField;
   selected: boolean;
   onSelect: () => void;
   onChange: (patch: Partial<BuilderField>) => void;
   onRemove: () => void;
+  allFields?: BuilderField[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
   const style: React.CSSProperties = {
@@ -735,6 +1645,14 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
     transition,
     boxShadow: isDragging ? '0 12px 24px rgba(16, 24, 40, 0.14)' : undefined,
   };
+
+  // Get list of numeric fields for calculation reference
+  const numericFields = React.useMemo(() => {
+    if (!allFields) return [];
+    return allFields
+      .filter(f => ['number', 'currency', 'percentage', 'duration', 'rating'].includes(f.type) && f.id !== field.id)
+      .map(f => ({ name: f.name, label: f.label || f.name, type: f.type }));
+  }, [allFields, field.id]);
 
   const handleCardClick = (e: React.MouseEvent) => {
     // Don't trigger select if clicking on input elements or buttons
@@ -805,7 +1723,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         </div>
         
         {/* Placeholder field for most input types */}
-        {(['text', 'email', 'phone', 'url', 'textarea', 'number', 'signature', 'initials', 'address', 'geolocation', 'datetime', 'image_capture', 'video_capture', 'qr_scanner', 'barcode_scanner', 'wiki'].includes(field.type)) && (
+        {(['text', 'email', 'phone', 'url', 'textarea', 'number', 'signature', 'initials', 'address', 'geolocation', 'datetime', 'image_capture', 'video_capture', 'qr_scanner', 'barcode_scanner', 'wiki', 'currency', 'date', 'time', 'percentage'].includes(field.type)) && (
           <div className="md:col-span-3 flex flex-col">
             <label className="text-xs font-light text-gray-500 mb-1">Placeholder</label>
             <input
@@ -817,24 +1735,121 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
           </div>
         )}
         
-        {/* Options for select, radio, and checkbox */}
-        {(['select', 'radio', 'checkbox'].includes(field.type)) && (
-          <div className="md:col-span-3 flex flex-col">
-            <label className="text-xs font-light text-gray-500 mb-1">Options (comma separated)</label>
-            <input
-              value={(field.options || []).join(', ')}
-              onChange={(e) => {
-                const rawValue = e.target.value;
-                const parsedOptions = rawValue.split(',').map(opt => opt.trim());
-                onChange({ options: parsedOptions });
-              }}
-              onBlur={(e) => {
-                const cleanedOptions = e.target.value.split(',').map(opt => opt.trim()).filter(Boolean);
-                onChange({ options: cleanedOptions });
-              }}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
-            />
-          </div>
+        {/* Options for select, select_multiple, radio, and checkbox */}
+        {(['select', 'select_multiple', 'radio', 'checkbox'].includes(field.type)) && (
+          <>
+            {/* Dynamic Options Toggle */}
+            <div className="md:col-span-3 flex items-center space-x-2 pb-2 border-b border-gray-200">
+              <input
+                id={`dynamic-${field.id}`}
+                type="checkbox"
+                checked={!!field.useDynamicOptions}
+                onChange={(e) => onChange({ useDynamicOptions: e.target.checked })}
+                className="rounded text-blue-600"
+              />
+              <label htmlFor={`dynamic-${field.id}`} className="text-sm font-normal text-gray-700">
+                Load options from datalabel table
+              </label>
+            </div>
+
+            {/* Dynamic Datalabel Configuration */}
+            {field.useDynamicOptions ? (
+              <>
+                <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="flex flex-col">
+                    <label className="text-xs font-light text-gray-500 mb-1">Datalabel Table</label>
+                    <select
+                      value={field.datalabelTable || ''}
+                      onChange={(e) => onChange({ datalabelTable: e.target.value })}
+                      className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                    >
+                      <option value="">Choose table...</option>
+                      <option value="client_service">Client Services</option>
+                      <option value="client_status">Client Status</option>
+                      <option value="client_level">Client Level</option>
+                      <option value="task_stage">Task Stage</option>
+                      <option value="task_priority">Task Priority</option>
+                      <option value="task_update_type">Task Update Type</option>
+                      <option value="project_stage">Project Stage</option>
+                      <option value="business_level">Business Level</option>
+                      <option value="office_level">Office Level</option>
+                      <option value="position_level">Position Level</option>
+                      <option value="opportunity_funnel_stage">Opportunity Funnel Stage</option>
+                      <option value="industry_sector">Industry Sector</option>
+                      <option value="acquisition_channel">Acquisition Channel</option>
+                      <option value="customer_tier">Customer Tier</option>
+                      <option value="form_submission_status">Form Submission Status</option>
+                      <option value="form_approval_status">Form Approval Status</option>
+                      <option value="wiki_publication_status">Wiki Publication Status</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col">
+                    <label className="text-xs font-light text-gray-500 mb-1">Value Column</label>
+                    <select
+                      value={field.datalabelValueColumn || ''}
+                      onChange={(e) => onChange({ datalabelValueColumn: e.target.value })}
+                      className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                    >
+                      <option value="">Choose column...</option>
+                      <option value="id">ID</option>
+                      <option value="level_id">Level ID</option>
+                      <option value="stage_id">Stage ID</option>
+                      <option value="name">Name</option>
+                      <option value="level_name">Level Name</option>
+                      <option value="stage_name">Stage Name</option>
+                      <option value="slug">Slug</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col">
+                    <label className="text-xs font-light text-gray-500 mb-1">Display Column</label>
+                    <select
+                      value={field.datalabelDisplayColumn || ''}
+                      onChange={(e) => onChange({ datalabelDisplayColumn: e.target.value })}
+                      className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                    >
+                      <option value="">Choose column...</option>
+                      <option value="name">Name</option>
+                      <option value="level_name">Level Name</option>
+                      <option value="stage_name">Stage Name</option>
+                      <option value="slug">Slug</option>
+                      <option value="descr">Description</option>
+                      <option value="level_descr">Level Description</option>
+                      <option value="stage_descr">Stage Description</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="md:col-span-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-blue-800">
+                    <strong>Dynamic Options:</strong> Options will be loaded from the{' '}
+                    <code className="bg-blue-100 px-1 rounded">{field.datalabelTable || '(select table)'}</code> table.
+                    Values: <code className="bg-blue-100 px-1 rounded">{field.datalabelValueColumn || '(select column)'}</code>,
+                    Display: <code className="bg-blue-100 px-1 rounded">{field.datalabelDisplayColumn || '(select column)'}</code>
+                  </p>
+                </div>
+              </>
+            ) : (
+              /* Static Options Input */
+              <div className="md:col-span-3 flex flex-col">
+                <label className="text-xs font-light text-gray-500 mb-1">Options (comma separated)</label>
+                <input
+                  value={(field.options || []).join(', ')}
+                  onChange={(e) => {
+                    const rawValue = e.target.value;
+                    const parsedOptions = rawValue.split(',').map(opt => opt.trim());
+                    onChange({ options: parsedOptions });
+                  }}
+                  onBlur={(e) => {
+                    const cleanedOptions = e.target.value.split(',').map(opt => opt.trim()).filter(Boolean);
+                    onChange({ options: cleanedOptions });
+                  }}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                  placeholder="Option 1, Option 2, Option 3"
+                />
+              </div>
+            )}
+          </>
         )}
         
         {/* Range slider configuration */}
@@ -1041,6 +2056,216 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 Configure your table by adding/removing rows and columns. Column labels can be edited inline. This structure will be used when rendering the form.
               </div>
             </div>
+          </>
+        )}
+
+        {/* Currency field configuration */}
+        {field.type === 'currency' && (
+          <>
+            <div className="flex flex-col">
+              <label className="text-xs font-light text-gray-500 mb-1">Currency Symbol</label>
+              <input
+                value={field.currencySymbol || '$'}
+                onChange={(e) => onChange({ currencySymbol: e.target.value })}
+                placeholder="$"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-xs font-light text-gray-500 mb-1">Currency Code</label>
+              <select
+                value={field.currencyCode || 'USD'}
+                onChange={(e) => onChange({ currencyCode: e.target.value })}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+              >
+                <option value="USD">USD - US Dollar</option>
+                <option value="CAD">CAD - Canadian Dollar</option>
+                <option value="EUR">EUR - Euro</option>
+                <option value="GBP">GBP - British Pound</option>
+                <option value="JPY">JPY - Japanese Yen</option>
+              </select>
+            </div>
+          </>
+        )}
+
+        {/* Rating field configuration */}
+        {field.type === 'rating' && (
+          <>
+            <div className="flex flex-col">
+              <label className="text-xs font-light text-gray-500 mb-1">Max Rating</label>
+              <input
+                type="number"
+                value={field.maxRating || 5}
+                onChange={(e) => onChange({ maxRating: parseInt(e.target.value) || 5 })}
+                min="1"
+                max="10"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-xs font-light text-gray-500 mb-1">Icon Type</label>
+              <select
+                value={field.ratingIcon || 'star'}
+                onChange={(e) => onChange({ ratingIcon: e.target.value as 'star' | 'heart' | 'thumb' })}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+              >
+                <option value="star">Star</option>
+                <option value="heart">Heart</option>
+                <option value="thumb">Thumb</option>
+              </select>
+            </div>
+          </>
+        )}
+
+        {/* Duration field configuration */}
+        {field.type === 'duration' && (
+          <div className="md:col-span-3 flex flex-col">
+            <label className="text-xs font-light text-gray-500 mb-1">Format</label>
+            <select
+              value={field.durationFormat || 'hours_minutes'}
+              onChange={(e) => onChange({ durationFormat: e.target.value as 'hours_minutes' | 'minutes' | 'hours' })}
+              className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+            >
+              <option value="hours_minutes">Hours & Minutes</option>
+              <option value="hours">Hours Only</option>
+              <option value="minutes">Minutes Only</option>
+            </select>
+          </div>
+        )}
+
+        {/* Percentage field configuration */}
+        {field.type === 'percentage' && (
+          <>
+            <div className="flex flex-col">
+              <label className="text-xs font-light text-gray-500 mb-1">Min %</label>
+              <input
+                type="number"
+                value={field.percentageMin ?? 0}
+                onChange={(e) => onChange({ percentageMin: parseFloat(e.target.value) || 0 })}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-xs font-light text-gray-500 mb-1">Max %</label>
+              <input
+                type="number"
+                value={field.percentageMax ?? 100}
+                onChange={(e) => onChange({ percentageMax: parseFloat(e.target.value) || 100 })}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Calculation field configuration */}
+        {field.type === 'calculation' && (
+          <>
+            <div className="md:col-span-3 flex flex-col">
+              <label className="text-xs font-light text-gray-500 mb-1">Calculation Mode</label>
+              <select
+                value={field.calculationMode || 'simple'}
+                onChange={(e) => onChange({ calculationMode: e.target.value as 'simple' | 'expression' })}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+              >
+                <option value="simple">Simple Operation</option>
+                <option value="expression">Custom JavaScript Expression</option>
+              </select>
+            </div>
+
+            {field.calculationMode === 'expression' ? (
+              <>
+                {numericFields.length > 0 && (
+                  <div className="md:col-span-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <p className="text-xs font-medium text-gray-700 mb-2">📝 Available Numeric Fields:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {numericFields.map((f) => (
+                        <button
+                          key={f.name}
+                          type="button"
+                          onClick={() => {
+                            const currentExpr = field.calculationExpression || '';
+                            onChange({ calculationExpression: currentExpr + (currentExpr ? ' + ' : '') + f.name });
+                          }}
+                          className="inline-flex items-center space-x-1 px-2 py-1 bg-white border border-gray-300 rounded text-xs hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                          title={`Click to insert "${f.name}"`}
+                        >
+                          <span className="font-mono text-blue-600">{f.name}</span>
+                          <span className="text-gray-400">•</span>
+                          <span className="text-gray-600">{f.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">Click to insert field names into your expression</p>
+                  </div>
+                )}
+                <div className="md:col-span-3 flex flex-col">
+                  <label className="text-xs font-light text-gray-500 mb-1">JavaScript Expression</label>
+                  <textarea
+                    value={field.calculationExpression || ''}
+                    onChange={(e) => onChange({ calculationExpression: e.target.value })}
+                    placeholder="e.g., field1 * field2 * 0.15"
+                    rows={3}
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg font-mono text-xs"
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    Use exact field <strong>names</strong> as variables. Supports: +, -, *, /, Math functions, conditionals
+                  </div>
+                </div>
+                <div className="md:col-span-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs font-medium text-blue-900 mb-2">💡 Expression Examples:</p>
+                  <ul className="text-xs text-blue-800 space-y-1 font-mono">
+                    <li>• <code className="bg-blue-100 px-1 rounded">quantity * price</code> - Multiply two fields</li>
+                    <li>• <code className="bg-blue-100 px-1 rounded">(subtotal + tax) * 1.15</code> - Add fields and multiply</li>
+                    <li>• <code className="bg-blue-100 px-1 rounded">total &gt; 1000 ? total * 0.9 : total</code> - Conditional discount</li>
+                    <li>• <code className="bg-blue-100 px-1 rounded">Math.max(estimate1, estimate2, estimate3)</code> - Max value</li>
+                    <li>• <code className="bg-blue-100 px-1 rounded">Math.round(hours * rate * 100) / 100</code> - Round to 2 decimals</li>
+                  </ul>
+                </div>
+                <div className="md:col-span-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <p className="text-xs text-yellow-800">
+                    <strong>⚠️ Security Note:</strong> Expressions are evaluated in a sandboxed context with only field values and Math functions available.
+                    Use exact field <code className="bg-yellow-100 px-1 rounded">name</code> values (not labels).
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="md:col-span-3 flex flex-col">
+                  <label className="text-xs font-light text-gray-500 mb-1">Operation</label>
+                  <select
+                    value={field.calculationOperation || 'sum'}
+                    onChange={(e) => onChange({ calculationOperation: e.target.value as 'sum' | 'subtract' | 'multiply' | 'divide' | 'average' | 'min' | 'max' })}
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                  >
+                    <option value="sum">Sum (+)</option>
+                    <option value="subtract">Subtract (-)</option>
+                    <option value="multiply">Multiply (×)</option>
+                    <option value="divide">Divide (÷)</option>
+                    <option value="average">Average</option>
+                    <option value="min">Minimum</option>
+                    <option value="max">Maximum</option>
+                  </select>
+                </div>
+                <div className="md:col-span-3 flex flex-col">
+                  <label className="text-xs font-light text-gray-500 mb-1">Field Names to Calculate (comma-separated)</label>
+                  <input
+                    value={(field.calculationFields || []).join(', ')}
+                    onChange={(e) => {
+                      const fields = e.target.value.split(',').map(f => f.trim()).filter(Boolean);
+                      onChange({ calculationFields: fields });
+                    }}
+                    placeholder="field1, field2, field3"
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div className="md:col-span-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <p className="text-xs text-yellow-800">
+                    <strong>Note:</strong> Enter the exact field <code className="bg-yellow-100 px-1 rounded">name</code> values (not labels)
+                    of numeric fields to include in this calculation. The result will update automatically.
+                  </p>
+                </div>
+              </>
+            )}
           </>
         )}
 

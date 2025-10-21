@@ -18,7 +18,8 @@ import {
   CheckSquare,
   Users,
   Tag,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Mail
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -83,6 +84,9 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
     { name: 'Form', href: '/form', icon: FileText, category: 'content' },
     { name: 'Task', href: '/task', icon: CheckSquare, category: 'operational' },
     { name: 'Artifact', href: '/artifact', icon: FileText, category: 'content' },
+
+    // Marketing (1)
+    { name: 'Marketing', href: '/marketing', icon: Mail, category: 'marketing' },
   ];
 
   const settingsSubItems = [

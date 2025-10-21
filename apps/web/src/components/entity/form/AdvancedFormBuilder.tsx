@@ -4,7 +4,8 @@ import {
   ArrowLeft, Save, Plus, Search, ChevronLeft, ChevronRight, Layers, X,
   Type, MessageSquare, Hash, Mail, Phone, Globe, ChevronDown, Radio,
   CheckSquare, Calendar, Upload, Sliders, PenTool, Home, Navigation,
-  Camera, Video, QrCode, Barcode, BookOpen, Table
+  Camera, Video, QrCode, Barcode, BookOpen, Table, DollarSign, CalendarDays,
+  Clock, ToggleLeft, Star, Timer, Calculator, Percent
 } from 'lucide-react';
 import { DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy } from '@dnd-kit/sortable';
@@ -22,7 +23,8 @@ const FIELD_TYPES_PALETTE = [
   { type: 'email' as FieldType, label: 'Email', hint: 'Email address', icon: <Mail className="h-4 w-4" /> },
   { type: 'phone' as FieldType, label: 'Phone', hint: 'Phone number', icon: <Phone className="h-4 w-4" /> },
   { type: 'url' as FieldType, label: 'URL', hint: 'Website URL', icon: <Globe className="h-4 w-4" /> },
-  { type: 'select' as FieldType, label: 'Select', hint: 'Dropdown menu', icon: <ChevronDown className="h-4 w-4" /> },
+  { type: 'select' as FieldType, label: 'Select (Single)', hint: 'Dropdown - single value', icon: <ChevronDown className="h-4 w-4" /> },
+  { type: 'select_multiple' as FieldType, label: 'Select (Multiple)', hint: 'Dropdown - multiple values', icon: <CheckSquare className="h-4 w-4" /> },
   { type: 'radio' as FieldType, label: 'Radio Buttons', hint: 'Single choice', icon: <Radio className="h-4 w-4" /> },
   { type: 'checkbox' as FieldType, label: 'Checkboxes', hint: 'Multiple choices', icon: <CheckSquare className="h-4 w-4" /> },
   { type: 'taskcheck' as FieldType, label: 'Task Checkbox', hint: 'Single checkbox with timestamp', icon: <CheckSquare className="h-4 w-4" /> },
@@ -39,6 +41,14 @@ const FIELD_TYPES_PALETTE = [
   { type: 'barcode_scanner' as FieldType, label: 'Barcode Scanner', hint: 'Scan barcodes', icon: <Barcode className="h-4 w-4" /> },
   { type: 'wiki' as FieldType, label: 'Rich Text / Wiki', hint: 'Advanced text editor', icon: <BookOpen className="h-4 w-4" /> },
   { type: 'datatable' as FieldType, label: 'Data Table', hint: 'Dynamic row/column table', icon: <Table className="h-4 w-4" /> },
+  { type: 'currency' as FieldType, label: 'Currency', hint: 'Money with formatting', icon: <DollarSign className="h-4 w-4" /> },
+  { type: 'date' as FieldType, label: 'Date Only', hint: 'Date without time', icon: <CalendarDays className="h-4 w-4" /> },
+  { type: 'time' as FieldType, label: 'Time Only', hint: 'Time without date', icon: <Clock className="h-4 w-4" /> },
+  { type: 'toggle' as FieldType, label: 'Toggle Switch', hint: 'On/off switch', icon: <ToggleLeft className="h-4 w-4" /> },
+  { type: 'rating' as FieldType, label: 'Star Rating', hint: 'Rating with stars', icon: <Star className="h-4 w-4" /> },
+  { type: 'duration' as FieldType, label: 'Duration', hint: 'Hours and minutes', icon: <Timer className="h-4 w-4" /> },
+  { type: 'percentage' as FieldType, label: 'Percentage', hint: 'Number with %', icon: <Percent className="h-4 w-4" /> },
+  { type: 'calculation' as FieldType, label: 'Calculation', hint: 'Auto-calculated value', icon: <Calculator className="h-4 w-4" /> },
 ];
 
 interface AdvancedFormBuilderProps {
@@ -234,6 +244,40 @@ export function AdvancedFormBuilder({
           { name: 'col3', label: 'Column 3' }
         ],
         dataTableDefaultRows: 1
+      } : {}),
+      ...(type === 'currency' ? {
+        currencySymbol: '$',
+        currencyCode: 'USD',
+        placeholder: '0.00'
+      } : {}),
+      ...(type === 'date' ? {
+        placeholder: 'Select date'
+      } : {}),
+      ...(type === 'time' ? {
+        placeholder: 'Select time'
+      } : {}),
+      ...(type === 'toggle' ? {
+        placeholder: 'Enable this option'
+      } : {}),
+      ...(type === 'rating' ? {
+        maxRating: 5,
+        ratingIcon: 'star'
+      } : {}),
+      ...(type === 'duration' ? {
+        durationFormat: 'hours_minutes',
+        placeholder: 'Enter duration'
+      } : {}),
+      ...(type === 'percentage' ? {
+        percentageMin: 0,
+        percentageMax: 100,
+        placeholder: '0'
+      } : {}),
+      ...(type === 'calculation' ? {
+        calculationMode: 'simple',
+        calculationOperation: 'sum',
+        calculationFields: [],
+        calculationExpression: '',
+        currencySymbol: '$'
       } : {}),
     } as BuilderField;
     setFields(prev => [...prev, base]);
@@ -596,6 +640,7 @@ export function AdvancedFormBuilder({
                             onSelect={() => setActiveId(f.id)}
                             onChange={(patch) => setFields(prev => prev.map(p => p.id === f.id ? { ...p, ...patch } : p))}
                             onRemove={() => removeField(f.id)}
+                            allFields={currentStepFields}
                           />
                         ))}
                       </div>
