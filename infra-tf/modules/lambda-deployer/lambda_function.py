@@ -119,6 +119,56 @@ if [ -f "apps/web/package.json" ]; then
 fi
 
 # ============================================
+# Step 1.5: Configure API Environment
+# ============================================
+echo ""
+echo "============================================"
+echo "STEP 1.5: Configuring API Environment"
+echo "============================================"
+cd {DEPLOY_PATH}/apps/api
+
+# Create .env file with Docker database credentials
+cat > .env <<'ENVEOF'
+# Database Configuration - Docker PostgreSQL
+DB_HOST=localhost
+DB_PORT=5434
+DB_NAME=app
+DB_USER=app
+DB_PASSWORD=app
+
+# Server Configuration
+NODE_ENV=production
+PORT=4000
+HOST=0.0.0.0
+
+# JWT Secret (generate a secure one for production)
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
+
+# CORS
+WEB_ORIGIN=http://localhost:5173
+API_ORIGIN=http://localhost:4000
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# MinIO S3
+MINIO_ENDPOINT=localhost
+MINIO_PORT=9000
+MINIO_ACCESS_KEY=minio
+MINIO_SECRET_KEY=minio123
+MINIO_BUCKET=artifacts
+
+# Email (MailHog for development)
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_USER=
+SMTP_PASSWORD=
+ENVEOF
+
+echo "✓ API environment configured with Docker database"
+
+# ============================================
 # Step 2: Start Docker Infrastructure
 # ============================================
 echo ""

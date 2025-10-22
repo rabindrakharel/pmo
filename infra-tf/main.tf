@@ -62,29 +62,8 @@ module "s3" {
 }
 
 # ============================================================================
-# RDS Module
-# ============================================================================
-
-module "rds" {
-  source = "./modules/rds"
-
-  project_name                = var.project_name
-  environment                 = var.environment
-  private_subnet_ids          = module.vpc.private_subnet_ids
-  db_security_group_id        = module.vpc.db_sg_id
-  db_name                     = var.db_name
-  db_username                 = var.db_username
-  db_password                 = var.db_password
-  db_instance_class           = var.db_instance_class
-  db_engine_version           = var.db_engine_version
-  db_allocated_storage        = var.db_allocated_storage
-  db_max_allocated_storage    = var.db_max_allocated_storage
-  db_backup_retention_period  = var.db_backup_retention_period
-  global_tags                 = var.global_tags
-}
-
-# ============================================================================
-# EC2 Module
+# EC2 Module - Using Docker PostgreSQL (localhost)
+# RDS has been removed - using local Docker database
 # ============================================================================
 
 module "ec2" {
@@ -101,11 +80,11 @@ module "ec2" {
   s3_bucket_name         = module.s3.bucket_name
   s3_code_bucket_arn     = module.s3_code.bucket_arn
   s3_code_bucket_name    = module.s3_code.bucket_name
-  db_host                = module.rds.db_address
-  db_port                = module.rds.db_port
-  db_name                = var.db_name
-  db_user                = var.db_username
-  db_password            = var.db_password
+  db_host                = "localhost"
+  db_port                = 5434
+  db_name                = "app"
+  db_user                = "app"
+  db_password            = "app"
   user_data_script       = "user-data-complete.sh"
   domain_name            = var.domain_name
   app_subdomain          = var.app_subdomain

@@ -71,7 +71,9 @@
       "Bash(ssh:*)",
       "Bash(pnpm build:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(dig:*)",
+      "Bash(terraform show:*)"
     ],
     "deny": [],
     "ask": [],

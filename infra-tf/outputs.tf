@@ -70,33 +70,28 @@ output "ec2_role_name" {
 }
 
 # ============================================================================
-# RDS Database Outputs
+# Docker PostgreSQL Database Info (Running on EC2)
 # ============================================================================
 
 output "db_endpoint" {
-  description = "RDS database endpoint"
-  value       = module.rds.db_endpoint
-}
-
-output "db_address" {
-  description = "RDS database host address"
-  value       = module.rds.db_address
-}
-
-output "db_port" {
-  description = "RDS database port"
-  value       = module.rds.db_port
+  description = "Docker PostgreSQL endpoint (local on EC2)"
+  value       = "localhost:5434"
 }
 
 output "db_name" {
   description = "Database name"
-  value       = module.rds.db_name
+  value       = "app"
 }
 
-output "db_username" {
-  description = "Database master username"
-  value       = var.db_username
-  sensitive   = true
+output "db_info" {
+  description = "Database connection info"
+  value = {
+    host     = "localhost"
+    port     = 5434
+    database = "app"
+    user     = "app"
+    note     = "PostgreSQL running in Docker container on EC2"
+  }
 }
 
 # ============================================================================
@@ -183,7 +178,7 @@ output "deployment_summary" {
     app_url         = var.create_dns_records ? "https://${var.app_subdomain}.${var.domain_name}" : "http://${module.ec2.instance_public_ip}"
     vpc_id          = module.vpc.vpc_id
     ec2_public_ip   = module.ec2.instance_public_ip
-    db_endpoint     = module.rds.db_endpoint
+    db_endpoint     = "localhost:5434 (Docker PostgreSQL on EC2)"
     s3_bucket       = module.s3.bucket_name
     name_servers    = var.create_dns_records ? module.route53[0].name_servers : []
   }

@@ -43,7 +43,8 @@ resource "aws_db_instance" "coherent_db" {
 
   multi_az               = var.environment == "prod" ? true : false
   publicly_accessible    = false
-  deletion_protection    = var.environment == "prod" ? true : false
+  deletion_protection    = false  # Disabled to allow RDS deletion
+  apply_immediately      = true   # Apply deletion protection change immediately
 
   enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
 
