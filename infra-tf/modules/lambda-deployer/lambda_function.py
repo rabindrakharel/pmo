@@ -87,15 +87,27 @@ sudo mkdir -p {DEPLOY_PATH}
 sudo cp -r /tmp/{PROJECT_NAME}-deploy/* {DEPLOY_PATH}/
 sudo chown -R ubuntu:ubuntu {DEPLOY_PATH}
 
-# Install dependencies
-echo "Installing dependencies..."
+# ============================================
+# Step 1: Install Dependencies
+# ============================================
+echo ""
+echo "============================================"
+echo "STEP 1: Installing Dependencies"
+echo "============================================"
 cd {DEPLOY_PATH}
+
+# Install root dependencies if needed
+if [ -f "package.json" ]; then
+    echo "Installing root dependencies..."
+    pnpm install --frozen-lockfile || pnpm install
+fi
 
 # Backend dependencies
 if [ -f "apps/api/package.json" ]; then
     echo "Installing API dependencies..."
     cd {DEPLOY_PATH}/apps/api
     pnpm install --frozen-lockfile || pnpm install
+    echo "✓ API dependencies installed"
 fi
 
 # Frontend dependencies
@@ -103,35 +115,79 @@ if [ -f "apps/web/package.json" ]; then
     echo "Installing Web dependencies..."
     cd {DEPLOY_PATH}/apps/web
     pnpm install --frozen-lockfile || pnpm install
+    echo "✓ Web dependencies installed"
 fi
 
-# Run database import
+# ============================================
+# Step 2: Import Database Schema
+# ============================================
+echo ""
+echo "============================================"
+echo "STEP 2: Importing Database Schema"
+echo "============================================"
+cd {DEPLOY_PATH}
+
+if [ ! -f "tools/db-import.sh" ]; then
+    echo "ERROR: tools/db-import.sh not found!"
+    exit 1
+fi
+
+chmod +x tools/db-import.sh
 echo "Running database import..."
-cd {DEPLOY_PATH}
-if [ -f "tools/db-import.sh" ]; then
-    chmod +x tools/db-import.sh
-    ./tools/db-import.sh || echo "Warning: db-import failed, continuing..."
+if ./tools/db-import.sh; then
+    echo "✓ Database import completed successfully"
 else
-    echo "Warning: tools/db-import.sh not found"
+    echo "ERROR: Database import failed!"
+    exit 1
 fi
 
-# Start all services using start-all script
-echo "Starting all services..."
+# ============================================
+# Step 3: Start All Services
+# ============================================
+echo ""
+echo "============================================"
+echo "STEP 3: Starting All Services"
+echo "============================================"
 cd {DEPLOY_PATH}
-if [ -f "tools/start-all.sh" ]; then
-    chmod +x tools/start-all.sh
-    ./tools/start-all.sh || echo "Warning: start-all failed, continuing..."
-else
-    echo "Warning: tools/start-all.sh not found"
+
+if [ ! -f "tools/start-all.sh" ]; then
+    echo "ERROR: tools/start-all.sh not found!"
+    exit 1
 fi
 
-# Wait for services to start
-sleep 10
+chmod +x tools/start-all.sh
+echo "Starting services with start-all.sh..."
+if ./tools/start-all.sh; then
+    echo "✓ Services started successfully"
+else
+    echo "ERROR: Failed to start services!"
+    exit 1
+fi
 
-# Check service status via PM2
-echo "Checking service status..."
+# Wait for services to fully initialize
+echo ""
+echo "Waiting for services to initialize..."
+sleep 15
+
+# ============================================
+# Step 4: Verify Services
+# ============================================
+echo ""
+echo "============================================"
+echo "STEP 4: Verifying Services"
+echo "============================================"
+
+# Check Docker services
+echo "Docker services:"
+docker ps --format "table {{{{.Names}}}}\t{{{{.Status}}}}" || true
+
+echo ""
+echo "PM2 processes:"
 pm2 status || true
-pm2 logs --lines 20 --nostream || true
+
+echo ""
+echo "Recent PM2 logs:"
+pm2 logs --lines 10 --nostream || true
 
 # Cleanup
 rm -f /tmp/code-deployment.tar.gz
@@ -139,12 +195,29 @@ rm -rf /tmp/{PROJECT_NAME}-deploy
 
 echo ""
 echo "========================================="
-echo "✅ Deployment Complete!"
+echo "✅ DEPLOYMENT COMPLETE!"
 echo "========================================="
 echo "Timestamp: $(date)"
-echo "Services should be running at:"
-echo "  API: http://localhost:4000"
-echo "  Web: http://localhost:5173"
+echo ""
+echo "Deployment Summary:"
+echo "  ✓ Code deployed to {DEPLOY_PATH}"
+echo "  ✓ Dependencies installed"
+echo "  ✓ Database schema imported (44 DDL files)"
+echo "  ✓ All services started"
+echo ""
+echo "Services running at:"
+echo "  🌐 Web:  http://localhost:5173"
+echo "  🔧 API:  http://localhost:4000"
+echo "  📊 Docs: http://localhost:4000/docs"
+echo ""
+echo "Infrastructure services:"
+echo "  🐘 PostgreSQL: localhost:5434"
+echo "  📮 Redis:      localhost:6379"
+echo "  📦 MinIO:      localhost:9000"
+echo "  📧 MailHog:    localhost:8025"
+echo ""
+echo "Deployment successful! 🎉"
+echo "========================================="
 echo ""
 """
 
