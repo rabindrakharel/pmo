@@ -144,9 +144,9 @@ HOST=0.0.0.0
 # JWT Secret (generate a secure one for production)
 JWT_SECRET=your-super-secret-jwt-key-change-in-production
 
-# CORS
-WEB_ORIGIN=http://localhost:5173
-API_ORIGIN=http://localhost:4000
+# CORS - Allow app domain
+WEB_ORIGIN=http://app.cohuron.com
+API_ORIGIN=http://app.cohuron.com
 
 # Redis
 REDIS_HOST=localhost
@@ -167,6 +167,17 @@ SMTP_PASSWORD=
 ENVEOF
 
 echo "✓ API environment configured with Docker database"
+
+# Configure Web environment
+echo "Configuring Web environment..."
+cd {DEPLOY_PATH}/apps/web
+
+cat > .env <<'WEBENVEOF'
+# API Configuration - Use public IP for access from domain
+VITE_API_BASE_URL=http://100.28.36.248:4000
+WEBENVEOF
+
+echo "✓ Web environment configured"
 
 # ============================================
 # Step 2: Start Docker Infrastructure
