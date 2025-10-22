@@ -9,6 +9,7 @@ import {
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
 
 // Schema based on actual d_office table structure
 const OfficeSchema = Type.Object({
@@ -528,6 +529,15 @@ export async function officeRoutes(fastify: FastifyInstance) {
   // 2. app.d_entity_instance_id (entity registry)
   // 3. app.d_entity_id_map (linkages in both directions)
   createEntityDeleteEndpoint(fastify, 'office');
+
+  // ========================================
+  // CHILD ENTITY ENDPOINTS (DRY Factory Pattern)
+  // ========================================
+  // Use factory pattern to create standardized child entity endpoints
+  // Replaces 100+ lines of duplicate code with single function calls
+  createChildEntityEndpoint(fastify, 'office', 'task', 'd_task');
+  createChildEntityEndpoint(fastify, 'office', 'project', 'd_project');
+  createChildEntityEndpoint(fastify, 'office', 'employee', 'd_employee');
 
   // ========================================
   // CHILD ENTITY CREATION

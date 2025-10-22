@@ -1,7 +1,7 @@
 import React from 'react';
 import { getFieldIcon, SignatureCanvas, AddressInput, GeoLocationInput, ModernDateTimePicker, StepProgressIndicator, DataTableInput, SearchableSelect, SearchableMultiSelect, CurrencyInput, DateOnlyInput, TimeOnlyInput, ToggleInput, RatingInput, DurationInput, PercentageInput, CalculationField } from './FormBuilder';
 import { BuilderField, FormStep } from './FormBuilder';
-import { BookOpen, Upload, Layers } from 'lucide-react';
+import { BookOpen, Upload, Layers, ChevronDown, ExternalLink } from 'lucide-react';
 import { ModularEditor } from '../../shared/editor/ModularEditor';
 
 interface FormPreviewProps {
@@ -376,6 +376,56 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
                   label={f.label || 'Calculated Value'}
                   currencySymbol={f.currencySymbol || '$'}
                 />
+              )}
+
+              {f.type === 'menu_button' && (
+                <div className="space-y-2">
+                  {f.menuButtonType === 'single' && f.menuButtonItems && f.menuButtonItems.length > 0 && (
+                    <button
+                      disabled
+                      className={`
+                        inline-flex items-center space-x-2 rounded-lg font-medium transition-colors
+                        ${f.menuButtonSize === 'sm' ? 'px-3 py-1.5 text-xs' : f.menuButtonSize === 'lg' ? 'px-6 py-3 text-base' : 'px-4 py-2 text-sm'}
+                        ${f.menuButtonStyle === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700' :
+                          f.menuButtonStyle === 'secondary' ? 'bg-gray-600 text-white hover:bg-gray-700' :
+                          'border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}
+                      `}
+                    >
+                      {f.menuButtonItems[0].icon && <span>{f.menuButtonItems[0].icon}</span>}
+                      <span>{f.menuButtonItems[0].label}</span>
+                      {f.menuButtonItems[0].openInNewTab && <ExternalLink className="h-3 w-3" />}
+                    </button>
+                  )}
+                  {f.menuButtonType === 'dropdown' && f.menuButtonItems && f.menuButtonItems.length > 0 && (
+                    <div className="relative inline-block">
+                      <button
+                        disabled
+                        className={`
+                          inline-flex items-center space-x-2 rounded-lg font-medium transition-colors
+                          ${f.menuButtonSize === 'sm' ? 'px-3 py-1.5 text-xs' : f.menuButtonSize === 'lg' ? 'px-6 py-3 text-base' : 'px-4 py-2 text-sm'}
+                          ${f.menuButtonStyle === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700' :
+                            f.menuButtonStyle === 'secondary' ? 'bg-gray-600 text-white hover:bg-gray-700' :
+                            'border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}
+                        `}
+                      >
+                        <span>{f.label || 'Menu'}</span>
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                      <div className="mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-2 space-y-1 max-w-xs">
+                        {f.menuButtonItems.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded cursor-pointer"
+                          >
+                            {item.icon && <span>{item.icon}</span>}
+                            <span className="flex-1">{item.label}</span>
+                            {item.openInNewTab && <ExternalLink className="h-3 w-3 text-gray-400" />}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
             </div>

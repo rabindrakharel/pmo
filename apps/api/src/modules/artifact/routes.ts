@@ -8,6 +8,8 @@ const ArtifactSchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
+  internal_url: Type.Optional(Type.String()),
+  shared_url: Type.Optional(Type.String()),
   tags: Type.Optional(Type.Array(Type.String())),
   attr: Type.Optional(Type.Any()),
   artifact_code: Type.Optional(Type.String()),

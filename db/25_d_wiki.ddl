@@ -116,6 +116,8 @@ CREATE TABLE app.d_wiki (
     code varchar(50) UNIQUE NOT NULL,
     name varchar(200) NOT NULL,
     descr text,
+    internal_url varchar(500),   -- Internal wiki URL: /wiki/{id} (authenticated access)
+    shared_url varchar(500),     -- Public shared URL: /wiki/shared/{8-char-random} (presigned, no auth required)
     tags jsonb DEFAULT '[]'::jsonb,
     metadata jsonb DEFAULT '{}'::jsonb,
 

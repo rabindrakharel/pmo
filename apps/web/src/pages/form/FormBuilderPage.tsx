@@ -24,7 +24,7 @@ export function FormBuilderPage() {
       formType: 'multi_step',
       isTemplate: false,
       isDraft: false,
-      schema: formData.schema, // Simple nested JSONB with steps array
+      form_schema: formData.schema, // Simple nested JSONB with steps array
       uiSchema: {},
       allowMultipleSubmissions: true,
       requireAuthentication: true,
@@ -66,7 +66,7 @@ export function FormBuilderPage() {
       formType: 'multi_step',
       isTemplate: false,
       isDraft: true,
-      schema: formData.schema,
+      form_schema: formData.schema,
       uiSchema: {},
       metadata: {
         category: 'draft',

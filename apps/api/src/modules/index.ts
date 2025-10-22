@@ -38,6 +38,7 @@ import { parentActionEntityRoutes } from './entity/parent-action-entity-routes.j
 import { entityRoutes } from './entity/routes.js';
 import { rbacRoutes } from './rbac/routes.js';
 import { linkageModule } from './linkage/index.js';
+import { sharedRoutes } from './shared/routes.js';
 
 /**
  * Register all API route modules with entity-based RBAC functionality
@@ -50,6 +51,9 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
 
   // Authentication routes (no auth required)
   await fastify.register(authRoutes, { prefix: '/api/v1/auth' });
+
+  // Shared URL routes (public access for shared entity viewing)
+  await sharedRoutes(fastify);
 
   // Schema API routes (requires auth)
   await schemaRoutes(fastify);

@@ -9,6 +9,7 @@ import {
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
 
 // Schema based on actual d_project table structure from db/XV_d_project.ddl
 const ProjectSchema = Type.Object({
@@ -169,6 +170,11 @@ export async function projectRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // DEPRECATED: Old manual endpoints (replaced by factory pattern below)
+  // These plural endpoints (/tasks, /forms, /artifacts) can be removed
+  // Frontend now uses singular endpoints (/task, /form, /artifact)
+
+  /* COMMENTED OUT - Using factory pattern instead
   // Get project tasks - NEW ENDPOINT for navigation
   fastify.get('/api/v1/project/:id/tasks', {
     preHandler: [fastify.authenticate],
@@ -259,7 +265,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       fastify.log.error('Error fetching project tasks:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
-  });
+  }); */
 
   // Get project dynamic child entity tabs - for tab navigation
   fastify.get('/api/v1/project/:id/dynamic-child-entity-tabs', {
@@ -401,6 +407,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     }
   });
 
+  /* COMMENTED OUT - Using factory pattern instead
   // Get project wiki entries
   fastify.get('/api/v1/project/:id/wiki', {
     preHandler: [fastify.authenticate],
@@ -473,8 +480,9 @@ export async function projectRoutes(fastify: FastifyInstance) {
       fastify.log.error('Error fetching project wiki:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
-  });
+  }); */
 
+  /* COMMENTED OUT - Using factory pattern instead
   // Get project forms
   fastify.get('/api/v1/project/:id/forms', {
     preHandler: [fastify.authenticate],
@@ -547,8 +555,9 @@ export async function projectRoutes(fastify: FastifyInstance) {
       fastify.log.error('Error fetching project forms:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
-  });
+  }); */
 
+  /* COMMENTED OUT - Using factory pattern instead
   // Get project artifacts
   fastify.get('/api/v1/project/:id/artifacts', {
     preHandler: [fastify.authenticate],
@@ -621,7 +630,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       fastify.log.error('Error fetching project artifacts:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
-  });
+  }); */
 
   // Get single project
   fastify.get('/api/v1/project/:id', {
@@ -940,8 +949,22 @@ export async function projectRoutes(fastify: FastifyInstance) {
   // 3. app.d_entity_id_map (linkages in both directions)
   createEntityDeleteEndpoint(fastify, 'project');
 
-  // Add singular endpoint aliases for frontend compatibility
-  fastify.get('/api/v1/project/:id/task', {
+  // ========================================
+  // CHILD ENTITY ENDPOINTS (DRY Factory Pattern)
+  // ========================================
+  // Use factory pattern to create standardized child entity endpoints
+  // Replaces manual endpoints above (which are now deprecated)
+  // These create singular endpoints: /api/v1/project/:id/task (not /tasks)
+  createChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
+  createChildEntityEndpoint(fastify, 'project', 'wiki', 'd_wiki');
+  createChildEntityEndpoint(fastify, 'project', 'form', 'd_form_head');
+  createChildEntityEndpoint(fastify, 'project', 'artifact', 'd_artifact');
+
+  // Note: The manual endpoints above (lines 173-625, 944-1032) can be removed
+  // after confirming frontend uses singular endpoints (/task not /tasks)
+
+  // DEPRECATED: Old manual singular endpoint (replaced by factory above)
+  /* fastify.get('/api/v1/project/:id/task', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -1029,7 +1052,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       fastify.log.error('Error fetching project tasks:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
-  });
+  }); */
 
   // ========================================
   // CHILD ENTITY CREATION

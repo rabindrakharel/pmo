@@ -1195,6 +1195,238 @@ The delete factory follows the exact same pattern as `child-entity-route-factory
 
 ---
 
+## 🔗 Shared URL System - Universal Public Sharing ✨
+
+### Overview
+
+DRY (Don't Repeat Yourself) factory pattern for generating and managing public shared URLs across all entity types (task, form, wiki, artifact). Enables secure, unauthenticated public access to entity content via short, shareable links with **minimal UI (no sidebar/navigation)** perfect for external stakeholders.
+
+**URL Format:**
+- **Database Storage**: `/{entity}/{8-char-code}` (e.g., `/task/qD7nC3xK`)
+- **Public Frontend Route**: `/{entity}/shared/{8-char-code}` (e.g., `http://localhost:5173/task/shared/qD7nC3xK`)
+- **API Resolver**: `/api/v1/shared/{entity}/{code}` (PUBLIC - No Auth Required)
+
+**URL Conversion**: The database stores compact format (`/task/code`) but the frontend automatically converts to public route format (`/task/shared/code`) when displaying URLs to users.
+
+**Complete Documentation:**
+- [SHARED_URL_SYSTEM.md](./SHARED_URL_SYSTEM.md) - Full architecture and implementation
+- [SHARED_URL_FIX.md](./SHARED_URL_FIX.md) - Recent fixes and troubleshooting
+- [SHARED_URL_VERIFICATION.md](./SHARED_URL_VERIFICATION.md) - Verification tests and examples
+
+---
+
+### Implementation Components
+
+**1. Database Schema Updates**
+- Added `internal_url` and `shared_url` columns to `d_wiki`, `d_artifact`, `d_task`, `d_form_head`
+- Format: `/{entity}/{8-char-code}` (e.g., `/task/qD7nC3xK`)
+- Columns:
+  ```sql
+  internal_url varchar(500),   -- Internal URL: /{entity}/{id} (authenticated)
+  shared_url varchar(500)      -- Public URL: /{entity}/{8-char-code} (no auth)
+  ```
+
+**2. Backend API Factory System**
+
+**Created:** `apps/api/src/lib/shared-url-factory.ts` - Centralized DRY utility:
+```typescript
+// Core Functions:
+generateSharedCode()         // Creates unique 8-character codes
+generateSharedUrl()          // Generates URL string for database
+createSharedUrl()            // Complete workflow: generate + save
+resolveSharedUrl()           // Public lookup (no auth required)
+saveSharedUrl()              // Save to database
+getSharedUrlInfo()           // Get existing URL info
+isSharedCodeAvailable()      // Check code availability
+
+// Entity-to-table mapping from central config
+const ENTITY_TABLE_MAP = {
+  task: 'd_task',
+  form: 'd_form_head',
+  wiki: 'd_wiki',
+  artifact: 'd_artifact',
+  // ... all entities
+};
+```
+
+**Created:** `apps/api/src/modules/shared/routes.ts` - Public API endpoints:
+```typescript
+// Resolve shared URL (PUBLIC - No auth required)
+GET /api/v1/shared/{entity}/{code}
+Response: { entityType, entityId, data: {...} }
+
+// Generate shared URL (AUTHENTICATED - requires edit permission)
+POST /api/v1/shared/{entity}/{id}/generate
+Response: { sharedUrl, sharedCode, internalUrl }
+```
+
+**Updated:** API schemas for task, form, wiki, artifact to include `internal_url` and `shared_url` fields:
+- `apps/api/src/modules/task/routes.ts` - TaskSchema + queries
+- `apps/api/src/modules/form/routes.ts` - FormSchema
+- `apps/api/src/modules/wiki/routes.ts` - WikiSchema
+- `apps/api/src/modules/artifact/routes.ts` - ArtifactSchema
+
+**3. Frontend Shared Entity Viewer**
+
+**Created:** `apps/web/src/pages/shared/SharedEntityPage.tsx` - Universal DRY component:
+```typescript
+// Features:
+✅ Dynamically renders any entity type
+✅ Works without authentication (public access)
+✅ MINIMAL UI - NO sidebar, NO navigation (perfect for external sharing)
+✅ Branded "Public Shared View" header
+✅ Uses entity-specific renderers:
+  * form → InteractiveForm (with isPublicView=true)
+  * wiki → WikiContentRenderer (with isPublicView=true)
+  * task → TaskDataContainer (with isPublicView=true, read-only)
+  * artifact → Custom artifact viewer
+  * default → Generic JSON viewer
+✅ Handles loading and error states
+✅ Read-only mode for external users
+```
+
+**Updated:** Routing in `apps/web/src/App.tsx` with public shared URL routes (NOT wrapped in ProtectedRoute):
+```typescript
+{/* Shared Entity Routes (Public - No Auth Required) */}
+<Route path="/task/shared/:code" element={<SharedEntityPage />} />
+<Route path="/form/shared/:code" element={<SharedEntityPage />} />
+<Route path="/wiki/shared/:code" element={<SharedEntityPage />} />
+<Route path="/artifact/shared/:code" element={<SharedEntityPage />} />
+<Route path="/:entityType/shared/:code" element={<SharedEntityPage />} />
+```
+
+**Updated:** `apps/web/src/components/shared/share/ShareURLSection.tsx` - Converts database URLs to public format:
+```typescript
+// Converts /task/code → /task/shared/code for display to users
+const convertToPublicUrl = (dbUrl: string): string => {
+  const parts = dbUrl.split('/').filter(Boolean);
+  if (parts.length === 2) {
+    return `/${parts[0]}/shared/${parts[1]}`;
+  }
+  return dbUrl;
+};
+```
+
+**Updated:** `apps/web/src/components/entity/task/TaskDataContainer.tsx`:
+- Made `projectId` prop optional (supports public view without full context)
+- Added `isPublicView` prop support
+- Hides update form in public view (read-only for external users)
+- Improved authentication handling (works without login token)
+
+---
+
+### Key Features
+
+✅ **DRY Design** - Single factory handles all entities
+✅ **Centralized Config** - Uses entity-table mapping from central config
+✅ **Public Access** - No authentication required for viewing shared URLs
+✅ **Minimal Public UI** - NO sidebar, NO navigation (just entity content)
+✅ **Read-Only Mode** - External users can view but cannot edit or post updates
+✅ **Secure Generation** - Only users with edit permissions can create shared URLs
+✅ **Universal Page** - One reusable component for all entity types
+✅ **Automatic URL Conversion** - Database format auto-converts to public route format
+✅ **Type Safety** - TypeScript enforces valid entity types
+✅ **Consistent Patterns** - Follows existing factory pattern architecture
+
+---
+
+### Usage Example
+
+**Generate Shared URL (Backend API):**
+```bash
+# Generate shared URL for a task
+curl -X POST http://localhost:4000/api/v1/shared/task/{id}/generate \
+  -H "Authorization: Bearer {token}"
+
+# Response:
+{
+  "sharedUrl": "/task/qD7nC3xK",
+  "sharedCode": "qD7nC3xK",
+  "internalUrl": "/task/{id}"
+}
+```
+
+**Access Shared URL (Frontend):**
+```
+User clicks shared link: http://localhost:5173/task/shared/qD7nC3xK
+↓
+✅ No login required
+↓
+SharedEntityPage calls public API: /api/v1/shared/task/qD7nC3xK
+↓
+✅ Renders task in MINIMAL view:
+  - NO sidebar navigation
+  - NO main app layout
+  - Just entity content + "Public Shared View" header
+  - Read-only (no update form for external users)
+↓
+Perfect for sharing with external stakeholders!
+```
+
+**Resolve Shared URL (Public API):**
+```bash
+# Resolve shared code to entity data (NO AUTH REQUIRED)
+curl http://localhost:4000/api/v1/shared/task/qD7nC3xK
+
+# Response:
+{
+  "entityType": "task",
+  "entityId": "e1111111-1111-1111-1111-111111111111",
+  "data": { ...full entity data... }
+}
+```
+
+---
+
+### Benefits
+
+📊 **Reduces Code Duplication** - Factory pattern eliminates 100+ lines of URL generation logic
+🔒 **RBAC Integration** - Only authorized users can generate shared URLs (permission = 1)
+🎯 **Single Source of Truth** - All URL logic centralized in one factory
+🚀 **Easy to Extend** - Add new entity = automatic shared URL support
+✨ **Professional UX** - Clean, short URLs perfect for sharing with clients/stakeholders
+🔐 **Minimal Security Surface** - External users see ONLY shared entity content (no navigation to other data)
+👁️ **Read-Only Public View** - External stakeholders can view but cannot modify data
+🎨 **Clean Branding** - Minimal layout with "Public Shared View" header for professional appearance
+
+### Real-World Use Cases
+
+**1. Share Task Status with External Client**
+```
+Internal: Generate share link for task
+Client: Receives http://localhost:5173/task/shared/xT4pQ2nR
+Client: Views task details + updates (no login required)
+Client: Cannot post updates or navigate to other tasks
+```
+
+**2. Share Form for Data Collection**
+```
+Internal: Generate share link for form
+External User: Fills out form via shared link
+System: Captures submission without requiring account
+```
+
+**3. Share Wiki Article Publicly**
+```
+Internal: Generate share link for wiki page
+External: Reads documentation via shared link
+External: Cannot edit or see other wiki pages
+```
+
+### Security Considerations
+
+| Aspect | Implementation |
+|--------|---------------|
+| **Authentication** | ❌ Not required (public access) |
+| **Read Access** | ✅ Can view entity details and updates |
+| **Write Access** | ❌ Cannot post updates or edit (form hidden) |
+| **Scope** | ✅ Access to ONE entity only (scoped by shared URL) |
+| **Navigation** | ❌ No sidebar/navigation to other entities |
+| **Revocation** | ✅ Delete `shared_url` from database to revoke access |
+| **URL Uniqueness** | ✅ 8-character random codes (62^8 = 218 trillion combinations) |
+
+---
+
 DATA MODEL:
 1️⃣ Core Business Entities (13 tables):
 

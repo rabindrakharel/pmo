@@ -32,6 +32,11 @@ export { EntityFormContainer } from './entity/EntityFormContainer';
 export { ScopeFilters } from './search/ScopeFilters';
 
 // ============================================================================
+// SHARE COMPONENTS
+// ============================================================================
+export { ShareURLSection } from './share/ShareURLSection';
+
+// ============================================================================
 // SETTINGS COMPONENTS
 // ============================================================================
 export { LinkageManager } from './settings/LinkageManager';

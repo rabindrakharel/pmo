@@ -17,6 +17,8 @@ const TaskSchema = Type.Object({
   code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
+  internal_url: Type.Optional(Type.String()),
+  shared_url: Type.Optional(Type.String()),
   tags: Type.Any(), // jsonb
   metadata: Type.Any(), // jsonb
 
@@ -52,6 +54,8 @@ const CreateTaskSchema = Type.Object({
   code: Type.Optional(Type.String({ minLength: 1 })),
   name: Type.Optional(Type.String({ minLength: 1 })),
   descr: Type.Optional(Type.String()),
+  internal_url: Type.Optional(Type.String()),
+  shared_url: Type.Optional(Type.String()),
   tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String(), Type.Any()])),
   metadata: Type.Optional(Type.Union([Type.Object({}), Type.String(), Type.Any()])),
 
@@ -189,6 +193,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const tasks = await db.execute(sql`
         SELECT
           t.id, t.slug, t.code, t.name, t.descr,
+          t.internal_url, t.shared_url,
           COALESCE(t.tags, '[]'::jsonb) as tags,
           COALESCE(t.metadata, '{}'::jsonb) as metadata,
           t.assignee_employee_ids,
@@ -292,6 +297,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const task = await db.execute(sql`
         SELECT
           id, slug, code, name, descr,
+          internal_url, shared_url,
           COALESCE(tags, '[]'::jsonb) as tags,
           COALESCE(metadata, '{}'::jsonb) as metadata,
           assignee_employee_ids,
@@ -493,6 +499,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
       if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
       if (data.slug !== undefined) updateFields.push(sql`slug = ${data.slug}`);
       if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
+      if (data.internal_url !== undefined) updateFields.push(sql`internal_url = ${data.internal_url}`);
+      if (data.shared_url !== undefined) updateFields.push(sql`shared_url = ${data.shared_url}`);
       if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
       if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
       if (data.assignee_employee_ids !== undefined) updateFields.push(sql`assignee_employee_ids = ${data.assignee_employee_ids ? `{${data.assignee_employee_ids.join(',')}}` : '{}'}::uuid[]`);

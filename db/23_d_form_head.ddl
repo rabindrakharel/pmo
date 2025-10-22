@@ -13,9 +13,12 @@
 -- 1. CREATE NEW FORM
 --    • Endpoint: POST /api/v1/form
 --    • Body: {name, form_schema: {steps: [...]}}
---    • Returns: {id: "new-uuid", version: 1, url: "/public/form/{id}"}
+--    • Returns: {id: "new-uuid", version: 1, internal_url: "/form/{id}", shared_url: "/form/{8-char-random}"}
 --    • Database: INSERT with version=1, active_flag=true, created_ts=now()
---    • Business Rule: ID and URL are permanent; form_schema defines structure
+--    • Business Rule: ID and URLs are permanent; form_schema defines structure
+--    • Shared URL: 8-character alphanumeric (mixed case) code for public sharing without authentication.
+--                 Works as a presigned URL that allows anyone to fill the form directly.
+--                 Internal URL requires authentication for editing/management.
 --
 -- 2. UPDATE FORM SCHEMA (Draft Auto-Save OR Schema Change)
 --    • Endpoint: PUT /api/v1/form/{id}
@@ -27,12 +30,12 @@
 --      - version increments (1 → 2 → 3...)
 --      - updated_ts refreshed
 --      - Old schema OVERWRITTEN (no archival)
---    • Business Rule: Public URL (/public/form/{id}) remains valid; submissions use latest schema
+--    • Business Rule: Both URLs (internal and shared) remain valid; submissions use latest schema
 --
 -- 3. SOFT DELETE FORM
 --    • Endpoint: DELETE /api/v1/form/{id}
 --    • Database: UPDATE SET active_flag=false, to_ts=now() WHERE id=$1
---    • Business Rule: Form hidden from lists; public URL disabled; existing submissions preserved
+--    • Business Rule: Form hidden from lists; both internal and shared URLs disabled; existing submissions preserved
 --
 -- 4. LIST FORMS
 --    • Endpoint: GET /api/v1/form
@@ -46,10 +49,12 @@
 --    • RBAC: Checks entity_id_rbac_map for view permission
 --    • Frontend Usage: FormBuilder component renders form_schema as editable steps
 --
--- 6. PUBLIC FORM ACCESS
---    • Endpoint: GET /public/form/{id} (NO AUTH)
---    • Database: SELECT id, name, form_schema, url FROM d_form_head WHERE id=$1 AND active_flag=true
+-- 6. PUBLIC FORM ACCESS (SHARED URL)
+--    • Endpoint: GET /form/{8-char-code} (NO AUTH REQUIRED)
+--    • Database: SELECT id, name, form_schema, shared_url FROM d_form_head WHERE shared_url LIKE '%{code}' AND active_flag=true
 --    • Returns: Public-facing form for submissions (InteractiveForm component)
+--    • Shared URL Behavior: Presigned URL for internet sharing. Anyone with the link can access and fill
+--                           the form without authentication. Internal URL requires login for form management.
 --
 -- KEY SCD FIELDS:
 -- • id: NEVER changes (stable public URL reference)
@@ -77,7 +82,8 @@ CREATE TABLE app.d_form_head (
     code varchar(50),   -- No unique constraint
     name varchar(200) NOT NULL,
     descr text,
-    url varchar(500),   -- Public form URL: /public/form/{id}
+    internal_url varchar(500),   -- Internal form URL: /form/{id} (authenticated access)
+    shared_url varchar(500),     -- Public shared URL: /form/{8-char-random} (presigned, no auth required)
     tags jsonb DEFAULT '[]'::jsonb,
 
     -- Form Type
@@ -108,7 +114,8 @@ INSERT INTO app.d_form_head (
     id,
     name,
     descr,
-    url,
+    internal_url,
+    shared_url,
     form_type,
     form_schema,
     version,
@@ -117,7 +124,8 @@ INSERT INTO app.d_form_head (
     'ee8a6cfd-9d31-4705-b8f3-ad2d5589802c',
     'Landscapingform',
     'Landscapping form',
-    '/public/form/ee8a6cfd-9d31-4705-b8f3-ad2d5589802c',
+    '/form/ee8a6cfd-9d31-4705-b8f3-ad2d5589802c',
+    '/form/aB3xK9mZ',
     'multi_step',
     '{
         "steps": [
@@ -170,7 +178,8 @@ INSERT INTO app.d_form_head (
 ) ON CONFLICT (id) DO UPDATE SET
     name = EXCLUDED.name,
     descr = EXCLUDED.descr,
-    url = EXCLUDED.url,
+    internal_url = EXCLUDED.internal_url,
+    shared_url = EXCLUDED.shared_url,
     form_type = EXCLUDED.form_type,
     form_schema = EXCLUDED.form_schema,
     updated_ts = now();

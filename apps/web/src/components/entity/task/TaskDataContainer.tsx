@@ -28,11 +28,12 @@ interface TaskUpdate {
 
 interface TaskDataContainerProps {
   taskId: string;
-  projectId: string;
+  projectId?: string;
   onUpdatePosted?: () => void;
+  isPublicView?: boolean;
 }
 
-export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDataContainerProps) {
+export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicView = false }: TaskDataContainerProps) {
   const [updates, setUpdates] = useState<TaskUpdate[]>([]);
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
@@ -90,13 +91,25 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
   };
 
   const loadUpdates = async () => {
+    // Skip loading updates in public view (requires authentication)
+    if (isPublicView) {
+      setLoading(false);
+      setUpdates([]);
+      return;
+    }
+
     setLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
+      const headers: Record<string, string> = {};
+
+      // Only add auth header if token exists
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`http://localhost:4000/api/v1/task/${taskId}/data`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers,
       });
 
       if (response.ok) {
@@ -121,6 +134,12 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
   };
 
   const loadForms = async () => {
+    // Skip loading forms in public view (can't submit anyway)
+    if (isPublicView) {
+      setLoadingForms(false);
+      return;
+    }
+
     setLoadingForms(true);
     try {
       const token = localStorage.getItem('auth_token');
@@ -620,7 +639,8 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
         </div>
       </div>
 
-      {/* New Update Form */}
+      {/* New Update Form - Hidden in public view */}
+      {!isPublicView && (
       <div className="p-6 border-b border-gray-200 bg-gray-50">
         <div className="space-y-4">
           {/* Update Type Tabs */}
@@ -823,6 +843,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
           </div>
         </div>
       </div>
+      )}
 
       {/* Updates List - JIRA-style Activity Feed */}
       <div className="p-6 space-y-3">
@@ -831,7 +852,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted }: TaskDat
         ) : updates.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-400 stroke-[1.5]" />
-            <p className="text-sm">No updates yet. Be the first to add one!</p>
+            <p className="text-sm">{isPublicView ? 'No updates available.' : 'No updates yet. Be the first to add one!'}</p>
           </div>
         ) : (
           <div className="space-y-4">

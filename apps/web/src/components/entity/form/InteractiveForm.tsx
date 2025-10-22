@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getFieldIcon, SignatureCanvas, AddressInput, GeoLocationInput, ModernDateTimePicker, StepProgressIndicator, DataTableInput, SearchableSelect, SearchableMultiSelect, CurrencyInput, DateOnlyInput, TimeOnlyInput, ToggleInput, RatingInput, DurationInput, PercentageInput, CalculationField } from './FormBuilder';
 import { BuilderField, FormStep } from './FormBuilder';
-import { BookOpen, Upload, Layers, Send, CheckCircle, AlertCircle } from 'lucide-react';
+import { BookOpen, Upload, Layers, Send, CheckCircle, AlertCircle, ChevronDown, ExternalLink } from 'lucide-react';
 import { ModularEditor } from '../../shared/editor/ModularEditor';
 
 interface InteractiveFormProps {
@@ -91,7 +91,7 @@ export function InteractiveForm({
         }
 
         try {
-          const token = localStorage.getItem('token');
+          const token = localStorage.getItem('auth_token');
           const response = await fetch(
             `${API_BASE_URL}/api/v1/setting?category=${datalabelTable}`,
             {
@@ -107,17 +107,31 @@ export function InteractiveForm({
           const data = await response.json();
 
           // Map the API response to value/label pairs
-          const options = (data.data || []).map((item: any) => ({
-            value: String(item[datalabelValueColumn] || ''),
-            label: String(item[datalabelDisplayColumn] || '')
-          }));
+          const options = (data.data || []).map((item: any) => {
+            const value = item[datalabelValueColumn];
+            const label = item[datalabelDisplayColumn];
+
+            // Warn if columns don't exist in the data
+            if (value === undefined) {
+              console.warn(`⚠️ Column '${datalabelValueColumn}' not found in ${datalabelTable} data. Available columns:`, Object.keys(item));
+            }
+            if (label === undefined) {
+              console.warn(`⚠️ Column '${datalabelDisplayColumn}' not found in ${datalabelTable} data. Available columns:`, Object.keys(item));
+            }
+
+            return {
+              value: String(value || ''),
+              label: String(label || '')
+            };
+          });
 
           setDynamicOptions(prev => ({
             ...prev,
             [field.id]: options
           }));
 
-          console.log(`✅ Loaded ${options.length} options for ${field.name} from ${datalabelTable}`);
+          console.log(`✅ Loaded ${options.length} options for ${field.name} from ${datalabelTable}:`,
+            `${datalabelValueColumn} → ${datalabelDisplayColumn}`);
         } catch (error) {
           console.error(`Error fetching dynamic options for ${field.name}:`, error);
         }
@@ -755,6 +769,97 @@ export function InteractiveForm({
             expression={field.calculationMode === 'expression' ? field.calculationExpression : undefined}
             showExpression={field.calculationMode === 'expression'}
           />
+        );
+
+      case 'menu_button':
+        const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
+        const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+        // Close dropdown when clicking outside
+        React.useEffect(() => {
+          const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+              setIsDropdownOpen(false);
+            }
+          };
+          document.addEventListener('mousedown', handleClickOutside);
+          return () => document.removeEventListener('mousedown', handleClickOutside);
+        }, []);
+
+        const handleMenuClick = (url: string, openInNewTab?: boolean) => {
+          if (openInNewTab) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+          } else {
+            // Check if it's an internal URL (starts with /)
+            if (url.startsWith('/')) {
+              window.location.href = url;
+            } else {
+              window.open(url, '_blank', 'noopener,noreferrer');
+            }
+          }
+        };
+
+        const getButtonClasses = () => {
+          const sizeClasses =
+            field.menuButtonSize === 'sm' ? 'px-3 py-1.5 text-xs' :
+            field.menuButtonSize === 'lg' ? 'px-6 py-3 text-base' :
+            'px-4 py-2 text-sm';
+
+          const styleClasses =
+            field.menuButtonStyle === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm' :
+            field.menuButtonStyle === 'secondary' ? 'bg-gray-600 text-white hover:bg-gray-700 shadow-sm' :
+            'border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50';
+
+          return `inline-flex items-center space-x-2 rounded-lg font-medium transition-colors ${sizeClasses} ${styleClasses}`;
+        };
+
+        return (
+          <div className="space-y-2">
+            {field.menuButtonType === 'single' && field.menuButtonItems && field.menuButtonItems.length > 0 && (
+              <button
+                type="button"
+                onClick={() => handleMenuClick(field.menuButtonItems![0].url, field.menuButtonItems![0].openInNewTab)}
+                className={getButtonClasses()}
+              >
+                {field.menuButtonItems[0].icon && <span>{field.menuButtonItems[0].icon}</span>}
+                <span>{field.menuButtonItems[0].label}</span>
+                {field.menuButtonItems[0].openInNewTab && <ExternalLink className="h-3 w-3" />}
+              </button>
+            )}
+
+            {field.menuButtonType === 'dropdown' && field.menuButtonItems && field.menuButtonItems.length > 0 && (
+              <div ref={dropdownRef} className="relative inline-block">
+                <button
+                  type="button"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className={getButtonClasses()}
+                >
+                  <span>{field.label || 'Menu'}</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isDropdownOpen && (
+                  <div className="absolute z-10 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[200px] left-0">
+                    {field.menuButtonItems.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          handleMenuClick(item.url, item.openInNewTab);
+                          setIsDropdownOpen(false);
+                        }}
+                        className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left"
+                      >
+                        {item.icon && <span>{item.icon}</span>}
+                        <span className="flex-1">{item.label}</span>
+                        {item.openInNewTab && <ExternalLink className="h-3 w-3 text-gray-400" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         );
 
       default:

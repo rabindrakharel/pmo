@@ -9,6 +9,8 @@ const WikiSchema = Type.Object({
   code: Type.String(),
   slug: Type.String(),
   descr: Type.Optional(Type.String()),
+  internal_url: Type.Optional(Type.String()),
+  shared_url: Type.Optional(Type.String()),
   summary: Type.Optional(Type.String()),
   tags: Type.Optional(Type.Array(Type.String())),
   content: Type.Optional(Type.Any()),
@@ -157,11 +159,35 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-      response: { 200: WikiSchema }
+      response: {
+        // Removed schema validation - let Fastify serialize naturally
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
     }
   }, async (request, reply) => {
     const { id } = request.params as any;
-    
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    // RBAC check for wiki view access
+    const wikiAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = 'wiki'
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 0 = ANY(rbac.permission)
+    `);
+
+    if (wikiAccess.length === 0) {
+      return reply.status(403).send({ error: 'Insufficient permissions to view this wiki' });
+    }
+
     try {
       const result = await db.execute(sql`
         SELECT
@@ -170,8 +196,8 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           w.code,
           w.slug,
           w.descr,
-          w.tags,
-          w.metadata,
+          COALESCE(w.tags, '[]'::jsonb) as tags,
+          COALESCE(w.metadata, '{}'::jsonb) as metadata,
           w.wiki_type,
           w.category,
           w.page_path,
@@ -210,8 +236,19 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         ) wd ON true
         WHERE w.id = ${id} AND w.active_flag = true
       `);
+
       if (!result.length) return reply.status(404).send({ error: 'Not found' });
-      return result[0];
+
+      const wiki = result[0] as any;
+
+      // Parse JSON fields properly like task module
+      const parsedWiki = {
+        ...wiki,
+        tags: Array.isArray(wiki.tags) ? wiki.tags : (wiki.tags ? JSON.parse(wiki.tags) : []),
+        metadata: wiki.metadata || {}
+      };
+
+      return parsedWiki;
     } catch (e) {
       fastify.log.error('Error get wiki: ' + String(e));
       return reply.status(500).send({ error: 'Internal server error' });
@@ -226,12 +263,32 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       response: {
         // Removed schema validation - let Fastify serialize naturally
         400: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })
       }
     }
   }, async (request, reply) => {
     const data = request.body as any;
-    const userId = (request as any).user?.sub || '8260b1b0-5efc-4611-ad33-ee76c0cf7f13';
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    // RBAC check for wiki create permission
+    const wikiCreateAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = 'wiki'
+        AND rbac.entity_id = 'all'
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 4 = ANY(rbac.permission)
+    `);
+
+    if (wikiCreateAccess.length === 0) {
+      return reply.status(403).send({ error: 'Insufficient permissions to create wikis' });
+    }
 
     // Auto-generate required fields if missing
     if (!data.name) data.name = 'Untitled';
@@ -268,7 +325,18 @@ export async function wikiRoutes(fastify: FastifyInstance) {
                   created_ts, updated_ts, version
       `);
 
-      const wiki = wikiResult[0];
+      const wiki = wikiResult[0] as any;
+
+      // Register the wiki in d_entity_instance_id for global entity operations
+      await db.execute(sql`
+        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
+        VALUES ('wiki', ${wiki.id}::uuid, ${wiki.name}, ${wiki.slug}, ${wiki.code})
+        ON CONFLICT (entity_type, entity_id) DO UPDATE
+        SET entity_name = EXCLUDED.entity_name,
+            entity_slug = EXCLUDED.entity_slug,
+            entity_code = EXCLUDED.entity_code,
+            updated_ts = NOW()
+      `);
 
       // Insert into d_wiki_data (content table) if content provided
       if (data.content_markdown || data.content_html) {
@@ -296,13 +364,50 @@ export async function wikiRoutes(fastify: FastifyInstance) {
   // Update
   fastify.put('/api/v1/wiki/:id', {
     preHandler: [fastify.authenticate],
-    schema: { params: Type.Object({ id: Type.String({ format: 'uuid' }) }), body: UpdateWikiSchema, response: { 200: WikiSchema } }
+    schema: {
+      params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
+      body: UpdateWikiSchema,
+      response: {
+        // Removed schema validation - let Fastify serialize naturally
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
   }, async (request, reply) => {
     const { id } = request.params as any;
     const data = request.body as any;
-    const userId = (request as any).user?.sub || '8260b1b0-5efc-4611-ad33-ee76c0cf7f13';
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    // RBAC check for wiki edit access
+    const wikiEditAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = 'wiki'
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 1 = ANY(rbac.permission)
+    `);
+
+    if (wikiEditAccess.length === 0) {
+      return reply.status(403).send({ error: 'Insufficient permissions to modify this wiki' });
+    }
 
     try {
+      // Check if wiki exists
+      const existing = await db.execute(sql`
+        SELECT id FROM app.d_wiki WHERE id = ${id} AND active_flag = true
+      `);
+
+      if (existing.length === 0) {
+        return reply.status(404).send({ error: 'Wiki not found' });
+      }
+
       // Update d_wiki (head table)
       const updateFields: string[] = [];
       const values: any[] = [];
@@ -348,6 +453,10 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         values.push(data.visibility);
       }
 
+      if (updateFields.length === 0 && !data.content_markdown && !data.content_html) {
+        return reply.status(400).send({ error: 'No fields to update' });
+      }
+
       updateFields.push(`updated_ts = NOW()`);
 
       const updated = await db.execute(sql.raw(`
@@ -360,6 +469,20 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       `));
 
       if (!updated.length) return reply.status(404).send({ error: 'Not found' });
+
+      const updatedWiki = updated[0] as any;
+
+      // Sync with d_entity_instance_id registry when name/slug/code changes
+      if (data.name !== undefined || data.slug !== undefined || data.code !== undefined) {
+        await db.execute(sql`
+          UPDATE app.d_entity_instance_id
+          SET entity_name = ${updatedWiki.name},
+              entity_slug = ${updatedWiki.slug},
+              entity_code = ${updatedWiki.code},
+              updated_ts = NOW()
+          WHERE entity_type = 'wiki' AND entity_id = ${id}::uuid
+        `);
+      }
 
       // Update or insert content in d_wiki_data if provided
       if (data.content_markdown !== undefined || data.content_html !== undefined) {
@@ -377,7 +500,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         `);
       }
 
-      return { ...updated[0], content: data.content };
+      return { ...updatedWiki, content: data.content };
     } catch (e) {
       fastify.log.error('Error update wiki: ' + String(e));
       return reply.status(500).send({ error: 'Internal server error', details: String(e) });
@@ -386,18 +509,66 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
   // Delete (soft)
   fastify.delete('/api/v1/wiki/:id', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
+      response: {
+        204: Type.Null(),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
   }, async (request, reply) => {
     const { id } = request.params as any;
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    // RBAC check for wiki delete access
+    const wikiDeleteAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = 'wiki'
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        AND 3 = ANY(rbac.permission)
+    `);
+
+    if (wikiDeleteAccess.length === 0) {
+      return reply.status(403).send({ error: 'Insufficient permissions to delete this wiki' });
+    }
 
     try {
+      // Check if wiki exists
+      const existing = await db.execute(sql`
+        SELECT id FROM app.d_wiki WHERE id = ${id} AND active_flag = true
+      `);
+
+      if (existing.length === 0) {
+        return reply.status(404).send({ error: 'Wiki not found' });
+      }
+
+      // Soft delete the wiki
       const deleted = await db.execute(sql`
         UPDATE app.d_wiki SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
         WHERE id = ${id} AND active_flag = true
         RETURNING id
       `);
+
       if (!deleted.length) return reply.status(404).send({ error: 'Not found' });
-      return reply.status(200).send({ message: 'Wiki deleted successfully' });
+
+      // Also soft delete from d_entity_instance_id
+      await db.execute(sql`
+        UPDATE app.d_entity_instance_id
+        SET active_flag = false, updated_ts = NOW()
+        WHERE entity_type = 'wiki' AND entity_id = ${id}::uuid
+      `);
+
+      return reply.status(204).send();
     } catch (e) {
       fastify.log.error('Error delete wiki: ' + String(e));
       return reply.status(500).send({ error: 'Internal server error' });

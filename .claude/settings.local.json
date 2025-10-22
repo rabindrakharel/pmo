@@ -73,7 +73,10 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(dig:*)",
-      "Bash(terraform show:*)"
+      "Bash(terraform show:*)",
+      "Bash(npx tsc:*)",
+      "Bash(PGPASSWORD=app psql:*)",
+      "Bash(pgrep:*)"
     ],
     "deny": [],
     "ask": [],

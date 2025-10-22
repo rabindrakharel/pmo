@@ -6,14 +6,14 @@ import {
   ChevronDown, Radio, CheckSquare, Calendar, Upload, Sliders, PenTool, Home,
   Navigation, ChevronLeft, ChevronRight, Layers, X, Camera, Video, QrCode,
   Barcode, BookOpen, Table, Check, DollarSign, CalendarDays, Clock, ToggleLeft,
-  Star, Timer, Calculator, Percent
+  Star, Timer, Calculator, Percent, Menu
 } from 'lucide-react';
 import { ModularEditor } from '../../shared/editor/ModularEditor';
 import { DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors, DragStartEvent, DragEndEvent, useDraggable, useDroppable } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-export type FieldType = 'text' | 'number' | 'select' | 'select_multiple' | 'datetime' | 'textarea' | 'email' | 'phone' | 'url' | 'checkbox' | 'radio' | 'file' | 'range' | 'signature' | 'initials' | 'address' | 'geolocation' | 'image_capture' | 'video_capture' | 'qr_scanner' | 'barcode_scanner' | 'wiki' | 'datatable' | 'taskcheck' | 'currency' | 'date' | 'time' | 'toggle' | 'rating' | 'duration' | 'calculation' | 'percentage';
+export type FieldType = 'text' | 'number' | 'select' | 'select_multiple' | 'datetime' | 'textarea' | 'email' | 'phone' | 'url' | 'checkbox' | 'radio' | 'file' | 'range' | 'signature' | 'initials' | 'address' | 'geolocation' | 'image_capture' | 'video_capture' | 'qr_scanner' | 'barcode_scanner' | 'wiki' | 'datatable' | 'taskcheck' | 'currency' | 'date' | 'time' | 'toggle' | 'rating' | 'duration' | 'calculation' | 'percentage' | 'menu_button';
 
 export interface BuilderField {
   id: string;
@@ -67,6 +67,17 @@ export interface BuilderField {
   // Percentage specific options
   percentageMin?: number;
   percentageMax?: number;
+  // Menu Button specific options
+  menuButtonType?: 'single' | 'dropdown';
+  menuButtonItems?: Array<{
+    id: string;
+    label: string;
+    url: string;
+    icon?: string;
+    openInNewTab?: boolean;
+  }>;
+  menuButtonStyle?: 'primary' | 'secondary' | 'outline';
+  menuButtonSize?: 'sm' | 'md' | 'lg';
 }
 
 export interface FormStep {
@@ -122,8 +133,94 @@ export const getFieldIcon = (type: FieldType) => {
     duration: <Timer className="h-4 w-4" />,
     calculation: <Calculator className="h-4 w-4" />,
     percentage: <Percent className="h-4 w-4" />,
+    menu_button: <Menu className="h-4 w-4" />,
   };
   return iconMap[type] || <Type className="h-4 w-4" />;
+};
+
+// Datalabel Table Column Mapping
+// Maps each settings table to its available columns for dynamic dropdowns
+// Based on actual database schema (verified 2025-10-22)
+export const DATALABEL_TABLE_COLUMNS: Record<string, { value: string[], display: string[] }> = {
+  // Customer-related tables (use cust_ prefix per DB schema)
+  cust_service: {
+    value: ['level_id', 'level_name', 'slug'],
+    display: ['level_name', 'slug', 'level_descr']
+  },
+  cust_status: {
+    value: ['level_id', 'level_name'],
+    display: ['level_name', 'level_descr']
+  },
+  cust_level: {
+    value: ['id', 'level_id', 'level_name', 'slug'],
+    display: ['level_name', 'slug']
+  },
+  customer_tier: {
+    value: ['level_id', 'level_name'],
+    display: ['level_name', 'level_descr']
+  },
+
+  // Task-related tables
+  task_stage: {
+    value: ['level_id', 'level_name'],
+    display: ['level_name', 'level_descr']
+  },
+  task_priority: {
+    value: ['level_id', 'level_name'],
+    display: ['level_name', 'level_descr']
+  },
+  task_update_type: {
+    value: ['level_id', 'level_name'],
+    display: ['level_name', 'level_descr']
+  },
+
+  // Project-related tables
+  project_stage: {
+    value: ['level_id', 'level_name'],
+    display: ['level_name', 'level_descr']
+  },
+
+  // Organizational hierarchy tables
+  business_level: {
+    value: ['level_id', 'level_name'],
+    display: ['level_name', 'level_descr']
+  },
+  office_level: {
+    value: ['level_id', 'level_name'],
+    display: ['level_name', 'level_descr']
+  },
+  position_level: {
+    value: ['id', 'level_id', 'level_name', 'slug'],
+    display: ['level_name', 'slug']
+  },
+
+  // Sales/CRM tables
+  opportunity_funnel_stage: {
+    value: ['stage_id', 'stage_name'],
+    display: ['stage_name', 'stage_descr']
+  },
+  industry_sector: {
+    value: ['level_id', 'level_name'],
+    display: ['level_name', 'level_descr']
+  },
+  acquisition_channel: {
+    value: ['level_id', 'level_name'],
+    display: ['level_name', 'level_descr']
+  },
+
+  // Form/Wiki status tables
+  form_submission_status: {
+    value: ['level_id', 'level_name'],
+    display: ['level_name', 'level_descr']
+  },
+  form_approval_status: {
+    value: ['level_id', 'level_name'],
+    display: ['level_name', 'level_descr']
+  },
+  wiki_publication_status: {
+    value: ['level_id', 'level_name'],
+    display: ['level_name', 'level_descr']
+  }
 };
 
 // Signature Canvas Component
@@ -500,10 +597,14 @@ export function SearchableSelect({
               {filteredOptions.map((option, index) => {
                 const isSelected = option.value === value;
                 const isHighlighted = index === highlightedIndex;
+                // Generate a stable unique key: use value if non-empty, otherwise use index
+                const uniqueKey = option.value && option.value.trim() !== ''
+                  ? `option-${option.value}`
+                  : `option-index-${index}`;
 
                 return (
                   <div
-                    key={option.value}
+                    key={uniqueKey}
                     onClick={() => handleOptionClick(option.value)}
                     className={`px-3 py-2 text-sm cursor-pointer flex items-center justify-between ${
                       isHighlighted
@@ -1764,23 +1865,33 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                       className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
                     >
                       <option value="">Choose table...</option>
-                      <option value="client_service">Client Services</option>
-                      <option value="client_status">Client Status</option>
-                      <option value="client_level">Client Level</option>
-                      <option value="task_stage">Task Stage</option>
-                      <option value="task_priority">Task Priority</option>
-                      <option value="task_update_type">Task Update Type</option>
-                      <option value="project_stage">Project Stage</option>
-                      <option value="business_level">Business Level</option>
-                      <option value="office_level">Office Level</option>
-                      <option value="position_level">Position Level</option>
-                      <option value="opportunity_funnel_stage">Opportunity Funnel Stage</option>
-                      <option value="industry_sector">Industry Sector</option>
-                      <option value="acquisition_channel">Acquisition Channel</option>
-                      <option value="customer_tier">Customer Tier</option>
-                      <option value="form_submission_status">Form Submission Status</option>
-                      <option value="form_approval_status">Form Approval Status</option>
-                      <option value="wiki_publication_status">Wiki Publication Status</option>
+                      <optgroup label="Customer / Client">
+                        <option value="cust_service">Customer Services</option>
+                        <option value="cust_status">Customer Status</option>
+                        <option value="cust_level">Customer Level</option>
+                        <option value="customer_tier">Customer Tier</option>
+                      </optgroup>
+                      <optgroup label="Task Management">
+                        <option value="task_stage">Task Stage</option>
+                        <option value="task_priority">Task Priority</option>
+                        <option value="task_update_type">Task Update Type</option>
+                      </optgroup>
+                      <optgroup label="Project & Organization">
+                        <option value="project_stage">Project Stage</option>
+                        <option value="business_level">Business Level</option>
+                        <option value="office_level">Office Level</option>
+                        <option value="position_level">Position Level</option>
+                      </optgroup>
+                      <optgroup label="Sales & Marketing">
+                        <option value="opportunity_funnel_stage">Opportunity Funnel Stage</option>
+                        <option value="industry_sector">Industry Sector</option>
+                        <option value="acquisition_channel">Acquisition Channel</option>
+                      </optgroup>
+                      <optgroup label="Forms & Documentation">
+                        <option value="form_submission_status">Form Submission Status</option>
+                        <option value="form_approval_status">Form Approval Status</option>
+                        <option value="wiki_publication_status">Wiki Publication Status</option>
+                      </optgroup>
                     </select>
                   </div>
 
@@ -1790,15 +1901,14 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                       value={field.datalabelValueColumn || ''}
                       onChange={(e) => onChange({ datalabelValueColumn: e.target.value })}
                       className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                      disabled={!field.datalabelTable}
                     >
-                      <option value="">Choose column...</option>
-                      <option value="id">ID</option>
-                      <option value="level_id">Level ID</option>
-                      <option value="stage_id">Stage ID</option>
-                      <option value="name">Name</option>
-                      <option value="level_name">Level Name</option>
-                      <option value="stage_name">Stage Name</option>
-                      <option value="slug">Slug</option>
+                      <option value="">
+                        {!field.datalabelTable ? 'Select a table first...' : 'Choose column...'}
+                      </option>
+                      {field.datalabelTable && DATALABEL_TABLE_COLUMNS[field.datalabelTable]?.value.map(col => (
+                        <option key={col} value={col}>{col}</option>
+                      ))}
                     </select>
                   </div>
 
@@ -1808,25 +1918,35 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                       value={field.datalabelDisplayColumn || ''}
                       onChange={(e) => onChange({ datalabelDisplayColumn: e.target.value })}
                       className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                      disabled={!field.datalabelTable}
                     >
-                      <option value="">Choose column...</option>
-                      <option value="name">Name</option>
-                      <option value="level_name">Level Name</option>
-                      <option value="stage_name">Stage Name</option>
-                      <option value="slug">Slug</option>
-                      <option value="descr">Description</option>
-                      <option value="level_descr">Level Description</option>
-                      <option value="stage_descr">Stage Description</option>
+                      <option value="">
+                        {!field.datalabelTable ? 'Select a table first...' : 'Choose column...'}
+                      </option>
+                      {field.datalabelTable && DATALABEL_TABLE_COLUMNS[field.datalabelTable]?.display.map(col => (
+                        <option key={col} value={col}>{col}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
                 <div className="md:col-span-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <p className="text-xs text-blue-800">
-                    <strong>Dynamic Options:</strong> Options will be loaded from the{' '}
-                    <code className="bg-blue-100 px-1 rounded">{field.datalabelTable || '(select table)'}</code> table.
-                    Values: <code className="bg-blue-100 px-1 rounded">{field.datalabelValueColumn || '(select column)'}</code>,
-                    Display: <code className="bg-blue-100 px-1 rounded">{field.datalabelDisplayColumn || '(select column)'}</code>
-                  </p>
+                  <div className="text-xs text-blue-800 space-y-1">
+                    <p>
+                      <strong>Dynamic Options:</strong> Options will be loaded from the{' '}
+                      <code className="bg-blue-100 px-1 rounded">{field.datalabelTable || '(select table)'}</code> table.
+                    </p>
+                    <p>
+                      Values: <code className="bg-blue-100 px-1 rounded">{field.datalabelValueColumn || '(select column)'}</code>,
+                      Display: <code className="bg-blue-100 px-1 rounded">{field.datalabelDisplayColumn || '(select column)'}</code>
+                    </p>
+                    {field.datalabelTable && DATALABEL_TABLE_COLUMNS[field.datalabelTable] && (
+                      <p className="mt-2 pt-2 border-t border-blue-200">
+                        <strong>Available columns for {field.datalabelTable}:</strong><br/>
+                        Value columns: {DATALABEL_TABLE_COLUMNS[field.datalabelTable].value.join(', ')}<br/>
+                        Display columns: {DATALABEL_TABLE_COLUMNS[field.datalabelTable].display.join(', ')}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </>
             ) : (
@@ -2266,6 +2386,162 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 </div>
               </>
             )}
+          </>
+        )}
+
+        {/* Menu Button field configuration */}
+        {field.type === 'menu_button' && (
+          <>
+            <div className="md:col-span-3 flex flex-col">
+              <label className="text-xs font-light text-gray-500 mb-1">Menu Type</label>
+              <select
+                value={field.menuButtonType || 'single'}
+                onChange={(e) => onChange({ menuButtonType: e.target.value as 'single' | 'dropdown' })}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+              >
+                <option value="single">Single Menu (One button)</option>
+                <option value="dropdown">Dropdown Menu (Multiple items)</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col">
+              <label className="text-xs font-light text-gray-500 mb-1">Button Style</label>
+              <select
+                value={field.menuButtonStyle || 'primary'}
+                onChange={(e) => onChange({ menuButtonStyle: e.target.value as 'primary' | 'secondary' | 'outline' })}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+              >
+                <option value="primary">Primary (Blue)</option>
+                <option value="secondary">Secondary (Gray)</option>
+                <option value="outline">Outline (Border only)</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col">
+              <label className="text-xs font-light text-gray-500 mb-1">Button Size</label>
+              <select
+                value={field.menuButtonSize || 'md'}
+                onChange={(e) => onChange({ menuButtonSize: e.target.value as 'sm' | 'md' | 'lg' })}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+              >
+                <option value="sm">Small</option>
+                <option value="md">Medium</option>
+                <option value="lg">Large</option>
+              </select>
+            </div>
+
+            {/* Menu Items Configuration */}
+            <div className="md:col-span-3 flex flex-col space-y-3">
+              <label className="text-xs font-medium text-gray-700">Menu Items</label>
+              {(field.menuButtonItems || []).map((item, index) => (
+                <div key={item.id} className="border border-gray-300 rounded-lg p-3 bg-gray-50 space-y-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-gray-600">Item {index + 1}</span>
+                    {(field.menuButtonItems || []).length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const items = [...(field.menuButtonItems || [])];
+                          items.splice(index, 1);
+                          onChange({ menuButtonItems: items });
+                        }}
+                        className="text-red-500 hover:text-red-700 text-xs"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-col">
+                      <label className="text-xs font-light text-gray-500 mb-1">Label</label>
+                      <input
+                        value={item.label}
+                        onChange={(e) => {
+                          const items = [...(field.menuButtonItems || [])];
+                          items[index] = { ...items[index], label: e.target.value };
+                          onChange({ menuButtonItems: items });
+                        }}
+                        placeholder="Menu text"
+                        className="px-2 py-1 text-sm border border-gray-300 rounded"
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <label className="text-xs font-light text-gray-500 mb-1">URL</label>
+                      <input
+                        value={item.url}
+                        onChange={(e) => {
+                          const items = [...(field.menuButtonItems || [])];
+                          items[index] = { ...items[index], url: e.target.value };
+                          onChange({ menuButtonItems: items });
+                        }}
+                        placeholder="/path or https://..."
+                        className="px-2 py-1 text-sm border border-gray-300 rounded"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-col">
+                      <label className="text-xs font-light text-gray-500 mb-1">Icon (emoji or lucide name)</label>
+                      <input
+                        value={item.icon || ''}
+                        onChange={(e) => {
+                          const items = [...(field.menuButtonItems || [])];
+                          items[index] = { ...items[index], icon: e.target.value };
+                          onChange({ menuButtonItems: items });
+                        }}
+                        placeholder="📄 or FileText"
+                        className="px-2 py-1 text-sm border border-gray-300 rounded"
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2 mt-5">
+                      <input
+                        type="checkbox"
+                        id={`newtab-${item.id}`}
+                        checked={!!item.openInNewTab}
+                        onChange={(e) => {
+                          const items = [...(field.menuButtonItems || [])];
+                          items[index] = { ...items[index], openInNewTab: e.target.checked };
+                          onChange({ menuButtonItems: items });
+                        }}
+                        className="rounded text-blue-600"
+                      />
+                      <label htmlFor={`newtab-${item.id}`} className="text-xs font-light text-gray-500">
+                        Open in new tab
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  const items = [...(field.menuButtonItems || [])];
+                  items.push({
+                    id: `item-${Date.now()}`,
+                    label: `Menu Item ${items.length + 1}`,
+                    url: '/path',
+                    icon: '',
+                    openInNewTab: false
+                  });
+                  onChange({ menuButtonItems: items });
+                }}
+                className="flex items-center justify-center space-x-2 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add Menu Item</span>
+              </button>
+            </div>
+
+            <div className="md:col-span-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-xs font-medium text-blue-900 mb-2">💡 Usage Tips:</p>
+              <ul className="text-xs text-blue-800 space-y-1">
+                <li>• <strong>Single Menu:</strong> Creates one button that links directly to the URL</li>
+                <li>• <strong>Dropdown Menu:</strong> Creates a button with multiple menu options</li>
+                <li>• Use relative URLs like <code className="bg-blue-100 px-1 rounded">/task/123</code> for internal navigation</li>
+                <li>• Use full URLs like <code className="bg-blue-100 px-1 rounded">https://example.com</code> for external links</li>
+                <li>• Add emoji icons (📄 🔗 📊) or Lucide icon names (FileText, Link, BarChart)</li>
+              </ul>
+            </div>
           </>
         )}
 

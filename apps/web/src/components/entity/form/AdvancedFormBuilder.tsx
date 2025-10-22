@@ -5,7 +5,7 @@ import {
   Type, MessageSquare, Hash, Mail, Phone, Globe, ChevronDown, Radio,
   CheckSquare, Calendar, Upload, Sliders, PenTool, Home, Navigation,
   Camera, Video, QrCode, Barcode, BookOpen, Table, DollarSign, CalendarDays,
-  Clock, ToggleLeft, Star, Timer, Calculator, Percent
+  Clock, ToggleLeft, Star, Timer, Calculator, Percent, Menu
 } from 'lucide-react';
 import { DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy } from '@dnd-kit/sortable';
@@ -49,6 +49,7 @@ const FIELD_TYPES_PALETTE = [
   { type: 'duration' as FieldType, label: 'Duration', hint: 'Hours and minutes', icon: <Timer className="h-4 w-4" /> },
   { type: 'percentage' as FieldType, label: 'Percentage', hint: 'Number with %', icon: <Percent className="h-4 w-4" /> },
   { type: 'calculation' as FieldType, label: 'Calculation', hint: 'Auto-calculated value', icon: <Calculator className="h-4 w-4" /> },
+  { type: 'menu_button' as FieldType, label: 'Menu Button', hint: 'Single menu or dropdown with links', icon: <Menu className="h-4 w-4" /> },
 ];
 
 interface AdvancedFormBuilderProps {
@@ -278,6 +279,14 @@ export function AdvancedFormBuilder({
         calculationFields: [],
         calculationExpression: '',
         currencySymbol: '$'
+      } : {}),
+      ...(type === 'menu_button' ? {
+        menuButtonType: 'single',
+        menuButtonItems: [
+          { id: `item-${Date.now()}`, label: 'Menu Item 1', url: '/path', icon: '', openInNewTab: false }
+        ],
+        menuButtonStyle: 'primary',
+        menuButtonSize: 'md'
       } : {}),
     } as BuilderField;
     setFields(prev => [...prev, base]);

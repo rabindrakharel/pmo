@@ -31,7 +31,7 @@ import { WorkflowAutomationPage } from './pages/WorkflowAutomationPage';
 import { SequentialStateDemo } from './pages/demo/SequentialStateDemo';
 
 // Shared/Universal Components
-import { EntityMainPage, EntityDetailPage, EntityChildListPage, EntityCreatePage } from './pages/shared';
+import { EntityMainPage, EntityDetailPage, EntityChildListPage, EntityCreatePage, SharedURLEntityPage } from './pages/shared';
 
 // Entity Configuration
 import { entityConfigs } from './lib/entityConfig';
@@ -109,6 +109,13 @@ function AppRoutes() {
       {/* Public Routes */}
       <Route path="/" element={isAuthenticated ? <Navigate to="/project" replace /> : <LandingPage />} />
       <Route path="/public/form/:id" element={<PublicFormPage />} />
+
+      {/* Shared Entity Routes (Public - No Auth Required) */}
+      <Route path="/task/shared/:code" element={<SharedURLEntityPage />} />
+      <Route path="/form/shared/:code" element={<SharedURLEntityPage />} />
+      <Route path="/wiki/shared/:code" element={<SharedURLEntityPage />} />
+      <Route path="/artifact/shared/:code" element={<SharedURLEntityPage />} />
+      <Route path="/:entityType/shared/:code" element={<SharedURLEntityPage />} />
 
       <Route
         path="/login"

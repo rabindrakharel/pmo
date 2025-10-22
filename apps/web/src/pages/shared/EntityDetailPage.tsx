@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Outlet, useLocation } from 'react-router-dom';
 import { ArrowLeft, Edit2, Save, X, Palette } from 'lucide-react';
-import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityFormContainer } from '../../components/shared';
+import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityFormContainer, ShareURLSection } from '../../components/shared';
 import { WikiContentRenderer } from '../../components/entity/wiki';
 import { TaskDataContainer } from '../../components/entity/task';
 import { FormDataTable, InteractiveForm, FormSubmissionEditor } from '../../components/entity/form';
@@ -322,7 +322,23 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
         {/* Content Area - Shows Overview or Child Entity Table */}
         {isOverviewTab ? (
           // Overview Tab - Entity Details
-          entityType === 'wiki' ? (
+          <>
+            {/* Share URL Section - Only for task and form entities */}
+            {(entityType === 'task' || entityType === 'form') && (
+              <ShareURLSection
+                entityType={entityType}
+                entityId={id!}
+                currentSharedUrl={data?.shared_url}
+                onUrlGenerated={(url) => {
+                  // Update local data state with new shared URL
+                  setData({ ...data, shared_url: url });
+                  setEditedData({ ...editedData, shared_url: url });
+                }}
+              />
+            )}
+
+            {/* Entity-specific content */}
+            {entityType === 'wiki' ? (
             // Special Wiki Content Renderer
             <WikiContentRenderer
               data={data}
@@ -393,7 +409,8 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 />
               )}
             </div>
-          )
+          )}
+          </>
         ) : currentChildEntity === 'form-data' ? (
           // Form Data Tab - Show form submissions
           <FormDataTable formId={id!} formSchema={data.form_schema} refreshKey={formDataRefreshKey} />

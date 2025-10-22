@@ -10,7 +10,8 @@ const FormSchema = Type.Object({
   code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  url: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  internal_url: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  shared_url: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   tags: Type.Optional(Type.Any()),
   form_type: Type.String(),
   form_schema: Type.Any(),
@@ -26,6 +27,8 @@ const FormSchema = Type.Object({
 const CreateFormSchema = Type.Object({
   name: Type.Optional(Type.String({ minLength: 1 })),
   descr: Type.Optional(Type.String()),
+  internal_url: Type.Optional(Type.String()),
+  shared_url: Type.Optional(Type.String()),
   tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String(), Type.Any()])),
   form_type: Type.Optional(Type.String()),
   form_schema: Type.Optional(Type.Any()),
@@ -123,7 +126,8 @@ export async function formRoutes(fastify: FastifyInstance) {
             f.code,
             f.name,
             f.descr,
-            f.url,
+            f.internal_url,
+            f.shared_url,
             f.tags,
             f.form_type,
             f.form_schema,
@@ -161,7 +165,8 @@ export async function formRoutes(fastify: FastifyInstance) {
             f.code,
             f.name,
             f.descr,
-            f.url,
+            f.internal_url,
+            f.shared_url,
             f.tags,
             f.form_type,
             f.form_schema,
@@ -217,7 +222,8 @@ export async function formRoutes(fastify: FastifyInstance) {
           f.code,
           f.name,
           f.descr,
-          f.url,
+          f.internal_url,
+          f.shared_url,
           f.tags,
           f.form_type,
           f.form_schema,
@@ -288,7 +294,8 @@ export async function formRoutes(fastify: FastifyInstance) {
           f.code,
           f.name,
           f.descr,
-          f.url,
+          f.internal_url,
+          f.shared_url,
           f.tags,
           f.form_type,
           f.form_schema,
@@ -368,13 +375,19 @@ export async function formRoutes(fastify: FastifyInstance) {
       const slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now();
       const code = 'FORM-' + Date.now();
 
-      // Insert form with minimalistic schema (URL will be updated after we have the ID)
+      // Generate URLs for the form
+      const internalUrl = data.internal_url || `/form/${slug}`;
+      const sharedUrl = data.shared_url || `/form/${Math.random().toString(36).substring(2, 10)}`;
+
+      // Insert form with minimalistic schema
       const result = await db.execute(sql`
         INSERT INTO app.d_form_head (
           slug,
           code,
           name,
           descr,
+          internal_url,
+          shared_url,
           tags,
           form_type,
           form_schema,
@@ -386,6 +399,8 @@ export async function formRoutes(fastify: FastifyInstance) {
           ${code},
           ${data.name},
           ${data.descr || null},
+          ${internalUrl},
+          ${sharedUrl},
           ${JSON.stringify(data.tags || [])},
           ${data.form_type || 'multi_step'},
           ${JSON.stringify(data.form_schema || {steps: []})},
@@ -398,6 +413,8 @@ export async function formRoutes(fastify: FastifyInstance) {
           code,
           name,
           descr,
+          internal_url,
+          shared_url,
           tags,
           form_type,
           form_schema,
@@ -411,18 +428,16 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       const created = result[0];
 
-      // Generate public form URL using form ID
-      const publicUrl = `/public/form/${created.id}`;
-
-      // Update the form with the generated URL
+      // Register in d_entity_instance_id for global entity operations
       await db.execute(sql`
-        UPDATE app.d_form_head
-        SET url = ${publicUrl}
-        WHERE id = ${created.id}
+        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
+        VALUES ('form', ${created.id}::uuid, ${created.name}, ${created.slug}, ${created.code})
+        ON CONFLICT (entity_type, entity_id) DO UPDATE
+        SET entity_name = EXCLUDED.entity_name,
+            entity_slug = EXCLUDED.entity_slug,
+            entity_code = EXCLUDED.entity_code,
+            updated_ts = NOW()
       `);
-
-      // Add URL to the response
-      created.url = publicUrl;
 
       // Auto-grant creator full permissions (0=view, 1=edit, 2=share, 3=delete, 4=create)
       await db.execute(sql`
@@ -493,7 +508,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Get current form data
       const currentForm = await db.execute(sql`
-        SELECT id, slug, code, name, descr, tags, form_type, form_schema, url, active_flag, version
+        SELECT id, slug, code, name, descr, tags, form_type, form_schema, internal_url, shared_url, active_flag, version
         FROM app.d_form_head
         WHERE id = ${id}
       `);
@@ -531,7 +546,8 @@ export async function formRoutes(fastify: FastifyInstance) {
             code,
             name,
             descr,
-            url,
+            internal_url,
+            shared_url,
             tags,
             form_type,
             form_schema,
@@ -573,7 +589,8 @@ export async function formRoutes(fastify: FastifyInstance) {
             code,
             name,
             descr,
-            url,
+            internal_url,
+            shared_url,
             tags,
             form_type,
             form_schema,
@@ -986,7 +1003,8 @@ export async function formRoutes(fastify: FastifyInstance) {
           f.code,
           f.name,
           f.descr,
-          f.url,
+          f.internal_url,
+          f.shared_url,
           f.tags,
           f.form_type,
           f.form_schema,
