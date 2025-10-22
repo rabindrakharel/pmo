@@ -127,8 +127,14 @@ echo "STEP 2: Starting Docker Infrastructure"
 echo "============================================"
 cd {DEPLOY_PATH}
 
+# Stop and remove any old containers to avoid conflicts
+echo "Stopping and removing old containers..."
+docker compose down --remove-orphans || true
+docker stop cohuron_db pmo_db 2>/dev/null || true
+docker rm cohuron_db pmo_db 2>/dev/null || true
+
 echo "Starting Docker services (PostgreSQL, Redis, MinIO, MailHog)..."
-docker compose up -d || true  # May return non-zero if already running
+docker compose up -d --remove-orphans || true  # May return non-zero if already running
 
 # Verify containers are running
 sleep 5
@@ -141,9 +147,17 @@ else
     exit 1
 fi
 
-# Wait for database to be ready
+# Wait for PostgreSQL to be ready (use pmo_db container name)
 echo "Waiting for PostgreSQL to be ready..."
-sleep 10
+sleep 5
+for i in {{1..30}}; do
+    if docker exec pmo_db pg_isready -h localhost -p 5432 -U app > /dev/null 2>&1; then
+        echo "✓ PostgreSQL is ready"
+        break
+    fi
+    echo "Waiting for PostgreSQL... ($i/30)"
+    sleep 2
+done
 
 # ============================================
 # Step 3: Import Database Schema
