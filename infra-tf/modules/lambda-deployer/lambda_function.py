@@ -119,11 +119,32 @@ if [ -f "apps/web/package.json" ]; then
 fi
 
 # ============================================
-# Step 2: Import Database Schema
+# Step 2: Start Docker Infrastructure
 # ============================================
 echo ""
 echo "============================================"
-echo "STEP 2: Importing Database Schema"
+echo "STEP 2: Starting Docker Infrastructure"
+echo "============================================"
+cd {DEPLOY_PATH}
+
+echo "Starting Docker services (PostgreSQL, Redis, MinIO, MailHog)..."
+if docker compose up -d; then
+    echo "✓ Docker services started"
+else
+    echo "ERROR: Failed to start Docker services!"
+    exit 1
+fi
+
+# Wait for database to be ready
+echo "Waiting for PostgreSQL to be ready..."
+sleep 10
+
+# ============================================
+# Step 3: Import Database Schema
+# ============================================
+echo ""
+echo "============================================"
+echo "STEP 3: Importing Database Schema"
 echo "============================================"
 cd {DEPLOY_PATH}
 
@@ -142,27 +163,34 @@ else
 fi
 
 # ============================================
-# Step 3: Start All Services
+# Step 4: Start Application Services (PM2)
 # ============================================
 echo ""
 echo "============================================"
-echo "STEP 3: Starting All Services"
+echo "STEP 4: Starting Application Services"
 echo "============================================"
 cd {DEPLOY_PATH}
 
-if [ ! -f "tools/start-all.sh" ]; then
-    echo "ERROR: tools/start-all.sh not found!"
-    exit 1
+# Stop any existing PM2 processes
+pm2 delete all || true
+
+# Start API
+if [ -f "apps/api/package.json" ]; then
+    echo "Starting API service..."
+    cd {DEPLOY_PATH}/apps/api
+    pm2 start "pnpm dev" --name cohuron-api
+    echo "✓ API service started"
 fi
 
-chmod +x tools/start-all.sh
-echo "Starting services with start-all.sh..."
-if ./tools/start-all.sh; then
-    echo "✓ Services started successfully"
-else
-    echo "ERROR: Failed to start services!"
-    exit 1
+# Start Web
+if [ -f "apps/web/package.json" ]; then
+    echo "Starting Web service..."
+    cd {DEPLOY_PATH}/apps/web
+    pm2 start "pnpm dev --port 5173 --host 0.0.0.0" --name cohuron-web
+    echo "✓ Web service started"
 fi
+
+pm2 save
 
 # Wait for services to fully initialize
 echo ""
@@ -170,11 +198,11 @@ echo "Waiting for services to initialize..."
 sleep 15
 
 # ============================================
-# Step 4: Verify Services
+# Step 5: Verify Services
 # ============================================
 echo ""
 echo "============================================"
-echo "STEP 4: Verifying Services"
+echo "STEP 5: Verifying Services"
 echo "============================================"
 
 # Check Docker services
