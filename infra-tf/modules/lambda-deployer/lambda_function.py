@@ -130,11 +130,7 @@ cd {DEPLOY_PATH}/apps/api
 # Create .env file with Docker database credentials
 cat > .env <<'ENVEOF'
 # Database Configuration - Docker PostgreSQL
-DB_HOST=localhost
-DB_PORT=5434
-DB_NAME=app
-DB_USER=app
-DB_PASSWORD=app
+DATABASE_URL=postgresql://app:app@localhost:5434/app
 
 # Server Configuration
 NODE_ENV=production
@@ -149,21 +145,21 @@ WEB_ORIGIN=http://app.cohuron.com
 API_ORIGIN=http://app.cohuron.com
 
 # Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
+REDIS_URL=redis://localhost:6379
 
 # MinIO S3
-MINIO_ENDPOINT=localhost
-MINIO_PORT=9000
-MINIO_ACCESS_KEY=minio
-MINIO_SECRET_KEY=minio123
-MINIO_BUCKET=artifacts
+S3_ENDPOINT=http://localhost:9000
+S3_REGION=us-east-1
+S3_BUCKET=artifacts
+S3_ACCESS_KEY=minio
+S3_SECRET_KEY=minio123
 
 # Email (MailHog for development)
 SMTP_HOST=localhost
 SMTP_PORT=1025
 SMTP_USER=
-SMTP_PASSWORD=
+SMTP_PASS=
+SMTP_FROM=noreply@cohuron.com
 ENVEOF
 
 echo "✓ API environment configured with Docker database"
