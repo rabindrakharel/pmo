@@ -146,14 +146,14 @@ validate_all_ddls() {
         "setting_datalabel__business_level.ddl"
         "setting_datalabel__project_stage.ddl"
         "setting_datalabel__task_stage.ddl"
-        "setting_datalabel__client_level.ddl"
+        "setting_datalabel__cust_level.ddl"
         "setting_datalabel__customer_tier.ddl"
         "setting_datalabel__position_level.ddl"
         "setting_datalabel__opportunity_funnel_stage.ddl"
         "setting_datalabel__industry_sector.ddl"
         "setting_datalabel__acquisition_channel.ddl"
-        "setting_datalabel__client_status.ddl"
-        "setting_datalabel__client_service.ddl"
+        "setting_datalabel__cust_status.ddl"
+        "setting_datalabel__cust_service.ddl"
         "setting_datalabel__task_priority.ddl"
         "setting_datalabel__task_update_type.ddl"
         "setting_datalabel__form_submission_status.ddl"
@@ -162,7 +162,7 @@ validate_all_ddls() {
         "11_d_employee.ddl"
         "12_d_office.ddl"
         "13_d_business.ddl"
-        "14_d_client.ddl"
+        "14_d_cust.ddl"
         "15_d_role.ddl"
         "16_d_position.ddl"
         "17_d_worksite.ddl"
@@ -184,10 +184,10 @@ validate_all_ddls() {
         "33_d_entity_id_map.ddl"
         "34_d_entity_id_rbac_map.ddl"
         "35_d_email_template.ddl"
-        "fact_order.ddl"
-        "fact_invoice.ddl"
-        "fact_inventory.ddl"
-        "fact_shipment.ddl"
+        "f_inventory.ddl"
+        "f_order.ddl"
+        "f_invoice.ddl"
+        "f_shipment.ddl"
     )
 
     for file in "${ddl_files[@]}"; do
@@ -227,14 +227,14 @@ import_ddls() {
     execute_sql "$DB_PATH/setting_datalabel__business_level.ddl" "Business level settings"
     execute_sql "$DB_PATH/setting_datalabel__project_stage.ddl" "Project stage settings"
     execute_sql "$DB_PATH/setting_datalabel__task_stage.ddl" "Task stage settings"
-    execute_sql "$DB_PATH/setting_datalabel__client_level.ddl" "Client level settings"
+    execute_sql "$DB_PATH/setting_datalabel__cust_level.ddl" "Customer level settings"
     execute_sql "$DB_PATH/setting_datalabel__customer_tier.ddl" "Customer tier settings"
     execute_sql "$DB_PATH/setting_datalabel__position_level.ddl" "Position level settings"
     execute_sql "$DB_PATH/setting_datalabel__opportunity_funnel_stage.ddl" "Opportunity funnel stage settings"
     execute_sql "$DB_PATH/setting_datalabel__industry_sector.ddl" "Industry sector settings"
     execute_sql "$DB_PATH/setting_datalabel__acquisition_channel.ddl" "Acquisition channel settings"
-    execute_sql "$DB_PATH/setting_datalabel__client_status.ddl" "Client status settings"
-    execute_sql "$DB_PATH/setting_datalabel__client_service.ddl" "Client service settings"
+    execute_sql "$DB_PATH/setting_datalabel__cust_status.ddl" "Customer status settings"
+    execute_sql "$DB_PATH/setting_datalabel__cust_service.ddl" "Customer service settings"
     execute_sql "$DB_PATH/setting_datalabel__task_priority.ddl" "Task priority settings"
     execute_sql "$DB_PATH/setting_datalabel__task_update_type.ddl" "Task update type settings"
     execute_sql "$DB_PATH/setting_datalabel__form_submission_status.ddl" "Form submission status settings"
@@ -249,7 +249,7 @@ import_ddls() {
     execute_sql "$DB_PATH/13_d_business.ddl" "Business entity with 3-level hierarchy"
 
     # Supporting entities - Independent of core hierarchy
-    execute_sql "$DB_PATH/14_d_client.ddl" "Client entities"
+    execute_sql "$DB_PATH/14_d_cust.ddl" "Customer entities"
     execute_sql "$DB_PATH/15_d_role.ddl" "Role entities"
     execute_sql "$DB_PATH/16_d_position.ddl" "Position entities"
     execute_sql "$DB_PATH/17_d_worksite.ddl" "Worksite entities"
@@ -273,10 +273,10 @@ import_ddls() {
     execute_sql "$DB_PATH/28_d_report_data.ddl" "Report data entities"
 
     # Fact tables - Transaction-level analytics (after all dimensions loaded)
-    execute_sql "$DB_PATH/fact_order.ddl" "Order fact table (customer orders)"
-    execute_sql "$DB_PATH/fact_invoice.ddl" "Invoice fact table (billing/revenue)"
-    execute_sql "$DB_PATH/fact_inventory.ddl" "Inventory fact table (stock movements)"
-    execute_sql "$DB_PATH/fact_shipment.ddl" "Shipment fact table (deliveries/logistics)"
+    execute_sql "$DB_PATH/f_inventory.ddl" "Inventory fact table (stock levels by location)"
+    execute_sql "$DB_PATH/f_order.ddl" "Order fact table (customer orders)"
+    execute_sql "$DB_PATH/f_shipment.ddl" "Shipment fact table (deliveries/logistics)"
+    execute_sql "$DB_PATH/f_invoice.ddl" "Invoice fact table (billing/revenue)"
 
     # Marketing entities - Email templates
     execute_sql "$DB_PATH/35_d_email_template.ddl" "Email template entities"
@@ -331,10 +331,10 @@ validate_schema() {
     local product_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_product;" 2>/dev/null | xargs || echo "0")
 
     # Fact tables
-    local order_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.fact_order;" 2>/dev/null | xargs || echo "0")
-    local invoice_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.fact_invoice;" 2>/dev/null | xargs || echo "0")
-    local inventory_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.fact_inventory;" 2>/dev/null | xargs || echo "0")
-    local shipment_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.fact_shipment;" 2>/dev/null | xargs || echo "0")
+    local order_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.f_order;" 2>/dev/null | xargs || echo "0")
+    local invoice_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.f_invoice;" 2>/dev/null | xargs || echo "0")
+    local inventory_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.f_inventory;" 2>/dev/null | xargs || echo "0")
+    local shipment_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.f_shipment;" 2>/dev/null | xargs || echo "0")
 
     # Relationship and mapping tables
     local entity_map_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_entity_id_map;" 2>/dev/null | xargs || echo "0")

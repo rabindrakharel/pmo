@@ -38,6 +38,31 @@ export interface User {
   email: string;
 }
 
+export interface CustomerSignupRequest {
+  name: string;
+  primary_email: string;
+  password: string;
+  cust_type?: string;
+}
+
+export interface CustomerSignupResponse {
+  token: string;
+  customer: {
+    id: string;
+    name: string;
+    email: string;
+    entities: string[];
+  };
+}
+
+export interface CustomerProfile {
+  id: string;
+  name: string;
+  email: string;
+  entities: string[];
+  cust_type: string;
+}
+
 export const authApi = {
   async login(credentials: LoginRequest): Promise<LoginResponse> {
     const response = await apiClient.post('/api/v1/auth/login', credentials);
@@ -55,6 +80,27 @@ export const authApi = {
 
   async getPermissions(): Promise<any> {
     const response = await apiClient.get('/api/v1/auth/permissions');
+    return response.data;
+  },
+
+  // Customer authentication endpoints
+  async customerSignup(data: CustomerSignupRequest): Promise<CustomerSignupResponse> {
+    const response = await apiClient.post('/api/v1/auth/customer/signup', data);
+    return response.data;
+  },
+
+  async customerSignin(credentials: LoginRequest): Promise<CustomerSignupResponse> {
+    const response = await apiClient.post('/api/v1/auth/customer/signin', credentials);
+    return response.data;
+  },
+
+  async getCustomerProfile(): Promise<CustomerProfile> {
+    const response = await apiClient.get('/api/v1/auth/customer/me');
+    return response.data;
+  },
+
+  async configureCustomerEntities(entities: string[]): Promise<CustomerProfile> {
+    const response = await apiClient.put('/api/v1/auth/customer/configure', { entities });
     return response.data;
   },
 };
@@ -161,7 +207,7 @@ export const taskApi = {
 };
 
 export const settingApi = {
-  async get(category: 'task_status' | 'task_stage' | 'project_status' | 'project_stage' | 'biz_level' | 'org_level' | 'hr_level' | 'client_level' | 'position_level') {
+  async get(category: 'task_stage' | 'project_status' | 'project_stage' | 'biz_level' | 'org_level' | 'hr_level' | 'client_level' | 'position_level') {
     const response = await apiClient.get(`/api/v1/setting?category=${category}`);
     return response.data;
   },
@@ -214,34 +260,34 @@ export const employeeApi = {
   },
 };
 
-export const clientApi = {
+export const custApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; type?: string }) {
-    const response = await apiClient.get('/api/v1/client', { params });
+    const response = await apiClient.get('/api/v1/cust', { params });
     return response.data;
   },
-  
+
   async get(id: string) {
-    const response = await apiClient.get(`/api/v1/client/${id}`);
+    const response = await apiClient.get(`/api/v1/cust/${id}`);
     return response.data;
   },
-  
+
   async getHierarchy(id: string) {
-    const response = await apiClient.get(`/api/v1/client/${id}/hierarchy`);
+    const response = await apiClient.get(`/api/v1/cust/${id}/hierarchy`);
     return response.data;
   },
-  
+
   async create(data: any) {
-    const response = await apiClient.post('/api/v1/client', data);
+    const response = await apiClient.post('/api/v1/cust', data);
     return response.data;
   },
-  
+
   async update(id: string, data: any) {
-    const response = await apiClient.put(`/api/v1/client/${id}`, data);
+    const response = await apiClient.put(`/api/v1/cust/${id}`, data);
     return response.data;
   },
-  
+
   async delete(id: string) {
-    const response = await apiClient.delete(`/api/v1/client/${id}`);
+    const response = await apiClient.delete(`/api/v1/cust/${id}`);
     return response.data;
   },
 };
@@ -625,6 +671,142 @@ export const marketingApi = {
   },
 };
 
+// Product & Operations APIs
+export const productApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; department?: string }) {
+    const response = await apiClient.get('/api/v1/product', { params });
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/product/${id}`);
+    return response.data;
+  },
+
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/product', data);
+    return response.data;
+  },
+
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/product/${id}`, data);
+    return response.data;
+  },
+
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/product/${id}`);
+    return response.data;
+  },
+};
+
+export const inventoryApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string }) {
+    const response = await apiClient.get('/api/v1/inventory', { params });
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/inventory/${id}`);
+    return response.data;
+  },
+
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/inventory', data);
+    return response.data;
+  },
+
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/inventory/${id}`, data);
+    return response.data;
+  },
+
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/inventory/${id}`);
+    return response.data;
+  },
+};
+
+export const orderApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string }) {
+    const response = await apiClient.get('/api/v1/order', { params });
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/order/${id}`);
+    return response.data;
+  },
+
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/order', data);
+    return response.data;
+  },
+
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/order/${id}`, data);
+    return response.data;
+  },
+
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/order/${id}`);
+    return response.data;
+  },
+};
+
+export const invoiceApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string }) {
+    const response = await apiClient.get('/api/v1/invoice', { params });
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/invoice/${id}`);
+    return response.data;
+  },
+
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/invoice', data);
+    return response.data;
+  },
+
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/invoice/${id}`, data);
+    return response.data;
+  },
+
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/invoice/${id}`);
+    return response.data;
+  },
+};
+
+export const shipmentApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string }) {
+    const response = await apiClient.get('/api/v1/shipment', { params });
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/shipment/${id}`);
+    return response.data;
+  },
+
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/shipment', data);
+    return response.data;
+  },
+
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/shipment/${id}`, data);
+    return response.data;
+  },
+
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/shipment/${id}`);
+    return response.data;
+  },
+};
+
 // ========================================
 // API FACTORY REGISTRATION
 // ========================================
@@ -651,7 +833,7 @@ APIFactory.register('org', orgApi); // Alias for office
 
 // People & roles
 APIFactory.register('employee', employeeApi);
-APIFactory.register('client', clientApi);
+APIFactory.register('cust', custApi);
 APIFactory.register('role', roleApi);
 APIFactory.register('position', positionApi);
 
@@ -665,6 +847,13 @@ APIFactory.register('worksite', worksiteApi);
 
 // Marketing
 APIFactory.register('marketing', marketingApi);
+
+// Product & Operations
+APIFactory.register('product', productApi);
+APIFactory.register('inventory', inventoryApi);
+APIFactory.register('order', orderApi);
+APIFactory.register('invoice', invoiceApi);
+APIFactory.register('shipment', shipmentApi);
 
 /**
  * Export the APIFactory for use in components

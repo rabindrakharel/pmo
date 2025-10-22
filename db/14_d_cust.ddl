@@ -1,113 +1,135 @@
 -- ============================================================================
--- CLIENT ENTITY (d_client) - CORE ENTITY
+-- CUSTOMER ENTITY (d_cust) - CORE ENTITY
 -- Customer relationship management across residential, commercial, municipal, industrial sectors
 -- ============================================================================
 --
 -- BUSINESS PURPOSE:
 -- Manages customer entities representing service recipients across all sectors (residential,
 -- commercial, municipal, industrial). Provides foundation for relationship management, service
--- delivery, contract tracking, and revenue attribution. Clients own projects and receive services.
+-- delivery, contract tracking, and revenue attribution. Customers own projects and receive services.
 --
 -- API SEMANTICS & LIFECYCLE:
 --
--- 1. CREATE CLIENT
---    • Endpoint: POST /api/v1/client
---    • Body: {name, code, client_number, client_type, client_status, primary_contact_name, primary_email, primary_phone, primary_address, city, province}
+-- 1. CREATE CUSTOMER
+--    • Endpoint: POST /api/v1/cust
+--    • Body: {name, code, cust_number, cust_type, cust_status, primary_contact_name, primary_email, primary_phone, primary_address, city, province}
 --    • Returns: {id: "new-uuid", version: 1, ...}
 --    • Database: INSERT with version=1, active_flag=true, created_ts=now()
---    • RBAC: Requires permission 4 (create) on entity='client', entity_id='all'
---    • Business Rule: client_number must be unique; client_type validates against ('residential', 'commercial', 'municipal', 'industrial')
+--    • RBAC: Requires permission 4 (create) on entity='cust', entity_id='all'
+--    • Business Rule: cust_number must be unique; cust_type validates against ('residential', 'commercial', 'municipal', 'industrial')
 --
--- 2. UPDATE CLIENT (Contact Changes, Status Updates, Relationship Upgrades)
---    • Endpoint: PUT /api/v1/client/{id}
---    • Body: {primary_contact_name, primary_email, client_status, opportunity_funnel_stage_name, customer_tier_name}
+-- 2. UPDATE CUSTOMER (Contact Changes, Status Updates, Relationship Upgrades)
+--    • Endpoint: PUT /api/v1/cust/{id}
+--    • Body: {primary_contact_name, primary_email, cust_status, opportunity_funnel_stage_name, customer_tier_name}
 --    • Returns: {id: "same-uuid", version: 2, updated_ts: "new-timestamp"}
 --    • Database: UPDATE SET [fields], version=version+1, updated_ts=now() WHERE id=$1
 --    • SCD Behavior: IN-PLACE UPDATE
 --      - Same ID (preserves all project relationships and service history)
 --      - version increments (audit trail)
 --      - updated_ts refreshed
---      - NO archival (client tier can change: Lead → Prospect → Active Customer)
---    • RBAC: Requires permission 1 (edit) on entity='client', entity_id={id} OR 'all'
+--      - NO archival (customer tier can change: Lead → Prospect → Active Customer)
+--    • RBAC: Requires permission 1 (edit) on entity='cust', entity_id={id} OR 'all'
 --    • Business Rule: Changing opportunity_funnel_stage_name reflects sales pipeline progress
 --
--- 3. SOFT DELETE CLIENT (Account Closure)
---    • Endpoint: DELETE /api/v1/client/{id}
---    • Database: UPDATE SET active_flag=false, to_ts=now(), client_status='inactive' WHERE id=$1
+-- 3. SOFT DELETE CUSTOMER (Account Closure)
+--    • Endpoint: DELETE /api/v1/cust/{id}
+--    • Database: UPDATE SET active_flag=false, to_ts=now(), cust_status='inactive' WHERE id=$1
 --    • RBAC: Requires permission 3 (delete)
---    • Business Rule: Preserves all historical projects and service records; client hidden from active lists
+--    • Business Rule: Preserves all historical projects and service records; customer hidden from active lists
 --
--- 4. LIST CLIENTS (Filtered by Type, Status, Tier)
---    • Endpoint: GET /api/v1/client?client_type=commercial&customer_tier_name=Enterprise&limit=50
+-- 4. LIST CUSTOMERS (Filtered by Type, Status, Tier)
+--    • Endpoint: GET /api/v1/cust?cust_type=commercial&customer_tier_name=Enterprise&limit=50
 --    • Database:
---      SELECT c.* FROM d_client c
+--      SELECT c.* FROM d_cust c
 --      WHERE c.active_flag=true
 --        AND EXISTS (
 --          SELECT 1 FROM entity_id_rbac_map rbac
 --          WHERE rbac.empid=$user_id
---            AND rbac.entity='client'
+--            AND rbac.entity='cust'
 --            AND (rbac.entity_id=c.id::text OR rbac.entity_id='all')
 --            AND 0=ANY(rbac.permission)  -- View permission
 --        )
 --      ORDER BY c.customer_tier_name DESC, c.name ASC
 --      LIMIT $1 OFFSET $2
---    • RBAC: User sees ONLY clients they have view access to
+--    • RBAC: User sees ONLY customers they have view access to
 --    • Frontend: Renders in EntityMainPage with table view + advanced filtering
 --
--- 5. GET SINGLE CLIENT
---    • Endpoint: GET /api/v1/client/{id}
---    • Database: SELECT * FROM d_client WHERE id=$1 AND active_flag=true
+-- 5. GET SINGLE CUSTOMER
+--    • Endpoint: GET /api/v1/cust/{id}
+--    • Database: SELECT * FROM d_cust WHERE id=$1 AND active_flag=true
 --    • RBAC: Checks entity_id_rbac_map for view permission
 --    • Frontend: EntityDetailPage renders fields + tabs for projects/tasks/forms
 --
--- 6. GET CLIENT PROJECTS
---    • Endpoint: GET /api/v1/client/{id}/project?project_stage=Execution&limit=20
+-- 6. GET CUSTOMER PROJECTS
+--    • Endpoint: GET /api/v1/cust/{id}/project?project_stage=Execution&limit=20
 --    • Database:
 --      SELECT p.* FROM d_project p
 --      INNER JOIN entity_id_map eim ON eim.child_entity_id=p.id
 --      WHERE eim.parent_entity_id=$1
---        AND eim.parent_entity_type='client'
+--        AND eim.parent_entity_type='cust'
 --        AND eim.child_entity_type='project'
 --        AND p.active_flag=true
 --      ORDER BY p.created_ts DESC
---    • Relationship: Via entity_id_map (flexible client-project relationships)
+--    • Relationship: Via entity_id_map (flexible customer-project relationships)
 --    • Frontend: Renders in DynamicChildEntityTabs component
 --
--- 7. GET CLIENT REVENUE SUMMARY
---    • Endpoint: GET /api/v1/client/{id}/revenue-summary
+-- 7. GET CUSTOMER REVENUE SUMMARY
+--    • Endpoint: GET /api/v1/cust/{id}/revenue-summary
 --    • Database: Aggregates project budgets and metadata fields
 --      SELECT
 --        c.metadata->>'lifetime_value' AS lifetime_value,
 --        c.metadata->>'annual_contract_value' AS annual_contract_value,
 --        COUNT(p.id) AS project_count,
 --        SUM(p.budget_spent) AS total_project_spending
---      FROM d_client c
---      LEFT JOIN entity_id_map eim ON eim.parent_entity_id=c.id AND eim.parent_entity_type='client'
+--      FROM d_cust c
+--      LEFT JOIN entity_id_map eim ON eim.parent_entity_id=c.id AND eim.parent_entity_type='cust'
 --      LEFT JOIN d_project p ON p.id=eim.child_entity_id AND p.active_flag=true
 --      WHERE c.id=$1
 --      GROUP BY c.id
---    • Business Rule: Provides client lifetime value and project spending analytics
+--    • Business Rule: Provides customer lifetime value and project spending analytics
 --
 -- 8. SALES PIPELINE MOVEMENT (Opportunity Funnel)
---    • Frontend Action: User moves client from "Lead" to "Qualified" in pipeline view
---    • Endpoint: PUT /api/v1/client/{id}
+--    • Frontend Action: User moves customer from "Lead" to "Qualified" in pipeline view
+--    • Endpoint: PUT /api/v1/cust/{id}
 --    • Body: {opportunity_funnel_stage_name: "Qualified"}
 --    • Database: UPDATE SET opportunity_funnel_stage_name=$1, updated_ts=now(), version=version+1 WHERE id=$2
 --    • Business Rule: opportunity_funnel_stage_name loads from setting_datalabel_opportunity_funnel_stage
 --
+-- 9. APP USER SIGNUP (New User Registration)
+--    • Endpoint: POST /api/v1/auth/customer/signup
+--    • Body: {name, primary_email, password, cust_type}
+--    • Database: INSERT with password_hash=bcrypt.hash(password), entities=[], cust_status='active'
+--    • Returns: {id, token (JWT)}
+--    • Business Rule: Auto-generated cust_number, redirects to entity configuration page
+--
+-- 10. APP USER SIGNIN (Authentication)
+--     • Endpoint: POST /api/v1/auth/customer/signin
+--     • Body: {email, password}
+--     • Database: SELECT * FROM d_cust WHERE primary_email=$1 AND active_flag=true
+--     • Verification: bcrypt.compare(password, password_hash)
+--     • Returns: {token (JWT), user: {id, name, email, entities}}
+--     • Business Rule: Updates last_login_ts, resets failed_login_attempts
+--
+-- 11. ENTITY CONFIGURATION (First-Time Setup)
+--     • Endpoint: PUT /api/v1/cust/{id}/configure
+--     • Body: {entities: ["project", "task", "wiki", "form"]}
+--     • Database: UPDATE SET entities=$1, updated_ts=now() WHERE id=$2
+--     • Business Rule: Updates user's activated entities, filters sidebar navigation
+--     • Frontend: Sidebar only shows entities present in user's entities array
+--
 -- KEY SCD FIELDS:
 -- • id: Stable UUID (never changes, preserves project relationships and service history)
 -- • version: Increments on updates (audit trail of contact changes, tier upgrades)
--- • from_ts: Client acquisition date (never modified)
+-- • from_ts: Customer acquisition date (never modified)
 -- • to_ts: Account closure timestamp (NULL=active, timestamptz=closed)
 -- • active_flag: Account status (true=active, false=closed/archived)
 -- • created_ts: Original creation time (never modified)
 -- • updated_ts: Last modification time (refreshed on UPDATE)
 --
 -- KEY BUSINESS FIELDS:
--- • client_number: Unique client identifier (e.g., CL-RES-001, CL-COM-002)
--- • client_type: Sector classification ('residential', 'commercial', 'municipal', 'industrial')
--- • client_status: Account status ('active', 'inactive', 'prospect', 'former')
+-- • cust_number: Unique customer identifier (e.g., CL-RES-001, CL-COM-002)
+-- • cust_type: Sector classification ('residential', 'commercial', 'municipal', 'industrial')
+-- • cust_status: Account status ('active', 'inactive', 'prospect', 'former')
 -- • opportunity_funnel_stage_name: Sales pipeline stage (Lead, Qualified, Proposal, Contract Signed)
 --   - Loaded from setting_datalabel_opportunity_funnel_stage via /api/v1/setting?category=opportunity_funnel_stage
 -- • customer_tier_name: Service tier ('Standard', 'Premium', 'Enterprise', 'Government')
@@ -119,15 +141,24 @@
 -- • primary_contact_name, primary_email, primary_phone: Main contact details
 -- • metadata: JSONB field storing lifetime_value, annual_contract_value, service_categories, payment_terms
 --
+-- AUTHENTICATION FIELDS (for app user accounts):
+-- • password_hash: bcrypt hashed password (never returned by API, only for app users)
+-- • last_login_ts: Session tracking for app users
+-- • failed_login_attempts: Security lockout mechanism
+-- • account_locked_until: Temporary account lock timestamp
+-- • entities: Array of activated entity types (e.g., ['project', 'task', 'wiki'])
+--   - Controls which entities appear in sidebar navigation
+--   - Configured on first-time login or via settings
+--
 -- RELATIONSHIPS:
--- • client_id ← entity_id_map (projects/tasks/forms linked to clients via mapping table)
+-- • cust_id ← entity_id_map (projects/tasks/forms linked to customers via mapping table)
 -- • NO direct foreign keys (follows flexible relationship model)
 --
 -- ============================================================================
 -- DDL:
 -- ============================================================================
 
-CREATE TABLE app.d_client (
+CREATE TABLE app.d_cust (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Standard fields (common across all entities) - ALWAYS FIRST
@@ -146,10 +177,10 @@ CREATE TABLE app.d_client (
   -- Entity metadata (new standard)
   metadata jsonb DEFAULT '{}'::jsonb,
 
-  -- Client identification
-  client_number text NOT NULL,
-  client_type text NOT NULL DEFAULT 'residential',
-  client_status text NOT NULL DEFAULT 'active',
+  -- Customer identification
+  cust_number text NOT NULL,
+  cust_type text NOT NULL DEFAULT 'residential',
+  cust_status text NOT NULL DEFAULT 'active',
 
 
   -- Address and location (no direct FK - use entity_id_hierarchy_mapping)
@@ -179,20 +210,31 @@ CREATE TABLE app.d_client (
   primary_phone text,
   secondary_contact_name text,
   secondary_email text,
-  secondary_phone text
+  secondary_phone text,
+
+  -- Authentication fields (for app user signup)
+  password_hash text,
+  last_login_ts timestamptz,
+  password_reset_token text,
+  password_reset_expires timestamptz,
+  failed_login_attempts int DEFAULT 0,
+  account_locked_until timestamptz,
+
+  -- Entity configuration (activated entities for this user)
+  entities text[] DEFAULT ARRAY[]::text[]
 );
 
 -- ============================================================================
 -- DATA CURATION:
 -- ============================================================================
 
--- Huron Home Services Client Portfolio
--- Comprehensive client data across all service categories and client types
+-- Huron Home Services Customer Portfolio
+-- Comprehensive customer data across all service categories and customer types
 -- ALIGNED WITH DDL SCHEMA - Extra fields in metadata JSONB
 
--- Premium Residential Clients
-INSERT INTO app.d_client (
-  slug, code, name, client_number, client_type, client_status,
+-- Premium Residential Customers
+INSERT INTO app.d_cust (
+  slug, code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
   opportunity_funnel_stage_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
@@ -212,9 +254,9 @@ INSERT INTO app.d_client (
  '["residential", "premium", "mississauga", "estate"]'::jsonb,
  '{"acquisition_date": "2020-08-10", "payment_terms": "net-30", "service_categories": ["landscaping", "garden_design", "seasonal_maintenance", "pool_maintenance"], "lifetime_value": 120000.00, "annual_contract_value": 35000.00, "preferred_service_times": {"preferred_days": ["monday", "tuesday"], "time_range": "10am-2pm", "seasonal_intensive": true}, "acquisition_cost": 380.00, "property_size_sqft": 12500, "pool": true, "tennis_court": true, "garden_specialty": "japanese_design", "irrigation_system": true}'::jsonb);
 
--- Standard Residential Clients
-INSERT INTO app.d_client (
-  slug, code, name, client_number, client_type, client_status,
+-- Standard Residential Customers
+INSERT INTO app.d_cust (
+  slug, code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
   opportunity_funnel_stage_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
@@ -234,9 +276,9 @@ INSERT INTO app.d_client (
  '["residential", "standard", "toronto", "townhouse"]'::jsonb,
  '{"acquisition_date": "2022-01-15", "payment_terms": "net-15", "service_categories": ["landscaping", "seasonal_cleanup"], "lifetime_value": 18000.00, "annual_contract_value": 6000.00, "preferred_service_times": {"preferred_days": ["saturday"], "time_range": "9am-1pm"}, "acquisition_cost": 320.00, "property_size_sqft": 1800, "front_yard_only": true, "small_space_design": true, "low_maintenance": true}'::jsonb);
 
--- Enterprise Commercial Clients
-INSERT INTO app.d_client (
-  slug, code, name, client_number, client_type, client_status,
+-- Enterprise Commercial Customers
+INSERT INTO app.d_cust (
+  slug, code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
   opportunity_funnel_stage_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
@@ -263,9 +305,9 @@ INSERT INTO app.d_client (
  '["commercial", "utilities", "government", "high-security"]'::jsonb,
  '{"acquisition_date": "2021-03-01", "payment_terms": "net-45", "service_categories": ["landscaping", "grounds_maintenance", "environmental_compliance"], "lifetime_value": 650000.00, "annual_contract_value": 180000.00, "preferred_service_times": {"security_clearance_required": true, "environmental_strict": true, "safety_protocols": "nuclear"}, "acquisition_cost": 18000.00, "facilities": 15, "environmental_compliance": "nuclear", "security_level": "high", "specialized_equipment": true}'::jsonb);
 
--- Municipal Government Clients
-INSERT INTO app.d_client (
-  slug, code, name, client_number, client_type, client_status,
+-- Municipal Government Customers
+INSERT INTO app.d_cust (
+  slug, code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
   opportunity_funnel_stage_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
@@ -279,8 +321,8 @@ INSERT INTO app.d_client (
  '{"acquisition_date": "2021-09-15", "payment_terms": "net-45", "service_categories": ["landscaping", "seasonal_maintenance", "snow_removal", "park_maintenance"], "lifetime_value": 750000.00, "annual_contract_value": 250000.00, "preferred_service_times": {"public_hours_coordination": true, "environmental_compliance": "strict", "public_safety": "priority"}, "acquisition_cost": 25000.00, "parks": 45, "public_spaces_acres": 2500, "environmental_standards": "highest", "public_visibility": "maximum", "citizen_satisfaction": "critical"}'::jsonb);
 
 -- Healthcare and Senior Living
-INSERT INTO app.d_client (
-  slug, code, name, client_number, client_type, client_status,
+INSERT INTO app.d_cust (
+  slug, code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
   opportunity_funnel_stage_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
@@ -301,8 +343,8 @@ INSERT INTO app.d_client (
  '{"acquisition_date": "2022-02-15", "payment_terms": "net-45", "service_categories": ["landscaping", "seasonal_maintenance", "accessible_gardens", "safety_focus"], "lifetime_value": 340000.00, "annual_contract_value": 95000.00, "preferred_service_times": {"senior_safety": "priority", "accessible_design": true, "seasonal_activities": true}, "acquisition_cost": 9500.00, "residents": 220, "staff": 85, "garden_areas": 4, "accessibility_features": "full", "memory_care": true}'::jsonb);
 
 -- Industrial Manufacturing
-INSERT INTO app.d_client (
-  slug, code, name, client_number, client_type, client_status,
+INSERT INTO app.d_cust (
+  slug, code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
   opportunity_funnel_stage_name, industry_sector_name, acquisition_channel_name, customer_tier_name,

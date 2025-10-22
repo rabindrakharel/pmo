@@ -15,7 +15,7 @@
 --   business (biz)    → project
 --   project           → task, artifact, wiki, form
 --   office            → task, artifact, wiki, form
---   client            → project, artifact, form
+--   cust              → project, artifact, form
 --   role              → employee
 --   task              → form, artifact
 --   form              → artifact
@@ -65,11 +65,11 @@ INSERT INTO app.d_entity_map (id, parent_entity_type, child_entity_type) VALUES
 ('33333333-0000-0000-0000-000000000003', 'office', 'wiki'),
 ('33333333-0000-0000-0000-000000000004', 'office', 'form');
 
--- Client → Project, Artifact, Form
+-- Customer → Project, Artifact, Form
 INSERT INTO app.d_entity_map (id, parent_entity_type, child_entity_type) VALUES
-('44444444-0000-0000-0000-000000000001', 'client', 'project'),
-('44444444-0000-0000-0000-000000000002', 'client', 'artifact'),
-('44444444-0000-0000-0000-000000000003', 'client', 'form');
+('44444444-0000-0000-0000-000000000001', 'cust', 'project'),
+('44444444-0000-0000-0000-000000000002', 'cust', 'artifact'),
+('44444444-0000-0000-0000-000000000003', 'cust', 'form');
 
 -- Role → Employee
 INSERT INTO app.d_entity_map (id, parent_entity_type, child_entity_type) VALUES

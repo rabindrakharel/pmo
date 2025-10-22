@@ -77,3 +77,20 @@ export { TreeView } from './ui/TreeView';
 // MODAL COMPONENTS
 // ============================================================================
 export { EntityEditModal } from './modal/EntityEditModal';
+
+// ============================================================================
+// DESIGNER COMPONENTS - Unified Design System
+// ============================================================================
+export { UniversalDesigner } from './designer/UniversalDesigner';
+export type { UniversalDesignerProps, DesignerViewMode, DesignerAction } from './designer/UniversalDesigner';
+
+export { UniversalBlock, UniversalBlockContainer } from './designer/UniversalBlock';
+export type { UniversalBlockProps, UniversalBlockContainerProps } from './designer/UniversalBlock';
+
+export {
+  InlineText,
+  InlineTextarea,
+  InlineSelect,
+  InlineNumber,
+  InlineDate,
+} from './designer/InlineEdit';

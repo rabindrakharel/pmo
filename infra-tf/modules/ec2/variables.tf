@@ -47,6 +47,16 @@ variable "s3_bucket_name" {
   type        = string
 }
 
+variable "s3_code_bucket_arn" {
+  description = "S3 code deployment bucket ARN for IAM policy"
+  type        = string
+}
+
+variable "s3_code_bucket_name" {
+  description = "S3 code deployment bucket name"
+  type        = string
+}
+
 variable "db_host" {
   description = "Database host"
   type        = string
@@ -77,6 +87,22 @@ variable "db_password" {
 variable "user_data_script" {
   description = "Path to user data script"
   type        = string
+}
+
+variable "domain_name" {
+  description = "Domain name for the application"
+  type        = string
+}
+
+variable "app_subdomain" {
+  description = "Application subdomain"
+  type        = string
+}
+
+variable "github_repo_url" {
+  description = "GitHub repository URL"
+  type        = string
+  default     = ""
 }
 
 variable "global_tags" {

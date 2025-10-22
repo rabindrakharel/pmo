@@ -4,6 +4,11 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FullscreenProvider } from './contexts/FullscreenContext';
 import { LoginForm } from './components/shared';
 
+// Landing & Auth Pages
+import { LandingPage } from './pages/LandingPage';
+import { SignupPage } from './pages/SignupPage';
+import { OnboardingPage } from './pages/OnboardingPage';
+
 // Form Pages
 import { FormBuilderPage, FormEditPage, FormDataPreviewPage, PublicFormPage } from './pages/form';
 
@@ -16,10 +21,11 @@ import { EmailDesignerPage } from './pages/marketing/EmailDesignerPage';
 // Profile & Settings Pages
 import { ProfilePage } from './pages/profile';
 import { LabelsPage } from './pages/labels';
-import { SettingsPage, DataLabelPage } from './pages/setting';
+import { SettingsPage, DataLabelPage, IntegrationsPage } from './pages/setting';
 import { SecurityPage } from './pages/security';
 import { BillingPage } from './pages/billing';
 import { LinkagePage } from './pages/LinkagePage';
+import { WorkflowAutomationPage } from './pages/WorkflowAutomationPage';
 
 // Demo Pages
 import { SequentialStateDemo } from './pages/demo/SequentialStateDemo';
@@ -60,7 +66,7 @@ function AppRoutes() {
   }
 
   // Core entities that use standard auto-generated routing
-  const coreEntities = ['biz', 'office', 'project', 'task', 'employee', 'role', 'worksite', 'client', 'position', 'artifact', 'marketing'];
+  const coreEntities = ['biz', 'office', 'project', 'task', 'employee', 'role', 'worksite', 'cust', 'position', 'artifact', 'marketing', 'product', 'inventory', 'order', 'invoice', 'shipment'];
 
   // Generate routes for all core entities from entityConfig
   const generateEntityRoutes = () => {
@@ -101,6 +107,7 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public Routes */}
+      <Route path="/" element={isAuthenticated ? <Navigate to="/project" replace /> : <LandingPage />} />
       <Route path="/public/form/:id" element={<PublicFormPage />} />
 
       <Route
@@ -108,8 +115,12 @@ function AppRoutes() {
         element={isAuthenticated ? <Navigate to="/project" replace /> : <LoginForm />}
       />
       <Route
-        path="/"
-        element={<Navigate to="/project" replace />}
+        path="/signup"
+        element={isAuthenticated ? <Navigate to="/project" replace /> : <SignupPage />}
+      />
+      <Route
+        path="/onboarding"
+        element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>}
       />
 
       {/* Auto-Generated Entity Routes */}
@@ -172,6 +183,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <LinkagePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/workflow-automation"
+        element={
+          <ProtectedRoute>
+            <WorkflowAutomationPage />
           </ProtectedRoute>
         }
       />

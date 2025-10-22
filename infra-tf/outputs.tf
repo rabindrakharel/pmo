@@ -1,5 +1,5 @@
 # ============================================================================
-# Coherent PMO Platform - Root Module Outputs
+# Cohuron Platform - Root Module Outputs
 # ============================================================================
 
 # ============================================================================
@@ -9,6 +9,20 @@
 output "vpc_id" {
   description = "ID of the VPC"
   value       = module.vpc.vpc_id
+}
+
+# ============================================================================
+# Deployment Automation Outputs
+# ============================================================================
+
+output "lambda_deployer_function" {
+  description = "Lambda function name for code deployment"
+  value       = module.lambda_deployer.lambda_function_name
+}
+
+output "lambda_deployer_logs" {
+  description = "CloudWatch log group for deployment Lambda"
+  value       = module.lambda_deployer.log_group_name
 }
 
 output "app_subnet_ids" {
@@ -99,23 +113,52 @@ output "s3_bucket_arn" {
   value       = module.s3.bucket_arn
 }
 
+output "s3_code_bucket_name" {
+  description = "Name of S3 code deployment bucket"
+  value       = module.s3_code.bucket_name
+}
+
+output "s3_code_bucket_arn" {
+  description = "ARN of S3 code deployment bucket"
+  value       = module.s3_code.bucket_arn
+}
+
+# ============================================================================
+# Route 53 DNS Outputs
+# ============================================================================
+
+output "hosted_zone_id" {
+  description = "Route 53 hosted zone ID"
+  value       = var.create_dns_records ? module.route53[0].hosted_zone_id : "N/A"
+}
+
+output "name_servers" {
+  description = "Route 53 name servers (update these at your domain registrar)"
+  value       = var.create_dns_records ? module.route53[0].name_servers : []
+}
+
+output "app_domain" {
+  description = "Application domain name"
+  value       = var.create_dns_records ? module.route53[0].app_domain : "${var.app_subdomain}.${var.domain_name}"
+}
+
 # ============================================================================
 # Application URLs
 # ============================================================================
 
-output "web_url" {
-  description = "Web application URL (development mode)"
-  value       = "http://${module.ec2.instance_public_ip}:5173"
+output "app_url_http" {
+  description = "Application URL (HTTP - before SSL setup)"
+  value       = var.create_dns_records ? module.route53[0].app_url : "http://${module.ec2.instance_public_ip}"
 }
 
-output "api_url" {
-  description = "API server URL"
-  value       = "http://${module.ec2.instance_public_ip}:4000"
+output "app_url_https" {
+  description = "Application URL (HTTPS - after SSL setup)"
+  value       = var.create_dns_records ? module.route53[0].app_url_https : "https://${var.app_subdomain}.${var.domain_name}"
 }
 
-output "api_docs_url" {
-  description = "API documentation URL"
-  value       = "http://${module.ec2.instance_public_ip}:4000/docs"
+output "direct_ip_url" {
+  description = "Direct IP URL (for testing before DNS)"
+  value       = "http://${module.ec2.instance_public_ip}"
 }
 
 # ============================================================================
@@ -124,7 +167,7 @@ output "api_docs_url" {
 
 output "ssh_command" {
   description = "SSH command to connect to EC2 instance"
-  value       = "ssh -i ~/.ssh/coherent-key ubuntu@${module.ec2.instance_public_ip}"
+  value       = "ssh -i ~/.ssh/id_ed25519 ubuntu@${module.ec2.instance_public_ip}"
 }
 
 # ============================================================================
@@ -134,13 +177,56 @@ output "ssh_command" {
 output "deployment_summary" {
   description = "Summary of deployed infrastructure"
   value = {
-    environment    = var.environment
-    region         = var.aws_region
-    vpc_id         = module.vpc.vpc_id
-    ec2_public_ip  = module.ec2.instance_public_ip
-    db_endpoint    = module.rds.db_endpoint
-    s3_bucket      = module.s3.bucket_name
-    web_url        = "http://${module.ec2.instance_public_ip}:5173"
-    api_url        = "http://${module.ec2.instance_public_ip}:4000"
+    environment     = var.environment
+    region          = var.aws_region
+    domain          = var.domain_name
+    app_url         = var.create_dns_records ? "https://${var.app_subdomain}.${var.domain_name}" : "http://${module.ec2.instance_public_ip}"
+    vpc_id          = module.vpc.vpc_id
+    ec2_public_ip   = module.ec2.instance_public_ip
+    db_endpoint     = module.rds.db_endpoint
+    s3_bucket       = module.s3.bucket_name
+    name_servers    = var.create_dns_records ? module.route53[0].name_servers : []
   }
+}
+
+output "next_steps" {
+  description = "Next steps after deployment"
+  value = <<-EOT
+
+  ============================================================================
+  🎉 Cohuron Platform Deployment Complete!
+  ============================================================================
+
+  Your application is deploying at: https://${var.app_subdomain}.${var.domain_name}
+
+  NEXT STEPS:
+
+  1️⃣  UPDATE NAMESERVERS (Required)
+     Go to your domain registrar where you bought ${var.domain_name}
+     Update nameservers to:
+     ${var.create_dns_records ? join("\n     ", module.route53[0].name_servers) : "N/A"}
+
+  2️⃣  WAIT FOR DNS PROPAGATION (5-60 minutes)
+     Test: dig ${var.app_subdomain}.${var.domain_name} +short
+     Should return: ${module.ec2.instance_public_ip}
+
+  3️⃣  SETUP SSL CERTIFICATE
+     SSH: ssh -i ~/.ssh/id_ed25519 ubuntu@${module.ec2.instance_public_ip}
+     Run: sudo /root/setup-ssl.sh
+
+  4️⃣  ACCESS YOUR APPLICATION
+     Landing Page: https://${var.app_subdomain}.${var.domain_name}
+     Signup: https://${var.app_subdomain}.${var.domain_name}/signup
+     Login: https://${var.app_subdomain}.${var.domain_name}/login
+
+  TEMPORARY ACCESS (Before DNS):
+     Direct IP: http://${module.ec2.instance_public_ip}
+
+  USEFUL COMMANDS ON EC2:
+     ${var.project_name}-status   - Check service status
+     ${var.project_name}-logs     - View application logs
+     ${var.project_name}-restart  - Restart all services
+
+  ============================================================================
+  EOT
 }

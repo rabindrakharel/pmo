@@ -142,10 +142,10 @@ INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entit
 SELECT 'employee', id, name, slug, code
 FROM app.d_employee WHERE active_flag = true;
 
--- Register client entities
+-- Register customer entities
 INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-SELECT 'client', id, name, slug, code
-FROM app.d_client WHERE active_flag = true;
+SELECT 'cust', id, name, slug, code
+FROM app.d_cust WHERE active_flag = true;
 
 -- Register role entities
 INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)

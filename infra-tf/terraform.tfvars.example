@@ -1,62 +1,141 @@
 # ============================================================================
-# Coherent PMO Platform - Terraform Variables Example
+# Huron PMO Platform - Terraform Variables (Example Template)
+# Domain: cohuron.com
 # ============================================================================
-# Copy this file to terraform.tfvars and update with your values
-# cp terraform.tfvars.example terraform.tfvars
-# ============================================================================
-
-# ============================================================================
-# General Configuration
-# ============================================================================
-
-aws_region   = "us-east-1"
-environment  = "dev"
-project_name = "coherent"
-
-# ============================================================================
-# Network Configuration
+# INSTRUCTIONS:
+# 1. Copy this file to terraform.tfvars:
+#    cp terraform.tfvars.example terraform.tfvars
+# 2. Update the REQUIRED values marked with "CHANGE_ME"
+# 3. Review and customize optional values
+# 4. NEVER commit terraform.tfvars to version control (contains secrets)
 # ============================================================================
 
-vpc_cidr           = "10.0.0.0/16"
-app_subnet_cidr_1  = "10.0.1.0/24"
-app_subnet_cidr_2  = "10.0.2.0/24"
-data_subnet_cidr_1 = "10.0.11.0/24"
-data_subnet_cidr_2 = "10.0.12.0/24"
-
 # ============================================================================
-# Security Configuration
+# AWS Configuration
 # ============================================================================
 
-# IMPORTANT: Restrict SSH access to your IP address in production!
-# Example: ssh_allowed_cidr = ["1.2.3.4/32"]
-ssh_allowed_cidr = ["0.0.0.0/0"]
+# AWS CLI profile name (must be configured with 'aws configure --profile cohuron')
+aws_profile = "cohuron"
+
+# AWS region for deployment
+aws_region = "us-east-1"
+
+# Environment name (dev, staging, prod)
+environment = "prod"
 
 # ============================================================================
-# Database Configuration
+# Project Configuration
 # ============================================================================
 
-db_name     = "coherent"
+# Project name (used for resource naming)
+project_name = "pmo"
+
+# Your domain name
+domain_name = "cohuron.com"
+
+# Application subdomain (creates app.cohuron.com)
+app_subdomain = "app"
+
+# GitHub repository URL for automatic code deployment (optional)
+# Leave empty "" if deploying code manually
+github_repo_url = ""
+
+# Create Route 53 DNS records (set to false if managing DNS externally)
+create_dns_records = true
+
+# ============================================================================
+# Security Configuration (REQUIRED - MUST UPDATE THESE)
+# ============================================================================
+
+# SSH public key for EC2 access
+# Generate with: ssh-keygen -t rsa -b 4096 -f ~/.ssh/pmo-key -C "pmo@cohuron.com"
+# Then paste the contents of ~/.ssh/pmo-key.pub here
+ec2_public_key = "CHANGE_ME_ssh-rsa_AAAAB3NzaC1yc2EAAAADAQABAAACAQD..."
+
+# Database master password (REQUIRED - minimum 8 characters)
+# Generate strong password with: openssl rand -base64 32
+db_password = "CHANGE_ME_STRONG_PASSWORD_HERE"
+
+# CIDR blocks allowed to SSH into EC2 instance
+# SECURITY WARNING: Change from 0.0.0.0/0 to your specific IP in production!
+# Find your IP: curl ifconfig.me
+# Format: ["YOUR_IP/32"]
+ssh_allowed_cidr = ["0.0.0.0/0"]  # ⚠️ INSECURE - CHANGE IN PRODUCTION
+
+# ============================================================================
+# Network Configuration (Optional - defaults work for most deployments)
+# ============================================================================
+
+# VPC CIDR block
+vpc_cidr = "10.0.0.0/16"
+
+# Availability zones (leave empty [] to auto-select)
+availability_zones = []
+
+# Public subnet CIDR blocks (for app servers)
+public_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
+
+# Private subnet CIDR blocks (for databases)
+private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24"]
+
+# ============================================================================
+# Database Configuration (Optional)
+# ============================================================================
+
+# Database name
+db_name = "coherent"
+
+# Database username
 db_username = "coherent_admin"
-db_password = "CHANGE_ME_IN_PRODUCTION_USE_STRONG_PASSWORD"
 
-# Development: db.t3.micro (1 vCPU, 1 GB RAM) - Free tier eligible
+# RDS instance type
+# Free tier: db.t3.micro (1 vCPU, 1 GB RAM)
 # Production: db.t3.small (2 vCPU, 2 GB RAM) or larger
 db_instance_class = "db.t3.micro"
 
-db_engine_version           = "14.10"
-db_allocated_storage        = 20
-db_max_allocated_storage    = 100
-db_backup_retention_period  = 7
+# PostgreSQL version
+db_engine_version = "14.10"
+
+# Initial storage in GB
+db_allocated_storage = 20
+
+# Maximum storage for autoscaling in GB
+db_max_allocated_storage = 100
+
+# Backup retention in days
+db_backup_retention_period = 7
 
 # ============================================================================
-# EC2 Instance Configuration
+# EC2 Configuration (Optional)
 # ============================================================================
 
-# Development: t3.medium (2 vCPU, 4 GB RAM)
-# Production: t3.large (2 vCPU, 8 GB RAM) or larger
-ec2_instance_type    = "t3.medium"
+# EC2 instance type
+# Development: t3.medium (2 vCPU, 4 GB RAM) - ~$30/month
+# Production: t3.large (2 vCPU, 8 GB RAM) - ~$60/month
+ec2_instance_type = "t3.medium"
+
+# Root volume size in GB
 ec2_root_volume_size = 30
 
-# SSH Public Key - Generate with: ssh-keygen -t rsa -b 4096 -f ~/.ssh/coherent-key
-# Then paste the contents of ~/.ssh/coherent-key.pub here
-ec2_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... your-email@example.com"
+# ============================================================================
+# Resource Tagging (Optional)
+# ============================================================================
+
+global_tags = {
+  Project   = "Coherent"
+  ManagedBy = "Terraform"
+  Owner     = "Huron Home Services"
+}
+
+# ============================================================================
+# COST ESTIMATE (us-east-1, as of 2024)
+# ============================================================================
+# EC2 t3.medium:        ~$30/month
+# RDS db.t3.micro:      ~$15/month
+# EBS Storage (30 GB):  ~$3/month
+# Data Transfer:        ~$5-10/month
+# S3 Storage:           ~$1-5/month
+# Route 53 Hosted Zone: ~$0.50/month
+# ----------------------------------------
+# TOTAL:                ~$55-65/month
+# ============================================================================

@@ -135,7 +135,7 @@ SELECT
   e.id, entity_type, 'all', ARRAY[0,1,2,3,4]::integer[], e.id, now()
 FROM app.d_employee e
 CROSS JOIN (VALUES
-  ('office'), ('biz'), ('business'), ('project'), ('task'), ('worksite'), ('client'),
+  ('office'), ('biz'), ('business'), ('project'), ('task'), ('worksite'), ('cust'),
   ('role'), ('position'), ('artifact'), ('wiki'), ('form'), ('report'), ('employee'),
   ('org'), ('hr'), ('linkage'), ('marketing')
 ) AS entities(entity_type)
@@ -152,7 +152,7 @@ CROSS JOIN (VALUES
   ('project', '{0,1,2,4}'),       -- Project oversight
   ('task', '{0,1,2}'),            -- Task visibility
   ('worksite', '{0,1,2,4}'),      -- Worksite management
-  ('client', '{0,1,2,4}'),        -- Client relationship management
+  ('cust', '{0,1,2,4}'),          -- Customer relationship management
   ('employee', '{0,1,2}'),        -- Employee information
   ('role', '{0,1,2,4}'),          -- Role management
   ('position', '{0,1,2,4}'),      -- Position structure
@@ -174,7 +174,7 @@ CROSS JOIN (VALUES
   ('project', '{0,1,2,4}'),       -- Project management authority
   ('task', '{0,1,2,4}'),          -- Task management
   ('worksite', '{0,1,2}'),        -- Worksite oversight
-  ('client', '{0,1,2}'),          -- Client relationship oversight
+  ('cust', '{0,1,2}'),            -- Customer relationship oversight
   ('employee', '{0,1}'),          -- Employee management
   ('artifact', '{0,1,2,4}'),      -- Document creation
   ('wiki', '{0,1,2,4}'),          -- Knowledge management
@@ -212,7 +212,7 @@ CROSS JOIN (VALUES
   ('project', '{0,1,2,4}'),       -- Project management within department
   ('task', '{0,1,2,4}'),          -- Task management
   ('employee', '{0,1}'),          -- Team member oversight
-  ('client', '{0,1}'),            -- Client interaction
+  ('cust', '{0,1}'),              -- Customer interaction
   ('artifact', '{0,1,2,4}'),      -- Department documentation
   ('wiki', '{0,1,2,4}'),          -- Knowledge management
   ('form', '{0,1,2}'),            -- Form processing
@@ -231,7 +231,7 @@ CROSS JOIN (VALUES
   ('project', '{0,1,2,4}'),       -- Project management in their domain
   ('task', '{0,1,2,4}'),          -- Full task management
   ('worksite', '{0,1,2,4}'),      -- Worksite management for their projects
-  ('client', '{0,1,2}'),          -- Client service management
+  ('cust', '{0,1,2}'),            -- Customer service management
   ('employee', '{0,1}'),          -- Team management
   ('artifact', '{0,1,2,4}'),      -- Project documentation
   ('wiki', '{0,1,2,4}'),          -- Technical knowledge base
@@ -256,7 +256,7 @@ FROM app.d_employee e
 CROSS JOIN (VALUES
   ('task', '{0,1,2,4}'),          -- Full task management for field operations
   ('worksite', '{0,1}'),          -- Worksite updates and status
-  ('client', '{0,1}'),            -- Client interaction and updates
+  ('cust', '{0,1}'),              -- Customer interaction and updates
   ('artifact', '{0,1,2}'),        -- Field documentation
   ('form', '{0,1,2,4}'),          -- Service and safety forms
   ('report', '{0,1}')             -- Field reporting
@@ -290,7 +290,7 @@ FROM app.d_employee e
 CROSS JOIN (VALUES
   ('task', '{0,1}'),              -- Assigned task execution
   ('worksite', '{0,1}'),          -- Worksite status updates
-  ('client', '{0}'),              -- Customer information access
+  ('cust', '{0}'),                -- Customer information access
   ('form', '{0,1,2}'),            -- Service completion forms
   ('report', '{0,1}')             -- Work reporting
 ) AS perms(entity_type, permissions)
@@ -306,7 +306,7 @@ FROM app.d_employee e
 CROSS JOIN (VALUES
   ('project', '{0,1,2}'),         -- Project coordination and updates
   ('task', '{0,1,2,4}'),          -- Task scheduling and management
-  ('client', '{0,1}'),            -- Client communication
+  ('cust', '{0,1}'),              -- Customer communication
   ('artifact', '{0,1,2,4}'),      -- Project documentation
   ('form', '{0,1,2}'),            -- Administrative forms
   ('report', '{0,1}')             -- Project reporting
@@ -321,7 +321,7 @@ SELECT
 FROM app.d_employee e
 CROSS JOIN (VALUES
   ('project', '{0}'),             -- Project financial visibility
-  ('client', '{0}'),              -- Client financial information
+  ('cust', '{0}'),                -- Customer financial information
   ('biz', '{0}'),                 -- Business unit financial data
   ('artifact', '{0,1,2,4}'),      -- Financial documentation
   ('report', '{0,1,2,4}'),        -- Financial reporting

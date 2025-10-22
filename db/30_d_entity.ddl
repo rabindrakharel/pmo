@@ -45,15 +45,20 @@
 --   business           → project
 --   project            → task, wiki, artifact, form
 --   task               → form, artifact
---   client             → project, artifact, form
+--   cust               → project, artifact, form
 --   role               → employee
 --   form               → artifact
+--   order              → invoice, shipment
 --   employee           → (no children - leaf node)
 --   wiki               → (no children - leaf node)
 --   artifact           → (no children - leaf node)
 --   worksite           → (no children - leaf node)
 --   position           → (no children - leaf node)
 --   reports            → (no children - leaf node)
+--   product            → (no children - leaf node)
+--   inventory          → (no children - leaf node)
+--   invoice            → (no children - leaf node)
+--   shipment           → (no children - leaf node)
 --
 -- KEY FIELDS:
 -- • entity_type: Entity type identifier ('office', 'business', 'project', 'task', etc.)
@@ -142,9 +147,10 @@ VALUES (
   'Projects',
   'FolderOpen',
   '[
-    {"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1},W
+    {"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1},
     {"entity": "wiki", "ui_icon": "BookOpen", "ui_label": "Wiki", "order": 2},
     {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 3},
+    {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 4}
   ]'::jsonb,
   30
 );
@@ -164,13 +170,13 @@ VALUES (
   40
 );
 
--- Client entity type (has 3 child types)
+-- Customer entity type (has 3 child types)
 INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
 VALUES (
-  'client',
-  'Client',
-  'client',
-  'Clients',
+  'cust',
+  'Customer',
+  'cust',
+  'Customers',
   'Users',
   '[
     {"entity": "project", "ui_icon": "FolderOpen", "ui_label": "Projects", "order": 1},
@@ -278,4 +284,67 @@ VALUES (
   'BarChart',
   '[]'::jsonb,
   130
+);
+
+-- Product entity type (leaf node - no children)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'product',
+  'Product',
+  'product',
+  'Products',
+  'Package',
+  '[]'::jsonb,
+  140
+);
+
+-- Inventory entity type (leaf node - no children)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'inventory',
+  'Inventory',
+  'inventory',
+  'Inventory',
+  'Warehouse',
+  '[]'::jsonb,
+  150
+);
+
+-- Order entity type (has 2 child types)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'order',
+  'Order',
+  'order',
+  'Orders',
+  'ShoppingCart',
+  '[
+    {"entity": "invoice", "ui_icon": "Receipt", "ui_label": "Invoices", "order": 1},
+    {"entity": "shipment", "ui_icon": "Truck", "ui_label": "Shipments", "order": 2}
+  ]'::jsonb,
+  160
+);
+
+-- Invoice entity type (leaf node - no children)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'invoice',
+  'Invoice',
+  'invoice',
+  'Invoices',
+  'Receipt',
+  '[]'::jsonb,
+  170
+);
+
+-- Shipment entity type (leaf node - no children)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'shipment',
+  'Shipment',
+  'shipment',
+  'Shipments',
+  'Truck',
+  '[]'::jsonb,
+  180
 );

@@ -634,3 +634,332 @@ blockquote[data-quote-id] p[contenteditable]:focus {
 }
 
 /* DEBUGGING: Remove all direction fixes temporarily to test cursor */
+
+/* ========== Enhanced Interactive Wiki Editor Styles ========== */
+
+/* Make editor blocks more interactive in WikiDesigner */
+.wiki-editor-content .ProseMirror {
+  outline: none;
+}
+
+.wiki-editor-content .ProseMirror > * {
+  position: relative;
+  padding: 8px 12px;
+  margin: 6px 0;
+  border-radius: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.wiki-editor-content .ProseMirror > *:hover {
+  background-color: rgba(59, 130, 246, 0.04);
+}
+
+.wiki-editor-content .ProseMirror > *.ProseMirror-selectednode {
+  background-color: rgba(59, 130, 246, 0.08);
+  outline: 2px solid rgba(59, 130, 246, 0.3);
+  outline-offset: 2px;
+}
+
+/* Block indicator on hover */
+.wiki-editor-content .ProseMirror > *::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 0;
+  background-color: #3b82f6;
+  border-radius: 2px;
+  opacity: 0;
+  transition: height 0.2s ease, opacity 0.2s ease;
+}
+
+.wiki-editor-content .ProseMirror > *:hover::before {
+  height: 70%;
+  opacity: 0.6;
+}
+
+/* Enhanced heading styles for WikiDesigner */
+.wiki-editor-content .ProseMirror h1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 1.5rem 0 1rem 0;
+  color: #111827;
+  padding: 12px 16px;
+}
+
+.wiki-editor-content .ProseMirror h2 {
+  font-size: 1.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 1.25rem 0 0.75rem 0;
+  color: #1f2937;
+  padding: 10px 14px;
+}
+
+.wiki-editor-content .ProseMirror h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 1rem 0 0.5rem 0;
+  color: #374151;
+  padding: 8px 12px;
+}
+
+/* Enhanced paragraph styles */
+.wiki-editor-content .ProseMirror p {
+  margin: 0.5rem 0;
+  line-height: 1.75;
+  color: #374151;
+}
+
+.wiki-editor-content .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #9ca3af;
+  pointer-events: none;
+  height: 0;
+  font-style: italic;
+}
+
+/* Enhanced list styles */
+.wiki-editor-content .ProseMirror ul,
+.wiki-editor-content .ProseMirror ol {
+  padding-left: 2rem;
+  margin: 0.75rem 0;
+}
+
+.wiki-editor-content .ProseMirror ul li,
+.wiki-editor-content .ProseMirror ol li {
+  margin: 0.5rem 0;
+  padding-left: 0.5rem;
+  line-height: 1.7;
+}
+
+/* Enhanced blockquote styles */
+.wiki-editor-content .ProseMirror blockquote {
+  border-left: 4px solid #3b82f6;
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 0;
+  font-style: italic;
+  color: #4b5563;
+  background: linear-gradient(to right, #eff6ff 0%, #ffffff 100%);
+  border-radius: 0 8px 8px 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Enhanced code block styles */
+.wiki-editor-content .ProseMirror pre {
+  background-color: #1e293b;
+  color: #e2e8f0;
+  padding: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 1.5rem 0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.wiki-editor-content .ProseMirror pre code {
+  background: none;
+  color: inherit;
+  padding: 1.5rem;
+  display: block;
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+/* Enhanced inline code styles */
+.wiki-editor-content .ProseMirror code {
+  background-color: #f1f5f9;
+  color: #db2777;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
+  font-size: 0.9em;
+  font-weight: 500;
+}
+
+/* Enhanced horizontal rule styles */
+.wiki-editor-content .ProseMirror hr {
+  border: none;
+  height: 2px;
+  background: linear-gradient(to right, transparent, #e5e7eb 20%, #e5e7eb 80%, transparent);
+  margin: 2.5rem 0;
+  border-radius: 1px;
+}
+
+/* Enhanced link styles */
+.wiki-editor-content .ProseMirror a {
+  color: #3b82f6;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.3);
+  transition: all 0.2s ease;
+}
+
+.wiki-editor-content .ProseMirror a:hover {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+/* Enhanced image styles */
+.wiki-editor-content .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  margin: 1.5rem 0;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.wiki-editor-content .ProseMirror img:hover {
+  transform: scale(1.01);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.wiki-editor-content .ProseMirror img.ProseMirror-selectednode {
+  outline: 3px solid #3b82f6;
+  outline-offset: 4px;
+  box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
+}
+
+/* Enhanced YouTube embed styles */
+.wiki-editor-content .ProseMirror iframe {
+  border-radius: 10px;
+  margin: 1.5rem 0;
+  max-width: 100%;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced selection styles */
+.wiki-editor-content .ProseMirror ::selection {
+  background-color: rgba(59, 130, 246, 0.25);
+}
+
+/* Focus styles */
+.wiki-editor-content .ProseMirror:focus {
+  outline: none;
+}
+
+/* Empty editor placeholder */
+.wiki-editor-content .ProseMirror.ProseMirror-focused p.is-empty:first-child::before {
+  color: #d1d5db;
+}
+
+/* Smooth animations */
+.wiki-editor-content * {
+  transition-property: background-color, border-color, color, opacity, box-shadow, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* kbd styling for slash command hint */
+kbd {
+  font-family: 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
+  font-size: 0.875em;
+}
+
+/* ========== Static Block Controls (Notion-style) ========== */
+
+/* Position block controls container on the left side of each block */
+.wiki-editor-content .ProseMirror > * {
+  position: relative;
+  padding-left: 16px; /* Add space for controls */
+}
+
+.block-controls {
+  position: absolute;
+  left: -60px; /* Position to the left of the block */
+  top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+
+/* Show controls on block hover */
+.wiki-editor-content .ProseMirror > *:hover .block-controls {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Individual control button styling */
+.block-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: #6b7280;
+}
+
+.block-control-btn:hover {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+  color: #374151;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.block-control-btn:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Specific button colors */
+.block-control-drag:hover {
+  background-color: #dbeafe;
+  border-color: #93c5fd;
+  color: #3b82f6;
+}
+
+.block-control-duplicate:hover {
+  background-color: #ddd6fe;
+  border-color: #c4b5fd;
+  color: #8b5cf6;
+}
+
+.block-control-delete:hover {
+  background-color: #fee2e2;
+  border-color: #fca5a5;
+  color: #ef4444;
+}
+
+/* SVG icon sizing */
+.block-control-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+}
+
+/* Ensure controls don't interfere with text selection */
+.block-controls {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Adjust editor container to have space for controls */
+.wiki-editor-content {
+  position: relative;
+  padding-left: 80px; /* Add left padding to make room for controls */
+}
+
+/* Ensure controls are visible even when block is at the edge */
+.wiki-editor-content .ProseMirror {
+  position: relative;
+  overflow: visible;
+}

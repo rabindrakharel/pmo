@@ -35,8 +35,7 @@ export const FIELD_TO_SETTING_MAP: Record<string, string> = {
   // Task fields
   'stage': 'task_stage',
   'task_stage': 'task_stage',
-  'status': 'task_status',
-  'task_status': 'task_status',
+  'status': 'task_stage',
   'priority_level': 'task_priority',
 
   // Client fields
@@ -79,7 +78,6 @@ export const SETTING_CATEGORY_TO_ENDPOINT: Record<string, string> = {
   'project_stage': '/api/v1/setting?category=project_stage',
   'project_status': '/api/v1/setting?category=project_status',
   'task_stage': '/api/v1/setting?category=task_stage',
-  'task_status': '/api/v1/setting?category=task_status',
   'task_priority': '/api/v1/setting?category=task_priority',
   'opportunity_funnel_stage': '/api/v1/setting?category=opportunity_funnel_stage',
   'industry_sector': '/api/v1/setting?category=industry_sector',

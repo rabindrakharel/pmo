@@ -30,7 +30,6 @@ export const SEQUENTIAL_STATE_EXCLUSIONS = [
   'priority_level',        // Priority level, not a sequential workflow
   'priority',              // Priority field, not a sequential workflow
   'status',                // Generic status, not a sequential workflow
-  'task_status',           // Task status, not a sequential workflow
   'project_status',        // Project status, not a sequential workflow
   'client_status'          // Client status, not a sequential workflow
 ] as const;

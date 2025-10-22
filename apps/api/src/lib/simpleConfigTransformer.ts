@@ -1,4 +1,4 @@
-import type { EntityConfig } from '../entityConfig/meta/types.js';
+import type { EntityConfig } from '../entityConfig/types.js';
 
 export interface SimpleFrontendConfig {
   entityType: string;

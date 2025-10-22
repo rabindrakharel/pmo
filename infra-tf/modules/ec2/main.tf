@@ -62,7 +62,9 @@ resource "aws_iam_role_policy" "ec2_s3_policy" {
         ]
         Resource = [
           var.s3_bucket_arn,
-          "${var.s3_bucket_arn}/*"
+          "${var.s3_bucket_arn}/*",
+          var.s3_code_bucket_arn,
+          "${var.s3_code_bucket_arn}/*"
         ]
       }
     ]
@@ -117,15 +119,20 @@ resource "aws_instance" "app_server" {
     encrypted   = true
   }
 
-  user_data = templatefile("${path.root}/${var.user_data_script}", {
-    db_host     = var.db_host
-    db_port     = var.db_port
-    db_name     = var.db_name
-    db_user     = var.db_user
-    db_password = var.db_password
-    s3_bucket   = var.s3_bucket_name
-    aws_region  = var.aws_region
-  })
+  # Use base64 + gzip for user_data to handle large scripts (16KB+ limit)
+  user_data_base64 = base64gzip(templatefile("${path.root}/${var.user_data_script}", {
+    db_host         = var.db_host
+    db_port         = var.db_port
+    db_name         = var.db_name
+    db_user         = var.db_user
+    db_password     = var.db_password
+    s3_bucket       = var.s3_bucket_name
+    aws_region      = var.aws_region
+    domain_name     = var.domain_name
+    app_subdomain   = var.app_subdomain
+    github_repo_url = var.github_repo_url
+    project_name    = var.project_name
+  }))
 
   tags = merge(var.global_tags, {
     Name = "${var.project_name}-app-server"

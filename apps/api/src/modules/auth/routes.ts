@@ -32,11 +32,44 @@ const LoginResponseSchema = Type.Object({
   }),
 });
 
-// User profile schema  
+// User profile schema
 const UserProfileSchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
   email: Type.String(),
+});
+
+// Customer signup request schema
+const CustomerSignupRequestSchema = Type.Object({
+  name: Type.String({ minLength: 2 }),
+  primary_email: Type.String({ format: 'email' }),
+  password: Type.String({ minLength: 8 }),
+  cust_type: Type.Optional(Type.String()),
+});
+
+// Customer signup response schema
+const CustomerSignupResponseSchema = Type.Object({
+  token: Type.String(),
+  customer: Type.Object({
+    id: Type.String(),
+    name: Type.String(),
+    email: Type.String(),
+    entities: Type.Array(Type.String()),
+  }),
+});
+
+// Customer profile schema
+const CustomerProfileSchema = Type.Object({
+  id: Type.String(),
+  name: Type.String(),
+  email: Type.String(),
+  entities: Type.Array(Type.String()),
+  cust_type: Type.String(),
+});
+
+// Entity configuration request schema
+const EntityConfigRequestSchema = Type.Object({
+  entities: Type.Array(Type.String()),
 });
 
 // Permissions summary schema
@@ -365,7 +398,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
   // Logout endpoint (for cleanup purposes)
   fastify.post('/logout', {
-    
+
     schema: {
       tags: ['auth'],
       summary: 'User logout',
@@ -381,6 +414,324 @@ export async function authRoutes(fastify: FastifyInstance) {
     // Since we're using stateless JWT tokens, logout is mainly for client-side cleanup
     // In a more sophisticated setup, we could maintain a blacklist of tokens
     return { message: 'Logged out successfully' };
+  });
+
+  // ===================================================================
+  // CUSTOMER AUTHENTICATION ENDPOINTS (App User Signup/Signin)
+  // ===================================================================
+
+  // Customer signup endpoint
+  fastify.post('/customer/signup', {
+    schema: {
+      tags: ['auth', 'customer'],
+      summary: 'Customer signup',
+      description: 'Register a new customer user account',
+      body: CustomerSignupRequestSchema,
+      response: {
+        201: CustomerSignupResponseSchema,
+        400: ErrorResponseSchema,
+        500: ErrorResponseSchema,
+      },
+    },
+  }, async (request, reply) => {
+    const { name, primary_email, password, cust_type = 'residential' } = request.body as {
+      name: string;
+      primary_email: string;
+      password: string;
+      cust_type?: string;
+    };
+
+    try {
+      // Check if email already exists
+      const existingCustomer = await db.execute(sql`
+        SELECT id FROM app.d_cust
+        WHERE primary_email = ${primary_email}
+          AND active_flag = true
+      `);
+
+      if (existingCustomer.length > 0) {
+        return reply.status(400).send({ error: 'Email already registered' });
+      }
+
+      // Hash password
+      const password_hash = await bcrypt.hash(password, 10);
+
+      // Generate customer number (simple incrementing system)
+      const lastCustNumber = await db.execute(sql`
+        SELECT cust_number FROM app.d_cust
+        WHERE cust_number LIKE 'APP-%'
+        ORDER BY created_ts DESC
+        LIMIT 1
+      `);
+
+      let custNumber = 'APP-0001';
+      if (lastCustNumber.length > 0) {
+        const lastNum = parseInt((lastCustNumber[0].cust_number as string).split('-')[1]) || 0;
+        custNumber = `APP-${String(lastNum + 1).padStart(4, '0')}`;
+      }
+
+      // Create customer account
+      const result = await db.execute(sql`
+        INSERT INTO app.d_cust (
+          name,
+          cust_number,
+          cust_type,
+          cust_status,
+          primary_email,
+          password_hash,
+          entities,
+          slug,
+          code
+        ) VALUES (
+          ${name},
+          ${custNumber},
+          ${cust_type},
+          'active',
+          ${primary_email},
+          ${password_hash},
+          ARRAY[]::text[],
+          ${name.toLowerCase().replace(/\s+/g, '-')},
+          ${custNumber}
+        )
+        RETURNING id, name, primary_email, entities
+      `);
+
+      const customer = result[0];
+      if (!customer) {
+        return reply.status(500).send({ error: 'Failed to create account' });
+      }
+
+      // Generate JWT token
+      const token = fastify.jwt.sign(
+        {
+          sub: customer.id as string,
+          email: customer.primary_email as string,
+          name: customer.name as string,
+          userType: 'customer',
+        },
+        { expiresIn: config.JWT_EXPIRES_IN }
+      );
+
+      reply.status(201);
+      return {
+        token,
+        customer: {
+          id: customer.id as string,
+          name: customer.name as string,
+          email: customer.primary_email as string,
+          entities: (customer.entities as string[]) || [],
+        },
+      };
+    } catch (error) {
+      fastify.log.error('Customer signup error:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Customer signin endpoint
+  fastify.post('/customer/signin', {
+    schema: {
+      tags: ['auth', 'customer'],
+      summary: 'Customer signin',
+      description: 'Authenticate customer and return JWT token',
+      body: LoginRequestSchema,
+      response: {
+        200: CustomerSignupResponseSchema,
+        401: ErrorResponseSchema,
+        500: ErrorResponseSchema,
+      },
+    },
+  }, async (request, reply) => {
+    const { email, password } = request.body as {
+      email: string;
+      password: string;
+    };
+
+    try {
+      // Find customer by email
+      const customerResult = await db.execute(sql`
+        SELECT id, name, primary_email, password_hash, entities
+        FROM app.d_cust
+        WHERE primary_email = ${email}
+          AND active_flag = true
+          AND password_hash IS NOT NULL
+      `);
+
+      if (customerResult.length === 0) {
+        return reply.status(401).send({ error: 'Invalid credentials' });
+      }
+
+      const customer = customerResult[0];
+      const passwordHash = customer.password_hash as string | null;
+
+      if (!passwordHash) {
+        return reply.status(401).send({ error: 'Account not properly configured' });
+      }
+
+      // Verify password
+      const isValidPassword = await bcrypt.compare(password, passwordHash);
+      if (!isValidPassword) {
+        // Increment failed login attempts
+        await db.execute(sql`
+          UPDATE app.d_cust
+          SET failed_login_attempts = failed_login_attempts + 1,
+              account_locked_until = CASE
+                WHEN failed_login_attempts >= 4
+                THEN NOW() + INTERVAL '30 minutes'
+                ELSE account_locked_until
+              END
+          WHERE id = ${customer.id as string}
+        `);
+        return reply.status(401).send({ error: 'Invalid credentials' });
+      }
+
+      // Update last login and reset failed attempts
+      await db.execute(sql`
+        UPDATE app.d_cust
+        SET last_login_ts = NOW(),
+            failed_login_attempts = 0,
+            account_locked_until = NULL
+        WHERE id = ${customer.id as string}
+      `);
+
+      // Generate JWT token
+      const token = fastify.jwt.sign(
+        {
+          sub: customer.id as string,
+          email: customer.primary_email as string,
+          name: customer.name as string,
+          userType: 'customer',
+        },
+        { expiresIn: config.JWT_EXPIRES_IN }
+      );
+
+      return {
+        token,
+        customer: {
+          id: customer.id as string,
+          name: customer.name as string,
+          email: customer.primary_email as string,
+          entities: (customer.entities as string[]) || [],
+        },
+      };
+    } catch (error) {
+      fastify.log.error('Customer signin error:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get customer profile
+  fastify.get('/customer/me', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['auth', 'customer'],
+      summary: 'Get customer profile',
+      description: 'Get the profile of the currently authenticated customer',
+      response: {
+        200: CustomerProfileSchema,
+        401: ErrorResponseSchema,
+        500: ErrorResponseSchema,
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const userId = (request.user as any)?.sub;
+      const userType = (request.user as any)?.userType;
+
+      if (!userId || userType !== 'customer') {
+        return reply.status(401).send({ error: 'Not authenticated as customer' });
+      }
+
+      const customerResult = await db.execute(sql`
+        SELECT id, name, primary_email, entities, cust_type
+        FROM app.d_cust
+        WHERE id = ${userId}
+          AND active_flag = true
+      `);
+
+      if (customerResult.length === 0) {
+        return reply.status(401).send({ error: 'Customer not found' });
+      }
+
+      const customer = customerResult[0];
+      return {
+        id: customer.id as string,
+        name: customer.name as string,
+        email: customer.primary_email as string,
+        entities: (customer.entities as string[]) || [],
+        cust_type: customer.cust_type as string,
+      };
+    } catch (error) {
+      fastify.log.error('Get customer profile error:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Update customer entity configuration
+  fastify.put('/customer/configure', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['auth', 'customer'],
+      summary: 'Configure customer entities',
+      description: 'Update the list of activated entities for the customer',
+      body: EntityConfigRequestSchema,
+      response: {
+        200: CustomerProfileSchema,
+        401: ErrorResponseSchema,
+        400: ErrorResponseSchema,
+        500: ErrorResponseSchema,
+      },
+    },
+  }, async (request, reply) => {
+    const { entities } = request.body as { entities: string[] };
+
+    try {
+      const userId = (request.user as any)?.sub;
+      const userType = (request.user as any)?.userType;
+
+      if (!userId || userType !== 'customer') {
+        return reply.status(401).send({ error: 'Not authenticated as customer' });
+      }
+
+      // Validate entities array
+      const validEntities = [
+        'biz', 'office', 'project', 'task', 'employee', 'role', 'worksite',
+        'cust', 'position', 'artifact', 'wiki', 'form', 'marketing',
+        'product', 'inventory', 'order', 'invoice', 'shipment'
+      ];
+
+      const invalidEntities = entities.filter(e => !validEntities.includes(e));
+      if (invalidEntities.length > 0) {
+        return reply.status(400).send({
+          error: `Invalid entities: ${invalidEntities.join(', ')}`
+        });
+      }
+
+      // Update customer entities
+      const result = await db.execute(sql`
+        UPDATE app.d_cust
+        SET entities = ${sql`ARRAY[${sql.join(entities.map(e => sql`${e}`), sql`, `)}]::text[]`},
+            updated_ts = NOW()
+        WHERE id = ${userId}
+        RETURNING id, name, primary_email, entities, cust_type
+      `);
+
+      if (result.length === 0) {
+        return reply.status(401).send({ error: 'Customer not found' });
+      }
+
+      const customer = result[0];
+      return {
+        id: customer.id as string,
+        name: customer.name as string,
+        email: customer.primary_email as string,
+        entities: (customer.entities as string[]) || [],
+        cust_type: customer.cust_type as string,
+      };
+    } catch (error) {
+      fastify.log.error('Configure customer entities error:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
   });
 
 }

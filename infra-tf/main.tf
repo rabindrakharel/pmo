@@ -1,5 +1,6 @@
 # ============================================================================
-# Coherent PMO Platform - AWS Infrastructure (Modular)
+# Cohuron Platform - AWS Infrastructure (Fully Automated)
+# Domain: cohuron.com
 # ============================================================================
 
 terraform {
@@ -10,6 +11,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 
   backend "local" {
@@ -18,7 +23,8 @@ terraform {
 }
 
 provider "aws" {
-  region = var.aws_region
+  region  = var.aws_region
+  profile = var.aws_profile  # Uses AWS CLI profile "cohuron"
 
   default_tags {
     tags = var.global_tags
@@ -93,11 +99,67 @@ module "ec2" {
   app_security_group_id  = module.vpc.app_sg_id
   s3_bucket_arn          = module.s3.bucket_arn
   s3_bucket_name         = module.s3.bucket_name
+  s3_code_bucket_arn     = module.s3_code.bucket_arn
+  s3_code_bucket_name    = module.s3_code.bucket_name
   db_host                = module.rds.db_address
   db_port                = module.rds.db_port
   db_name                = var.db_name
   db_user                = var.db_username
   db_password            = var.db_password
-  user_data_script       = "user-data.sh"
+  user_data_script       = "user-data-complete.sh"
+  domain_name            = var.domain_name
+  app_subdomain          = var.app_subdomain
+  github_repo_url        = var.github_repo_url
   global_tags            = var.global_tags
+
+  depends_on = [module.s3_code]
+}
+
+# ============================================================================
+# Route 53 DNS Module
+# ============================================================================
+
+module "route53" {
+  count  = var.create_dns_records ? 1 : 0
+  source = "./modules/route53"
+
+  project_name        = var.project_name
+  domain_name         = var.domain_name
+  app_subdomain       = var.app_subdomain
+  ec2_public_ip       = module.ec2.instance_public_ip
+  create_app_record   = true
+  create_root_record  = false  # Only app subdomain by default
+  create_www_record   = false  # Can enable if needed
+  dns_ttl             = 300
+  force_destroy       = var.environment != "prod"
+  global_tags         = var.global_tags
+
+  depends_on = [module.ec2]
+}
+
+# ============================================================================
+# S3 Code Bucket Module - For Automated Deployments
+# ============================================================================
+
+module "s3_code" {
+  source = "./modules/s3-code"
+
+  project_name = var.project_name
+  global_tags  = var.global_tags
+}
+
+# ============================================================================
+# Lambda Deployer Module - Automated Code Deployment
+# ============================================================================
+
+module "lambda_deployer" {
+  source = "./modules/lambda-deployer"
+
+  project_name     = var.project_name
+  ec2_instance_id  = module.ec2.instance_id
+  code_bucket_name = module.s3_code.bucket_name
+  code_bucket_arn  = module.s3_code.bucket_arn
+  global_tags      = var.global_tags
+
+  depends_on = [module.ec2, module.s3_code]
 }

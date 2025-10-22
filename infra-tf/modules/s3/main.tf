@@ -53,6 +53,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "coherent_artifacts_lifecycle" 
     id     = "transition-old-versions"
     status = "Enabled"
 
+    filter {}
+
     noncurrent_version_transition {
       noncurrent_days = 30
       storage_class   = "STANDARD_IA"

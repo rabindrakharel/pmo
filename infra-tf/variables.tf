@@ -6,6 +6,12 @@
 # General Variables
 # ============================================================================
 
+variable "aws_profile" {
+  description = "AWS CLI profile to use"
+  type        = string
+  default     = "cohuron"
+}
+
 variable "aws_region" {
   description = "AWS region to deploy resources"
   type        = string
@@ -15,7 +21,7 @@ variable "aws_region" {
 variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string
-  default     = "dev"
+  default     = "prod"
 
   validation {
     condition     = contains(["dev", "staging", "prod"], var.environment)
@@ -26,14 +32,38 @@ variable "environment" {
 variable "project_name" {
   description = "Project name for resource naming"
   type        = string
-  default     = "coherent"
+  default     = "cohuron"
+}
+
+variable "domain_name" {
+  description = "Domain name for the application"
+  type        = string
+  default     = "cohuron.com"
+}
+
+variable "app_subdomain" {
+  description = "Subdomain for application (creates app.cohuron.com)"
+  type        = string
+  default     = "app"
+}
+
+variable "github_repo_url" {
+  description = "GitHub repository URL for application code"
+  type        = string
+  default     = ""
+}
+
+variable "create_dns_records" {
+  description = "Create DNS records in Route 53"
+  type        = bool
+  default     = true
 }
 
 variable "global_tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
   default = {
-    Project   = "Coherent"
+    Project   = "Cohuron"
     ManagedBy = "Terraform"
   }
 }
@@ -83,13 +113,13 @@ variable "ssh_allowed_cidr" {
 variable "db_name" {
   description = "Database name"
   type        = string
-  default     = "coherent"
+  default     = "cohuron"
 }
 
 variable "db_username" {
   description = "Database master username"
   type        = string
-  default     = "coherent_admin"
+  default     = "cohuron_admin"
   sensitive   = true
 }
 
@@ -108,7 +138,7 @@ variable "db_instance_class" {
 variable "db_engine_version" {
   description = "PostgreSQL engine version"
   type        = string
-  default     = "14.10"
+  default     = "14"
 }
 
 variable "db_allocated_storage" {

@@ -8,6 +8,11 @@ import {
   FileText,
   CheckSquare,
   Mail,
+  Package,
+  Warehouse,
+  ShoppingCart,
+  Truck,
+  Receipt,
 } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 
@@ -29,6 +34,7 @@ export const ENTITY_ICONS: Record<string, LucideIcon> = {
   project: FolderOpen,
   office: MapPin,
   client: Users,
+  cust: Users,
   role: UserCheck,
   employee: Users,
   wiki: BookOpen,
@@ -36,6 +42,13 @@ export const ENTITY_ICONS: Record<string, LucideIcon> = {
   task: CheckSquare,
   artifact: FileText,
   marketing: Mail,
+
+  // Product & Operations entities
+  product: Package,
+  inventory: Warehouse,
+  order: ShoppingCart,
+  shipment: Truck,
+  invoice: Receipt,
 
   // Settings/metadata entities
   projectStage: CheckSquare,

@@ -174,10 +174,10 @@ export const dRole = pgTable('d_role', {
   updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// Client
-export const dClient = pgTable('d_client', {
+// Customer
+export const dCust = pgTable('d_cust', {
   id: uuid('id').primaryKey().defaultRandom(),
-  
+
   // Standard fields
   name: text('name').notNull(),
   descr: text('descr'),
@@ -188,30 +188,30 @@ export const dClient = pgTable('d_client', {
   active: boolean('active').notNull().default(true),
   created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
   updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
-  
-  // Client identification
-  clientNumber: text('client_number').unique(),
-  clientType: text('client_type').notNull().default('residential'), // residential, commercial, municipal, property_management
-  
+
+  // Customer identification
+  custNumber: text('cust_number').unique(),
+  custType: text('cust_type').notNull().default('residential'), // residential, commercial, municipal, property_management
+
   // Contact and location
   primaryContact: jsonb('primary_contact').default('{}'),
   billingContact: jsonb('billing_contact').default('{}'),
   serviceAddress: text('service_address'),
   billingAddress: text('billing_address'),
-  
+
   // Business information
   companyName: text('company_name'),
   industry: text('industry'),
   businessNumber: text('business_number'),
   taxId: text('tax_id'),
-  
+
   // Relationship management
   accountManager: uuid('account_manager'),
-  clientSince: date('client_since'),
-  clientStatus: text('client_status').default('active'), // active, inactive, prospect, suspended
-  
-  // Hierarchy support (for corporate clients)
-  parentClientId: uuid('parent_client_id'),
+  custSince: date('cust_since'),
+  custStatus: text('cust_status').default('active'), // active, inactive, prospect, suspended
+
+  // Hierarchy support (for corporate customers)
+  parentCustId: uuid('parent_cust_id'),
   
   // Service preferences
   preferredServiceDays: jsonb('preferred_service_days').default('[]'),
@@ -369,14 +369,14 @@ export const dScopeHrRelations = relations(dScopeHr, ({ one, many }) => ({
   children: many(dScopeHr),
 }));
 
-export const dClientRelations = relations(dClient, ({ one, many }) => ({
-  parent: one(dClient, {
-    fields: [dClient.parentClientId],
-    references: [dClient.id],
+export const dCustRelations = relations(dCust, ({ one, many }) => ({
+  parent: one(dCust, {
+    fields: [dCust.parentCustId],
+    references: [dCust.id],
   }),
-  children: many(dClient),
+  children: many(dCust),
   accountManagerEmp: one(dEmployee, {
-    fields: [dClient.accountManager],
+    fields: [dCust.accountManager],
     references: [dEmployee.id],
   }),
 }));

@@ -19,7 +19,14 @@ import {
   Users,
   Tag,
   Link as LinkIcon,
-  Mail
+  Mail,
+  Package,
+  Warehouse,
+  ShoppingCart,
+  Truck,
+  Receipt,
+  Zap,
+  Plug
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -73,11 +80,18 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
     { name: 'Business', href: '/biz', icon: Building2, category: 'organizational' },
     { name: 'Project', href: '/project', icon: FolderOpen, category: 'operational' },
     { name: 'Office', href: '/office', icon: MapPin, category: 'organizational' },
-    { name: 'Client', href: '/client', icon: Users, category: 'organizational' },
+    { name: 'Customer', href: '/cust', icon: Users, category: 'organizational' },
 
     // Personnel Entities (2)
     { name: 'Role', href: '/role', icon: UserCheck, category: 'personnel' },
     { name: 'Employee', href: '/employee', icon: Users, category: 'personnel' },
+
+    // Product & Operations (5)
+    { name: 'Product', href: '/product', icon: Package, category: 'operations' },
+    { name: 'Inventory', href: '/inventory', icon: Warehouse, category: 'operations' },
+    { name: 'Order', href: '/order', icon: ShoppingCart, category: 'operations' },
+    { name: 'Shipment', href: '/shipment', icon: Truck, category: 'operations' },
+    { name: 'Invoice', href: '/invoice', icon: Receipt, category: 'operations' },
 
     // Content Entities (3)
     { name: 'Wiki', href: '/wiki', icon: BookOpen, category: 'content' },
@@ -92,6 +106,8 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
   const settingsSubItems = [
     { name: 'Data Labels', href: '/labels', icon: Tag },
     { name: 'Data Linkage', href: '/linkage', icon: LinkIcon },
+    { name: 'Workflow Automation', href: '/workflow-automation', icon: Zap },
+    { name: 'Integrations', href: '/integrations', icon: Plug },
   ];
 
   const profileNavigationItems = [

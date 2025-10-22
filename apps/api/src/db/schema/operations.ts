@@ -1,6 +1,6 @@
 import { pgTable, uuid, text, boolean, timestamp, jsonb, integer, date, numeric } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { dEmployee, dClient, dScopeOrg, dScopeWorksite, dScopeProject } from './dimensions.js';
+import { dEmployee, dCust, dScopeOrg, dScopeWorksite, dScopeProject } from './dimensions.js';
 import { metaProjectStatus, metaProjectStage, metaTaskStatus, metaTaskStage, metaTasklogType, metaTasklogState } from './meta.js';
 
 // Project Head (references to d_scope_project)
@@ -179,7 +179,7 @@ export const opsTasklogHead = pgTable('ops_tasklog_head', {
 
   // Worksite reference
   worksiteId: uuid('worksite_id').references(() => dScopeWorksite.id, { onDelete: 'set null' }),
-  clientId: uuid('client_id').references(() => dClient.id, { onDelete: 'set null' }),
+  custId: uuid('cust_id').references(() => dCust.id, { onDelete: 'set null' }),
   clients: jsonb('clients').notNull().default('[]'),
 
   tags: jsonb('tags').notNull().default('[]'),

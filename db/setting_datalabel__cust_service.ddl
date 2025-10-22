@@ -1,5 +1,5 @@
 -- ============================================================================
--- SETTING: CLIENT SERVICE
+-- SETTING: CUSTOMER SERVICE
 -- ============================================================================
 
 -- ============================================================================
@@ -7,7 +7,7 @@
 -- ============================================================================
 --
 -- Purpose:
---   Defines the catalog of services offered by Huron Home Services to clients.
+--   Defines the catalog of services offered by Huron Home Services to customers.
 --   This is a CLASSIFICATION table that categorizes the types of services
 --   provided across residential, commercial, and industrial sectors. Services
 --   can be linked to projects, tasks, pricing models, and client contracts.
@@ -34,7 +34,7 @@
 -- Integration Points:
 --   - d_project.service_type references this table for project categorization
 --   - d_task.service_type for task-level service tracking
---   - d_client contracts may specify approved services
+--   - d_cust contracts may specify approved services
 --   - Pricing models and rate cards organized by service type
 --   - Resource allocation based on service-specific skills
 --   - Service-level agreements (SLAs) vary by service type
@@ -58,7 +58,7 @@
 -- DDL:
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS app.setting_datalabel_client_service (
+CREATE TABLE IF NOT EXISTS app.setting_datalabel_cust_service (
     level_id integer PRIMARY KEY,
     level_name varchar(100) NOT NULL UNIQUE,
     slug varchar(100) NOT NULL UNIQUE,
@@ -70,10 +70,10 @@ CREATE TABLE IF NOT EXISTS app.setting_datalabel_client_service (
 );
 
 -- Index for slug-based lookups
-CREATE INDEX idx_client_service_slug ON app.setting_datalabel_client_service(slug);
+CREATE INDEX idx_cust_service_slug ON app.setting_datalabel_cust_service(slug);
 
 -- Index for active services
-CREATE INDEX idx_client_service_active ON app.setting_datalabel_client_service(active_flag) WHERE active_flag = true;
+CREATE INDEX idx_cust_service_active ON app.setting_datalabel_cust_service(active_flag) WHERE active_flag = true;
 
 -- ============================================================================
 -- DATA CURATION:
@@ -82,7 +82,7 @@ CREATE INDEX idx_client_service_active ON app.setting_datalabel_client_service(a
 -- Comprehensive service catalog for Huron Home Services
 -- Covers residential, commercial, and industrial service offerings
 
-INSERT INTO app.setting_datalabel_client_service (level_id, level_name, slug, level_descr, sort_order, active_flag) VALUES
+INSERT INTO app.setting_datalabel_cust_service (level_id, level_name, slug, level_descr, sort_order, active_flag) VALUES
 (0, 'HVAC Installation', 'hvac-installation', 'Heating, ventilation, and air conditioning system installation for residential and commercial properties.', 0, true),
 (1, 'HVAC Maintenance', 'hvac-maintenance', 'Preventive maintenance and repair services for HVAC systems. Includes seasonal tune-ups and system diagnostics.', 1, true),
 (2, 'Plumbing Repair', 'plumbing-repair', 'Emergency and scheduled plumbing repairs including pipe repair, leak detection, and fixture replacement.', 2, true),
@@ -110,9 +110,9 @@ INSERT INTO app.setting_datalabel_client_service (level_id, level_name, slug, le
 (24, 'Drywall Services', 'drywall-services', 'Drywall installation, repair, and finishing services for residential and commercial properties.', 24, true),
 (25, 'Demolition Services', 'demolition-services', 'Controlled demolition and removal services for renovation projects. Includes debris removal and site cleanup.', 25, true);
 
-COMMENT ON TABLE app.setting_datalabel_client_service IS 'Catalog of services offered by Huron Home Services to residential, commercial, and industrial clients';
-COMMENT ON COLUMN app.setting_datalabel_client_service.slug IS 'URL-friendly identifier for service (e.g., hvac-maintenance)';
-COMMENT ON COLUMN app.setting_datalabel_client_service.level_name IS 'Display name for the service type';
-COMMENT ON COLUMN app.setting_datalabel_client_service.level_descr IS 'Detailed description of service scope and deliverables';
-COMMENT ON COLUMN app.setting_datalabel_client_service.sort_order IS 'Display order in UI dropdowns and lists';
-COMMENT ON COLUMN app.setting_datalabel_client_service.active_flag IS 'Indicates if service is currently offered (can be toggled seasonally or strategically)';
+COMMENT ON TABLE app.setting_datalabel_cust_service IS 'Catalog of services offered by Huron Home Services to residential, commercial, and industrial customers';
+COMMENT ON COLUMN app.setting_datalabel_cust_service.slug IS 'URL-friendly identifier for service (e.g., hvac-maintenance)';
+COMMENT ON COLUMN app.setting_datalabel_cust_service.level_name IS 'Display name for the service type';
+COMMENT ON COLUMN app.setting_datalabel_cust_service.level_descr IS 'Detailed description of service scope and deliverables';
+COMMENT ON COLUMN app.setting_datalabel_cust_service.sort_order IS 'Display order in UI dropdowns and lists';
+COMMENT ON COLUMN app.setting_datalabel_cust_service.active_flag IS 'Indicates if service is currently offered (can be toggled seasonally or strategically)';

@@ -11,7 +11,7 @@ import { empRoutes } from './employee/routes.js';
 import { taskRoutes } from './task/routes.js';
 import { projectRoutes } from './project/routes.js';
 import { roleRoutes } from './role/routes.js';
-import { clientRoutes } from './client/routes.js';
+import { custRoutes } from './cust/routes.js';
 import { formRoutes } from './form/routes.js';
 import { wikiRoutes } from './wiki/routes.js';
 import { artifactRoutes } from './artifact/routes.js';
@@ -23,6 +23,13 @@ import { reportsRoutes } from './reports/routes.js';
 import { taskDataRoutes } from './task-data/routes.js';
 import { emailTemplateRoutes } from './email-template/routes.js';
 import { uploadRoutes } from './upload/routes.js';
+
+// Product & Operations API modules
+import { productRoutes } from './product/routes.js';
+import { inventoryRoutes } from './inventory/routes.js';
+import { orderRoutes } from './order/routes.js';
+import { shipmentRoutes } from './shipment/routes.js';
+import { invoiceRoutes } from './invoice/routes.js';
 
 // New hierarchical API modules
 import { hierarchyRoutes } from './meta/hierarchy-routes.js';
@@ -79,7 +86,7 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await taskRoutes(fastify);
   await projectRoutes(fastify);
   await roleRoutes(fastify);
-  await clientRoutes(fastify);
+  await custRoutes(fastify);
   await formRoutes(fastify);
   await wikiRoutes(fastify);
   await artifactRoutes(fastify);
@@ -90,6 +97,13 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await reportsRoutes(fastify);
   await taskDataRoutes(fastify);
   await emailTemplateRoutes(fastify);
+
+  // Product & Operations API routes
+  await productRoutes(fastify);
+  await inventoryRoutes(fastify);
+  await orderRoutes(fastify);
+  await shipmentRoutes(fastify);
+  await invoiceRoutes(fastify);
 
   // Upload routes (file upload to MinIO/S3)
   await uploadRoutes(fastify);

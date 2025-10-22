@@ -1,5 +1,5 @@
 -- ============================================================================
--- XXVI. CLIENT HIERARCHY META LEVELS
+-- XXVI. CUSTOMER HIERARCHY META LEVELS
 -- ============================================================================
 
 -- ============================================================================
@@ -7,12 +7,12 @@
 -- ============================================================================
 --
 -- Purpose:
---   Meta configuration defining client organization hierarchy levels from
+--   Meta configuration defining customer organization hierarchy levels from
 --   CEO (level 0) to Technical Lead (level 4). Represents authority levels
---   and decision-making patterns within client organizations for proper
+--   and decision-making patterns within customer organizations for proper
 --   engagement protocols and escalation management.
 --
--- Entity Type: setting_client_level
+-- Entity Type: setting_cust_level
 -- Entity Classification: Setting Configuration Table
 --
 -- Hierarchy Structure:
@@ -23,8 +23,8 @@
 --   Level 4: Technical Lead - Technical Lead with subject matter expertise (leaf level)
 --
 -- New Design Integration:
---   - Referenced by d_client table for hierarchy validation
---   - Supports client engagement strategy and escalation paths
+--   - Referenced by d_cust table for hierarchy validation
+--   - Supports customer engagement strategy and escalation paths
 --   - Enables proper stakeholder management and communication protocols
 --   - Facilitates contract authority and approval workflow management
 --   - Uses standard setting table structure with common fields
@@ -43,8 +43,8 @@
 --   - Level names must be business-meaningful
 --
 -- UI Integration:
---   - Used for client contact hierarchy displays
---   - Supports client escalation path visualization
+--   - Used for customer contact hierarchy displays
+--   - Supports customer escalation path visualization
 --   - Enables authority-based workflow routing
 --   - Provides context for contract approval workflows
 
@@ -52,7 +52,7 @@
 -- DDL:
 -- ============================================================================
 
-CREATE TABLE app.setting_datalabel_client_level (
+CREATE TABLE app.setting_datalabel_cust_level (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Standardized setting fields
@@ -78,10 +78,10 @@ CREATE TABLE app.setting_datalabel_client_level (
 -- DATA CURATION:
 -- ============================================================================
 
--- Client Hierarchy Levels (CEO starts at level 0)
--- Comprehensive client organization authority structure for engagement management
+-- Customer Hierarchy Levels (CEO starts at level 0)
+-- Comprehensive customer organization authority structure for engagement management
 
-INSERT INTO app.setting_datalabel_client_level (
+INSERT INTO app.setting_datalabel_cust_level (
   level_id, level_name, slug, is_root, is_leaf, authority_description,
   typical_responsibilities, escalation_protocols, approval_thresholds
 ) VALUES

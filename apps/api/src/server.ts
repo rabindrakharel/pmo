@@ -11,6 +11,10 @@ import { config } from '@/lib/config.js';
 import { logger } from '@/lib/logger.js';
 import { testConnection, closeConnection } from '@/db/index.js';
 
+// Import type declarations
+import '@/types/jwt.js';
+import '@/types/fastify-logger.js';
+
 // Import plugins and new API modules
 import { registerAllRoutes } from '@/modules/index.js';
 

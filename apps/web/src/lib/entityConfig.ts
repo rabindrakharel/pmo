@@ -904,25 +904,25 @@ export const entityConfigs: Record<string, EntityConfig> = {
   },
 
   // --------------------------------------------------------------------------
-  // CLIENT
+  // CUSTOMER
   // --------------------------------------------------------------------------
-  client: {
-    name: 'client',
-    displayName: 'Client',
-    pluralName: 'Clients',
-    apiEndpoint: '/api/v1/client',
+  cust: {
+    name: 'cust',
+    displayName: 'Customer',
+    pluralName: 'Customers',
+    apiEndpoint: '/api/v1/cust',
 
     columns: [
       {
         key: 'name',
-        title: 'Client Name',
+        title: 'Customer Name',
         sortable: true,
         filterable: true,
         render: (value, record) => React.createElement(
           'div',
           null,
           React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-          record.client_number && React.createElement('div', { className: 'text-sm text-gray-500' }, record.client_number)
+          record.cust_number && React.createElement('div', { className: 'text-sm text-gray-500' }, record.cust_number)
         )
       },
       {
@@ -1002,10 +1002,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
     ],
 
     fields: [
-      { key: 'name', label: 'Client Name', type: 'text', required: true },
+      { key: 'name', label: 'Customer Name', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'client_number', label: 'Client Number', type: 'text', required: true },
-      { key: 'client_type', label: 'Client Type', type: 'select', options: [
+      { key: 'cust_number', label: 'Customer Number', type: 'text', required: true },
+      { key: 'cust_type', label: 'Customer Type', type: 'select', options: [
         { value: 'residential', label: 'Residential' },
         { value: 'commercial', label: 'Commercial' },
         { value: 'municipal', label: 'Municipal' },
@@ -1214,13 +1214,13 @@ export const entityConfigs: Record<string, EntityConfig> = {
   },
 
   // --------------------------------------------------------------------------
-  // META: TASK STATUS
+  // META: TASK STAGE
   // --------------------------------------------------------------------------
-  taskStatus: {
-    name: 'taskStatus',
-    displayName: 'Task Status',
-    pluralName: 'Task Statuses',
-    apiEndpoint: '/api/v1/setting?category=task_status',
+  taskStage: {
+    name: 'taskStage',
+    displayName: 'Task Stage',
+    pluralName: 'Task Stages',
+    apiEndpoint: '/api/v1/setting?category=task_stage',
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
@@ -1242,7 +1242,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     fields: [
       { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'level_name', label: 'Status Name', type: 'text', required: true },
+      { key: 'level_name', label: 'Stage Name', type: 'text', required: true },
       { key: 'level_descr', label: 'Description', type: 'textarea' },
       { key: 'sort_order', label: 'Sort Order', type: 'number' }
     ],
@@ -1602,6 +1602,384 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'level_name', label: 'Tier Name', type: 'text', required: true },
       { key: 'level_descr', label: 'Description', type: 'textarea' },
       { key: 'sort_order', label: 'Sort Order', type: 'number' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // PRODUCT
+  // --------------------------------------------------------------------------
+  product: {
+    name: 'product',
+    displayName: 'Product',
+    pluralName: 'Products',
+    apiEndpoint: '/api/v1/product',
+
+    columns: [
+      {
+        key: 'name',
+        title: 'Product Name',
+        sortable: true,
+        filterable: true,
+        render: (value, record) => React.createElement(
+          'div',
+          null,
+          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
+          record.code && React.createElement('div', { className: 'text-sm text-gray-500' }, record.code)
+        )
+      },
+      {
+        key: 'department',
+        title: 'Department',
+        sortable: true,
+        filterable: true,
+        render: (value) => value || '-'
+      },
+      {
+        key: 'class',
+        title: 'Class',
+        sortable: true,
+        filterable: true,
+        render: (value) => value || '-'
+      },
+      {
+        key: 'unit_of_measure',
+        title: 'Unit',
+        sortable: true,
+        align: 'center',
+        render: (value) => value || 'each'
+      },
+      {
+        key: 'active_flag',
+        title: 'Status',
+        sortable: true,
+        align: 'center',
+        render: (value) => renderBadge(value !== false ? 'Active' : 'Inactive', {
+          'Active': 'bg-green-100 text-green-800',
+          'Inactive': 'bg-red-100 text-red-800'
+        })
+      },
+      {
+        key: 'tags',
+        title: 'Tags',
+        inlineEditable: true,
+        render: renderTags
+      }
+    ],
+
+    fields: [
+      { key: 'name', label: 'Product Name', type: 'text', required: true },
+      { key: 'code', label: 'Product Code/SKU', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'richtext' },
+      { key: 'department', label: 'Department', type: 'text' },
+      { key: 'class', label: 'Class', type: 'text' },
+      { key: 'subclass', label: 'Subclass', type: 'text' },
+      { key: 'unit_of_measure', label: 'Unit of Measure', type: 'text', placeholder: 'each, ft, sqft, lb, gal' },
+      { key: 'tags', label: 'Tags', type: 'array' },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // INVENTORY
+  // --------------------------------------------------------------------------
+  inventory: {
+    name: 'inventory',
+    displayName: 'Inventory',
+    pluralName: 'Inventory',
+    apiEndpoint: '/api/v1/inventory',
+
+    columns: [
+      {
+        key: 'product_id',
+        title: 'Product',
+        sortable: true,
+        filterable: true,
+        render: (value) => value || '-'
+      },
+      {
+        key: 'store_id',
+        title: 'Store/Location',
+        sortable: true,
+        filterable: true,
+        render: (value) => value || '-'
+      },
+      {
+        key: 'qty',
+        title: 'Quantity',
+        sortable: true,
+        align: 'right',
+        render: (value) => value ? parseFloat(value).toFixed(2) : '0.00'
+      },
+      {
+        key: 'active_flag',
+        title: 'Status',
+        sortable: true,
+        align: 'center',
+        render: (value) => renderBadge(value !== false ? 'Active' : 'Inactive', {
+          'Active': 'bg-green-100 text-green-800',
+          'Inactive': 'bg-red-100 text-red-800'
+        })
+      }
+    ],
+
+    fields: [
+      { key: 'product_id', label: 'Product ID', type: 'text', required: true },
+      { key: 'store_id', label: 'Store/Location ID', type: 'text' },
+      { key: 'qty', label: 'Quantity', type: 'number' },
+      { key: 'notes', label: 'Notes', type: 'textarea' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // ORDER
+  // --------------------------------------------------------------------------
+  order: {
+    name: 'order',
+    displayName: 'Order',
+    pluralName: 'Orders',
+    apiEndpoint: '/api/v1/order',
+
+    columns: [
+      {
+        key: 'order_number',
+        title: 'Order Number',
+        sortable: true,
+        filterable: true,
+        render: (value) => React.createElement('div', { className: 'font-medium text-gray-900' }, value)
+      },
+      {
+        key: 'client_name',
+        title: 'Client',
+        sortable: true,
+        filterable: true,
+        render: (value) => value || '-'
+      },
+      {
+        key: 'order_date',
+        title: 'Order Date',
+        sortable: true,
+        render: formatDate
+      },
+      {
+        key: 'order_status',
+        title: 'Status',
+        sortable: true,
+        filterable: true,
+        inlineEditable: true,
+        render: (value) => renderBadge(value || 'pending', {
+          'quote': 'bg-gray-100 text-gray-800',
+          'pending': 'bg-blue-100 text-blue-800',
+          'confirmed': 'bg-purple-100 text-purple-800',
+          'processing': 'bg-yellow-100 text-yellow-800',
+          'shipped': 'bg-green-100 text-green-800',
+          'delivered': 'bg-green-100 text-green-800',
+          'cancelled': 'bg-red-100 text-red-800'
+        })
+      },
+      {
+        key: 'line_total_cad',
+        title: 'Total',
+        sortable: true,
+        align: 'right',
+        render: (value) => formatCurrency(value, 'CAD')
+      }
+    ],
+
+    fields: [
+      { key: 'order_number', label: 'Order Number', type: 'text', required: true },
+      { key: 'client_name', label: 'Client Name', type: 'text' },
+      { key: 'product_id', label: 'Product ID', type: 'text', required: true },
+      { key: 'quantity_ordered', label: 'Quantity', type: 'number', required: true },
+      { key: 'order_status', label: 'Status', type: 'select', options: [
+        { value: 'quote', label: 'Quote' },
+        { value: 'pending', label: 'Pending' },
+        { value: 'confirmed', label: 'Confirmed' },
+        { value: 'processing', label: 'Processing' },
+        { value: 'shipped', label: 'Shipped' },
+        { value: 'delivered', label: 'Delivered' },
+        { value: 'cancelled', label: 'Cancelled' }
+      ]},
+      { key: 'notes', label: 'Notes', type: 'textarea' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // SHIPMENT
+  // --------------------------------------------------------------------------
+  shipment: {
+    name: 'shipment',
+    displayName: 'Shipment',
+    pluralName: 'Shipments',
+    apiEndpoint: '/api/v1/shipment',
+
+    columns: [
+      {
+        key: 'shipment_number',
+        title: 'Shipment Number',
+        sortable: true,
+        filterable: true,
+        render: (value) => React.createElement('div', { className: 'font-medium text-gray-900' }, value)
+      },
+      {
+        key: 'client_name',
+        title: 'Client',
+        sortable: true,
+        filterable: true,
+        render: (value) => value || '-'
+      },
+      {
+        key: 'tracking_number',
+        title: 'Tracking',
+        sortable: true,
+        filterable: true,
+        render: (value) => value || '-'
+      },
+      {
+        key: 'shipment_date',
+        title: 'Ship Date',
+        sortable: true,
+        render: formatDate
+      },
+      {
+        key: 'shipment_status',
+        title: 'Status',
+        sortable: true,
+        filterable: true,
+        inlineEditable: true,
+        render: (value) => renderBadge(value || 'pending', {
+          'pending': 'bg-gray-100 text-gray-800',
+          'picked': 'bg-blue-100 text-blue-800',
+          'packed': 'bg-purple-100 text-purple-800',
+          'shipped': 'bg-yellow-100 text-yellow-800',
+          'in_transit': 'bg-orange-100 text-orange-800',
+          'delivered': 'bg-green-100 text-green-800',
+          'exception': 'bg-red-100 text-red-800'
+        })
+      },
+      {
+        key: 'carrier_name',
+        title: 'Carrier',
+        sortable: true,
+        render: (value) => value || '-'
+      }
+    ],
+
+    fields: [
+      { key: 'shipment_number', label: 'Shipment Number', type: 'text', required: true },
+      { key: 'client_name', label: 'Client Name', type: 'text' },
+      { key: 'product_id', label: 'Product ID', type: 'text', required: true },
+      { key: 'quantity_shipped', label: 'Quantity', type: 'number', required: true },
+      { key: 'tracking_number', label: 'Tracking Number', type: 'text' },
+      { key: 'carrier_name', label: 'Carrier', type: 'text' },
+      { key: 'shipment_status', label: 'Status', type: 'select', options: [
+        { value: 'pending', label: 'Pending' },
+        { value: 'picked', label: 'Picked' },
+        { value: 'packed', label: 'Packed' },
+        { value: 'shipped', label: 'Shipped' },
+        { value: 'in_transit', label: 'In Transit' },
+        { value: 'delivered', label: 'Delivered' }
+      ]},
+      { key: 'notes', label: 'Notes', type: 'textarea' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // INVOICE
+  // --------------------------------------------------------------------------
+  invoice: {
+    name: 'invoice',
+    displayName: 'Invoice',
+    pluralName: 'Invoices',
+    apiEndpoint: '/api/v1/invoice',
+
+    columns: [
+      {
+        key: 'invoice_number',
+        title: 'Invoice Number',
+        sortable: true,
+        filterable: true,
+        render: (value) => React.createElement('div', { className: 'font-medium text-gray-900' }, value)
+      },
+      {
+        key: 'client_name',
+        title: 'Client',
+        sortable: true,
+        filterable: true,
+        render: (value) => value || '-'
+      },
+      {
+        key: 'invoice_date',
+        title: 'Invoice Date',
+        sortable: true,
+        render: formatDate
+      },
+      {
+        key: 'due_date',
+        title: 'Due Date',
+        sortable: true,
+        render: formatDate
+      },
+      {
+        key: 'invoice_status',
+        title: 'Status',
+        sortable: true,
+        filterable: true,
+        inlineEditable: true,
+        render: (value) => renderBadge(value || 'draft', {
+          'draft': 'bg-gray-100 text-gray-800',
+          'sent': 'bg-blue-100 text-blue-800',
+          'viewed': 'bg-purple-100 text-purple-800',
+          'partial': 'bg-yellow-100 text-yellow-800',
+          'paid': 'bg-green-100 text-green-800',
+          'overdue': 'bg-red-100 text-red-800'
+        })
+      },
+      {
+        key: 'line_total_cad',
+        title: 'Total',
+        sortable: true,
+        align: 'right',
+        render: (value) => formatCurrency(value, 'CAD')
+      },
+      {
+        key: 'amount_outstanding_cad',
+        title: 'Outstanding',
+        sortable: true,
+        align: 'right',
+        render: (value) => formatCurrency(value, 'CAD')
+      }
+    ],
+
+    fields: [
+      { key: 'invoice_number', label: 'Invoice Number', type: 'text', required: true },
+      { key: 'client_name', label: 'Client Name', type: 'text' },
+      { key: 'product_id', label: 'Product ID', type: 'text' },
+      { key: 'quantity_billed', label: 'Quantity', type: 'number', required: true },
+      { key: 'unit_price_cad', label: 'Unit Price (CAD)', type: 'number', required: true },
+      { key: 'invoice_status', label: 'Status', type: 'select', options: [
+        { value: 'draft', label: 'Draft' },
+        { value: 'sent', label: 'Sent' },
+        { value: 'viewed', label: 'Viewed' },
+        { value: 'partial', label: 'Partially Paid' },
+        { value: 'paid', label: 'Paid' },
+        { value: 'overdue', label: 'Overdue' }
+      ]},
+      { key: 'notes', label: 'Notes', type: 'textarea' }
     ],
 
     supportedViews: ['table'],

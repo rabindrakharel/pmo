@@ -6,3 +6,4 @@
 
 export { BlockEditor } from './BlockEditor';
 export { WikiContentRenderer } from './WikiContentRenderer';
+export { WikiDesigner } from './WikiDesigner';

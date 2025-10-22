@@ -193,8 +193,8 @@ export async function bizRoutes(fastify: FastifyInstance) {
       }
 
       const conditions = [sql`parent_id = ${parentId}`];
-      if (active !== undefined) {
-        conditions.push(sql`active_flag = ${active}`);
+      if (active_flag !== undefined) {
+        conditions.push(sql`active_flag = ${active_flag}`);
       }
 
       const children = await db.execute(sql`
