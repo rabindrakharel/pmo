@@ -110,12 +110,12 @@ function AppRoutes() {
       <Route path="/" element={isAuthenticated ? <Navigate to="/project" replace /> : <LandingPage />} />
       <Route path="/public/form/:id" element={<PublicFormPage />} />
 
-      {/* Shared Entity Routes (Public - No Auth Required) */}
-      <Route path="/task/shared/:code" element={<SharedURLEntityPage />} />
-      <Route path="/form/shared/:code" element={<SharedURLEntityPage />} />
-      <Route path="/wiki/shared/:code" element={<SharedURLEntityPage />} />
-      <Route path="/artifact/shared/:code" element={<SharedURLEntityPage />} />
-      <Route path="/:entityType/shared/:code" element={<SharedURLEntityPage />} />
+      {/* Shared Entity Routes (Auth Required) */}
+      <Route path="/task/shared/:code" element={<ProtectedRoute><SharedURLEntityPage entityType="task" /></ProtectedRoute>} />
+      <Route path="/form/shared/:code" element={<ProtectedRoute><SharedURLEntityPage entityType="form" /></ProtectedRoute>} />
+      <Route path="/wiki/shared/:code" element={<ProtectedRoute><SharedURLEntityPage entityType="wiki" /></ProtectedRoute>} />
+      <Route path="/artifact/shared/:code" element={<ProtectedRoute><SharedURLEntityPage entityType="artifact" /></ProtectedRoute>} />
+      <Route path="/:entityType/shared/:code" element={<ProtectedRoute><SharedURLEntityPage /></ProtectedRoute>} />
 
       <Route
         path="/login"

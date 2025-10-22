@@ -78,6 +78,9 @@ export interface EntityConfig {
   supportedViews: ViewMode[];
   defaultView: ViewMode;
 
+  // Sharing configuration
+  shareable?: boolean; // Whether this entity supports shared URLs
+
   // Hierarchical configuration (for office/business)
   hierarchical?: {
     levels: number;
@@ -257,6 +260,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Task',
     pluralName: 'Tasks',
     apiEndpoint: '/api/v1/task',
+    shareable: true,
 
     columns: [
       {
@@ -354,6 +358,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Wiki',
     pluralName: 'Wiki Pages',
     apiEndpoint: '/api/v1/wiki',
+    shareable: true,
 
     columns: [
       {
@@ -466,6 +471,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Artifact',
     pluralName: 'Artifacts',
     apiEndpoint: '/api/v1/artifact',
+    shareable: true,
 
     columns: [
       {
@@ -536,6 +542,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     displayName: 'Form',
     pluralName: 'Forms',
     apiEndpoint: '/api/v1/form',
+    shareable: true,
 
     columns: [
       {
@@ -2118,3 +2125,60 @@ export function getDefaultView(entityName: string): ViewMode {
   const config = getEntityConfig(entityName);
   return config?.defaultView || 'table';
 }
+
+/**
+ * Get all shareable entity names
+ * Returns: ['task', 'artifact', 'wiki', 'form']
+ */
+export function getShareableEntities(): string[] {
+  return Object.keys(entityConfigs).filter(
+    name => entityConfigs[name].shareable === true
+  );
+}
+
+/**
+ * Check if entity supports sharing
+ */
+export function isShareable(entityName: string): boolean {
+  const config = getEntityConfig(entityName);
+  return config?.shareable === true;
+}
+
+/**
+ * Shareable entities configuration
+ * Centralized list of entities that support shared URLs
+ */
+export const SHAREABLE_ENTITIES = {
+  task: {
+    name: 'task',
+    displayName: 'Task',
+    icon: 'CheckSquare',
+    detailFields: ['name', 'descr', 'stage', 'priority_level', 'estimated_hours', 'actual_hours', 'story_points', 'tags'],
+    hasUpdates: true, // Shows task updates/comments
+  },
+  artifact: {
+    name: 'artifact',
+    displayName: 'Artifact',
+    icon: 'FileText',
+    detailFields: ['name', 'descr', 'artifact_type', 'file_format', 'file_size_bytes', 'tags'],
+    hasUpdates: false,
+  },
+  wiki: {
+    name: 'wiki',
+    displayName: 'Wiki',
+    icon: 'BookOpen',
+    detailFields: ['name', 'descr', 'tags'],
+    hasUpdates: false,
+    customRenderer: true, // Uses WikiContentRenderer
+  },
+  form: {
+    name: 'form',
+    displayName: 'Form',
+    icon: 'FileText',
+    detailFields: ['name', 'descr', 'form_schema'],
+    hasUpdates: false,
+    customRenderer: true, // Uses InteractiveForm
+  },
+} as const;
+
+export type ShareableEntityType = keyof typeof SHAREABLE_ENTITIES;

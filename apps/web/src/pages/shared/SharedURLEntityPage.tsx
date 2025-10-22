@@ -42,10 +42,7 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
 
   useEffect(() => {
     const fetchSharedEntity = async () => {
-      console.log('SharedURLEntityPage: params', { entityType, code });
-
       if (!entityType || !code) {
-        console.error('SharedURLEntityPage: Missing params', { entityType, code });
         setError('Invalid shared URL');
         setLoading(false);
         return;
@@ -56,10 +53,14 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
         setError(null);
 
         const apiUrl = `${API_BASE_URL}/api/v1/shared/${entityType}/${code}`;
-        console.log('SharedURLEntityPage: Fetching', apiUrl);
+        const token = localStorage.getItem('auth_token');
 
-        // Call public shared URL resolver endpoint (no auth required)
-        const response = await fetch(apiUrl);
+        // Call shared URL resolver endpoint (auth required)
+        const response = await fetch(apiUrl, {
+          headers: token ? {
+            'Authorization': `Bearer ${token}`
+          } : {}
+        });
 
         if (!response.ok) {
           if (response.status === 404) {
@@ -239,7 +240,7 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
             <TaskDataContainer
               taskId={data.id}
               projectId={data.metadata?.project_id}
-              isPublicView={true}
+              isPublicView={false}
             />
           </div>
         );
@@ -305,7 +306,7 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
           <div className="flex items-center space-x-2">
             <Share2 className="h-5 w-5 text-blue-600" />
             <p className="text-sm text-blue-800">
-              <strong>Public Shared View</strong> - This content has been shared with you
+              <strong>Shared Content</strong> - Viewing shared {entityType}
             </p>
           </div>
         </div>

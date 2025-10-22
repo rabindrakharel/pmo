@@ -76,7 +76,8 @@
       "Bash(terraform show:*)",
       "Bash(npx tsc:*)",
       "Bash(PGPASSWORD=app psql:*)",
-      "Bash(pgrep:*)"
+      "Bash(pgrep:*)",
+      "Bash(./tools/db-import.sh:*)"
     ],
     "deny": [],
     "ask": [],

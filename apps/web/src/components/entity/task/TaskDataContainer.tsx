@@ -91,13 +91,6 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
   };
 
   const loadUpdates = async () => {
-    // Skip loading updates in public view (requires authentication)
-    if (isPublicView) {
-      setLoading(false);
-      setUpdates([]);
-      return;
-    }
-
     setLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
