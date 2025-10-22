@@ -128,10 +128,16 @@ echo "============================================"
 cd {DEPLOY_PATH}
 
 echo "Starting Docker services (PostgreSQL, Redis, MinIO, MailHog)..."
-if docker compose up -d; then
-    echo "✓ Docker services started"
+docker compose up -d || true  # May return non-zero if already running
+
+# Verify containers are running
+sleep 5
+RUNNING_CONTAINERS=$(docker compose ps --services --filter "status=running" | wc -l)
+if [ "$RUNNING_CONTAINERS" -ge "3" ]; then
+    echo "✓ Docker services are running ($RUNNING_CONTAINERS containers)"
 else
-    echo "ERROR: Failed to start Docker services!"
+    echo "ERROR: Not enough Docker services running (expected ≥3, got $RUNNING_CONTAINERS)"
+    docker compose ps
     exit 1
 fi
 
