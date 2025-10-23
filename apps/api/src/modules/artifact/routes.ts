@@ -532,4 +532,122 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
+
+  // Create new version of artifact (upload new file) - SCD Type 2
+  fastify.post('/api/v1/artifact/:id/new-version', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['artifact'],
+      summary: 'Upload new version of artifact',
+      description: 'Creates a new version of an existing artifact with SCD Type 2 pattern',
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' }),
+      }),
+      body: Type.Object({
+        fileName: Type.String(),
+        contentType: Type.Optional(Type.String()),
+        fileSize: Type.Optional(Type.Number()),
+        descr: Type.Optional(Type.String()),
+        tags: Type.Optional(Type.Array(Type.String())),
+      }),
+      response: {
+        200: Type.Object({
+          oldArtifact: Type.Any(),
+          newArtifact: Type.Any(),
+          uploadUrl: Type.String(),
+          expiresIn: Type.Number(),
+        }),
+      },
+    },
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub || 'system';
+    const { id } = request.params as any;
+    const data = request.body as any;
+
+    try {
+      const currentResult = await db.execute(sql`SELECT * FROM app.d_artifact WHERE id = ${id} AND active_flag = true`);
+      if (!currentResult.length) return reply.status(404).send({ error: 'Not found' });
+
+      const current = currentResult[0] as any;
+      const rootId = current.parent_artifact_id || current.id;
+
+      const maxV = await db.execute(sql`SELECT COALESCE(MAX(version), 0) as max_version FROM app.d_artifact WHERE (id = ${rootId} OR parent_artifact_id = ${rootId})`);
+      const nextVersion = (maxV[0] as any).max_version + 1;
+
+      const uploadResult = await s3AttachmentService.generatePresignedUploadUrl({
+        tenantId: 'demo',
+        entityType: current.entity_type || 'artifact',
+        entityId: id,
+        fileName: data.fileName,
+        contentType: data.contentType,
+      });
+
+      const ext = data.fileName.split('.').pop() || '';
+      const timestamp = Date.now();
+      const slug = current.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-v' + nextVersion + '-' + timestamp;
+      const code = current.code + '-V' + nextVersion;
+
+      await db.execute(sql`UPDATE app.d_artifact SET active_flag = false, is_latest_version = false, to_ts = NOW(), updated_ts = NOW() WHERE id = ${id}`);
+
+      const newResult = await db.execute(sql`
+        INSERT INTO app.d_artifact (
+          slug, code, name, descr, tags, metadata, artifact_type, file_format, file_size_bytes,
+          entity_type, entity_id, bucket_name, object_key, visibility, security_classification,
+          parent_artifact_id, is_latest_version, from_ts, to_ts, active_flag, version
+        ) VALUES (
+          ${slug}, ${code}, ${current.name}, ${data.descr || current.descr},
+          ${data.tags ? JSON.stringify(data.tags) : current.tags}::jsonb,
+          ${JSON.stringify({ uploadedBy: userId, uploadedAt: new Date().toISOString(), previousVersion: current.id })}::jsonb,
+          ${current.artifact_type}, ${ext}, ${data.fileSize || current.file_size_bytes},
+          ${current.entity_type}, ${current.entity_id}, ${config.S3_ATTACHMENTS_BUCKET}, ${uploadResult.objectKey},
+          ${current.visibility}, ${current.security_classification}, ${rootId}, true, NOW(), NULL, true, ${nextVersion}
+        ) RETURNING *
+      `);
+
+      return { oldArtifact: current, newArtifact: newResult[0], uploadUrl: uploadResult.url, expiresIn: uploadResult.expiresIn };
+    } catch (error) {
+      fastify.log.error('Error creating version:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Get artifact version history
+  fastify.get('/api/v1/artifact/:id/versions', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['artifact'],
+      summary: 'Get version history',
+      params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
+      response: {
+        200: Type.Object({
+          data: Type.Array(Type.Any()),
+          rootArtifactId: Type.String(),
+          currentVersion: Type.Number(),
+        }),
+      },
+    },
+  }, async (request, reply) => {
+    const { id } = request.params as any;
+
+    try {
+      const result = await db.execute(sql`SELECT id, parent_artifact_id FROM app.d_artifact WHERE id = ${id}`);
+      if (!result.length) return reply.status(404).send({ error: 'Not found' });
+
+      const artifact = result[0] as any;
+      const rootId = artifact.parent_artifact_id || artifact.id;
+
+      const versions = await db.execute(sql`
+        SELECT * FROM app.d_artifact
+        WHERE id = ${rootId} OR parent_artifact_id = ${rootId}
+        ORDER BY version DESC, created_ts DESC
+      `);
+
+      const currentVer = versions.find((v: any) => v.active_flag === true);
+
+      return { data: versions, rootArtifactId: rootId, currentVersion: currentVer?.version || 1 };
+    } catch (error) {
+      fastify.log.error('Error fetching versions:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
 }

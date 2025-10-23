@@ -93,7 +93,11 @@
       "Bash(do echo \"=== Testing $category ===\")",
       "Bash(pnpm typecheck:*)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzYxMjM5MTY4LCJleHAiOjE3NjEzMjU1Njh9.si_N1i67eqTurRB91IRHtFToLfOSphocg6dsGHGBjrc\")",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(if [ -f /home/rabin/projects/pmo/docs/artifacts.md ])",
+      "Bash(then)",
+      "Bash(else)",
+      "Bash(fi)"
     ],
     "deny": [],
     "ask": [],
