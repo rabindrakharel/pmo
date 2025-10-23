@@ -58,14 +58,24 @@ resource "aws_iam_role_policy" "ec2_s3_policy" {
           "s3:PutObject",
           "s3:GetObject",
           "s3:DeleteObject",
-          "s3:ListBucket"
+          "s3:ListBucket",
+          "s3:GetObjectVersion",
+          "s3:DeleteObjectVersion",
+          "s3:GetBucketLocation",
+          "s3:GetBucketVersioning"
         ]
-        Resource = [
-          var.s3_bucket_arn,
-          "${var.s3_bucket_arn}/*",
-          var.s3_code_bucket_arn,
-          "${var.s3_code_bucket_arn}/*"
-        ]
+        Resource = concat(
+          [
+            var.s3_bucket_arn,
+            "${var.s3_bucket_arn}/*",
+            var.s3_code_bucket_arn,
+            "${var.s3_code_bucket_arn}/*"
+          ],
+          var.s3_attachments_bucket_arn != "" ? [
+            var.s3_attachments_bucket_arn,
+            "${var.s3_attachments_bucket_arn}/*"
+          ] : []
+        )
       }
     ]
   })

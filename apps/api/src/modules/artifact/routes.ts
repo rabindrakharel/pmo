@@ -2,42 +2,37 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import { s3AttachmentService } from '@/lib/s3-attachments.js';
+import { config } from '@/lib/config.js';
 
 // Artifact schemas aligned with actual app.d_artifact columns
 const ArtifactSchema = Type.Object({
   id: Type.String(),
+  slug: Type.String(),
+  code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
   internal_url: Type.Optional(Type.String()),
   shared_url: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Array(Type.String())),
-  attr: Type.Optional(Type.Any()),
-  artifact_code: Type.Optional(Type.String()),
-  artifact_type: Type.String(),
-  model_type: Type.Optional(Type.String()),
-  version: Type.Optional(Type.String()),
-  source_type: Type.String(),
-  storage: Type.Optional(Type.String()),
-  uri: Type.Optional(Type.String()),
-  checksum: Type.Optional(Type.String()),
+  tags: Type.Optional(Type.Any()),
+  metadata: Type.Optional(Type.Any()),
+  artifact_type: Type.Optional(Type.String()),
+  file_format: Type.Optional(Type.String()),
   file_size_bytes: Type.Optional(Type.Number()),
-  mime_type: Type.Optional(Type.String()),
-  confidentiality_level: Type.Optional(Type.String()),
-  approval_status: Type.Optional(Type.String()),
-  language: Type.Optional(Type.String()),
-  publication_date: Type.Optional(Type.String()),
-  expiry_date: Type.Optional(Type.String()),
-  review_date: Type.Optional(Type.String()),
-  author_employee_id: Type.Optional(Type.String()),
-  owner_employee_id: Type.Optional(Type.String()),
-  access_count: Type.Optional(Type.Number()),
-  download_count: Type.Optional(Type.Number()),
-  last_accessed_ts: Type.Optional(Type.String()),
-  active: Type.Boolean(),
+  entity_type: Type.Optional(Type.String()),
+  entity_id: Type.Optional(Type.String()),
+  bucket_name: Type.Optional(Type.String()),
+  object_key: Type.Optional(Type.String()),
+  visibility: Type.Optional(Type.String()),
+  security_classification: Type.Optional(Type.String()),
+  parent_artifact_id: Type.Optional(Type.String()),
+  is_latest_version: Type.Optional(Type.Boolean()),
+  active_flag: Type.Boolean(),
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
-  created: Type.String(),
-  updated: Type.String(),
+  created_ts: Type.String(),
+  updated_ts: Type.String(),
+  version: Type.Optional(Type.Number()),
 });
 
 const CreateArtifactSchema = Type.Object({
@@ -192,7 +187,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         INSERT INTO app.d_artifact (
           slug, code, name, descr, tags, metadata, artifact_type,
           file_format, file_size_bytes,
-          primary_entity_type, primary_entity_id,
+          entity_type, entity_id,
           visibility, security_classification,
           parent_artifact_id, is_latest_version,
           active_flag
@@ -206,8 +201,8 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           ${data.artifact_type},
           ${data.file_format || null},
           ${data.file_size_bytes || null},
-          ${data.primary_entity_type || null},
-          ${data.primary_entity_id || null},
+          ${data.entity_type || data.primary_entity_type || null},
+          ${data.entity_id || data.primary_entity_id || null},
           ${data.visibility || 'internal'},
           ${data.security_classification || 'general'},
           ${data.parent_artifact_id || null},
@@ -308,6 +303,232 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       return reply.status(204).send();
     } catch (error) {
       fastify.log.error('Error deleting artifact:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Upload artifact file (generates presigned URL and saves metadata)
+  fastify.post('/api/v1/artifact/upload', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['artifact'],
+      summary: 'Upload artifact file',
+      description: 'Generate presigned upload URL and create artifact metadata record',
+      body: Type.Object({
+        name: Type.String({ minLength: 1, description: 'Artifact name' }),
+        descr: Type.Optional(Type.String({ description: 'Description' })),
+        entityType: Type.String({ description: 'Entity type (e.g., "project", "task")' }),
+        entityId: Type.String({ format: 'uuid', description: 'Entity UUID' }),
+        fileName: Type.String({ description: 'File name with extension' }),
+        contentType: Type.Optional(Type.String({ description: 'MIME type' })),
+        fileSize: Type.Optional(Type.Number({ description: 'File size in bytes' })),
+        tags: Type.Optional(Type.Array(Type.String())),
+        visibility: Type.Optional(Type.String({ enum: ['public', 'internal', 'restricted', 'private'] })),
+        securityClassification: Type.Optional(Type.String({ enum: ['general', 'confidential', 'restricted'] })),
+      }),
+      response: {
+        200: Type.Object({
+          artifact: ArtifactSchema,
+          uploadUrl: Type.String({ description: 'Presigned URL for file upload' }),
+          expiresIn: Type.Number({ description: 'URL expiration time in seconds' }),
+        }),
+      },
+    },
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub || 'system';
+    const data = request.body as any;
+
+    try {
+      // Generate presigned upload URL
+      const uploadResult = await s3AttachmentService.generatePresignedUploadUrl({
+        tenantId: 'demo',
+        entityType: data.entityType,
+        entityId: data.entityId,
+        fileName: data.fileName,
+        contentType: data.contentType,
+      });
+
+      // Extract file extension from filename
+      const fileExtension = data.fileName.split('.').pop() || '';
+
+      // Generate unique slug and code
+      const slug = `${data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`;
+      const code = `ART-${Date.now()}`;
+
+      // Create artifact metadata record
+      const result = await db.execute(sql`
+        INSERT INTO app.d_artifact (
+          slug, code, name, descr, tags, metadata,
+          artifact_type, file_format, file_size_bytes,
+          entity_type, entity_id,
+          bucket_name, object_key,
+          visibility, security_classification,
+          is_latest_version, active_flag
+        ) VALUES (
+          ${slug},
+          ${code},
+          ${data.name},
+          ${data.descr || null},
+          ${JSON.stringify(data.tags || [])}::jsonb,
+          ${JSON.stringify({ uploadedBy: userId, uploadedAt: new Date().toISOString() })}::jsonb,
+          ${data.contentType?.startsWith('image/') ? 'image' : data.contentType?.startsWith('video/') ? 'video' : 'document'},
+          ${fileExtension},
+          ${data.fileSize || null},
+          ${data.entityType},
+          ${data.entityId},
+          ${config.S3_ATTACHMENTS_BUCKET},
+          ${uploadResult.objectKey},
+          ${data.visibility || 'internal'},
+          ${data.securityClassification || 'general'},
+          true,
+          true
+        ) RETURNING *
+      `);
+
+      fastify.log.info(`Artifact created: ${result[0].id}, S3 key: ${uploadResult.objectKey}`);
+
+      return {
+        artifact: result[0],
+        uploadUrl: uploadResult.url,
+        expiresIn: uploadResult.expiresIn,
+      };
+    } catch (error) {
+      fastify.log.error({ error }, 'Error creating artifact upload');
+      return reply.status(500).send({
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Download artifact file (generates presigned download URL)
+  fastify.get('/api/v1/artifact/:id/download', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['artifact'],
+      summary: 'Download artifact file',
+      description: 'Generate presigned download URL for artifact file',
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' }),
+      }),
+      response: {
+        200: Type.Object({
+          url: Type.String({ description: 'Presigned download URL' }),
+          objectKey: Type.String({ description: 'S3 object key' }),
+          fileName: Type.String({ description: 'Original file name' }),
+          fileSize: Type.Optional(Type.Number({ description: 'File size in bytes' })),
+          expiresIn: Type.Number({ description: 'URL expiration time in seconds' }),
+        }),
+      },
+    },
+  }, async (request, reply) => {
+    const { id } = request.params as any;
+
+    try {
+      // Get artifact metadata
+      const result = await db.execute(sql`
+        SELECT
+          id, name, file_format, file_size_bytes, object_key, bucket_name
+        FROM app.d_artifact
+        WHERE id = ${id} AND active_flag = true
+      `);
+
+      if (!result.length) {
+        return reply.status(404).send({ error: 'Artifact not found' });
+      }
+
+      const artifact = result[0];
+
+      if (!artifact.object_key) {
+        return reply.status(400).send({ error: 'Artifact has no associated file' });
+      }
+
+      // Generate presigned download URL
+      const downloadResult = await s3AttachmentService.generatePresignedDownloadUrl(
+        artifact.object_key as string
+      );
+
+      // Update download count (temporarily disabled - TODO: fix jsonb_set issue)
+      // await db.execute(sql`
+      //   UPDATE app.d_artifact
+      //   SET metadata = jsonb_set(
+      //     COALESCE(metadata, '{}'::jsonb),
+      //     '{downloadCount}',
+      //     to_jsonb(COALESCE((metadata->>'downloadCount')::int, 0) + 1)
+      //   ),
+      //   updated_ts = NOW()
+      //   WHERE id = ${id}
+      // `);
+
+      fastify.log.info(`Download URL generated for artifact: ${id}`);
+
+      return {
+        url: downloadResult.url,
+        objectKey: downloadResult.objectKey,
+        fileName: `${artifact.name}.${artifact.file_format || 'bin'}`,
+        fileSize: artifact.file_size_bytes,
+        expiresIn: downloadResult.expiresIn,
+      };
+    } catch (error) {
+      fastify.log.error({ error }, 'Error generating download URL');
+      return reply.status(500).send({
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // List artifacts by entity
+  fastify.get('/api/v1/artifact/entity/:entityType/:entityId', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['artifact'],
+      summary: 'List artifacts by entity',
+      description: 'Get all artifacts linked to a specific entity',
+      params: Type.Object({
+        entityType: Type.String({ description: 'Entity type (e.g., "project", "task")' }),
+        entityId: Type.String({ format: 'uuid', description: 'Entity UUID' }),
+      }),
+      querystring: Type.Object({
+        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 50 })),
+        offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
+      }),
+      response: {
+        200: Type.Object({
+          data: Type.Array(ArtifactSchema),
+          total: Type.Integer(),
+        }),
+      },
+    },
+  }, async (request, reply) => {
+    const { entityType, entityId } = request.params as any;
+    const { limit = 50, offset = 0 } = request.query as any;
+
+    try {
+      // Get total count
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM app.d_artifact
+        WHERE entity_type = ${entityType}
+          AND entity_id = ${entityId}
+          AND active_flag = true
+      `);
+      const total = Number(countResult[0]?.count || 0);
+
+      // Get artifacts
+      const rows = await db.execute(sql`
+        SELECT *
+        FROM app.d_artifact
+        WHERE entity_type = ${entityType}
+          AND entity_id = ${entityId}
+          AND active_flag = true
+        ORDER BY created_ts DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      return { data: rows, total };
+    } catch (error) {
+      fastify.log.error('Error listing artifacts by entity:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

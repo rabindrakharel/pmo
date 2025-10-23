@@ -47,7 +47,7 @@ export const FIELD_TO_SETTING_MAP: Record<string, string> = {
 
   // Business fields
   'level_id': 'business_level', // Context-dependent
-  'level_name': 'business_level',
+  'name': 'business_level',
   'business_level_id': 'business_level',
 
   // Office fields
@@ -172,7 +172,7 @@ export async function loadSettingOptions(
           label: name || String(item.id),
           metadata: {
             level_id: id,
-            level_descr: descr,
+            descr: descr,
             sort_order: item.sort_order,
             active_flag: item.active_flag,
           }

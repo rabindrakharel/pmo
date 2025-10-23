@@ -78,12 +78,23 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
         }
       }
 
+      // Extract assignee_employee_ids if present (for task entity)
+      const assigneeIds = formData.assignee_employee_ids;
+      const dataToCreate = { ...formData };
+      delete dataToCreate.assignee_employee_ids;
+
       // Type-safe API call using APIFactory
       const api = APIFactory.getAPI(entityType);
-      const created = await api.create(formData);
+      const created = await api.create(dataToCreate);
+
+      const createdId = created.id || created.data?.id;
+
+      // Handle assignees separately via linkage API (only for task entity)
+      if (entityType === 'task' && createdId && assigneeIds && assigneeIds.length > 0) {
+        await createTaskAssignees(createdId, assigneeIds);
+      }
 
       // Navigate to the detail page
-      const createdId = created.id || created.data?.id;
       if (createdId) {
         navigate(`/${entityType}/${createdId}`);
       } else {
@@ -94,6 +105,59 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
       setError(err instanceof Error ? err.message : 'Failed to create entity');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Helper function to create task assignees via linkage API
+  const createTaskAssignees = async (taskId: string, assigneeIds: string[]) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        console.error('No auth token found');
+        return;
+      }
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+      // Add assignees via linkage API
+      const results = await Promise.all(
+        assigneeIds.map(async (employeeId) => {
+          const response = await fetch(`${apiUrl}/api/v1/linkage`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              parent_entity_type: 'task',
+              parent_entity_id: taskId,
+              child_entity_type: 'employee',
+              child_entity_id: employeeId,
+              relationship_type: 'assigned_to'
+            })
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Failed to add assignee ${employeeId}:`, response.status, errorText);
+            return false;
+          }
+
+          const result = await response.json();
+          console.log('Assignee added:', result);
+          return true;
+        })
+      );
+
+      const successCount = results.filter(Boolean).length;
+      console.log(`Added ${successCount}/${assigneeIds.length} assignees to task ${taskId}`);
+
+      if (successCount < assigneeIds.length) {
+        console.warn('Some assignees failed to be added');
+      }
+    } catch (error) {
+      console.error('Failed to create task assignees:', error);
+      throw error;
     }
   };
 

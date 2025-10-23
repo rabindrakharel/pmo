@@ -57,6 +57,18 @@ variable "s3_code_bucket_name" {
   type        = string
 }
 
+variable "s3_attachments_bucket_arn" {
+  description = "S3 attachments bucket ARN for IAM policy"
+  type        = string
+  default     = ""
+}
+
+variable "s3_attachments_bucket_name" {
+  description = "S3 attachments bucket name"
+  type        = string
+  default     = ""
+}
+
 variable "db_host" {
   description = "Database host"
   type        = string

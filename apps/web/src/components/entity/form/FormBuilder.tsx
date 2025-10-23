@@ -67,6 +67,10 @@ export interface BuilderField {
   // Percentage specific options
   percentageMin?: number;
   percentageMax?: number;
+  // Signature specific options
+  signatureWidth?: number;
+  signatureHeight?: number;
+  isInitials?: boolean;
   // Menu Button specific options
   menuButtonType?: 'single' | 'dropdown';
   menuButtonItems?: Array<{
@@ -144,54 +148,54 @@ export const getFieldIcon = (type: FieldType) => {
 export const DATALABEL_TABLE_COLUMNS: Record<string, { value: string[], display: string[] }> = {
   // Customer-related tables (use cust_ prefix per DB schema)
   cust_service: {
-    value: ['level_id', 'level_name', 'slug'],
-    display: ['level_name', 'slug', 'level_descr']
+    value: ['level_id', 'name', 'slug'],
+    display: ['name', 'slug', 'descr']
   },
   cust_status: {
-    value: ['level_id', 'level_name'],
-    display: ['level_name', 'level_descr']
+    value: ['level_id', 'name'],
+    display: ['name', 'descr']
   },
   cust_level: {
-    value: ['id', 'level_id', 'level_name', 'slug'],
-    display: ['level_name', 'slug']
+    value: ['id', 'level_id', 'name', 'slug'],
+    display: ['name', 'slug']
   },
   customer_tier: {
-    value: ['level_id', 'level_name'],
-    display: ['level_name', 'level_descr']
+    value: ['level_id', 'name'],
+    display: ['name', 'descr']
   },
 
   // Task-related tables
   task_stage: {
-    value: ['level_id', 'level_name'],
-    display: ['level_name', 'level_descr']
+    value: ['level_id', 'name'],
+    display: ['name', 'descr']
   },
   task_priority: {
-    value: ['level_id', 'level_name'],
-    display: ['level_name', 'level_descr']
+    value: ['level_id', 'name'],
+    display: ['name', 'descr']
   },
   task_update_type: {
-    value: ['level_id', 'level_name'],
-    display: ['level_name', 'level_descr']
+    value: ['level_id', 'name'],
+    display: ['name', 'descr']
   },
 
   // Project-related tables
   project_stage: {
-    value: ['level_id', 'level_name'],
-    display: ['level_name', 'level_descr']
+    value: ['level_id', 'name'],
+    display: ['name', 'descr']
   },
 
   // Organizational hierarchy tables
   business_level: {
-    value: ['level_id', 'level_name'],
-    display: ['level_name', 'level_descr']
+    value: ['level_id', 'name'],
+    display: ['name', 'descr']
   },
   office_level: {
-    value: ['level_id', 'level_name'],
-    display: ['level_name', 'level_descr']
+    value: ['level_id', 'name'],
+    display: ['name', 'descr']
   },
   position_level: {
-    value: ['id', 'level_id', 'level_name', 'slug'],
-    display: ['level_name', 'slug']
+    value: ['id', 'level_id', 'name', 'slug'],
+    display: ['name', 'slug']
   },
 
   // Sales/CRM tables
@@ -200,72 +204,131 @@ export const DATALABEL_TABLE_COLUMNS: Record<string, { value: string[], display:
     display: ['stage_name', 'stage_descr']
   },
   industry_sector: {
-    value: ['level_id', 'level_name'],
-    display: ['level_name', 'level_descr']
+    value: ['level_id', 'name'],
+    display: ['name', 'descr']
   },
   acquisition_channel: {
-    value: ['level_id', 'level_name'],
-    display: ['level_name', 'level_descr']
+    value: ['level_id', 'name'],
+    display: ['name', 'descr']
   },
 
   // Form/Wiki status tables
   form_submission_status: {
-    value: ['level_id', 'level_name'],
-    display: ['level_name', 'level_descr']
+    value: ['level_id', 'name'],
+    display: ['name', 'descr']
   },
   form_approval_status: {
-    value: ['level_id', 'level_name'],
-    display: ['level_name', 'level_descr']
+    value: ['level_id', 'name'],
+    display: ['name', 'descr']
   },
   wiki_publication_status: {
-    value: ['level_id', 'level_name'],
-    display: ['level_name', 'level_descr']
+    value: ['level_id', 'name'],
+    display: ['name', 'descr']
   }
 };
 
 // Signature Canvas Component
-export function SignatureCanvas({ width = 300, height = 120, isInitials = false }: { width?: number; height?: number; isInitials?: boolean }) {
+export function SignatureCanvas({
+  width = 400,
+  height = 200,
+  isInitials = false,
+  value,
+  onChange
+}: {
+  width?: number;
+  height?: number;
+  isInitials?: boolean;
+  value?: string;
+  onChange?: (dataUrl: string) => void;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
+  // Initialize canvas context
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    
+
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
   }, []);
 
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Load existing signature from value
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !value) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = new Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+    };
+    img.src = value;
+  }, [value]);
+
+  const getCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+
+    if ('touches' in e) {
+      // Touch event
+      const touch = e.touches[0];
+      return {
+        x: touch.clientX - rect.left,
+        y: touch.clientY - rect.top
+      };
+    } else {
+      // Mouse event
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+  };
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
     setIsDrawing(true);
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    
+
+    const { x, y } = getCoordinates(e);
     ctx.beginPath();
-    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.moveTo(x, y);
   };
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
     if (!isDrawing) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    
-    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+
+    const { x, y } = getCoordinates(e);
+    ctx.lineTo(x, y);
     ctx.stroke();
   };
 
   const stopDrawing = () => {
+    if (!isDrawing) return;
     setIsDrawing(false);
+
+    // Save canvas data as base64 and notify parent
+    const canvas = canvasRef.current;
+    if (canvas && onChange) {
+      const dataUrl = canvas.toDataURL('image/png');
+      onChange(dataUrl);
+    }
   };
 
   const clearCanvas = () => {
@@ -274,6 +337,11 @@ export function SignatureCanvas({ width = 300, height = 120, isInitials = false 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Notify parent that signature was cleared
+    if (onChange) {
+      onChange('');
+    }
   };
 
   return (
@@ -286,7 +354,10 @@ export function SignatureCanvas({ width = 300, height = 120, isInitials = false 
         onMouseMove={draw}
         onMouseUp={stopDrawing}
         onMouseLeave={stopDrawing}
-        className="cursor-crosshair"
+        onTouchStart={startDrawing}
+        onTouchMove={draw}
+        onTouchEnd={stopDrawing}
+        className="cursor-crosshair w-full"
         style={{ touchAction: 'none' }}
       />
       <button

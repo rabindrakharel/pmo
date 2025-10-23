@@ -79,8 +79,8 @@
 
 CREATE TABLE app.setting_datalabel_task_stage (
     level_id integer PRIMARY KEY,
-    level_name varchar(50) NOT NULL UNIQUE,
-    level_descr text,
+    name varchar(50) NOT NULL UNIQUE,
+    descr text,
     sort_order integer,
     parent_id integer, -- Enables graph-like flow relationships between stages
     active_flag boolean DEFAULT true,
@@ -97,7 +97,7 @@ CREATE INDEX idx_task_stage_parent ON app.setting_datalabel_task_stage(parent_id
 -- Task workflow stages with parent_id relationships showing typical flow graph
 -- parent_id represents the most common preceding stage (null for initial states)
 
-INSERT INTO app.setting_datalabel_task_stage (level_id, level_name, level_descr, sort_order, parent_id) VALUES
+INSERT INTO app.setting_datalabel_task_stage (level_id, name, descr, sort_order, parent_id) VALUES
 (0, 'Backlog', 'Task identified but not started. Awaiting prioritization and sprint assignment.', 1, NULL),
 (1, 'To Do', 'Task ready to be started. Assigned to current sprint and ready for work.', 2, 0),
 (2, 'In Progress', 'Task currently being worked on. Active development or execution phase.', 3, 1),

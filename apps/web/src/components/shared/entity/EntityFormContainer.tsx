@@ -6,6 +6,9 @@ import {
 } from '../../../lib/settingsLoader';
 import { SequentialStateVisualizer } from './SequentialStateVisualizer';
 import { isSequentialStateField } from '../../../lib/sequentialStateConfig';
+import { renderEmployeeNames } from '../../../lib/entityConfig';
+import { entityOptionsApi } from '../../../lib/api';
+import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 
 /**
  * EntityFormContainer
@@ -36,37 +39,63 @@ export function EntityFormContainer({
   mode = 'edit'
 }: EntityFormContainerProps) {
   const [settingOptions, setSettingOptions] = useState<Map<string, SettingOption[]>>(new Map());
+  const [entityOptions, setEntityOptions] = useState<Map<string, SettingOption[]>>(new Map());
 
   // Load setting options on mount
   useEffect(() => {
-    const loadAllSettingOptions = async () => {
+    const loadAllOptions = async () => {
       if (!config) return;
 
-      const optionsMap = new Map<string, SettingOption[]>();
+      const settingsMap = new Map<string, SettingOption[]>();
+      const entitiesMap = new Map<string, SettingOption[]>();
 
       // Find all fields that need dynamic settings
       const fieldsNeedingSettings = config.fields.filter(
-        field => field.loadOptionsFromSettings && field.type === 'select'
+        field => field.loadOptionsFromSettings && (field.type === 'select' || field.type === 'multiselect')
       );
 
-      // Load options for each field
+      // Find all fields that need entity options
+      const fieldsNeedingEntityOptions = config.fields.filter(
+        field => field.loadOptionsFromEntity && (field.type === 'select' || field.type === 'multiselect')
+      );
+
+      // Load settings options
       await Promise.all(
         fieldsNeedingSettings.map(async (field) => {
           try {
             const options = await loadFieldOptions(field.key);
             if (options.length > 0) {
-              optionsMap.set(field.key, options);
+              settingsMap.set(field.key, options);
             }
           } catch (error) {
-            console.error(`Failed to load options for ${field.key}:`, error);
+            console.error(`Failed to load settings options for ${field.key}:`, error);
           }
         })
       );
 
-      setSettingOptions(optionsMap);
+      // Load entity options
+      await Promise.all(
+        fieldsNeedingEntityOptions.map(async (field) => {
+          try {
+            const response = await entityOptionsApi.getOptions(field.loadOptionsFromEntity!, { limit: 500 });
+            const options = response.data.map((item: any) => ({
+              value: item.id,
+              label: item.name
+            }));
+            if (options.length > 0) {
+              entitiesMap.set(field.key, options);
+            }
+          } catch (error) {
+            console.error(`Failed to load entity options for ${field.key}:`, error);
+          }
+        })
+      );
+
+      setSettingOptions(settingsMap);
+      setEntityOptions(entitiesMap);
     };
 
-    loadAllSettingOptions();
+    loadAllOptions();
   }, [config]);
 
   // Render field based on configuration
@@ -74,16 +103,25 @@ export function EntityFormContainer({
     const value = data[field.key];
 
     // Check if this is a sequential state field
-    const hasDynamicOptions = field.loadOptionsFromSettings && settingOptions.has(field.key);
-    const options = hasDynamicOptions
+    const hasSettingOptions = field.loadOptionsFromSettings && settingOptions.has(field.key);
+    const hasEntityOptions = field.loadOptionsFromEntity && entityOptions.has(field.key);
+    const options = hasEntityOptions
+      ? entityOptions.get(field.key)!
+      : hasSettingOptions
       ? settingOptions.get(field.key)!
       : field.options || [];
     const isSequentialField = field.type === 'select'
-      && isSequentialStateField(field.key, hasDynamicOptions)
+      && isSequentialStateField(field.key, hasSettingOptions)
       && options.length > 0;
 
     if (!isEditing) {
       // Display mode
+
+      // Special handling for employee assignment fields
+      if (field.key === 'assignee_employee_ids') {
+        return renderEmployeeNames(value, data);
+      }
+
       if (field.type === 'date' && value) {
         return new Date(value).toLocaleDateString();
       }
@@ -213,8 +251,7 @@ export function EntityFormContainer({
             disabled={field.disabled || field.readonly}
           />
         );
-      case 'select':
-      case 'multiselect': {
+      case 'select': {
         // Use sequential state visualizer for workflow stages/funnels in edit mode
         if (isSequentialField) {
           return (
@@ -254,6 +291,22 @@ export function EntityFormContainer({
               </option>
             ))}
           </select>
+        );
+      }
+      case 'multiselect': {
+        // Parse current value as array
+        const selectedValues = Array.isArray(value) ? value : (value ? [value] : []);
+
+        // Use SearchableMultiSelect component for better UX
+        return (
+          <SearchableMultiSelect
+            options={options}
+            value={selectedValues}
+            onChange={(newValues) => onChange(field.key, newValues)}
+            placeholder={field.placeholder || 'Select...'}
+            disabled={field.disabled}
+            readonly={field.readonly}
+          />
         );
       }
       case 'date':

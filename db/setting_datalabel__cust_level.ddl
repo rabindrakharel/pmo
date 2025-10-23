@@ -57,7 +57,7 @@ CREATE TABLE app.setting_datalabel_cust_level (
 
   -- Standardized setting fields
   level_id int NOT NULL,
-  level_name text NOT NULL,
+  name text NOT NULL,
   slug text NOT NULL,
   is_root boolean NOT NULL DEFAULT false,
   is_leaf boolean NOT NULL DEFAULT false,
@@ -82,7 +82,7 @@ CREATE TABLE app.setting_datalabel_cust_level (
 -- Comprehensive customer organization authority structure for engagement management
 
 INSERT INTO app.setting_datalabel_cust_level (
-  level_id, level_name, slug, is_root, is_leaf, authority_description,
+  level_id, name, slug, is_root, is_leaf, authority_description,
   typical_responsibilities, escalation_protocols, approval_thresholds
 ) VALUES
 (0, 'CEO', 'ceo', true, false,

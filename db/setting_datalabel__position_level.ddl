@@ -67,7 +67,7 @@ CREATE TABLE app.setting_datalabel_position_level (
 
   -- Standardized setting fields
   level_id int NOT NULL,
-  level_name text NOT NULL,
+  name text NOT NULL,
   slug text NOT NULL,
   is_root boolean NOT NULL DEFAULT false,
   is_leaf boolean NOT NULL DEFAULT false,
@@ -92,7 +92,7 @@ CREATE TABLE app.setting_datalabel_position_level (
 -- Comprehensive organizational structure for internal hierarchy management
 
 INSERT INTO app.setting_datalabel_position_level (
-  level_id, level_name, slug, is_root, is_leaf, authority_description,
+  level_id, name, slug, is_root, is_leaf, authority_description,
   typical_span_of_control, career_progression, compensation_guidance
 ) VALUES
 (0, 'CEO/President', 'ceo-president', true, false,

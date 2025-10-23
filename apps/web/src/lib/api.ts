@@ -807,6 +807,50 @@ export const shipmentApi = {
   },
 };
 
+// Entity Options API - Universal options for dropdowns/selects
+export const entityOptionsApi = {
+  /**
+   * Get list of {id, name} pairs for any entity type
+   * Used for populating dropdowns and selection fields
+   */
+  async getOptions(entityType: string, params?: { search?: string; limit?: number; active_only?: boolean }) {
+    const response = await apiClient.get(`/api/v1/entity/${entityType}/options`, { params });
+    return response.data;
+  },
+
+  /**
+   * Get names for specific entity IDs (bulk lookup)
+   */
+  async getBulkOptions(entityType: string, ids: string[]) {
+    const response = await apiClient.post(`/api/v1/entity/${entityType}/options/bulk`, { ids });
+    return response.data;
+  },
+
+  /**
+   * Get all child entities for a given parent entity
+   *
+   * This is a universal API factory that returns all child entities grouped by type.
+   * Uses d_entity_id_map table to find relationships.
+   *
+   * @param parentType - Parent entity type (e.g., 'task', 'project')
+   * @param parentId - Parent entity UUID
+   * @param params - Optional parameters (active_only)
+   *
+   * @returns Array of objects with entity type as key, array of {id, name} as value
+   *
+   * @example
+   * ```typescript
+   * // Get all children for a task
+   * const children = await entityOptionsApi.getEntitiesByParent('task', taskId);
+   * // Returns: [{"employee": [{"id": "uuid", "name": "John Doe"}]}]
+   * ```
+   */
+  async getEntitiesByParent(parentType: string, parentId: string, params?: { active_only?: boolean }) {
+    const response = await apiClient.get(`/api/v1/entity/${parentType}/${parentId}/children`, { params });
+    return response.data;
+  },
+};
+
 // ========================================
 // API FACTORY REGISTRATION
 // ========================================

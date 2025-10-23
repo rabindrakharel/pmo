@@ -22,9 +22,6 @@ const TaskSchema = Type.Object({
   tags: Type.Any(), // jsonb
   metadata: Type.Any(), // jsonb
 
-  // Assignment
-  assignee_employee_ids: Type.Optional(Type.Any()), // uuid[]
-
   // Status and priority
   stage: Type.Optional(Type.String()),
   priority_level: Type.Optional(Type.String()),
@@ -33,10 +30,6 @@ const TaskSchema = Type.Object({
   estimated_hours: Type.Optional(Type.Number()),
   actual_hours: Type.Optional(Type.Number()),
   story_points: Type.Optional(Type.Number()),
-
-  // Task hierarchy
-  parent_task_id: Type.Optional(Type.String()),
-  dependency_task_ids: Type.Optional(Type.Any()), // uuid[]
 
   // Temporal fields
   from_ts: Type.String(),
@@ -59,9 +52,6 @@ const CreateTaskSchema = Type.Object({
   tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String(), Type.Any()])),
   metadata: Type.Optional(Type.Union([Type.Object({}), Type.String(), Type.Any()])),
 
-  // Assignment
-  assignee_employee_ids: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
-
   // Status and priority
   stage: Type.Optional(Type.String()),
   priority_level: Type.Optional(Type.String()),
@@ -70,10 +60,6 @@ const CreateTaskSchema = Type.Object({
   estimated_hours: Type.Optional(Type.Number()),
   actual_hours: Type.Optional(Type.Number()),
   story_points: Type.Optional(Type.Number()),
-
-  // Task hierarchy
-  parent_task_id: Type.Optional(Type.String({ format: 'uuid' })),
-  dependency_task_ids: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
 });
 
 const UpdateTaskSchema = Type.Partial(CreateTaskSchema);
@@ -189,20 +175,45 @@ export async function taskRoutes(fastify: FastifyInstance) {
       `);
       const total = Number(countResult[0]?.total || 0);
 
-      // Get paginated tasks
+      // Get paginated tasks with assignee names from entity_id_map
       const tasks = await db.execute(sql`
         SELECT
           t.id, t.slug, t.code, t.name, t.descr,
           t.internal_url, t.shared_url,
           COALESCE(t.tags, '[]'::jsonb) as tags,
           COALESCE(t.metadata, '{}'::jsonb) as metadata,
-          t.assignee_employee_ids,
+          -- Get assignee IDs from entity_id_map
+          COALESCE(
+            (
+              SELECT json_agg(map.child_entity_id::uuid ORDER BY e.name)
+              FROM app.d_entity_id_map map
+              JOIN app.d_employee e ON e.id::text = map.child_entity_id
+              WHERE map.parent_entity_type = 'task'
+                AND map.parent_entity_id = t.id::text
+                AND map.child_entity_type = 'employee'
+                AND map.relationship_type = 'assigned_to'
+                AND map.active_flag = true
+            ),
+            '[]'::json
+          ) as assignee_employee_ids,
+          -- Get assignee names from entity_id_map
+          COALESCE(
+            (
+              SELECT json_agg(e.name ORDER BY e.name)
+              FROM app.d_entity_id_map map
+              JOIN app.d_employee e ON e.id::text = map.child_entity_id
+              WHERE map.parent_entity_type = 'task'
+                AND map.parent_entity_id = t.id::text
+                AND map.child_entity_type = 'employee'
+                AND map.relationship_type = 'assigned_to'
+                AND map.active_flag = true
+            ),
+            '[]'::json
+          ) as assignee_employee_names,
           t.stage,
           t.priority_level,
           t.estimated_hours, t.actual_hours,
           t.story_points,
-          t.parent_task_id,
-          t.dependency_task_ids,
           -- Extract IDs from metadata JSONB
           (t.metadata->>'project_id')::text as project_id,
           (t.metadata->>'business_id')::text as business_id,
@@ -293,25 +304,51 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Get single task
+      // Get single task with assignee names from entity_id_map
       const task = await db.execute(sql`
         SELECT
-          id, slug, code, name, descr,
-          internal_url, shared_url,
-          COALESCE(tags, '[]'::jsonb) as tags,
-          COALESCE(metadata, '{}'::jsonb) as metadata,
-          assignee_employee_ids,
-          stage, priority_level,
-          estimated_hours, actual_hours, story_points,
-          parent_task_id, dependency_task_ids,
+          t.id, t.slug, t.code, t.name, t.descr,
+          t.internal_url, t.shared_url,
+          COALESCE(t.tags, '[]'::jsonb) as tags,
+          COALESCE(t.metadata, '{}'::jsonb) as metadata,
+          -- Get assignee IDs from entity_id_map
+          COALESCE(
+            (
+              SELECT json_agg(map.child_entity_id::uuid ORDER BY e.name)
+              FROM app.d_entity_id_map map
+              JOIN app.d_employee e ON e.id::text = map.child_entity_id
+              WHERE map.parent_entity_type = 'task'
+                AND map.parent_entity_id = t.id::text
+                AND map.child_entity_type = 'employee'
+                AND map.relationship_type = 'assigned_to'
+                AND map.active_flag = true
+            ),
+            '[]'::json
+          ) as assignee_employee_ids,
+          -- Get assignee names from entity_id_map
+          COALESCE(
+            (
+              SELECT json_agg(e.name ORDER BY e.name)
+              FROM app.d_entity_id_map map
+              JOIN app.d_employee e ON e.id::text = map.child_entity_id
+              WHERE map.parent_entity_type = 'task'
+                AND map.parent_entity_id = t.id::text
+                AND map.child_entity_type = 'employee'
+                AND map.relationship_type = 'assigned_to'
+                AND map.active_flag = true
+            ),
+            '[]'::json
+          ) as assignee_employee_names,
+          t.stage, t.priority_level,
+          t.estimated_hours, t.actual_hours, t.story_points,
           -- Extract IDs from metadata JSONB
-          (metadata->>'project_id')::text as project_id,
-          (metadata->>'business_id')::text as business_id,
-          (metadata->>'office_id')::text as office_id,
-          from_ts, to_ts, active_flag,
-          created_ts, updated_ts, version
-        FROM app.d_task
-        WHERE id = ${id}
+          (t.metadata->>'project_id')::text as project_id,
+          (t.metadata->>'business_id')::text as business_id,
+          (t.metadata->>'office_id')::text as office_id,
+          t.from_ts, t.to_ts, t.active_flag,
+          t.created_ts, t.updated_ts, t.version
+        FROM app.d_task t
+        WHERE t.id = ${id}
       `);
 
       if (task.length === 0) {
@@ -386,10 +423,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const result = await db.execute(sql`
         INSERT INTO app.d_task (
           slug, code, name, descr, tags, metadata,
-          assignee_employee_ids,
           stage, priority_level,
           estimated_hours, actual_hours, story_points,
-          parent_task_id, dependency_task_ids,
           active_flag
         )
         VALUES (
@@ -399,14 +434,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
           ${data.descr || null},
           ${data.tags ? JSON.stringify(data.tags) : '[]'}::jsonb,
           ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
-          ${data.assignee_employee_ids ? `{${data.assignee_employee_ids.join(',')}}` : '{}'}::uuid[],
           ${data.stage || null},
           ${data.priority_level || 'medium'},
           ${data.estimated_hours || null},
           ${data.actual_hours || 0},
           ${data.story_points || null},
-          ${data.parent_task_id || null},
-          ${data.dependency_task_ids ? `{${data.dependency_task_ids.join(',')}}` : '{}'}::uuid[],
           true
         )
         RETURNING *
@@ -428,6 +460,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
             entity_code = EXCLUDED.entity_code,
             updated_ts = NOW()
       `);
+
+      // NOTE: Assignees should be managed separately via the Linkage API
+      // POST /api/v1/linkage with parent_entity_type='task', child_entity_type='employee'
 
       const userPermissions = {
         canSeePII: true,
@@ -487,7 +522,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const existing = await db.execute(sql`
         SELECT id FROM app.d_task WHERE id = ${id}
       `);
-      
+
       if (existing.length === 0) {
         return reply.status(404).send({ error: 'Task not found' });
       }
@@ -503,14 +538,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
       if (data.shared_url !== undefined) updateFields.push(sql`shared_url = ${data.shared_url}`);
       if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
       if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
-      if (data.assignee_employee_ids !== undefined) updateFields.push(sql`assignee_employee_ids = ${data.assignee_employee_ids ? `{${data.assignee_employee_ids.join(',')}}` : '{}'}::uuid[]`);
       if (data.stage !== undefined) updateFields.push(sql`stage = ${data.stage}`);
       if (data.priority_level !== undefined) updateFields.push(sql`priority_level = ${data.priority_level}`);
       if (data.estimated_hours !== undefined) updateFields.push(sql`estimated_hours = ${data.estimated_hours}`);
       if (data.actual_hours !== undefined) updateFields.push(sql`actual_hours = ${data.actual_hours}`);
       if (data.story_points !== undefined) updateFields.push(sql`story_points = ${data.story_points}`);
-      if (data.parent_task_id !== undefined) updateFields.push(sql`parent_task_id = ${data.parent_task_id}`);
-      if (data.dependency_task_ids !== undefined) updateFields.push(sql`dependency_task_ids = ${data.dependency_task_ids ? `{${data.dependency_task_ids.join(',')}}` : '{}'}::uuid[]`);
       if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
 
       if (updateFields.length === 0) {
@@ -543,6 +575,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
           WHERE entity_type = 'task' AND entity_id = ${id}::uuid
         `);
       }
+
+      // NOTE: Assignees should be managed separately via the Linkage API
+      // POST /api/v1/linkage to add assignees
+      // DELETE /api/v1/linkage/:id to remove assignees
 
       const userPermissions = {
         canSeePII: true,
@@ -1081,6 +1117,86 @@ export async function taskRoutes(fastify: FastifyInstance) {
       };
     } catch (error) {
       fastify.log.error('Error fetching task activity:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ========================================
+  // TASK ASSIGNEES (via entity_id_map)
+  // ========================================
+
+  // Get task assignees
+  fastify.get('/api/v1/task/:id/assignees', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' }),
+      }),
+      response: {
+        200: Type.Object({
+          success: Type.Boolean(),
+          data: Type.Array(Type.Object({
+            id: Type.String(),
+            name: Type.String(),
+            email: Type.Optional(Type.String()),
+            linkage_id: Type.String(),
+          })),
+        }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    // Check RBAC permission to view task
+    const taskAccess = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = 'task'
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND 0 = ANY(rbac.permission)
+    `);
+
+    if (taskAccess.length === 0) {
+      return reply.status(403).send({ error: 'Insufficient permissions to view this task' });
+    }
+
+    try {
+      // Get assignees from entity_id_map
+      const assignees = await db.execute(sql`
+        SELECT
+          e.id,
+          e.name,
+          e.email,
+          map.id as linkage_id
+        FROM app.d_entity_id_map map
+        INNER JOIN app.d_employee e ON e.id::text = map.child_entity_id
+        WHERE map.parent_entity_type = 'task'
+          AND map.parent_entity_id = ${id}
+          AND map.child_entity_type = 'employee'
+          AND map.relationship_type = 'assigned_to'
+          AND map.active_flag = true
+        ORDER BY e.name
+      `);
+
+      return reply.send({
+        success: true,
+        data: assignees.map(a => ({
+          id: String(a.id),
+          name: String(a.name),
+          email: a.email ? String(a.email) : undefined,
+          linkage_id: String(a.linkage_id),
+        })),
+      });
+    } catch (error) {
+      fastify.log.error('Error fetching task assignees:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

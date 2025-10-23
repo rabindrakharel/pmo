@@ -125,10 +125,10 @@
 --   =====================================
 --   business (biz)    → project
 --   project           → task, artifact, wiki, form
---   office            → task, artifact, wiki, form
+--   office            → task, artifact, wiki, form, business
 --   client            → project, artifact, form
 --   role              → employee
---   task              → form, artifact
+--   task              → form, artifact, employee (assignees)
 --   form              → artifact
 --
 -- WHY NO FOREIGN KEYS?
@@ -217,3 +217,16 @@ FROM app.d_form_head f
 WHERE f.primary_entity_id IS NOT NULL
   AND f.primary_entity_type IS NOT NULL
   AND f.active_flag = true;
+
+-- Task → Employee relationships (Task Assignees)
+-- All tasks assigned to James Miller
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+VALUES
+    ('task', 'a1111111-1111-1111-1111-111111111111', 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 'assigned_to'),
+    ('task', 'a2222222-2222-2222-2222-222222222222', 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 'assigned_to'),
+    ('task', 'b1111111-1111-1111-1111-111111111111', 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 'assigned_to'),
+    ('task', 'b2222222-2222-2222-2222-222222222222', 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 'assigned_to'),
+    ('task', 'c1111111-1111-1111-1111-111111111111', 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 'assigned_to'),
+    ('task', 'd1111111-1111-1111-1111-111111111111', 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 'assigned_to'),
+    ('task', 'e1111111-1111-1111-1111-111111111111', 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 'assigned_to'),
+    ('task', 'f1111111-1111-1111-1111-111111111111', 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 'assigned_to');

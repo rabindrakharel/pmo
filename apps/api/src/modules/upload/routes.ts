@@ -1,9 +1,13 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { uploadFile } from '../../lib/storage.js';
+import { s3AttachmentService } from '../../lib/s3-attachments.js';
+import { randomUUID } from 'crypto';
 
 /**
  * Upload Routes
- * Handles file uploads to MinIO/S3 storage
+ * Handles file uploads to S3 storage using unified S3AttachmentService
+ *
+ * DEPRECATED: Consider using /api/v1/s3-backend endpoints directly for new code
+ * This module is maintained for backward compatibility
  */
 export async function uploadRoutes(fastify: FastifyInstance) {
   /**
@@ -56,10 +60,45 @@ export async function uploadRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Upload to storage
-        const result = await uploadFile(buffer, data.filename, data.mimetype);
+        // Generate unique entity ID for this upload
+        const uploadId = randomUUID();
 
-        return reply.send(result);
+        // Upload to S3 using unified S3AttachmentService
+        const uploadResult = await s3AttachmentService.generatePresignedUploadUrl({
+          tenantId: 'demo',
+          entityType: 'upload',
+          entityId: uploadId,
+          fileName: data.filename,
+          contentType: data.mimetype,
+        });
+
+        // Upload file content to S3 using presigned URL (simulated - in real use, client does this)
+        // For server-side upload, we use the S3 client directly
+        const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+        const { fromIni } = await import('@aws-sdk/credential-providers');
+        const { config } = await import('../../lib/config.js');
+
+        const s3Client = new S3Client({
+          region: config.AWS_REGION,
+          credentials: config.AWS_PROFILE ? fromIni({ profile: config.AWS_PROFILE }) : undefined,
+        });
+
+        await s3Client.send(
+          new PutObjectCommand({
+            Bucket: config.S3_ATTACHMENTS_BUCKET,
+            Key: uploadResult.objectKey,
+            Body: buffer,
+            ContentType: data.mimetype,
+          })
+        );
+
+        // Generate download URL
+        const downloadResult = await s3AttachmentService.generatePresignedDownloadUrl(uploadResult.objectKey);
+
+        return reply.send({
+          url: downloadResult.url,
+          key: uploadResult.objectKey,
+        });
       } catch (error) {
         console.error('Upload error:', error);
         return reply.status(500).send({
@@ -115,6 +154,16 @@ export async function uploadRoutes(fastify: FastifyInstance) {
 
         const uploadedFiles = [];
 
+        // Import S3 dependencies
+        const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+        const { fromIni } = await import('@aws-sdk/credential-providers');
+        const { config } = await import('../../lib/config.js');
+
+        const s3Client = new S3Client({
+          region: config.AWS_REGION,
+          credentials: config.AWS_PROFILE ? fromIni({ profile: config.AWS_PROFILE }) : undefined,
+        });
+
         for (const file of files) {
           // Validate file type
           if (!allowedTypes.includes(file.mimetype)) {
@@ -130,10 +179,34 @@ export async function uploadRoutes(fastify: FastifyInstance) {
             continue; // Skip large files
           }
 
-          // Upload
-          const result = await uploadFile(buffer, file.filename, file.mimetype);
+          // Generate unique ID for this upload
+          const uploadId = randomUUID();
+
+          // Upload to S3 using unified S3AttachmentService
+          const uploadResult = await s3AttachmentService.generatePresignedUploadUrl({
+            tenantId: 'demo',
+            entityType: 'upload',
+            entityId: uploadId,
+            fileName: file.filename,
+            contentType: file.mimetype,
+          });
+
+          // Upload file content to S3
+          await s3Client.send(
+            new PutObjectCommand({
+              Bucket: config.S3_ATTACHMENTS_BUCKET,
+              Key: uploadResult.objectKey,
+              Body: buffer,
+              ContentType: file.mimetype,
+            })
+          );
+
+          // Generate download URL
+          const downloadResult = await s3AttachmentService.generatePresignedDownloadUrl(uploadResult.objectKey);
+
           uploadedFiles.push({
-            ...result,
+            url: downloadResult.url,
+            key: uploadResult.objectKey,
             filename: file.filename,
           });
 

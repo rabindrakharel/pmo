@@ -13,76 +13,71 @@ export function FormBuilderPage() {
   const draftFormIdRef = useRef<string | null>(null);
 
   const handleSave = async (formData: any) => {
-    const userId = localStorage.getItem('user_id') || undefined;
-    const userName = localStorage.getItem('user_name') || undefined;
+    try {
+      console.log('FormBuilderPage handleSave called with:', formData);
 
-    // Simplified payload
-    const payload = {
-      name: formData.name,
-      descr: formData.descr,
-      taskId: formData.taskId,
-      formType: 'multi_step',
-      isTemplate: false,
-      isDraft: false,
-      form_schema: formData.schema, // Simple nested JSONB with steps array
-      uiSchema: {},
-      allowMultipleSubmissions: true,
-      requireAuthentication: true,
-      autoSaveEnabled: true,
-      workflowConfig: { requiresApproval: false, approvers: [], approvalStages: [] },
-      notificationSettings: {},
-      accessControl: { visibility: 'private', allowedRoles: [], allowedUsers: [], expiresAt: null },
-      metadata: {
-        category: formData.taskId ? 'task_form' : 'general',
-        department: null,
-        estimatedCompletionTime: null,
-        completionRate: 0,
-        averageCompletionTime: 0,
-        totalSubmissions: 0,
-        createdBy: userId,
-        createdByName: userName
-      },
-      version: 1
-    };
+      const userId = localStorage.getItem('user_id') || undefined;
+      const userName = localStorage.getItem('user_name') || undefined;
 
-    // If we have a draft, update it; otherwise create new
-    if (draftFormIdRef.current) {
-      const updated = await formApi.update(draftFormIdRef.current, payload);
-      navigate(`/form/${updated.id}`);
-    } else {
-      const created = await formApi.create(payload);
-      navigate(`/form/${created.id}`);
+      // Simplified payload matching backend schema
+      const payload = {
+        name: formData.name,
+        descr: formData.descr,
+        form_type: 'multi_step',
+        form_schema: formData.form_schema // Already an object, backend will stringify
+      };
+
+      console.log('Payload to send:', payload);
+      console.log('form_schema type:', typeof payload.form_schema);
+      console.log('form_schema:', JSON.stringify(payload.form_schema, null, 2));
+
+      // If we have a draft, update it; otherwise create new
+      if (draftFormIdRef.current) {
+        console.log('Updating existing draft:', draftFormIdRef.current);
+        const updated = await formApi.update(draftFormIdRef.current, payload);
+        console.log('Form updated successfully:', updated);
+        navigate(`/form/${updated.id}`);
+      } else {
+        console.log('Creating new form');
+        const created = await formApi.create(payload);
+        console.log('Form created successfully:', created);
+        navigate(`/form/${created.id}`);
+      }
+    } catch (error) {
+      console.error('Error in handleSave:', error);
+      alert(`Failed to save form: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
     }
   };
 
   const handleSaveDraft = async (formData: any) => {
-    const userId = localStorage.getItem('user_id') || undefined;
-    const userName = localStorage.getItem('user_name') || undefined;
+    try {
+      console.log('FormBuilderPage handleSaveDraft called with:', formData);
 
-    const payload = {
-      name: formData.name || 'Untitled Form (Draft)',
-      descr: formData.descr,
-      taskId: formData.taskId,
-      formType: 'multi_step',
-      isTemplate: false,
-      isDraft: true,
-      form_schema: formData.schema,
-      uiSchema: {},
-      metadata: {
-        category: 'draft',
-        createdBy: userId,
-        createdByName: userName
+      const userId = localStorage.getItem('user_id') || undefined;
+      const userName = localStorage.getItem('user_name') || undefined;
+
+      const payload = {
+        name: formData.name || 'Untitled Form (Draft)',
+        descr: formData.descr,
+        form_type: 'multi_step',
+        form_schema: formData.form_schema
+      };
+
+      console.log('Draft payload to send:', payload);
+
+      // If draft already exists, update it; otherwise create new
+      if (draftFormIdRef.current) {
+        await formApi.update(draftFormIdRef.current, payload);
+        console.log('Draft updated successfully');
+      } else {
+        const created = await formApi.create(payload);
+        draftFormIdRef.current = created.id;
+        console.log('Draft created successfully with ID:', created.id);
       }
-    };
-
-    // If draft already exists, update it; otherwise create new
-    if (draftFormIdRef.current) {
-      await formApi.update(draftFormIdRef.current, payload);
-      console.log('Draft updated successfully');
-    } else {
-      const created = await formApi.create(payload);
-      draftFormIdRef.current = created.id;
-      console.log('Draft created successfully with ID:', created.id);
+    } catch (error) {
+      console.error('Error in handleSaveDraft:', error);
+      // Don't alert for draft errors, just log them
     }
   };
 

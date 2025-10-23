@@ -48,8 +48,8 @@
 --
 -- Data Characteristics:
 --   - slug: URL-friendly identifier (e.g., 'hvac-maintenance')
---   - level_name: Display name (e.g., 'HVAC Maintenance')
---   - level_descr: Detailed service description
+--   - name: Display name (e.g., 'HVAC Maintenance')
+--   - descr: Detailed service description
 --   - sort_order: Display order in dropdowns and lists
 --   - active_flag: Enable/disable services seasonally or strategically
 --
@@ -60,9 +60,9 @@
 
 CREATE TABLE IF NOT EXISTS app.setting_datalabel_cust_service (
     level_id integer PRIMARY KEY,
-    level_name varchar(100) NOT NULL UNIQUE,
+    name varchar(100) NOT NULL UNIQUE,
     slug varchar(100) NOT NULL UNIQUE,
-    level_descr text,
+    descr text,
     sort_order integer,
     active_flag boolean DEFAULT true,
     created_ts timestamptz DEFAULT now(),
@@ -82,7 +82,7 @@ CREATE INDEX idx_cust_service_active ON app.setting_datalabel_cust_service(activ
 -- Comprehensive service catalog for Huron Home Services
 -- Covers residential, commercial, and industrial service offerings
 
-INSERT INTO app.setting_datalabel_cust_service (level_id, level_name, slug, level_descr, sort_order, active_flag) VALUES
+INSERT INTO app.setting_datalabel_cust_service (level_id, name, slug, descr, sort_order, active_flag) VALUES
 (0, 'HVAC Installation', 'hvac-installation', 'Heating, ventilation, and air conditioning system installation for residential and commercial properties.', 0, true),
 (1, 'HVAC Maintenance', 'hvac-maintenance', 'Preventive maintenance and repair services for HVAC systems. Includes seasonal tune-ups and system diagnostics.', 1, true),
 (2, 'Plumbing Repair', 'plumbing-repair', 'Emergency and scheduled plumbing repairs including pipe repair, leak detection, and fixture replacement.', 2, true),
@@ -112,7 +112,7 @@ INSERT INTO app.setting_datalabel_cust_service (level_id, level_name, slug, leve
 
 COMMENT ON TABLE app.setting_datalabel_cust_service IS 'Catalog of services offered by Huron Home Services to residential, commercial, and industrial customers';
 COMMENT ON COLUMN app.setting_datalabel_cust_service.slug IS 'URL-friendly identifier for service (e.g., hvac-maintenance)';
-COMMENT ON COLUMN app.setting_datalabel_cust_service.level_name IS 'Display name for the service type';
-COMMENT ON COLUMN app.setting_datalabel_cust_service.level_descr IS 'Detailed description of service scope and deliverables';
+COMMENT ON COLUMN app.setting_datalabel_cust_service.name IS 'Display name for the service type';
+COMMENT ON COLUMN app.setting_datalabel_cust_service.descr IS 'Detailed description of service scope and deliverables';
 COMMENT ON COLUMN app.setting_datalabel_cust_service.sort_order IS 'Display order in UI dropdowns and lists';
 COMMENT ON COLUMN app.setting_datalabel_cust_service.active_flag IS 'Indicates if service is currently offered (can be toggled seasonally or strategically)';

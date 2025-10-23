@@ -8,11 +8,7 @@ import { sql } from 'drizzle-orm';
 const SettingItemSchema = Type.Object({
   id: Type.String(),
   name: Type.Optional(Type.String()),
-  level_name: Type.Optional(Type.String()),
-  stage_name: Type.Optional(Type.String()), // For stage-based settings (opportunity_funnel_stage, etc.)
   descr: Type.Optional(Type.String()),
-  level_descr: Type.Optional(Type.String()),
-  stage_descr: Type.Optional(Type.String()), // For stage-based settings
   code: Type.Optional(Type.String()),
   level_id: Type.Optional(Type.Number()),
   stage_id: Type.Optional(Type.Number()), // For stage-based settings
@@ -93,7 +89,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
         query = sql`
           SELECT
             id::text,
-            level_name as name,
+            name,
             null as descr,
             slug as code,
             level_id as sort_id,
@@ -111,15 +107,15 @@ export async function settingRoutes(fastify: FastifyInstance) {
             updated
           FROM app.setting_task_status
           WHERE active_flag = ${active !== false}
-          ORDER BY level_id ASC, level_name ASC
+          ORDER BY level_id ASC, name ASC
         `;
         categoryName = 'task_status';
       } else if (category === 'task_stage') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name,
-            level_descr,
+            name,
+            descr,
             level_id,
             sort_order,
             parent_id,
@@ -132,14 +128,14 @@ export async function settingRoutes(fastify: FastifyInstance) {
             created_ts as updated
           FROM app.setting_datalabel_task_stage
           WHERE active_flag = ${active !== false}
-          ORDER BY level_id ASC, level_name ASC
+          ORDER BY level_id ASC, name ASC
         `;
         categoryName = 'task_stage';
       } else if (category === 'project_status') {
         query = sql`
           SELECT
             id::text,
-            level_name as name,
+            name,
             null as descr,
             slug as code,
             level_id as sort_id,
@@ -156,15 +152,15 @@ export async function settingRoutes(fastify: FastifyInstance) {
             updated
           FROM app.setting_project_status
           WHERE active_flag = ${active !== false}
-          ORDER BY level_id ASC, level_name ASC
+          ORDER BY level_id ASC, name ASC
         `;
         categoryName = 'project_status';
       } else if (category === 'project_stage') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name,
-            level_descr,
+            name,
+            descr,
             level_id,
             sort_order,
             parent_id,
@@ -177,15 +173,15 @@ export async function settingRoutes(fastify: FastifyInstance) {
             created_ts as updated
           FROM app.setting_datalabel_project_stage
           WHERE active_flag = ${active !== false}
-          ORDER BY level_id ASC, level_name ASC
+          ORDER BY level_id ASC, name ASC
         `;
         categoryName = 'project_stage';
       } else if (category === 'business_level') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name,
-            level_descr,
+            name,
+            descr,
             level_id,
             level_id as sort_order,
             null as tags,
@@ -204,8 +200,8 @@ export async function settingRoutes(fastify: FastifyInstance) {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name,
-            level_descr,
+            name,
+            descr,
             level_id,
             level_id as sort_order,
             null as tags,
@@ -224,7 +220,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
         query = sql`
           SELECT
             id::text,
-            level_name as name,
+            name,
             null as descr,
             level_id,
             null as salary_band_min,
@@ -248,7 +244,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
         query = sql`
           SELECT
             id::text,
-            level_name as name,
+            name,
             slug,
             level_id,
             is_root,
@@ -271,7 +267,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
         query = sql`
           SELECT
             id::text,
-            level_name as name,
+            name,
             slug,
             level_id,
             is_root,
@@ -294,8 +290,9 @@ export async function settingRoutes(fastify: FastifyInstance) {
         query = sql`
           SELECT
             stage_id::text as id,
+            stage_name as name,
             stage_name,
-            stage_descr,
+            stage_descr as descr,
             stage_id,
             sort_order,
             parent_id,
@@ -315,8 +312,8 @@ export async function settingRoutes(fastify: FastifyInstance) {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name,
-            level_descr,
+            name,
+            descr,
             level_id,
             sort_order,
             null as tags,
@@ -328,15 +325,15 @@ export async function settingRoutes(fastify: FastifyInstance) {
             created_ts as updated
           FROM app.setting_datalabel_industry_sector
           WHERE active_flag = ${active !== false}
-          ORDER BY sort_order ASC, level_name ASC
+          ORDER BY sort_order ASC, name ASC
         `;
         categoryName = 'industry_sector';
       } else if (category === 'acquisition_channel') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name,
-            level_descr,
+            name,
+            descr,
             level_id,
             sort_order,
             null as tags,
@@ -348,15 +345,15 @@ export async function settingRoutes(fastify: FastifyInstance) {
             created_ts as updated
           FROM app.setting_datalabel_acquisition_channel
           WHERE active_flag = ${active !== false}
-          ORDER BY sort_order ASC, level_name ASC
+          ORDER BY sort_order ASC, name ASC
         `;
         categoryName = 'acquisition_channel';
       } else if (category === 'customer_tier') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name,
-            level_descr,
+            name,
+            descr,
             level_id,
             sort_order,
             null as tags,
@@ -368,15 +365,15 @@ export async function settingRoutes(fastify: FastifyInstance) {
             created_ts as updated
           FROM app.setting_datalabel_customer_tier
           WHERE active_flag = ${active !== false}
-          ORDER BY sort_order ASC, level_name ASC
+          ORDER BY sort_order ASC, name ASC
         `;
         categoryName = 'customer_tier';
       } else if (category === 'client_status') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name as name,
-            level_descr as descr,
+            name,
+            descr,
             level_id,
             sort_order,
             parent_id,
@@ -389,16 +386,16 @@ export async function settingRoutes(fastify: FastifyInstance) {
             updated_ts as updated
           FROM app.setting_datalabel_client_status
           WHERE is_active = ${active !== false}
-          ORDER BY sort_order ASC, level_name ASC
+          ORDER BY sort_order ASC, name ASC
         `;
         categoryName = 'client_status';
       } else if (category === 'client_service') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name as name,
+            name,
             slug,
-            level_descr as descr,
+            descr,
             level_id,
             sort_order,
             null as tags,
@@ -410,15 +407,15 @@ export async function settingRoutes(fastify: FastifyInstance) {
             updated_ts as updated
           FROM app.setting_datalabel_client_service
           WHERE active_flag = ${active !== false}
-          ORDER BY sort_order ASC, level_name ASC
+          ORDER BY sort_order ASC, name ASC
         `;
         categoryName = 'client_service';
       } else if (category === 'task_priority') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name as name,
-            level_descr as descr,
+            name,
+            descr,
             level_id,
             sort_order,
             null as tags,
@@ -430,15 +427,15 @@ export async function settingRoutes(fastify: FastifyInstance) {
             updated_ts as updated
           FROM app.setting_datalabel_task_priority
           WHERE is_active = ${active !== false}
-          ORDER BY sort_order ASC, level_name ASC
+          ORDER BY sort_order ASC, name ASC
         `;
         categoryName = 'task_priority';
       } else if (category === 'task_update_type') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name as name,
-            level_descr as descr,
+            name,
+            descr,
             level_id,
             sort_order,
             null as tags,
@@ -450,15 +447,15 @@ export async function settingRoutes(fastify: FastifyInstance) {
             updated_ts as updated
           FROM app.setting_datalabel_task_update_type
           WHERE is_active = ${active !== false}
-          ORDER BY sort_order ASC, level_name ASC
+          ORDER BY sort_order ASC, name ASC
         `;
         categoryName = 'task_update_type';
       } else if (category === 'form_submission_status') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name as name,
-            level_descr as descr,
+            name,
+            descr,
             level_id,
             sort_order,
             parent_id,
@@ -471,15 +468,15 @@ export async function settingRoutes(fastify: FastifyInstance) {
             updated_ts as updated
           FROM app.setting_datalabel_form_submission_status
           WHERE is_active = ${active !== false}
-          ORDER BY sort_order ASC, level_name ASC
+          ORDER BY sort_order ASC, name ASC
         `;
         categoryName = 'form_submission_status';
       } else if (category === 'form_approval_status') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name as name,
-            level_descr as descr,
+            name,
+            descr,
             level_id,
             sort_order,
             parent_id,
@@ -492,15 +489,15 @@ export async function settingRoutes(fastify: FastifyInstance) {
             updated_ts as updated
           FROM app.setting_datalabel_form_approval_status
           WHERE is_active = ${active !== false}
-          ORDER BY sort_order ASC, level_name ASC
+          ORDER BY sort_order ASC, name ASC
         `;
         categoryName = 'form_approval_status';
       } else if (category === 'wiki_publication_status') {
         query = sql`
           SELECT
             level_id::text as id,
-            level_name as name,
-            level_descr as descr,
+            name,
+            descr,
             level_id,
             sort_order,
             parent_id,
@@ -513,7 +510,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
             updated_ts as updated
           FROM app.setting_datalabel_wiki_publication_status
           WHERE is_active = ${active !== false}
-          ORDER BY sort_order ASC, level_name ASC
+          ORDER BY sort_order ASC, name ASC
         `;
         categoryName = 'wiki_publication_status';
       } else {
@@ -791,16 +788,9 @@ export async function settingRoutes(fastify: FastifyInstance) {
       // Build update fields
       const updateFields = [];
 
-      // Handle different field name conventions
-      if (data.name !== undefined) {
-        // Check if table uses level_name or name
-        if (tableName.includes('_level') || tableName.includes('_stage')) {
-          updateFields.push(sql`level_name = ${data.name}`);
-        } else {
-          updateFields.push(sql`name = ${data.name}`);
-        }
-      }
-      if (data.descr !== undefined) updateFields.push(sql`level_descr = ${data.descr}`);
+      // All tables now use standardized name/descr columns
+      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
+      if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
       if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
       if (data.description !== undefined) updateFields.push(sql`description = ${data.description}`);
       if (data.color !== undefined) updateFields.push(sql`color = ${data.color}`);
@@ -821,18 +811,14 @@ export async function settingRoutes(fastify: FastifyInstance) {
         updateFields.push(sql`updated_ts = NOW()`);
       }
 
-      // Determine field names based on table type
-      const nameField = tableName.includes('_level') || tableName.includes('_stage') ? 'level_name' : 'name';
-      const descrField = tableName.includes('_level') || tableName.includes('_stage') ? 'level_descr' : 'description';
-
       const result = await db.execute(sql`
         UPDATE ${sql.raw(tableName)}
         SET ${sql.join(updateFields, sql`, `)}
         WHERE ${sql.raw(idField)} = ${id}
         RETURNING
           ${sql.raw(idField)}::text as id,
-          ${sql.raw(nameField)} as name,
-          ${sql.raw(descrField)} as descr,
+          name,
+          descr,
           active_flag as active,
           created_ts as created,
           ${hasUpdatedTs ? sql.raw('updated_ts') : sql.raw('created_ts')} as updated

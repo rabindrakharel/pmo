@@ -118,6 +118,17 @@ output "s3_code_bucket_arn" {
   value       = module.s3_code.bucket_arn
 }
 
+# S3 Attachments Bucket Outputs
+output "s3_attachments_bucket_name" {
+  description = "Name of the S3 attachments bucket"
+  value       = module.s3_attachments.bucket_name
+}
+
+output "s3_attachments_bucket_arn" {
+  description = "ARN of the S3 attachments bucket"
+  value       = module.s3_attachments.bucket_arn
+}
+
 # ============================================================================
 # Route 53 DNS Outputs
 # ============================================================================

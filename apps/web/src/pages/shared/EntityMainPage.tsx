@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { Layout, FilteredDataTable, ViewSwitcher } from '../../components/shared';
-import { KanbanBoard, KanbanColumn } from '../../components/shared/ui/KanbanBoard';
+import { KanbanView } from '../../components/shared/ui/KanbanView';
 import { GridView } from '../../components/shared/ui/GridView';
 import { SequentialStateVisualizer } from '../../components/shared/entity/SequentialStateVisualizer';
 import { useViewMode } from '../../lib/hooks/useViewMode';
@@ -106,38 +106,6 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
     }
   };
 
-  // Prepare Kanban columns (if kanban view is supported)
-  const kanbanColumns: KanbanColumn[] = React.useMemo(() => {
-    if (!config?.kanban) return [];
-
-    const groupField = config.kanban.groupByField;
-
-    // Get unique values for the group field
-    const uniqueValues = [...new Set(data.map(item => item[groupField]))].filter(Boolean);
-
-    // Define common kanban stages if not in data
-    const commonStages = [
-      { id: 'Backlog', title: 'Backlog', color: '#6B7280' },
-      { id: 'To Do', title: 'To Do', color: '#3B82F6' },
-      { id: 'In Progress', title: 'In Progress', color: '#F59E0B' },
-      { id: 'In Review', title: 'In Review', color: '#8B5CF6' },
-      { id: 'Done', title: 'Done', color: '#10B981' },
-      { id: 'Blocked', title: 'Blocked', color: '#EF4444' }
-    ];
-
-    // Use data values or fall back to common stages
-    const stages = uniqueValues.length > 0
-      ? uniqueValues.map(val => ({ id: val as string, title: val as string }))
-      : commonStages;
-
-    return stages.map(stage => ({
-      id: stage.id,
-      title: stage.title,
-      color: (stage as any).color,
-      items: data.filter(item => item[groupField] === stage.id)
-    }));
-  }, [data, config]);
-
   if (!config) {
     return (
       <Layout>
@@ -187,12 +155,13 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
       );
     }
 
-    // KANBAN VIEW
+    // KANBAN VIEW - Settings-driven, no fallbacks
     if (view === 'kanban' && config.kanban) {
       return (
         <div className="bg-white rounded-lg shadow p-6 h-full overflow-x-auto">
-          <KanbanBoard
-            columns={kanbanColumns}
+          <KanbanView
+            config={config}
+            data={data}
             onCardClick={handleRowClick}
             onCardMove={handleCardMove}
             emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
@@ -228,7 +197,7 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
         sort_order: item.sort_order,
         metadata: {
           level_id: item.stage_id ?? item.level_id ?? item.id,
-          level_descr: item.stage_descr || item.level_descr || item.descr,
+          descr: item.stage_descr || item.level_descr || item.descr,
           sort_order: item.sort_order,
           color_code: item.color_code,
           active_flag: item.active_flag,

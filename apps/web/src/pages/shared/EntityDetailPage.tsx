@@ -160,15 +160,116 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
         }
       });
 
+      // Extract assignee_employee_ids if present (for task entity)
+      const assigneeIds = normalizedData.assignee_employee_ids;
+      const dataToUpdate = { ...normalizedData };
+      delete dataToUpdate.assignee_employee_ids;
+      delete dataToUpdate.assignee_employee_names; // Remove computed field
+
       // Type-safe API call using APIFactory
       const api = APIFactory.getAPI(entityType);
-      await api.update(id!, normalizedData);
-      setData(normalizedData);
+      await api.update(id!, dataToUpdate);
+
+      // Handle assignees separately via linkage API (only for task entity)
+      if (entityType === 'task' && assigneeIds !== undefined) {
+        await updateTaskAssignees(id!, assigneeIds);
+      }
+
+      // Refetch data to get updated assignee info
+      const updatedData = await api.get(id!);
+      setData(updatedData);
+      setEditedData(updatedData);
       setIsEditing(false);
       // Optionally show success toast
     } catch (err) {
       console.error(`Failed to update ${entityType}:`, err);
       alert(err instanceof Error ? err.message : 'Failed to update');
+    }
+  };
+
+  // Helper function to update task assignees via linkage API
+  const updateTaskAssignees = async (taskId: string, newAssigneeIds: string[]) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        console.error('No auth token found');
+        return;
+      }
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+      // 1. Get current assignees
+      const currentResponse = await fetch(`${apiUrl}/api/v1/task/${taskId}/assignees`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!currentResponse.ok) {
+        throw new Error(`Failed to fetch current assignees: ${currentResponse.statusText}`);
+      }
+
+      const { data: currentAssignees } = await currentResponse.json();
+
+      // 2. Find assignees to remove
+      const currentIds = currentAssignees.map((a: any) => a.id);
+      const toRemove = currentAssignees.filter((a: any) => !newAssigneeIds.includes(a.id));
+
+      // 3. Remove old assignees
+      if (toRemove.length > 0) {
+        const removeResults = await Promise.all(
+          toRemove.map(async (assignee: any) => {
+            const response = await fetch(`${apiUrl}/api/v1/linkage/${assignee.linkage_id}`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!response.ok) {
+              console.error(`Failed to remove assignee ${assignee.id}:`, response.statusText);
+            }
+            return response.ok;
+          })
+        );
+        console.log(`Removed ${removeResults.filter(Boolean).length} assignees`);
+      }
+
+      // 4. Find assignees to add
+      const toAdd = newAssigneeIds.filter(id => !currentIds.includes(id));
+
+      // 5. Add new assignees
+      if (toAdd.length > 0) {
+        const addResults = await Promise.all(
+          toAdd.map(async (employeeId) => {
+            const response = await fetch(`${apiUrl}/api/v1/linkage`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                parent_entity_type: 'task',
+                parent_entity_id: taskId,
+                child_entity_type: 'employee',
+                child_entity_id: employeeId,
+                relationship_type: 'assigned_to'
+              })
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error(`Failed to add assignee ${employeeId}:`, response.status, errorText);
+              return false;
+            }
+
+            const result = await response.json();
+            console.log('Assignee added:', result);
+            return true;
+          })
+        );
+        console.log(`Added ${addResults.filter(Boolean).length}/${toAdd.length} assignees`);
+      }
+
+      console.log('Task assignees updated successfully');
+    } catch (error) {
+      console.error('Failed to update task assignees:', error);
+      throw error;
     }
   };
 
@@ -354,7 +455,18 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             <div className="space-y-4 bg-blue-50 border border-blue-100 rounded-xl p-6 shadow-sm">
               {(() => {
                 // Extract and prepare fields from schema
-                const schema = data.form_schema || {};
+                // Parse form_schema if it's a string
+                let schema = data.form_schema || {};
+                if (typeof schema === 'string') {
+                  try {
+                    schema = JSON.parse(schema);
+                    console.log('Parsed form_schema from string:', schema);
+                  } catch (e) {
+                    console.error('Failed to parse form_schema:', e);
+                    schema = {};
+                  }
+                }
+
                 const steps = schema.steps || [];
                 const fields = steps.flatMap((step: any) =>
                   (step.fields || []).map((field: any) => ({
@@ -366,11 +478,14 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
 
                 console.log('Interactive Form Debug:', {
                   formId: id,
+                  rawSchema: data.form_schema,
+                  schemaType: typeof data.form_schema,
+                  parsedSchema: schema,
                   hasSchema: !!data.form_schema,
                   stepsCount: steps.length,
                   fieldsCount: fields.length,
-                  steps,
-                  fields
+                  steps: JSON.stringify(steps, null, 2),
+                  fields: JSON.stringify(fields, null, 2)
                 });
 
                 return (
@@ -398,10 +513,10 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
               />
 
               {/* Task Data Container - Only show for task entity */}
-              {entityType === 'task' && data.project_id && (
+              {entityType === 'task' && (
                 <TaskDataContainer
                   taskId={id!}
-                  projectId={data.project_id}
+                  projectId={data.project_id || undefined}
                   onUpdatePosted={() => {
                     // Optionally refresh task data here
                     console.log('Task update posted');

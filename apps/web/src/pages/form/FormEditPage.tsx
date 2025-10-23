@@ -30,24 +30,66 @@ export function FormEditPage() {
     load();
   }, [id]);
 
-  const handleSave = async (payload: any) => {
+  const handleSave = async (formData: any) => {
     if (!id) return;
-    // Update returns the new form (may be a new version with new ID)
-    const updatedForm = await formApi.update(id, payload);
-    // Navigate to the new version ID
-    navigate(`/form/${updatedForm.id}`);
+
+    try {
+      console.log('FormEditPage handleSave called with:', formData);
+
+      // Clean payload to match backend schema - only include fields backend accepts
+      const payload = {
+        name: formData.name,
+        descr: formData.descr,
+        form_type: 'multi_step',
+        form_schema: formData.form_schema // Backend expects this as object, will stringify it
+      };
+
+      console.log('Edit payload to send:', payload);
+      console.log('form_schema type:', typeof payload.form_schema);
+      console.log('form_schema:', JSON.stringify(payload.form_schema, null, 2));
+
+      // Update returns the new form (may be a new version with new ID)
+      const updatedForm = await formApi.update(id, payload);
+      console.log('Form updated successfully:', updatedForm);
+
+      // Navigate to the new version ID
+      navigate(`/form/${updatedForm.id}`);
+    } catch (error) {
+      console.error('Error in handleSave:', error);
+      alert(`Failed to save form: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
   };
 
-  const handleSaveDraft = async (payload: any) => {
+  const handleSaveDraft = async (formData: any) => {
     if (!id) return;
-    // Draft saves also go through update, which may create new version
-    const updatedForm = await formApi.update(id, payload);
-    console.log('Draft saved successfully');
-    // Update the form data to reflect the new version
-    if (updatedForm.id !== id) {
-      // New version was created, update the URL silently
-      window.history.replaceState(null, '', `/form/${updatedForm.id}/edit`);
-      setFormData(updatedForm);
+
+    try {
+      console.log('FormEditPage handleSaveDraft called with:', formData);
+
+      // Clean payload to match backend schema
+      const payload = {
+        name: formData.name || 'Untitled Form (Draft)',
+        descr: formData.descr,
+        form_type: 'multi_step',
+        form_schema: formData.form_schema
+      };
+
+      console.log('Draft edit payload to send:', payload);
+
+      // Draft saves also go through update, which may create new version
+      const updatedForm = await formApi.update(id, payload);
+      console.log('Draft saved successfully:', updatedForm);
+
+      // Update the form data to reflect the new version
+      if (updatedForm.id !== id) {
+        // New version was created, update the URL silently
+        window.history.replaceState(null, '', `/form/${updatedForm.id}/edit`);
+        setFormData(updatedForm);
+      }
+    } catch (error) {
+      console.error('Error in handleSaveDraft:', error);
+      // Don't alert for draft errors, just log them
     }
   };
 

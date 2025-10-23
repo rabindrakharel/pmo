@@ -78,8 +78,8 @@
 
 CREATE TABLE IF NOT EXISTS app.setting_datalabel_form_approval_status (
     level_id integer PRIMARY KEY,
-    level_name varchar(50) NOT NULL UNIQUE,
-    level_descr text,
+    name varchar(50) NOT NULL UNIQUE,
+    descr text,
     sort_order integer,
     parent_id integer, -- Enables graph-like flow relationships between statuses
     is_active boolean DEFAULT true,
@@ -97,7 +97,7 @@ CREATE INDEX idx_form_approval_parent ON app.setting_datalabel_form_approval_sta
 -- Form approval status values with parent_id relationships showing typical flow graph
 -- parent_id represents the most common preceding status (null for initial states)
 
-INSERT INTO app.setting_datalabel_form_approval_status (level_id, level_name, level_descr, sort_order, parent_id) VALUES
+INSERT INTO app.setting_datalabel_form_approval_status (level_id, name, descr, sort_order, parent_id) VALUES
 (0, 'pending', 'Pending approval - awaiting review by authorized approver. Initial entry point.', 0, NULL),
 (1, 'approved', 'Approved by authorized person. Final approval granted. Terminal state.', 1, 0),
 (2, 'rejected', 'Rejected - does not meet approval criteria. Approval denied. Terminal state.', 2, 0),

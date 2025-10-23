@@ -78,8 +78,8 @@
 
 CREATE TABLE IF NOT EXISTS app.setting_datalabel_form_submission_status (
     level_id integer PRIMARY KEY,
-    level_name varchar(50) NOT NULL UNIQUE,
-    level_descr text,
+    name varchar(50) NOT NULL UNIQUE,
+    descr text,
     sort_order integer,
     parent_id integer, -- Enables graph-like flow relationships between statuses
     is_active boolean DEFAULT true,
@@ -97,7 +97,7 @@ CREATE INDEX idx_form_submission_parent ON app.setting_datalabel_form_submission
 -- Form submission status values with parent_id relationships showing typical flow graph
 -- parent_id represents the most common preceding status (null for initial states)
 
-INSERT INTO app.setting_datalabel_form_submission_status (level_id, level_name, level_descr, sort_order, parent_id) VALUES
+INSERT INTO app.setting_datalabel_form_submission_status (level_id, name, descr, sort_order, parent_id) VALUES
 (0, 'draft', 'Draft - not yet submitted. Work in progress. Initial entry point.', 0, NULL),
 (1, 'submitted', 'Submitted - awaiting review. Form completed and sent for approval.', 1, 0),
 (2, 'under_review', 'Under review by approver. Active evaluation in progress.', 2, 1),

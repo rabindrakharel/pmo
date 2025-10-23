@@ -5,8 +5,8 @@
 
 CREATE TABLE IF NOT EXISTS app.setting_datalabel_task_update_type (
     level_id integer PRIMARY KEY,
-    level_name varchar(50) NOT NULL UNIQUE,
-    level_descr text,
+    name varchar(50) NOT NULL UNIQUE,
+    descr text,
     is_active boolean DEFAULT true,
     sort_order integer,
     created_ts timestamptz DEFAULT now(),
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS app.setting_datalabel_task_update_type (
 );
 
 -- Task update type values
-INSERT INTO app.setting_datalabel_task_update_type (level_id, level_name, level_descr, sort_order) VALUES
+INSERT INTO app.setting_datalabel_task_update_type (level_id, name, descr, sort_order) VALUES
 (0, 'comment', 'General comment or note', 0),
 (1, 'status_change', 'Task status or stage change', 1),
 (2, 'assignment', 'Task assignment or reassignment', 2),

@@ -76,8 +76,8 @@
 
 CREATE TABLE app.setting_datalabel_project_stage (
     level_id integer PRIMARY KEY,
-    level_name varchar(50) NOT NULL UNIQUE,
-    level_descr text,
+    name varchar(50) NOT NULL UNIQUE,
+    descr text,
     sort_order integer,
     parent_id integer, -- Enables graph-like flow relationships between stages
     active_flag boolean DEFAULT true,
@@ -94,7 +94,7 @@ CREATE INDEX idx_project_stage_parent ON app.setting_datalabel_project_stage(par
 -- Project lifecycle stages with parent_id relationships showing typical flow graph
 -- parent_id represents the most common preceding stage (null for initial states)
 
-INSERT INTO app.setting_datalabel_project_stage (level_id, level_name, level_descr, sort_order, parent_id) VALUES
+INSERT INTO app.setting_datalabel_project_stage (level_id, name, descr, sort_order, parent_id) VALUES
 (0, 'Initiation', 'Project concept and initial planning. Starting point for all projects.', 1, NULL),
 (1, 'Planning', 'Detailed project planning and resource allocation. Follows project approval.', 2, 0),
 (2, 'Execution', 'Active project execution phase. Work is being performed by the project team.', 3, 1),

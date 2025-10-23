@@ -25,8 +25,11 @@ const configSchema = z.object({
   S3_ENDPOINT: z.string().url().optional(),
   S3_REGION: z.string().default('us-east-1'),
   S3_BUCKET: z.string().default('pmo-files'),
+  S3_ATTACHMENTS_BUCKET: z.string().default('cohuron-attachments-prod-957207443425'),
   S3_ACCESS_KEY: z.string().optional(),
   S3_SECRET_KEY: z.string().optional(),
+  AWS_PROFILE: z.string().default('cohuron'),
+  AWS_REGION: z.string().default('us-east-1'),
   
   // Email/SMTP
   SMTP_HOST: z.string().default('localhost'),

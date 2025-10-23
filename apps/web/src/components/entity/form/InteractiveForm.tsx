@@ -3,6 +3,7 @@ import { getFieldIcon, SignatureCanvas, AddressInput, GeoLocationInput, ModernDa
 import { BuilderField, FormStep } from './FormBuilder';
 import { BookOpen, Upload, Layers, Send, CheckCircle, AlertCircle, ChevronDown, ExternalLink } from 'lucide-react';
 import { ModularEditor } from '../../shared/editor/ModularEditor';
+import { useS3Upload } from '../../../lib/hooks/useS3Upload';
 
 interface InteractiveFormProps {
   formId: string;
@@ -34,6 +35,88 @@ export function InteractiveForm({
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [submitMessage, setSubmitMessage] = useState('');
   const [dynamicOptions, setDynamicOptions] = useState<Record<string, Array<{ value: string; label: string }>>>({});
+  const [signatureUrls, setSignatureUrls] = useState<Record<string, string>>({});
+  const [fileUrls, setFileUrls] = useState<Record<string, string>>({});
+
+  // Use reusable S3 upload hook (DRY principle)
+  const { uploadToS3, getDownloadUrl, uploadingFiles, errors: uploadErrors } = useS3Upload();
+
+  /**
+   * Upload file to S3 (uses reusable hook)
+   */
+  const uploadFileToS3 = async (fieldName: string, file: File): Promise<string | null> => {
+    return uploadToS3({
+      entityType: 'form',
+      entityId: formId,
+      file,
+      fileName: file.name,
+      contentType: file.type || 'application/octet-stream',
+      uploadType: 'file',
+      tenantId: 'demo',
+      fieldName
+    });
+  };
+
+  /**
+   * Upload signature/initials to S3 (uses reusable hook)
+   * Converts base64 data URL to blob first
+   */
+  const uploadSignatureToS3 = async (fieldName: string, dataUrl: string): Promise<string | null> => {
+    // Convert data URL to blob
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+
+    return uploadToS3({
+      entityType: 'form',
+      entityId: formId,
+      file: blob,
+      fileName: `${fieldName}_${Date.now()}.png`,
+      contentType: 'image/png',
+      uploadType: 'signature',
+      tenantId: 'demo',
+      fieldName
+    });
+  };
+
+  /**
+   * Fetch presigned download URL for any S3 object (uses reusable hook)
+   */
+  const fetchS3DownloadUrl = async (objectKey: string): Promise<string | null> => {
+    return getDownloadUrl(objectKey);
+  };
+
+  // Load signature and file URLs from S3 when form data contains S3 object keys (DRY)
+  useEffect(() => {
+    const loadUrls = async () => {
+      // Load signature URLs
+      const signatureFields = fields.filter(f => f.type === 'signature' || f.type === 'initials');
+      for (const field of signatureFields) {
+        const objectKey = formData[field.name];
+        // Check if the value looks like an S3 object key (not a data URL)
+        if (objectKey && typeof objectKey === 'string' && !objectKey.startsWith('data:')) {
+          const url = await fetchS3DownloadUrl(objectKey);
+          if (url) {
+            setSignatureUrls(prev => ({ ...prev, [field.name]: url }));
+          }
+        }
+      }
+
+      // Load file URLs (reuses same DRY function)
+      const fileFields = fields.filter(f => f.type === 'file');
+      for (const field of fileFields) {
+        const objectKey = formData[field.name];
+        // Check if the value looks like an S3 object key
+        if (objectKey && typeof objectKey === 'string' && objectKey.startsWith('tenant_id=')) {
+          const url = await fetchS3DownloadUrl(objectKey);
+          if (url) {
+            setFileUrls(prev => ({ ...prev, [field.name]: url }));
+          }
+        }
+      }
+    };
+
+    loadUrls();
+  }, [formData, fields]);
 
   // Update formData when initialData changes (for edit mode)
   // DATATABLE UNFLATTENING LOGIC:
@@ -233,6 +316,8 @@ export function InteractiveForm({
       const method = isEditMode && submissionId ? 'PUT' : 'POST';
 
       console.log(`📤 Submitting form (${method}):`, { url, formData });
+      console.log('🔑 Auth token from localStorage:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
+      console.log('🔐 Auth header will be:', token ? `Bearer ${token.substring(0, 20)}...` : 'NO AUTH HEADER');
 
       const response = await fetch(url, {
         method,
@@ -247,7 +332,14 @@ export function InteractiveForm({
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to ${isEditMode ? 'update' : 'submit'} form: ${response.statusText}`);
+        const errorBody = await response.text();
+        console.error('❌ Form submission failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorBody,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+        throw new Error(`Failed to ${isEditMode ? 'update' : 'submit'} form: ${response.status} ${response.statusText} - ${errorBody}`);
       }
 
       const result = await response.json();
@@ -501,15 +593,45 @@ export function InteractiveForm({
           <>
             <input
               type="file"
-              onChange={(e) => {
-                const files = e.target.files;
-                handleFieldChange(field.name, field.multiple ? files : files?.[0]);
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+
+                // Upload file to S3 and store object key
+                const objectKey = await uploadFileToS3(field.name, file);
+                if (objectKey) {
+                  handleFieldChange(field.name, objectKey);
+                }
               }}
-              multiple={field.multiple}
               accept={field.accept}
               className="w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               required={field.required}
+              disabled={uploadingFiles[field.name]}
             />
+            {uploadingFiles[field.name] && (
+              <p className="text-blue-600 text-xs mt-1 flex items-center">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-1" />
+                Uploading file...
+              </p>
+            )}
+            {value && !uploadingFiles[field.name] && (
+              <div className="mt-2">
+                <p className="text-green-600 text-xs flex items-center">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  File uploaded to cloud storage
+                </p>
+                {fileUrls[field.name] && (
+                  <a
+                    href={fileUrls[field.name]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-600 hover:underline flex items-center mt-1"
+                  >
+                    View uploaded file
+                  </a>
+                )}
+              </div>
+            )}
             {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
           </>
         );
@@ -860,6 +982,76 @@ export function InteractiveForm({
               </div>
             )}
           </div>
+        );
+
+      case 'signature':
+        // If value is an S3 object key, use the presigned URL for display
+        const signatureDisplayUrl = signatureUrls[field.name] || (value && value.startsWith('data:') ? value : '');
+
+        return (
+          <>
+            <SignatureCanvas
+              value={signatureDisplayUrl}
+              onChange={async (dataUrl) => {
+                // Upload signature to S3 and store object key
+                const objectKey = await uploadSignatureToS3(field.name, dataUrl);
+                if (objectKey) {
+                  handleFieldChange(field.name, objectKey);
+                }
+              }}
+              width={field.signatureWidth || 400}
+              height={field.signatureHeight || 200}
+              isInitials={false}
+            />
+            {uploadingSignatures[field.name] && (
+              <p className="text-blue-600 text-xs mt-1 flex items-center">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-1" />
+                Uploading signature...
+              </p>
+            )}
+            {value && !uploadingSignatures[field.name] && (
+              <p className="text-green-600 text-xs mt-1 flex items-center">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Signature saved to cloud storage
+              </p>
+            )}
+            {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
+          </>
+        );
+
+      case 'initials':
+        // If value is an S3 object key, use the presigned URL for display
+        const initialsDisplayUrl = signatureUrls[field.name] || (value && value.startsWith('data:') ? value : '');
+
+        return (
+          <>
+            <SignatureCanvas
+              value={initialsDisplayUrl}
+              onChange={async (dataUrl) => {
+                // Upload initials to S3 and store object key
+                const objectKey = await uploadSignatureToS3(field.name, dataUrl);
+                if (objectKey) {
+                  handleFieldChange(field.name, objectKey);
+                }
+              }}
+              width={field.signatureWidth || 200}
+              height={field.signatureHeight || 100}
+              isInitials={true}
+            />
+            {uploadingSignatures[field.name] && (
+              <p className="text-blue-600 text-xs mt-1 flex items-center">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-1" />
+                Uploading initials...
+              </p>
+            )}
+            {value && !uploadingSignatures[field.name] && (
+              <p className="text-green-600 text-xs mt-1 flex items-center">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Initials saved to cloud storage
+              </p>
+            )}
+            {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
+          </>
         );
 
       default:

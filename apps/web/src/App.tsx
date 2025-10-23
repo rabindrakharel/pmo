@@ -15,6 +15,9 @@ import { FormBuilderPage, FormEditPage, FormDataPreviewPage, PublicFormPage } fr
 // Wiki Pages
 import { WikiEditorPage } from './pages/wiki';
 
+// Artifact Pages
+import { ArtifactUploadPage } from './pages/artifact';
+
 // Marketing Pages
 import { EmailDesignerPage } from './pages/marketing/EmailDesignerPage';
 
@@ -148,6 +151,11 @@ function AppRoutes() {
       </Route>
       <Route path="/form/:id/edit" element={<ProtectedRoute><FormEditPage /></ProtectedRoute>} />
       <Route path="/form/:formId/data/:submissionId" element={<ProtectedRoute><FormDataPreviewPage /></ProtectedRoute>} />
+
+      {/* Special Routes - Artifact (custom upload page) */}
+      <Route path="/artifact" element={<ProtectedRoute><EntityMainPage entityType="artifact" /></ProtectedRoute>} />
+      <Route path="/artifact/new" element={<ProtectedRoute><ArtifactUploadPage /></ProtectedRoute>} />
+      <Route path="/artifact/:id" element={<ProtectedRoute><EntityDetailPage entityType="artifact" /></ProtectedRoute>} />
 
       {/* Special Routes - Marketing (email designer) */}
       <Route path="/marketing/:id/design" element={<ProtectedRoute><EmailDesignerPage /></ProtectedRoute>} />

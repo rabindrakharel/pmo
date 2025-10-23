@@ -60,6 +60,12 @@ export interface FieldDef {
    * lib/sequentialStateConfig.ts (e.g., stage, funnel, status, level)
    */
   loadOptionsFromSettings?: boolean;
+  /**
+   * When set, options will be dynamically loaded from the specified entity type.
+   * Uses the universal entity options API to fetch {id, name} pairs.
+   * Example: 'employee' → loads from GET /api/v1/entity/employee/options
+   */
+  loadOptionsFromEntity?: string;
 }
 
 export interface EntityConfig {
@@ -162,6 +168,52 @@ export const renderTags = (tags?: string[] | string): React.ReactElement | null 
       'span',
       { className: 'text-xs text-gray-500' },
       `+${tagsArray.length - 2}`
+    ) : null
+  );
+};
+
+/**
+ * Render employee names from array
+ * Backend API returns employee names in assignee_employee_names field
+ */
+export const renderEmployeeNames = (names?: string[] | string, record?: any): React.ReactElement | null => {
+  // Try to use assignee_employee_names from the record first (populated by backend)
+  const employeeNames = record?.assignee_employee_names || names;
+
+  if (!employeeNames) return React.createElement('span', { className: 'text-gray-400' }, '-');
+
+  // Handle both array and JSON string formats
+  let namesArray: string[] = [];
+
+  if (typeof employeeNames === 'string') {
+    try {
+      namesArray = JSON.parse(employeeNames);
+    } catch {
+      namesArray = [employeeNames];
+    }
+  } else if (Array.isArray(employeeNames)) {
+    namesArray = employeeNames;
+  }
+
+  if (namesArray.length === 0) return React.createElement('span', { className: 'text-gray-400' }, '-');
+
+  return React.createElement(
+    'div',
+    { className: 'flex flex-wrap gap-1' },
+    ...namesArray.slice(0, 2).map((name, index) =>
+      React.createElement(
+        'span',
+        {
+          key: index,
+          className: 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800'
+        },
+        name
+      )
+    ),
+    namesArray.length > 2 ? React.createElement(
+      'span',
+      { className: 'text-xs text-gray-500' },
+      `+${namesArray.length - 2} more`
     ) : null
   );
 };
@@ -321,6 +373,13 @@ export const entityConfigs: Record<string, EntityConfig> = {
         render: (value) => value ? `${value}h` : '-'
       },
       {
+        key: 'assignee_employee_ids',
+        title: 'Assignees',
+        sortable: false,
+        filterable: false,
+        render: (value, record) => renderEmployeeNames(value, record)
+      },
+      {
         key: 'tags',
         title: 'Tags',
         inlineEditable: true,
@@ -336,7 +395,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'stage', label: 'Stage', type: 'select', loadOptionsFromSettings: true },
       { key: 'priority_level', label: 'Priority', type: 'select', loadOptionsFromSettings: true },
       { key: 'estimated_hours', label: 'Estimated Hours', type: 'number' },
-      { key: 'assignee_employee_ids', label: 'Assignees', type: 'multiselect', options: [] },
+      { key: 'assignee_employee_ids', label: 'Assignees', type: 'multiselect', loadOptionsFromEntity: 'employee' },
       { key: 'tags', label: 'Tags', type: 'array' }
     ],
 
@@ -618,7 +677,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         )
       },
       {
-        key: 'level_name',
+        key: 'name',
         title: 'Level',
         sortable: true,
         filterable: true,
@@ -667,7 +726,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'code', label: 'Code', type: 'text', required: true },
       { key: 'slug', label: 'Slug', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'level_name', label: 'Level Name', type: 'select', required: true, loadOptionsFromSettings: true },
+      { key: 'name', label: 'Level Name', type: 'select', required: true, loadOptionsFromSettings: true },
       { key: 'parent_id', label: 'Parent Unit', type: 'select', options: [] },
       { key: 'office_id', label: 'Office', type: 'select', options: [] },
       { key: 'budget_allocated', label: 'Budget Allocated (CAD)', type: 'number' },
@@ -686,7 +745,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       levels: 3,
       levelNames: ['Department', 'Division', 'Corporate'],
       metaTable: 'setting_business_level',
-      levelField: 'level_name'
+      levelField: 'name'
     }
   },
 
@@ -1087,8 +1146,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'level_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'level_descr', title: 'Description', sortable: true, inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
+      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
       {
         key: 'parent_id',
         title: 'Parent Stage',
@@ -1119,8 +1178,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     fields: [
       { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'level_name', label: 'Stage Name', type: 'text', required: true },
-      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'name', label: 'Stage Name', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'sort_order', label: 'Sort Order', type: 'number' },
       { key: 'color_code', label: 'Color Code', type: 'text', placeholder: '#3B82F6' }
     ],
@@ -1140,8 +1199,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'level_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'level_descr', title: 'Description', sortable: true, inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
+      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
       { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
       {
         key: 'active_flag',
@@ -1158,8 +1217,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     fields: [
       { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'level_name', label: 'Status Name', type: 'text', required: true },
-      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'name', label: 'Status Name', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'sort_order', label: 'Sort Order', type: 'number' }
     ],
 
@@ -1178,8 +1237,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'level_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'level_descr', title: 'Description', sortable: true, inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
+      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
       {
         key: 'parent_id',
         title: 'Parent Stage',
@@ -1210,8 +1269,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     fields: [
       { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'level_name', label: 'Stage Name', type: 'text', required: true },
-      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'name', label: 'Stage Name', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'sort_order', label: 'Sort Order', type: 'number' },
       { key: 'color_code', label: 'Color Code', type: 'text', placeholder: '#3B82F6' }
     ],
@@ -1231,8 +1290,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'level_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'level_descr', title: 'Description', sortable: true, inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
+      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
       { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
       {
         key: 'active_flag',
@@ -1249,8 +1308,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     fields: [
       { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'level_name', label: 'Stage Name', type: 'text', required: true },
-      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'name', label: 'Stage Name', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'sort_order', label: 'Sort Order', type: 'number' }
     ],
 
@@ -1269,8 +1328,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'level_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'level_descr', title: 'Description', sortable: true, inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
+      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
       { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
       {
         key: 'active_flag',
@@ -1287,8 +1346,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     fields: [
       { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'level_name', label: 'Level Name', type: 'text', required: true },
-      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'name', label: 'Level Name', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'sort_order', label: 'Sort Order', type: 'number' }
     ],
 
@@ -1307,8 +1366,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'level_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'level_descr', title: 'Description', sortable: true, inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
+      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
       { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
       {
         key: 'active_flag',
@@ -1325,8 +1384,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     fields: [
       { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'level_name', label: 'Level Name', type: 'text', required: true },
-      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'name', label: 'Level Name', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'sort_order', label: 'Sort Order', type: 'number' }
     ],
 
@@ -1345,8 +1404,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'level_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'level_descr', title: 'Description', sortable: true, inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
+      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
       { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
       {
         key: 'active_flag',
@@ -1363,8 +1422,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     fields: [
       { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'level_name', label: 'Level Name', type: 'text', required: true },
-      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'name', label: 'Level Name', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'sort_order', label: 'Sort Order', type: 'number' }
     ],
 
@@ -1383,8 +1442,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'level_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'level_descr', title: 'Description', sortable: true, inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
+      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
       { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
       {
         key: 'active_flag',
@@ -1401,8 +1460,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     fields: [
       { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'level_name', label: 'Level Name', type: 'text', required: true },
-      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'name', label: 'Level Name', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'sort_order', label: 'Sort Order', type: 'number' }
     ],
 
@@ -1421,8 +1480,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'level_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'level_descr', title: 'Description', sortable: true, inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
+      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
       { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
       {
         key: 'active_flag',
@@ -1439,8 +1498,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     fields: [
       { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'level_name', label: 'Level Name', type: 'text', required: true },
-      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'name', label: 'Level Name', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'sort_order', label: 'Sort Order', type: 'number' }
     ],
 
@@ -1512,8 +1571,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'level_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'level_descr', title: 'Description', sortable: true, inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
+      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
       { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
       {
         key: 'active_flag',
@@ -1530,8 +1589,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     fields: [
       { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'level_name', label: 'Sector Name', type: 'text', required: true },
-      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'name', label: 'Sector Name', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'sort_order', label: 'Sort Order', type: 'number' }
     ],
 
@@ -1550,8 +1609,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'level_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'level_descr', title: 'Description', sortable: true, inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
+      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
       { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
       {
         key: 'active_flag',
@@ -1568,8 +1627,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     fields: [
       { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'level_name', label: 'Channel Name', type: 'text', required: true },
-      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'name', label: 'Channel Name', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'sort_order', label: 'Sort Order', type: 'number' }
     ],
 
@@ -1588,8 +1647,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'level_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'level_descr', title: 'Description', sortable: true, inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
+      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
       { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
       {
         key: 'active_flag',
@@ -1606,8 +1665,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     fields: [
       { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'level_name', label: 'Tier Name', type: 'text', required: true },
-      { key: 'level_descr', label: 'Description', type: 'textarea' },
+      { key: 'name', label: 'Tier Name', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'sort_order', label: 'Sort Order', type: 'number' }
     ],
 

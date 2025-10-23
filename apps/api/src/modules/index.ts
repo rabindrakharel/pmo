@@ -23,6 +23,7 @@ import { reportsRoutes } from './reports/routes.js';
 import { taskDataRoutes } from './task-data/routes.js';
 import { emailTemplateRoutes } from './email-template/routes.js';
 import { uploadRoutes } from './upload/routes.js';
+import s3BackendRoutes from './s3-backend/routes.js';
 
 // Product & Operations API modules
 import { productRoutes } from './product/routes.js';
@@ -39,6 +40,7 @@ import { entityRoutes } from './entity/routes.js';
 import { rbacRoutes } from './rbac/routes.js';
 import { linkageModule } from './linkage/index.js';
 import { sharedRoutes } from './shared/routes.js';
+import { entityOptionsRoutes } from './entity-options/routes.js';
 
 /**
  * Register all API route modules with entity-based RBAC functionality
@@ -79,6 +81,9 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   // Entity type metadata routes (d_entity - parent-child relationships, icons)
   await entityRoutes(fastify);
 
+  // Entity options routes (universal dropdown/selection options)
+  await entityOptionsRoutes(fastify);
+
   // RBAC permission checking routes
   await rbacRoutes(fastify);
 
@@ -111,4 +116,7 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
 
   // Upload routes (file upload to MinIO/S3)
   await uploadRoutes(fastify);
+
+  // S3 Backend routes (presigned URLs and attachment management)
+  await fastify.register(s3BackendRoutes, { prefix: '/api/v1/s3-backend' });
 }

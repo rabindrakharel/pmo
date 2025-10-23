@@ -76,22 +76,24 @@ module "ec2" {
   ec2_public_key         = var.ec2_public_key
   app_subnet_id          = module.vpc.public_subnet_ids[0]
   app_security_group_id  = module.vpc.app_sg_id
-  s3_bucket_arn          = module.s3.bucket_arn
-  s3_bucket_name         = module.s3.bucket_name
-  s3_code_bucket_arn     = module.s3_code.bucket_arn
-  s3_code_bucket_name    = module.s3_code.bucket_name
-  db_host                = "localhost"
-  db_port                = 5434
-  db_name                = "app"
-  db_user                = "app"
-  db_password            = "app"
-  user_data_script       = "user-data-complete.sh"
-  domain_name            = var.domain_name
-  app_subdomain          = var.app_subdomain
-  github_repo_url        = var.github_repo_url
-  global_tags            = var.global_tags
+  s3_bucket_arn                = module.s3.bucket_arn
+  s3_bucket_name               = module.s3.bucket_name
+  s3_code_bucket_arn           = module.s3_code.bucket_arn
+  s3_code_bucket_name          = module.s3_code.bucket_name
+  s3_attachments_bucket_arn    = module.s3_attachments.bucket_arn
+  s3_attachments_bucket_name   = module.s3_attachments.bucket_name
+  db_host                      = "localhost"
+  db_port                      = 5434
+  db_name                      = "app"
+  db_user                      = "app"
+  db_password                  = "app"
+  user_data_script             = "user-data-complete.sh"
+  domain_name                  = var.domain_name
+  app_subdomain                = var.app_subdomain
+  github_repo_url              = var.github_repo_url
+  global_tags                  = var.global_tags
 
-  depends_on = [module.s3_code]
+  depends_on = [module.s3_code, module.s3_attachments]
 }
 
 # ============================================================================
@@ -125,6 +127,25 @@ module "s3_code" {
 
   project_name = var.project_name
   global_tags  = var.global_tags
+}
+
+# ============================================================================
+# S3 Attachments Module - Multi-tenant Attachment Storage
+# ============================================================================
+
+module "s3_attachments" {
+  source = "./modules/s3-attachments"
+
+  project_name = var.project_name
+  environment  = var.environment
+  global_tags  = var.global_tags
+
+  allowed_origins = [
+    "http://localhost:5173",
+    "http://localhost:4000",
+    "https://app.cohuron.com",
+    "https://${var.app_subdomain}.${var.domain_name}"
+  ]
 }
 
 # ============================================================================

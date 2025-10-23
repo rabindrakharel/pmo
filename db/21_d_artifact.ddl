@@ -129,8 +129,12 @@ CREATE TABLE app.d_artifact (
     file_size_bytes bigint,
 
     -- Relationships (will be mapped via entity_id_map)
-    primary_entity_type varchar(50), -- project, task, business, office
-    primary_entity_id uuid,
+    entity_type varchar(50), -- parent entity type and entity id - project, task, business, office
+    entity_id uuid, 
+
+    -- S3 backend 
+    bucket_name varchar(100), -- e.g. 'artifacts-bucket'
+    object_key varchar(500), -- /tenant_id={client_id}/entity={entity_name}/entity_id={entity_id from database}/attachment_id_hash.extension
 
     -- Access control
     visibility varchar(20) DEFAULT 'internal', -- public, internal, restricted, private
@@ -170,8 +174,8 @@ INSERT INTO app.d_artifact (
     artifact_type,
     file_format,
     file_size_bytes,
-    primary_entity_type,
-    primary_entity_id,
+    entity_type,
+    entity_id,
     visibility,
     security_classification,
     is_latest_version
@@ -205,8 +209,8 @@ INSERT INTO app.d_artifact (
     artifact_type,
     file_format,
     file_size_bytes,
-    primary_entity_type,
-    primary_entity_id,
+    entity_type,
+    entity_id,
     visibility,
     security_classification,
     is_latest_version
@@ -240,8 +244,8 @@ INSERT INTO app.d_artifact (
     artifact_type,
     file_format,
     file_size_bytes,
-    primary_entity_type,
-    primary_entity_id,
+    entity_type,
+    entity_id,
     visibility,
     security_classification,
     is_latest_version
@@ -275,8 +279,8 @@ INSERT INTO app.d_artifact (
     artifact_type,
     file_format,
     file_size_bytes,
-    primary_entity_type,
-    primary_entity_id,
+    entity_type,
+    entity_id,
     visibility,
     security_classification,
     is_latest_version
@@ -310,8 +314,8 @@ INSERT INTO app.d_artifact (
     artifact_type,
     file_format,
     file_size_bytes,
-    primary_entity_type,
-    primary_entity_id,
+    entity_type,
+    entity_id,
     visibility,
     security_classification,
     is_latest_version
@@ -345,8 +349,8 @@ INSERT INTO app.d_artifact (
     artifact_type,
     file_format,
     file_size_bytes,
-    primary_entity_type,
-    primary_entity_id,
+    entity_type,
+    entity_id,
     visibility,
     security_classification,
     is_latest_version
@@ -380,8 +384,8 @@ INSERT INTO app.d_artifact (
     artifact_type,
     file_format,
     file_size_bytes,
-    primary_entity_type,
-    primary_entity_id,
+    entity_type,
+    entity_id,
     visibility,
     security_classification,
     is_latest_version
@@ -557,7 +561,7 @@ BEGIN
         INSERT INTO app.d_artifact (
             slug, code, name, descr, tags, metadata,
             artifact_type, file_format, file_size_bytes,
-            primary_entity_type, primary_entity_id,
+            entity_type, entity_id,
             visibility, security_classification, is_latest_version
         ) VALUES (
             v_slug,
@@ -590,7 +594,7 @@ END $$;
 INSERT INTO app.d_artifact (
     slug, code, name, descr, tags, metadata,
     artifact_type, file_format, file_size_bytes,
-    primary_entity_type, primary_entity_id,
+    entity_type, entity_id,
     visibility, security_classification, is_latest_version
 )
 SELECT
@@ -620,7 +624,7 @@ FROM (VALUES
 INSERT INTO app.d_artifact (
     slug, code, name, descr, tags, metadata,
     artifact_type, file_format, file_size_bytes,
-    primary_entity_type, primary_entity_id,
+    entity_type, entity_id,
     visibility, security_classification, is_latest_version
 )
 SELECT
@@ -650,7 +654,7 @@ FROM (VALUES
 INSERT INTO app.d_artifact (
     slug, code, name, descr, tags, metadata,
     artifact_type, file_format, file_size_bytes,
-    primary_entity_type, primary_entity_id,
+    entity_type, entity_id,
     visibility, security_classification, is_latest_version
 )
 SELECT
@@ -680,7 +684,7 @@ FROM (VALUES
 INSERT INTO app.d_artifact (
     slug, code, name, descr, tags, metadata,
     artifact_type, file_format, file_size_bytes,
-    primary_entity_type, primary_entity_id,
+    entity_type, entity_id,
     visibility, security_classification, is_latest_version
 )
 SELECT
@@ -719,14 +723,14 @@ FROM (VALUES
 -- Link all artifacts to their parent entities
 INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
 SELECT
-    a.primary_entity_type,
-    a.primary_entity_id::text,
+    a.entity_type,
+    a.entity_id::text,
     'artifact',
     a.id::text,
     'contains'
 FROM app.d_artifact a
-WHERE a.primary_entity_id IS NOT NULL
-  AND a.primary_entity_type IS NOT NULL
+WHERE a.entity_id IS NOT NULL
+  AND a.entity_type IS NOT NULL
   AND a.active_flag = true
 ON CONFLICT DO NOTHING;
 
@@ -762,13 +766,13 @@ ORDER BY artifact_count DESC;
 
 -- Show artifact distribution by entity type
 SELECT
-    primary_entity_type,
+    entity_type,
     COUNT(*) as artifact_count,
     array_agg(DISTINCT artifact_type) as artifact_types
 FROM app.d_artifact
 WHERE active_flag = true
-  AND primary_entity_type IS NOT NULL
-GROUP BY primary_entity_type
+  AND entity_type IS NOT NULL
+GROUP BY entity_type
 ORDER BY artifact_count DESC;
 
 -- Show visibility and security distribution
