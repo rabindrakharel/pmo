@@ -90,10 +90,10 @@ export function WikiDesigner({ page, onSave }: WikiDesignerProps) {
     const newBlock: WikiBlock = {
       id: `block-${Date.now()}`,
       type,
-      content: type === 'heading' ? 'Heading' : type === 'paragraph' ? 'Start typing...' : type === 'quote' ? 'Quote' : type === 'code' ? '// Code' : type === 'callout' ? 'Important note' : '',
-      level: type === 'heading' ? (level || 1) : type === 'list' ? 1 : undefined,
+      content: type === 'heading' ? 'Heading' : type === 'paragraph' ? 'Start typing...' : type === 'quote' ? 'Quote' : type === 'code' ? '// Code' : type === 'callout' ? 'Important note' : type === 'list' ? '' : '',
+      level: type === 'heading' ? (level || 1) : type === 'list' ? (level || 1) : undefined,
       styles: {},
-      properties: type === 'image' ? { src: '', alt: '' } : type === 'video' ? { src: '' } : type === 'table' ? { rows: 3, cols: 3 } : {},
+      properties: type === 'image' ? { src: '', alt: '' } : type === 'video' ? { src: '' } : type === 'table' ? { rows: 3, cols: 3 } : type === 'list' ? { items: [''] } : {},
     };
 
     setBlocks(produce((draft) => {
@@ -148,9 +148,12 @@ export function WikiDesigner({ page, onSave }: WikiDesignerProps) {
             return `<blockquote>${block.content || ''}</blockquote>`;
           case 'code':
             return `<pre><code>${block.content || ''}</code></pre>`;
-          case 'list':
+          case 'list': {
             const tag = block.level === 1 ? 'ul' : 'ol';
-            return `<${tag}><li>${block.content || ''}</li></${tag}>`;
+            const items = block.properties?.items || [block.content || ''];
+            const listItems = items.map(item => `<li>${item || ''}</li>`).join('');
+            return `<${tag}>${listItems}</${tag}>`;
+          }
           case 'image':
             return `<img src="${block.properties?.src || ''}" alt="${block.properties?.alt || ''}" />`;
           case 'video':
@@ -251,27 +254,24 @@ export function WikiDesigner({ page, onSave }: WikiDesignerProps) {
     // Design mode
     return (
       <div className="max-w-5xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
-        {/* Header Section - Cover, Title, Metadata */}
-        <WikiHeaderEditor
-          title={title}
-          icon={icon}
-          cover={cover}
-          author={author}
-          createdDate={createdDate}
-          updatedDate={updatedDate}
-          onUpdateTitle={(newTitle) => {
-            setTitle(newTitle);
-            setUpdatedDate(new Date().toISOString());
-          }}
-          onUpdateIcon={(newIcon) => {
-            setIcon(newIcon);
-            setUpdatedDate(new Date().toISOString());
-          }}
-          onUpdateCover={(newCover) => {
-            setCover(newCover);
-            setUpdatedDate(new Date().toISOString());
-          }}
-        />
+        {/* Simple Title Section */}
+        <div className="px-16 pt-12 pb-6 border-b border-gray-200">
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setUpdatedDate(new Date().toISOString());
+            }}
+            placeholder="Untitled Page"
+            className="w-full text-4xl font-bold text-gray-900 bg-transparent border-none outline-none placeholder-gray-300"
+          />
+          <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
+            <span>Author: {author}</span>
+            <span>•</span>
+            <span>Updated {new Date(updatedDate).toLocaleDateString()}</span>
+          </div>
+        </div>
 
         {/* Content Blocks Section */}
         <div className="px-16 py-8 min-h-[400px]">

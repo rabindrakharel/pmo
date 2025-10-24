@@ -36,27 +36,44 @@ const ArtifactSchema = Type.Object({
 });
 
 const CreateArtifactSchema = Type.Object({
-  name: Type.Optional(Type.String({ minLength: 1 })),
+  // Required fields (will be auto-generated if not provided)
+  name: Type.String({ minLength: 1 }),
+  code: Type.String({ minLength: 1 }),
+  slug: Type.String({ minLength: 1 }),
+
+  // Optional metadata
   descr: Type.Optional(Type.String()),
   tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String(), Type.Any()])),
+  metadata: Type.Optional(Type.Union([Type.Object({}), Type.String(), Type.Any()])),
   attr: Type.Optional(Type.Union([Type.Object({}), Type.String(), Type.Any()])),
-  artifact_code: Type.Optional(Type.String()),
+
+  // Classification
   artifact_type: Type.Optional(Type.String()),
-  model_type: Type.Optional(Type.String()),
-  version: Type.Optional(Type.String()),
-  source_type: Type.Optional(Type.String()),
-  storage: Type.Optional(Type.String()),
-  uri: Type.Optional(Type.String()),
-  checksum: Type.Optional(Type.String()),
+  file_format: Type.Optional(Type.String()),
   file_size_bytes: Type.Optional(Type.Number()),
-  mime_type: Type.Optional(Type.String()),
-  confidentiality_level: Type.Optional(Type.String()),
-  approval_status: Type.Optional(Type.String()),
-  language: Type.Optional(Type.String()),
-  publication_date: Type.Optional(Type.String()),
-  expiry_date: Type.Optional(Type.String()),
-  review_date: Type.Optional(Type.String()),
-  author_employee_id: Type.Optional(Type.String()),
+
+  // S3/Storage
+  bucket_name: Type.Optional(Type.String()),
+  object_key: Type.Optional(Type.String()),
+
+  // Access control
+  visibility: Type.Optional(Type.String()), // public, internal, restricted, private
+  security_classification: Type.Optional(Type.String()), // general, confidential, restricted
+
+  // Entity relationship
+  entity_type: Type.Optional(Type.String()),
+  entity_id: Type.Optional(Type.String()),
+  primary_entity_type: Type.Optional(Type.String()),
+  primary_entity_id: Type.Optional(Type.String()),
+
+  // Versioning
+  parent_artifact_id: Type.Optional(Type.String()),
+  is_latest_version: Type.Optional(Type.Boolean()),
+  version: Type.Optional(Type.Number()),
+
+  // Status
+  active_flag: Type.Optional(Type.Boolean()),
+  active: Type.Optional(Type.Boolean()),
 });
 
 const UpdateArtifactSchema = Type.Partial(CreateArtifactSchema);
@@ -185,6 +202,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         INSERT INTO app.d_artifact (
           slug, code, name, descr, tags, metadata, artifact_type,
           file_format, file_size_bytes,
+          bucket_name, object_key,
           entity_type, entity_id,
           visibility, security_classification,
           parent_artifact_id, is_latest_version,
@@ -199,6 +217,8 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           ${data.artifact_type},
           ${data.file_format || null},
           ${data.file_size_bytes || null},
+          ${data.bucket_name || null},
+          ${data.object_key || null},
           ${data.entity_type || data.primary_entity_type || null},
           ${data.entity_id || data.primary_entity_id || null},
           ${data.visibility || 'internal'},
@@ -231,39 +251,46 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     const data = request.body as any;
 
     try {
-      // Build SET clause dynamically
+      // Build SET clause dynamically for actual database columns
       const setClauses = [];
-      if (data.name !== undefined) setClauses.push(`name = ${sql.placeholder(data.name)}`);
-      if (data.descr !== undefined) setClauses.push(`descr = ${sql.placeholder(data.descr)}`);
-      if (data.tags !== undefined) setClauses.push(`tags = ${sql.placeholder(JSON.stringify(data.tags))}::jsonb`);
-      if (data.attr !== undefined) setClauses.push(`attr = ${sql.placeholder(JSON.stringify(data.attr))}::jsonb`);
-      if (data.artifact_code !== undefined) setClauses.push(`artifact_code = ${sql.placeholder(data.artifact_code)}`);
-      if (data.artifact_type !== undefined) setClauses.push(`artifact_type = ${sql.placeholder(data.artifact_type)}`);
-      if (data.model_type !== undefined) setClauses.push(`model_type = ${sql.placeholder(data.model_type)}`);
-      if (data.version !== undefined) setClauses.push(`version = ${sql.placeholder(data.version)}`);
-      if (data.source_type !== undefined) setClauses.push(`source_type = ${sql.placeholder(data.source_type)}`);
-      if (data.storage !== undefined) setClauses.push(`storage = ${sql.placeholder(data.storage)}`);
-      if (data.uri !== undefined) setClauses.push(`uri = ${sql.placeholder(data.uri)}`);
-      if (data.checksum !== undefined) setClauses.push(`checksum = ${sql.placeholder(data.checksum)}`);
-      if (data.file_size_bytes !== undefined) setClauses.push(`file_size_bytes = ${sql.placeholder(data.file_size_bytes)}`);
-      if (data.mime_type !== undefined) setClauses.push(`mime_type = ${sql.placeholder(data.mime_type)}`);
-      if (data.confidentiality_level !== undefined) setClauses.push(`confidentiality_level = ${sql.placeholder(data.confidentiality_level)}`);
-      if (data.approval_status !== undefined) setClauses.push(`approval_status = ${sql.placeholder(data.approval_status)}`);
-      if (data.language !== undefined) setClauses.push(`language = ${sql.placeholder(data.language)}`);
-      if (data.publication_date !== undefined) setClauses.push(`publication_date = ${sql.placeholder(data.publication_date)}`);
-      if (data.expiry_date !== undefined) setClauses.push(`expiry_date = ${sql.placeholder(data.expiry_date)}`);
-      if (data.review_date !== undefined) setClauses.push(`review_date = ${sql.placeholder(data.review_date)}`);
-      if (data.author_employee_id !== undefined) setClauses.push(`author_employee_id = ${sql.placeholder(data.author_employee_id)}`);
+
+      // Basic fields
+      if (data.name !== undefined) setClauses.push(`name = '${data.name}'`);
+      if (data.code !== undefined) setClauses.push(`code = '${data.code}'`);
+      if (data.slug !== undefined) setClauses.push(`slug = '${data.slug}'`);
+      if (data.descr !== undefined) setClauses.push(`descr = '${data.descr}'`);
+
+      // JSONB fields
+      if (data.tags !== undefined) setClauses.push(`tags = '${JSON.stringify(data.tags)}'::jsonb`);
+      if (data.metadata !== undefined) setClauses.push(`metadata = '${JSON.stringify(data.metadata)}'::jsonb`);
+      if (data.attr !== undefined) setClauses.push(`metadata = '${JSON.stringify(data.attr)}'::jsonb`);
+
+      // Classification
+      if (data.artifact_type !== undefined) setClauses.push(`artifact_type = '${data.artifact_type}'`);
+      if (data.file_format !== undefined) setClauses.push(`file_format = '${data.file_format}'`);
+      if (data.file_size_bytes !== undefined) setClauses.push(`file_size_bytes = ${data.file_size_bytes}`);
+
+      // Access control
+      if (data.visibility !== undefined) setClauses.push(`visibility = '${data.visibility}'`);
+      if (data.security_classification !== undefined) setClauses.push(`security_classification = '${data.security_classification}'`);
+
+      // S3/Storage
+      if (data.bucket_name !== undefined) setClauses.push(`bucket_name = '${data.bucket_name}'`);
+      if (data.object_key !== undefined) setClauses.push(`object_key = '${data.object_key}'`);
+
+      // Entity relationship
+      if (data.entity_type !== undefined) setClauses.push(`entity_type = '${data.entity_type}'`);
+      if (data.entity_id !== undefined) setClauses.push(`entity_id = '${data.entity_id}'`);
 
       if (setClauses.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      setClauses.push('updated = NOW()');
+      setClauses.push('updated_ts = NOW()');
       const setClause = setClauses.join(', ');
 
       const result = await db.execute(sql`
-        UPDATE app.d_artifact 
+        UPDATE app.d_artifact
         SET ${sql.raw(setClause)}
         WHERE id = ${id} AND active_flag = true
         RETURNING *
@@ -545,8 +572,13 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         fileName: Type.String(),
         contentType: Type.Optional(Type.String()),
         fileSize: Type.Optional(Type.Number()),
+        file_format: Type.Optional(Type.String()),
+        file_size_bytes: Type.Optional(Type.Number()),
         descr: Type.Optional(Type.String()),
-        tags: Type.Optional(Type.Array(Type.String())),
+        visibility: Type.Optional(Type.String()),
+        security_classification: Type.Optional(Type.String()),
+        artifact_type: Type.Optional(Type.String()),
+        tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.Any()])),
       }),
       response: {
         200: Type.Object({
@@ -596,9 +628,13 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           ${slug}, ${code}, ${current.name}, ${data.descr || current.descr},
           ${data.tags ? JSON.stringify(data.tags) : current.tags}::jsonb,
           ${JSON.stringify({ uploadedBy: userId, uploadedAt: new Date().toISOString(), previousVersion: current.id })}::jsonb,
-          ${current.artifact_type}, ${ext}, ${data.fileSize || current.file_size_bytes},
+          ${data.artifact_type || current.artifact_type},
+          ${data.file_format || ext},
+          ${data.file_size_bytes || data.fileSize || current.file_size_bytes},
           ${current.entity_type}, ${current.entity_id}, ${config.S3_ATTACHMENTS_BUCKET}, ${uploadResult.objectKey},
-          ${current.visibility}, ${current.security_classification}, ${rootId}, true, NOW(), NULL, true, ${nextVersion}
+          ${data.visibility || current.visibility},
+          ${data.security_classification || current.security_classification},
+          ${rootId}, true, NOW(), NULL, true, ${nextVersion}
         ) RETURNING *
       `);
 

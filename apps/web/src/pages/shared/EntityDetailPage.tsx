@@ -47,6 +47,10 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   const [uploadedObjectKey, setUploadedObjectKey] = useState<string | null>(null);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
 
+  // Preview state for artifacts
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
   // Fetch dynamic child entity tabs from API
   const { tabs, loading: tabsLoading } = useDynamicChildEntityTabs(entityType, id || '');
 
@@ -140,6 +144,11 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
 
       setData(responseData);
       setEditedData(responseData);
+
+      // Fetch preview URL for artifacts
+      if (entityType === 'artifact' && responseData.object_key) {
+        fetchPreviewUrl();
+      }
     } catch (err) {
       console.error(`Failed to load ${entityType}:`, err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -155,6 +164,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
         const token = localStorage.getItem('auth_token');
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
+        const fileExtension = selectedFile.name.split('.').pop() || 'unknown';
         const response = await fetch(`${apiUrl}/api/v1/artifact/${id}/new-version`, {
           method: 'POST',
           headers: {
@@ -165,7 +175,14 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             fileName: selectedFile.name,
             contentType: selectedFile.type || 'application/octet-stream',
             fileSize: selectedFile.size,
-            descr: editedData.descr || data.descr
+            file_format: fileExtension,
+            file_size_bytes: selectedFile.size,
+            descr: editedData.descr || data.descr,
+            // Include any updated metadata fields from editedData
+            visibility: editedData.visibility,
+            security_classification: editedData.security_classification,
+            artifact_type: editedData.artifact_type,
+            tags: editedData.tags
           })
         });
 
@@ -361,6 +378,33 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
     }
   };
 
+  const fetchPreviewUrl = async () => {
+    if (entityType !== 'artifact' || !data?.object_key) {
+      return;
+    }
+
+    setLoadingPreview(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+      const response = await fetch(`${apiUrl}/api/v1/artifact/${id}/download`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate preview URL');
+      }
+
+      const { url } = await response.json();
+      setPreviewUrl(url);
+    } catch (err) {
+      console.error('Preview URL fetch failed:', err);
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -387,6 +431,13 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
 
       if (objectKey) {
         setUploadedObjectKey(objectKey);
+        // Auto-populate file metadata immediately for the new version
+        const fileExtension = selectedFile.name.split('.').pop() || 'unknown';
+        setEditedData(prev => ({
+          ...prev,
+          file_format: fileExtension,
+          file_size_bytes: selectedFile.size
+        }));
       }
     } catch (error) {
       console.error('Upload failed:', error);
@@ -399,6 +450,12 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   const handleRemoveFile = () => {
     setSelectedFile(null);
     setUploadedObjectKey(null);
+    // Restore original file metadata from current version
+    setEditedData(prev => ({
+      ...prev,
+      file_format: data.file_format || '',
+      file_size_bytes: data.file_size_bytes || 0
+    }));
   };
 
   if (!config) {
@@ -456,6 +513,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 {data.name || data.title || `${config.displayName} Details`}
                 <span className="text-xs font-light text-gray-500 ml-3">
                   {config.displayName} · {id}
+                  {entityType === 'artifact' && data.version && ` · Version ${data.version}`}
                 </span>
               </h1>
             </div>
@@ -553,6 +611,67 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                   setEditedData({ ...editedData, shared_url: url });
                 }}
               />
+            )}
+
+            {/* File Preview Section - Only for artifacts with files */}
+            {entityType === 'artifact' && data?.object_key && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-sm font-medium text-gray-900 mb-4">File Preview</h2>
+                {loadingPreview ? (
+                  <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                  </div>
+                ) : previewUrl ? (
+                  <div className="rounded-lg overflow-hidden border border-gray-200">
+                    {/* PDF Preview */}
+                    {data.file_format?.toLowerCase() === 'pdf' && (
+                      <iframe
+                        src={previewUrl}
+                        className="w-full h-[800px]"
+                        title="PDF Preview"
+                      />
+                    )}
+
+                    {/* Image Preview */}
+                    {['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(data.file_format?.toLowerCase()) && (
+                      <div className="bg-gray-50 p-4 flex items-center justify-center">
+                        <img
+                          src={previewUrl}
+                          alt={data.name}
+                          className="max-w-full max-h-[800px] object-contain"
+                        />
+                      </div>
+                    )}
+
+                    {/* Video Preview */}
+                    {['mp4', 'webm', 'ogg', 'mov', 'avi'].includes(data.file_format?.toLowerCase()) && (
+                      <video
+                        src={previewUrl}
+                        controls
+                        className="w-full max-h-[600px]"
+                      >
+                        Your browser does not support the video tag.
+                      </video>
+                    )}
+
+                    {/* Unsupported format message */}
+                    {!['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'mp4', 'webm', 'ogg', 'mov', 'avi'].includes(data.file_format?.toLowerCase()) && (
+                      <div className="bg-gray-50 p-8 text-center">
+                        <p className="text-sm text-gray-600">
+                          Preview not available for {data.file_format?.toUpperCase()} files.
+                        </p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Use the Download button to view this file.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 p-8 text-center rounded-lg">
+                    <p className="text-sm text-gray-600">Preview not available</p>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Entity-specific content */}

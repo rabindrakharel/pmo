@@ -125,23 +125,78 @@ export function WikiDraggableBlock({
         );
       }
 
-      case 'list':
+      case 'list': {
         const ListTag = block.level === 1 ? 'ul' : 'ol';
         const bulletStyle = block.level === 1 ? 'list-disc' : 'list-decimal';
+
+        // Initialize items array if not present
+        const items = block.properties?.items || [block.content || ''];
+
+        const handleListItemChange = (index: number, value: string) => {
+          const newItems = [...items];
+          newItems[index] = value;
+          onUpdate({
+            properties: { ...block.properties, items: newItems },
+            content: newItems.join('\n') // Keep content in sync for backwards compatibility
+          });
+        };
+
+        const handleListItemKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+          // Enter: Create new list item below
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            const newItems = [...items];
+            newItems.splice(index + 1, 0, '');
+            onUpdate({
+              properties: { ...block.properties, items: newItems },
+              content: newItems.join('\n')
+            });
+            // Focus next input after render
+            setTimeout(() => {
+              const inputs = document.querySelectorAll(`[data-block-id="${block.id}"] input`);
+              if (inputs[index + 1]) {
+                (inputs[index + 1] as HTMLInputElement).focus();
+              }
+            }, 0);
+          }
+
+          // Backspace on empty item: Delete item (unless it's the only one)
+          if (e.key === 'Backspace' && items[index] === '' && items.length > 1) {
+            e.preventDefault();
+            const newItems = items.filter((_, i) => i !== index);
+            onUpdate({
+              properties: { ...block.properties, items: newItems },
+              content: newItems.join('\n')
+            });
+            // Focus previous input
+            setTimeout(() => {
+              const inputs = document.querySelectorAll(`[data-block-id="${block.id}"] input`);
+              const focusIndex = Math.max(0, index - 1);
+              if (inputs[focusIndex]) {
+                (inputs[focusIndex] as HTMLInputElement).focus();
+              }
+            }, 0);
+          }
+        };
+
         return (
-          <ListTag className={`${bulletStyle} ml-6`}>
-            <li>
-              <input
-                type="text"
-                value={block.content || ''}
-                onChange={(e) => handleContentChange(e.target.value)}
-                onClick={onSelect}
-                className="w-full bg-transparent border-none outline-none text-gray-700 placeholder-gray-400"
-                placeholder="List item..."
-              />
-            </li>
+          <ListTag className={`${bulletStyle} ml-6 space-y-1`} data-block-id={block.id}>
+            {items.map((item, index) => (
+              <li key={index}>
+                <input
+                  type="text"
+                  value={item}
+                  onChange={(e) => handleListItemChange(index, e.target.value)}
+                  onKeyDown={(e) => handleListItemKeyDown(index, e)}
+                  onClick={onSelect}
+                  className="w-full bg-transparent border-none outline-none text-gray-700 placeholder-gray-400"
+                  placeholder="List item..."
+                />
+              </li>
+            ))}
           </ListTag>
         );
+      }
 
       case 'callout': {
         const textareaRef = useAutoResizeTextarea(block.content || '');

@@ -44,11 +44,21 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
         defaults[field.key] = [];
       } else if (field.type === 'jsonb') {
         defaults[field.key] = {};
+      } else if (field.type === 'select' && field.defaultValue) {
+        // Use defaultValue from field config if specified
+        defaults[field.key] = field.defaultValue;
       } else if (field.type === 'select' && field.options) {
-        // Don't set a default value for select fields - let user choose
+        // Don't set a default value for select fields without defaultValue
         defaults[field.key] = '';
       }
     });
+
+    // Entity-specific defaults for artifacts
+    if (entityType === 'artifact') {
+      const timestamp = Date.now();
+      defaults.code = defaults.code || `ART-${timestamp}`;
+      defaults.slug = defaults.slug || `artifact-${timestamp}`;
+    }
 
     return defaults;
   };
@@ -96,13 +106,14 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
 
       if (objectKey) {
         setUploadedObjectKey(objectKey);
-        // Auto-populate form fields
-        if (!formData.name) {
-          setFormData(prev => ({
-            ...prev,
-            name: selectedFile.name.replace(/\.[^/.]+$/, '') // Remove extension
-          }));
-        }
+        // Auto-populate form fields immediately
+        const fileExtension = selectedFile.name.split('.').pop() || 'unknown';
+        setFormData(prev => ({
+          ...prev,
+          name: !prev.name ? selectedFile.name.replace(/\.[^/.]+$/, '') : prev.name, // Remove extension
+          file_format: fileExtension,
+          file_size_bytes: selectedFile.size
+        }));
       }
     } catch (error) {
       console.error('Upload failed:', error);
@@ -115,6 +126,12 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
   const handleRemoveFile = () => {
     setSelectedFile(null);
     setUploadedObjectKey(null);
+    // Clear auto-populated file fields
+    setFormData(prev => ({
+      ...prev,
+      file_format: '',
+      file_size_bytes: 0
+    }));
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -137,12 +154,11 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
       const dataToCreate = { ...formData };
       delete dataToCreate.assignee_employee_ids;
 
-      // Add artifact-specific fields if uploading a file
-      if (entityType === 'artifact' && uploadedObjectKey && selectedFile) {
+      // Add artifact-specific S3 fields if uploading a file
+      if (entityType === 'artifact' && uploadedObjectKey) {
         dataToCreate.object_key = uploadedObjectKey;
         dataToCreate.bucket_name = 'cohuron-attachments-prod-957207443425';
-        dataToCreate.file_size_bytes = selectedFile.size;
-        dataToCreate.file_format = selectedFile.name.split('.').pop() || 'unknown';
+        // file_format and file_size_bytes are already in formData from handleFileUpload
       }
 
       // Type-safe API call using APIFactory

@@ -184,11 +184,13 @@ export function EntityFormContainer({
             type={field.type}
             value={value || ''}
             onChange={(e) => onChange(field.key, e.target.value)}
-            className="w-full border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
+            className={`w-full border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors px-0 py-0 ${
+              field.readonly ? 'bg-gray-50 cursor-not-allowed' : 'bg-transparent'
+            }`}
             style={{
               fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '13px',
-              color: '#333'
+              color: field.readonly ? '#6B7280' : '#333'
             }}
             placeholder={field.placeholder}
             disabled={field.disabled || field.readonly}

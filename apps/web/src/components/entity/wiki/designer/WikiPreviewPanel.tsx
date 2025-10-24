@@ -85,14 +85,18 @@ export function WikiPreviewPanel({ blocks, title, metadata }: WikiPreviewPanelPr
           </pre>
         );
 
-      case 'list':
+      case 'list': {
         const ListTag = block.level === 1 ? 'ul' : 'ol';
         const bulletStyle = block.level === 1 ? 'list-disc' : 'list-decimal';
+        const items = block.properties?.items || [block.content || ''];
         return (
-          <ListTag className={`${bulletStyle} ml-6 my-4`}>
-            <li className="text-gray-700 leading-relaxed">{block.content}</li>
+          <ListTag className={`${bulletStyle} ml-6 my-4 space-y-1`}>
+            {items.map((item, index) => (
+              <li key={index} className="text-gray-700 leading-relaxed">{item}</li>
+            ))}
           </ListTag>
         );
+      }
 
       case 'callout':
         return (

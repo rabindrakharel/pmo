@@ -572,21 +572,74 @@ export const entityConfigs: Record<string, EntityConfig> = {
     ],
 
     fields: [
-      { key: 'name', label: 'Name', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'artifact_type', label: 'Type', type: 'select', options: [
-        { value: 'Document', label: 'Document' },
-        { value: 'Design', label: 'Design' },
-        { value: 'Model', label: 'Model' },
-        { value: 'Template', label: 'Template' }
-      ]},
-      { key: 'source_type', label: 'Source Type', type: 'select', options: [
-        { value: 'upload', label: 'Upload' },
-        { value: 'link', label: 'Link' },
-        { value: 'generated', label: 'Generated' }
-      ]},
-      { key: 'uri', label: 'URI/Path', type: 'text' },
-      { key: 'tags', label: 'Tags', type: 'array' }
+      // Basic Information
+      { key: 'name', label: 'Name', type: 'text', required: true, placeholder: 'e.g., Project Blueprint Q1 2025' },
+      { key: 'code', label: 'Code', type: 'text', required: true, placeholder: 'e.g., ART-2025-001' },
+      { key: 'slug', label: 'Slug', type: 'text', required: true, placeholder: 'e.g., project-blueprint-q1-2025' },
+      { key: 'descr', label: 'Description', type: 'textarea', placeholder: 'Describe the purpose and contents of this artifact...' },
+
+      // Classification
+      {
+        key: 'artifact_type',
+        label: 'Artifact Type',
+        type: 'select',
+        defaultValue: 'document',
+        options: [
+          { value: 'document', label: 'Document - General documentation' },
+          { value: 'template', label: 'Template - Reusable template' },
+          { value: 'image', label: 'Image - Photos, diagrams, screenshots' },
+          { value: 'video', label: 'Video - Video files' },
+          { value: 'blueprint', label: 'Blueprint - Technical drawings' },
+          { value: 'contract', label: 'Contract - Legal agreements' },
+          { value: 'report', label: 'Report - Analysis and reports' },
+          { value: 'presentation', label: 'Presentation - Slides and presentations' },
+          { value: 'spreadsheet', label: 'Spreadsheet - Data and calculations' }
+        ]
+      },
+      {
+        key: 'file_format',
+        label: 'File Format',
+        type: 'text',
+        readonly: true,
+        placeholder: 'Auto-populated from uploaded file (e.g., pdf, docx, png)'
+      },
+      {
+        key: 'file_size_bytes',
+        label: 'File Size (bytes)',
+        type: 'number',
+        readonly: true,
+        placeholder: 'Auto-populated from uploaded file'
+      },
+
+      // Access Control
+      {
+        key: 'visibility',
+        label: 'Visibility',
+        type: 'select',
+        defaultValue: 'internal',
+        required: true,
+        options: [
+          { value: 'public', label: 'Public - Anyone with link can access' },
+          { value: 'internal', label: 'Internal - Organization members only' },
+          { value: 'restricted', label: 'Restricted - Limited team access' },
+          { value: 'private', label: 'Private - Owner and assigned users only' }
+        ]
+      },
+      {
+        key: 'security_classification',
+        label: 'Security Classification',
+        type: 'select',
+        defaultValue: 'general',
+        required: true,
+        options: [
+          { value: 'general', label: 'General - Standard business information' },
+          { value: 'confidential', label: 'Confidential - Sensitive business data' },
+          { value: 'restricted', label: 'Restricted - Highly sensitive information' }
+        ]
+      },
+
+      // Metadata
+      { key: 'tags', label: 'Tags', type: 'array', placeholder: 'Add tags for categorization...' }
     ],
 
     supportedViews: ['table'],
