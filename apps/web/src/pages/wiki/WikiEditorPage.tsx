@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Share2, Link as LinkIcon } from 'lucide-react';
 import { WikiDesigner } from '../../components/entity/wiki/WikiDesigner';
+import { ShareModal } from '../../components/shared/modal';
+import { UnifiedLinkageModal } from '../../components/shared/modal/UnifiedLinkageModal';
+import { useLinkageModal } from '../../hooks/useLinkageModal';
 import { wikiApi } from '../../lib/api';
 
 export function WikiEditorPage() {
@@ -11,6 +15,15 @@ export function WikiEditorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Unified linkage modal
+  const linkageModal = useLinkageModal({
+    onLinkageChange: () => {
+      // Optionally refetch wiki data
+      console.log('Wiki linkage changed');
+    }
+  });
 
   useEffect(() => {
     if (editing && id) {
@@ -109,7 +122,30 @@ export function WikiEditorPage() {
 
   return (
     <>
-      <WikiDesigner page={page} onSave={handleSave} />
+      <WikiDesigner
+        page={page}
+        onSave={handleSave}
+        actions={id ? [
+          {
+            id: 'link',
+            label: '',
+            icon: <LinkIcon className="h-4 w-4" />,
+            onClick: () => linkageModal.openAssignParent({
+              childEntityType: 'wiki',
+              childEntityId: id!,
+              childEntityName: page?.name
+            }),
+            variant: 'secondary' as const,
+          },
+          {
+            id: 'share',
+            label: '',
+            icon: <Share2 className="h-4 w-4" />,
+            onClick: () => setIsShareModalOpen(true),
+            variant: 'secondary' as const,
+          },
+        ] : []}
+      />
 
       {/* Success Toast */}
       {saveSuccess && (
@@ -120,6 +156,25 @@ export function WikiEditorPage() {
           <span className="font-medium">Wiki page saved successfully!</span>
         </div>
       )}
+
+      {/* Share Modal */}
+      {id && (
+        <ShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          entityType="wiki"
+          entityId={id}
+          entityName={page?.name}
+          currentSharedUrl={page?.shared_url}
+          onShare={async (shareData) => {
+            console.log('Sharing wiki:', shareData);
+            // Handle sharing logic
+          }}
+        />
+      )}
+
+      {/* Unified Linkage Modal */}
+      <UnifiedLinkageModal {...linkageModal.modalProps} />
     </>
   );
 }

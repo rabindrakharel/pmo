@@ -3,7 +3,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Save, BookOpen, Plus } from 'lucide-react';
 import { produce } from 'immer';
-import { UniversalDesigner } from '../../shared/designer';
+import { UniversalDesigner, DesignerAction } from '../../shared/designer';
 import { WikiBlockToolbar } from './designer/WikiBlockToolbar';
 import { WikiDraggableBlock } from './designer/WikiDraggableBlock';
 import { WikiPropertiesPanel } from './designer/WikiPropertiesPanel';
@@ -45,9 +45,10 @@ export interface WikiPage {
 export interface WikiDesignerProps {
   page: WikiPage;
   onSave: (pageData: Partial<WikiPage>) => Promise<void>;
+  actions?: DesignerAction[];
 }
 
-export function WikiDesigner({ page, onSave }: WikiDesignerProps) {
+export function WikiDesigner({ page, onSave, actions = [] }: WikiDesignerProps) {
   // Page state
   const [blocks, setBlocks] = useState<WikiBlock[]>(page.content?.blocks || []);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
@@ -357,6 +358,7 @@ export function WikiDesigner({ page, onSave }: WikiDesignerProps) {
       propertiesDefaultCollapsed={false}
 
       // Actions
+      actions={actions}
       primaryAction={{
         id: 'save',
         label: isSaving ? 'Saving...' : 'Save Page',

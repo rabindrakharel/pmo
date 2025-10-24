@@ -39,7 +39,7 @@ export { ShareURLSection } from './share/ShareURLSection';
 // ============================================================================
 // SETTINGS COMPONENTS
 // ============================================================================
-export { LinkageManager } from './settings/LinkageManager';
+// LinkageManager removed - use UnifiedLinkageModal instead
 
 // ============================================================================
 // TOGGLE COMPONENTS

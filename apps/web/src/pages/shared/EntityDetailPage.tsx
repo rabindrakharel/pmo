@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Outlet, useLocation } from 'react-router-dom';
 import { ArrowLeft, Edit2, Save, X, Palette, Download, Upload, CheckCircle, Copy, Check, Share2, Link as LinkIcon } from 'lucide-react';
 import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityFormContainer } from '../../components/shared';
-import { ShareModal, LinkModal } from '../../components/shared/modal';
+import { ShareModal } from '../../components/shared/modal';
+import { UnifiedLinkageModal } from '../../components/shared/modal/UnifiedLinkageModal';
+import { useLinkageModal } from '../../hooks/useLinkageModal';
 import { WikiContentRenderer } from '../../components/entity/wiki';
 import { TaskDataContainer } from '../../components/entity/task';
 import { FormDataTable, InteractiveForm, FormSubmissionEditor } from '../../components/entity/form';
@@ -44,7 +46,14 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isGeneratingShareUrl, setIsGeneratingShareUrl] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+
+  // Unified linkage modal
+  const linkageModal = useLinkageModal({
+    onLinkageChange: () => {
+      // Refetch entity data and child tabs when linkage changes
+      fetchData();
+    }
+  });
 
   // File upload state (for artifact edit/new version)
   const { uploadToS3, uploadingFiles, errors: uploadErrors } = useS3Upload();
@@ -774,24 +783,27 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 )}
                 {/* Link button for managing entity relationships */}
                 <button
-                  onClick={() => setIsLinkModalOpen(true)}
+                  onClick={() => linkageModal.openAssignParent({
+                    childEntityType: entityType,
+                    childEntityId: id!,
+                    childEntityName: data?.name || data?.title
+                  })}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                   title="Manage links"
                 >
                   <LinkIcon className="h-5 w-5 text-gray-600 stroke-[1.5]" />
                 </button>
 
-                {/* Share button for shareable entities */}
-                {config.shareable && (
-                  <button
-                    onClick={() => setIsShareModalOpen(true)}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Share"
-                  >
-                    <Share2 className="h-5 w-5 text-gray-600 stroke-[1.5]" />
-                  </button>
-                )}
+                {/* Share button - available for all entities */}
+                <button
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Share"
+                >
+                  <Share2 className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+                </button>
 
+                {/* Edit button */}
                 <button
                   onClick={() => {
                     // Special handling for form entity - navigate to edit page
@@ -1168,14 +1180,8 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
         }}
       />
 
-      {/* Link Modal */}
-      <LinkModal
-        isOpen={isLinkModalOpen}
-        onClose={() => setIsLinkModalOpen(false)}
-        childEntityType={entityType}
-        childEntityId={id!}
-        childEntityName={data?.name || data?.title}
-      />
+      {/* Unified Linkage Modal */}
+      <UnifiedLinkageModal {...linkageModal.modalProps} />
     </Layout>
   );
 }

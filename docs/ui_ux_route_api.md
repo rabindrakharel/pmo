@@ -2,7 +2,13 @@
 
 > **Comprehensive mapping of the entire PMO platform architecture** - From database tables to frontend components, showing how all layers work together using DRY principles.
 >
-> **Last Updated:** 2025-10-23 | **Status:** Production v1.0
+> **Last Updated:** 2025-10-24 | **Status:** Production v2.0 (Universal Action Buttons + Modal System)
+>
+> **v2.0 Updates:**
+> - ✅ Edit, Share, and Link buttons now available on ALL entity detail pages
+> - ✅ ShareModal no longer conditional (removed config.shareable restriction)
+> - ✅ LinkModal universally accessible for relationship management
+> - ✅ Consistent UX across all 18+ entity types
 
 ---
 
@@ -395,6 +401,11 @@ apps/web/src/
 │   │   │   ├── EntityFormContainer.tsx - Universal form wrapper
 │   │   │   ├── SequentialStateVisualizer.tsx - Timeline component
 │   │   │   └── DynamicChildEntityTabs.tsx    - Dynamic tab system
+│   │   ├── modal/                      - **NEW: Universal Modal System**
+│   │   │   ├── Modal.tsx               - Base modal component
+│   │   │   ├── ShareModal.tsx          - Share to users/roles/public
+│   │   │   ├── LinkModal.tsx           - Entity linkage management
+│   │   │   └── index.ts                - Modal exports
 │   │   ├── table/
 │   │   │   ├── DataTable.tsx           - Reusable table component
 │   │   │   └── FilteredDataTable.tsx   - Table with filtering
@@ -483,14 +494,30 @@ export function EntityMainPage({ entityType }: { entityType: string }) {
 **Purpose:** Show individual entity with dynamic tabs for child entities
 
 **Features:**
-- ✅ Overview tab (Notion-style field layout)
-- ✅ Dynamic child entity tabs (loaded from API)
-- ✅ Inline edit mode
-- ✅ Share URL generation (for shareable entities)
-- ✅ Special renderers:
+- ✅ **Enhanced Header (NEW v2.0)** - Redesigned for better UX
+  - Entity type + name displayed prominently
+  - Code, slug, ID shown with one-click copy buttons
+  - Editable in edit mode (saves with form fields)
+- ✅ **Universal Action Buttons (NEW v2.0)** - Available for ALL entity types
+  - **Link button** - Opens LinkModal for entity relationship management
+  - **Share button** - Opens ShareModal for sharing/permissions (no longer conditional)
+  - **Edit button** - Enables inline editing mode with Save/Cancel
+  - Special buttons for specific entities:
+    - Download button (artifacts with object_key)
+    - Design Email button (marketing entity)
+- ✅ **Overview tab** - Compact Notion-style field layout (50% space reduction)
+  - Striped dividers (15% opacity) for subtle separation
+  - Reduced spacing: py-4 → py-1.5, p-8 → p-4
+  - Excludes header fields (name, code, slug, id) from form
+- ✅ **Dynamic child entity tabs** (loaded from API)
+- ✅ **Inline edit mode** with visual field highlighting
+- ✅ **Share Modal** - Share to users, roles, or generate public links
+- ✅ **Link Modal** - Manage entity relationships with search
+- ✅ **Special renderers:**
   - Wiki → `WikiContentRenderer` (rich text)
   - Form → `InteractiveForm` (form submission viewer)
-- ✅ Sequential state visualization for workflow fields
+  - Artifact → Preview with fixed fetch loop (useRef pattern)
+- ✅ **Sequential state visualization** for workflow fields
 
 **Used by:** All 13+ entity types
 
@@ -548,6 +575,206 @@ WHERE m.entity_id = '84215ccb...'
   AND m.entity = 'project'
   AND m.child_entity = 'task';
 ```
+
+---
+
+### Universal Modal System (NEW)
+
+**Added:** 2025-10-24 | **Version:** 2.0
+
+The platform now includes a reusable modal system following DRY principles, with three main components:
+
+#### 1. Base Modal Component
+
+**File:** `apps/web/src/components/shared/modal/Modal.tsx`
+
+**Purpose:** Reusable modal shell for all modal dialogs
+
+**Features:**
+- ✅ Backdrop blur with click-outside-to-close
+- ✅ ESC key support for closing
+- ✅ Responsive sizing (sm, md, lg, xl)
+- ✅ Optional footer for action buttons
+- ✅ Consistent styling across all modals
+
+**Usage:**
+```tsx
+<Modal
+  isOpen={isOpen}
+  onClose={() => setIsOpen(false)}
+  title="Modal Title"
+  size="md"
+  footer={
+    <>
+      <Button variant="secondary" onClick={onClose}>Cancel</Button>
+      <Button variant="primary" onClick={onSave}>Save</Button>
+    </>
+  }
+>
+  <div>Modal content here</div>
+</Modal>
+```
+
+#### 2. ShareModal Component
+
+**File:** `apps/web/src/components/shared/modal/ShareModal.tsx`
+
+**Purpose:** Universal sharing functionality for all entity types
+
+**Availability:** ✅ **Now available for ALL entity types** (v2.0 update)
+- Previously restricted to entities with `config.shareable` flag
+- Now universally accessible via Share button on all EntityDetailPage instances
+- Works seamlessly with projects, tasks, employees, clients, and all other entities
+
+**Features:**
+- ✅ **Public Link Sharing** - Generate shareable public URLs
+  - Copy link to clipboard
+  - Visual feedback (checkmark for 2 seconds)
+  - No authentication required for access
+- ✅ **User-Specific Sharing** - Share with selected employees
+  - Checkbox list of users
+  - Shows name + email
+  - Multi-select support
+- ✅ **Role-Based Sharing** - Share with entire roles
+  - Checkbox list of roles
+  - All users in role get access
+  - Hierarchical support
+
+**API Integration:**
+```typescript
+// Generate public share URL
+POST /api/v1/{entityType}/{id}/share-url
+Response: { "sharedUrl": "/shared/abc123..." }
+
+// Load users for sharing
+GET /api/v1/employee?limit=100
+
+// Load roles for sharing
+GET /api/v1/role?limit=100
+```
+
+**Usage in EntityDetailPage:**
+```tsx
+const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+<button onClick={() => setIsShareModalOpen(true)}>
+  <Share2 /> Share
+</button>
+
+<ShareModal
+  isOpen={isShareModalOpen}
+  onClose={() => setIsShareModalOpen(false)}
+  entityType={entityType}
+  entityId={id}
+  entityName={data?.name || data?.title}
+  currentSharedUrl={data?.shared_url}
+  onShare={handleShare}
+/>
+```
+
+#### 3. LinkModal Component
+
+**File:** `apps/web/src/components/shared/modal/LinkModal.tsx`
+
+**Purpose:** Universal entity relationship management
+
+**Availability:** ✅ **Available for ALL entity types** (v2.0)
+- Universally accessible via Link button on all EntityDetailPage instances
+- Supports bidirectional relationships between any entity types
+- Real-time synchronization with entity_id_map table
+
+**Features:**
+- ✅ **View Current Links** - Shows all parent entities linked to this child
+  - Visual indicators (link icon + entity type label)
+  - One-click unlink button
+  - Real-time count display
+- ✅ **Add New Links** - Search and link to parent entities
+  - Entity type selector (project, task, business, office, client)
+  - Real-time search (triggers after 2+ characters)
+  - Shows entity name + code
+  - Prevents duplicate links
+- ✅ **Link Management** - Full CRUD for relationships
+  - Create: POST /api/v1/linkage
+  - Read: GET /api/v1/linkage?child_entity_type={type}&child_entity_id={id}
+  - Delete: DELETE /api/v1/linkage/{linkageId}
+
+**API Integration:**
+```typescript
+// Load existing links
+GET /api/v1/linkage?child_entity_type=task&child_entity_id={id}
+Response: {
+  "data": [
+    {
+      "id": "linkage-uuid",
+      "parent_entity_type": "project",
+      "parent_entity_id": "project-uuid",
+      "parent_entity_name": "Workspace Renovation",
+      "relationship_type": "contains"
+    }
+  ]
+}
+
+// Create link
+POST /api/v1/linkage
+Body: {
+  "parent_entity_type": "project",
+  "parent_entity_id": "project-uuid",
+  "child_entity_type": "task",
+  "child_entity_id": "task-uuid",
+  "relationship_type": "contains"
+}
+
+// Delete link
+DELETE /api/v1/linkage/{linkageId}
+
+// Search entities to link
+GET /api/v1/{entityType}?search={query}&limit=20
+```
+
+**Usage in EntityDetailPage:**
+```tsx
+const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+
+<button onClick={() => setIsLinkModalOpen(true)}>
+  <LinkIcon /> Link
+</button>
+
+<LinkModal
+  isOpen={isLinkModalOpen}
+  onClose={() => setIsLinkModalOpen(false)}
+  childEntityType={entityType}
+  childEntityId={id}
+  childEntityName={data?.name || data?.title}
+/>
+```
+
+#### Modal System Benefits
+
+**DRY Principles:**
+- Single base Modal component reused everywhere
+- ShareModal and LinkModal work across all 18+ entity types
+- ~90% code reuse vs entity-specific modals
+- Consistent UX across platform
+- **Universal availability** - All action buttons (Edit, Share, Link) available on every entity
+
+**Performance:**
+- Lazy loading of user/role lists
+- Debounced search in LinkModal
+- Optimistic UI updates
+- Real-time refresh after operations
+
+**Developer Experience:**
+- Simple props interface
+- TypeScript type safety
+- Clear separation of concerns
+- Easy to extend with new modals
+
+**User Experience:**
+- Predictable button layout across all entities
+- No need to remember which entities support sharing/linking
+- Unified interaction patterns throughout the platform
+
+**See Also:** [Project_Task.md](./Project_Task.md) for detailed modal implementation documentation
 
 ---
 
@@ -1132,7 +1359,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
     supportedViews: ['table'],
     defaultView: 'table',
 
-    // Sharing configuration
+    // Sharing configuration (DEPRECATED in v2.0)
+    // NOTE: shareable flag no longer controls Share button visibility
+    // Share button now available for ALL entities via EntityDetailPage
     shareable: true,
 
     // Child entity relationships (loaded dynamically from API)
@@ -1512,9 +1741,15 @@ pnpm dev:web       → Port 5173 (Vite dev server)
 **3 Pages Handle All Entities:**
 - `EntityMainPage` → 18 entity types × list view = 18 pages
 - `EntityDetailPage` → 18 entity types × detail view = 18 pages
+  - **NEW v2.0:** Universal action buttons (Edit, Share, Link) on all detail pages
 - `EntityChildListPage` → All parent-child relationships
 
-**Code Reuse:** 97% (3 components vs 54+ specialized pages)
+**Modal System (v2.0):**
+- `ShareModal` → Works with all 18+ entity types (no longer conditional)
+- `LinkModal` → Universal relationship management for all entities
+- `EntityEditModal` → Reusable edit form for all entities
+
+**Code Reuse:** 97% (6 universal components vs 54+ specialized pages + modals)
 
 ### 3. Auto-Generated Routing
 

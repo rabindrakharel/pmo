@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { Share2, Link as LinkIcon } from 'lucide-react';
 import { Layout } from '../../components/shared';
+import { ShareModal } from '../../components/shared/modal';
+import { UnifiedLinkageModal } from '../../components/shared/modal/UnifiedLinkageModal';
+import { useLinkageModal } from '../../hooks/useLinkageModal';
 import { useNavigate, useParams } from 'react-router-dom';
 import { formApi } from '../../lib/api';
 import { AdvancedFormBuilder } from '../../components/entity/form/AdvancedFormBuilder';
@@ -9,6 +13,15 @@ export function FormEditPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<any>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Unified linkage modal
+  const linkageModal = useLinkageModal({
+    onLinkageChange: () => {
+      // Optionally refetch form data
+      console.log('Form linkage changed');
+    }
+  });
 
   useEffect(() => {
     const load = async () => {
@@ -128,7 +141,48 @@ export function FormEditPage() {
         backLink={`/form/${id}`}
         headerTitle="Edit Multi-Step Form"
         autoSaveInterval={30000}
+        headerActions={
+          <>
+            <button
+              onClick={() => linkageModal.openAssignParent({
+                childEntityType: 'form',
+                childEntityId: id!,
+                childEntityName: formData?.name
+              })}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Manage links"
+            >
+              <LinkIcon className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+            </button>
+            <button
+              onClick={() => setIsShareModalOpen(true)}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Share"
+            >
+              <Share2 className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+            </button>
+          </>
+        }
       />
+
+      {/* Share Modal */}
+      {id && (
+        <ShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          entityType="form"
+          entityId={id}
+          entityName={formData?.name}
+          currentSharedUrl={formData?.shared_url}
+          onShare={async (shareData) => {
+            console.log('Sharing form:', shareData);
+            // Handle sharing logic
+          }}
+        />
+      )}
+
+      {/* Unified Linkage Modal */}
+      <UnifiedLinkageModal {...linkageModal.modalProps} />
     </Layout>
   );
 }

@@ -140,7 +140,14 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      const response: any = { data: rows, total, limit };
+      // Parse JSON fields properly for schema validation
+      const parsedRows = rows.map((row: any) => ({
+        ...row,
+        tags: Array.isArray(row.tags) ? row.tags : (row.tags ? JSON.parse(row.tags) : []),
+        metadata: row.metadata || {}
+      }));
+
+      const response: any = { data: parsedRows, total, limit };
       if (page) {
         response.page = page;
       } else {
@@ -198,6 +205,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           w.descr,
           COALESCE(w.tags, '[]'::jsonb) as tags,
           COALESCE(w.metadata, '{}'::jsonb) as metadata,
+          w.content,
           w.wiki_type,
           w.category,
           w.page_path,
@@ -245,7 +253,8 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       const parsedWiki = {
         ...wiki,
         tags: Array.isArray(wiki.tags) ? wiki.tags : (wiki.tags ? JSON.parse(wiki.tags) : []),
-        metadata: wiki.metadata || {}
+        metadata: wiki.metadata || {},
+        content: wiki.content || null
       };
 
       return parsedWiki;
@@ -303,7 +312,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       const wikiResult = await db.execute(sql`
         INSERT INTO app.d_wiki (
           slug, code, name, descr, tags, metadata, wiki_type, category,
-          publication_status, visibility, summary, active_flag, version
+          publication_status, visibility, summary, content, active_flag, version
         ) VALUES (
           ${data.slug},
           ${code},
@@ -316,11 +325,12 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           ${data.publication_status || 'draft'},
           ${data.visibility || 'internal'},
           ${data.summary || null},
+          ${data.content ? JSON.stringify(data.content) : null}::jsonb,
           true,
           1
         )
         RETURNING id, slug, code, name, descr, tags, metadata, wiki_type,
-                  category, publication_status, visibility, summary,
+                  category, publication_status, visibility, summary, content,
                   active_flag, from_ts, to_ts,
                   created_ts, updated_ts, version
       `);
@@ -452,6 +462,10 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         updateFields.push(`visibility = $${values.length + 1}`);
         values.push(data.visibility);
       }
+      if (data.content !== undefined) {
+        updateFields.push(`content = $${values.length + 1}::jsonb`);
+        values.push(JSON.stringify(data.content));
+      }
 
       if (updateFields.length === 0 && !data.content_markdown && !data.content_html) {
         return reply.status(400).send({ error: 'No fields to update' });
@@ -462,7 +476,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       const updated = await db.execute(sql.raw(`
         UPDATE app.d_wiki SET ${updateFields.join(', ')}
         WHERE id = '${id}' AND active_flag = true
-        RETURNING id, slug, code, name, descr, tags, metadata, wiki_type,
+        RETURNING id, slug, code, name, descr, tags, metadata, content, wiki_type,
                   category, publication_status, visibility, summary,
                   active_flag, from_ts, to_ts,
                   created_ts, updated_ts, version

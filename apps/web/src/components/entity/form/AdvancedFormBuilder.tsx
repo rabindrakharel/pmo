@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Save, Plus, Search, ChevronLeft, ChevronRight, Layers, X,
@@ -63,6 +63,7 @@ interface AdvancedFormBuilderProps {
   backLink?: string;
   headerTitle?: string;
   autoSaveInterval?: number; // in milliseconds, default 30000
+  headerActions?: ReactNode; // Additional action buttons (e.g., Share, Link)
 }
 
 export function AdvancedFormBuilder({
@@ -76,6 +77,7 @@ export function AdvancedFormBuilder({
   backLink = '/form',
   headerTitle = 'Create Multi-Step Form',
   autoSaveInterval = 30000,
+  headerActions,
 }: AdvancedFormBuilderProps) {
   const navigate = useNavigate();
 
@@ -454,6 +456,7 @@ export function AdvancedFormBuilder({
         </div>
 
         <div className="flex items-center space-x-3">
+          {headerActions}
           {onSaveDraft && (
             <button
               onClick={saveDraft}

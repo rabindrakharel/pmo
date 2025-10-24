@@ -144,6 +144,9 @@ CREATE TABLE app.d_wiki (
     keywords varchar[] DEFAULT '{}',
     summary text,
 
+    -- Content (block-based structure for wiki editor)
+    content jsonb DEFAULT NULL,
+
     -- Relationships (mapped via entity_id_map)
     primary_entity_type varchar(50), -- project, task, business, office
     primary_entity_id uuid,

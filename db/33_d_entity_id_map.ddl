@@ -3,7 +3,7 @@
 -- Parent-child relationships between specific entity instances (NO FOREIGN KEYS)
 -- =====================================================
 --
--- BUSINESS PURPOSE:
+-- BUSINESS PURPOSE: LINKAGE TABLE 
 -- Maps parent-child relationships between specific entity instances WITHOUT using foreign keys.
 -- Enables flexible hierarchies and prevents cascade issues during soft deletes.
 -- Powers dynamic tab navigation, filtered child entity queries, and the Linkage Management UI.
