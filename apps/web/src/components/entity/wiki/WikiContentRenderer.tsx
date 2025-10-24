@@ -45,18 +45,6 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
     });
   };
 
-  const getCoverStyle = (cover?: string) => {
-    const coverMap: Record<string, string> = {
-      'gradient-blue': 'bg-gradient-to-r from-blue-600 to-indigo-600',
-      'gradient-purple': 'bg-gradient-to-r from-purple-600 to-pink-600',
-      'emerald': 'bg-gradient-to-r from-emerald-600 to-teal-600',
-      'gray': 'bg-gray-200',
-      'gradient-orange': 'bg-gradient-to-r from-orange-600 to-red-600',
-      'gradient-green': 'bg-gradient-to-r from-green-600 to-emerald-600'
-    };
-    return coverMap[cover || 'gradient-blue'] || coverMap['gradient-blue'];
-  };
-
   const getVisibilityIcon = (visibility?: string) => {
     switch (visibility) {
       case 'public': return <Globe className="h-4 w-4" />;
@@ -114,110 +102,100 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
 
   return (
     <div className="space-y-6">
-      {/* Cover Image */}
-      <div className={`h-48 rounded-xl ${getCoverStyle(data.attr?.cover)}`} />
-
       {/* Header Section */}
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4 flex-1">
-          {/* Icon */}
-          <div className="w-16 h-16 text-4xl flex items-center justify-center bg-white rounded-xl border-2 border-gray-200 shadow-sm">
-            {data.attr?.icon || '📄'}
-          </div>
+        <div className="flex-1 min-w-0">
+          {/* Simple Title */}
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            {data.name || data.title}
+          </h1>
 
-          {/* Title and Metadata */}
-          <div className="flex-1 min-w-0">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              {data.name || data.title}
-            </h1>
+          {data.summary && (
+            <p className="text-lg text-gray-600 mb-3">{data.summary}</p>
+          )}
 
-            {data.summary && (
-              <p className="text-lg text-gray-600 mb-3">{data.summary}</p>
+          <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
+            {/* Type Badge */}
+            {data.wiki_type && (
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal ${getTypeBadgeClass(data.wiki_type)}`}>
+                <BookOpen className="h-3 w-3 mr-1" />
+                {data.wiki_type}
+              </span>
             )}
 
-            <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
-              {/* Type Badge */}
-              {data.wiki_type && (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal ${getTypeBadgeClass(data.wiki_type)}`}>
-                  <BookOpen className="h-3 w-3 mr-1" />
-                  {data.wiki_type}
-                </span>
-              )}
+            {/* Status Badge */}
+            {data.publication_status && (
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal ${getStatusBadgeClass(data.publication_status)}`}>
+                {data.publication_status}
+              </span>
+            )}
 
-              {/* Status Badge */}
-              {data.publication_status && (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal ${getStatusBadgeClass(data.publication_status)}`}>
-                  {data.publication_status}
-                </span>
-              )}
+            {/* Category */}
+            {data.category && (
+              <span className="flex items-center gap-1">
+                <span className="text-gray-400">Category:</span>
+                <span className="font-normal text-gray-700">{data.category}</span>
+              </span>
+            )}
 
-              {/* Category */}
-              {data.category && (
-                <span className="flex items-center gap-1">
-                  <span className="text-gray-400">Category:</span>
-                  <span className="font-normal text-gray-700">{data.category}</span>
-                </span>
-              )}
+            {/* Visibility */}
+            {data.visibility && (
+              <span className="flex items-center gap-1">
+                {getVisibilityIcon(data.visibility)}
+                <span className="capitalize">{data.visibility}</span>
+              </span>
+            )}
 
-              {/* Visibility */}
-              {data.visibility && (
-                <span className="flex items-center gap-1">
-                  {getVisibilityIcon(data.visibility)}
-                  <span className="capitalize">{data.visibility}</span>
-                </span>
-              )}
+            {/* Author */}
+            {data.ownerName && (
+              <span className="flex items-center gap-1">
+                <User className="h-4 w-4" />
+                {data.ownerName}
+              </span>
+            )}
 
-              {/* Author */}
-              {data.ownerName && (
-                <span className="flex items-center gap-1">
-                  <User className="h-4 w-4" />
-                  {data.ownerName}
-                </span>
-              )}
+            {/* Last Updated */}
+            {data.updated_ts && (
+              <span className="flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                {formatDate(data.updated_ts)}
+              </span>
+            )}
+          </div>
 
-              {/* Last Updated */}
-              {data.updated_ts && (
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  {formatDate(data.updated_ts)}
-                </span>
-              )}
+          {/* Tags */}
+          {data.tags && data.tags.length > 0 && (
+            <div className="flex items-center gap-2 mt-3">
+              <span className="text-sm text-gray-500">🏷️ Tags:</span>
+              <div className="flex flex-wrap gap-1">
+                {data.tags.map((tag: string, index: number) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-normal bg-blue-50 text-blue-700 border border-blue-200"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
+          )}
 
-            {/* Tags */}
-            {data.tags && data.tags.length > 0 && (
-              <div className="flex items-center gap-2 mt-3">
-                <span className="text-sm text-gray-500">🏷️ Tags:</span>
-                <div className="flex flex-wrap gap-1">
-                  {data.tags.map((tag: string, index: number) => (
-                    <span
-                      key={index}
-                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-normal bg-blue-50 text-blue-700 border border-blue-200"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+          {/* Keywords */}
+          {data.keywords && data.keywords.length > 0 && (
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-sm text-gray-500">🔍 Keywords:</span>
+              <div className="flex flex-wrap gap-1">
+                {data.keywords.map((keyword: string, index: number) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-normal bg-gray-100 text-gray-700"
+                  >
+                    {keyword}
+                  </span>
+                ))}
               </div>
-            )}
-
-            {/* Keywords */}
-            {data.keywords && data.keywords.length > 0 && (
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-sm text-gray-500">🔍 Keywords:</span>
-                <div className="flex flex-wrap gap-1">
-                  {data.keywords.map((keyword: string, index: number) => (
-                    <span
-                      key={index}
-                      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-normal bg-gray-100 text-gray-700"
-                    >
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Edit Button */}

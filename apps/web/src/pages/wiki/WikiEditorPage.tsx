@@ -10,6 +10,7 @@ export function WikiEditorPage() {
   const [page, setPage] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     if (editing && id) {
@@ -55,11 +56,25 @@ export function WikiEditorPage() {
   const handleSave = async (pageData: any) => {
     try {
       if (editing && id) {
-        await wikiApi.update(id, pageData);
-        navigate(`/wiki/${id}`);
+        // Update existing page
+        const updated = await wikiApi.update(id, pageData);
+        // Reload the page data to refresh the preview
+        const refreshed = await wikiApi.get(id);
+        setPage(refreshed);
+        // Show success toast
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
       } else {
+        // Create new page
         const created = await wikiApi.create(pageData);
-        navigate(`/wiki/${created.id}`);
+        // Update URL to edit mode without full navigation
+        window.history.replaceState(null, '', `/wiki/${created.id}/edit`);
+        // Load the created page data
+        const refreshed = await wikiApi.get(created.id);
+        setPage(refreshed);
+        // Show success toast
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
       }
     } catch (err) {
       console.error('Failed to save wiki page:', err);
@@ -92,5 +107,19 @@ export function WikiEditorPage() {
     );
   }
 
-  return <WikiDesigner page={page} onSave={handleSave} />;
+  return (
+    <>
+      <WikiDesigner page={page} onSave={handleSave} />
+
+      {/* Success Toast */}
+      {saveSuccess && (
+        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in z-50">
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <span className="font-medium">Wiki page saved successfully!</span>
+        </div>
+      )}
+    </>
+  );
 }

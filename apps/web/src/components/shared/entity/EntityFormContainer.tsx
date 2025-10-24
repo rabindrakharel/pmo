@@ -184,13 +184,13 @@ export function EntityFormContainer({
             type={field.type}
             value={value || ''}
             onChange={(e) => onChange(field.key, e.target.value)}
-            className={`w-full border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors px-0 py-0 ${
-              field.readonly ? 'bg-gray-50 cursor-not-allowed' : 'bg-transparent'
+            className={`w-full border-0 focus:ring-0 focus:outline-none transition-all duration-200 bg-transparent px-0 py-0 ${
+              field.readonly ? 'cursor-not-allowed text-gray-400' : 'text-gray-900'
             }`}
             style={{
-              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '13px',
-              color: field.readonly ? '#6B7280' : '#333'
+              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '14px',
+              letterSpacing: '-0.01em'
             }}
             placeholder={field.placeholder}
             disabled={field.disabled || field.readonly}
@@ -204,11 +204,12 @@ export function EntityFormContainer({
             value={value || ''}
             onChange={(e) => onChange(field.key, e.target.value)}
             rows={field.type === 'richtext' ? 6 : 4}
-            className="w-full border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0 resize-none"
+            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-200 bg-transparent px-0 py-0 resize-none text-gray-900"
             style={{
-              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '13px',
-              color: '#333'
+              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '14px',
+              letterSpacing: '-0.01em',
+              lineHeight: '1.6'
             }}
             placeholder={field.placeholder}
             disabled={field.disabled || field.readonly}
@@ -222,11 +223,11 @@ export function EntityFormContainer({
             value={Array.isArray(value) ? value.join(', ') : ''}
             onChange={(e) => onChange(field.key, e.target.value.split(',').map(v => v.trim()).filter(Boolean))}
             placeholder={field.placeholder || "Enter comma-separated values"}
-            className="w-full border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
+            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-200 bg-transparent px-0 py-0 text-gray-900"
             style={{
-              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '13px',
-              color: '#333'
+              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '14px',
+              letterSpacing: '-0.01em'
             }}
             disabled={field.disabled || field.readonly}
           />
@@ -277,11 +278,11 @@ export function EntityFormContainer({
               }
               onChange(field.key, newValue === '' ? undefined : newValue);
             }}
-            className="w-full border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
+            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-200 bg-transparent px-0 py-0 text-gray-900 cursor-pointer"
             style={{
-              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '13px',
-              color: '#333'
+              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '14px',
+              letterSpacing: '-0.01em'
             }}
             disabled={field.disabled || field.readonly}
             required={field.required && mode === 'create'}
@@ -317,11 +318,11 @@ export function EntityFormContainer({
             type="date"
             value={value ? new Date(value).toISOString().split('T')[0] : ''}
             onChange={(e) => onChange(field.key, e.target.value)}
-            className="w-full border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0"
+            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-200 bg-transparent px-0 py-0 text-gray-900 cursor-pointer"
             style={{
-              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '13px',
-              color: '#333'
+              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '14px',
+              letterSpacing: '-0.01em'
             }}
             disabled={field.disabled || field.readonly}
             required={field.required && mode === 'create'}
@@ -332,35 +333,62 @@ export function EntityFormContainer({
     }
   };
 
+  // Exclude name, code, slug, id from form (they're in the page header now)
+  // But keep description/descr field
+  const excludedFields = ['name', 'title', 'code', 'slug', 'id'];
+  const visibleFields = config.fields.filter(f => !excludedFields.includes(f.key));
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-      <div className="p-8">
-        <div className="space-y-1">
-          {config.fields.map((field) => (
-            <div
-              key={field.key}
-              className="group transition-colors rounded-md px-3 py-2 grid grid-cols-[160px_1fr] gap-2 items-start hover:bg-gray-50"
+    <div className="bg-gradient-to-br from-white via-white to-gray-50/30 rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="p-4">
+        <div className="space-y-0">
+          {visibleFields.map((field, index) => (
+            <div key={field.key}>
+              {index > 0 && (
+                <div
+                  className="h-px my-1.5"
+                  style={{
+                    backgroundImage: 'repeating-linear-gradient(90deg, rgba(209, 213, 219, 0.15) 0px, rgba(209, 213, 219, 0.15) 4px, transparent 4px, transparent 8px)'
+                  }}
+                />
+              )}
+              <div className="group transition-all duration-200 ease-out py-1.5"
             >
-              <label
-                style={{
-                  fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                  fontSize: '13px',
-                  fontWeight: 400,
-                  color: '#6b7280'
-                }}
-              >
-                {field.label}
-                {field.required && mode === 'create' && <span className="text-red-400 ml-1">*</span>}
-              </label>
-              <div
-                className={`break-words rounded px-2 py-1 -mx-2 -my-1 ${isEditing ? 'bg-gray-100 hover:bg-gray-200' : ''}`}
-                style={{
-                  fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                  fontSize: '13px',
-                  color: '#333'
-                }}
-              >
-                {renderField(field)}
+              <div className="grid grid-cols-[160px_1fr] gap-4 items-start">
+                <label
+                  className="text-xs font-medium text-gray-500 pt-1 flex items-center gap-1.5"
+                  style={{
+                    fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                    letterSpacing: '-0.01em'
+                  }}
+                >
+                  <span className="opacity-60 group-hover:opacity-100 transition-opacity">
+                    {field.label}
+                  </span>
+                  {field.required && mode === 'create' && (
+                    <span className="text-rose-400 text-xs">*</span>
+                  )}
+                </label>
+                <div
+                  className={`
+                    relative break-words rounded-lg px-2.5 py-1 -ml-2.5
+                    transition-all duration-200
+                    ${isEditing
+                      ? 'bg-white/80 border border-gray-200 hover:border-blue-300 hover:shadow-sm focus-within:border-blue-400 focus-within:shadow-md focus-within:bg-white'
+                      : 'border border-transparent hover:bg-gray-50/50'
+                    }
+                  `}
+                  style={{
+                    fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                    fontSize: '13px',
+                    color: '#1f2937',
+                    letterSpacing: '-0.01em',
+                    lineHeight: '1.4'
+                  }}
+                >
+                  {renderField(field)}
+                </div>
+              </div>
               </div>
             </div>
           ))}

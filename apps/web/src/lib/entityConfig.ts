@@ -538,11 +538,35 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Name',
         sortable: true,
         filterable: true,
+        width: '300px',
         render: (value, record) => React.createElement(
           'div',
-          null,
-          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-          record.descr && React.createElement('div', { className: 'text-sm text-gray-500 truncate max-w-md' }, record.descr)
+          { className: 'py-1' },
+          React.createElement(
+            'div',
+            { className: 'flex items-center gap-2 mb-0.5' },
+            React.createElement('div', { className: 'font-medium text-gray-900' }, value),
+            record.object_key && React.createElement(
+              'div',
+              { className: 'flex-shrink-0 w-2 h-2 rounded-full bg-green-500', title: 'File uploaded' },
+              null
+            )
+          ),
+          record.descr && React.createElement('div', { className: 'text-xs text-gray-500 line-clamp-1 mb-1' }, record.descr),
+          React.createElement(
+            'div',
+            { className: 'flex items-center gap-1.5' },
+            record.version > 1 && React.createElement(
+              'span',
+              { className: 'inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded border border-blue-200' },
+              `v${record.version}`
+            ),
+            !record.object_key && React.createElement(
+              'span',
+              { className: 'inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 rounded border border-amber-200' },
+              'No file'
+            )
+          )
         )
       },
       {
@@ -550,23 +574,87 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Type',
         sortable: true,
         filterable: true,
+        width: '120px',
         render: (value) => renderBadge(value, {
-          'Document': 'bg-blue-100 text-blue-800',
-          'Design': 'bg-purple-100 text-purple-800',
-          'Model': 'bg-green-100 text-green-800',
-          'Template': 'bg-yellow-100 text-yellow-800'
+          'document': 'bg-blue-100 text-blue-800',
+          'template': 'bg-purple-100 text-purple-800',
+          'image': 'bg-green-100 text-green-800',
+          'video': 'bg-rose-100 text-rose-800',
+          'spreadsheet': 'bg-emerald-100 text-emerald-800',
+          'presentation': 'bg-orange-100 text-orange-800'
         })
       },
       {
-        key: 'source_type',
-        title: 'Source',
+        key: 'file_format',
+        title: 'Format',
         sortable: true,
-        filterable: true
+        filterable: true,
+        width: '90px',
+        render: (value) => value ? React.createElement(
+          'span',
+          { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-gray-100 text-gray-800 rounded border border-gray-200' },
+          value.toUpperCase()
+        ) : '-'
       },
       {
-        key: 'updated_ts',
-        title: 'Updated',
+        key: 'file_size_bytes',
+        title: 'Size',
         sortable: true,
+        width: '90px',
+        align: 'right' as const,
+        render: (value) => {
+          if (!value) return '-';
+          const kb = value / 1024;
+          const mb = kb / 1024;
+          if (mb >= 1) {
+            return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${mb.toFixed(1)} MB`);
+          }
+          return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${kb.toFixed(0)} KB`);
+        }
+      },
+      {
+        key: 'visibility',
+        title: 'Visibility',
+        sortable: true,
+        filterable: true,
+        width: '110px',
+        render: (value) => renderBadge(value, {
+          'public': 'bg-green-100 text-green-800',
+          'internal': 'bg-blue-100 text-blue-800',
+          'restricted': 'bg-amber-100 text-amber-800',
+          'private': 'bg-gray-100 text-gray-800'
+        })
+      },
+      {
+        key: 'security_classification',
+        title: 'Security',
+        sortable: true,
+        filterable: true,
+        width: '120px',
+        render: (value) => renderBadge(value, {
+          'general': 'bg-gray-100 text-gray-700',
+          'confidential': 'bg-orange-100 text-orange-800',
+          'restricted': 'bg-red-100 text-red-800'
+        })
+      },
+      {
+        key: 'entity_type',
+        title: 'Linked To',
+        sortable: true,
+        filterable: true,
+        width: '110px',
+        render: (value) => value ? renderBadge(value, {
+          'project': 'bg-indigo-100 text-indigo-800',
+          'task': 'bg-cyan-100 text-cyan-800',
+          'office': 'bg-violet-100 text-violet-800',
+          'business': 'bg-fuchsia-100 text-fuchsia-800'
+        }) : '-'
+      },
+      {
+        key: 'created_ts',
+        title: 'Created',
+        sortable: true,
+        width: '100px',
         render: formatDate
       }
     ],

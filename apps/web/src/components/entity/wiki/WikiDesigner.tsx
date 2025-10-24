@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Save, BookOpen, Plus } from 'lucide-react';
@@ -58,12 +58,24 @@ export function WikiDesigner({ page, onSave }: WikiDesignerProps) {
   const [title, setTitle] = useState(page.name || '');
   const [slug, setSlug] = useState(page.slug || '');
   const [tags, setTags] = useState<string[]>(page.tags || []);
-  const [icon, setIcon] = useState<string>(page.metadata?.attr?.icon || '📄');
-  const [cover, setCover] = useState<string>(page.metadata?.attr?.cover || 'gradient-blue');
   const [pagePath, setPagePath] = useState<string>(page.metadata?.attr?.path || '/wiki');
+  const [icon] = useState<string>(page.metadata?.attr?.icon || '📄');
+  const [cover] = useState<string>(page.metadata?.attr?.cover || '');
   const [author] = useState<string>('Current User');
   const [createdDate] = useState<string>(page.createdTs || new Date().toISOString());
   const [updatedDate, setUpdatedDate] = useState<string>(page.updatedTs || new Date().toISOString());
+
+  // Sync state when page prop changes (after save/reload)
+  useEffect(() => {
+    if (page.content?.blocks) {
+      setBlocks(page.content.blocks);
+    }
+    if (page.name !== undefined) setTitle(page.name);
+    if (page.slug !== undefined) setSlug(page.slug);
+    if (page.tags !== undefined) setTags(page.tags);
+    if (page.metadata?.attr?.path !== undefined) setPagePath(page.metadata.attr.path);
+    if (page.updatedTs !== undefined) setUpdatedDate(page.updatedTs);
+  }, [page]);
 
   // Drag and drop
   const sensors = useSensors(
@@ -173,11 +185,10 @@ export function WikiDesigner({ page, onSave }: WikiDesignerProps) {
         name: title,
         slug: slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
         content: { type: 'blocks', blocks },
+        content_html: contentHtml,
         tags,
         metadata: {
           attr: {
-            icon,
-            cover,
             path: pagePath
           }
         },
@@ -209,8 +220,6 @@ export function WikiDesigner({ page, onSave }: WikiDesignerProps) {
             createdDate,
             updatedDate,
             tags,
-            icon,
-            cover,
           }}
         />
       );
@@ -331,8 +340,6 @@ export function WikiDesigner({ page, onSave }: WikiDesignerProps) {
             title={title}
             slug={slug}
             tags={tags}
-            icon={icon}
-            cover={cover}
             pagePath={pagePath}
             author={author}
             createdDate={createdDate}
@@ -341,8 +348,6 @@ export function WikiDesigner({ page, onSave }: WikiDesignerProps) {
             onUpdateTitle={setTitle}
             onUpdateSlug={setSlug}
             onUpdateTags={setTags}
-            onUpdateIcon={setIcon}
-            onUpdateCover={setCover}
             onUpdatePath={setPagePath}
             onUpdateBlock={(updates) => selectedBlock && handleUpdateBlock(selectedBlock.id, updates)}
           />

@@ -10,8 +10,6 @@ interface WikiPreviewPanelProps {
     createdDate: string;
     updatedDate: string;
     tags: string[];
-    icon: string;
-    cover: string;
   };
 }
 
@@ -35,23 +33,6 @@ export function WikiPreviewPanel({ blocks, title, metadata }: WikiPreviewPanelPr
       month: 'short',
       day: 'numeric',
     });
-  };
-
-  const getCoverGradient = (cover: string) => {
-    switch (cover) {
-      case 'gradient-blue':
-        return 'from-blue-500 to-cyan-500';
-      case 'gradient-purple':
-        return 'from-purple-500 to-pink-500';
-      case 'gradient-green':
-        return 'from-emerald-500 to-teal-500';
-      case 'gradient-orange':
-        return 'from-orange-500 to-red-500';
-      case 'solid-gray':
-        return 'from-gray-500 to-slate-500';
-      default:
-        return 'from-blue-500 to-cyan-500';
-    }
   };
 
   const renderBlock = (block: WikiBlock) => {
@@ -163,19 +144,14 @@ export function WikiPreviewPanel({ blocks, title, metadata }: WikiPreviewPanelPr
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Cover Image */}
-      <div className={`h-48 rounded-t-xl bg-gradient-to-r ${getCoverGradient(metadata.cover)} flex items-center justify-center`}>
-        <span className="text-8xl">{metadata.icon}</span>
-      </div>
-
       {/* Content Container */}
-      <div className="bg-white rounded-b-xl shadow-lg -mt-8 relative z-10">
-        {/* Header */}
+      <div className="bg-white rounded-xl shadow-lg">
+        {/* Simple Header */}
         <div className="px-12 pt-12 pb-6 border-b border-gray-200">
-          <h1 className="text-4xl font-bold text-gray-900 mb-6">{title || 'Untitled Page'}</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">{title || 'Untitled Page'}</h1>
 
           {/* Metadata */}
-          <div className="flex flex-wrap items-center gap-6 text-sm text-gray-600 mb-4">
+          <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500">
             <div className="flex items-center space-x-2">
               <User className="h-4 w-4" />
               <span>{metadata.author}</span>
@@ -192,7 +168,7 @@ export function WikiPreviewPanel({ blocks, title, metadata }: WikiPreviewPanelPr
 
           {/* Tags */}
           {metadata.tags && metadata.tags.length > 0 && (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 mt-3">
               <Tag className="h-4 w-4 text-gray-500" />
               <div className="flex flex-wrap gap-2">
                 {metadata.tags.map((tag) => (

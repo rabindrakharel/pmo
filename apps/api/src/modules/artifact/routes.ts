@@ -574,6 +574,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         fileSize: Type.Optional(Type.Number()),
         file_format: Type.Optional(Type.String()),
         file_size_bytes: Type.Optional(Type.Number()),
+        object_key: Type.Optional(Type.String()), // Pre-uploaded object key from frontend
         descr: Type.Optional(Type.String()),
         visibility: Type.Optional(Type.String()),
         security_classification: Type.Optional(Type.String()),
@@ -584,8 +585,9 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         200: Type.Object({
           oldArtifact: Type.Any(),
           newArtifact: Type.Any(),
-          uploadUrl: Type.String(),
-          expiresIn: Type.Number(),
+          uploadUrl: Type.Union([Type.String(), Type.Null()]),
+          expiresIn: Type.Union([Type.Number(), Type.Null()]),
+          objectKey: Type.String(),
         }),
       },
     },
@@ -604,13 +606,28 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       const maxV = await db.execute(sql`SELECT COALESCE(MAX(version), 0) as max_version FROM app.d_artifact WHERE (id = ${rootId} OR parent_artifact_id = ${rootId})`);
       const nextVersion = (maxV[0] as any).max_version + 1;
 
-      const uploadResult = await s3AttachmentService.generatePresignedUploadUrl({
-        tenantId: 'demo',
-        entityType: current.entity_type || 'artifact',
-        entityId: id,
-        fileName: data.fileName,
-        contentType: data.contentType,
-      });
+      // Use provided object_key if frontend already uploaded, otherwise generate presigned URL
+      let finalObjectKey: string;
+      let uploadUrl: string | null = null;
+      let expiresIn: number | null = null;
+
+      if (data.object_key) {
+        // Frontend already uploaded the file, use the provided object_key
+        finalObjectKey = data.object_key;
+        fastify.log.info('Using pre-uploaded object_key:', finalObjectKey);
+      } else {
+        // Generate presigned upload URL for backward compatibility
+        const uploadResult = await s3AttachmentService.generatePresignedUploadUrl({
+          tenantId: 'demo',
+          entityType: current.entity_type || 'artifact',
+          entityId: id,
+          fileName: data.fileName,
+          contentType: data.contentType,
+        });
+        finalObjectKey = uploadResult.objectKey;
+        uploadUrl = uploadResult.url;
+        expiresIn = uploadResult.expiresIn;
+      }
 
       const ext = data.fileName.split('.').pop() || '';
       const timestamp = Date.now();
@@ -631,14 +648,20 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           ${data.artifact_type || current.artifact_type},
           ${data.file_format || ext},
           ${data.file_size_bytes || data.fileSize || current.file_size_bytes},
-          ${current.entity_type}, ${current.entity_id}, ${config.S3_ATTACHMENTS_BUCKET}, ${uploadResult.objectKey},
+          ${current.entity_type}, ${current.entity_id}, ${config.S3_ATTACHMENTS_BUCKET}, ${finalObjectKey},
           ${data.visibility || current.visibility},
           ${data.security_classification || current.security_classification},
           ${rootId}, true, NOW(), NULL, true, ${nextVersion}
         ) RETURNING *
       `);
 
-      return { oldArtifact: current, newArtifact: newResult[0], uploadUrl: uploadResult.url, expiresIn: uploadResult.expiresIn };
+      return {
+        oldArtifact: current,
+        newArtifact: newResult[0],
+        uploadUrl: uploadUrl,
+        expiresIn: expiresIn,
+        objectKey: finalObjectKey
+      };
     } catch (error) {
       fastify.log.error('Error creating version:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
