@@ -69,7 +69,8 @@ function AppRoutes() {
   }
 
   // Core entities that use standard auto-generated routing
-  const coreEntities = ['biz', 'office', 'project', 'task', 'employee', 'role', 'worksite', 'cust', 'position', 'artifact', 'marketing', 'product', 'inventory', 'order', 'invoice', 'shipment'];
+  // Note: 'artifact', 'form', 'wiki', 'marketing' use custom routes defined below
+  const coreEntities = ['biz', 'office', 'project', 'task', 'employee', 'role', 'worksite', 'cust', 'position', 'product', 'inventory', 'order', 'invoice', 'shipment'];
 
   // Generate routes for all core entities from entityConfig
   const generateEntityRoutes = () => {
@@ -152,9 +153,9 @@ function AppRoutes() {
       <Route path="/form/:id/edit" element={<ProtectedRoute><FormEditPage /></ProtectedRoute>} />
       <Route path="/form/:formId/data/:submissionId" element={<ProtectedRoute><FormDataPreviewPage /></ProtectedRoute>} />
 
-      {/* Special Routes - Artifact (custom upload page) */}
+      {/* Special Routes - Artifact (uses EntityCreatePage with file upload) */}
       <Route path="/artifact" element={<ProtectedRoute><EntityMainPage entityType="artifact" /></ProtectedRoute>} />
-      <Route path="/artifact/new" element={<ProtectedRoute><ArtifactUploadPage /></ProtectedRoute>} />
+      <Route path="/artifact/new" element={<ProtectedRoute><EntityCreatePage entityType="artifact" /></ProtectedRoute>} />
       <Route path="/artifact/:id" element={<ProtectedRoute><EntityDetailPage entityType="artifact" /></ProtectedRoute>} />
 
       {/* Special Routes - Marketing (email designer) */}

@@ -669,7 +669,289 @@ WHERE m.entity_id = '84215ccb...'
 
 ---
 
-### Example 2: Click Project Row → View Tasks Tab
+### Example 2: Create Artifact with File Upload
+
+**User Action:** Click "+ Create Artifact" → Upload file → Fill metadata → Save
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 1: Navigate to Create Page                             │
+│ URL: /artifact/new                                           │
+├─────────────────────────────────────────────────────────────┤
+│ Route: <Route path="/artifact/new"                          │
+│               element={<EntityCreatePage                     │
+│                         entityType="artifact" />} />         │
+│                                                              │
+│ → Renders: EntityCreatePage with artifact-specific file     │
+│            upload section (conditional rendering)            │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 2: User Selects File                                   │
+│ File: apps/web/src/pages/shared/EntityCreatePage.tsx:73     │
+├─────────────────────────────────────────────────────────────┤
+│ <input type="file" onChange={handleFileSelect} />          │
+│                                                              │
+│ State:                                                       │
+│ setSelectedFile(File { name: "blueprint.pdf", size: 2.4MB })│
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 3: Upload File to S3 (Before Creating Entity)          │
+│ File: apps/web/src/lib/hooks/useS3Upload.ts:57              │
+├─────────────────────────────────────────────────────────────┤
+│ // Get presigned upload URL                                 │
+│ POST /api/v1/s3-backend/presigned-upload                    │
+│ Body: {                                                      │
+│   tenantId: "demo",                                          │
+│   entityType: "artifact",                                    │
+│   entityId: "temp-1761269465311",                           │
+│   fileName: "blueprint.pdf",                                 │
+│   contentType: "application/pdf"                             │
+│ }                                                            │
+│                                                              │
+│ Response: {                                                  │
+│   url: "https://cohuron-attachments-prod.s3.../presigned",  │
+│   objectKey: "tenant_id=demo/entity=artifact/entity_id=.../ │
+│              dd6ad07c5a798b45035869fc29728edc.pdf",         │
+│   expiresIn: 3600                                            │
+│ }                                                            │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 4: Direct Upload to S3 (Client → S3)                   │
+│ File: apps/web/src/lib/hooks/useS3Upload.ts:101             │
+├─────────────────────────────────────────────────────────────┤
+│ PUT https://cohuron-attachments-prod-957207443425.s3...     │
+│ Headers: { 'Content-Type': 'application/pdf' }              │
+│ Body: <binary file data>                                     │
+│                                                              │
+│ → File stored at:                                            │
+│   s3://cohuron-attachments-prod-957207443425/                │
+│   tenant_id=demo/entity=artifact/entity_id=temp-.../         │
+│   dd6ad07c5a798b45035869fc29728edc.pdf                      │
+│                                                              │
+│ State:                                                       │
+│ setUploadedObjectKey("tenant_id=demo/entity=artifact/...")  │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 5: User Fills Metadata & Clicks "Create Artifact"      │
+│ File: apps/web/src/pages/shared/EntityCreatePage.tsx:120    │
+├─────────────────────────────────────────────────────────────┤
+│ Form Data:                                                   │
+│ {                                                            │
+│   name: "Project Blueprint",                                 │
+│   descr: "Main architectural plan",                          │
+│   artifact_type: "blueprint",                                │
+│   tags: ["architecture", "phase1"],                          │
+│   // Auto-added from upload:                                 │
+│   object_key: "tenant_id=demo/entity=artifact/...",          │
+│   bucket_name: "cohuron-attachments-prod-957207443425",      │
+│   file_size_bytes: 2458000,                                  │
+│   file_format: "pdf"                                         │
+│ }                                                            │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 6: Create Artifact in Database                         │
+│ File: apps/api/src/modules/artifact/routes.ts:160           │
+├─────────────────────────────────────────────────────────────┤
+│ POST /api/v1/artifact                                        │
+│                                                              │
+│ SQL:                                                         │
+│ INSERT INTO app.d_artifact (                                 │
+│   slug, code, name, descr, tags, artifact_type,              │
+│   file_format, file_size_bytes, bucket_name, object_key,    │
+│   version, active_flag, is_latest_version                    │
+│ ) VALUES (                                                   │
+│   'artifact-1761269465311',                                  │
+│   'ART-1761269465311',                                       │
+│   'Project Blueprint',                                       │
+│   'Main architectural plan',                                 │
+│   '["architecture","phase1"]'::jsonb,                        │
+│   'blueprint',                                               │
+│   'pdf', 2458000,                                            │
+│   'cohuron-attachments-prod-957207443425',                   │
+│   'tenant_id=demo/entity=artifact/...',                      │
+│   1, true, true                                              │
+│ ) RETURNING *;                                               │
+│                                                              │
+│ Returns: { id: "a1111111-...", version: 1, ... }             │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 7: Navigate to Detail Page                             │
+│ File: apps/web/src/pages/shared/EntityCreatePage.tsx:98     │
+├─────────────────────────────────────────────────────────────┤
+│ navigate(`/artifact/a1111111-1111-1111-1111-111111111111`)  │
+│ → Shows artifact details with "Download" button             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Points:**
+- **File uploads BEFORE entity creation** (S3 first, then database)
+- **Presigned URLs** avoid proxying files through API server
+- **Object key stored in database** for download references
+- **Version 1 automatically assigned** on creation
+- **Same flow for all file types** (PDFs, images, videos, etc.)
+
+**Files Involved:** 6 files (EntityCreatePage, useS3Upload, S3AttachmentService, artifact routes, DDL, config)
+
+---
+
+### Example 3: Edit Artifact → Upload New Version
+
+**User Action:** View artifact → Click "Edit" → Upload new file → Save
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 1: View Artifact Detail Page                           │
+│ URL: /artifact/a1111111-1111-1111-1111-111111111111          │
+├─────────────────────────────────────────────────────────────┤
+│ Displays:                                                    │
+│ • Name: "Project Blueprint"                                  │
+│ • Version: 1                                                 │
+│ • Download button (appears if object_key exists)             │
+│ • Edit button                                                │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 2: Click "Edit" Button                                 │
+│ File: apps/web/src/pages/shared/EntityDetailPage.tsx:413    │
+├─────────────────────────────────────────────────────────────┤
+│ setIsEditing(true)                                           │
+│                                                              │
+│ → Conditionally renders "Upload New Version" section:        │
+│   (entityType === 'artifact' && isEditing)                   │
+│                                                              │
+│ Shows:                                                       │
+│ ⚠️ "Uploading a new file will create Version 2"             │
+│ [File picker button]                                         │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 3: User Selects New File                               │
+│ File: apps/web/src/pages/shared/EntityDetailPage.tsx:332    │
+├─────────────────────────────────────────────────────────────┤
+│ <input type="file" onChange={handleFileSelect} />          │
+│                                                              │
+│ State:                                                       │
+│ setSelectedFile(File {                                       │
+│   name: "blueprint_updated.pdf",                             │
+│   size: 3100000                                              │
+│ })                                                           │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 4: Upload to S3 (Same as Create Flow)                  │
+├─────────────────────────────────────────────────────────────┤
+│ POST /api/v1/s3-backend/presigned-upload                    │
+│ → GET presigned URL                                          │
+│                                                              │
+│ PUT https://cohuron-attachments-prod...                     │
+│ → Upload file directly to S3                                 │
+│                                                              │
+│ setUploadedObjectKey("tenant_id=demo/...")                  │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 5: Click "Save" → Create New Version                   │
+│ File: apps/web/src/pages/shared/EntityDetailPage.tsx:154    │
+├─────────────────────────────────────────────────────────────┤
+│ // Detects uploadedObjectKey && selectedFile                │
+│ POST /api/v1/artifact/a1111111.../new-version               │
+│ Body: {                                                      │
+│   fileName: "blueprint_updated.pdf",                         │
+│   contentType: "application/pdf",                            │
+│   fileSize: 3100000,                                         │
+│   descr: "Updated with client feedback"                      │
+│ }                                                            │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 6: Backend Creates New Version (SCD Type 2)            │
+│ File: apps/api/src/modules/artifact/routes.ts:525           │
+├─────────────────────────────────────────────────────────────┤
+│ BEGIN TRANSACTION;                                           │
+│                                                              │
+│ -- Mark old version inactive                                │
+│ UPDATE app.d_artifact                                        │
+│ SET active_flag = false,                                     │
+│     is_latest_version = false,                               │
+│     to_ts = NOW()                                            │
+│ WHERE id = 'a1111111...';                                    │
+│                                                              │
+│ -- Create new version row (NEW ID!)                         │
+│ INSERT INTO app.d_artifact (                                 │
+│   name, descr, tags, artifact_type,                          │
+│   parent_artifact_id,  -- Links to v1 (root)                │
+│   version,             -- 2                                  │
+│   active_flag,         -- true                               │
+│   is_latest_version,   -- true                               │
+│   from_ts,             -- NOW()                              │
+│   to_ts,               -- NULL                               │
+│   object_key,          -- NEW S3 object                      │
+│   bucket_name, file_size_bytes, file_format                 │
+│ ) VALUES (                                                   │
+│   'Project Blueprint',                                       │
+│   'Updated with client feedback',                            │
+│   '["architecture","phase1"]'::jsonb,                        │
+│   'blueprint',                                               │
+│   'a1111111...',  -- parent = v1                            │
+│   2,              -- version                                 │
+│   true, true,                                                │
+│   NOW(), NULL,                                               │
+│   'tenant_id=demo/entity=artifact/.../new-hash.pdf',         │
+│   'cohuron-attachments-prod-957207443425',                   │
+│   3100000, 'pdf'                                             │
+│ ) RETURNING *;                                               │
+│                                                              │
+│ COMMIT;                                                      │
+│                                                              │
+│ Returns: {                                                   │
+│   oldArtifact: { id: "a1111...", version: 1, ... },         │
+│   newArtifact: { id: "b2222...", version: 2, ... }          │
+│ }                                                            │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 7: Navigate to New Version                             │
+│ File: apps/web/src/pages/shared/EntityDetailPage.tsx:180    │
+├─────────────────────────────────────────────────────────────┤
+│ alert("New version created: v2")                             │
+│ navigate(`/artifact/b2222222-2222-2222-2222-222222222222`)  │
+│                                                              │
+│ → Shows new version with:                                    │
+│   • Version: 2                                               │
+│   • Download button (new file)                               │
+│   • Active status                                            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Database State After New Version:**
+
+| ID (UUID) | Version | Active | From TS | To TS | Object Key |
+|-----------|---------|--------|---------|-------|------------|
+| a1111... | 1 | ❌ false | 2025-01-01 | 2025-01-02 | .../hash1.pdf |
+| b2222... | 2 | ✅ true | 2025-01-02 | NULL | .../hash2.pdf |
+
+**Key Points:**
+- **New file = new version** (SCD Type 2 pattern)
+- **New UUID for each version** (not just incrementing version number)
+- **Old version preserved** with temporal tracking (to_ts set)
+- **Only one active_flag=true** per version chain
+- **Parent relationship** maintained via parent_artifact_id
+- **Both files kept in S3** (no overwrites)
+
+**Metadata-Only Updates (No New Version):**
+- If user clicks "Edit" and changes description WITHOUT uploading file
+- Regular UPDATE query (no new version created)
+- Same ID, same version, same object_key
+
+---
+
+### Example 4: Click Project Row → View Tasks Tab
 
 **User Action:** Click row → Click "Task" tab
 

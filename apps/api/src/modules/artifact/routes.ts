@@ -104,16 +104,15 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
       // Get paginated results
       const rows = await db.execute(sql`
-        SELECT 
-          id, name, descr, tags, attr, artifact_code, artifact_type, model_type,
-          version, source_type, storage, uri, checksum, file_size_bytes,
-          mime_type, confidentiality_level, approval_status, language,
-          publication_date, expiry_date, review_date, author_employee_id,
-          owner_employee_id, access_count, download_count, last_accessed_ts,
-          active, from_ts, to_ts, created, updated
+        SELECT
+          id, slug, code, name, descr, internal_url, shared_url, tags, metadata,
+          artifact_type, file_format, file_size_bytes, entity_type, entity_id,
+          bucket_name, object_key, visibility, security_classification,
+          parent_artifact_id, is_latest_version, version, active_flag,
+          from_ts, to_ts, created_ts, updated_ts
         FROM app.d_artifact a
         WHERE ${sql.raw(whereClause)}
-        ORDER BY a.created DESC
+        ORDER BY a.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -138,17 +137,16 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     
     try {
       const result = await db.execute(sql`
-        SELECT 
-          id, name, descr, tags, attr, artifact_code, artifact_type, model_type,
-          version, source_type, storage, uri, checksum, file_size_bytes,
-          mime_type, confidentiality_level, approval_status, language,
-          publication_date, expiry_date, review_date, author_employee_id,
-          owner_employee_id, access_count, download_count, last_accessed_ts,
-          active, from_ts, to_ts, created, updated
+        SELECT
+          id, slug, code, name, descr, internal_url, shared_url, tags, metadata,
+          artifact_type, file_format, file_size_bytes, entity_type, entity_id,
+          bucket_name, object_key, visibility, security_classification,
+          parent_artifact_id, is_latest_version, version, active_flag,
+          from_ts, to_ts, created_ts, updated_ts
         FROM app.d_artifact
         WHERE id = ${id} AND active_flag = true
       `);
-      
+
       if (!result.length) return reply.status(404).send({ error: 'Not found' });
       return result[0];
     } catch (error) {

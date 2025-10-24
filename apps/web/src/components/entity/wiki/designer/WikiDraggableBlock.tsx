@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, Copy } from 'lucide-react';
@@ -11,6 +11,23 @@ interface WikiDraggableBlockProps {
   onUpdate: (updates: Partial<WikiBlock>) => void;
   onDelete: () => void;
   onDuplicate: () => void;
+}
+
+// Auto-resize textarea hook
+function useAutoResizeTextarea(value: string) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = 'auto';
+      // Set height to scrollHeight to fit content
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [value]);
+
+  return textareaRef;
 }
 
 export function WikiDraggableBlock({
@@ -59,45 +76,54 @@ export function WikiDraggableBlock({
           />
         );
 
-      case 'paragraph':
+      case 'paragraph': {
+        const textareaRef = useAutoResizeTextarea(block.content || '');
         return (
           <textarea
+            ref={textareaRef}
             value={block.content || ''}
             onChange={(e) => handleContentChange(e.target.value)}
             onClick={onSelect}
-            className="w-full bg-transparent border-none outline-none resize-none text-gray-700 placeholder-gray-400 leading-relaxed"
+            className="w-full bg-transparent border-none outline-none resize-none text-gray-700 placeholder-gray-400 leading-relaxed overflow-hidden"
             placeholder="Start typing..."
-            rows={3}
+            style={{ minHeight: '24px' }}
           />
         );
+      }
 
-      case 'quote':
+      case 'quote': {
+        const textareaRef = useAutoResizeTextarea(block.content || '');
         return (
           <blockquote className="border-l-4 border-blue-500 pl-4 italic">
             <textarea
+              ref={textareaRef}
               value={block.content || ''}
               onChange={(e) => handleContentChange(e.target.value)}
               onClick={onSelect}
-              className="w-full bg-transparent border-none outline-none resize-none text-gray-600 placeholder-gray-400"
+              className="w-full bg-transparent border-none outline-none resize-none text-gray-600 placeholder-gray-400 overflow-hidden"
               placeholder="Quote text..."
-              rows={2}
+              style={{ minHeight: '24px' }}
             />
           </blockquote>
         );
+      }
 
-      case 'code':
+      case 'code': {
+        const textareaRef = useAutoResizeTextarea(block.content || '');
         return (
           <div className="bg-gray-900 text-gray-100 rounded-lg p-4 font-mono text-sm">
             <textarea
+              ref={textareaRef}
               value={block.content || ''}
               onChange={(e) => handleContentChange(e.target.value)}
               onClick={onSelect}
-              className="w-full bg-transparent border-none outline-none resize-none text-gray-100 placeholder-gray-500 font-mono"
+              className="w-full bg-transparent border-none outline-none resize-none text-gray-100 placeholder-gray-500 font-mono overflow-hidden"
               placeholder="// Code..."
-              rows={4}
+              style={{ minHeight: '24px' }}
             />
           </div>
         );
+      }
 
       case 'list':
         const ListTag = block.level === 1 ? 'ul' : 'ol';
@@ -117,19 +143,22 @@ export function WikiDraggableBlock({
           </ListTag>
         );
 
-      case 'callout':
+      case 'callout': {
+        const textareaRef = useAutoResizeTextarea(block.content || '');
         return (
           <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
             <textarea
+              ref={textareaRef}
               value={block.content || ''}
               onChange={(e) => handleContentChange(e.target.value)}
               onClick={onSelect}
-              className="w-full bg-transparent border-none outline-none resize-none text-blue-900 placeholder-blue-400 font-medium"
+              className="w-full bg-transparent border-none outline-none resize-none text-blue-900 placeholder-blue-400 font-medium overflow-hidden"
               placeholder="Important note..."
-              rows={2}
+              style={{ minHeight: '24px' }}
             />
           </div>
         );
+      }
 
       case 'image':
         return (

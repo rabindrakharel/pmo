@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Upload, CheckCircle, X } from 'lucide-react';
 import { Layout, EntityFormContainer } from '../../components/shared';
 import { getEntityConfig } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { APIFactory } from '../../lib/api';
 import { Button } from '../../components/shared/button/Button';
+import { useS3Upload } from '../../lib/hooks/useS3Upload';
 
 /**
  * EntityCreatePage
@@ -56,6 +57,12 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // File upload state (for artifacts)
+  const { uploadToS3, uploadingFiles, errors: uploadErrors } = useS3Upload();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadedObjectKey, setUploadedObjectKey] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -63,8 +70,55 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setUploadedObjectKey(null); // Reset uploaded state
+    }
+  };
+
+  const handleFileUpload = async () => {
+    if (!selectedFile) return;
+
+    setIsUploading(true);
+    try {
+      const tempId = `temp-${Date.now()}`;
+      const objectKey = await uploadToS3({
+        entityType: 'artifact',
+        entityId: tempId,
+        file: selectedFile,
+        fileName: selectedFile.name,
+        contentType: selectedFile.type || 'application/octet-stream',
+        uploadType: 'artifact',
+        tenantId: 'demo'
+      });
+
+      if (objectKey) {
+        setUploadedObjectKey(objectKey);
+        // Auto-populate form fields
+        if (!formData.name) {
+          setFormData(prev => ({
+            ...prev,
+            name: selectedFile.name.replace(/\.[^/.]+$/, '') // Remove extension
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Upload failed:', error);
+      setError('File upload failed');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setUploadedObjectKey(null);
+  };
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
 
     try {
       setLoading(true);
@@ -82,6 +136,14 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
       const assigneeIds = formData.assignee_employee_ids;
       const dataToCreate = { ...formData };
       delete dataToCreate.assignee_employee_ids;
+
+      // Add artifact-specific fields if uploading a file
+      if (entityType === 'artifact' && uploadedObjectKey && selectedFile) {
+        dataToCreate.object_key = uploadedObjectKey;
+        dataToCreate.bucket_name = 'cohuron-attachments-prod-957207443425';
+        dataToCreate.file_size_bytes = selectedFile.size;
+        dataToCreate.file_format = selectedFile.name.split('.').pop() || 'unknown';
+      }
 
       // Type-safe API call using APIFactory
       const api = APIFactory.getAPI(entityType);
@@ -223,6 +285,84 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
+
+        {/* File Upload Section (Artifacts Only) */}
+        {entityType === 'artifact' && (
+          <div className="bg-white rounded-lg shadow p-6 space-y-4">
+            <h2 className="text-sm font-medium text-gray-900">File Upload</h2>
+
+            {!selectedFile ? (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <input
+                  type="file"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  id="artifact-file-upload"
+                />
+                <label htmlFor="artifact-file-upload" className="cursor-pointer">
+                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-sm font-medium text-gray-700">
+                    Click to select a file
+                  </p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Upload documents, images, videos, or any file type
+                  </p>
+                </label>
+              </div>
+            ) : (
+              <div className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-3">
+                    {uploadedObjectKey ? (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <Upload className="h-5 w-5 text-blue-600" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {selectedFile.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {(selectedFile.size / 1024).toFixed(2)} KB
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleRemoveFile}
+                    className="p-1 hover:bg-gray-100 rounded transition-colors"
+                    disabled={isUploading}
+                  >
+                    <X className="h-4 w-4 text-gray-400" />
+                  </button>
+                </div>
+
+                {!uploadedObjectKey && (
+                  <Button
+                    variant="secondary"
+                    icon={Upload}
+                    onClick={handleFileUpload}
+                    disabled={isUploading}
+                    loading={isUploading}
+                    size="sm"
+                  >
+                    {isUploading ? 'Uploading...' : 'Upload to S3'}
+                  </Button>
+                )}
+
+                {uploadedObjectKey && (
+                  <div className="flex items-center space-x-2 text-sm text-green-600">
+                    <CheckCircle className="h-4 w-4" />
+                    <span>File uploaded successfully</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {uploadErrors.default && (
+              <p className="text-sm text-red-600">{uploadErrors.default}</p>
+            )}
           </div>
         )}
 

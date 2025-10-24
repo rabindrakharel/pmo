@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Outlet, useLocation } from 'react-router-dom';
-import { ArrowLeft, Edit2, Save, X, Palette } from 'lucide-react';
+import { ArrowLeft, Edit2, Save, X, Palette, Download, Upload, CheckCircle } from 'lucide-react';
 import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityFormContainer, ShareURLSection } from '../../components/shared';
 import { WikiContentRenderer } from '../../components/entity/wiki';
 import { TaskDataContainer } from '../../components/entity/task';
@@ -9,6 +9,7 @@ import { EmailTemplateRenderer } from '../../components/entity/marketing';
 import { getEntityConfig } from '../../lib/entityConfig';
 import { APIFactory } from '../../lib/api';
 import { Button } from '../../components/shared/button/Button';
+import { useS3Upload } from '../../lib/hooks/useS3Upload';
 
 /**
  * Universal EntityDetailPage
@@ -39,6 +40,12 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<any>({});
   const [formDataRefreshKey, setFormDataRefreshKey] = useState(0);
+
+  // File upload state (for artifact edit/new version)
+  const { uploadToS3, uploadingFiles, errors: uploadErrors } = useS3Upload();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadedObjectKey, setUploadedObjectKey] = useState<string | null>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
 
   // Fetch dynamic child entity tabs from API
   const { tabs, loading: tabsLoading } = useDynamicChildEntityTabs(entityType, id || '');
@@ -143,6 +150,38 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
 
   const handleSave = async () => {
     try {
+      // Special handling for artifact with new file upload (create new version)
+      if (entityType === 'artifact' && uploadedObjectKey && selectedFile) {
+        const token = localStorage.getItem('auth_token');
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+        const response = await fetch(`${apiUrl}/api/v1/artifact/${id}/new-version`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            fileName: selectedFile.name,
+            contentType: selectedFile.type || 'application/octet-stream',
+            fileSize: selectedFile.size,
+            descr: editedData.descr || data.descr
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create new version');
+        }
+
+        const result = await response.json();
+        alert(`New version created: v${result.newArtifact.version}`);
+
+        // Navigate to the new version
+        navigate(`/artifact/${result.newArtifact.id}`);
+        return;
+      }
+
+      // Normal update flow for all other entities (and artifacts without file upload)
       // Normalize date fields to YYYY-MM-DD format for API validation
       const normalizedData = { ...editedData };
 
@@ -294,6 +333,74 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
     }
   };
 
+  const handleDownload = async () => {
+    if (entityType !== 'artifact' || !data?.object_key) {
+      alert('No file available for download');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+      const response = await fetch(`${apiUrl}/api/v1/artifact/${id}/download`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate download URL');
+      }
+
+      const { url } = await response.json();
+
+      // Open download URL in new tab
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('Download failed:', err);
+      alert('Failed to download file');
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setUploadedObjectKey(null); // Reset uploaded state
+    }
+  };
+
+  const handleFileUpload = async () => {
+    if (!selectedFile) return;
+
+    setIsUploadingFile(true);
+    try {
+      const tempId = `temp-${Date.now()}`;
+      const objectKey = await uploadToS3({
+        entityType: 'artifact',
+        entityId: tempId,
+        file: selectedFile,
+        fileName: selectedFile.name,
+        contentType: selectedFile.type || 'application/octet-stream',
+        uploadType: 'artifact',
+        tenantId: 'demo'
+      });
+
+      if (objectKey) {
+        setUploadedObjectKey(objectKey);
+      }
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('File upload failed');
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setUploadedObjectKey(null);
+  };
+
   if (!config) {
     return (
       <Layout>
@@ -366,6 +473,16 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                     onClick={() => navigate(`/marketing/${id}/design`)}
                   >
                     Design Email
+                  </Button>
+                )}
+                {/* Download button for artifact entity with object_key */}
+                {entityType === 'artifact' && data?.object_key && (
+                  <Button
+                    variant="primary"
+                    icon={Download}
+                    onClick={handleDownload}
+                  >
+                    Download
                   </Button>
                 )}
                 <Button
@@ -504,6 +621,85 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
           ) : (
             // Standard Entity Details (Notion-style minimalistic design)
             <div className="space-y-4">
+              {/* File Upload Section (Artifacts Only, Edit Mode Only) */}
+              {entityType === 'artifact' && isEditing && (
+                <div className="bg-white rounded-lg shadow p-6 space-y-4">
+                  <h2 className="text-sm font-medium text-gray-900">Upload New Version</h2>
+                  <p className="text-xs text-gray-500">⚠️ Uploading a new file will create Version {(data.version || 1) + 1}</p>
+
+                  {!selectedFile ? (
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                      <input
+                        type="file"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                        id="artifact-version-upload"
+                      />
+                      <label htmlFor="artifact-version-upload" className="cursor-pointer">
+                        <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-sm font-medium text-gray-700">
+                          Click to select a new file
+                        </p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Or keep existing file and update metadata only
+                        </p>
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          {uploadedObjectKey ? (
+                            <CheckCircle className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <Upload className="h-5 w-5 text-blue-600" />
+                          )}
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              {selectedFile.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {(selectedFile.size / 1024).toFixed(2)} KB
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleRemoveFile}
+                          className="p-1 hover:bg-gray-100 rounded transition-colors"
+                          disabled={isUploadingFile}
+                        >
+                          <X className="h-4 w-4 text-gray-400" />
+                        </button>
+                      </div>
+
+                      {!uploadedObjectKey && (
+                        <Button
+                          variant="secondary"
+                          icon={Upload}
+                          onClick={handleFileUpload}
+                          disabled={isUploadingFile}
+                          loading={isUploadingFile}
+                          size="sm"
+                        >
+                          {isUploadingFile ? 'Uploading...' : 'Upload to S3'}
+                        </Button>
+                      )}
+
+                      {uploadedObjectKey && (
+                        <div className="flex items-center space-x-2 text-sm text-green-600">
+                          <CheckCircle className="h-4 w-4" />
+                          <span>File uploaded successfully</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {uploadErrors.default && (
+                    <p className="text-sm text-red-600">{uploadErrors.default}</p>
+                  )}
+                </div>
+              )}
+
               <EntityFormContainer
                 config={config}
                 data={isEditing ? editedData : data}

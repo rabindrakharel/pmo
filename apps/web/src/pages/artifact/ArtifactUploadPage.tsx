@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Upload, File, CheckCircle, X, Loader2 } from 'lucide-react';
 import { Layout } from '../../components/shared';
 import { Button } from '../../components/shared/button/Button';
@@ -45,11 +45,36 @@ const ARTIFACT_TYPES = [
 
 export function ArtifactUploadPage() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>(); // For edit mode
   const { uploadToS3, uploadingFiles, uploadProgress, errors } = useS3Upload();
 
   const [files, setFiles] = useState<FileWithMetadata[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isCreatingArtifacts, setIsCreatingArtifacts] = useState(false);
+  const [existingArtifact, setExistingArtifact] = useState<any>(null);
+  const [loadingArtifact, setLoadingArtifact] = useState(!!id);
+
+  const isEditMode = !!id;
+
+  // Load existing artifact in edit mode
+  useEffect(() => {
+    if (isEditMode && id) {
+      loadExistingArtifact();
+    }
+  }, [id, isEditMode]);
+
+  const loadExistingArtifact = async () => {
+    try {
+      const artifactApi = APIFactory.getAPI('artifact');
+      const artifact = await artifactApi.get(id!);
+      setExistingArtifact(artifact);
+    } catch (error) {
+      console.error('Failed to load artifact:', error);
+      alert('Failed to load artifact');
+    } finally {
+      setLoadingArtifact(false);
+    }
+  };
 
   const handleFileSelect = (selectedFiles: FileList | null) => {
     if (!selectedFiles) return;
@@ -178,7 +203,7 @@ export function ArtifactUploadPage() {
               descr: file.descr || null,
               artifact_type: file.artifact_type,
               source_type: 'upload',
-              bucket_name: 'huron-pmo-attachments', // Default bucket
+              bucket_name: 'cohuron-attachments-prod-957207443425', // Production S3 bucket
               object_key: file.objectKey,
               file_size_bytes: file.file.size,
               file_format: file.file.name.split('.').pop() || 'unknown',
