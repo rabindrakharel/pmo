@@ -1,6 +1,9 @@
 # Unified Linkage System - Complete Documentation
 
-> **Reusable Entity Relationship Management** - Single modal component handling all parent-child linkage scenarios across the PMO platform
+> **Reusable Entity Relationship Management** - Single modal component with LinkagePage-style UI handling all parent-child linkage scenarios across the PMO platform
+
+**Last Updated:** 2025-10-24
+**Version:** 2.0.0 (Updated with button-based entity selection UI)
 
 ---
 
@@ -55,15 +58,21 @@ The **Unified Linkage System** provides a centralized way to manage parent-child
 │  🎨 PRESENTATION LAYER                                      │
 │  ├─ UnifiedLinkageModal (React Component)                  │
 │  │  ├─ Mode: "assign-parent"                               │
-│  │  └─ Mode: "manage-children"                             │
+│  │  ├─ Mode: "manage-children"                             │
+│  │  ├─ UI: Entity type buttons with icons                  │
+│  │  ├─ UI: Data table (Name, Code, Desc, Status, Action)   │
+│  │  └─ UI: Plus (+) / X icons for link/unlink              │
+│  ├─ LinkagePage (Full-page split-panel management)         │
+│  │  ├─ Left: Parent entity selection                       │
+│  │  └─ Right: Child entity selection                       │
 │  ├─ useLinkageModal (Custom Hook)                          │
 │  │  ├─ openAssignParent()                                  │
 │  │  ├─ openManageChildren()                                │
 │  │  └─ close()                                             │
 │  └─ Integration Points                                      │
 │     ├─ EntityDetailPage                                     │
-│     ├─ EntityMainPage (table rows)                         │
-│     ├─ KanbanBoard (cards)                                 │
+│     ├─ FormEditPage                                         │
+│     ├─ WikiEditorPage                                       │
 │     └─ Custom entity pages                                 │
 │                                                             │
 ├─────────────────────────────────────────────────────────────┤
@@ -104,11 +113,13 @@ linkageModal.openAssignParent({
 ```
 
 **UI Flow:**
-1. Modal shows current parent (if any)
-2. User selects parent entity type (project, worksite, etc.)
-3. User searches for specific parent entity
-4. User clicks "Link" to create linkage
-5. Old parent linkage is replaced (if exists)
+1. Modal shows current linkage status
+2. User sees entity type buttons with icons (Office, Business, Client, Project, etc.)
+3. User clicks entity type button to select parent type
+4. Table displays all available parent entities (Name, Code, Description, Status, Action)
+5. User searches/filters entities if needed
+6. User clicks Plus (+) icon to link or X icon to unlink
+7. Linked entities show blue background with "Linked" badge
 
 #### Mode 2: Manage Children
 
@@ -125,15 +136,42 @@ linkageModal.openManageChildren({
 ```
 
 **UI Flow:**
-1. Modal shows all current children
-2. User selects child entity type (task, wiki, artifact, etc.)
-3. User searches for entities to link
-4. User clicks "Link" to add children or "Unlink" to remove
-5. Multiple children can be managed simultaneously
+1. Modal shows current children count
+2. User sees entity type buttons with icons (Task, Wiki, Artifact, Form, etc.)
+3. User clicks entity type button to select child type
+4. Table displays all available child entities (Name, Code, Description, Status, Action)
+5. User searches/filters entities if needed
+6. User clicks Plus (+) icon to link or X icon to unlink
+7. Linked entities show blue background with "Linked" badge
+8. Multiple children can be managed simultaneously
 
 ---
 
 ## Component API
+
+### UI Design
+
+The UnifiedLinkageModal uses a **button-based entity selector** matching the LinkagePage design:
+
+**Entity Type Buttons:**
+- Display entity type icons (Office 🏢, Business 🏭, Client 🏢, Project 📁, Task ✓, etc.)
+- Blue highlight when selected (`bg-blue-50 border-blue-400 text-blue-700`)
+- Small compact design (`text-xs`, `px-2 py-1`)
+
+**Data Table:**
+| Column | Purpose |
+|--------|---------|
+| Name | Entity name (text-xs) |
+| Code | Entity code (text-xs) |
+| Description | Entity description (text-xs, truncated) |
+| Status | "Linked" badge or "-" (text-[10px]) |
+| Action | Plus (+) or X icon (h-3.5 w-3.5) |
+
+**Visual Indicators:**
+- Linked rows: Blue background (`bg-blue-50`)
+- Linked badge: Blue pill with checkmark (`bg-blue-100 text-blue-700`)
+- Link button: Green plus icon on hover (`text-green-600`)
+- Unlink button: Red X icon on hover (`text-red-600`)
 
 ### UnifiedLinkageModal Props
 
@@ -529,7 +567,30 @@ GET /api/v1/linkage/parents/task
 }
 ```
 
-**Source:** Hardcoded mapping in API (consider moving to `d_entity_map`)
+**Source:** Queries `d_entity_map` table
+
+### Important: API Endpoint Mapping
+
+Some entity types use different API endpoints than their entity type name:
+
+| Entity Type | API Endpoint |
+|-------------|--------------|
+| `business` | `/api/v1/biz` |
+| `client` | `/api/v1/cust` |
+| All others | `/api/v1/{entityType}` |
+
+**Implementation:**
+```typescript
+const getApiEndpoint = (entityType: string): string => {
+  if (entityType === 'business') return 'biz';
+  if (entityType === 'client') return 'cust';
+  return entityType;
+};
+```
+
+**API Limits:**
+- Maximum `limit` parameter: **100** (not 200)
+- Requests with `limit > 100` will return 400 Bad Request
 
 ---
 
@@ -806,6 +867,34 @@ VALUES ('user-id', 'project', 'all', ARRAY[0,1,2,3,4]);
 - Verify entity endpoint: `./tools/test-api.sh GET /api/v1/task`
 - Check RBAC permissions for entity type
 
+### Issue: 400 Bad Request - "querystring/limit must be <= 100"
+
+**Cause:** API has maximum limit of 100 items per request
+
+**Solution:** The UnifiedLinkageModal already uses `limit=100`. If you're making manual API calls, ensure you don't exceed this limit:
+```typescript
+// ✅ Good
+fetch(`/api/v1/project?limit=100`)
+
+// ❌ Bad - will fail
+fetch(`/api/v1/project?limit=200`)
+```
+
+### Issue: 404 Not Found for `/api/v1/client`
+
+**Cause:** Wrong endpoint - client entities use the `cust` endpoint
+
+**Solution:** Always use the `getApiEndpoint()` helper function:
+```typescript
+const endpoint = getApiEndpoint('client'); // Returns 'cust'
+fetch(`/api/v1/${endpoint}`) // /api/v1/cust ✅
+```
+
+**Endpoint Mappings:**
+- `business` → `/api/v1/biz`
+- `client` → `/api/v1/cust`
+- All others use their entity type name
+
 ---
 
 ## Future Enhancements
@@ -864,6 +953,35 @@ The **Unified Linkage System** provides:
 
 ---
 
+## Recent Changes (v2.0.0)
+
+### UI/UX Updates
+- **Replaced dropdown with button-based entity selector** - Matches LinkagePage UI exactly
+- **Added entity type icons** - Visual indicators for Office, Business, Client, Project, Task, etc.
+- **Updated table styling** - Smaller padding (`px-3 py-1.5`), smaller fonts (`text-xs`)
+- **Refined search bar** - Compact design matching LinkagePage
+- **Improved visual hierarchy** - Blue highlights for selected buttons and linked rows
+
+### Technical Updates
+- **Added helper functions:**
+  - `getEntityLabel()` - Get display name for entity type
+  - `getEntityIconComponent()` - Get Lucide icon for entity type
+  - `getApiEndpoint()` - Map entity types to correct API endpoints
+- **Fixed endpoint mappings:**
+  - `business` → `/api/v1/biz`
+  - `client` → `/api/v1/cust`
+- **Updated API limit:** Changed from 200 to 100 (API maximum)
+- **Restored LinkagePage:** Full-page split-panel interface at `/linkage`
+
+### Migration Notes
+If you're using UnifiedLinkageModal from before v2.0.0:
+- No prop changes required - fully backward compatible
+- UI will automatically update to button-based selector
+- Entity type filtering still works the same way
+- All existing integrations (EntityDetailPage, FormEditPage, WikiEditorPage) continue to work
+
+---
+
 **Last Updated:** 2025-10-24
-**Version:** 1.0.0
+**Version:** 2.0.0
 **Maintainer:** PMO Platform Team

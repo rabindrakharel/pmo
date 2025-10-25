@@ -100,7 +100,8 @@
       "Bash(fi)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzYxMzIyNTA5LCJleHAiOjE3NjE0MDg5MDl9.42l6JuVnFQ4XjKXnX9yVJWTKppT5YMyZMbFMe5VQr4Q\")",
       "Bash(/tmp/create-wiki.sh)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Read(//home/rabin/Screenshots/**)"
     ],
     "deny": [],
     "ask": [],

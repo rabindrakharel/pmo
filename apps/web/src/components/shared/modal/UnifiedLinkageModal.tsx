@@ -1,13 +1,64 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link2, Plus, X, Check, Search, AlertCircle } from 'lucide-react';
+import {
+  Link2,
+  Plus,
+  X,
+  Check,
+  Search,
+  AlertCircle,
+  MapPin,
+  Building2,
+  Building,
+  FolderOpen,
+  CheckSquare,
+  Users,
+  Shield,
+  BookOpen,
+  FileText,
+  Database
+} from 'lucide-react';
 import { Modal } from './Modal';
 import { Button } from '../button/Button';
 
 // ============================================================================
-// TYPES
+// TYPES & CONFIGURATION
 // ============================================================================
 
 type LinkageMode = 'assign-parent' | 'manage-children';
+
+// Entity types with their display labels and icons
+const entityTypes = [
+  { value: 'office', label: 'Office', IconComponent: MapPin },
+  { value: 'business', label: 'Business', IconComponent: Building2 },
+  { value: 'client', label: 'Client', IconComponent: Building },
+  { value: 'project', label: 'Project', IconComponent: FolderOpen },
+  { value: 'task', label: 'Task', IconComponent: CheckSquare },
+  { value: 'worksite', label: 'Worksite', IconComponent: MapPin },
+  { value: 'employee', label: 'Employee', IconComponent: Users },
+  { value: 'role', label: 'Role', IconComponent: Shield },
+  { value: 'wiki', label: 'Wiki', IconComponent: BookOpen },
+  { value: 'artifact', label: 'Artifact', IconComponent: FileText },
+  { value: 'form', label: 'Form', IconComponent: FileText }
+];
+
+// Helper to get entity label from value
+const getEntityLabel = (type: string) => {
+  const entity = entityTypes.find(e => e.value === type);
+  return entity?.label || type.charAt(0).toUpperCase() + type.slice(1);
+};
+
+// Helper to get entity icon component
+const getEntityIconComponent = (type: string) => {
+  const entity = entityTypes.find(e => e.value === type);
+  return entity?.IconComponent || Database;
+};
+
+// Helper to map entity types to API endpoints
+const getApiEndpoint = (entityType: string): string => {
+  if (entityType === 'business') return 'biz';
+  if (entityType === 'client') return 'cust';
+  return entityType;
+};
 
 interface UnifiedLinkageModalProps {
   isOpen: boolean;
@@ -194,9 +245,9 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
   const loadAvailableEntities = async () => {
     setLoading(true);
     try {
-      const endpoint = selectedEntityType === 'business' ? 'biz' : selectedEntityType;
+      const endpoint = getApiEndpoint(selectedEntityType);
       const response = await fetch(
-        `${apiUrl}/api/v1/${endpoint}?limit=200`,
+        `${apiUrl}/api/v1/${endpoint}?limit=100`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -388,26 +439,34 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
           </div>
         )}
 
-        {/* Entity Type Selector */}
-        {validEntityTypes.length > 1 && (
-          <div>
-            <label className="text-xs font-medium text-gray-700 mb-1.5 block">
+        {/* Entity Type Buttons - Match LinkagePage UI */}
+        {validEntityTypes.length > 0 && (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <label className="text-xs font-medium text-gray-700 mb-2 block">
               {entityLabel}
             </label>
-            <select
-              value={selectedEntityType}
-              onChange={(e) => {
-                setSelectedEntityType(e.target.value);
-                setSearchQuery('');
-              }}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {validEntityTypes.map(type => (
-                <option key={type} value={type}>
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
-                </option>
-              ))}
-            </select>
+            <div className="flex flex-wrap gap-1.5">
+              {validEntityTypes.map(type => {
+                const IconComponent = getEntityIconComponent(type);
+                return (
+                  <button
+                    key={type}
+                    onClick={() => {
+                      setSelectedEntityType(type);
+                      setSearchQuery('');
+                    }}
+                    className={`flex items-center gap-1 px-2 py-1 rounded border text-xs font-normal transition-all ${
+                      selectedEntityType === type
+                        ? 'bg-blue-50 border-blue-400 text-blue-700 shadow-sm'
+                        : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
+                    }`}
+                  >
+                    <IconComponent className="h-3 w-3 stroke-[1.5]" />
+                    <span>{getEntityLabel(type)}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -422,16 +481,16 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
           </div>
         )}
 
-        {/* Search */}
+        {/* Search - Match LinkagePage UI */}
         {selectedEntityType && (
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={`Search ${selectedEntityType}...`}
-              className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder={`Search ${selectedEntityType} by name...`}
+              className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-400 focus:ring-0"
             />
           </div>
         )}
@@ -450,19 +509,19 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-10">
                     <tr>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600">
+                      <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
                         Name
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600">
+                      <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
                         Code
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600">
+                      <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
                         Description
                       </th>
-                      <th className="px-4 py-2.5 text-center text-xs font-medium text-gray-600">
+                      <th className="px-3 py-1.5 text-center text-[11px] font-normal text-gray-600 bg-gray-50">
                         Status
                       </th>
-                      <th className="px-4 py-2.5 text-center text-xs font-medium text-gray-600">
+                      <th className="px-3 py-1.5 text-center text-[11px] font-normal text-gray-600 bg-gray-50">
                         Action
                       </th>
                     </tr>
@@ -477,41 +536,41 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
                             linked ? 'bg-blue-50' : 'hover:bg-gray-50'
                           }`}
                         >
-                          <td className="px-4 py-2.5 text-sm text-gray-900 font-medium">
+                          <td className="px-3 py-1.5 text-xs text-gray-900 font-normal">
                             {entity.name}
                           </td>
-                          <td className="px-4 py-2.5 text-sm text-gray-500 font-mono">
+                          <td className="px-3 py-1.5 text-xs text-gray-500">
                             {entity.code || '-'}
                           </td>
-                          <td className="px-4 py-2.5 text-sm text-gray-500 truncate max-w-xs">
+                          <td className="px-3 py-1.5 text-xs text-gray-500 truncate max-w-xs">
                             {entity.descr || '-'}
                           </td>
-                          <td className="px-4 py-2.5 text-center">
+                          <td className="px-3 py-1.5 text-center">
                             {linked ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
-                                <Check className="h-3 w-3 mr-1" />
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-normal bg-blue-100 text-blue-700">
+                                <Check className="h-2.5 w-2.5 mr-0.5" />
                                 Linked
                               </span>
                             ) : (
-                              <span className="text-xs text-gray-400">-</span>
+                              <span className="text-[10px] text-gray-400">-</span>
                             )}
                           </td>
-                          <td className="px-4 py-2.5 text-center">
+                          <td className="px-3 py-1.5 text-center">
                             {linked ? (
                               <button
                                 onClick={() => handleUnlink(entity.id)}
-                                className="inline-flex items-center justify-center p-1.5 rounded hover:bg-red-100 transition-colors group"
-                                title="Unlink"
+                                className="inline-flex items-center justify-center p-1 rounded hover:bg-red-100 transition-colors"
+                                title="Unlink this entity"
                               >
-                                <X className="h-4 w-4 text-red-600 stroke-[2]" />
+                                <X className="h-3.5 w-3.5 text-red-600 stroke-[2]" />
                               </button>
                             ) : (
                               <button
                                 onClick={() => handleLink(entity.id)}
-                                className="inline-flex items-center justify-center p-1.5 rounded hover:bg-green-100 transition-colors group"
-                                title="Link"
+                                className="inline-flex items-center justify-center p-1 rounded hover:bg-green-100 transition-colors"
+                                title="Link this entity"
                               >
-                                <Plus className="h-4 w-4 text-green-600 stroke-[2]" />
+                                <Plus className="h-3.5 w-3.5 text-green-600 stroke-[2]" />
                               </button>
                             )}
                           </td>

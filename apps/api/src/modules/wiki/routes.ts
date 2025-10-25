@@ -418,69 +418,60 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Wiki not found' });
       }
 
-      // Update d_wiki (head table)
-      const updateFields: string[] = [];
-      const values: any[] = [];
+      // Build update clauses using drizzle-orm sql template
+      const updateParts: any[] = [];
 
       if (data.name !== undefined) {
-        updateFields.push(`name = $${values.length + 1}`);
-        values.push(data.name);
+        updateParts.push(sql`name = ${data.name}`);
       }
       if (data.slug !== undefined) {
-        updateFields.push(`slug = $${values.length + 1}`);
-        values.push(data.slug);
+        updateParts.push(sql`slug = ${data.slug}`);
       }
       if (data.descr !== undefined) {
-        updateFields.push(`descr = $${values.length + 1}`);
-        values.push(data.descr);
+        updateParts.push(sql`descr = ${data.descr}`);
       }
       if (data.summary !== undefined) {
-        updateFields.push(`summary = $${values.length + 1}`);
-        values.push(data.summary);
+        updateParts.push(sql`summary = ${data.summary}`);
       }
       if (data.tags !== undefined) {
-        updateFields.push(`tags = $${values.length + 1}::jsonb`);
-        values.push(JSON.stringify(data.tags));
+        updateParts.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
       }
       if (data.metadata !== undefined) {
-        updateFields.push(`metadata = $${values.length + 1}::jsonb`);
-        values.push(JSON.stringify(data.metadata));
+        updateParts.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
       }
       if (data.wiki_type !== undefined) {
-        updateFields.push(`wiki_type = $${values.length + 1}`);
-        values.push(data.wiki_type);
+        updateParts.push(sql`wiki_type = ${data.wiki_type}`);
       }
       if (data.category !== undefined) {
-        updateFields.push(`category = $${values.length + 1}`);
-        values.push(data.category);
+        updateParts.push(sql`category = ${data.category}`);
       }
       if (data.publication_status !== undefined) {
-        updateFields.push(`publication_status = $${values.length + 1}`);
-        values.push(data.publication_status);
+        updateParts.push(sql`publication_status = ${data.publication_status}`);
       }
       if (data.visibility !== undefined) {
-        updateFields.push(`visibility = $${values.length + 1}`);
-        values.push(data.visibility);
+        updateParts.push(sql`visibility = ${data.visibility}`);
       }
       if (data.content !== undefined) {
-        updateFields.push(`content = $${values.length + 1}::jsonb`);
-        values.push(JSON.stringify(data.content));
+        updateParts.push(sql`content = ${JSON.stringify(data.content)}::jsonb`);
       }
 
-      if (updateFields.length === 0 && !data.content_markdown && !data.content_html) {
+      if (updateParts.length === 0 && !data.content_markdown && !data.content_html) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      updateFields.push(`updated_ts = NOW()`);
+      // Always update timestamp
+      updateParts.push(sql`updated_ts = NOW()`);
 
-      const updated = await db.execute(sql.raw(`
-        UPDATE app.d_wiki SET ${updateFields.join(', ')}
-        WHERE id = '${id}' AND active_flag = true
+      // Execute update with proper parameterization
+      const updated = await db.execute(sql`
+        UPDATE app.d_wiki
+        SET ${sql.join(updateParts, sql`, `)}
+        WHERE id = ${id} AND active_flag = true
         RETURNING id, slug, code, name, descr, tags, metadata, content, wiki_type,
                   category, publication_status, visibility, summary,
                   active_flag, from_ts, to_ts,
                   created_ts, updated_ts, version
-      `));
+      `);
 
       if (!updated.length) return reply.status(404).send({ error: 'Not found' });
 

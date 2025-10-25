@@ -1,6 +1,15 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Edit2, BookOpen, Calendar, User, Eye, Lock, Globe } from 'lucide-react';
+import { Edit2, Calendar, Clock, Tag, User } from 'lucide-react';
+
+interface WikiBlock {
+  id: string;
+  type: 'heading' | 'paragraph' | 'list' | 'quote' | 'code' | 'image' | 'video' | 'callout' | 'divider' | 'table';
+  content?: string;
+  level?: number;
+  styles?: Record<string, any>;
+  properties?: Record<string, any>;
+}
 
 interface WikiContentRendererProps {
   data: any;
@@ -11,7 +20,7 @@ interface WikiContentRendererProps {
  * WikiContentRenderer
  *
  * Renders wiki page content in the EntityDetailPage.
- * Shows wiki metadata, cover image, and rendered HTML content.
+ * Matches the WikiDesigner preview panel styling exactly.
  */
 export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) {
   const navigate = useNavigate();
@@ -24,10 +33,29 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
     );
   }
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
+  // Parse content - it might be a JSON string or already an object
+  let contentObj = data.content;
+  if (typeof contentObj === 'string') {
+    try {
+      contentObj = JSON.parse(contentObj);
+    } catch (e) {
+      console.error('Failed to parse wiki content:', e);
+      contentObj = null;
+    }
+  }
+
+  // Extract blocks from content
+  const blocks: WikiBlock[] = contentObj?.blocks || [];
+  const title = data.name || 'Untitled Page';
+  const tags = data.tags || [];
+  const createdDate = data.created_ts || new Date().toISOString();
+  const updatedDate = data.updated_ts || new Date().toISOString();
+  const author = data.ownerName || 'Unknown Author';
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '';
     const now = Date.now();
+    const date = new Date(dateString);
     const diff = now - date.getTime();
     const seconds = Math.floor(diff / 1000);
     const minutes = Math.floor(seconds / 60);
@@ -41,164 +69,121 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
-  const getVisibilityIcon = (visibility?: string) => {
-    switch (visibility) {
-      case 'public': return <Globe className="h-4 w-4" />;
-      case 'private': return <Lock className="h-4 w-4" />;
-      case 'restricted': return <Eye className="h-4 w-4" />;
-      default: return <Eye className="h-4 w-4" />;
-    }
-  };
+  const renderBlock = (block: WikiBlock) => {
+    switch (block.type) {
+      case 'heading':
+        const HeadingTag = `h${block.level || 1}` as keyof JSX.IntrinsicElements;
+        const headingClasses = {
+          1: 'text-4xl font-bold mt-8 mb-4',
+          2: 'text-3xl font-bold mt-6 mb-3',
+          3: 'text-2xl font-semibold mt-5 mb-2',
+          4: 'text-xl font-semibold mt-4 mb-2',
+          5: 'text-lg font-medium mt-3 mb-2',
+          6: 'text-base font-medium mt-2 mb-1',
+        }[block.level || 1];
+        return <HeadingTag className={headingClasses}>{block.content}</HeadingTag>;
 
-  const getStatusBadgeClass = (status?: string) => {
-    const statusMap: Record<string, string> = {
-      'published': 'bg-green-100 text-green-800',
-      'draft': 'bg-yellow-100 text-yellow-800',
-      'archived': 'bg-gray-100 text-gray-800',
-      'deprecated': 'bg-red-100 text-red-800'
-    };
-    return statusMap[status || 'draft'] || statusMap['draft'];
-  };
+      case 'paragraph':
+        return <p className="mb-4 leading-relaxed text-gray-700">{block.content}</p>;
 
-  const getTypeBadgeClass = (type?: string) => {
-    const typeMap: Record<string, string> = {
-      'page': 'bg-blue-100 text-blue-800',
-      'template': 'bg-purple-100 text-purple-800',
-      'workflow': 'bg-green-100 text-green-800',
-      'guide': 'bg-yellow-100 text-yellow-800',
-      'policy': 'bg-red-100 text-red-800',
-      'checklist': 'bg-indigo-100 text-indigo-800'
-    };
-    return typeMap[type || 'page'] || typeMap['page'];
-  };
+      case 'quote':
+        return (
+          <blockquote className="border-l-4 border-blue-500 pl-6 py-2 my-4 italic text-gray-600 bg-blue-50/50">
+            {block.content}
+          </blockquote>
+        );
 
-  const normalizePath = (value?: string) => {
-    if (!value) return '';
-    let next = value.trim();
-    if (!next) return '';
-    next = next.replace(/\s+/g, '-');
-    if (!next.startsWith('/')) next = `/${next}`;
-    next = next.replace(/(?!^)\/{2,}/g, '/');
-    if (next.length > 1 && next.endsWith('/')) next = next.slice(0, -1);
-    return next;
-  };
+      case 'code':
+        return (
+          <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 my-4 overflow-x-auto">
+            <code className="font-mono text-sm">{block.content}</code>
+          </pre>
+        );
 
-  const attrPath = normalizePath(data?.attr?.path);
-  const slugValue = typeof data?.slug === 'string' ? data.slug : '';
-  const fullPath = (() => {
-    if (typeof data?.page_path === 'string' && data.page_path) return data.page_path;
-    if (attrPath && slugValue) {
-      const base = attrPath.endsWith('/') ? attrPath.slice(0, -1) : attrPath;
-      return `${base}/${slugValue}`;
-    }
-    if (attrPath) return attrPath;
-    if (slugValue) return `/wiki/${slugValue}`;
-    return '';
-  })();
+      case 'list': {
+        const ListTag = block.level === 1 ? 'ul' : 'ol';
+        const bulletStyle = block.level === 1 ? 'list-disc' : 'list-decimal';
+        const items = block.properties?.items || [block.content || ''];
+        return (
+          <ListTag className={`${bulletStyle} ml-6 my-4 space-y-1`}>
+            {items.map((item, index) => (
+              <li key={index} className="text-gray-700 leading-relaxed">{item}</li>
+            ))}
+          </ListTag>
+        );
+      }
 
-  return (
-    <div className="space-y-6">
-      {/* Header Section */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          {/* Simple Title */}
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            {data.name || data.title}
-          </h1>
+      case 'callout':
+        return (
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r my-4">
+            <p className="text-blue-900 font-medium">{block.content}</p>
+          </div>
+        );
 
-          {data.summary && (
-            <p className="text-lg text-gray-600 mb-3">{data.summary}</p>
-          )}
-
-          <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
-            {/* Type Badge */}
-            {data.wiki_type && (
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal ${getTypeBadgeClass(data.wiki_type)}`}>
-                <BookOpen className="h-3 w-3 mr-1" />
-                {data.wiki_type}
-              </span>
-            )}
-
-            {/* Status Badge */}
-            {data.publication_status && (
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal ${getStatusBadgeClass(data.publication_status)}`}>
-                {data.publication_status}
-              </span>
-            )}
-
-            {/* Category */}
-            {data.category && (
-              <span className="flex items-center gap-1">
-                <span className="text-gray-400">Category:</span>
-                <span className="font-normal text-gray-700">{data.category}</span>
-              </span>
-            )}
-
-            {/* Visibility */}
-            {data.visibility && (
-              <span className="flex items-center gap-1">
-                {getVisibilityIcon(data.visibility)}
-                <span className="capitalize">{data.visibility}</span>
-              </span>
-            )}
-
-            {/* Author */}
-            {data.ownerName && (
-              <span className="flex items-center gap-1">
-                <User className="h-4 w-4" />
-                {data.ownerName}
-              </span>
-            )}
-
-            {/* Last Updated */}
-            {data.updated_ts && (
-              <span className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                {formatDate(data.updated_ts)}
-              </span>
+      case 'image':
+        return block.properties?.src ? (
+          <div className="my-6">
+            <img
+              src={block.properties.src}
+              alt={block.properties.alt || ''}
+              className="max-w-full h-auto rounded-lg shadow-md"
+            />
+            {block.properties.alt && (
+              <p className="text-sm text-gray-500 text-center mt-2 italic">
+                {block.properties.alt}
+              </p>
             )}
           </div>
+        ) : null;
 
-          {/* Tags */}
-          {data.tags && data.tags.length > 0 && (
-            <div className="flex items-center gap-2 mt-3">
-              <span className="text-sm text-gray-500">🏷️ Tags:</span>
-              <div className="flex flex-wrap gap-1">
-                {data.tags.map((tag: string, index: number) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-normal bg-blue-50 text-blue-700 border border-blue-200"
-                  >
-                    {tag}
-                  </span>
+      case 'video':
+        return block.properties?.src ? (
+          <div className="my-6 aspect-video">
+            <iframe
+              src={block.properties.src}
+              className="w-full h-full rounded-lg shadow-md"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        ) : null;
+
+      case 'divider':
+        return <hr className="border-t-2 border-gray-300 my-8" />;
+
+      case 'table':
+        return (
+          <div className="my-6 overflow-x-auto">
+            <table className="min-w-full border border-gray-300">
+              <tbody>
+                {Array.from({ length: block.properties?.rows || 3 }).map((_, rowIndex) => (
+                  <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                    {Array.from({ length: block.properties?.cols || 3 }).map((_, colIndex) => (
+                      <td key={colIndex} className="border border-gray-300 p-3 text-sm text-gray-700">
+                        {block.content || 'Cell'}
+                      </td>
+                    ))}
+                  </tr>
                 ))}
-              </div>
-            </div>
-          )}
+              </tbody>
+            </table>
+          </div>
+        );
 
-          {/* Keywords */}
-          {data.keywords && data.keywords.length > 0 && (
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-sm text-gray-500">🔍 Keywords:</span>
-              <div className="flex flex-wrap gap-1">
-                {data.keywords.map((keyword: string, index: number) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-normal bg-gray-100 text-gray-700"
-                  >
-                    {keyword}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+      default:
+        return null;
+    }
+  };
 
-        {/* Edit Button */}
+  return (
+    <div className="max-w-4xl mx-auto">
+      {/* Edit Button - Floating top right */}
+      <div className="flex justify-end mb-4">
         <button
           onClick={() => {
             if (onEdit) {
@@ -210,67 +195,61 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
         >
           <Edit2 className="h-4 w-4" />
-          Edit in Wiki Editor
+          Edit
         </button>
       </div>
 
-      {/* Path Information */}
-      {fullPath && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm text-gray-600">
-          <span className="font-medium">Path:</span> {fullPath}
-        </div>
-      )}
+      {/* Content Container - Matches WikiPreviewPanel exactly */}
+      <div className="bg-white rounded-xl shadow-lg">
+        {/* Simple Header */}
+        <div className="px-12 pt-12 pb-6 border-b border-gray-200">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">{title}</h1>
 
-      {/* Description */}
-      {data.descr && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-blue-900 mb-2">Description</h3>
-          <p className="text-sm text-blue-800 whitespace-pre-wrap">{data.descr}</p>
-        </div>
-      )}
+          {/* Metadata */}
+          <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500">
+            <div className="flex items-center space-x-2">
+              <User className="h-4 w-4" />
+              <span>{author}</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Calendar className="h-4 w-4" />
+              <span>{new Date(createdDate).toLocaleDateString()}</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Clock className="h-4 w-4" />
+              <span>Updated {formatDate(updatedDate)}</span>
+            </div>
+          </div>
 
-      {/* Main Content */}
-      <article className="bg-white border border-gray-200 rounded-lg shadow-sm">
-        <div className="p-8">
-          {data.content_html ? (
-            <div
-              className="prose prose-sm sm:prose lg:prose-lg max-w-none
-                prose-headings:text-gray-900 prose-headings:font-bold
-                prose-p:text-gray-700 prose-p:leading-relaxed
-                prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline
-                prose-strong:text-gray-900 prose-strong:font-semibold
-                prose-code:text-pink-600 prose-code:bg-pink-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
-                prose-pre:bg-gray-900 prose-pre:text-gray-100
-                prose-ul:list-disc prose-ol:list-decimal
-                prose-li:text-gray-700
-                prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:bg-blue-50 prose-blockquote:italic
-                prose-img:rounded-lg prose-img:shadow-md
-                prose-table:border prose-table:border-gray-300
-                prose-th:bg-gray-100 prose-th:font-semibold
-                prose-td:border prose-td:border-gray-200"
-              dangerouslySetInnerHTML={{ __html: data.content_html }}
-            />
-          ) : (
-            <div className="text-center py-12 text-gray-400">
-              <BookOpen className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-              <p className="text-lg">No content available</p>
-              <p className="text-sm mt-2">Click "Edit in Wiki Editor" to add content</p>
+          {/* Tags */}
+          {tags && tags.length > 0 && (
+            <div className="flex items-center space-x-2 mt-3">
+              <Tag className="h-4 w-4 text-gray-500" />
+              <div className="flex flex-wrap gap-2">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
         </div>
-      </article>
 
-      {/* Metadata Section */}
-      {data.metadata && Object.keys(data.metadata).length > 0 && (
-        <details className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <summary className="cursor-pointer font-normal text-gray-700 hover:text-gray-900">
-            Additional Metadata
-          </summary>
-          <pre className="mt-3 text-xs text-gray-600 overflow-auto bg-white p-3 rounded border border-gray-200">
-            {JSON.stringify(data.metadata, null, 2)}
-          </pre>
-        </details>
-      )}
+        {/* Content */}
+        <div className="px-12 py-8">
+          {blocks.length === 0 ? (
+            <p className="text-gray-400 text-center py-12">No content yet. Click Edit to add content.</p>
+          ) : (
+            blocks.map((block, index) => (
+              <div key={block.id || index}>{renderBlock(block)}</div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }

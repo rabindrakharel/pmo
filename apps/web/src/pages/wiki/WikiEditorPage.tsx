@@ -57,6 +57,17 @@ export function WikiEditorPage() {
       setLoading(true);
       setError(null);
       const pageData = await wikiApi.get(id!);
+
+      // Parse content if it's a string
+      if (typeof pageData.content === 'string') {
+        try {
+          pageData.content = JSON.parse(pageData.content);
+        } catch (e) {
+          console.error('Failed to parse wiki content:', e);
+          pageData.content = { type: 'blocks', blocks: [] };
+        }
+      }
+
       setPage(pageData);
     } catch (err) {
       console.error('Failed to load wiki page:', err);
@@ -73,6 +84,17 @@ export function WikiEditorPage() {
         const updated = await wikiApi.update(id, pageData);
         // Reload the page data to refresh the preview
         const refreshed = await wikiApi.get(id);
+
+        // Parse content if it's a string
+        if (typeof refreshed.content === 'string') {
+          try {
+            refreshed.content = JSON.parse(refreshed.content);
+          } catch (e) {
+            console.error('Failed to parse wiki content:', e);
+            refreshed.content = { type: 'blocks', blocks: [] };
+          }
+        }
+
         setPage(refreshed);
         // Show success toast
         setSaveSuccess(true);
@@ -84,6 +106,17 @@ export function WikiEditorPage() {
         window.history.replaceState(null, '', `/wiki/${created.id}/edit`);
         // Load the created page data
         const refreshed = await wikiApi.get(created.id);
+
+        // Parse content if it's a string
+        if (typeof refreshed.content === 'string') {
+          try {
+            refreshed.content = JSON.parse(refreshed.content);
+          } catch (e) {
+            console.error('Failed to parse wiki content:', e);
+            refreshed.content = { type: 'blocks', blocks: [] };
+          }
+        }
+
         setPage(refreshed);
         // Show success toast
         setSaveSuccess(true);
