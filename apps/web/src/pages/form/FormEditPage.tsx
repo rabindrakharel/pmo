@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Share2, Link as LinkIcon } from 'lucide-react';
-import { Layout } from '../../components/shared';
 import { ShareModal } from '../../components/shared/modal';
 import { UnifiedLinkageModal } from '../../components/shared/modal/UnifiedLinkageModal';
 import { useLinkageModal } from '../../hooks/useLinkageModal';
 import { useNavigate, useParams } from 'react-router-dom';
 import { formApi } from '../../lib/api';
-import { AdvancedFormBuilder } from '../../components/entity/form/AdvancedFormBuilder';
+import { FormDesigner } from '../../components/entity/form/FormDesigner';
 
 export function FormEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -106,63 +105,62 @@ export function FormEditPage() {
     }
   };
 
+  const handleExit = () => {
+    navigate('/form');
+  };
+
   if (loading) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
     );
   }
 
   if (!formData) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <h3 className="text-sm font-normal text-gray-900">Form not found</h3>
-            <p className="mt-2 text-gray-600">The form you're looking for doesn't exist.</p>
-          </div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-gray-900">Form not found</h3>
+          <p className="mt-2 text-gray-600">The form you're looking for doesn't exist.</p>
+          <button
+            onClick={() => navigate('/form')}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Back to Forms
+          </button>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <AdvancedFormBuilder
-        title={formData?.name || ''}
-        description={formData?.descr || ''}
-        taskId={formData?.taskId}
-        initialFormData={formData}
+    <>
+      <FormDesigner
+        formData={formData}
         onSave={handleSave}
         onSaveDraft={handleSaveDraft}
-        backLink={`/form/${id}`}
-        headerTitle="Edit Multi-Step Form"
-        autoSaveInterval={30000}
-        headerActions={
-          <>
-            <button
-              onClick={() => linkageModal.openAssignParent({
-                childEntityType: 'form',
-                childEntityId: id!,
-                childEntityName: formData?.name
-              })}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Manage links"
-            >
-              <LinkIcon className="h-5 w-5 text-gray-600 stroke-[1.5]" />
-            </button>
-            <button
-              onClick={() => setIsShareModalOpen(true)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Share"
-            >
-              <Share2 className="h-5 w-5 text-gray-600 stroke-[1.5]" />
-            </button>
-          </>
-        }
+        onExit={handleExit}
+        actions={[
+          {
+            id: 'link',
+            label: '',
+            icon: <LinkIcon className="h-4 w-4" />,
+            onClick: () => linkageModal.openAssignParent({
+              childEntityType: 'form',
+              childEntityId: id!,
+              childEntityName: formData?.name
+            }),
+            variant: 'secondary' as const,
+          },
+          {
+            id: 'share',
+            label: '',
+            icon: <Share2 className="h-4 w-4" />,
+            onClick: () => setIsShareModalOpen(true),
+            variant: 'secondary' as const,
+          },
+        ]}
       />
 
       {/* Share Modal */}
@@ -183,7 +181,7 @@ export function FormEditPage() {
 
       {/* Unified Linkage Modal */}
       <UnifiedLinkageModal {...linkageModal.modalProps} />
-    </Layout>
+    </>
   );
 }
 
