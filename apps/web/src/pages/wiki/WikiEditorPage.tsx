@@ -16,6 +16,7 @@ export function WikiEditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   // Unified linkage modal
   const linkageModal = useLinkageModal({
@@ -129,6 +130,27 @@ export function WikiEditorPage() {
     }
   };
 
+  const handleExit = () => {
+    setShowExitConfirm(true);
+  };
+
+  const handleExitWithoutSaving = () => {
+    setShowExitConfirm(false);
+    navigate('/wiki');
+  };
+
+  const handleExitWithSave = async () => {
+    try {
+      // Get the current page data from WikiDesigner
+      // Since we don't have direct access, we'll just navigate back
+      // The user can manually save before clicking exit if needed
+      setShowExitConfirm(false);
+      navigate('/wiki');
+    } catch (err) {
+      console.error('Failed to save and exit:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -158,6 +180,7 @@ export function WikiEditorPage() {
       <WikiDesigner
         page={page}
         onSave={handleSave}
+        onExit={handleExit}
         actions={id ? [
           {
             id: 'link',
@@ -208,6 +231,36 @@ export function WikiEditorPage() {
 
       {/* Unified Linkage Modal */}
       <UnifiedLinkageModal {...linkageModal.modalProps} />
+
+      {/* Exit Confirmation Modal */}
+      {showExitConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Exit Wiki Editor?
+              </h3>
+              <p className="text-sm text-gray-600 mb-6">
+                You have unsaved changes. What would you like to do?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleExitWithoutSaving}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                >
+                  Exit Without Saving
+                </button>
+                <button
+                  onClick={() => setShowExitConfirm(false)}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

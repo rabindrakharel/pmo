@@ -118,16 +118,21 @@ export function WikiPreviewPanel({ blocks, title, metadata }: WikiPreviewPanelPr
       case 'divider':
         return <hr className="border-t-2 border-gray-300 my-8" />;
 
-      case 'table':
+      case 'table': {
+        const rows = block.properties?.rows || 3;
+        const cols = block.properties?.cols || 3;
+        const cells = block.properties?.cells ||
+          Array.from({ length: rows }, () => Array.from({ length: cols }, () => ''));
+
         return (
           <div className="my-6 overflow-x-auto">
             <table className="min-w-full border border-gray-300">
               <tbody>
-                {Array.from({ length: block.properties?.rows || 3 }).map((_, rowIndex) => (
+                {cells.map((row: string[], rowIndex: number) => (
                   <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                    {Array.from({ length: block.properties?.cols || 3 }).map((_, colIndex) => (
+                    {row.map((cell: string, colIndex: number) => (
                       <td key={colIndex} className="border border-gray-300 p-3 text-sm text-gray-700">
-                        {block.content || 'Cell'}
+                        {cell || 'Cell'}
                       </td>
                     ))}
                   </tr>
@@ -136,6 +141,7 @@ export function WikiPreviewPanel({ blocks, title, metadata }: WikiPreviewPanelPr
             </table>
           </div>
         );
+      }
 
       default:
         return null;

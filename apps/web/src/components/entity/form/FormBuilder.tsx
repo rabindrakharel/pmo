@@ -243,19 +243,37 @@ export function SignatureCanvas({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [paths, setPaths] = useState<Array<Array<{x: number, y: number}>>>([]);
+  const [currentPath, setCurrentPath] = useState<Array<{x: number, y: number}>>([]);
 
-  // Initialize canvas context
+  // Initialize high-DPI canvas context for sharp rendering
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+
+    // Get device pixel ratio for sharp rendering on high-DPI screens
+    const dpr = window.devicePixelRatio || 1;
+
+    // Set actual size in memory (scaled for DPI)
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+
+    const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
+    // Scale all drawing operations by DPI
+    ctx.scale(dpr, dpr);
+
+    // Ink pen style - very thin, sharp, deep black
     ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 0.8; // Very thin line for ink pen look
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-  }, []);
+
+    // Fill white background for better contrast
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, width, height);
+  }, [width, height]);
 
   // Load existing signature from value
   useEffect(() => {
@@ -277,18 +295,22 @@ export function SignatureCanvas({
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
 
+    // Calculate scale factors (canvas internal size vs display size)
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
     if ('touches' in e) {
       // Touch event
       const touch = e.touches[0];
       return {
-        x: touch.clientX - rect.left,
-        y: touch.clientY - rect.top
+        x: (touch.clientX - rect.left) * scaleX,
+        y: (touch.clientY - rect.top) * scaleY
       };
     } else {
       // Mouse event
       return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
       };
     }
   };
@@ -304,6 +326,9 @@ export function SignatureCanvas({
     const { x, y } = getCoordinates(e);
     ctx.beginPath();
     ctx.moveTo(x, y);
+
+    // Start new path
+    setCurrentPath([{ x, y }]);
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -317,17 +342,25 @@ export function SignatureCanvas({
     const { x, y } = getCoordinates(e);
     ctx.lineTo(x, y);
     ctx.stroke();
+
+    // Add point to current path
+    setCurrentPath(prev => [...prev, { x, y }]);
   };
 
   const stopDrawing = () => {
     if (!isDrawing) return;
     setIsDrawing(false);
 
-    // Save canvas data as base64 and notify parent
+    // Save completed path
+    if (currentPath.length > 0) {
+      setPaths(prev => [...prev, currentPath]);
+    }
+
+    // Convert to SVG and notify parent
     const canvas = canvasRef.current;
     if (canvas && onChange) {
-      const dataUrl = canvas.toDataURL('image/png');
-      onChange(dataUrl);
+      const svgData = pathsToSVG([...paths, currentPath], width, height);
+      onChange(svgData);
     }
   };
 
@@ -336,7 +369,16 @@ export function SignatureCanvas({
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    // Clear and refill white background
+    const dpr = window.devicePixelRatio || 1;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, width, height);
+
+    // Clear paths
+    setPaths([]);
+    setCurrentPath([]);
 
     // Notify parent that signature was cleared
     if (onChange) {
@@ -344,12 +386,39 @@ export function SignatureCanvas({
     }
   };
 
+  // Helper function to convert paths to SVG with sharp ink pen style
+  const pathsToSVG = (allPaths: Array<Array<{x: number, y: number}>>, w: number, h: number): string => {
+    if (allPaths.length === 0 || allPaths.every(p => p.length === 0)) {
+      return '';
+    }
+
+    let pathData = '';
+    allPaths.forEach(path => {
+      if (path.length === 0) return;
+
+      // Start path with M (moveTo)
+      pathData += `M ${path[0].x.toFixed(2)} ${path[0].y.toFixed(2)} `;
+
+      // Add line segments with L (lineTo)
+      for (let i = 1; i < path.length; i++) {
+        pathData += `L ${path[i].x.toFixed(2)} ${path[i].y.toFixed(2)} `;
+      }
+    });
+
+    // Create SVG with sharp rendering and ink pen style
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">
+  <rect width="${w}" height="${h}" fill="white"/>
+  <path d="${pathData}" stroke="#000000" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" fill="none" shape-rendering="geometricPrecision"/>
+</svg>`;
+
+    // Return as data URL
+    return `data:image/svg+xml;base64,${btoa(svg)}`;
+  };
+
   return (
     <div className="relative border border-gray-300 rounded-lg bg-white">
       <canvas
         ref={canvasRef}
-        width={width}
-        height={height}
         onMouseDown={startDrawing}
         onMouseMove={draw}
         onMouseUp={stopDrawing}
@@ -357,8 +426,14 @@ export function SignatureCanvas({
         onTouchStart={startDrawing}
         onTouchMove={draw}
         onTouchEnd={stopDrawing}
-        className="cursor-crosshair w-full"
-        style={{ touchAction: 'none' }}
+        className="cursor-crosshair"
+        style={{
+          touchAction: 'none',
+          imageRendering: 'crisp-edges',
+          display: 'block',
+          width: `${width}px`,
+          height: `${height}px`
+        }}
       />
       <button
         onClick={clearCanvas}
@@ -1745,7 +1820,7 @@ export function StepProgressIndicator({
 }
 
 // Draggable Field Type Component
-export function DraggableFieldType({ fieldType }: { fieldType: { type: FieldType; label: string; hint: string; icon: React.ReactNode } }) {
+export function DraggableFieldType({ fieldType, onAddField }: { fieldType: { type: FieldType; label: string; hint: string; icon: React.ReactNode }, onAddField?: (type: FieldType) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `field-type-${fieldType.type}`,
     data: {
@@ -1759,6 +1834,13 @@ export function DraggableFieldType({ fieldType }: { fieldType: { type: FieldType
     opacity: isDragging ? 0.3 : 1,
     cursor: isDragging ? 'grabbing' : 'grab',
     transition: isDragging ? 'none' : 'all 0.2s ease',
+  };
+
+  const handlePlusClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onAddField) {
+      onAddField(fieldType.type);
+    }
   };
 
   return (
@@ -1779,7 +1861,13 @@ export function DraggableFieldType({ fieldType }: { fieldType: { type: FieldType
             <div className="text-xs text-gray-500">{fieldType.hint}</div>
           </div>
         </div>
-        <Plus className="h-4 w-4 text-gray-400 flex-shrink-0 stroke-[1.5]" />
+        <button
+          onClick={handlePlusClick}
+          className="pointer-events-auto p-1 rounded hover:bg-blue-50 transition-colors"
+          title="Click to add field below selected field"
+        >
+          <Plus className="h-4 w-4 text-gray-400 flex-shrink-0 stroke-[1.5] hover:text-blue-600" />
+        </button>
       </div>
     </div>
   );

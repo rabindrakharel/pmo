@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Save, BookOpen, Plus } from 'lucide-react';
+import { Save, BookOpen, Plus, LogOut } from 'lucide-react';
 import { produce } from 'immer';
 import { UniversalDesigner, DesignerAction } from '../../shared/designer';
 import { WikiBlockToolbar } from './designer/WikiBlockToolbar';
@@ -45,10 +45,11 @@ export interface WikiPage {
 export interface WikiDesignerProps {
   page: WikiPage;
   onSave: (pageData: Partial<WikiPage>) => Promise<void>;
+  onExit?: () => void;
   actions?: DesignerAction[];
 }
 
-export function WikiDesigner({ page, onSave, actions = [] }: WikiDesignerProps) {
+export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesignerProps) {
   // Page state
   const [blocks, setBlocks] = useState<WikiBlock[]>(page.content?.blocks || []);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
@@ -367,6 +368,19 @@ export function WikiDesigner({ page, onSave, actions = [] }: WikiDesignerProps) 
         disabled: isSaving || !title.trim(),
         loading: isSaving,
       }}
+      trailingActions={
+        onExit
+          ? [
+              {
+                id: 'exit',
+                label: 'Exit',
+                icon: <LogOut className="h-4 w-4" />,
+                onClick: onExit,
+                variant: 'secondary' as const,
+              },
+            ]
+          : []
+      }
     />
   );
 }

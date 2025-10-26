@@ -178,6 +178,7 @@ validate_all_ddls() {
         "26_d_wiki_data.ddl"
         "27_d_reports.ddl"
         "28_d_report_data.ddl"
+        "d_workflow_automation.ddl"
         "29_d_entity_map.ddl"
         "30_d_entity.ddl"
         "31_d_entity_instance_id.ddl"
@@ -271,6 +272,9 @@ import_ddls() {
     execute_sql "$DB_PATH/26_d_wiki_data.ddl" "Wiki data entities"
     execute_sql "$DB_PATH/27_d_reports.ddl" "Report entities"
     execute_sql "$DB_PATH/28_d_report_data.ddl" "Report data entities"
+
+    # Workflow automation - Business process automation
+    execute_sql "$DB_PATH/d_workflow_automation.ddl" "Workflow automation entities"
 
     # Fact tables - Transaction-level analytics (after all dimensions loaded)
     execute_sql "$DB_PATH/f_inventory.ddl" "Inventory fact table (stock levels by location)"

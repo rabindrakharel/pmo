@@ -18,6 +18,212 @@ interface InteractiveFormProps {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
+// Wrapper component to handle menu button field with hooks
+function MenuButtonFieldWrapper({ field }: { field: BuilderField }) {
+  const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleMenuClick = (url: string, openInNewTab?: boolean) => {
+    if (openInNewTab) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } else {
+      // Check if it's an internal URL (starts with /)
+      if (url.startsWith('/')) {
+        window.location.href = url;
+      } else {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    }
+  };
+
+  const getButtonClasses = () => {
+    const sizeClasses =
+      field.menuButtonSize === 'sm' ? 'px-3 py-1.5 text-xs' :
+      field.menuButtonSize === 'lg' ? 'px-6 py-3 text-base' :
+      'px-4 py-2 text-sm';
+
+    const styleClasses =
+      field.menuButtonStyle === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm' :
+      field.menuButtonStyle === 'secondary' ? 'bg-gray-600 text-white hover:bg-gray-700 shadow-sm' :
+      'border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50';
+
+    return `inline-flex items-center space-x-2 rounded-lg font-medium transition-colors ${sizeClasses} ${styleClasses}`;
+  };
+
+  return (
+    <div className="space-y-2">
+      {field.menuButtonType === 'single' && field.menuButtonItems && field.menuButtonItems.length > 0 && (
+        <button
+          type="button"
+          onClick={() => handleMenuClick(field.menuButtonItems![0].url, field.menuButtonItems![0].openInNewTab)}
+          className={getButtonClasses()}
+        >
+          {field.menuButtonItems[0].icon && <span>{field.menuButtonItems[0].icon}</span>}
+          <span>{field.menuButtonItems[0].label}</span>
+          {field.menuButtonItems[0].openInNewTab && <ExternalLink className="h-3 w-3" />}
+        </button>
+      )}
+
+      {field.menuButtonType === 'dropdown' && field.menuButtonItems && field.menuButtonItems.length > 0 && (
+        <div ref={dropdownRef} className="relative inline-block">
+          <button
+            type="button"
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className={getButtonClasses()}
+          >
+            <span>{field.label || 'Menu'}</span>
+            <ChevronDown className={`h-4 w-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {isDropdownOpen && (
+            <div className="absolute z-10 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[200px] left-0">
+              {field.menuButtonItems!.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    handleMenuClick(item.url, item.openInNewTab);
+                    setIsDropdownOpen(false);
+                  }}
+                  className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left"
+                >
+                  {item.icon && <span>{item.icon}</span>}
+                  <span>{item.label}</span>
+                  {item.openInNewTab && <ExternalLink className="h-3 w-3 ml-auto" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Wrapper component to handle calculation field with hooks
+function CalculationFieldWrapper({
+  field,
+  formData,
+  onValueChange
+}: {
+  field: BuilderField;
+  formData: Record<string, any>;
+  onValueChange: (value: number) => void;
+}) {
+  // Calculate value based on other fields
+  const calculatedValue = React.useMemo(() => {
+    console.log('🧮 Computing calculation for field:', field.name, 'mode:', field.calculationMode);
+
+    // Mode: Custom JavaScript Expression
+    if (field.calculationMode === 'expression' && field.calculationExpression) {
+      try {
+        // Create a safe context with field values and Math
+        const context: Record<string, any> = { Math };
+
+        // Extract all form field values and make them available as variables
+        Object.keys(formData).forEach(key => {
+          const val = formData[key];
+          // Parse numeric values
+          let numVal = val;
+          if (typeof val === 'string') {
+            const parsed = parseFloat(val.replace(/[^0-9.-]/g, ''));
+            numVal = isNaN(parsed) ? 0 : parsed;
+          } else if (typeof val === 'object' && val !== null) {
+            // Handle duration objects {hours: X, minutes: Y}
+            if ('hours' in val && 'minutes' in val) {
+              numVal = (val.hours || 0) + (val.minutes || 0) / 60;
+            } else {
+              numVal = 0;
+            }
+          }
+          context[key] = numVal;
+        });
+
+        console.log('📊 Context for expression:', context);
+        console.log('📝 Expression:', field.calculationExpression);
+
+        // Build a function from the expression with only safe context
+        const funcBody = `
+          "use strict";
+          const { ${Object.keys(context).join(', ')} } = this;
+          return (${field.calculationExpression});
+        `;
+
+        const func = new Function(funcBody);
+        const result = func.call(context);
+
+        console.log('✅ Expression result:', result);
+        return isNaN(result) ? 0 : result;
+      } catch (error) {
+        console.error('❌ Calculation expression error:', error);
+        return 0; // Return 0 on error
+      }
+    }
+
+    // Mode: Simple Operation (original logic)
+    if (!field.calculationFields || field.calculationFields.length === 0) {
+      return 0;
+    }
+
+    const values = field.calculationFields
+      .map(fieldName => {
+        const val = formData[fieldName];
+        const num = typeof val === 'string' ? parseFloat(val.replace(/[^0-9.-]/g, '')) : val;
+        return isNaN(num) ? 0 : num;
+      })
+      .filter(v => !isNaN(v));
+
+    if (values.length === 0) return 0;
+
+    switch (field.calculationOperation) {
+      case 'sum':
+        return values.reduce((a, b) => a + b, 0);
+      case 'subtract':
+        return values.reduce((a, b) => a - b);
+      case 'multiply':
+        return values.reduce((a, b) => a * b, 1);
+      case 'divide':
+        return values.reduce((a, b) => (b !== 0 ? a / b : a));
+      case 'average':
+        return values.reduce((a, b) => a + b, 0) / values.length;
+      case 'min':
+        return Math.min(...values);
+      case 'max':
+        return Math.max(...values);
+      default:
+        return values.reduce((a, b) => a + b, 0);
+    }
+  }, [formData, field.calculationFields, field.calculationOperation, field.calculationExpression, field.calculationMode, field.name]);
+
+  // Update formData with calculated value
+  React.useEffect(() => {
+    if (formData[field.name] !== calculatedValue) {
+      onValueChange(calculatedValue);
+    }
+  }, [calculatedValue, formData, field.name, onValueChange]);
+
+  return (
+    <CalculationField
+      value={calculatedValue}
+      label={field.label}
+      currencySymbol={field.currencySymbol || '$'}
+      expression={field.calculationMode === 'expression' ? field.calculationExpression : undefined}
+      showExpression={field.calculationMode === 'expression'}
+    />
+  );
+}
+
 export function InteractiveForm({
   formId,
   submissionId,
@@ -36,6 +242,7 @@ export function InteractiveForm({
   const [submitMessage, setSubmitMessage] = useState('');
   const [dynamicOptions, setDynamicOptions] = useState<Record<string, Array<{ value: string; label: string }>>>({});
   const [signatureUrls, setSignatureUrls] = useState<Record<string, string>>({});
+  const [uploadingSignatures, setUploadingSignatures] = useState<Record<string, boolean>>({});
   const [fileUrls, setFileUrls] = useState<Record<string, string>>({});
 
   // Use reusable S3 upload hook (DRY principle)
@@ -62,20 +269,35 @@ export function InteractiveForm({
    * Converts base64 data URL to blob first
    */
   const uploadSignatureToS3 = async (fieldName: string, dataUrl: string): Promise<string | null> => {
-    // Convert data URL to blob
-    const response = await fetch(dataUrl);
-    const blob = await response.blob();
+    try {
+      // Set uploading state
+      setUploadingSignatures(prev => ({ ...prev, [fieldName]: true }));
 
-    return uploadToS3({
-      entityType: 'form',
-      entityId: formId,
-      file: blob,
-      fileName: `${fieldName}_${Date.now()}.png`,
-      contentType: 'image/png',
-      uploadType: 'signature',
-      tenantId: 'demo',
-      fieldName
-    });
+      // Convert data URL to blob
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+
+      // Determine file extension and content type based on data URL
+      const isSvg = dataUrl.startsWith('data:image/svg+xml');
+      const fileExt = isSvg ? 'svg' : 'png';
+      const contentType = isSvg ? 'image/svg+xml' : 'image/png';
+
+      const objectKey = await uploadToS3({
+        entityType: 'form',
+        entityId: formId,
+        file: blob,
+        fileName: `${fieldName}_${Date.now()}.${fileExt}`,
+        contentType,
+        uploadType: 'signature',
+        tenantId: 'demo',
+        fieldName
+      });
+
+      return objectKey;
+    } finally {
+      // Clear uploading state
+      setUploadingSignatures(prev => ({ ...prev, [fieldName]: false }));
+    }
   };
 
   /**
@@ -791,198 +1013,18 @@ export function InteractiveForm({
         );
 
       case 'calculation':
-        // Calculate value based on other fields
-        const calculatedValue = React.useMemo(() => {
-          console.log('🧮 Computing calculation for field:', field.name, 'mode:', field.calculationMode);
-
-          // Mode: Custom JavaScript Expression
-          if (field.calculationMode === 'expression' && field.calculationExpression) {
-            try {
-              // Create a safe context with field values and Math
-              const context: Record<string, any> = { Math };
-
-              // Extract all form field values and make them available as variables
-              Object.keys(formData).forEach(key => {
-                const val = formData[key];
-                // Parse numeric values
-                let numVal = val;
-                if (typeof val === 'string') {
-                  const parsed = parseFloat(val.replace(/[^0-9.-]/g, ''));
-                  numVal = isNaN(parsed) ? 0 : parsed;
-                } else if (typeof val === 'object' && val !== null) {
-                  // Handle duration objects {hours: X, minutes: Y}
-                  if ('hours' in val && 'minutes' in val) {
-                    numVal = (val.hours || 0) + (val.minutes || 0) / 60;
-                  } else {
-                    numVal = 0;
-                  }
-                }
-                context[key] = numVal;
-              });
-
-              console.log('📊 Context for expression:', context);
-              console.log('📝 Expression:', field.calculationExpression);
-
-              // Build a function from the expression with only safe context
-              const funcBody = `
-                "use strict";
-                const { ${Object.keys(context).join(', ')} } = this;
-                return (${field.calculationExpression});
-              `;
-
-              const func = new Function(funcBody);
-              const result = func.call(context);
-
-              console.log('✅ Expression result:', result);
-              return isNaN(result) ? 0 : result;
-            } catch (error) {
-              console.error('❌ Calculation expression error:', error);
-              return 0; // Return 0 on error
-            }
-          }
-
-          // Mode: Simple Operation (original logic)
-          if (!field.calculationFields || field.calculationFields.length === 0) {
-            return 0;
-          }
-
-          const values = field.calculationFields
-            .map(fieldName => {
-              const val = formData[fieldName];
-              const num = typeof val === 'string' ? parseFloat(val.replace(/[^0-9.-]/g, '')) : val;
-              return isNaN(num) ? 0 : num;
-            })
-            .filter(v => !isNaN(v));
-
-          if (values.length === 0) return 0;
-
-          switch (field.calculationOperation) {
-            case 'sum':
-              return values.reduce((a, b) => a + b, 0);
-            case 'subtract':
-              return values.reduce((a, b) => a - b);
-            case 'multiply':
-              return values.reduce((a, b) => a * b, 1);
-            case 'divide':
-              return values.reduce((a, b) => (b !== 0 ? a / b : a));
-            case 'average':
-              return values.reduce((a, b) => a + b, 0) / values.length;
-            case 'min':
-              return Math.min(...values);
-            case 'max':
-              return Math.max(...values);
-            default:
-              return values.reduce((a, b) => a + b, 0);
-          }
-        }, [formData, field.calculationFields, field.calculationOperation, field.calculationExpression, field.calculationMode]);
-
-        // Update formData with calculated value
-        React.useEffect(() => {
-          if (formData[field.name] !== calculatedValue) {
-            handleFieldChange(field.name, calculatedValue);
-          }
-        }, [calculatedValue]);
-
+        // Use wrapper component to avoid hooks violation
         return (
-          <CalculationField
-            value={calculatedValue}
-            label={field.label}
-            currencySymbol={field.currencySymbol || '$'}
-            expression={field.calculationMode === 'expression' ? field.calculationExpression : undefined}
-            showExpression={field.calculationMode === 'expression'}
+          <CalculationFieldWrapper
+            field={field}
+            formData={formData}
+            onValueChange={(value) => handleFieldChange(field.name, value)}
           />
         );
 
       case 'menu_button':
-        const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
-        const dropdownRef = React.useRef<HTMLDivElement>(null);
-
-        // Close dropdown when clicking outside
-        React.useEffect(() => {
-          const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-              setIsDropdownOpen(false);
-            }
-          };
-          document.addEventListener('mousedown', handleClickOutside);
-          return () => document.removeEventListener('mousedown', handleClickOutside);
-        }, []);
-
-        const handleMenuClick = (url: string, openInNewTab?: boolean) => {
-          if (openInNewTab) {
-            window.open(url, '_blank', 'noopener,noreferrer');
-          } else {
-            // Check if it's an internal URL (starts with /)
-            if (url.startsWith('/')) {
-              window.location.href = url;
-            } else {
-              window.open(url, '_blank', 'noopener,noreferrer');
-            }
-          }
-        };
-
-        const getButtonClasses = () => {
-          const sizeClasses =
-            field.menuButtonSize === 'sm' ? 'px-3 py-1.5 text-xs' :
-            field.menuButtonSize === 'lg' ? 'px-6 py-3 text-base' :
-            'px-4 py-2 text-sm';
-
-          const styleClasses =
-            field.menuButtonStyle === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm' :
-            field.menuButtonStyle === 'secondary' ? 'bg-gray-600 text-white hover:bg-gray-700 shadow-sm' :
-            'border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50';
-
-          return `inline-flex items-center space-x-2 rounded-lg font-medium transition-colors ${sizeClasses} ${styleClasses}`;
-        };
-
-        return (
-          <div className="space-y-2">
-            {field.menuButtonType === 'single' && field.menuButtonItems && field.menuButtonItems.length > 0 && (
-              <button
-                type="button"
-                onClick={() => handleMenuClick(field.menuButtonItems![0].url, field.menuButtonItems![0].openInNewTab)}
-                className={getButtonClasses()}
-              >
-                {field.menuButtonItems[0].icon && <span>{field.menuButtonItems[0].icon}</span>}
-                <span>{field.menuButtonItems[0].label}</span>
-                {field.menuButtonItems[0].openInNewTab && <ExternalLink className="h-3 w-3" />}
-              </button>
-            )}
-
-            {field.menuButtonType === 'dropdown' && field.menuButtonItems && field.menuButtonItems.length > 0 && (
-              <div ref={dropdownRef} className="relative inline-block">
-                <button
-                  type="button"
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className={getButtonClasses()}
-                >
-                  <span>{field.label || 'Menu'}</span>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                {isDropdownOpen && (
-                  <div className="absolute z-10 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[200px] left-0">
-                    {field.menuButtonItems.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => {
-                          handleMenuClick(item.url, item.openInNewTab);
-                          setIsDropdownOpen(false);
-                        }}
-                        className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left"
-                      >
-                        {item.icon && <span>{item.icon}</span>}
-                        <span className="flex-1">{item.label}</span>
-                        {item.openInNewTab && <ExternalLink className="h-3 w-3 text-gray-400" />}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
+        // Use wrapper component to avoid hooks violation
+        return <MenuButtonFieldWrapper field={field} />;
 
       case 'signature':
         // If value is an S3 object key, use the presigned URL for display

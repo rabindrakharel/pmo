@@ -101,7 +101,12 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzYxMzIyNTA5LCJleHAiOjE3NjE0MDg5MDl9.42l6JuVnFQ4XjKXnX9yVJWTKppT5YMyZMbFMe5VQr4Q\")",
       "Bash(/tmp/create-wiki.sh)",
       "Bash(python3:*)",
-      "Read(//home/rabin/Screenshots/**)"
+      "Read(//home/rabin/Screenshots/**)",
+      "Bash(pnpm --filter web typecheck:*)",
+      "Bash(timeout 3 ./tools/logs-api.sh:*)",
+      "Bash(timeout 3 ./tools/logs-web.sh:*)",
+      "Bash(bash:*)",
+      "Bash(timeout 2 ./tools/logs-api.sh:*)"
     ],
     "deny": [],
     "ask": [],

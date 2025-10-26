@@ -212,7 +212,7 @@ export function AdvancedFormBuilder({
     setSteps(prev => prev.map(s => s.id === stepId ? { ...s, title: newTitle } : s));
   };
 
-  const addField = (type: FieldType) => {
+  const addField = (type: FieldType, insertAfterFieldId?: string) => {
     const id = `field-${Date.now()}`;
     const base = {
       id,
@@ -221,7 +221,7 @@ export function AdvancedFormBuilder({
       type,
       stepId: currentStep?.id,
       required: false,
-      ...(type === 'select' || type === 'radio' || type === 'checkbox' ? {
+      ...(type === 'select' || type === 'select_multiple' || type === 'radio' || type === 'checkbox' ? {
         options: ['Option 1', 'Option 2', 'Option 3']
       } : {}),
       ...(type === 'range' ? {
@@ -291,7 +291,21 @@ export function AdvancedFormBuilder({
         menuButtonSize: 'md'
       } : {}),
     } as BuilderField;
-    setFields(prev => [...prev, base]);
+
+    // If insertAfterFieldId is provided, insert after that field
+    if (insertAfterFieldId) {
+      setFields(prev => {
+        const insertIndex = prev.findIndex(f => f.id === insertAfterFieldId);
+        if (insertIndex !== -1) {
+          const newFields = [...prev];
+          newFields.splice(insertIndex + 1, 0, base);
+          return newFields;
+        }
+        return [...prev, base];
+      });
+    } else {
+      setFields(prev => [...prev, base]);
+    }
     setActiveId(id);
   };
 
@@ -587,7 +601,11 @@ export function AdvancedFormBuilder({
                 </div>
               ) : (
                 filteredPalette.map(p => (
-                  <DraggableFieldType key={p.type} fieldType={p} />
+                  <DraggableFieldType
+                    key={p.type}
+                    fieldType={p}
+                    onAddField={(type) => addField(type, activeId || undefined)}
+                  />
                 ))
               )}
             </div>

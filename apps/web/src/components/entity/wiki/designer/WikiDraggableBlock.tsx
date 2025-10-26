@@ -258,18 +258,47 @@ export function WikiDraggableBlock({
       case 'divider':
         return <hr className="border-t-2 border-gray-300 my-4" />;
 
-      case 'table':
+      case 'table': {
+        const rows = block.properties?.rows || 3;
+        const cols = block.properties?.cols || 3;
+
+        // Initialize cells array if not present
+        const cells = block.properties?.cells ||
+          Array.from({ length: rows }, () => Array.from({ length: cols }, () => ''));
+
+        const handleCellChange = (rowIndex: number, colIndex: number, value: string) => {
+          const newCells = cells.map((row: string[], rIdx: number) =>
+            rIdx === rowIndex
+              ? row.map((cell: string, cIdx: number) => cIdx === colIndex ? value : cell)
+              : row
+          );
+          onUpdate({
+            properties: {
+              ...block.properties,
+              cells: newCells,
+              rows,
+              cols
+            }
+          });
+        };
+
         return (
           <div className="overflow-x-auto" onClick={onSelect}>
             <table className="min-w-full border border-gray-300">
               <tbody>
-                {Array.from({ length: block.properties?.rows || 3 }).map((_, rowIndex) => (
+                {cells.map((row: string[], rowIndex: number) => (
                   <tr key={rowIndex}>
-                    {Array.from({ length: block.properties?.cols || 3 }).map((_, colIndex) => (
+                    {row.map((cell: string, colIndex: number) => (
                       <td key={colIndex} className="border border-gray-300 p-2">
                         <input
                           type="text"
-                          className="w-full bg-transparent border-none outline-none text-sm"
+                          value={cell}
+                          onChange={(e) => handleCellChange(rowIndex, colIndex, e.target.value)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelect();
+                          }}
+                          className="w-full bg-transparent border-none outline-none text-sm text-gray-700"
                           placeholder="Cell"
                         />
                       </td>
@@ -280,6 +309,7 @@ export function WikiDraggableBlock({
             </table>
           </div>
         );
+      }
 
       default:
         return (

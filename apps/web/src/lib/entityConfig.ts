@@ -2289,6 +2289,187 @@ export const entityConfigs: Record<string, EntityConfig> = {
     grid: {
       cardFields: ['name', 'subject', 'status', 'updated_ts']
     }
+  },
+
+  // --------------------------------------------------------------------------
+  // WORKFLOW AUTOMATION
+  // --------------------------------------------------------------------------
+  workflow_automation: {
+    name: 'workflow_automation',
+    displayName: 'Workflow Automation',
+    pluralName: 'Workflow Automations',
+    apiEndpoint: '/api/v1/workflow-automation',
+
+    columns: [
+      {
+        key: 'workflow_name',
+        title: 'Workflow Name',
+        sortable: true,
+        filterable: true,
+        render: (value, record) => React.createElement(
+          'div',
+          null,
+          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
+          record.workflow_description && React.createElement('div', { className: 'text-sm text-gray-500 truncate max-w-md' }, record.workflow_description)
+        )
+      },
+      {
+        key: 'active_flag',
+        title: 'Status',
+        sortable: true,
+        filterable: true,
+        align: 'center',
+        render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
+          'Active': 'bg-green-100 text-green-800',
+          'Inactive': 'bg-gray-100 text-gray-800'
+        })
+      },
+      {
+        key: 'trigger_entity_type',
+        title: 'Trigger Entity',
+        sortable: true,
+        filterable: true,
+        render: (value) => React.createElement('span', { className: 'capitalize text-gray-700' }, value)
+      },
+      {
+        key: 'trigger_action_type',
+        title: 'Trigger Action',
+        sortable: true,
+        filterable: true,
+        render: (value) => React.createElement(
+          'span',
+          { className: 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800' },
+          value.replace('_', ' ').toUpperCase()
+        )
+      },
+      {
+        key: 'action_entity_type',
+        title: 'Action Entity',
+        sortable: true,
+        render: (value) => React.createElement('span', { className: 'capitalize text-gray-700' }, value)
+      },
+      {
+        key: 'execution_count',
+        title: 'Executions',
+        sortable: true,
+        align: 'center',
+        render: (value, record) => React.createElement(
+          'div',
+          { className: 'text-sm' },
+          React.createElement('div', { className: 'font-medium text-gray-900' }, value || 0),
+          record.max_executions > 0 && React.createElement('div', { className: 'text-xs text-gray-500' }, `/ ${record.max_executions}`)
+        )
+      },
+      {
+        key: 'last_executed_at',
+        title: 'Last Executed',
+        sortable: true,
+        render: formatDate
+      }
+    ],
+
+    fields: [
+      { key: 'workflow_name', label: 'Workflow Name', type: 'text', required: true },
+      { key: 'workflow_description', label: 'Description', type: 'textarea' },
+      {
+        key: 'active_flag',
+        label: 'Active',
+        type: 'select',
+        options: [
+          { value: 'true', label: 'Active' },
+          { value: 'false', label: 'Inactive' }
+        ],
+        coerceBoolean: true
+      },
+      {
+        key: 'trigger_entity_type',
+        label: 'Trigger Entity Type',
+        type: 'select',
+        required: true,
+        options: [
+          { value: 'project', label: 'Project' },
+          { value: 'task', label: 'Task' },
+          { value: 'client', label: 'Client' },
+          { value: 'worksite', label: 'Worksite' },
+          { value: 'employee', label: 'Employee' },
+          { value: 'office', label: 'Office' },
+          { value: 'business', label: 'Business' },
+          { value: 'role', label: 'Role' },
+          { value: 'position', label: 'Position' },
+          { value: 'artifact', label: 'Artifact' },
+          { value: 'wiki', label: 'Wiki' },
+          { value: 'form', label: 'Form' },
+          { value: 'report', label: 'Report' }
+        ]
+      },
+      {
+        key: 'trigger_action_type',
+        label: 'Trigger Action Type',
+        type: 'select',
+        required: true,
+        options: [
+          { value: 'create', label: 'Create' },
+          { value: 'update', label: 'Update' },
+          { value: 'delete', label: 'Delete' },
+          { value: 'status_change', label: 'Status Change' },
+          { value: 'field_change', label: 'Field Change' },
+          { value: 'assign', label: 'Assign' },
+          { value: 'complete', label: 'Complete' }
+        ]
+      },
+      {
+        key: 'trigger_scope',
+        label: 'Trigger Scope',
+        type: 'select',
+        options: [
+          { value: 'all', label: 'All Entities' },
+          { value: 'specific', label: 'Specific Entity' }
+        ]
+      },
+      { key: 'trigger_entity_id', label: 'Trigger Entity ID (if specific)', type: 'text', placeholder: 'UUID of specific entity' },
+      { key: 'trigger_conditions', label: 'Trigger Conditions (JSON)', type: 'jsonb', placeholder: '{"field": "status", "operator": "equals", "value": "completed"}' },
+      {
+        key: 'action_entity_type',
+        label: 'Action Entity Type',
+        type: 'select',
+        required: true,
+        options: [
+          { value: 'project', label: 'Project' },
+          { value: 'task', label: 'Task' },
+          { value: 'client', label: 'Client' },
+          { value: 'worksite', label: 'Worksite' },
+          { value: 'employee', label: 'Employee' },
+          { value: 'office', label: 'Office' },
+          { value: 'business', label: 'Business' },
+          { value: 'role', label: 'Role' },
+          { value: 'position', label: 'Position' },
+          { value: 'artifact', label: 'Artifact' },
+          { value: 'wiki', label: 'Wiki' },
+          { value: 'form', label: 'Form' },
+          { value: 'report', label: 'Report' },
+          { value: 'notification', label: 'Notification' },
+          { value: 'email', label: 'Email' }
+        ]
+      },
+      {
+        key: 'action_scope',
+        label: 'Action Scope',
+        type: 'select',
+        options: [
+          { value: 'same', label: 'Same Entity (Triggered)' },
+          { value: 'related', label: 'Related Entities' },
+          { value: 'specific', label: 'Specific Entity' },
+          { value: 'all', label: 'All Entities' }
+        ]
+      },
+      { key: 'action_entity_id', label: 'Action Entity ID (if specific)', type: 'text', placeholder: 'UUID of specific entity' },
+      { key: 'actions', label: 'Actions (JSON Array)', type: 'jsonb', required: true, placeholder: '[{"type": "update_field", "field": "status", "value": "in_progress"}]' },
+      { key: 'execution_order', label: 'Execution Order', type: 'number', placeholder: '0 (lower = higher priority)' },
+      { key: 'max_executions', label: 'Max Executions', type: 'number', placeholder: '-1 (unlimited)' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
   }
 };
 

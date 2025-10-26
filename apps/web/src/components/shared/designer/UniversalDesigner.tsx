@@ -59,6 +59,7 @@ export interface UniversalDesignerProps {
   // Actions
   actions?: DesignerAction[];
   primaryAction?: DesignerAction;
+  trailingActions?: DesignerAction[];
   onCancel?: () => void;
 
   // Layout Panels
@@ -96,6 +97,7 @@ export function UniversalDesigner({
   onViewModeChange,
   actions = [],
   primaryAction,
+  trailingActions = [],
   onCancel,
   toolbar,
   toolbarTitle = 'Components',
@@ -222,6 +224,28 @@ export function UniversalDesigner({
               <span>{primaryAction.label}</span>
             </button>
           )}
+
+          {trailingActions.map((action) => (
+            <button
+              key={action.id}
+              onClick={action.onClick}
+              disabled={action.disabled || action.loading}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${
+                action.variant === 'primary'
+                  ? 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50'
+                  : action.variant === 'danger'
+                  ? 'bg-red-600 text-white hover:bg-red-700 disabled:opacity-50'
+                  : 'text-gray-700 hover:bg-gray-100 disabled:opacity-50'
+              }`}
+            >
+              {action.loading ? (
+                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                action.icon
+              )}
+              <span>{action.label}</span>
+            </button>
+          ))}
 
           {onCancel && (
             <button
