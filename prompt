@@ -1,6 +1,7 @@
 Implement Row Click Navigation to Entity Detail Page for Settings Configuration Tables
 
   Context & Current Architecture
+  
 
   The PMO application uses a universal entity system with two main page types:
 
