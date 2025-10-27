@@ -2470,6 +2470,200 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     supportedViews: ['table'],
     defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // COST
+  // --------------------------------------------------------------------------
+  cost: {
+    name: 'cost',
+    displayName: 'Cost',
+    pluralName: 'Costs',
+    apiEndpoint: '/api/v1/cost',
+
+    columns: [
+      {
+        key: 'name',
+        title: 'Cost Name',
+        sortable: true,
+        filterable: true,
+        render: (value, record) => React.createElement(
+          'div',
+          null,
+          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
+          record.cost_code && React.createElement('div', { className: 'text-sm text-gray-500' }, record.cost_code)
+        )
+      },
+      {
+        key: 'cost_amt_lcl',
+        title: 'Cost Amount',
+        sortable: true,
+        align: 'right',
+        render: (value, record) => formatCurrency(value, record.invoice_currency || 'CAD')
+      },
+      {
+        key: 'cost_amt_invoice',
+        title: 'Invoice Amount',
+        sortable: true,
+        align: 'right',
+        render: (value, record) => formatCurrency(value, record.invoice_currency || 'CAD')
+      },
+      {
+        key: 'invoice_currency',
+        title: 'Currency',
+        sortable: true,
+        filterable: true,
+        inlineEditable: true
+      },
+      {
+        key: 'cust_budgeted_amt_lcl',
+        title: 'Budgeted Amount',
+        sortable: true,
+        align: 'right',
+        render: (value) => formatCurrency(value, 'CAD')
+      },
+      {
+        key: 'invoice_attachment',
+        title: 'Invoice',
+        render: (value) => value ? React.createElement(
+          'a',
+          { href: value, target: '_blank', rel: 'noopener noreferrer', className: 'text-blue-600 hover:underline' },
+          'View'
+        ) : React.createElement('span', { className: 'text-gray-400' }, '-')
+      },
+      {
+        key: 'tags',
+        title: 'Tags',
+        inlineEditable: true,
+        render: renderTags
+      }
+    ],
+
+    fields: [
+      { key: 'name', label: 'Cost Name', type: 'text', required: true },
+      { key: 'code', label: 'Code', type: 'text', required: true },
+      { key: 'cost_code', label: 'Cost Code', type: 'text', required: true },
+      { key: 'slug', label: 'Slug', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'richtext' },
+      { key: 'cost_amt_lcl', label: 'Cost Amount (Local)', type: 'number', required: true },
+      { key: 'cost_amt_invoice', label: 'Invoice Amount', type: 'number' },
+      {
+        key: 'invoice_currency',
+        label: 'Currency',
+        type: 'select',
+        options: [
+          { value: 'CAD', label: 'CAD - Canadian Dollar' },
+          { value: 'USD', label: 'USD - US Dollar' },
+          { value: 'EUR', label: 'EUR - Euro' },
+          { value: 'GBP', label: 'GBP - British Pound' }
+        ]
+      },
+      { key: 'exch_rate', label: 'Exchange Rate', type: 'number' },
+      { key: 'cust_budgeted_amt_lcl', label: 'Budgeted Amount (Local)', type: 'number' },
+      { key: 'invoice_attachment', label: 'Invoice Attachment (S3 URI)', type: 'text', placeholder: 's3://pmo-attachments/invoices/...' },
+      { key: 'tags', label: 'Tags', type: 'array' },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // REVENUE
+  // --------------------------------------------------------------------------
+  revenue: {
+    name: 'revenue',
+    displayName: 'Revenue',
+    pluralName: 'Revenue',
+    apiEndpoint: '/api/v1/revenue',
+
+    columns: [
+      {
+        key: 'name',
+        title: 'Revenue Name',
+        sortable: true,
+        filterable: true,
+        render: (value, record) => React.createElement(
+          'div',
+          null,
+          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
+          record.revenue_code && React.createElement('div', { className: 'text-sm text-gray-500' }, record.revenue_code)
+        )
+      },
+      {
+        key: 'revenue_amt_local',
+        title: 'Revenue Amount',
+        sortable: true,
+        align: 'right',
+        render: (value, record) => formatCurrency(value, record.invoice_currency || 'CAD')
+      },
+      {
+        key: 'revenue_amt_invoice',
+        title: 'Invoice Amount',
+        sortable: true,
+        align: 'right',
+        render: (value, record) => formatCurrency(value, record.invoice_currency || 'CAD')
+      },
+      {
+        key: 'revenue_forecasted_amt_lcl',
+        title: 'Forecasted Amount',
+        sortable: true,
+        align: 'right',
+        render: (value) => formatCurrency(value, 'CAD')
+      },
+      {
+        key: 'invoice_currency',
+        title: 'Currency',
+        sortable: true,
+        filterable: true,
+        inlineEditable: true
+      },
+      {
+        key: 'sales_receipt_attachment',
+        title: 'Receipt',
+        render: (value) => value ? React.createElement(
+          'a',
+          { href: value, target: '_blank', rel: 'noopener noreferrer', className: 'text-blue-600 hover:underline' },
+          'View'
+        ) : React.createElement('span', { className: 'text-gray-400' }, '-')
+      },
+      {
+        key: 'tags',
+        title: 'Tags',
+        inlineEditable: true,
+        render: renderTags
+      }
+    ],
+
+    fields: [
+      { key: 'name', label: 'Revenue Name', type: 'text', required: true },
+      { key: 'code', label: 'Code', type: 'text', required: true },
+      { key: 'revenue_code', label: 'Revenue Code', type: 'text', required: true },
+      { key: 'slug', label: 'Slug', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'richtext' },
+      { key: 'revenue_amt_local', label: 'Revenue Amount (Local)', type: 'number', required: true },
+      { key: 'revenue_amt_invoice', label: 'Invoice Amount', type: 'number' },
+      {
+        key: 'invoice_currency',
+        label: 'Currency',
+        type: 'select',
+        options: [
+          { value: 'CAD', label: 'CAD - Canadian Dollar' },
+          { value: 'USD', label: 'USD - US Dollar' },
+          { value: 'EUR', label: 'EUR - Euro' },
+          { value: 'GBP', label: 'GBP - British Pound' }
+        ]
+      },
+      { key: 'exch_rate', label: 'Exchange Rate', type: 'number' },
+      { key: 'revenue_forecasted_amt_lcl', label: 'Forecasted Amount (Local)', type: 'number' },
+      { key: 'sales_receipt_attachment', label: 'Sales Receipt (S3 URI)', type: 'text', placeholder: 's3://pmo-attachments/receipts/...' },
+      { key: 'tags', label: 'Tags', type: 'array' },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
   }
 };
 
