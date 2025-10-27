@@ -9,6 +9,7 @@ import { useViewMode } from '../../lib/hooks/useViewMode';
 import { getEntityConfig, ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { APIFactory } from '../../lib/api';
+import { useSidebar } from '../../contexts/SidebarContext';
 
 /**
  * Universal EntityMainPage
@@ -34,6 +35,12 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { collapseSidebar } = useSidebar();
+
+  // Collapse sidebar when entering entity main page
+  useEffect(() => {
+    collapseSidebar();
+  }, []);
 
   // Fetch data for kanban and grid views
   useEffect(() => {

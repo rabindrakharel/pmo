@@ -2,7 +2,14 @@
 
 > **Comprehensive mapping of the entire PMO platform architecture** - From database tables to frontend components, showing how all layers work together using DRY principles.
 >
-> **Last Updated:** 2025-10-24 | **Status:** Production v2.0 (Universal Action Buttons + Modal System)
+> **Last Updated:** 2025-10-27 | **Status:** Production v2.1 (Hierarchy Mapping + Security Fixes)
+>
+> **v2.1 Updates (2025-10-27):**
+> - ✅ Parent-child entity endpoints with automatic relationship detection
+> - ✅ Dual query strategy: foreign_key vs linkage-based relationships
+> - ✅ SQL injection vulnerability fixed (parameterized queries)
+> - ✅ Entity metadata styling consistency (DRY principles)
+> - ✅ Flexible JSONB schema validation for dynamic fields
 >
 > **v2.0 Updates:**
 > - ✅ Edit, Share, and Link buttons now available on ALL entity detail pages
@@ -309,6 +316,43 @@ entityOptionsRoutes → /api/v1/entity
   GET /:entityType/options     - Get {id, name} pairs for entity
   Example: /api/v1/entity/employee/options
     Returns: [{ id: 'uuid', name: 'John Doe' }, ...]
+
+// Parent-Action Entity Routes (Hierarchical Relationships)
+parentActionEntityRoutes → /api/v1/:parentEntity/:parentId/:actionEntity
+  GET /:parentEntity/:parentId/:actionEntity
+    - List child entities within parent context
+    - Supports both foreign_key and linkage-based relationships
+    - Automatically determines relationship type from configuration
+    - Examples:
+      /api/v1/project/uuid/task     → Tasks in project (foreign_key)
+      /api/v1/task/uuid/form        → Forms linked to task (linkage)
+      /api/v1/task/uuid/artifact    → Artifacts linked to task (linkage)
+
+  Relationship Types:
+    • foreign_key: Direct JOIN via foreign key column
+      Example: task.project_id → project.id
+
+    • linkage: JOIN via app.d_entity_id_map table
+      Example: task → form (through entity_id_map)
+
+  Supported Relationships:
+    project → task, form, wiki*, artifact*
+    biz → project, task, form, client, employee, wiki*, artifact*
+    worksite → task, form, employee
+    org → worksite, employee
+    hr → employee, role*
+    client → project*, task
+    task → form*, artifact*
+    role → employee*
+
+    * = Uses linkage table (app.d_entity_id_map)
+
+  Query Parameters:
+    ?page=1&limit=20    - Pagination
+    ?search=term        - Full-text search
+    ?active=true        - Filter by active status
+    ?sortBy=name        - Sort field
+    ?sortOrder=asc      - Sort direction
 
 // RBAC permission checking
 rbacRoutes → /api/v1/rbac
@@ -1907,10 +1951,58 @@ GET /api/v1/setting?category=<name>
 - Entity-based permissions
 - JWT authentication
 - Instance-level access control
+- **Parameterized SQL queries** - All database operations use prepared statements to prevent SQL injection
+  - Example: `sql\`${sql.identifier([key])} = ${value}\`` (safe)
+  - Never: `name = '${data.name}'` (vulnerable to SQL injection)
+- **Dual relationship handling** - Automatic detection of foreign_key vs linkage relationships
+- **Schema validation** - Flexible JSONB field handling for dynamic entity data
+
+### 📋 API Best Practices
+
+#### SQL Query Security (Updated 2025-10-27)
+
+All API modules now follow secure SQL patterns:
+
+**✅ Correct (Parameterized):**
+```typescript
+// Using sql template literals
+const result = await db.execute(sql`
+  UPDATE app.d_artifact
+  SET ${sql.join(setClauses, sql`, `)}
+  WHERE id = ${id}
+  RETURNING *
+`);
+
+// With sql.identifier for column names
+sql`${sql.identifier(['column_name'])} = ${value}`
+```
+
+**❌ Incorrect (Vulnerable to SQL Injection):**
+```typescript
+// String concatenation - NEVER DO THIS
+const query = `UPDATE app.d_artifact SET name = '${data.name}'`;
+await db.execute(sql.raw(query));
+```
+
+#### Relationship Handling
+
+The platform automatically detects and handles two types of entity relationships:
+
+**1. Foreign Key Relationships:**
+- Direct column reference (e.g., `task.project_id → project.id`)
+- Uses simple JOIN on foreign key column
+- Example: Project → Tasks, Business → Projects
+
+**2. Linkage Relationships:**
+- Uses `app.d_entity_id_map` mapping table
+- Supports many-to-many and flexible hierarchies
+- Example: Task → Forms, Task → Artifacts, Project → Wiki
+
+Configuration managed in `RELATIONSHIP_MAP` constant (see `parent-action-entity-routes.ts`).
 
 ---
 
-**Last Updated:** 2025-10-23
+**Last Updated:** 2025-10-27
 **Project:** Huron Home Services PMO Platform
-**Version:** Production v1.0
+**Version:** Production v2.1 (Hierarchy Mapping + Security Fixes)
 **Architecture:** DRY-first, Config-driven, Universal Components

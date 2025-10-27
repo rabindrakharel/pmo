@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Outlet, useLocation } from 'react-router-dom';
-import { ArrowLeft, Edit2, Save, X, Palette, Download, Upload, CheckCircle, Copy, Check, Share2, Link as LinkIcon } from 'lucide-react';
+import { Edit2, Save, X, Palette, Download, Upload, CheckCircle, Copy, Check, Share2, Link as LinkIcon } from 'lucide-react';
 import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityFormContainer } from '../../components/shared';
+import { ExitButton } from '../../components/shared/button/ExitButton';
 import { ShareModal } from '../../components/shared/modal';
 import { UnifiedLinkageModal } from '../../components/shared/modal/UnifiedLinkageModal';
 import { useLinkageModal } from '../../hooks/useLinkageModal';
@@ -13,6 +14,8 @@ import { getEntityConfig } from '../../lib/entityConfig';
 import { APIFactory } from '../../lib/api';
 import { Button } from '../../components/shared/button/Button';
 import { useS3Upload } from '../../lib/hooks/useS3Upload';
+import { useSidebar } from '../../contexts/SidebarContext';
+import { useNavigationHistory } from '../../contexts/NavigationHistoryContext';
 
 /**
  * Universal EntityDetailPage
@@ -36,6 +39,8 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const config = getEntityConfig(entityType);
+  const { hideSidebar } = useSidebar();
+  const { pushEntity, updateCurrentEntityName, updateCurrentEntityActiveTab } = useNavigationHistory();
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -46,6 +51,11 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isGeneratingShareUrl, setIsGeneratingShareUrl] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Hide sidebar when entering entity detail page
+  useEffect(() => {
+    hideSidebar();
+  }, []);
 
   // Unified linkage modal
   const linkageModal = useLinkageModal({
@@ -188,6 +198,44 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
       }
     }
   }, [data?.object_key, entityType]);
+
+  // Auto-edit mode when navigating from child entity creation
+  useEffect(() => {
+    const locationState = location.state as any;
+    if (locationState?.autoEdit && data && !loading) {
+      setIsEditing(true);
+      // Clear the state to prevent re-entering edit mode on subsequent navigations
+      window.history.replaceState({}, document.title);
+    }
+  }, [data, loading, location.state]);
+
+  // Register entity in navigation history when data is loaded
+  useEffect(() => {
+    if (data && id) {
+      pushEntity({
+        entityType,
+        entityId: id,
+        entityName: data.name || data.title || 'Untitled',
+        timestamp: Date.now()
+      });
+    }
+  }, [data, id, entityType, pushEntity]);
+
+  // Update entity name in navigation history when it changes
+  useEffect(() => {
+    if (data) {
+      const entityName = data.name || data.title || 'Untitled';
+      updateCurrentEntityName(entityName);
+    }
+  }, [data?.name, data?.title, updateCurrentEntityName]);
+
+  // Update current entity's active tab when viewing a child entity tab
+  // This ensures we return to the correct tab when going back
+  useEffect(() => {
+    if (currentChildEntity) {
+      updateCurrentEntityActiveTab(currentChildEntity);
+    }
+  }, [currentChildEntity, updateCurrentEntityActiveTab]);
 
 
   const loadData = async () => {
@@ -405,10 +453,6 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
     setEditedData((prev: any) => ({ ...prev, [fieldName]: value }));
   };
 
-  const handleBack = () => {
-    navigate(`/${entityType}`);
-  };
-
   const handleTabClick = (tabPath: string) => {
     if (tabPath === 'overview') {
       navigate(`/${entityType}/${id}`);
@@ -596,6 +640,12 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
     );
   }
 
+  // DRY: Consistent metadata value styling
+  const metadataValueClass = "text-[13px] text-gray-800 leading-[1.4] whitespace-nowrap";
+  const metadataValueStyle: React.CSSProperties = {
+    fontFamily: "Inter, 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+    letterSpacing: '-0.01em'
+  };
 
   return (
     <Layout>
@@ -603,56 +653,55 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4 flex-1 min-w-0">
-            <button
-              onClick={handleBack}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-            >
-              <ArrowLeft className="h-5 w-5 text-gray-600 stroke-[1.5]" />
-            </button>
             <div className="flex-1 min-w-0">
-              {/* Name with copy - Editable in edit mode */}
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm text-gray-400 font-normal flex-shrink-0">{config.displayName} name:</span>
+              {/* All metadata in one row: Name, Code, Slug, ID */}
+              <div className="flex items-center gap-2 overflow-x-auto group">
+                {/* Name with copy - Editable in edit mode */}
+                <span className="text-gray-400 font-normal text-xs flex-shrink-0">{config.displayName} name:</span>
                 {isEditing ? (
                   <input
                     type="text"
                     value={editedData.name || editedData.title || ''}
                     onChange={(e) => handleFieldChange(data.name ? 'name' : 'title', e.target.value)}
                     placeholder="Enter name..."
-                    className="flex-1 text-lg font-semibold text-gray-900 bg-white border-b-2 border-gray-300 hover:border-blue-400 focus:border-blue-500 focus:ring-0 focus:outline-none px-2 py-1 rounded-t"
+                    className={metadataValueClass}
                     style={{
-                      fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                      letterSpacing: '-0.02em'
+                      ...metadataValueStyle,
+                      border: '1px solid rgb(209, 213, 219)',
+                      borderRadius: '0.25rem',
+                      padding: '0.125rem 0.375rem',
+                      width: '16rem'
                     }}
                   />
                 ) : (
-                  <>
-                    <h1 className="text-lg font-semibold text-gray-900 truncate">
+                  <div className="flex items-center gap-1 group/name">
+                    <span className={metadataValueClass} style={metadataValueStyle}>
                       {data.name || data.title || `${config.displayName} Details`}
-                    </h1>
+                    </span>
                     {(data.name || data.title) && (
                       <button
                         onClick={() => handleCopy(data.name || data.title, 'name')}
-                        className="flex-shrink-0 p-1 hover:bg-gray-100 rounded transition-colors"
+                        className="flex-shrink-0 p-0.5 hover:bg-gray-100 rounded transition-all opacity-0 group-hover/name:opacity-100"
                         title="Copy name"
                       >
                         {copiedField === 'name' ? (
-                          <Check className="h-3.5 w-3.5 text-green-600" />
+                          <Check className="h-3 w-3 text-green-600" />
                         ) : (
-                          <Copy className="h-3.5 w-3.5 text-gray-400" />
+                          <Copy className="h-3 w-3 text-gray-400" />
                         )}
                       </button>
                     )}
-                  </>
+                  </div>
                 )}
-              </div>
 
-              {/* Code, Slug, ID metadata row */}
-              <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                {/* Separator */}
+                {(data.code || data.slug || id) && <span className="text-gray-300 flex-shrink-0">·</span>}
+
+                {/* Code, Slug, ID metadata */}
                 {/* Code - Editable in edit mode */}
                 {(data.code || isEditing) && (
                   <>
-                    <span className="text-gray-400 font-normal">code:</span>
+                    <span className="text-gray-400 font-normal text-xs flex-shrink-0">code:</span>
                     <div className="flex items-center gap-1 group">
                       {isEditing ? (
                         <input
@@ -660,11 +709,18 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                           value={editedData.code || ''}
                           onChange={(e) => handleFieldChange('code', e.target.value)}
                           placeholder="CODE"
-                          className="w-32 text-xs font-mono font-medium text-gray-700 bg-white border border-gray-300 rounded px-1.5 py-0.5 hover:border-blue-300 focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20 focus:outline-none"
+                          className={metadataValueClass}
+                          style={{
+                            ...metadataValueStyle,
+                            border: '1px solid rgb(209, 213, 219)',
+                            borderRadius: '0.25rem',
+                            padding: '0.125rem 0.375rem',
+                            width: '8rem'
+                          }}
                         />
                       ) : (
                         <>
-                          <span className="font-mono font-medium bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
+                          <span className={metadataValueClass} style={metadataValueStyle}>
                             {data.code}
                           </span>
                           <button
@@ -687,23 +743,30 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 {/* Slug - Editable in edit mode */}
                 {(data.slug || isEditing) && (
                   <>
-                    {data.code && <span className="text-gray-300">·</span>}
-                    <span className="text-gray-400 font-normal">slug:</span>
+                    {data.code && <span className="text-gray-300 flex-shrink-0">·</span>}
+                    <span className="text-gray-400 font-normal text-xs flex-shrink-0">slug:</span>
                     <div className="flex items-center gap-1 group">
                       {isEditing ? (
                         <div className="flex items-center">
-                          <span className="font-mono text-xs text-gray-500">/</span>
+                          <span className="text-gray-500 mr-0.5">/</span>
                           <input
                             type="text"
                             value={editedData.slug || ''}
                             onChange={(e) => handleFieldChange('slug', e.target.value)}
                             placeholder="slug-name"
-                            className="w-40 text-xs font-mono text-gray-700 bg-white border border-gray-300 rounded px-1.5 py-0.5 ml-0.5 hover:border-blue-300 focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20 focus:outline-none"
+                            className={metadataValueClass}
+                            style={{
+                              ...metadataValueStyle,
+                              border: '1px solid rgb(209, 213, 219)',
+                              borderRadius: '0.25rem',
+                              padding: '0.125rem 0.375rem',
+                              width: '10rem'
+                            }}
                           />
                         </div>
                       ) : (
                         <>
-                          <span className="font-mono text-xs">/{data.slug}</span>
+                          <span className={metadataValueClass} style={metadataValueStyle}>/{data.slug}</span>
                           <button
                             onClick={() => handleCopy(data.slug, 'slug')}
                             className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-gray-100 rounded transition-all"
@@ -724,10 +787,10 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 {/* ID - Read-only */}
                 {id && (
                   <>
-                    {(data.code || data.slug) && <span className="text-gray-300">·</span>}
-                    <span className="text-gray-400 font-normal">id:</span>
+                    {(data.code || data.slug) && <span className="text-gray-300 flex-shrink-0">·</span>}
+                    <span className="text-gray-400 font-normal text-xs flex-shrink-0">id:</span>
                     <div className="flex items-center gap-1 group">
-                      <span className="font-mono text-xs text-gray-400">{id}</span>
+                      <span className={`${metadataValueClass} text-gray-500`} style={metadataValueStyle}>{id}</span>
                       <button
                         onClick={() => handleCopy(id, 'id')}
                         className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-gray-100 rounded transition-all"
@@ -820,6 +883,9 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 >
                   <Edit2 className="h-5 w-5 text-gray-600 stroke-[1.5]" />
                 </button>
+
+                {/* Exit button */}
+                <ExitButton entityType={entityType} isDetailPage={true} />
               </>
             ) : (
               <>
@@ -837,6 +903,9 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 >
                   <Save className="h-5 w-5 text-blue-600 stroke-[1.5]" />
                 </button>
+
+                {/* Exit button */}
+                <ExitButton entityType={entityType} isDetailPage={true} />
               </>
             )}
           </div>

@@ -536,7 +536,7 @@ export function DataTable<T = any>({
                   <select
                     value={selectedFilterColumn}
                     onChange={(e) => setSelectedFilterColumn(e.target.value)}
-                    className="appearance-none px-4 py-2 pr-10 w-48 border border-gray-300 rounded-xl text-sm bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all duration-200 shadow-sm font-normal text-gray-700"
+                    className="appearance-none px-4 py-1.5 pr-10 w-48 border border-gray-300 rounded-xl text-sm bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all duration-200 shadow-sm font-normal text-gray-700"
                   >
                     <option value="" className="text-gray-500">Select column...</option>
                     {initialColumns.filter(col => col.filterable).map(column => (
@@ -561,13 +561,13 @@ export function DataTable<T = any>({
                           setShowFilterDropdown(true);
                         }}
                         onFocus={() => setShowFilterDropdown(true)}
-                        className="pl-10 pr-4 py-2 w-64 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition-all duration-200"
+                        className="pl-10 pr-4 py-1.5 w-64 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition-all duration-200"
                       />
                     </div>
 
                     {showFilterDropdown && (
-                      <div className="absolute top-full left-0 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-xl z-50 backdrop-blur-sm max-h-64 overflow-y-auto">
-                        <div className="p-3">
+                      <div className="absolute top-full left-0 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-xl z-50 backdrop-blur-sm max-h-48 overflow-y-auto">
+                        <div className="p-2">
                           {getColumnOptions(selectedFilterColumn)
                             .filter(option => 
                               option.toLowerCase().includes(filterSearchTerm.toLowerCase())
@@ -575,7 +575,7 @@ export function DataTable<T = any>({
                             .map((option) => (
                               <label
                                 key={option}
-                                className="flex items-center px-3 py-2 hover:bg-blue-50/50 rounded-lg cursor-pointer transition-colors group"
+                                className="flex items-center px-3 py-1.5 hover:bg-blue-50/50 rounded-lg cursor-pointer transition-colors group"
                               >
                                 <input
                                   type="checkbox"
@@ -591,7 +591,7 @@ export function DataTable<T = any>({
                             .filter(option => 
                               option.toLowerCase().includes(filterSearchTerm.toLowerCase())
                             ).length === 0 && (
-                            <div className="px-2 py-3 text-xs text-gray-500 text-center">
+                            <div className="px-2 py-1.5 text-xs text-gray-500 text-center">
                               No options found
                             </div>
                           )}
@@ -609,7 +609,7 @@ export function DataTable<T = any>({
                       setFilterSearchTerm('');
                       setShowFilterDropdown(false);
                     }}
-                    className="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+                    className="px-3 py-1.5 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
                   >
                     Clear All
                   </button>
@@ -628,10 +628,10 @@ export function DataTable<T = any>({
 
                   {showColumnSelector && (
                     <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                      <div className="p-3">
+                      <div className="p-2">
                         <div className="text-sm font-normal text-gray-500 mb-2 px-1">Show Columns</div>
                         {initialColumns.map(column => (
-                          <label key={column.key} className="flex items-center px-3 py-2 hover:bg-gray-50 rounded cursor-pointer transition-colors">
+                          <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-gray-50 rounded cursor-pointer transition-colors">
                             <input
                               type="checkbox"
                               checked={visibleColumns.has(column.key)}
@@ -662,10 +662,10 @@ export function DataTable<T = any>({
 
                 {showColumnSelector && (
                   <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                    <div className="p-3">
+                    <div className="p-2">
                       <div className="text-sm font-normal text-gray-500 mb-2 px-1">Show Columns</div>
                       {initialColumns.map(column => (
-                        <label key={column.key} className="flex items-center px-3 py-2 hover:bg-gray-50 rounded cursor-pointer transition-colors">
+                        <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-gray-50 rounded cursor-pointer transition-colors">
                           <input
                             type="checkbox"
                             checked={visibleColumns.has(column.key)}
@@ -731,7 +731,7 @@ export function DataTable<T = any>({
                 {columns.map((column, index) => (
                   <th
                     key={column.key}
-                    className={`px-6 py-4 text-left border-r border-gray-200 ${
+                    className={`px-6 py-2.5 text-left border-r border-gray-200 ${
                       column.sortable ? 'cursor-pointer hover:bg-gray-100/50 transition-colors' : ''
                     } ${columns.length > 7 ? 'min-w-[200px]' : ''} ${
                       index === 0 ? 'sticky left-0 z-40 bg-gray-50 shadow-r' : ''
@@ -789,7 +789,7 @@ export function DataTable<T = any>({
                         return (
                           <td
                             key={column.key}
-                            className={`px-6 py-4 ${
+                            className={`px-6 py-2.5 ${
                               colIndex === 0 ? 'sticky left-0 z-20 bg-white shadow-r' : ''
                             }`}
                             style={{
@@ -857,7 +857,7 @@ export function DataTable<T = any>({
                       return (
                         <td
                           key={column.key}
-                          className={`px-6 py-4 ${
+                          className={`px-6 py-2.5 ${
                             colIndex === 0 ? 'sticky left-0 z-20 bg-white shadow-r' : ''
                           }`}
                           style={{
@@ -902,7 +902,7 @@ export function DataTable<T = any>({
                                 onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
                                 placeholder="Enter tags (comma-separated)"
-                                className="w-full px-2 py-1 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full px-2 py-1.5 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 style={{
                                   fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                                   fontSize: '13px',
@@ -916,7 +916,7 @@ export function DataTable<T = any>({
                                 value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
                                 onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-full px-2 py-1 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full px-2 py-1.5 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 style={{
                                   fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                                   fontSize: '13px',

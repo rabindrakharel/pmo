@@ -1,12 +1,19 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FormDesigner } from '../../components/entity/form/FormDesigner';
 import { formApi } from '../../lib/api';
+import { useSidebar } from '../../contexts/SidebarContext';
 
 export function FormBuilderPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const taskId = searchParams.get('taskId') || undefined;
+  const { hideSidebar } = useSidebar();
+
+  // Hide sidebar when entering form builder
+  useEffect(() => {
+    hideSidebar();
+  }, []);
 
   // Track the draft form ID to avoid creating duplicates
   const draftFormIdRef = useRef<string | null>(null);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Upload, CheckCircle, X } from 'lucide-react';
 import { Layout, EntityFormContainer } from '../../components/shared';
@@ -7,6 +7,7 @@ import { getEntityIcon } from '../../lib/entityIcons';
 import { APIFactory } from '../../lib/api';
 import { Button } from '../../components/shared/button/Button';
 import { useS3Upload } from '../../lib/hooks/useS3Upload';
+import { useSidebar } from '../../contexts/SidebarContext';
 
 /**
  * EntityCreatePage
@@ -30,6 +31,12 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
   const navigate = useNavigate();
   const config = getEntityConfig(entityType);
   const EntityIcon = getEntityIcon(entityType);
+  const { hideSidebar } = useSidebar();
+
+  // Hide sidebar when entering entity create page
+  useEffect(() => {
+    hideSidebar();
+  }, []);
 
   // Initialize formData with default values based on field types
   const getDefaultFormData = () => {

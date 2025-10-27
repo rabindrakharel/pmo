@@ -1,7 +1,8 @@
 import React, { Fragment } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { FullscreenProvider } from './contexts/FullscreenContext';
+import { SidebarProvider } from './contexts/SidebarContext';
+import { NavigationHistoryProvider } from './contexts/NavigationHistoryContext';
 import { LoginForm } from './components/shared';
 
 // Landing & Auth Pages
@@ -245,11 +246,13 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <FullscreenProvider>
+      <SidebarProvider>
         <Router>
-          <AppRoutes />
+          <NavigationHistoryProvider>
+            <AppRoutes />
+          </NavigationHistoryProvider>
         </Router>
-      </FullscreenProvider>
+      </SidebarProvider>
     </AuthProvider>
   );
 }

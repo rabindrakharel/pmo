@@ -12,6 +12,7 @@ export { EditButton, ShareButton, SaveButton, BackButton, CancelButton } from '.
 export { ActionButtonsBar } from './button/ActionButtonsBar';
 export { Button } from './button/Button';
 export { CreateButton } from './button/CreateButton';
+export { ExitButton } from './button/ExitButton';
 export { RBACButton } from './button/RBACButton';
 
 // ============================================================================
@@ -40,12 +41,6 @@ export { ShareURLSection } from './share/ShareURLSection';
 // SETTINGS COMPONENTS
 // ============================================================================
 // LinkageManager removed - use UnifiedLinkageModal instead
-
-// ============================================================================
-// TOGGLE COMPONENTS
-// ============================================================================
-export { FloatingFullscreenToggle } from './toggle/FloatingFullscreenToggle';
-export { FullscreenToggle } from './toggle/FullscreenToggle';
 
 // ============================================================================
 // VIEW COMPONENTS

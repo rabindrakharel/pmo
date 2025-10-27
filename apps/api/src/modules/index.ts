@@ -33,6 +33,10 @@ import { orderRoutes } from './order/routes.js';
 import { shipmentRoutes } from './shipment/routes.js';
 import { invoiceRoutes } from './invoice/routes.js';
 
+// Financial API modules
+import { costRoutes } from './cost/routes.js';
+import { revenueRoutes } from './revenue/routes.js';
+
 // New hierarchical API modules
 import { hierarchyRoutes } from './meta/hierarchy-routes.js';
 import { singleEntityRoutes } from './entity/single-entity-routes.js';
@@ -115,6 +119,10 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await orderRoutes(fastify);
   await shipmentRoutes(fastify);
   await invoiceRoutes(fastify);
+
+  // Financial API routes
+  await costRoutes(fastify);
+  await revenueRoutes(fastify);
 
   // Upload routes (file upload to MinIO/S3)
   await uploadRoutes(fastify);

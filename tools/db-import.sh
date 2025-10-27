@@ -179,6 +179,8 @@ validate_all_ddls() {
         "27_d_reports.ddl"
         "28_d_report_data.ddl"
         "d_workflow_automation.ddl"
+        "36_d_cost.ddl"
+        "37_d_revenue.ddl"
         "29_d_entity_map.ddl"
         "30_d_entity.ddl"
         "31_d_entity_instance_id.ddl"
@@ -275,6 +277,10 @@ import_ddls() {
 
     # Workflow automation - Business process automation
     execute_sql "$DB_PATH/d_workflow_automation.ddl" "Workflow automation entities"
+
+    # Financial entities - Cost and revenue tracking
+    execute_sql "$DB_PATH/36_d_cost.ddl" "Cost center entities"
+    execute_sql "$DB_PATH/37_d_revenue.ddl" "Revenue center entities"
 
     # Fact tables - Transaction-level analytics (after all dimensions loaded)
     execute_sql "$DB_PATH/f_inventory.ddl" "Inventory fact table (stock levels by location)"
@@ -413,7 +419,7 @@ validate_schema() {
 print_summary() {
     print_status $PURPLE "📋 IMPORT SUMMARY"
     print_status $PURPLE "=================="
-    print_status $CYAN "• PMO Enterprise schema with 44 DDL files imported"
+    print_status $CYAN "• PMO Enterprise schema with 46 DDL files imported"
     print_status $CYAN "• Head/data pattern for temporal entities"
     print_status $CYAN "• 4-level office hierarchy (Office → District → Region → Corporate)"
     print_status $CYAN "• 3-level business hierarchy"
@@ -439,7 +445,7 @@ print_summary() {
 
 # Main execution
 main() {
-    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 44 DDL FILES"
+    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 46 DDL FILES"
     print_status $PURPLE "==============================================="
 
     if [ "$DRY_RUN" = true ]; then

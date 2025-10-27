@@ -86,7 +86,7 @@ export function DynamicChildEntityTabs({
   return (
     <div className={`bg-white border-b border-gray-200 ${className}`}>
       {/* Tab Navigation */}
-      <div className="px-6 pt-4">
+      <div className="px-6 pt-2">
         <nav className="flex space-x-8" aria-label="Tabs">
           {tabs.map((tab) => {
             const isActive = activeTab?.id === tab.id;
@@ -99,7 +99,7 @@ export function DynamicChildEntityTabs({
                 disabled={tab.disabled}
                 title={tab.tooltip}
                 className={[
-                  'group inline-flex items-center space-x-2 py-4 px-1 border-b-2 font-normal text-sm transition-colors duration-200',
+                  'group inline-flex items-center space-x-2 py-2 px-1 border-b-2 font-normal text-sm transition-colors duration-200',
                   isActive
                     ? 'border-gray-800 text-gray-800'
                     : tab.disabled

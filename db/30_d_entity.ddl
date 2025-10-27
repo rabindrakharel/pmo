@@ -107,7 +107,7 @@ COMMENT ON COLUMN app.d_entity.child_entities IS 'JSONB array of child entity me
 -- Populate entity TYPE metadata with parent-child relationships
 -- =====================================================
 
--- Office entity type (has 4 child types)
+-- Office entity type (has 6 child types)
 INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'office',
@@ -119,12 +119,14 @@ VALUES (
     {"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1},
     {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 2},
     {"entity": "wiki", "ui_icon": "BookOpen", "ui_label": "Wiki", "order": 3},
-    {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 4}
+    {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 4},
+    {"entity": "cost", "ui_icon": "DollarSign", "ui_label": "Costs", "order": 5},
+    {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 6}
   ]'::jsonb,
   10
 );
 
--- Business entity type (has 1 child type)
+-- Business entity type (has 3 child types)
 INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'business',
@@ -133,12 +135,14 @@ VALUES (
   'Businesses',
   'Building2',
   '[
-    {"entity": "project", "ui_icon": "FolderOpen", "ui_label": "Projects", "order": 1}
+    {"entity": "project", "ui_icon": "FolderOpen", "ui_label": "Projects", "order": 1},
+    {"entity": "cost", "ui_icon": "DollarSign", "ui_label": "Costs", "order": 2},
+    {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 3}
   ]'::jsonb,
   20
 );
 
--- Project entity type (has 4 child types)
+-- Project entity type (has 6 child types)
 INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'project',
@@ -150,12 +154,14 @@ VALUES (
     {"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1},
     {"entity": "wiki", "ui_icon": "BookOpen", "ui_label": "Wiki", "order": 2},
     {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 3},
-    {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 4}
+    {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 4},
+    {"entity": "cost", "ui_icon": "DollarSign", "ui_label": "Costs", "order": 5},
+    {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 6}
   ]'::jsonb,
   30
 );
 
--- Task entity type (has 2 child types)
+-- Task entity type (has 4 child types)
 INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'task',
@@ -165,12 +171,14 @@ VALUES (
   'CheckSquare',
   '[
     {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 1},
-    {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 2}
+    {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 2},
+    {"entity": "cost", "ui_icon": "DollarSign", "ui_label": "Costs", "order": 3},
+    {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 4}
   ]'::jsonb,
   40
 );
 
--- Customer entity type (has 3 child types)
+-- Customer entity type (has 5 child types)
 INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'cust',
@@ -181,7 +189,9 @@ VALUES (
   '[
     {"entity": "project", "ui_icon": "FolderOpen", "ui_label": "Projects", "order": 1},
     {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 2},
-    {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 3}
+    {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 3},
+    {"entity": "cost", "ui_icon": "DollarSign", "ui_label": "Costs", "order": 4},
+    {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 5}
   ]'::jsonb,
   50
 );
@@ -347,4 +357,28 @@ VALUES (
   'Truck',
   '[]'::jsonb,
   180
+);
+
+-- Cost entity type (leaf node - no children)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'cost',
+  'Cost',
+  'cost',
+  'Costs',
+  'DollarSign',
+  '[]'::jsonb,
+  190
+);
+
+-- Revenue entity type (leaf node - no children)
+INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'revenue',
+  'Revenue',
+  'revenue',
+  'Revenue',
+  'TrendingUp',
+  '[]'::jsonb,
+  200
 );

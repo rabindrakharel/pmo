@@ -251,47 +251,60 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     const data = request.body as any;
 
     try {
-      // Build SET clause dynamically for actual database columns
-      const setClauses = [];
+      // Build update object with only provided fields
+      const updates: any = {};
 
       // Basic fields
-      if (data.name !== undefined) setClauses.push(`name = '${data.name}'`);
-      if (data.code !== undefined) setClauses.push(`code = '${data.code}'`);
-      if (data.slug !== undefined) setClauses.push(`slug = '${data.slug}'`);
-      if (data.descr !== undefined) setClauses.push(`descr = '${data.descr}'`);
+      if (data.name !== undefined) updates.name = data.name;
+      if (data.code !== undefined) updates.code = data.code;
+      if (data.slug !== undefined) updates.slug = data.slug;
+      if (data.descr !== undefined) updates.descr = data.descr;
 
       // JSONB fields
-      if (data.tags !== undefined) setClauses.push(`tags = '${JSON.stringify(data.tags)}'::jsonb`);
-      if (data.metadata !== undefined) setClauses.push(`metadata = '${JSON.stringify(data.metadata)}'::jsonb`);
-      if (data.attr !== undefined) setClauses.push(`metadata = '${JSON.stringify(data.attr)}'::jsonb`);
+      if (data.tags !== undefined) updates.tags = data.tags;
+      if (data.metadata !== undefined) updates.metadata = data.metadata;
+      if (data.attr !== undefined) updates.metadata = data.attr;
 
       // Classification
-      if (data.artifact_type !== undefined) setClauses.push(`artifact_type = '${data.artifact_type}'`);
-      if (data.file_format !== undefined) setClauses.push(`file_format = '${data.file_format}'`);
-      if (data.file_size_bytes !== undefined) setClauses.push(`file_size_bytes = ${data.file_size_bytes}`);
+      if (data.artifact_type !== undefined) updates.artifact_type = data.artifact_type;
+      if (data.file_format !== undefined) updates.file_format = data.file_format;
+      if (data.file_size_bytes !== undefined) updates.file_size_bytes = data.file_size_bytes;
 
       // Access control
-      if (data.visibility !== undefined) setClauses.push(`visibility = '${data.visibility}'`);
-      if (data.security_classification !== undefined) setClauses.push(`security_classification = '${data.security_classification}'`);
+      if (data.visibility !== undefined) updates.visibility = data.visibility;
+      if (data.security_classification !== undefined) updates.security_classification = data.security_classification;
 
       // S3/Storage
-      if (data.bucket_name !== undefined) setClauses.push(`bucket_name = '${data.bucket_name}'`);
-      if (data.object_key !== undefined) setClauses.push(`object_key = '${data.object_key}'`);
+      if (data.bucket_name !== undefined) updates.bucket_name = data.bucket_name;
+      if (data.object_key !== undefined) updates.object_key = data.object_key;
 
       // Entity relationship
-      if (data.entity_type !== undefined) setClauses.push(`entity_type = '${data.entity_type}'`);
-      if (data.entity_id !== undefined) setClauses.push(`entity_id = '${data.entity_id}'`);
+      if (data.entity_type !== undefined) updates.entity_type = data.entity_type;
+      if (data.entity_id !== undefined) updates.entity_id = data.entity_id;
 
-      if (setClauses.length === 0) {
+      if (Object.keys(updates).length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      setClauses.push('updated_ts = NOW()');
-      const setClause = setClauses.join(', ');
+      // Always update timestamp
+      updates.updated_ts = sql`NOW()`;
+
+      // Build parameterized query
+      const setClauses = Object.keys(updates).map((key) => {
+        const value = updates[key];
+        if (key === 'updated_ts') {
+          return sql`updated_ts = NOW()`;
+        } else if (typeof value === 'object' && value !== null) {
+          // Handle JSONB fields
+          return sql`${sql.identifier([key])} = ${JSON.stringify(value)}::jsonb`;
+        } else {
+          return sql`${sql.identifier([key])} = ${value}`;
+        }
+      });
 
       const result = await db.execute(sql`
         UPDATE app.d_artifact
-        SET ${sql.raw(setClause)}
+        SET ${sql.join(setClauses, sql`, `)}
         WHERE id = ${id} AND active_flag = true
         RETURNING *
       `);
@@ -299,8 +312,8 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       if (!result.length) return reply.status(404).send({ error: 'Not found' });
       return result[0];
     } catch (error) {
-      fastify.log.error('Error updating artifact:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
+      fastify.log.error('Error updating artifact:', error);
+      return reply.status(500).send({ error: 'Internal server error', details: (error as Error).message });
     }
   });
 

@@ -6,6 +6,8 @@ import { ShareModal } from '../../components/shared/modal';
 import { UnifiedLinkageModal } from '../../components/shared/modal/UnifiedLinkageModal';
 import { useLinkageModal } from '../../hooks/useLinkageModal';
 import { wikiApi } from '../../lib/api';
+import { useSidebar } from '../../contexts/SidebarContext';
+import { useNavigationHistory } from '../../contexts/NavigationHistoryContext';
 
 export function WikiEditorPage() {
   const navigate = useNavigate();
@@ -17,6 +19,8 @@ export function WikiEditorPage() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const { hideSidebar } = useSidebar();
+  const { history, goBack, pushEntity, updateCurrentEntityName } = useNavigationHistory();
 
   // Unified linkage modal
   const linkageModal = useLinkageModal({
@@ -25,6 +29,11 @@ export function WikiEditorPage() {
       console.log('Wiki linkage changed');
     }
   });
+
+  // Hide sidebar when entering wiki editor
+  useEffect(() => {
+    hideSidebar();
+  }, []);
 
   useEffect(() => {
     if (editing && id) {
@@ -52,6 +61,25 @@ export function WikiEditorPage() {
       setLoading(false);
     }
   }, [editing, id]);
+
+  // Register wiki in navigation history when editing
+  useEffect(() => {
+    if (page && id) {
+      pushEntity({
+        entityType: 'wiki',
+        entityId: id,
+        entityName: page.name || 'Untitled Wiki',
+        timestamp: Date.now()
+      });
+    }
+  }, [page, id, pushEntity]);
+
+  // Update entity name in navigation history when it changes
+  useEffect(() => {
+    if (page && page.name) {
+      updateCurrentEntityName(page.name);
+    }
+  }, [page?.name, updateCurrentEntityName]);
 
   const loadPage = async () => {
     try {
@@ -136,7 +164,12 @@ export function WikiEditorPage() {
 
   const handleExitWithoutSaving = () => {
     setShowExitConfirm(false);
-    navigate('/wiki');
+    // Use smart back navigation if history exists
+    if (history.length > 0) {
+      goBack();
+    } else {
+      navigate('/wiki');
+    }
   };
 
   const handleExitWithSave = async () => {
@@ -145,7 +178,12 @@ export function WikiEditorPage() {
       // Since we don't have direct access, we'll just navigate back
       // The user can manually save before clicking exit if needed
       setShowExitConfirm(false);
-      navigate('/wiki');
+      // Use smart back navigation if history exists
+      if (history.length > 0) {
+        goBack();
+      } else {
+        navigate('/wiki');
+      }
     } catch (err) {
       console.error('Failed to save and exit:', err);
     }

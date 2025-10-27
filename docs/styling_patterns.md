@@ -1,0 +1,1432 @@
+# PMO Platform - Complete Layout & Styling Reference Guide
+
+> **Production-ready styling standards for all components, buttons, divs, and reusable patterns** - The single source of truth for consistent UI/UX implementation across the PMO platform
+
+**Last Updated:** 2025-10-27
+**Version:** 3.0
+**Architecture:** Tailwind CSS v4 + React 19 + TypeScript
+**Codebase Coverage:** 141+ files analyzed (71 components, 70+ pages)
+
+---
+
+## Quick Navigation
+
+**For Daily Development:**
+- [Reusable Constants](#1-reusable-styling-constants) - Pre-defined const values in code
+- [Buttons](#2-button-patterns) - All button variants and sizes
+- [Form Elements](#3-form-elements--inputs) - Inputs, textareas, selects, checkboxes
+- [Layout Patterns](#4-layout--container-patterns) - Flex, grid, spacing
+- [Quick Reference](#quick-reference-table) - Copy-paste ready snippets
+
+**For System Understanding:**
+- [Typography](#5-typography-system) - Font sizes, weights, line heights
+- [Colors](#6-color-system) - Complete palette with semantic meanings
+- [Spacing](#7-spacing-system) - Padding, margin, gap standards
+- [Interactive States](#8-interactive-states) - Hover, focus, disabled, loading
+
+---
+
+## Table of Contents
+
+1. [Reusable Styling Constants](#1-reusable-styling-constants)
+2. [Button Patterns](#2-button-patterns)
+3. [Form Elements & Inputs](#3-form-elements--inputs)
+4. [Layout & Container Patterns](#4-layout--container-patterns)
+5. [Typography System](#5-typography-system)
+6. [Color System](#6-color-system)
+7. [Spacing System](#7-spacing-system)
+8. [Interactive States](#8-interactive-states)
+9. [Border & Shadow Standards](#9-border--shadow-standards)
+10. [Modal & Dialog Patterns](#10-modal--dialog-patterns)
+11. [Table Patterns](#11-table-patterns)
+12. [Card Patterns](#12-card-patterns)
+13. [Badge & Tag Patterns](#13-badge--tag-patterns)
+14. [Alert & Message Patterns](#14-alert--message-patterns)
+15. [Icon Standards](#15-icon-standards)
+16. [Page Layout Templates](#16-page-layout-templates)
+17. [Component-Specific Patterns](#17-component-specific-patterns)
+18. [Quick Reference Table](#quick-reference-table)
+
+---
+
+## 1. Reusable Styling Constants
+
+### 1.1 Metadata Value Class
+**Location:** `apps/web/src/pages/shared/EntityDetailPage.tsx:521`
+
+```typescript
+const metadataValueClass = "text-[13px] text-gray-800 leading-[1.4] whitespace-nowrap";
+
+const metadataValueStyle: React.CSSProperties = {
+  fontFamily: "Inter, 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+  letterSpacing: '-0.01em'
+};
+```
+
+**Usage:** All entity metadata displays (name, code, slug, ID)
+**Occurrences:** High - used across all entity detail pages
+**Pattern Type:** DRY constant for consistency
+
+### 1.2 Button Base Classes
+**Location:** `apps/web/src/components/shared/button/Button.tsx:32`
+
+```typescript
+const baseClasses = 'inline-flex items-center border text-sm font-normal rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 shadow-sm';
+
+const variantClasses = {
+  primary: 'border-slate-600 text-white bg-gradient-to-b from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 hover:shadow-md focus:ring-slate-400 disabled:bg-gradient-to-b disabled:from-gray-300 disabled:to-gray-300 disabled:border-gray-300 disabled:text-gray-500 disabled:shadow-none',
+
+  secondary: 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 hover:shadow focus:ring-gray-400 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none',
+
+  danger: 'border-red-500 text-white bg-gradient-to-b from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 hover:shadow-md focus:ring-red-400 disabled:bg-gradient-to-b disabled:from-gray-300 disabled:to-gray-300 disabled:border-gray-300 disabled:text-gray-500 disabled:shadow-none',
+
+  success: 'border-emerald-500 text-white bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 hover:shadow-md focus:ring-emerald-400 disabled:bg-gradient-to-b disabled:from-gray-300 disabled:to-gray-300 disabled:border-gray-300 disabled:text-gray-500 disabled:shadow-none',
+
+  ghost: 'border-transparent text-gray-700 hover:bg-gray-100 hover:shadow-sm focus:ring-gray-400 disabled:text-gray-400 disabled:shadow-none'
+};
+
+const sizeClasses = {
+  sm: 'px-2.5 py-1 text-xs',
+  md: 'px-3 py-1.5 text-sm',
+  lg: 'px-4 py-2 text-base'
+};
+```
+
+**Reuse Count:** 100+ across entire codebase
+**Components Using:** Button, ActionButtons, RBACButton, CreateButton
+
+### 1.3 Modal Size Classes
+**Location:** `apps/web/src/components/shared/modal/Modal.tsx:23-28`
+
+```typescript
+const sizeClasses = {
+  sm: 'max-w-md',     // 448px
+  md: 'max-w-2xl',    // 672px - default
+  lg: 'max-w-4xl',    // 896px
+  xl: 'max-w-6xl'     // 1152px
+};
+```
+
+### 1.4 Grid Column Responsive Classes
+**Location:** `apps/web/src/components/shared/ui/GridView.tsx:105-112`
+
+```typescript
+const gridColsClasses = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-1 md:grid-cols-2',
+  3: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3',
+  4: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+  5: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5',
+  6: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6'
+};
+```
+
+### 1.5 Card Padding Classes
+**Location:** `apps/web/src/components/shared/ui/GridView.tsx:114-118`
+
+```typescript
+const cardPaddingClasses = {
+  small: 'p-4',    // 16px
+  medium: 'p-6',   // 24px - default
+  large: 'p-8'     // 32px
+};
+```
+
+### 1.6 Badge Color Mapping
+**Location:** `apps/web/src/components/shared/ui/GridView.tsx:43-51`
+
+```typescript
+const getBadgeColorClass = (variant: string) => {
+  const variants = {
+    success: 'bg-green-100 text-green-800',
+    warning: 'bg-yellow-100 text-yellow-800',
+    danger: 'bg-red-100 text-red-800',
+    info: 'bg-blue-100 text-blue-800',
+    default: 'bg-gray-100 text-gray-800'
+  };
+  return variants[variant] || variants.default;
+};
+```
+
+### 1.7 Table Header Standard Class
+**Location:** Multiple table components
+
+```typescript
+const tableHeaderClass = "px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50";
+```
+
+**Reuse Count:** 5+ table headers
+**Purpose:** Consistent header styling across all data tables
+
+---
+
+## 2. Button Patterns
+
+### 2.1 Standard Button Component
+**Component:** `apps/web/src/components/shared/button/Button.tsx`
+
+```jsx
+// Usage Examples
+<Button variant="primary" size="md" icon={Save} onClick={handleSave}>
+  Save Changes
+</Button>
+
+<Button variant="secondary" size="sm" icon={X} onClick={handleCancel}>
+  Cancel
+</Button>
+
+<Button variant="danger" size="md" loading={isDeleting} onClick={handleDelete}>
+  Delete
+</Button>
+
+<Button variant="success" size="lg" icon={Check}>
+  Confirm
+</Button>
+
+<Button variant="ghost" size="sm" icon={Edit}>
+  Edit
+</Button>
+```
+
+**Icon Sizing within Buttons:**
+- Small (sm): `h-3 w-3`
+- Medium (md): `h-4 w-4` ← default
+- Large (lg): `h-5 w-5`
+
+### 2.2 Icon-Only Buttons
+
+```jsx
+// Standard icon button
+<button className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+  <Edit className="h-4 w-4 text-gray-600" />
+</button>
+
+// Small icon button
+<button className="p-1 hover:bg-gray-100 rounded transition-colors">
+  <X className="h-3.5 w-3.5 text-gray-500" />
+</button>
+
+// Large icon button
+<button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+  <Settings className="h-5 w-5 text-gray-600" />
+</button>
+```
+
+### 2.3 Hover-Reveal Icon Buttons
+
+```jsx
+<div className="group relative">
+  {/* Content */}
+  <button className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-gray-100 rounded transition-all">
+    <Copy className="h-3.5 w-3.5 text-gray-400" />
+  </button>
+</div>
+```
+
+**Occurrences:** 25+ across EntityDetailPage, WikiDesigner, DataTable
+
+### 2.4 Loading Button State
+
+```jsx
+{loading && (
+  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+)}
+```
+
+### 2.5 Button Groups
+
+```jsx
+// Horizontal button group
+<div className="flex items-center gap-3">
+  <Button variant="secondary">Cancel</Button>
+  <Button variant="primary">Save</Button>
+</div>
+
+// Action bar pattern
+<div className="flex items-center justify-between bg-white px-6 py-4 border-b border-gray-200">
+  <div className="flex items-center space-x-4">
+    {/* Left actions */}
+  </div>
+  <div className="flex items-center space-x-3">
+    {/* Right actions */}
+  </div>
+</div>
+```
+
+---
+
+## 3. Form Elements & Inputs
+
+### 3.1 Standard Text Input
+
+```jsx
+<input
+  className="w-full px-3 py-2 border border-gray-300 rounded text-sm
+             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+             placeholder:text-gray-400"
+  placeholder="Enter text..."
+/>
+```
+
+**Reuse Count:** 50+ occurrences
+**Used In:** All form components, modals, search fields
+
+### 3.2 Input with Icon Prefix
+
+```jsx
+<div className="relative">
+  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+  <input
+    className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded
+               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+    placeholder="Search..."
+  />
+</div>
+```
+
+**Common Icon Sizes:** `h-4 w-4`
+**Icon Positioning:** `left-2` for left padding
+
+### 3.3 Textarea
+
+```jsx
+<textarea
+  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+             focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+             placeholder:text-gray-400 resize-vertical"
+  rows={4}
+  placeholder="Enter description..."
+/>
+```
+
+### 3.4 Select Dropdown
+
+```jsx
+<select
+  className="w-full px-3 py-2 border border-gray-300 rounded text-sm
+             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+             bg-white cursor-pointer"
+>
+  <option value="">Select option</option>
+  <option value="1">Option 1</option>
+</select>
+```
+
+### 3.5 Checkbox
+
+```jsx
+<label className="flex items-center gap-2 cursor-pointer">
+  <input
+    type="checkbox"
+    className="h-4 w-4 text-blue-600 border-gray-300 rounded
+               focus:ring-2 focus:ring-blue-500"
+  />
+  <span className="text-sm text-gray-700">Checkbox label</span>
+</label>
+```
+
+### 3.6 Form Label Standard
+
+```jsx
+<label className="text-sm font-medium text-gray-700 mb-1 block">
+  Field Label
+</label>
+```
+
+**Pattern:** Always use `mb-1` or `mb-2` spacing before input
+
+### 3.7 Form Field Container (EntityFormContainer)
+
+```jsx
+<div className="grid grid-cols-[160px_1fr] gap-4 items-start">
+  <label className="text-xs font-medium text-gray-500 pt-2">
+    Field Label
+  </label>
+  <div className="flex-1">
+    <input {...props} />
+  </div>
+</div>
+```
+
+**Grid Layout:** 160px fixed label width, remaining space for input
+
+### 3.8 Inline Editable Field
+
+```jsx
+<input
+  className="flex-1 text-lg font-semibold text-gray-900
+             bg-white border-b-2 border-gray-300
+             hover:border-blue-400 focus:border-blue-500
+             focus:ring-0 focus:outline-none
+             px-2 py-1 rounded-t"
+  value={value}
+/>
+```
+
+**Used In:** EntityDetailPage header editing
+
+### 3.9 Striped Divider Between Fields
+
+```jsx
+<div
+  className="h-px my-1.5"
+  style={{
+    backgroundImage: 'repeating-linear-gradient(90deg, ' +
+      'rgba(209, 213, 219, 0.15) 0px, ' +
+      'rgba(209, 213, 219, 0.15) 4px, ' +
+      'transparent 4px, ' +
+      'transparent 8px)'
+  }}
+/>
+```
+
+**Pattern:** 4px stripe, 4px gap, 15% opacity
+**Spacing:** `my-1.5` (6px vertical margin)
+
+---
+
+## 4. Layout & Container Patterns
+
+### 4.1 Page Wrapper
+
+```jsx
+<div className="min-h-screen bg-gray-50">
+  {/* Page content */}
+</div>
+```
+
+### 4.2 Container Padding Standards
+
+```jsx
+// Main page container
+<div className="p-6">
+  {/* Content */}
+</div>
+
+// Card/panel container (compact)
+<div className="p-4">
+  {/* Content */}
+</div>
+
+// Tight spacing
+<div className="p-2">
+  {/* Content */}
+</div>
+```
+
+**Design Goal:** 50% space reduction from original layouts
+
+### 4.3 Flex Layouts
+
+```jsx
+// Space between (header pattern)
+<div className="flex items-center justify-between">
+  <div>{/* Left */}</div>
+  <div>{/* Right */}</div>
+</div>
+
+// Centered
+<div className="flex items-center justify-center gap-2">
+  {/* Centered content */}
+</div>
+
+// Left-aligned with gap
+<div className="flex items-center gap-2">
+  {/* Items */}
+</div>
+
+// Vertical stack
+<div className="flex flex-col space-y-4">
+  {/* Stacked items */}
+</div>
+```
+
+**Reuse Count:** 200+ flex center patterns across codebase
+
+### 4.4 Grid Layouts
+
+```jsx
+// Two-column form
+<div className="grid grid-cols-[160px_1fr] gap-4 items-start">
+  {/* Label */}
+  {/* Input */}
+</div>
+
+// Responsive grid
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  {/* Grid items */}
+</div>
+
+// Three-column data table
+<div className="grid grid-cols-[1fr_auto_100px] gap-2">
+  {/* Name */ }
+  {/* Status */}
+  {/* Actions */}
+</div>
+```
+
+### 4.5 Overflow & Height Patterns
+
+```jsx
+// Scrollable area with fixed height
+<div className="max-h-[calc(100vh-300px)] overflow-y-auto">
+  {/* Scrollable content */}
+</div>
+
+// Full viewport height
+<div className="h-screen overflow-hidden">
+  {/* Fixed height content */}
+</div>
+
+// Horizontal scroll
+<div className="overflow-x-auto">
+  {/* Wide content */}
+</div>
+```
+
+---
+
+## 5. Typography System
+
+### 5.1 Text Size Scale
+
+```jsx
+// Extra small (10px) - status badges, counts
+text-[10px]
+
+// Extra small (12px) - labels, metadata
+text-xs
+
+// Small (13px) - entity metadata values
+text-[13px]
+
+// Small (14px) - body text, table cells
+text-sm
+
+// Base (16px) - default size
+text-base
+
+// Large (18px) - section headers
+text-lg
+
+// Extra large (20px) - h4
+text-xl
+
+// 2XL (24px) - h3
+text-2xl
+
+// 3XL (30px) - h2
+text-3xl
+
+// 4XL (36px) - h1, page titles
+text-4xl
+```
+
+### 5.2 Font Weight Scale
+
+```jsx
+font-normal    // 400 - default body text
+font-medium    // 500 - labels, section headers
+font-semibold  // 600 - page titles, important headers
+font-bold      // 700 - h1, h2
+```
+
+### 5.3 Line Height Standards
+
+```jsx
+leading-none      // 1
+leading-tight     // 1.25
+leading-[1.4]     // 1.4 - metadata values
+leading-normal    // 1.5
+leading-relaxed   // 1.625 - body paragraphs
+leading-loose     // 2
+```
+
+### 5.4 Common Typography Combinations
+
+```jsx
+// Page title
+className="text-3xl font-bold text-gray-900"
+
+// Section header
+className="text-lg font-semibold text-gray-900"
+
+// Subsection label
+className="text-sm font-medium text-gray-700"
+
+// Field label
+className="text-xs font-medium text-gray-500"
+
+// Body text
+className="text-sm text-gray-700"
+
+// Secondary text
+className="text-xs text-gray-600"
+
+// Helper/placeholder text
+className="text-xs text-gray-400"
+
+// Metadata value (DRY constant)
+className="text-[13px] text-gray-800 leading-[1.4]"
+```
+
+### 5.5 Heading Hierarchy
+
+```jsx
+// h1 - Page titles, wiki titles
+<h1 className="text-4xl font-bold text-gray-900">Title</h1>
+
+// h2 - Major sections
+<h2 className="text-3xl font-bold text-gray-800">Section</h2>
+
+// h3 - Subsections
+<h3 className="text-2xl font-semibold text-gray-800">Subsection</h3>
+
+// h4 - Minor sections
+<h4 className="text-xl font-semibold text-gray-700">Minor Section</h4>
+
+// h5 - Component headers
+<h5 className="text-lg font-medium text-gray-700">Component</h5>
+
+// h6 - Small headers
+<h6 className="text-base font-medium text-gray-700">Small Header</h6>
+```
+
+---
+
+## 6. Color System
+
+### 6.1 Gray Scale (Neutrals)
+
+```jsx
+// Backgrounds
+bg-white         // #FFFFFF - Default
+bg-gray-50       // #F9FAFB - Page background
+bg-gray-100      // #F3F4F6 - Hover states, subtle backgrounds
+bg-gray-200      // #E5E7EB - Borders, dividers
+
+// Text Colors
+text-gray-900    // #111827 - Primary headings
+text-gray-800    // #1F2937 - Strong text
+text-gray-700    // #374151 - Body text
+text-gray-600    // #4B5563 - Icons, secondary text
+text-gray-500    // #6B7280 - Muted text, labels
+text-gray-400    // #9CA3AF - Placeholder, helper text
+
+// Border Colors
+border-gray-200  // #E5E7EB - Default border
+border-gray-300  // #D1D5DB - Input borders
+```
+
+### 6.2 Primary Colors (Blue/Slate Gradient)
+
+```jsx
+// Slate (Primary buttons)
+bg-slate-600     // #475569
+bg-slate-700     // #334155
+border-slate-600
+text-slate-600
+
+// Blue (Links, focus states)
+bg-blue-50       // #EFF6FF - Light background
+bg-blue-100      // #DBEAFE - Badge background
+text-blue-600    // #2563EB - Link text
+text-blue-700    // #1D4ED8 - Selected text
+border-blue-400  // #60A5FA - Selected border
+border-blue-500  // #3B82F6 - Active border
+focus:ring-blue-500
+```
+
+### 6.3 Semantic Colors
+
+```jsx
+// Success (Green)
+bg-green-50      // #F0FDF4 - Alert background
+bg-green-100     // #DCFCE7 - Badge background
+text-green-600   // #16A34A - Success text
+text-green-700   // #15803D - Done state
+text-green-800   // #166534 - Dark success text
+
+// Error/Danger (Red)
+bg-red-50        // #FEF2F2 - Alert background
+bg-red-100       // #FEE2E2 - Badge background
+text-red-600     // #DC2626 - Error text
+text-red-700     // #B91C1C - Delete button hover
+border-red-500   // #EF4444 - Error border
+
+// Warning (Orange)
+bg-orange-50     // #FFF7ED - Alert background
+bg-orange-100    // #FFEDD5 - Badge background
+text-orange-600  // #EA580C - Warning text
+text-orange-700  // #C2410C - In Progress state
+
+// Info (Blue)
+bg-blue-50       // #EFF6FF - Info box
+bg-blue-100      // #DBEAFE - Badge
+text-blue-600    // #2563EB - Info text
+```
+
+### 6.4 Stage/Workflow Colors (Kanban)
+
+```typescript
+const STAGE_COLORS = {
+  'Backlog':     '#6B7280',  // Gray-500
+  'To Do':       '#3B82F6',  // Blue-500
+  'In Progress': '#F59E0B',  // Amber-500
+  'In Review':   '#8B5CF6',  // Violet-500
+  'Done':        '#10B981',  // Emerald-500
+  'Blocked':     '#EF4444',  // Red-500
+  'Cancelled':   '#9CA3AF'   // Gray-400
+};
+```
+
+---
+
+## 7. Spacing System
+
+### 7.1 Padding Scale
+
+```jsx
+p-0.5   // 2px
+p-1     // 4px
+p-1.5   // 6px - compact form fields
+p-2     // 8px - small buttons, tight containers
+p-3     // 12px - inputs, table cells
+p-4     // 16px - cards, panels (compact)
+p-6     // 24px - page containers, large cards
+p-8     // 32px - hero sections
+```
+
+### 7.2 Margin Scale
+
+```jsx
+mb-1    // 4px
+mb-2    // 8px - between label and input
+mb-4    // 16px - between sections
+mb-6    // 24px - major section spacing
+```
+
+### 7.3 Gap Scale
+
+```jsx
+gap-1   // 4px
+gap-2   // 8px - icon + text
+gap-3   // 12px - button groups
+gap-4   // 16px - grid items, form fields
+gap-6   // 24px - large grid spacing
+```
+
+### 7.4 Space Between Children
+
+```jsx
+space-y-1   // 4px vertical
+space-y-2   // 8px vertical
+space-y-4   // 16px vertical - default
+space-y-6   // 24px vertical - major sections
+
+space-x-2   // 8px horizontal
+space-x-3   // 12px horizontal - button groups
+space-x-4   // 16px horizontal
+```
+
+**Reuse Count:** 150+ occurrences of space-y/space-x patterns
+
+---
+
+## 8. Interactive States
+
+### 8.1 Hover States
+
+```jsx
+// Background hover
+hover:bg-gray-50
+hover:bg-gray-100
+hover:bg-blue-50
+
+// Border hover
+hover:border-gray-400
+hover:border-blue-400
+
+// Shadow hover
+hover:shadow-md
+hover:shadow-lg
+
+// Transform hover (lift effect)
+hover:-translate-y-1
+```
+
+### 8.2 Focus States
+
+```jsx
+// Standard focus ring
+focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+
+// For inputs
+focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+
+// For dark backgrounds
+focus:ring-2 focus:ring-white focus:ring-offset-2
+
+// No focus ring (inline edit)
+focus:ring-0 focus:outline-none
+```
+
+### 8.3 Disabled States
+
+```jsx
+disabled:bg-gray-100
+disabled:text-gray-400
+disabled:border-gray-200
+disabled:shadow-none
+disabled:cursor-not-allowed
+```
+
+### 8.4 Active/Selected States
+
+```jsx
+// Button active
+active:bg-blue-800
+
+// Selected item
+className={`${isSelected
+  ? 'bg-blue-50 border-blue-400 text-blue-700'
+  : 'border-gray-300 hover:bg-gray-50'
+}`}
+```
+
+### 8.5 Loading States
+
+```jsx
+// Spinner
+<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+
+// Spinner (large)
+<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+
+// Pulsing skeleton
+<div className="animate-pulse bg-gray-200 h-4 w-full rounded" />
+```
+
+---
+
+## 9. Border & Shadow Standards
+
+### 9.1 Border Styles
+
+```jsx
+// Standard borders
+border border-gray-200   // Subtle (cards, containers)
+border border-gray-300   // Default (inputs, buttons)
+
+// Bottom border only
+border-b border-gray-200
+
+// Colored borders
+border border-blue-400   // Selected
+border border-red-500    // Error
+border border-green-500  // Success
+```
+
+### 9.2 Border Radius
+
+```jsx
+rounded       // 4px - default
+rounded-lg    // 8px - cards, buttons, inputs
+rounded-xl    // 12px - modals
+rounded-full  // 9999px - badges, avatar
+rounded-t     // Top corners only
+```
+
+### 9.3 Shadow Scale
+
+```jsx
+shadow-sm     // 0 1px 2px 0 rgba(0, 0, 0, 0.05)
+shadow        // 0 1px 3px 0 rgba(0, 0, 0, 0.1)
+shadow-md     // 0 4px 6px -1px rgba(0, 0, 0, 0.1)
+shadow-lg     // 0 10px 15px -3px rgba(0, 0, 0, 0.1)
+shadow-xl     // 0 20px 25px -5px rgba(0, 0, 0, 0.1)
+shadow-2xl    // 0 25px 50px -12px rgba(0, 0, 0, 0.25)
+```
+
+### 9.4 Divide Patterns (Tables/Lists)
+
+```jsx
+// Between children
+divide-y divide-gray-200
+
+// Vertical divider
+divide-x divide-gray-300
+```
+
+---
+
+## 10. Modal & Dialog Patterns
+
+### 10.1 Modal Backdrop
+
+```jsx
+<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm transition-opacity" />
+```
+
+### 10.2 Modal Container
+
+```jsx
+<div className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+  {/* Modal content */}
+</div>
+```
+
+### 10.3 Modal Header
+
+```jsx
+<div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+  <h2 className="text-lg font-semibold text-gray-900">Modal Title</h2>
+  <button className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+    <X className="h-5 w-5 text-gray-500" />
+  </button>
+</div>
+```
+
+### 10.4 Modal Content
+
+```jsx
+<div className="flex-1 overflow-y-auto px-6 py-4">
+  <div className="space-y-4">
+    {/* Form fields or content */}
+  </div>
+</div>
+```
+
+### 10.5 Modal Footer
+
+```jsx
+<div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-2">
+  <Button variant="secondary">Cancel</Button>
+  <Button variant="primary">Save</Button>
+</div>
+```
+
+---
+
+## 11. Table Patterns
+
+### 11.1 Table Container
+
+```jsx
+<div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
+  <table className="min-w-full divide-y divide-gray-200">
+    {/* Table content */}
+  </table>
+</div>
+```
+
+### 11.2 Table Header
+
+```jsx
+<thead className="bg-gray-50">
+  <tr>
+    <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 uppercase tracking-wider">
+      Column Name
+    </th>
+  </tr>
+</thead>
+```
+
+### 11.3 Table Body
+
+```jsx
+<tbody className="bg-white divide-y divide-gray-100">
+  <tr className="hover:bg-gray-50 transition-colors">
+    <td className="px-3 py-1.5 text-xs text-gray-700">
+      Cell content
+    </td>
+  </tr>
+</tbody>
+```
+
+### 11.4 Linked/Selected Row
+
+```jsx
+<tr className="bg-blue-50 border-l-4 border-blue-500">
+  {/* Row content */}
+</tr>
+```
+
+---
+
+## 12. Card Patterns
+
+### 12.1 Standard Card
+
+```jsx
+<div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-6">
+  {/* Card content */}
+</div>
+```
+
+**Reuse Count:** 80+ occurrences
+
+### 12.2 Card with Header
+
+```jsx
+<div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+  <div className="px-6 py-4 border-b border-gray-200">
+    <h3 className="text-lg font-semibold">Card Title</h3>
+  </div>
+  <div className="p-6">
+    {/* Content */}
+  </div>
+</div>
+```
+
+### 12.3 Compact Card
+
+```jsx
+<div className="bg-white rounded-lg border border-gray-200 p-4">
+  {/* Compact content */}
+</div>
+```
+
+---
+
+## 13. Badge & Tag Patterns
+
+### 13.1 Default Badge
+
+```jsx
+<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+  Badge
+</span>
+```
+
+**Reuse Count:** 40+ occurrences
+
+### 13.2 Status Badges
+
+```jsx
+// Success
+<span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
+  <Check className="h-3 w-3 mr-1" />
+  Linked
+</span>
+
+// Error
+<span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-700">
+  Error
+</span>
+
+// Info
+<span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">
+  Info
+</span>
+```
+
+### 13.3 Count Badge
+
+```jsx
+<span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-gray-200 text-[10px] font-medium text-gray-700">
+  5
+</span>
+```
+
+---
+
+## 14. Alert & Message Patterns
+
+### 14.1 Success Alert
+
+```jsx
+<div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+  <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+  <p className="text-sm text-green-700">Success message here</p>
+</div>
+```
+
+### 14.2 Error Alert
+
+```jsx
+<div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+  <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+  <p className="text-sm text-red-700">Error message here</p>
+</div>
+```
+
+### 14.3 Warning Alert
+
+```jsx
+<div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center gap-2">
+  <AlertCircle className="h-4 w-4 text-orange-600 flex-shrink-0" />
+  <p className="text-sm text-orange-700">Warning message here</p>
+</div>
+```
+
+### 14.4 Info Box
+
+```jsx
+<div className="bg-blue-50 border border-blue-100 rounded-xl p-6 space-y-4">
+  {/* Info content */}
+</div>
+```
+
+**Reuse Count:** 30+ alert patterns
+
+---
+
+## 15. Icon Standards
+
+### 15.1 Icon Sizing Scale
+
+```jsx
+// Tiny (badges, status indicators)
+h-3 w-3
+
+// Small (inline with text, buttons)
+h-3.5 w-3.5
+
+// Standard (most UI elements)
+h-4 w-4
+
+// Medium (toolbar, headers)
+h-5 w-5
+
+// Large (page headers)
+h-6 w-6
+
+// Extra large (empty states, loaders)
+h-8 w-8
+
+// Hero
+h-12 w-12
+```
+
+### 15.2 Icon Colors
+
+```jsx
+// Default
+text-gray-600
+
+// Muted
+text-gray-400
+
+// Primary
+text-blue-600
+
+// Success
+text-green-600
+
+// Error
+text-red-600
+
+// Warning
+text-orange-600
+```
+
+### 15.3 Icon + Text Pattern
+
+```jsx
+<div className="inline-flex items-center gap-2">
+  <Icon className="h-4 w-4" />
+  <span>Text</span>
+</div>
+```
+
+---
+
+## 16. Page Layout Templates
+
+### 16.1 EntityDetailPage Layout
+
+```jsx
+<div className="min-h-screen bg-gray-50">
+  {/* Breadcrumb */}
+  <nav className="px-6 py-3 bg-white border-b border-gray-200">
+    {/* Breadcrumb items */}
+  </nav>
+
+  {/* Header */}
+  <div className="px-6 py-4 bg-white border-b border-gray-200">
+    {/* Entity name, code, slug, ID */}
+    {/* Action buttons */}
+  </div>
+
+  {/* Tabs */}
+  <div className="px-6 bg-white border-b border-gray-200">
+    {/* Tab navigation */}
+  </div>
+
+  {/* Content */}
+  <div className="p-6">
+    <div className="bg-white rounded-lg border border-gray-200 p-4">
+      {/* Content area */}
+    </div>
+  </div>
+</div>
+```
+
+### 16.2 EntityMainPage Layout
+
+```jsx
+<div className="p-6">
+  {/* Header */}
+  <div className="flex items-center justify-between mb-6">
+    <h1 className="text-2xl font-bold">{entityType} ({count})</h1>
+    <Button variant="primary" icon={Plus}>Create</Button>
+  </div>
+
+  {/* Filters and view toggles */}
+  <div className="flex items-center gap-4 mb-4">
+    {/* Search, filters, view buttons */}
+  </div>
+
+  {/* Content (table/kanban/grid) */}
+  <div className="bg-white rounded-lg border border-gray-200">
+    {/* Data view */}
+  </div>
+</div>
+```
+
+---
+
+## 17. Component-Specific Patterns
+
+### 17.1 Sequential State Visualizer
+
+```jsx
+<div className="flex items-center gap-2">
+  {stages.map((stage, index) => (
+    <React.Fragment key={stage.id}>
+      {/* Circle */}
+      <div className={`
+        flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all
+        ${isCurrentStage ? 'bg-gray-600 border-gray-600' : 'bg-white border-gray-300'}
+      `}>
+        {isCurrentStage && <Check className="h-4 w-4 text-white" />}
+      </div>
+
+      {/* Connector */}
+      {index < stages.length - 1 && (
+        <div className={`
+          h-0.5 flex-1
+          ${isPastStage ? 'bg-gray-600' : 'border-t-2 border-dashed border-gray-300'}
+        `} />
+      )}
+    </React.Fragment>
+  ))}
+</div>
+```
+
+### 17.2 Kanban Column
+
+```jsx
+<div className="flex-shrink-0 w-80 bg-gray-50 rounded-lg">
+  {/* Header */}
+  <div className="p-3 border-b border-gray-200">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+        <h3 className="text-sm font-medium">{title}</h3>
+      </div>
+      <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded-full">
+        {count}
+      </span>
+    </div>
+  </div>
+
+  {/* Cards */}
+  <div className="p-2 space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
+    {/* Kanban cards */}
+  </div>
+</div>
+```
+
+### 17.3 Copy to Clipboard Button
+
+```jsx
+<button
+  onClick={() => handleCopy('field', value)}
+  className="p-1 hover:bg-gray-100 rounded transition-colors"
+  title="Copy to clipboard"
+>
+  {copiedField === 'field' ? (
+    <Check className="h-3.5 w-3.5 text-green-600" />
+  ) : (
+    <Copy className="h-3.5 w-3.5 text-gray-400" />
+  )}
+</button>
+```
+
+### 17.4 Entity Type Selector (Button Grid)
+
+```jsx
+<div className="flex flex-wrap gap-2">
+  {entityTypes.map(type => (
+    <button
+      key={type}
+      onClick={() => setSelectedType(type)}
+      className={`
+        px-2 py-1 text-xs border rounded transition-colors
+        ${selectedType === type
+          ? 'bg-blue-50 border-blue-400 text-blue-700'
+          : 'border-gray-300 hover:bg-gray-50'
+        }
+      `}
+    >
+      <Icon className="h-3.5 w-3.5 mr-1 inline" />
+      {label}
+    </button>
+  ))}
+</div>
+```
+
+---
+
+## Quick Reference Table
+
+### Most Common Patterns (Top 15)
+
+| Pattern | Classes | Occurrences |
+|---------|---------|-------------|
+| **Input Base** | `w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500` | 50+ |
+| **Button Base** | `inline-flex items-center border text-sm font-normal rounded-md transition-all duration-150` | 100+ |
+| **Flex Center** | `flex items-center justify-[between\|center]` | 200+ |
+| **Card** | `bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md` | 80+ |
+| **Icon Button** | `p-1.5 hover:bg-gray-100 rounded-lg transition-colors` | 60+ |
+| **Badge** | `inline-flex items-center px-2 py-1 rounded-full text-xs font-medium` | 40+ |
+| **Modal Header** | `flex items-center justify-between px-6 py-4 border-b border-gray-200` | 20+ |
+| **Space Between** | `space-y-4 \| gap-4` | 150+ |
+| **Alert** | `bg-[color]-50 border border-[color]-200 rounded-lg p-3 flex items-center gap-2` | 30+ |
+| **Hover Reveal** | `opacity-0 group-hover:opacity-100 p-0.5 hover:bg-gray-100 rounded` | 25+ |
+| **Table Header** | `px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50` | 10+ |
+| **Form Label** | `text-sm font-medium text-gray-700 mb-2 block` | 50+ |
+| **Metadata Value** | `text-[13px] text-gray-800 leading-[1.4]` | 15+ |
+| **Striped Divider** | `h-px my-1.5` + striped gradient | 20+ |
+| **Page Container** | `p-6 bg-white rounded-lg border border-gray-200` | 70+ |
+
+---
+
+## Implementation Recommendations
+
+### Phase 1: Create Constants File (Highest Priority)
+
+Create `apps/web/src/lib/tailwind-constants.ts`:
+
+```typescript
+// Button classes
+export const BUTTON_BASE = 'inline-flex items-center border text-sm font-normal rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 shadow-sm';
+
+export const BUTTON_VARIANTS = {
+  primary: 'border-slate-600 text-white bg-gradient-to-b from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800',
+  secondary: 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50',
+  danger: 'border-red-500 text-white bg-gradient-to-b from-red-500 to-red-600',
+};
+
+export const BUTTON_SIZES = {
+  sm: 'px-2.5 py-1 text-xs',
+  md: 'px-3 py-1.5 text-sm',
+  lg: 'px-4 py-2 text-base',
+};
+
+// Input classes
+export const INPUT_BASE = 'w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
+
+// Card classes
+export const CARD_BASE = 'bg-white rounded-lg border border-gray-200 shadow-sm';
+
+// Badge classes
+export const BADGE_BASE = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium';
+
+export const BADGE_COLORS = {
+  success: 'bg-green-100 text-green-800',
+  warning: 'bg-yellow-100 text-yellow-800',
+  danger: 'bg-red-100 text-red-800',
+  info: 'bg-blue-100 text-blue-800',
+  default: 'bg-gray-100 text-gray-800',
+};
+
+// Icon sizes
+export const ICON_SIZES = {
+  xs: 'h-3 w-3',
+  sm: 'h-3.5 w-3.5',
+  md: 'h-4 w-4',
+  lg: 'h-5 w-5',
+  xl: 'h-6 w-6',
+  '2xl': 'h-8 w-8',
+};
+
+// Metadata styling
+export const METADATA_VALUE_CLASS = "text-[13px] text-gray-800 leading-[1.4] whitespace-nowrap";
+export const METADATA_VALUE_STYLE: React.CSSProperties = {
+  fontFamily: "Inter, 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+  letterSpacing: '-0.01em'
+};
+```
+
+**Expected Impact:** ~40% reduction in inline class duplication
+
+### Phase 2: Create Wrapper Components
+
+Focus on highest-reuse patterns:
+1. FormField component (wraps label + input)
+2. Alert component (success/error/warning/info variants)
+3. Badge component (color variants)
+4. IconButton component
+
+**Timeline:** 2-3 days
+
+### Phase 3: Gradual Migration
+
+Migrate components in priority order:
+1. Shared components (Button, Modal already done)
+2. Form components (highest reuse)
+3. Page components (EntityDetailPage, EntityMainPage)
+
+**Timeline:** 3-5 days
+
+---
+
+## Statistics & Coverage
+
+**Codebase Analysis:**
+- Total Files Analyzed: 141+
+  - Component Files: 71
+  - Page Files: 70+
+- Styling Patterns Documented: 50+
+- Reusable Constants Identified: 15+
+- Code Examples Provided: 100+
+
+**Pattern Frequency:**
+- Button patterns: 100+ occurrences
+- Input patterns: 50+ occurrences
+- Flex layouts: 200+ occurrences
+- Card patterns: 80+ occurrences
+- Badge patterns: 40+ occurrences
+- Alert patterns: 30+ occurrences
+- Icon button patterns: 60+ occurrences
+
+**Consolidation Opportunity:** ~40% of inline styles can be replaced with constants
+
+---
+
+## Related Documentation
+
+- **UI/UX Architecture:** `/docs/ui_ux_route_api.md`
+- **Component System:** `/docs/COMPONENTS.md` (future)
+- **Data Model:** `/docs/datamodel.md`
+- **Unified Linkage:** `/docs/UnifiedLinkageSystem.md`
+
+---
+
+## Additional Reference Files
+
+For deeper analysis and implementation roadmap:
+- **Detailed Patterns Guide:** `/docs/STYLING_PATTERNS_GUIDE.md` (1,239 lines)
+- **Quick Reference:** `/docs/STYLING_QUICK_REFERENCE.md` (448 lines)
+- **Implementation Roadmap:** `/docs/STYLING_IMPLEMENTATION_ROADMAP.md` (552 lines)
+- **README:** `/docs/README_STYLING.md`
+
+---
+
+**Last Updated:** 2025-10-27
+**Version:** 3.0
+**Maintained By:** PMO Platform Team
+**Questions?** Check implementation examples in `/apps/web/src/components/`

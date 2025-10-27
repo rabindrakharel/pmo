@@ -385,11 +385,44 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
     );
   }, [availableEntities, searchQuery]);
 
-  const modalTitle = mode === 'assign-parent'
-    ? `Assign Parent to ${childEntityName || childEntityType || 'Entity'}`
-    : `Manage Children for ${parentEntityName || parentEntityType || 'Entity'}`;
+  const entityLabel = mode === 'assign-parent' ? 'Assign to' : 'Child Type';
 
-  const entityLabel = mode === 'assign-parent' ? 'Parent Type' : 'Child Type';
+  // Generate dynamic hover text for link action
+  const getLinkActionTitle = (): string => {
+    if (mode === 'assign-parent' && selectedEntityType) {
+      const entityName = getEntityLabel(selectedEntityType).toLowerCase();
+      return `Assign this ${entityName}`;
+    } else if (mode === 'manage-children' && selectedEntityType) {
+      const entityName = getEntityLabel(selectedEntityType).toLowerCase();
+      return `Link this ${entityName}`;
+    }
+    return 'Link this entity';
+  };
+
+  // Generate the info text with all entity types
+  const getInfoText = (): string => {
+    const entityNames = validEntityTypes.map(type => getEntityLabel(type).toLowerCase());
+
+    let entityTypesList = '';
+    if (entityNames.length === 0) {
+      entityTypesList = '';
+    } else if (entityNames.length === 1) {
+      entityTypesList = entityNames[0];
+    } else if (entityNames.length === 2) {
+      entityTypesList = `${entityNames[0]} and ${entityNames[1]}`;
+    } else {
+      // 3 or more: use Oxford comma
+      const allButLast = entityNames.slice(0, -1).join(', ');
+      const last = entityNames[entityNames.length - 1];
+      entityTypesList = `${allButLast}, and ${last}`;
+    }
+
+    if (mode === 'assign-parent') {
+      return entityTypesList ? `Assigning ${entityTypesList} for:` : 'Assigning parents for:';
+    } else {
+      return entityTypesList ? `Managing ${entityTypesList} for:` : 'Managing children of:';
+    }
+  };
 
   // ============================================================================
   // RENDER
@@ -399,7 +432,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={modalTitle}
+      title=""
       size="xl"
       footer={
         <Button variant="secondary" onClick={onClose}>
@@ -411,7 +444,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
         {/* Entity Info */}
         <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
           <p className="text-xs text-gray-600 mb-0.5">
-            {mode === 'assign-parent' ? 'Managing parents for:' : 'Managing children of:'}
+            {getInfoText()}
           </p>
           <p className="text-sm font-medium text-gray-900">
             {mode === 'assign-parent' ? childEntityName : parentEntityName}
@@ -568,7 +601,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
                               <button
                                 onClick={() => handleLink(entity.id)}
                                 className="inline-flex items-center justify-center p-1 rounded hover:bg-green-100 transition-colors"
-                                title="Link this entity"
+                                title={getLinkActionTitle()}
                               >
                                 <Plus className="h-3.5 w-3.5 text-green-600 stroke-[2]" />
                               </button>

@@ -30,9 +30,10 @@ import {
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { useFullscreen } from '../../../contexts/FullscreenContext';
-import { FloatingFullscreenToggle } from '../toggle/FloatingFullscreenToggle';
+import { useSidebar } from '../../../contexts/SidebarContext';
+import { useNavigationHistory } from '../../../contexts/NavigationHistoryContext';
 import { CreateButton } from '../button/CreateButton';
+import { NavigationBreadcrumb } from '../navigation/NavigationBreadcrumb';
 
 interface CreateButtonConfig {
   label: string;
@@ -42,18 +43,19 @@ interface CreateButtonConfig {
 
 interface LayoutProps {
   children: ReactNode;
-  fullscreenHeader?: ReactNode;
-  hideFloatingToggle?: boolean;
   createButton?: CreateButtonConfig;
 }
 
-export function Layout({ children, fullscreenHeader, hideFloatingToggle = false, createButton }: LayoutProps) {
+export function Layout({ children, createButton }: LayoutProps) {
   const { user, logout } = useAuth();
-  const { isFullscreen } = useFullscreen();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const { isVisible, isCollapsed, collapseSidebar, uncollapseSidebar } = useSidebar();
+  const { history } = useNavigationHistory();
   const [currentPage, setCurrentPage] = useState(window.location.pathname);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Show navigation breadcrumb when there's history and sidebar is hidden
+  const showNavigationBreadcrumb = history.length > 0 && !isVisible;
 
   const handleLogout = async () => {
     await logout();
@@ -121,16 +123,9 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
   };
 
   return (
-    <div className={`${isFullscreen ? 'min-h-screen' : 'h-screen'} bg-gray-50 flex ${isFullscreen ? 'flex-col' : ''}`}>
-      {/* Fullscreen Header (only in fullscreen mode) */}
-      {isFullscreen && fullscreenHeader && (
-        <div className="bg-white shadow-sm border-b border-gray-200">
-          {fullscreenHeader}
-        </div>
-      )}
-
-      {/* Collapsible Sidebar (hidden in fullscreen) */}
-      {!isFullscreen && (
+    <div className="h-screen bg-gray-50 flex">
+      {/* Collapsible Sidebar */}
+      {isVisible && (
         <div className={`${isCollapsed ? 'w-16' : 'w-64'} bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col`}>
         <div className="flex flex-col h-full">
           {/* Logo and Collapse Button */}
@@ -145,7 +140,7 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
             </div>
             {!isCollapsed && (
               <button
-                onClick={() => setIsCollapsed(true)}
+                onClick={collapseSidebar}
                 className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200"
               >
                 <ChevronLeft className="h-4 w-4 stroke-[1.5]" />
@@ -157,7 +152,7 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
           {isCollapsed && (
             <div className="px-2 py-3 border-b border-gray-200">
               <button
-                onClick={() => setIsCollapsed(false)}
+                onClick={uncollapseSidebar}
                 className="w-full p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200 flex justify-center"
               >
                 <Menu className="h-4 w-4 stroke-[1.5]" />
@@ -367,15 +362,16 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
       </div>
       )}
 
+      {/* Navigation Breadcrumb - Shows when sidebar is hidden */}
+      {showNavigationBreadcrumb && <NavigationBreadcrumb />}
+
       {/* Main content area - always present */}
-      <div className={`flex-1 flex flex-col overflow-hidden ${isFullscreen ? '' : ''}`}>
-        {/* Header Bar (only in normal mode) */}
-        {!isFullscreen && (
-          <header className="bg-white border-b border-gray-200 px-6 py-4">
-            <div className="flex items-center justify-end">
-            </div>
-          </header>
-        )}
+      <div className={`flex-1 flex flex-col overflow-hidden ${showNavigationBreadcrumb ? 'ml-48' : ''}`}>
+        {/* Header Bar */}
+        <header className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-end">
+          </div>
+        </header>
 
         {/* Page content - this is the key part that must stay mounted */}
         <main className="flex-1 overflow-hidden bg-gray-50 p-4">
@@ -393,9 +389,6 @@ export function Layout({ children, fullscreenHeader, hideFloatingToggle = false,
           {children}
         </main>
       </div>
-
-      {/* Floating Fullscreen Toggle */}
-      {!hideFloatingToggle && <FloatingFullscreenToggle position="bottom-right" />}
     </div>
   );
 }

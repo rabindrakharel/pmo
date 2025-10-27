@@ -2,8 +2,8 @@
 
 > **Reusable Entity Relationship Management** - Single modal component with LinkagePage-style UI handling all parent-child linkage scenarios across the PMO platform
 
-**Last Updated:** 2025-10-24
-**Version:** 2.0.0 (Updated with button-based entity selection UI)
+**Last Updated:** 2025-10-27
+**Version:** 2.1.0 (Added dual relationship handling + parent-action entity routes)
 
 ---
 
@@ -15,8 +15,10 @@
 4. [Usage Examples](#usage-examples)
 5. [Database Schema](#database-schema)
 6. [API Endpoints](#api-endpoints)
+   - [Parent-Action Entity Routes (NEW v2.1.0)](#6-parent-action-entity-routes-new-v210)
 7. [Migration Guide](#migration-guide)
 8. [Best Practices](#best-practices)
+9. [Recent Changes](#recent-changes)
 
 ---
 
@@ -569,6 +571,111 @@ GET /api/v1/linkage/parents/task
 
 **Source:** Queries `d_entity_map` table
 
+### 6. Parent-Action Entity Routes (NEW v2.1.0)
+
+**Added:** 2025-10-27
+
+The platform now includes unified parent-child entity endpoints that automatically handle both foreign key and linkage-based relationships:
+
+```http
+GET /api/v1/:parentEntity/:parentId/:actionEntity
+```
+
+**Examples:**
+```http
+# Foreign key relationship (task.project_id → project.id)
+GET /api/v1/project/uuid/task?page=1&limit=20
+
+# Linkage relationship (via d_entity_id_map)
+GET /api/v1/task/uuid/form?page=1&limit=20
+GET /api/v1/task/uuid/artifact?page=1&limit=20
+GET /api/v1/project/uuid/wiki?page=1&limit=20
+```
+
+**Query Parameters:**
+- `page` - Page number (default: 1)
+- `limit` - Items per page (max: 100)
+- `search` - Full-text search across name/description
+- `active` - Filter by active status (true/false)
+- `sortBy` - Sort field (default: name)
+- `sortOrder` - Sort direction (asc/desc)
+
+**Response Format:**
+```json
+{
+  "data": [
+    { /* child entity objects */ }
+  ],
+  "total": 25,
+  "limit": 20,
+  "offset": 0,
+  "parent_info": {
+    "entity_type": "task",
+    "entity_id": "uuid",
+    "entity_name": "Task Name"
+  }
+}
+```
+
+**Automatic Relationship Detection:**
+
+The endpoint automatically determines whether to use foreign key or linkage based on the `RELATIONSHIP_MAP` configuration:
+
+**Foreign Key Relationships:**
+- project → task, form
+- biz → project, task, form, client, employee
+- worksite → task, form, employee
+- org → worksite, employee
+- client → task
+
+**Linkage Relationships (via d_entity_id_map):**
+- project → wiki, artifact
+- biz → wiki, artifact
+- task → form, artifact
+- hr → role
+- role → employee
+- client → project
+
+**Implementation Details:**
+
+```typescript
+// Configuration in parent-action-entity-routes.ts
+const RELATIONSHIP_MAP = {
+  'task': {
+    'form': { type: 'linkage' },
+    'artifact': { type: 'linkage' }
+  },
+  'project': {
+    'task': { type: 'foreign_key', foreignKeyColumn: 'project_id' },
+    'form': { type: 'foreign_key', foreignKeyColumn: 'project_id' },
+    'wiki': { type: 'linkage' },
+    'artifact': { type: 'linkage' }
+  }
+  // ... more relationships
+};
+```
+
+**Usage in Frontend:**
+
+```typescript
+// Fetch tasks in a project (foreign key)
+const response = await fetch(
+  `/api/v1/project/${projectId}/task?page=1&limit=20`,
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+
+// Fetch forms linked to a task (linkage)
+const response = await fetch(
+  `/api/v1/task/${taskId}/form?page=1&limit=20`,
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+```
+
+**RBAC Enforcement:**
+- Requires view permission (0) on both parent and child entities
+- Only returns child entities user has permission to view
+- Filters results based on `entity_id_rbac_map`
+
 ### Important: API Endpoint Mapping
 
 Some entity types use different API endpoints than their entity type name:
@@ -932,37 +1039,80 @@ The **Unified Linkage System** provides:
 ✅ **Single Reusable Modal** - One component for all linkage scenarios
 ✅ **Two Modes** - Assign parent OR manage children
 ✅ **Unified API** - All operations use `/api/v1/linkage` endpoints
+✅ **Parent-Action Routes (NEW)** - Automatic child entity listing with `/api/v1/:parent/:id/:child`
+✅ **Dual Relationship Handling** - Foreign key AND linkage-based relationships
 ✅ **Type Safety** - Validates against `d_entity_map` rules
 ✅ **RBAC Integration** - Respects entity permissions
 ✅ **Easy Integration** - Simple hook-based API
 ✅ **Consistent UX** - Same experience across all entity types
+✅ **SQL Security** - Parameterized queries prevent injection attacks
 
 **Key Files:**
 - `/apps/web/src/components/shared/modal/UnifiedLinkageModal.tsx` - Main component
 - `/apps/web/src/hooks/useLinkageModal.ts` - Custom hook
-- `/apps/api/src/modules/linkage/routes.ts` - API endpoints
+- `/apps/api/src/modules/linkage/routes.ts` - Linkage API endpoints
+- `/apps/api/src/modules/entity/parent-action-entity-routes.ts` - Parent-child endpoints (NEW)
 - `/db/29_d_entity_map.ddl` - Type relationships
 - `/db/33_d_entity_id_map.ddl` - Instance linkages
 
+**New in v2.1.0:**
+- 40+ parent-child endpoint combinations
+- Automatic foreign_key vs linkage detection
+- Comprehensive RELATIONSHIP_MAP configuration
+- Fixed 401 errors on child entity tabs
+- SQL injection vulnerability patched
+
 **Next Steps:**
-1. Integrate into EntityDetailPage for all entity types
-2. Add to table row actions in EntityMainPage
-3. Replace existing LinkModal usages
+1. ✅ Integrate into EntityDetailPage for all entity types (DONE)
+2. ✅ Parent-action routes for direct child access (DONE)
+3. Add to table row actions in EntityMainPage
 4. Test with all entity combinations
 5. Monitor usage and gather feedback
 
 ---
 
-## Recent Changes (v2.0.0)
+## Recent Changes
 
-### UI/UX Updates
+### v2.1.0 (2025-10-27)
+
+#### New Features
+- **Parent-Action Entity Routes** - Unified endpoints for listing child entities within parent context
+  - Automatic relationship detection (foreign_key vs linkage)
+  - Comprehensive RELATIONSHIP_MAP configuration
+  - Single endpoint pattern: `/api/v1/:parentEntity/:parentId/:actionEntity`
+  - Supports pagination, search, filtering, and sorting
+  - RBAC-enforced access control
+
+#### Technical Updates
+- **Dual Query Strategy** - Automatically selects optimal query approach:
+  - Foreign Key: Direct JOIN via FK column (e.g., `task.project_id`)
+  - Linkage: JOIN through `app.d_entity_id_map` table (e.g., task→form)
+- **SQL Security** - All queries use parameterized statements to prevent SQL injection
+- **Schema Flexibility** - JSONB fields validated flexibly to support dynamic entity data
+- **Authentication** - Added `preHandler: [fastify.authenticate]` to all parent-child endpoints
+
+#### Bug Fixes
+- Fixed 401 authentication errors on child entity tab loading
+- Fixed SQL injection vulnerability in artifact update endpoint
+- Corrected linkage table reference (`app.d_entity_id_map`)
+- Fixed missing task→form, task→artifact relationship support
+
+#### API Enhancements
+- 40+ new parent-child endpoint combinations
+- Comprehensive query parameter support
+- Automatic relationship type detection
+- Consistent response format across all endpoints
+
+### v2.0.0 (2025-10-24)
+
+#### UI/UX Updates
 - **Replaced dropdown with button-based entity selector** - Matches LinkagePage UI exactly
 - **Added entity type icons** - Visual indicators for Office, Business, Client, Project, Task, etc.
 - **Updated table styling** - Smaller padding (`px-3 py-1.5`), smaller fonts (`text-xs`)
 - **Refined search bar** - Compact design matching LinkagePage
 - **Improved visual hierarchy** - Blue highlights for selected buttons and linked rows
 
-### Technical Updates
+#### Technical Updates
 - **Added helper functions:**
   - `getEntityLabel()` - Get display name for entity type
   - `getEntityIconComponent()` - Get Lucide icon for entity type
@@ -973,7 +1123,7 @@ The **Unified Linkage System** provides:
 - **Updated API limit:** Changed from 200 to 100 (API maximum)
 - **Restored LinkagePage:** Full-page split-panel interface at `/linkage`
 
-### Migration Notes
+#### Migration Notes
 If you're using UnifiedLinkageModal from before v2.0.0:
 - No prop changes required - fully backward compatible
 - UI will automatically update to button-based selector
@@ -982,6 +1132,6 @@ If you're using UnifiedLinkageModal from before v2.0.0:
 
 ---
 
-**Last Updated:** 2025-10-24
-**Version:** 2.0.0
+**Last Updated:** 2025-10-27
+**Version:** 2.1.0
 **Maintainer:** PMO Platform Team

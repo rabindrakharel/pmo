@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus } from 'lucide-react';
-import { FilteredDataTable, ViewSwitcher, EntityEditModal } from '../../components/shared';
+import { FilteredDataTable, ViewSwitcher } from '../../components/shared';
 import { KanbanView } from '../../components/shared/ui/KanbanView';
 import { GridView } from '../../components/shared/ui/GridView';
 import { useViewMode } from '../../lib/hooks/useViewMode';
@@ -46,8 +46,6 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [parentData, setParentData] = useState<any>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
 
   // Fetch parent data for breadcrumb/header
   useEffect(() => {
@@ -112,11 +110,11 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
   };
 
   /**
-   * Create-then-link-then-edit workflow (Using Existing APIs)
+   * Create-then-link-then-redirect workflow (Using Existing APIs)
    *
    * Step 1: Create minimal child entity using existing universal create endpoint
    * Step 2: Create parent-child linkage using existing linkage API
-   * Step 3: Navigate to child entity detail page for editing
+   * Step 3: Redirect to entity edit page (special edit pages for form/wiki, detail page for others)
    */
   const handleCreateClick = async () => {
     try {
@@ -124,7 +122,7 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
       const token = localStorage.getItem('auth_token');
 
       // STEP 1: Create child entity with minimal/empty data
-      // User will fill in all fields via the edit modal
+      // User will fill in all fields on the edit page
       const timestamp = Date.now();
       const createResponse = await fetch(
         `${API_BASE_URL}/api/v1/${childType}`,
@@ -135,7 +133,7 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            name: 'Untitled',  // Minimal placeholder - user will replace in modal
+            name: 'Untitled',  // Minimal placeholder - user will replace on edit page
             code: `${childType.toUpperCase()}-${timestamp}`,  // Auto-generated unique code
             slug: `${childType}-${timestamp}`,  // Auto-generated unique slug
             descr: '',  // Empty - user will provide
@@ -177,9 +175,17 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
         // Don't throw - entity is created, linkage can be fixed later
       }
 
-      // STEP 3: Open modal to edit the newly created entity
-      setEditingEntityId(newEntityId);
-      setIsEditModalOpen(true);
+      // STEP 3: Redirect to appropriate edit page based on entity type
+      if (childType === 'form') {
+        // Form has special edit page
+        navigate(`/form/${newEntityId}/edit`);
+      } else if (childType === 'wiki') {
+        // Wiki has special editor page
+        navigate(`/wiki/${newEntityId}/edit`);
+      } else {
+        // All other entities go to detail page with auto-edit mode enabled
+        navigate(`/${childType}/${newEntityId}`, { state: { autoEdit: true } });
+      }
 
     } catch (err) {
       console.error(`Failed to create ${childType}:`, err);
@@ -350,27 +356,6 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
           {renderContent()}
         </div>
       </div>
-
-      {/* Entity Edit Modal */}
-      {editingEntityId && (
-        <EntityEditModal
-          entityType={childType}
-          entityId={editingEntityId}
-          isOpen={isEditModalOpen}
-          onClose={() => {
-            setIsEditModalOpen(false);
-            setEditingEntityId(null);
-          }}
-          onSave={() => {
-            // Refresh the child list after save
-            if (view !== 'table') {
-              loadChildData();
-            }
-            setIsEditModalOpen(false);
-            setEditingEntityId(null);
-          }}
-        />
-      )}
     </>
   );
 }
