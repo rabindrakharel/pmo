@@ -41,11 +41,11 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
           const label = f.label || f.name;
           return (
             <div key={f.id} className="flex flex-col">
-              <div className="flex items-center space-x-2 mb-1">
+              <div className="flex items-center space-x-2 mb-1.5">
                 <div className="flex-shrink-0 text-blue-600">
                   {getFieldIcon(f.type)}
                 </div>
-                <label className="text-xs text-gray-600">{label}{f.required && ' *'}</label>
+                <label className="text-sm font-medium text-gray-700">{label}{f.required && ' *'}</label>
               </div>
               
               {/* Render actual field previews based on type */}

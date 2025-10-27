@@ -1159,7 +1159,7 @@ export function InteractiveForm({
                 <div className="flex-shrink-0 text-blue-600">
                   {getFieldIcon(field.type)}
                 </div>
-                <label className="text-sm font-normal text-gray-700">
+                <label className="text-sm font-medium text-gray-700">
                   {label}
                   {field.required && <span className="text-red-500 ml-1">*</span>}
                 </label>

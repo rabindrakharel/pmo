@@ -106,7 +106,8 @@
       "Bash(timeout 3 ./tools/logs-api.sh:*)",
       "Bash(timeout 3 ./tools/logs-web.sh:*)",
       "Bash(bash:*)",
-      "Bash(timeout 2 ./tools/logs-api.sh:*)"
+      "Bash(timeout 2 ./tools/logs-api.sh:*)",
+      "Bash(timeout 3 tail:*)"
     ],
     "deny": [],
     "ask": [],

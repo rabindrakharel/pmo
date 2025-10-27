@@ -1956,7 +1956,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
         <div className="flex flex-col">
-          <label className="text-xs font-light text-gray-500 mb-1">Label</label>
+          <label className="text-xs font-medium text-gray-700 mb-1">Label</label>
           <input
             value={field.label}
             onChange={(e) => onChange({ label: e.target.value })}
@@ -1964,7 +1964,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
           />
         </div>
         <div className="flex flex-col">
-          <label className="text-xs font-light text-gray-500 mb-1">Name</label>
+          <label className="text-xs font-medium text-gray-700 mb-1">Name</label>
           <input
             value={field.name}
             onChange={(e) => onChange({ name: e.target.value })}
@@ -1979,13 +1979,13 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
             onChange={(e) => onChange({ required: e.target.checked })}
             className="rounded text-blue-600"
           />
-          <label htmlFor={`req-${field.id}`} className="text-xs font-light text-gray-500">Required</label>
+          <label htmlFor={`req-${field.id}`} className="text-xs font-medium text-gray-700">Required</label>
         </div>
-        
+
         {/* Placeholder field for most input types */}
         {(['text', 'email', 'phone', 'url', 'textarea', 'number', 'signature', 'initials', 'address', 'geolocation', 'datetime', 'image_capture', 'video_capture', 'qr_scanner', 'barcode_scanner', 'wiki', 'currency', 'date', 'time', 'percentage'].includes(field.type)) && (
           <div className="md:col-span-3 flex flex-col">
-            <label className="text-xs font-light text-gray-500 mb-1">Placeholder</label>
+            <label className="text-xs font-medium text-gray-700 mb-1">Placeholder</label>
             <input
               value={field.placeholder || ''}
               onChange={(e) => onChange({ placeholder: e.target.value })}
@@ -2007,7 +2007,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 onChange={(e) => onChange({ useDynamicOptions: e.target.checked })}
                 className="rounded text-blue-600"
               />
-              <label htmlFor={`dynamic-${field.id}`} className="text-sm font-normal text-gray-700">
+              <label htmlFor={`dynamic-${field.id}`} className="text-xs font-medium text-gray-700">
                 Load options from datalabel table
               </label>
             </div>
@@ -2017,7 +2017,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               <>
                 <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="flex flex-col">
-                    <label className="text-xs font-light text-gray-500 mb-1">Datalabel Table</label>
+                    <label className="text-xs font-medium text-gray-700 mb-1">Datalabel Table</label>
                     <select
                       value={field.datalabelTable || ''}
                       onChange={(e) => onChange({ datalabelTable: e.target.value })}
@@ -2055,7 +2055,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                   </div>
 
                   <div className="flex flex-col">
-                    <label className="text-xs font-light text-gray-500 mb-1">Value Column</label>
+                    <label className="text-xs font-medium text-gray-700 mb-1">Value Column</label>
                     <select
                       value={field.datalabelValueColumn || ''}
                       onChange={(e) => onChange({ datalabelValueColumn: e.target.value })}
@@ -2072,7 +2072,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                   </div>
 
                   <div className="flex flex-col">
-                    <label className="text-xs font-light text-gray-500 mb-1">Display Column</label>
+                    <label className="text-xs font-medium text-gray-700 mb-1">Display Column</label>
                     <select
                       value={field.datalabelDisplayColumn || ''}
                       onChange={(e) => onChange({ datalabelDisplayColumn: e.target.value })}
@@ -2111,7 +2111,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
             ) : (
               /* Static Options Input */
               <div className="md:col-span-3 flex flex-col">
-                <label className="text-xs font-light text-gray-500 mb-1">Options (comma separated)</label>
+                <label className="text-xs font-medium text-gray-700 mb-1">Options (comma separated)</label>
                 <input
                   value={(field.options || []).join(', ')}
                   onChange={(e) => {
@@ -2135,7 +2135,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         {field.type === 'range' && (
           <>
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Min Value</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Min Value</label>
               <input
                 type="number"
                 value={field.min || 0}
@@ -2144,7 +2144,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Max Value</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Max Value</label>
               <input
                 type="number"
                 value={field.max || 100}
@@ -2153,7 +2153,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Step</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Step</label>
               <input
                 type="number"
                 value={field.step || 1}
@@ -2168,7 +2168,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         {field.type === 'number' && (
           <>
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Min Value</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Min Value</label>
               <input
                 type="number"
                 value={field.min || ''}
@@ -2178,7 +2178,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Max Value</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Max Value</label>
               <input
                 type="number"
                 value={field.max || ''}
@@ -2188,7 +2188,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Step</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Step</label>
               <input
                 type="number"
                 value={field.step || ''}
@@ -2204,7 +2204,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         {field.type === 'file' && (
           <>
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Accept</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Accept</label>
               <input
                 value={field.accept || '*'}
                 onChange={(e) => onChange({ accept: e.target.value })}
@@ -2239,7 +2239,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               <label htmlFor={`time-select-${field.id}`} className="text-xs font-light text-gray-500">Show time picker</label>
             </div>
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Date Format</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Date Format</label>
               <select
                 value={field.dateFormat || 'MMM d, yyyy h:mm aa'}
                 onChange={(e) => onChange({ dateFormat: e.target.value })}
@@ -2260,7 +2260,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         {field.type === 'wiki' && (
           <>
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Wiki Title</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Wiki Title</label>
               <input
                 value={field.wikiTitle || 'Documentation'}
                 onChange={(e) => onChange({ wikiTitle: e.target.value })}
@@ -2269,7 +2269,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Editor Height (px)</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Editor Height (px)</label>
               <input
                 type="number"
                 value={field.wikiHeight || 400}
@@ -2300,7 +2300,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         {field.type === 'datatable' && (
           <>
             <div className="md:col-span-3 flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Table Name (for data storage)</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Table Name (for data storage)</label>
               <input
                 value={field.dataTableName || ''}
                 onChange={(e) => onChange({ dataTableName: e.target.value })}
@@ -2342,7 +2342,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         {field.type === 'currency' && (
           <>
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Currency Symbol</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Currency Symbol</label>
               <input
                 value={field.currencySymbol || '$'}
                 onChange={(e) => onChange({ currencySymbol: e.target.value })}
@@ -2351,7 +2351,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Currency Code</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Currency Code</label>
               <select
                 value={field.currencyCode || 'USD'}
                 onChange={(e) => onChange({ currencyCode: e.target.value })}
@@ -2371,7 +2371,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         {field.type === 'rating' && (
           <>
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Max Rating</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Max Rating</label>
               <input
                 type="number"
                 value={field.maxRating || 5}
@@ -2382,7 +2382,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Icon Type</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Icon Type</label>
               <select
                 value={field.ratingIcon || 'star'}
                 onChange={(e) => onChange({ ratingIcon: e.target.value as 'star' | 'heart' | 'thumb' })}
@@ -2399,7 +2399,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         {/* Duration field configuration */}
         {field.type === 'duration' && (
           <div className="md:col-span-3 flex flex-col">
-            <label className="text-xs font-light text-gray-500 mb-1">Format</label>
+            <label className="text-xs font-medium text-gray-700 mb-1">Format</label>
             <select
               value={field.durationFormat || 'hours_minutes'}
               onChange={(e) => onChange({ durationFormat: e.target.value as 'hours_minutes' | 'minutes' | 'hours' })}
@@ -2416,7 +2416,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         {field.type === 'percentage' && (
           <>
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Min %</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Min %</label>
               <input
                 type="number"
                 value={field.percentageMin ?? 0}
@@ -2425,7 +2425,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Max %</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Max %</label>
               <input
                 type="number"
                 value={field.percentageMax ?? 100}
@@ -2440,7 +2440,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         {field.type === 'calculation' && (
           <>
             <div className="md:col-span-3 flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Calculation Mode</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Calculation Mode</label>
               <select
                 value={field.calculationMode || 'simple'}
                 onChange={(e) => onChange({ calculationMode: e.target.value as 'simple' | 'expression' })}
@@ -2478,7 +2478,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                   </div>
                 )}
                 <div className="md:col-span-3 flex flex-col">
-                  <label className="text-xs font-light text-gray-500 mb-1">JavaScript Expression</label>
+                  <label className="text-xs font-medium text-gray-700 mb-1">JavaScript Expression</label>
                   <textarea
                     value={field.calculationExpression || ''}
                     onChange={(e) => onChange({ calculationExpression: e.target.value })}
@@ -2510,7 +2510,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
             ) : (
               <>
                 <div className="md:col-span-3 flex flex-col">
-                  <label className="text-xs font-light text-gray-500 mb-1">Operation</label>
+                  <label className="text-xs font-medium text-gray-700 mb-1">Operation</label>
                   <select
                     value={field.calculationOperation || 'sum'}
                     onChange={(e) => onChange({ calculationOperation: e.target.value as 'sum' | 'subtract' | 'multiply' | 'divide' | 'average' | 'min' | 'max' })}
@@ -2526,7 +2526,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                   </select>
                 </div>
                 <div className="md:col-span-3 flex flex-col">
-                  <label className="text-xs font-light text-gray-500 mb-1">Field Names to Calculate (comma-separated)</label>
+                  <label className="text-xs font-medium text-gray-700 mb-1">Field Names to Calculate (comma-separated)</label>
                   <input
                     value={(field.calculationFields || []).join(', ')}
                     onChange={(e) => {
@@ -2552,7 +2552,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
         {field.type === 'menu_button' && (
           <>
             <div className="md:col-span-3 flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Menu Type</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Menu Type</label>
               <select
                 value={field.menuButtonType || 'single'}
                 onChange={(e) => onChange({ menuButtonType: e.target.value as 'single' | 'dropdown' })}
@@ -2564,7 +2564,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
             </div>
 
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Button Style</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Button Style</label>
               <select
                 value={field.menuButtonStyle || 'primary'}
                 onChange={(e) => onChange({ menuButtonStyle: e.target.value as 'primary' | 'secondary' | 'outline' })}
@@ -2577,7 +2577,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
             </div>
 
             <div className="flex flex-col">
-              <label className="text-xs font-light text-gray-500 mb-1">Button Size</label>
+              <label className="text-xs font-medium text-gray-700 mb-1">Button Size</label>
               <select
                 value={field.menuButtonSize || 'md'}
                 onChange={(e) => onChange({ menuButtonSize: e.target.value as 'sm' | 'md' | 'lg' })}
@@ -2612,7 +2612,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="flex flex-col">
-                      <label className="text-xs font-light text-gray-500 mb-1">Label</label>
+                      <label className="text-xs font-medium text-gray-700 mb-1">Label</label>
                       <input
                         value={item.label}
                         onChange={(e) => {
@@ -2625,7 +2625,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                       />
                     </div>
                     <div className="flex flex-col">
-                      <label className="text-xs font-light text-gray-500 mb-1">URL</label>
+                      <label className="text-xs font-medium text-gray-700 mb-1">URL</label>
                       <input
                         value={item.url}
                         onChange={(e) => {
@@ -2640,7 +2640,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="flex flex-col">
-                      <label className="text-xs font-light text-gray-500 mb-1">Icon (emoji or lucide name)</label>
+                      <label className="text-xs font-medium text-gray-700 mb-1">Icon (emoji or lucide name)</label>
                       <input
                         value={item.icon || ''}
                         onChange={(e) => {
