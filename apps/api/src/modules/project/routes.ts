@@ -51,8 +51,8 @@ const CreateProjectSchema = Type.Object({
   descr: Type.Optional(Type.String()),
   tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String()])),
   metadata: Type.Optional(Type.Union([Type.Object({}), Type.String()])),
-  business_id: Type.Optional(Type.String({ format: 'uuid' })),
-  office_id: Type.Optional(Type.String({ format: 'uuid' })),
+  business_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
+  office_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
   project_stage: Type.Optional(Type.String()),
   budget_allocated: Type.Optional(Type.Number()),
   budget_spent: Type.Optional(Type.Number()),
@@ -60,9 +60,9 @@ const CreateProjectSchema = Type.Object({
   planned_end_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
   actual_start_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
   actual_end_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
-  manager_employee_id: Type.Optional(Type.String({ format: 'uuid' })),
-  sponsor_employee_id: Type.Optional(Type.String({ format: 'uuid' })),
-  stakeholder_employee_ids: Type.Optional(Type.Array(Type.String({ format: 'uuid' }))),
+  manager_employee_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
+  sponsor_employee_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
+  stakeholder_employee_ids: Type.Optional(Type.Union([Type.Array(Type.String({ format: 'uuid' })), Type.Null()])),
   active_flag: Type.Optional(Type.Boolean()),
 });
 
@@ -877,45 +877,42 @@ export async function projectRoutes(fastify: FastifyInstance) {
       }
 
       const updateFields = [];
-      
+
+      // Core fields matching d_project schema
       if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
-      if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
-      if (data.project_code !== undefined) updateFields.push(sql`project_code = ${data.project_code}`);
-      if (data.project_type !== undefined) updateFields.push(sql`project_type = ${data.project_type}`);
-      if (data.priority_level !== undefined) updateFields.push(sql`priority_level = ${data.priority_level}`);
+      if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
+      if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
       if (data.slug !== undefined) updateFields.push(sql`slug = ${data.slug}`);
+      if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
+      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
+
+      // Project fields
+      if (data.project_stage !== undefined) updateFields.push(sql`project_stage = ${data.project_stage}`);
       if (data.budget_allocated !== undefined) updateFields.push(sql`budget_allocated = ${data.budget_allocated}`);
-      if (data.budget_currency !== undefined) updateFields.push(sql`budget_currency = ${data.budget_currency}`);
-      if (data.biz_id !== undefined) updateFields.push(sql`biz_id = ${data.biz_id}`);
-      if (data.locations !== undefined) updateFields.push(sql`locations = ${JSON.stringify(data.locations)}::uuid[]`);
-      if (data.worksites !== undefined) updateFields.push(sql`worksites = ${JSON.stringify(data.worksites)}::uuid[]`);
-      if (data.project_managers !== undefined) updateFields.push(sql`project_managers = ${JSON.stringify(data.project_managers)}::uuid[]`);
-      if (data.project_sponsors !== undefined) updateFields.push(sql`project_sponsors = ${JSON.stringify(data.project_sponsors)}::uuid[]`);
-      if (data.project_leads !== undefined) updateFields.push(sql`project_leads = ${JSON.stringify(data.project_leads)}::uuid[]`);
-      if (data.clients !== undefined) updateFields.push(sql`clients = ${JSON.stringify(data.clients)}::jsonb`);
-      if (data.approvers !== undefined) updateFields.push(sql`approvers = ${JSON.stringify(data.approvers)}::uuid[]`);
+      if (data.budget_spent !== undefined) updateFields.push(sql`budget_spent = ${data.budget_spent}`);
       if (data.planned_start_date !== undefined) updateFields.push(sql`planned_start_date = ${data.planned_start_date}`);
       if (data.planned_end_date !== undefined) updateFields.push(sql`planned_end_date = ${data.planned_end_date}`);
       if (data.actual_start_date !== undefined) updateFields.push(sql`actual_start_date = ${data.actual_start_date}`);
       if (data.actual_end_date !== undefined) updateFields.push(sql`actual_end_date = ${data.actual_end_date}`);
-      if (data.milestones !== undefined) updateFields.push(sql`milestones = ${JSON.stringify(data.milestones)}::jsonb`);
-      if (data.deliverables !== undefined) updateFields.push(sql`deliverables = ${JSON.stringify(data.deliverables)}::jsonb`);
-      if (data.estimated_hours !== undefined) updateFields.push(sql`estimated_hours = ${data.estimated_hours}`);
-      if (data.actual_hours !== undefined) updateFields.push(sql`actual_hours = ${data.actual_hours}`);
-      if (data.project_stage !== undefined) updateFields.push(sql`project_stage = ${data.project_stage}`);
-      if (data.project_status !== undefined) updateFields.push(sql`project_status = ${data.project_status}`);
-      if (data.security_classification !== undefined) updateFields.push(sql`security_classification = ${data.security_classification}`);
-      if (data.compliance_requirements !== undefined) updateFields.push(sql`compliance_requirements = ${JSON.stringify(data.compliance_requirements)}::jsonb`);
-      if (data.risk_assessment !== undefined) updateFields.push(sql`risk_assessment = ${JSON.stringify(data.risk_assessment)}::jsonb`);
-      if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
-      if (data.attr !== undefined) updateFields.push(sql`attr = ${JSON.stringify(data.attr)}::jsonb`);
-      if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
+
+      // Team fields
+      if (data.manager_employee_id !== undefined) updateFields.push(sql`manager_employee_id = ${data.manager_employee_id}`);
+      if (data.sponsor_employee_id !== undefined) updateFields.push(sql`sponsor_employee_id = ${data.sponsor_employee_id}`);
+      if (data.stakeholder_employee_ids !== undefined) {
+        const stakeholderArray = data.stakeholder_employee_ids && data.stakeholder_employee_ids.length > 0
+          ? `{${data.stakeholder_employee_ids.join(',')}}`
+          : '{}';
+        updateFields.push(sql`stakeholder_employee_ids = ${stakeholderArray}::uuid[]`);
+      }
+
+      // Temporal fields
+      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      updateFields.push(sql`updated = NOW()`);
+      updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
         UPDATE app.d_project 

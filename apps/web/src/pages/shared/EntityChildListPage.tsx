@@ -117,6 +117,21 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
    * Step 3: Redirect to entity edit page (special edit pages for form/wiki, detail page for others)
    */
   const handleCreateClick = async () => {
+    // Entities that require file uploads or complex forms should go to dedicated create page
+    const requiresFullCreatePage = ['artifact', 'cost', 'revenue', 'form', 'wiki'];
+
+    if (requiresFullCreatePage.includes(childType)) {
+      // Navigate to full create page with parent context in state
+      navigate(`/${childType}/new`, {
+        state: {
+          parentType,
+          parentId,
+          returnTo: `/${parentType}/${parentId}/${childType}`
+        }
+      });
+      return;
+    }
+
     try {
       setLoading(true);
       const token = localStorage.getItem('auth_token');
@@ -175,17 +190,8 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
         // Don't throw - entity is created, linkage can be fixed later
       }
 
-      // STEP 3: Redirect to appropriate edit page based on entity type
-      if (childType === 'form') {
-        // Form has special edit page
-        navigate(`/form/${newEntityId}/edit`);
-      } else if (childType === 'wiki') {
-        // Wiki has special editor page
-        navigate(`/wiki/${newEntityId}/edit`);
-      } else {
-        // All other entities go to detail page with auto-edit mode enabled
-        navigate(`/${childType}/${newEntityId}`, { state: { autoEdit: true } });
-      }
+      // STEP 3: Redirect to detail page with auto-edit mode enabled
+      navigate(`/${childType}/${newEntityId}`, { state: { autoEdit: true } });
 
     } catch (err) {
       console.error(`Failed to create ${childType}:`, err);

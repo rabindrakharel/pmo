@@ -1,6 +1,8 @@
 # Settings & Data Labels - Complete Technical Documentation
 
 > **Configuration Engine** - Dynamic dropdown system powering entity fields, sequential state visualization, and workflow management
+>
+> **Last Updated:** 2025-10-28 (v2.3 - Auto-detection with Convention Over Configuration)
 
 ---
 
@@ -26,6 +28,7 @@
 - **Hierarchical categorization** for offices, businesses, and organizational structures
 - **Workflow standardization** ensuring consistent data across all entities
 - **Business flexibility** to adapt the system to changing organizational needs
+- **v2.3: Auto-detected inline editing** - Fields with `loadOptionsFromSettings` automatically become editable dropdowns (Convention Over Configuration)
 
 ### Business Workflows
 
@@ -392,7 +395,7 @@ export const entityConfigs = {
       {
         key: 'project_stage',
         title: 'Stage',
-        inlineEditable: true,
+        // ✅ v2.3: Auto-detected as editable dropdown (by _stage suffix + loadOptionsFromSettings)
         loadOptionsFromSettings: true  // ← Auto-loads from API
       }
     ],
@@ -411,7 +414,7 @@ export const entityConfigs = {
       {
         key: 'stage',
         title: 'Stage',
-        inlineEditable: true,
+        // ✅ v2.3: Auto-detected as editable dropdown (by name 'stage' + loadOptionsFromSettings)
         loadOptionsFromSettings: true,  // category=task_stage
         render: (value) => <Badge>{value}</Badge>
       }

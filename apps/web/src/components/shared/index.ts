@@ -26,6 +26,13 @@ export { FilteredDataTable } from './dataTable/FilteredDataTable';
 // ============================================================================
 export { DynamicChildEntityTabs, useDynamicChildEntityTabs } from './entity/DynamicChildEntityTabs';
 export { EntityFormContainer } from './entity/EntityFormContainer';
+export { MetadataField, MetadataRow, MetadataSeparator } from './entity/MetadataField';
+
+// ============================================================================
+// FILE COMPONENTS
+// ============================================================================
+export { FilePreview } from './file/FilePreview';
+export { DragDropFileUpload } from './file/DragDropFileUpload';
 
 // ============================================================================
 // SEARCH COMPONENTS

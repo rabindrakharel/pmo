@@ -807,6 +807,60 @@ export const shipmentApi = {
   },
 };
 
+export const costApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; cost_code?: string; invoice_currency?: string }) {
+    const response = await apiClient.get('/api/v1/cost', { params });
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/cost/${id}`);
+    return response.data;
+  },
+
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/cost', data);
+    return response.data;
+  },
+
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/cost/${id}`, data);
+    return response.data;
+  },
+
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/cost/${id}`);
+    return response.data;
+  },
+};
+
+export const revenueApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; revenue_code?: string; invoice_currency?: string }) {
+    const response = await apiClient.get('/api/v1/revenue', { params });
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/revenue/${id}`);
+    return response.data;
+  },
+
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/revenue', data);
+    return response.data;
+  },
+
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/revenue/${id}`, data);
+    return response.data;
+  },
+
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/revenue/${id}`);
+    return response.data;
+  },
+};
+
 // Entity Options API - Universal options for dropdowns/selects
 export const entityOptionsApi = {
   /**
@@ -898,6 +952,10 @@ APIFactory.register('inventory', inventoryApi);
 APIFactory.register('order', orderApi);
 APIFactory.register('invoice', invoiceApi);
 APIFactory.register('shipment', shipmentApi);
+
+// Financial
+APIFactory.register('cost', costApi);
+APIFactory.register('revenue', revenueApi);
 
 /**
  * Export the APIFactory for use in components

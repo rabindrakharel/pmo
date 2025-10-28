@@ -139,8 +139,12 @@ CREATE TABLE app.d_cost (
     exch_rate decimal(10,6) DEFAULT 1.0,                    -- Exchange rate for conversion
     cust_budgeted_amt_lcl decimal(15,2),                    -- Customer budgeted amount (local)
 
-    -- Attachment fields
-    invoice_attachment text,                                 -- S3 URI for invoice document
+    -- Standardized S3 Attachment Fields
+    attachment text,                                         -- Full S3 URI: s3://bucket/key
+    attachment_format varchar(20),                           -- File extension: pdf, png, jpg, svg, etc.
+    attachment_size_bytes bigint,                            -- File size in bytes
+    attachment_object_bucket varchar(100),                   -- S3 bucket name: 'pmo-attachments'
+    attachment_object_key varchar(500),                      -- S3 object key: costs/{id}/invoice.ext
 
     -- Temporal fields
     from_ts timestamptz DEFAULT now(),
@@ -244,6 +248,89 @@ INSERT INTO app.d_cost (
     125000.00, 125000.00, 'CAD', 1.0,
     130000.00, 's3://pmo-attachments/invoices/2024/10/inv-2024-005.pdf'
 );
+
+-- =====================================================
+-- REGISTER COSTS IN d_entity_id_map
+-- =====================================================
+
+-- Link all costs to their parent entities (projects)
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+SELECT
+    'project',
+    (c.metadata->>'project_id')::uuid,
+    'cost',
+    c.id,
+    'has_cost'
+FROM app.d_cost c
+WHERE c.metadata->>'project_id' IS NOT NULL
+  AND c.active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Link costs to businesses
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+SELECT
+    'biz',
+    (c.metadata->>'business_id')::uuid,
+    'cost',
+    c.id,
+    'has_cost'
+FROM app.d_cost c
+WHERE c.metadata->>'business_id' IS NOT NULL
+  AND c.active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Link costs to offices
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+SELECT
+    'office',
+    (c.metadata->>'office_id')::uuid,
+    'cost',
+    c.id,
+    'has_cost'
+FROM app.d_cost c
+WHERE c.metadata->>'office_id' IS NOT NULL
+  AND c.active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Link costs to tasks
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+SELECT
+    'task',
+    (c.metadata->>'task_id')::uuid,
+    'cost',
+    c.id,
+    'has_cost'
+FROM app.d_cost c
+WHERE c.metadata->>'task_id' IS NOT NULL
+  AND c.active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Link costs to customers
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+SELECT
+    'cust',
+    (c.metadata->>'customer_id')::uuid,
+    'cost',
+    c.id,
+    'has_cost'
+FROM app.d_cost c
+WHERE c.metadata->>'customer_id' IS NOT NULL
+  AND c.active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- =====================================================
+-- REGISTER COSTS IN d_entity_instance_id
+-- =====================================================
+
+INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
+SELECT 'cost', id, name, slug, code
+FROM app.d_cost
+WHERE active_flag = true
+ON CONFLICT (entity_type, entity_id) DO UPDATE
+SET entity_name = EXCLUDED.entity_name,
+    entity_slug = EXCLUDED.entity_slug,
+    entity_code = EXCLUDED.entity_code,
+    updated_ts = now();
 
 COMMENT ON TABLE app.d_cost IS 'Cost center entity for tracking project, task, and business costs with invoice management';
 COMMENT ON COLUMN app.d_cost.cost_amt_lcl IS 'Cost amount in local currency (primary reporting currency)';

@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import { s3AttachmentService } from '../../lib/s3-attachments.js';
 
 export async function invoiceRoutes(fastify: FastifyInstance) {
   // List invoices
@@ -148,6 +149,60 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     } catch (error) {
       fastify.log.error('Error updating invoice:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Presigned upload URL for invoice attachments
+  fastify.post('/api/v1/invoice/presigned-upload', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['invoice'],
+      summary: 'Generate presigned upload URL for invoice PDF attachment',
+      body: Type.Object({
+        filename: Type.String(),
+        contentType: Type.Optional(Type.String())
+      }),
+      response: {
+        200: Type.Object({
+          uploadUrl: Type.String(),
+          objectKey: Type.String()
+        })
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const { filename, contentType } = request.body as { filename: string; contentType?: string };
+      const userId = (request as any).user?.sub;
+
+      // Check RBAC permission for creating invoices
+      const rbacCheck = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map
+        WHERE empid = ${userId}
+          AND entity = 'invoice'
+          AND entity_id = 'all'
+          AND 4 = ANY(permission)
+      `);
+
+      if (rbacCheck.length === 0) {
+        return reply.code(403).send({ error: 'Permission denied to upload invoice attachments' });
+      }
+
+      // Generate presigned upload URL using s3AttachmentService
+      const result = await s3AttachmentService.generatePresignedUploadUrl({
+        tenantId: 'demo',
+        entityType: 'invoice',
+        entityId: 'temp-' + Date.now(), // Temporary ID, will be replaced when invoice is created
+        fileName: filename,
+        contentType: contentType || 'application/pdf'
+      });
+
+      return reply.send({
+        uploadUrl: result.url,
+        objectKey: result.objectKey
+      });
+    } catch (error: any) {
+      fastify.log.error(`Presigned upload error: ${error.message}`);
+      return reply.code(500).send({ error: 'Failed to generate upload URL' });
     }
   });
 

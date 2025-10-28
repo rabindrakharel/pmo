@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Outlet, useLocation } from 'react-router-dom';
 import { Edit2, Save, X, Palette, Download, Upload, CheckCircle, Copy, Check, Share2, Link as LinkIcon } from 'lucide-react';
-import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityFormContainer } from '../../components/shared';
+import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityFormContainer, FilePreview, DragDropFileUpload, MetadataField, MetadataRow, MetadataSeparator } from '../../components/shared';
 import { ExitButton } from '../../components/shared/button/ExitButton';
 import { ShareModal } from '../../components/shared/modal';
 import { UnifiedLinkageModal } from '../../components/shared/modal/UnifiedLinkageModal';
@@ -71,11 +71,6 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   const [uploadedObjectKey, setUploadedObjectKey] = useState<string | null>(null);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
 
-  // Preview state for artifacts
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [loadingPreview, setLoadingPreview] = useState(false);
-  const lastObjectKeyRef = React.useRef<string | null>(null);
-
   // Fetch dynamic child entity tabs from API
   const { tabs, loading: tabsLoading } = useDynamicChildEntityTabs(entityType, id || '');
 
@@ -89,38 +84,6 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   const submissionFromState = (location.state as any)?.submission || null;
   const currentChildEntity = pathParts.length > 2 ? pathParts[2] : null;
   const isOverviewTab = !currentChildEntity;
-
-  // Fetch preview URL function - defined early to avoid hoisting issues
-  const fetchPreviewUrl = React.useCallback(async () => {
-    if (entityType !== 'artifact' || !data?.object_key) {
-      console.log('Preview fetch skipped:', { entityType, hasObjectKey: !!data?.object_key });
-      return;
-    }
-
-    console.log('Fetching preview URL for artifact:', { id, objectKey: data.object_key, fileFormat: data.file_format });
-    setLoadingPreview(true);
-    try {
-      const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-
-      const response = await fetch(`${apiUrl}/api/v1/artifact/${id}/download`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to generate preview URL: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('Preview URL fetched successfully:', { url: result.url.substring(0, 100) + '...', fileName: result.fileName });
-      setPreviewUrl(result.url);
-    } catch (err) {
-      console.error('Preview URL fetch failed:', err);
-      setError('Failed to load preview');
-    } finally {
-      setLoadingPreview(false);
-    }
-  }, [entityType, data?.object_key, id]);
 
   // Prepare tabs with Overview as first tab - MUST be before any returns
   const allTabs = React.useMemo(() => {
@@ -172,32 +135,9 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
 
   useEffect(() => {
     if (id) {
-      // Clear preview URL and ref when navigating to a different artifact
-      setPreviewUrl(null);
-      lastObjectKeyRef.current = null;
       loadData();
     }
   }, [id, entityType]);
-
-  // Separate effect to fetch preview when data or object_key changes
-  useEffect(() => {
-    if (entityType === 'artifact' && data?.object_key) {
-      // Check if object_key has changed - if so, clear old preview and fetch new one
-      if (lastObjectKeyRef.current !== data.object_key) {
-        console.log('Object key changed, clearing preview and fetching new one:', {
-          old: lastObjectKeyRef.current,
-          new: data.object_key
-        });
-        lastObjectKeyRef.current = data.object_key;
-        setPreviewUrl(null);
-        fetchPreviewUrl();
-      } else if (!previewUrl && !loadingPreview) {
-        // Fetch preview if we don't have one yet
-        console.log('No preview URL yet, fetching for object_key:', data.object_key);
-        fetchPreviewUrl();
-      }
-    }
-  }, [data?.object_key, entityType]);
 
   // Auto-edit mode when navigating from child entity creation
   useEffect(() => {
@@ -260,6 +200,30 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
         }
       }
 
+      // Parse tags if it's a string
+      if (responseData.tags && typeof responseData.tags === 'string') {
+        try {
+          responseData.tags = JSON.parse(responseData.tags);
+        } catch (e) {
+          console.error('Failed to parse tags:', e);
+          responseData.tags = [];
+        }
+      }
+
+      // Parse metadata (or attr alias) if it's a string
+      const metadataField = responseData.metadata || responseData.attr;
+      if (metadataField && typeof metadataField === 'string') {
+        try {
+          const parsed = JSON.parse(metadataField);
+          responseData.metadata = parsed;
+          responseData.attr = parsed;
+        } catch (e) {
+          console.error('Failed to parse metadata:', e);
+          responseData.metadata = {};
+          responseData.attr = {};
+        }
+      }
+
       setData(responseData);
       setEditedData(responseData);
       // Preview URL will be fetched by useEffect
@@ -311,6 +275,16 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
         // Navigate to the new version
         navigate(`/artifact/${result.newArtifact.id}`);
         return;
+      }
+
+      // Special handling for cost/revenue with new file upload (replace attachment)
+      if ((entityType === 'cost' || entityType === 'revenue') && uploadedObjectKey) {
+        const attachmentField = entityType === 'cost' ? 'invoice_attachment' : 'sales_receipt_attachment';
+        editedData[attachmentField] = `s3://cohuron-attachments-prod-957207443425/${uploadedObjectKey}`;
+
+        // Reset file upload state after adding to edited data
+        setSelectedFile(null);
+        setUploadedObjectKey(null);
       }
 
       // Normal update flow for all other entities (and artifacts without file upload)
@@ -503,13 +477,15 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
     setIsUploadingFile(true);
     try {
       const tempId = `temp-${Date.now()}`;
+      const uploadType = entityType === 'cost' ? 'invoice' : entityType === 'revenue' ? 'receipt' : 'artifact';
+
       const objectKey = await uploadToS3({
-        entityType: 'artifact',
+        entityType: entityType === 'cost' || entityType === 'revenue' ? entityType : 'artifact',
         entityId: tempId,
         file: selectedFile,
         fileName: selectedFile.name,
         contentType: selectedFile.type || 'application/octet-stream',
-        uploadType: 'artifact',
+        uploadType,
         tenantId: 'demo'
       });
 
@@ -649,174 +625,96 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
 
   return (
     <Layout>
-      <div className="w-[97%] max-w-[1536px] mx-auto space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      <div className="w-[97%] max-w-[1536px] mx-auto">
+        {/* Sticky Header Section */}
+        <div className="sticky top-0 z-20 bg-gray-50 pb-4">
+          {/* Header */}
+          <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4 flex-1 min-w-0">
             <div className="flex-1 min-w-0">
-              {/* All metadata in one row: Name, Code, Slug, ID */}
-              <div className="flex items-center gap-2 overflow-x-auto group">
-                {/* Name with copy - Editable in edit mode */}
-                <span className="text-gray-400 font-normal text-xs flex-shrink-0">{config.displayName} name:</span>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={editedData.name || editedData.title || ''}
-                    onChange={(e) => handleFieldChange(data.name ? 'name' : 'title', e.target.value)}
-                    placeholder="Enter name..."
-                    className={metadataValueClass}
-                    style={{
-                      ...metadataValueStyle,
-                      border: '1px solid rgb(209, 213, 219)',
-                      borderRadius: '0.25rem',
-                      padding: '0.125rem 0.375rem',
-                      width: '16rem'
-                    }}
-                  />
-                ) : (
-                  <div className="flex items-center gap-1 group/name">
-                    <span className={metadataValueClass} style={metadataValueStyle}>
-                      {data.name || data.title || `${config.displayName} Details`}
-                    </span>
-                    {(data.name || data.title) && (
-                      <button
-                        onClick={() => handleCopy(data.name || data.title, 'name')}
-                        className="flex-shrink-0 p-0.5 hover:bg-gray-100 rounded transition-all opacity-0 group-hover/name:opacity-100"
-                        title="Copy name"
-                      >
-                        {copiedField === 'name' ? (
-                          <Check className="h-3 w-3 text-green-600" />
-                        ) : (
-                          <Copy className="h-3 w-3 text-gray-400" />
-                        )}
-                      </button>
-                    )}
-                  </div>
-                )}
+              {/* Compact metadata row using DRY components */}
+              <MetadataRow className="overflow-x-auto">
+                {/* Name */}
+                <MetadataField
+                  label={`${config.displayName} name`}
+                  value={isEditing ? (editedData.name || editedData.title || '') : (data.name || data.title || `${config.displayName} Details`)}
+                  isEditing={isEditing}
+                  fieldKey="name"
+                  copiedField={copiedField}
+                  onCopy={handleCopy}
+                  onChange={handleFieldChange}
+                  placeholder="Enter name..."
+                  inputWidth="16rem"
+                />
 
-                {/* Separator */}
-                {(data.code || data.slug || id) && <span className="text-gray-300 flex-shrink-0">·</span>}
+                <MetadataSeparator show={!!(data.code || data.slug || id)} />
 
-                {/* Code, Slug, ID metadata */}
-                {/* Code - Editable in edit mode */}
+                {/* Code */}
                 {(data.code || isEditing) && (
-                  <>
-                    <span className="text-gray-400 font-normal text-xs flex-shrink-0">code:</span>
-                    <div className="flex items-center gap-1 group">
-                      {isEditing ? (
-                        <input
-                          type="text"
-                          value={editedData.code || ''}
-                          onChange={(e) => handleFieldChange('code', e.target.value)}
-                          placeholder="CODE"
-                          className={metadataValueClass}
-                          style={{
-                            ...metadataValueStyle,
-                            border: '1px solid rgb(209, 213, 219)',
-                            borderRadius: '0.25rem',
-                            padding: '0.125rem 0.375rem',
-                            width: '8rem'
-                          }}
-                        />
-                      ) : (
-                        <>
-                          <span className={metadataValueClass} style={metadataValueStyle}>
-                            {data.code}
-                          </span>
-                          <button
-                            onClick={() => handleCopy(data.code, 'code')}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-gray-100 rounded transition-all"
-                            title="Copy code"
-                          >
-                            {copiedField === 'code' ? (
-                              <Check className="h-3 w-3 text-green-600" />
-                            ) : (
-                              <Copy className="h-3 w-3 text-gray-400" />
-                            )}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </>
+                  <MetadataField
+                    label="code"
+                    value={isEditing ? (editedData.code || '') : data.code}
+                    isEditing={isEditing}
+                    fieldKey="code"
+                    copiedField={copiedField}
+                    onCopy={handleCopy}
+                    onChange={handleFieldChange}
+                    placeholder="CODE"
+                    inputWidth="8rem"
+                  />
                 )}
 
-                {/* Slug - Editable in edit mode */}
+                <MetadataSeparator show={!!(data.code && (data.slug || isEditing))} />
+
+                {/* Slug */}
                 {(data.slug || isEditing) && (
-                  <>
-                    {data.code && <span className="text-gray-300 flex-shrink-0">·</span>}
-                    <span className="text-gray-400 font-normal text-xs flex-shrink-0">slug:</span>
-                    <div className="flex items-center gap-1 group">
-                      {isEditing ? (
-                        <div className="flex items-center">
-                          <span className="text-gray-500 mr-0.5">/</span>
-                          <input
-                            type="text"
-                            value={editedData.slug || ''}
-                            onChange={(e) => handleFieldChange('slug', e.target.value)}
-                            placeholder="slug-name"
-                            className={metadataValueClass}
-                            style={{
-                              ...metadataValueStyle,
-                              border: '1px solid rgb(209, 213, 219)',
-                              borderRadius: '0.25rem',
-                              padding: '0.125rem 0.375rem',
-                              width: '10rem'
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <>
-                          <span className={metadataValueClass} style={metadataValueStyle}>/{data.slug}</span>
-                          <button
-                            onClick={() => handleCopy(data.slug, 'slug')}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-gray-100 rounded transition-all"
-                            title="Copy slug"
-                          >
-                            {copiedField === 'slug' ? (
-                              <Check className="h-3 w-3 text-green-600" />
-                            ) : (
-                              <Copy className="h-3 w-3 text-gray-400" />
-                            )}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </>
+                  <MetadataField
+                    label="slug"
+                    value={isEditing ? (editedData.slug || '') : data.slug}
+                    isEditing={isEditing}
+                    fieldKey="slug"
+                    copiedField={copiedField}
+                    onCopy={handleCopy}
+                    onChange={handleFieldChange}
+                    placeholder="slug-name"
+                    prefix={isEditing ? '/' : '/'}
+                    inputWidth="10rem"
+                  />
                 )}
 
-                {/* ID - Read-only */}
+                <MetadataSeparator show={!!((data.code || data.slug) && id)} />
+
+                {/* ID */}
                 {id && (
-                  <>
-                    {(data.code || data.slug) && <span className="text-gray-300 flex-shrink-0">·</span>}
-                    <span className="text-gray-400 font-normal text-xs flex-shrink-0">id:</span>
-                    <div className="flex items-center gap-1 group">
-                      <span className={`${metadataValueClass} text-gray-500`} style={metadataValueStyle}>{id}</span>
-                      <button
-                        onClick={() => handleCopy(id, 'id')}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-gray-100 rounded transition-all"
-                        title="Copy ID"
-                      >
-                        {copiedField === 'id' ? (
-                          <Check className="h-3 w-3 text-green-600" />
-                        ) : (
-                          <Copy className="h-3 w-3 text-gray-400" />
-                        )}
-                      </button>
-                    </div>
-                  </>
+                  <MetadataField
+                    label="id"
+                    value={id}
+                    isEditing={false}
+                    fieldKey="id"
+                    copiedField={copiedField}
+                    onCopy={handleCopy}
+                    className="text-gray-500"
+                  />
                 )}
 
-                {/* Version (for artifacts) */}
+                <MetadataSeparator show={!!(entityType === 'artifact' && data.version && (data.code || data.slug || id))} />
+
+                {/* Version badge (for artifacts) */}
                 {entityType === 'artifact' && data.version && (
-                  <>
-                    {(data.code || data.slug || id) && <span className="text-gray-300">·</span>}
-                    <span className="text-gray-400 font-normal">version:</span>
-                    <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded border border-blue-200">
-                      v{data.version}
-                    </span>
-                  </>
+                  <MetadataField
+                    label="version"
+                    value={`v${data.version}`}
+                    isEditing={false}
+                    fieldKey="version"
+                    canCopy={false}
+                    badge={
+                      <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded border border-blue-200">
+                        v{data.version}
+                      </span>
+                    }
+                  />
                 )}
-              </div>
+              </MetadataRow>
             </div>
           </div>
 
@@ -909,23 +807,25 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
               </>
             )}
           </div>
+          </div>
+
+          {/* Sticky Tabs Section */}
+          {allTabs && allTabs.length > 0 && (
+            <div className="bg-white rounded-lg shadow mt-4">
+              <DynamicChildEntityTabs
+                title={data?.name || data?.title || config.displayName}
+                parentType={entityType}
+                parentId={id!}
+                parentName={data?.name || data?.title}
+                tabs={allTabs}
+                showBackButton={false}
+              />
+            </div>
+          )}
         </div>
 
-        {/* Dynamic Child Entity Tabs */}
-        {allTabs && allTabs.length > 0 && (
-          <div className="bg-white rounded-lg shadow">
-            <DynamicChildEntityTabs
-              title={data?.name || data?.title || config.displayName}
-              parentType={entityType}
-              parentId={id!}
-              parentName={data?.name || data?.title}
-              tabs={allTabs}
-              showBackButton={false}
-            />
-          </div>
-        )}
-
         {/* Content Area - Shows Overview or Child Entity Table */}
+        <div className="mt-4">
         {isOverviewTab ? (
           // Overview Tab - Entity Details
           <>
@@ -1018,191 +918,29 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             </div>
           )}
 
-            {/* File Preview Section - For artifacts, BELOW METADATA */}
-            {entityType === 'artifact' && (
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-medium text-gray-900">File Preview</h2>
-                  {data?.object_key && (
-                    <span className="text-xs text-gray-500">
-                      Format: {data.file_format?.toUpperCase() || 'Unknown'} · Size: {(data.file_size_bytes / 1024).toFixed(2)} KB
-                    </span>
-                  )}
-                </div>
-                {!data?.object_key ? (
-                  <div className="bg-amber-50 border border-amber-200 p-6 text-center rounded-lg">
-                    <Upload className="h-10 w-10 text-amber-400 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-amber-900">No file uploaded</p>
-                    <p className="text-xs text-amber-700 mt-1">
-                      This artifact has metadata but no associated file.
-                      {!isEditing && " Click Edit to upload a file."}
-                    </p>
-                  </div>
-                ) : loadingPreview ? (
-                  <div className="flex items-center justify-center h-48 bg-gray-50 rounded-lg">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2" />
-                      <p className="text-sm text-gray-600">Loading preview...</p>
-                    </div>
-                  </div>
-                ) : previewUrl ? (
-                  <>
-                    {(() => {
-                      const format = data.file_format?.toLowerCase() || '';
-                      console.log('Rendering preview for format:', format);
-
-                      // PDF Preview
-                      if (format === 'pdf') {
-                        console.log('Rendering PDF preview');
-                        return (
-                          <div className="rounded-lg overflow-hidden border border-gray-200">
-                            <iframe
-                              src={previewUrl}
-                              className="w-full h-[600px]"
-                              title="PDF Preview"
-                            />
-                          </div>
-                        );
-                      }
-
-                      // Image Preview
-                      if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(format)) {
-                        console.log('Rendering image preview');
-                        return (
-                          <div className="rounded-lg overflow-hidden border border-gray-200 bg-gray-50 p-4">
-                            <div className="flex items-center justify-center">
-                              <img
-                                src={previewUrl}
-                                alt={data.name}
-                                className="max-w-full max-h-[500px] object-contain"
-                                onError={(e) => {
-                                  console.error('Image failed to load');
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                                onLoad={() => console.log('Image loaded successfully')}
-                              />
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      // Video Preview
-                      if (['mp4', 'webm', 'ogg', 'mov', 'avi'].includes(format)) {
-                        console.log('Rendering video preview');
-                        return (
-                          <div className="rounded-lg overflow-hidden border border-gray-200">
-                            <video
-                              src={previewUrl}
-                              controls
-                              className="w-full max-h-[500px]"
-                              onError={(e) => console.error('Video failed to load')}
-                              onLoadedData={() => console.log('Video loaded successfully')}
-                            >
-                              Your browser does not support the video tag.
-                            </video>
-                          </div>
-                        );
-                      }
-
-                      // Unsupported format
-                      console.log('Unsupported format:', format);
-                      return (
-                        <div className="bg-gray-50 p-6 text-center rounded-lg border border-gray-200">
-                          <p className="text-sm text-gray-600">
-                            Preview not available for {format.toUpperCase() || 'this'} file type.
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1.5">
-                            Use the Download button to view this file.
-                          </p>
-                        </div>
-                      );
-                    })()}
-                  </>
-                ) : (
-                  <div className="bg-gray-50 p-6 text-center rounded-lg border border-gray-200">
-                    <p className="text-sm text-gray-600">Preview URL not available</p>
-                    <p className="text-xs text-gray-500 mt-1.5">Click Download to view the file</p>
-                  </div>
-                )}
-              </div>
+            {/* File Preview Section - For artifacts, cost, and revenue - BELOW METADATA */}
+            {(entityType === 'artifact' || entityType === 'cost' || entityType === 'revenue') && data && (
+              <FilePreview
+                entityType={entityType as 'artifact' | 'cost' | 'revenue'}
+                entityId={id!}
+                data={data}
+                isEditing={isEditing}
+              />
             )}
 
-            {/* Compact File Upload for Artifacts - Only in Edit Mode */}
-            {entityType === 'artifact' && isEditing && (
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50/30 border border-amber-200/50 rounded-xl p-4 backdrop-blur-sm">
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0">
-                    <Upload className="h-5 w-5 text-amber-600 mt-0.5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-amber-900 mb-1">
-                      Upload New Version
-                    </p>
-                    <p className="text-xs text-amber-700 mb-3">
-                      New file will create Version {(data.version || 1) + 1}
-                    </p>
-
-                    {!selectedFile ? (
-                      <div className="relative">
-                        <input
-                          type="file"
-                          onChange={handleFileSelect}
-                          className="hidden"
-                          id="artifact-version-upload-compact"
-                        />
-                        <label
-                          htmlFor="artifact-version-upload-compact"
-                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-amber-300 text-amber-800 text-xs font-medium rounded-lg hover:bg-amber-50 hover:border-amber-400 transition-all cursor-pointer shadow-sm"
-                        >
-                          <Upload className="h-3.5 w-3.5" />
-                          Choose File
-                        </label>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-2 flex-1 bg-white/80 border border-amber-200 rounded-lg px-3 py-1.5">
-                          {uploadedObjectKey ? (
-                            <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
-                          ) : (
-                            <Upload className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-gray-900 truncate">
-                              {selectedFile.name}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {(selectedFile.size / 1024).toFixed(1)} KB
-                            </p>
-                          </div>
-                        </div>
-                        {!uploadedObjectKey && (
-                          <Button
-                            variant="secondary"
-                            icon={Upload}
-                            onClick={handleFileUpload}
-                            disabled={isUploadingFile}
-                            loading={isUploadingFile}
-                            size="sm"
-                          >
-                            Upload
-                          </Button>
-                        )}
-                        <button
-                          onClick={handleRemoveFile}
-                          className="p-1.5 hover:bg-amber-100 rounded-lg transition-colors"
-                          disabled={isUploadingFile}
-                        >
-                          <X className="h-4 w-4 text-amber-600" />
-                        </button>
-                      </div>
-                    )}
-
-                    {uploadErrors.default && (
-                      <p className="text-xs text-red-600 mt-2">{uploadErrors.default}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
+            {/* File Upload for Artifacts, Cost, Revenue - Only in Edit Mode */}
+            {(entityType === 'artifact' || entityType === 'cost' || entityType === 'revenue') && isEditing && (
+              <DragDropFileUpload
+                entityType={entityType as 'artifact' | 'cost' | 'revenue'}
+                selectedFile={selectedFile}
+                uploadedObjectKey={uploadedObjectKey}
+                isUploading={isUploadingFile}
+                onFileSelect={(file) => setSelectedFile(file)}
+                onFileRemove={handleRemoveFile}
+                onFileUpload={handleFileUpload}
+                uploadError={uploadErrors.default}
+                accept={entityType === 'cost' || entityType === 'revenue' ? '.pdf,.png,.jpg,.jpeg' : undefined}
+              />
             )}
           </>
         ) : currentChildEntity === 'form-data' ? (
@@ -1225,6 +963,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
           // Child Entity Tab - Filtered Data Table
           <Outlet />
         )}
+        </div>
       </div>
 
       {/* Share Modal */}

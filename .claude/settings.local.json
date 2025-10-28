@@ -108,7 +108,13 @@
       "Bash(bash:*)",
       "Bash(timeout 2 ./tools/logs-api.sh:*)",
       "Bash(timeout 3 tail:*)",
-      "Bash(timeout 2 tail:*)"
+      "Bash(timeout 2 tail:*)",
+      "Bash(timeout 5 ./tools/test-api.sh:*)",
+      "Bash(rsync:*)",
+      "Bash(ssh-keygen:*)",
+      "Bash(./scripts/verify-dns.sh:*)",
+      "Bash(timeout 2 ./tools/logs-web.sh:*)",
+      "Read(///**)"
     ],
     "deny": [],
     "ask": [],

@@ -71,7 +71,7 @@ function AppRoutes() {
 
   // Core entities that use standard auto-generated routing
   // Note: 'artifact', 'form', 'wiki', 'marketing' use custom routes defined below
-  const coreEntities = ['biz', 'office', 'project', 'task', 'employee', 'role', 'worksite', 'cust', 'position', 'product', 'inventory', 'order', 'invoice', 'shipment'];
+  const coreEntities = ['biz', 'office', 'project', 'task', 'employee', 'role', 'worksite', 'cust', 'position', 'product', 'inventory', 'order', 'invoice', 'shipment', 'cost', 'revenue'];
 
   // Generate routes for all core entities from entityConfig
   const generateEntityRoutes = () => {

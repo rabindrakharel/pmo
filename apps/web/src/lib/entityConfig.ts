@@ -113,9 +113,20 @@ export interface EntityConfig {
 // Helper Functions for Column Renderers
 // ============================================================================
 
+import { formatRelativeTime, formatFriendlyDate } from './dataTransformers';
+
 export const formatDate = (dateString?: string) => {
   if (!dateString) return '-';
   return new Date(dateString).toLocaleDateString('en-CA');
+};
+
+// Centralized date/timestamp renderers
+export const renderTimestamp = (value?: string) => {
+  return formatRelativeTime(value);
+};
+
+export const renderDate = (value?: string) => {
+  return formatFriendlyDate(value);
 };
 
 export const formatCurrency = (amount?: number, currency: string = 'CAD') => {
@@ -251,7 +262,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: true,
         filterable: true,
         loadOptionsFromSettings: true,
-        inlineEditable: true,
         render: (value) => renderBadge(value, {
           'Initiation': 'bg-blue-100 text-blue-800',
           'Planning': 'bg-purple-100 text-purple-800',
@@ -271,18 +281,17 @@ export const entityConfigs: Record<string, EntityConfig> = {
         key: 'planned_start_date',
         title: 'Start Date',
         sortable: true,
-        render: formatDate
+        render: renderDate
       },
       {
         key: 'planned_end_date',
         title: 'End Date',
         sortable: true,
-        render: formatDate
+        render: renderDate
       },
       {
         key: 'tags',
         title: 'Tags',
-        inlineEditable: true,
         render: renderTags
       }
     ],
@@ -297,7 +306,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'planned_start_date', label: 'Start Date', type: 'date' },
       { key: 'planned_end_date', label: 'End Date', type: 'date' },
       { key: 'tags', label: 'Tags', type: 'array' },
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -333,7 +344,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: true,
         filterable: true,
         loadOptionsFromSettings: true,
-        inlineEditable: true,
         render: (value) => renderBadge(value, {
           'Backlog': 'bg-gray-100 text-gray-800',
           'To Do': 'bg-blue-100 text-blue-800',
@@ -349,7 +359,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: true,
         filterable: true,
         loadOptionsFromSettings: true,
-        inlineEditable: true,
         render: (value) => renderBadge(value, {
           'high': 'bg-red-100 text-red-800',
           'critical': 'bg-red-100 text-red-800',
@@ -382,7 +391,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
       {
         key: 'tags',
         title: 'Tags',
-        inlineEditable: true,
         render: renderTags
       }
     ],
@@ -457,7 +465,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: true,
         filterable: true,
         loadOptionsFromSettings: true,
-        inlineEditable: true,
         render: (value) => {
           const status = value || 'draft';
           return renderBadge(status, {
@@ -481,12 +488,11 @@ export const entityConfigs: Record<string, EntityConfig> = {
         key: 'updated_ts',
         title: 'Last Updated',
         sortable: true,
-        render: formatDate
+        render: renderTimestamp
       },
       {
         key: 'tags',
         title: 'Tags',
-        inlineEditable: true,
         render: renderTags
       }
     ],
@@ -585,34 +591,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         })
       },
       {
-        key: 'file_format',
-        title: 'Format',
-        sortable: true,
-        filterable: true,
-        width: '90px',
-        render: (value) => value ? React.createElement(
-          'span',
-          { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-gray-100 text-gray-800 rounded border border-gray-200' },
-          value.toUpperCase()
-        ) : '-'
-      },
-      {
-        key: 'file_size_bytes',
-        title: 'Size',
-        sortable: true,
-        width: '90px',
-        align: 'right' as const,
-        render: (value) => {
-          if (!value) return '-';
-          const kb = value / 1024;
-          const mb = kb / 1024;
-          if (mb >= 1) {
-            return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${mb.toFixed(1)} MB`);
-          }
-          return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${kb.toFixed(0)} KB`);
-        }
-      },
-      {
         key: 'visibility',
         title: 'Visibility',
         sortable: true,
@@ -638,6 +616,41 @@ export const entityConfigs: Record<string, EntityConfig> = {
         })
       },
       {
+        key: 'attachment',
+        title: 'Attachment',
+        width: '220px',
+        // Standardized attachment field - auto-detected by fieldCapabilities
+        // InlineFileUploadCell handles display and inline upload
+      },
+      {
+        key: 'attachment_format',
+        title: 'Format',
+        sortable: true,
+        filterable: true,
+        width: '90px',
+        render: (value) => value ? React.createElement(
+          'span',
+          { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-gray-100 text-gray-800 rounded border border-gray-200' },
+          value.toUpperCase()
+        ) : '-'
+      },
+      {
+        key: 'attachment_size_bytes',
+        title: 'Size',
+        sortable: true,
+        width: '90px',
+        align: 'right' as const,
+        render: (value) => {
+          if (!value) return '-';
+          const kb = value / 1024;
+          const mb = kb / 1024;
+          if (mb >= 1) {
+            return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${mb.toFixed(1)} MB`);
+          }
+          return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${kb.toFixed(0)} KB`);
+        }
+      },
+      {
         key: 'entity_type',
         title: 'Linked To',
         sortable: true,
@@ -655,51 +668,58 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Created',
         sortable: true,
         width: '100px',
-        render: formatDate
+        render: renderTimestamp
       }
     ],
 
     fields: [
-      // Basic Information
-      { key: 'name', label: 'Name', type: 'text', required: true, placeholder: 'e.g., Project Blueprint Q1 2025' },
-      { key: 'code', label: 'Code', type: 'text', required: true, placeholder: 'e.g., ART-2025-001' },
-      { key: 'slug', label: 'Slug', type: 'text', required: true, placeholder: 'e.g., project-blueprint-q1-2025' },
-      { key: 'descr', label: 'Description', type: 'textarea', placeholder: 'Describe the purpose and contents of this artifact...' },
-
-      // Classification
+      // ========== ATTACHMENT ==========
       {
-        key: 'artifact_type',
-        label: 'Artifact Type',
-        type: 'select',
-        defaultValue: 'document',
-        options: [
-          { value: 'document', label: 'Document - General documentation' },
-          { value: 'template', label: 'Template - Reusable template' },
-          { value: 'image', label: 'Image - Photos, diagrams, screenshots' },
-          { value: 'video', label: 'Video - Video files' },
-          { value: 'blueprint', label: 'Blueprint - Technical drawings' },
-          { value: 'contract', label: 'Contract - Legal agreements' },
-          { value: 'report', label: 'Report - Analysis and reports' },
-          { value: 'presentation', label: 'Presentation - Slides and presentations' },
-          { value: 'spreadsheet', label: 'Spreadsheet - Data and calculations' }
-        ]
+        key: 'attachment',
+        label: 'File Attachment',
+        type: 'text',
+        readonly: true,
+        placeholder: 'S3 URI - Auto-populated from uploaded file'
       },
       {
-        key: 'file_format',
+        key: 'attachment_format',
         label: 'File Format',
         type: 'text',
         readonly: true,
         placeholder: 'Auto-populated from uploaded file (e.g., pdf, docx, png)'
       },
       {
-        key: 'file_size_bytes',
+        key: 'attachment_size_bytes',
         label: 'File Size (bytes)',
         type: 'number',
         readonly: true,
         placeholder: 'Auto-populated from uploaded file'
       },
 
-      // Access Control
+      // ========== BASIC INFORMATION ==========
+      { key: 'name', label: 'Artifact Name', type: 'text', required: true, placeholder: 'e.g., Project Blueprint Q1 2025' },
+      { key: 'code', label: 'Code', type: 'text', required: true, placeholder: 'e.g., ART-2025-001' },
+      { key: 'slug', label: 'Slug', type: 'text', required: true, placeholder: 'e.g., project-blueprint-q1-2025' },
+      { key: 'descr', label: 'Description', type: 'richtext', placeholder: 'Describe the purpose and contents of this artifact...' },
+
+      // ========== CLASSIFICATION ==========
+      {
+        key: 'artifact_type',
+        label: 'Artifact Type',
+        type: 'select',
+        defaultValue: 'document',
+        options: [
+          { value: 'document', label: 'Document' },
+          { value: 'template', label: 'Template' },
+          { value: 'image', label: 'Image' },
+          { value: 'video', label: 'Video' },
+          { value: 'blueprint', label: 'Blueprint' },
+          { value: 'contract', label: 'Contract' },
+          { value: 'report', label: 'Report' },
+          { value: 'presentation', label: 'Presentation' },
+          { value: 'spreadsheet', label: 'Spreadsheet' }
+        ]
+      },
       {
         key: 'visibility',
         label: 'Visibility',
@@ -707,9 +727,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
         defaultValue: 'internal',
         required: true,
         options: [
-          { value: 'public', label: 'Public - Anyone with link can access' },
-          { value: 'internal', label: 'Internal - Organization members only' },
-          { value: 'restricted', label: 'Restricted - Limited team access' },
+          { value: 'public', label: 'Public' },
+          { value: 'internal', label: 'Internal' },
+          { value: 'restricted', label: 'Restricted' },
           { value: 'private', label: 'Private - Owner and assigned users only' }
         ]
       },
@@ -720,14 +740,15 @@ export const entityConfigs: Record<string, EntityConfig> = {
         defaultValue: 'general',
         required: true,
         options: [
-          { value: 'general', label: 'General - Standard business information' },
-          { value: 'confidential', label: 'Confidential - Sensitive business data' },
-          { value: 'restricted', label: 'Restricted - Highly sensitive information' }
+          { value: 'general', label: 'General' },
+          { value: 'confidential', label: 'Confidential' },
+          { value: 'restricted', label: 'Restricted' }
         ]
       },
 
-      // Metadata
-      { key: 'tags', label: 'Tags', type: 'array', placeholder: 'Add tags for categorization...' }
+      // ========== ADDITIONAL ==========
+      { key: 'tags', label: 'Tags', type: 'array', placeholder: 'Add tags for categorization...' },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 
     supportedViews: ['table'],
@@ -770,7 +791,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         key: 'updated_ts',
         title: 'Updated',
         sortable: true,
-        render: formatDate
+        render: renderTimestamp
       }
     ],
 
@@ -823,7 +844,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: true,
         filterable: true,
         loadOptionsFromSettings: true,
-        inlineEditable: true,
         render: (value, record) => value ? renderBadge(value, {
           'Department': 'bg-blue-100 text-blue-800',
           'Division': 'bg-purple-100 text-purple-800',
@@ -848,7 +868,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
       {
         key: 'tags',
         title: 'Tags',
-        inlineEditable: true,
         render: renderTags
       },
       {
@@ -918,7 +937,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: true,
         filterable: true,
         loadOptionsFromSettings: true,
-        inlineEditable: true,
         render: (value, record) => record.level_name ? renderBadge(record.level_name, {
           'Office': 'bg-blue-100 text-blue-800',
           'District': 'bg-purple-100 text-purple-800',
@@ -1017,7 +1035,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'postal_code', label: 'Postal Code', type: 'text' },
       { key: 'country', label: 'Country', type: 'text' },
       { key: 'emergency_contact_name', label: 'Emergency Contact Name', type: 'text' },
-      { key: 'emergency_contact_phone', label: 'Emergency Contact Phone', type: 'text' }
+      { key: 'emergency_contact_phone', label: 'Emergency Contact Phone', type: 'text' },
+      { key: 'created_ts', label: 'Created', type: 'date', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'date', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -1091,7 +1111,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
       {
         key: 'tags',
         title: 'Tags',
-        inlineEditable: true,
         render: renderTags
       }
     ],
@@ -1151,7 +1170,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: true,
         filterable: true,
         loadOptionsFromSettings: true,
-        inlineEditable: true,
         render: (value) => value ? renderBadge(value, {
           'Lead': 'bg-gray-100 text-gray-800',
           'Qualified': 'bg-blue-100 text-blue-800',
@@ -1169,7 +1187,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: true,
         filterable: true,
         loadOptionsFromSettings: true,
-        inlineEditable: true,
         render: (value) => value ? renderBadge(value, {
           'Residential': 'bg-blue-100 text-blue-800',
           'Commercial Real Estate': 'bg-purple-100 text-purple-800',
@@ -1187,7 +1204,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: true,
         filterable: true,
         loadOptionsFromSettings: true,
-        inlineEditable: true,
         render: (value) => value || '-'
       },
       {
@@ -1196,7 +1212,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: true,
         filterable: true,
         loadOptionsFromSettings: true,
-        inlineEditable: true,
         render: (value) => value ? renderBadge(value, {
           'Standard': 'bg-gray-100 text-gray-800',
           'Plus': 'bg-blue-100 text-blue-800',
@@ -1261,7 +1276,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
       {
         key: 'tags',
         title: 'Tags',
-        inlineEditable: true,
         render: renderTags
       }
     ],
@@ -1287,8 +1301,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
       {
         key: 'parent_id',
         title: 'Parent Stage',
@@ -1303,7 +1317,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
             : React.createElement('span', { className: 'text-gray-400' }, `ID: ${value}`);
         }
       },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active_flag',
         title: 'Status',
@@ -1340,9 +1354,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active_flag',
         title: 'Status',
@@ -1378,8 +1392,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
       {
         key: 'parent_id',
         title: 'Parent Stage',
@@ -1394,7 +1408,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
             : React.createElement('span', { className: 'text-gray-400' }, `ID: ${value}`);
         }
       },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active_flag',
         title: 'Status',
@@ -1431,9 +1445,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active_flag',
         title: 'Status',
@@ -1469,9 +1483,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active_flag',
         title: 'Status',
@@ -1507,9 +1521,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active_flag',
         title: 'Status',
@@ -1545,9 +1559,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active_flag',
         title: 'Status',
@@ -1583,9 +1597,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active_flag',
         title: 'Status',
@@ -1621,9 +1635,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active_flag',
         title: 'Status',
@@ -1659,8 +1673,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'stage_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'stage_name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'stage_descr', title: 'Description', sortable: true, inlineEditable: true },
+      { key: 'stage_name', title: 'Name', sortable: true, filterable: true },
+      { key: 'stage_descr', title: 'Description', sortable: true },
       {
         key: 'parent_id',
         title: 'Parent Stage',
@@ -1675,7 +1689,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
             : React.createElement('span', { className: 'text-gray-400' }, `ID: ${value}`);
         }
       },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active_flag',
         title: 'Status',
@@ -1712,9 +1726,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active_flag',
         title: 'Status',
@@ -1750,9 +1764,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active_flag',
         title: 'Status',
@@ -1788,9 +1802,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     columns: [
       { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true, inlineEditable: true },
-      { key: 'descr', title: 'Description', sortable: true, inlineEditable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px', inlineEditable: true },
+      { key: 'name', title: 'Name', sortable: true, filterable: true },
+      { key: 'descr', title: 'Description', sortable: true },
+      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
       {
         key: 'active_flag',
         title: 'Status',
@@ -1871,7 +1885,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
       {
         key: 'tags',
         title: 'Tags',
-        inlineEditable: true,
         render: renderTags
       }
     ],
@@ -1974,14 +1987,13 @@ export const entityConfigs: Record<string, EntityConfig> = {
         key: 'order_date',
         title: 'Order Date',
         sortable: true,
-        render: formatDate
+        render: renderDate
       },
       {
         key: 'order_status',
         title: 'Status',
         sortable: true,
         filterable: true,
-        inlineEditable: true,
         render: (value) => renderBadge(value || 'pending', {
           'quote': 'bg-gray-100 text-gray-800',
           'pending': 'bg-blue-100 text-blue-800',
@@ -2057,14 +2069,13 @@ export const entityConfigs: Record<string, EntityConfig> = {
         key: 'shipment_date',
         title: 'Ship Date',
         sortable: true,
-        render: formatDate
+        render: renderDate
       },
       {
         key: 'shipment_status',
         title: 'Status',
         sortable: true,
         filterable: true,
-        inlineEditable: true,
         render: (value) => renderBadge(value || 'pending', {
           'pending': 'bg-gray-100 text-gray-800',
           'picked': 'bg-blue-100 text-blue-800',
@@ -2133,20 +2144,19 @@ export const entityConfigs: Record<string, EntityConfig> = {
         key: 'invoice_date',
         title: 'Invoice Date',
         sortable: true,
-        render: formatDate
+        render: renderDate
       },
       {
         key: 'due_date',
         title: 'Due Date',
         sortable: true,
-        render: formatDate
+        render: renderDate
       },
       {
         key: 'invoice_status',
         title: 'Status',
         sortable: true,
         filterable: true,
-        inlineEditable: true,
         render: (value) => renderBadge(value || 'draft', {
           'draft': 'bg-gray-100 text-gray-800',
           'sent': 'bg-blue-100 text-blue-800',
@@ -2169,10 +2179,69 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: true,
         align: 'right',
         render: (value) => formatCurrency(value, 'CAD')
+      },
+      {
+        key: 'attachment',
+        title: 'Invoice PDF',
+        width: '220px',
+        // Standardized attachment field - auto-detected by fieldCapabilities
+        // InlineFileUploadCell handles display and inline upload
+      },
+      {
+        key: 'attachment_format',
+        title: 'Format',
+        sortable: true,
+        filterable: true,
+        width: '90px',
+        render: (value) => value ? React.createElement(
+          'span',
+          { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-gray-100 text-gray-800 rounded border border-gray-200' },
+          value.toUpperCase()
+        ) : '-'
+      },
+      {
+        key: 'attachment_size_bytes',
+        title: 'Size',
+        sortable: true,
+        width: '90px',
+        align: 'right' as const,
+        render: (value) => {
+          if (!value) return '-';
+          const kb = value / 1024;
+          const mb = kb / 1024;
+          if (mb >= 1) {
+            return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${mb.toFixed(1)} MB`);
+          }
+          return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${kb.toFixed(0)} KB`);
+        }
       }
     ],
 
     fields: [
+      // ========== ATTACHMENT ==========
+      {
+        key: 'attachment',
+        label: 'Invoice PDF',
+        type: 'text',
+        readonly: true,
+        placeholder: 'S3 URI - Auto-populated from uploaded invoice'
+      },
+      {
+        key: 'attachment_format',
+        label: 'File Format',
+        type: 'text',
+        readonly: true,
+        placeholder: 'Auto-populated from uploaded invoice (e.g., pdf)'
+      },
+      {
+        key: 'attachment_size_bytes',
+        label: 'File Size (bytes)',
+        type: 'number',
+        readonly: true,
+        placeholder: 'Auto-populated from uploaded invoice'
+      },
+
+      // ========== BASIC INFORMATION ==========
       { key: 'invoice_number', label: 'Invoice Number', type: 'text', required: true },
       { key: 'client_name', label: 'Client Name', type: 'text' },
       { key: 'product_id', label: 'Product ID', type: 'text' },
@@ -2227,7 +2296,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Status',
         sortable: true,
         filterable: true,
-        inlineEditable: true,
         render: (value) => renderBadge(value, {
           'draft': 'bg-gray-100 text-gray-800',
           'published': 'bg-green-100 text-green-800',
@@ -2249,12 +2317,11 @@ export const entityConfigs: Record<string, EntityConfig> = {
         key: 'updated_ts',
         title: 'Last Updated',
         sortable: true,
-        render: formatDate
+        render: renderTimestamp
       },
       {
         key: 'tags',
         title: 'Tags',
-        inlineEditable: true,
         render: renderTags
       }
     ],
@@ -2364,7 +2431,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         key: 'last_executed_at',
         title: 'Last Executed',
         sortable: true,
-        render: formatDate
+        render: renderTimestamp
       }
     ],
 
@@ -2512,8 +2579,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         key: 'invoice_currency',
         title: 'Currency',
         sortable: true,
-        filterable: true,
-        inlineEditable: true
+        filterable: true
       },
       {
         key: 'cust_budgeted_amt_lcl',
@@ -2523,45 +2589,98 @@ export const entityConfigs: Record<string, EntityConfig> = {
         render: (value) => formatCurrency(value, 'CAD')
       },
       {
-        key: 'invoice_attachment',
+        key: 'attachment',
         title: 'Invoice',
+        width: '220px',
+        // Standardized attachment field - auto-detected by fieldCapabilities
+        // InlineFileUploadCell handles display and inline upload
+      },
+      {
+        key: 'attachment_format',
+        title: 'Format',
+        sortable: true,
+        filterable: true,
+        width: '90px',
         render: (value) => value ? React.createElement(
-          'a',
-          { href: value, target: '_blank', rel: 'noopener noreferrer', className: 'text-blue-600 hover:underline' },
-          'View'
-        ) : React.createElement('span', { className: 'text-gray-400' }, '-')
+          'span',
+          { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-gray-100 text-gray-800 rounded border border-gray-200' },
+          value.toUpperCase()
+        ) : '-'
+      },
+      {
+        key: 'attachment_size_bytes',
+        title: 'Size',
+        sortable: true,
+        width: '90px',
+        align: 'right' as const,
+        render: (value) => {
+          if (!value) return '-';
+          const kb = value / 1024;
+          const mb = kb / 1024;
+          if (mb >= 1) {
+            return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${mb.toFixed(1)} MB`);
+          }
+          return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${kb.toFixed(0)} KB`);
+        }
       },
       {
         key: 'tags',
         title: 'Tags',
-        inlineEditable: true,
         render: renderTags
       }
     ],
 
     fields: [
-      { key: 'name', label: 'Cost Name', type: 'text', required: true },
-      { key: 'code', label: 'Code', type: 'text', required: true },
-      { key: 'cost_code', label: 'Cost Code', type: 'text', required: true },
-      { key: 'slug', label: 'Slug', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'richtext' },
-      { key: 'cost_amt_lcl', label: 'Cost Amount (Local)', type: 'number', required: true },
-      { key: 'cost_amt_invoice', label: 'Invoice Amount', type: 'number' },
+      // ========== ATTACHMENT ==========
+      {
+        key: 'attachment',
+        label: 'Invoice Attachment',
+        type: 'text',
+        readonly: true,
+        placeholder: 'S3 URI - Auto-populated from uploaded invoice'
+      },
+      {
+        key: 'attachment_format',
+        label: 'File Format',
+        type: 'text',
+        readonly: true,
+        placeholder: 'Auto-populated from uploaded invoice (e.g., pdf, png, jpg)'
+      },
+      {
+        key: 'attachment_size_bytes',
+        label: 'File Size (bytes)',
+        type: 'number',
+        readonly: true,
+        placeholder: 'Auto-populated from uploaded invoice'
+      },
+
+      // ========== BASIC INFORMATION ==========
+      { key: 'name', label: 'Cost Name', type: 'text', required: true, placeholder: 'e.g., Office Supplies Q1 2025' },
+      { key: 'code', label: 'Code', type: 'text', required: true, placeholder: 'e.g., CST-2025-001' },
+      { key: 'cost_code', label: 'Cost Code', type: 'text', required: true, placeholder: 'e.g., EXP-OFFICE-SUPPLIES' },
+      { key: 'slug', label: 'Slug', type: 'text', required: true, placeholder: 'e.g., office-supplies-q1-2025' },
+      { key: 'descr', label: 'Description', type: 'richtext', placeholder: 'Describe the cost item and its purpose...' },
+
+      // ========== FINANCIAL INFORMATION ==========
+      { key: 'cost_amt_lcl', label: 'Cost Amount (CAD)', type: 'number', required: true, placeholder: '0.00' },
+      { key: 'cost_amt_invoice', label: 'Invoice Amount', type: 'number', placeholder: '0.00' },
       {
         key: 'invoice_currency',
         label: 'Currency',
         type: 'select',
+        defaultValue: 'CAD',
         options: [
-          { value: 'CAD', label: 'CAD - Canadian Dollar' },
-          { value: 'USD', label: 'USD - US Dollar' },
-          { value: 'EUR', label: 'EUR - Euro' },
-          { value: 'GBP', label: 'GBP - British Pound' }
+          { value: 'CAD', label: 'CAD' },
+          { value: 'USD', label: 'USD' },
+          { value: 'EUR', label: 'EUR' },
+          { value: 'GBP', label: 'GBP' }
         ]
       },
-      { key: 'exch_rate', label: 'Exchange Rate', type: 'number' },
-      { key: 'cust_budgeted_amt_lcl', label: 'Budgeted Amount (Local)', type: 'number' },
-      { key: 'invoice_attachment', label: 'Invoice Attachment (S3 URI)', type: 'text', placeholder: 's3://pmo-attachments/invoices/...' },
-      { key: 'tags', label: 'Tags', type: 'array' },
+      { key: 'exch_rate', label: 'Exchange Rate', type: 'number', placeholder: '1.00' },
+      { key: 'cust_budgeted_amt_lcl', label: 'Budgeted Amount (CAD)', type: 'number', placeholder: '0.00' },
+
+      // ========== ADDITIONAL ==========
+      { key: 'tags', label: 'Tags', type: 'array', placeholder: 'Add tags for categorization...' },
       { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 
@@ -2616,49 +2735,101 @@ export const entityConfigs: Record<string, EntityConfig> = {
         key: 'invoice_currency',
         title: 'Currency',
         sortable: true,
-        filterable: true,
-        inlineEditable: true
+        filterable: true
       },
       {
-        key: 'sales_receipt_attachment',
+        key: 'attachment',
         title: 'Receipt',
+        width: '220px',
+        // Standardized attachment field - auto-detected by fieldCapabilities
+        // InlineFileUploadCell handles display and inline upload
+      },
+      {
+        key: 'attachment_format',
+        title: 'Format',
+        sortable: true,
+        filterable: true,
+        width: '90px',
         render: (value) => value ? React.createElement(
-          'a',
-          { href: value, target: '_blank', rel: 'noopener noreferrer', className: 'text-blue-600 hover:underline' },
-          'View'
-        ) : React.createElement('span', { className: 'text-gray-400' }, '-')
+          'span',
+          { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-gray-100 text-gray-800 rounded border border-gray-200' },
+          value.toUpperCase()
+        ) : '-'
+      },
+      {
+        key: 'attachment_size_bytes',
+        title: 'Size',
+        sortable: true,
+        width: '90px',
+        align: 'right' as const,
+        render: (value) => {
+          if (!value) return '-';
+          const kb = value / 1024;
+          const mb = kb / 1024;
+          if (mb >= 1) {
+            return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${mb.toFixed(1)} MB`);
+          }
+          return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${kb.toFixed(0)} KB`);
+        }
       },
       {
         key: 'tags',
         title: 'Tags',
-        inlineEditable: true,
         render: renderTags
       }
     ],
 
     fields: [
-      { key: 'name', label: 'Revenue Name', type: 'text', required: true },
-      { key: 'code', label: 'Code', type: 'text', required: true },
-      { key: 'revenue_code', label: 'Revenue Code', type: 'text', required: true },
-      { key: 'slug', label: 'Slug', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'richtext' },
-      { key: 'revenue_amt_local', label: 'Revenue Amount (Local)', type: 'number', required: true },
-      { key: 'revenue_amt_invoice', label: 'Invoice Amount', type: 'number' },
+      // ========== ATTACHMENT ==========
+      {
+        key: 'attachment',
+        label: 'Receipt Attachment',
+        type: 'text',
+        readonly: true,
+        placeholder: 'S3 URI - Auto-populated from uploaded receipt'
+      },
+      {
+        key: 'attachment_format',
+        label: 'File Format',
+        type: 'text',
+        readonly: true,
+        placeholder: 'Auto-populated from uploaded receipt (e.g., pdf, png, jpg)'
+      },
+      {
+        key: 'attachment_size_bytes',
+        label: 'File Size (bytes)',
+        type: 'number',
+        readonly: true,
+        placeholder: 'Auto-populated from uploaded receipt'
+      },
+
+      // ========== BASIC INFORMATION ==========
+      { key: 'name', label: 'Revenue Name', type: 'text', required: true, placeholder: 'e.g., Product Sales Q1 2025' },
+      { key: 'code', label: 'Code', type: 'text', required: true, placeholder: 'e.g., REV-2025-001' },
+      { key: 'revenue_code', label: 'Revenue Code', type: 'text', required: true, placeholder: 'e.g., INC-PRODUCT-SALES' },
+      { key: 'slug', label: 'Slug', type: 'text', required: true, placeholder: 'e.g., product-sales-q1-2025' },
+      { key: 'descr', label: 'Description', type: 'richtext', placeholder: 'Describe the revenue source and details...' },
+
+      // ========== FINANCIAL INFORMATION ==========
+      { key: 'revenue_amt_local', label: 'Revenue Amount (CAD)', type: 'number', required: true, placeholder: '0.00' },
+      { key: 'revenue_amt_invoice', label: 'Invoice Amount', type: 'number', placeholder: '0.00' },
       {
         key: 'invoice_currency',
         label: 'Currency',
         type: 'select',
+        defaultValue: 'CAD',
         options: [
-          { value: 'CAD', label: 'CAD - Canadian Dollar' },
-          { value: 'USD', label: 'USD - US Dollar' },
-          { value: 'EUR', label: 'EUR - Euro' },
-          { value: 'GBP', label: 'GBP - British Pound' }
+          { value: 'CAD', label: 'CAD' },
+          { value: 'USD', label: 'USD' },
+          { value: 'EUR', label: 'EUR' },
+          { value: 'GBP', label: 'GBP' }
         ]
       },
-      { key: 'exch_rate', label: 'Exchange Rate', type: 'number' },
-      { key: 'revenue_forecasted_amt_lcl', label: 'Forecasted Amount (Local)', type: 'number' },
-      { key: 'sales_receipt_attachment', label: 'Sales Receipt (S3 URI)', type: 'text', placeholder: 's3://pmo-attachments/receipts/...' },
-      { key: 'tags', label: 'Tags', type: 'array' },
+      { key: 'exch_rate', label: 'Exchange Rate', type: 'number', placeholder: '1.00' },
+      { key: 'revenue_forecasted_amt_lcl', label: 'Forecasted Amount (CAD)', type: 'number', placeholder: '0.00' },
+
+      // ========== ADDITIONAL ==========
+      { key: 'tags', label: 'Tags', type: 'array', placeholder: 'Add tags for categorization...' },
       { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 

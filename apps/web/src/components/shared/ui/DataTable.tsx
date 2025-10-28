@@ -5,6 +5,8 @@ import {
   loadFieldOptions,
   type SettingOption
 } from '../../../lib/settingsLoader';
+import { detectColumnCapabilities, type FieldCapability } from '../../../lib/fieldCapabilities';
+import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 
 export interface Column<T = any> {
   key: string;
@@ -114,24 +116,34 @@ export function DataTable<T = any>({
   const filterContainerRef = useRef<HTMLDivElement | null>(null);
   const columnSelectorRef = useRef<HTMLDivElement | null>(null);
 
+  // ============================================================================
+  // CENTRALIZED CAPABILITY DETECTION - TRUE DRY SYSTEM
+  // ============================================================================
+
+  // Auto-detect field capabilities based on naming conventions (Convention over Configuration)
+  const columnCapabilities = useMemo(() => detectColumnCapabilities(initialColumns), [initialColumns]);
+
   // State for dynamically loaded setting options
   const [settingOptions, setSettingOptions] = useState<Map<string, SettingOption[]>>(new Map());
 
-  // Load setting options for columns that need them
+  // Load setting options for columns that need them (auto-detected)
   useEffect(() => {
     const loadAllSettingOptions = async () => {
       const optionsMap = new Map<string, SettingOption[]>();
 
-      // Find all columns that need dynamic settings
-      const columnsNeedingSettings = initialColumns.filter(
-        col => col.loadOptionsFromSettings || isSettingField(col.key)
-      );
+      // Find all columns that need dynamic settings using capability detection
+      const columnsNeedingSettings = initialColumns.filter(col => {
+        const capability = columnCapabilities.get(col.key);
+        return capability?.loadOptionsFromSettings;
+      });
 
       // Load options for each column
       await Promise.all(
         columnsNeedingSettings.map(async (col) => {
           try {
-            const options = await loadFieldOptions(col.key);
+            const capability = columnCapabilities.get(col.key)!;
+            const category = capability.settingsCategory || col.key;
+            const options = await loadFieldOptions(category);
             if (options.length > 0) {
               optionsMap.set(col.key, options);
             }
@@ -147,7 +159,7 @@ export function DataTable<T = any>({
     if (inlineEditable) {
       loadAllSettingOptions();
     }
-  }, [initialColumns, inlineEditable]);
+  }, [initialColumns, inlineEditable, columnCapabilities]);
 
   // Selection functionality - only one row at a time (radio behavior)
   const handleSelectAll = (checked: boolean) => {
@@ -847,12 +859,19 @@ export function DataTable<T = any>({
                       }
 
                       // Regular data columns
-                      // Check if this column should show a settings dropdown
+                      // ============================================================================
+                      // CENTRALIZED CAPABILITY-BASED RENDERING (TRUE DRY)
+                      // ============================================================================
+
+                      // Get auto-detected capability for this field
+                      const capability = columnCapabilities.get(column.key);
+                      const fieldEditable = capability?.inlineEditable || false;
+                      const editType = capability?.editType || 'text';
+                      const isFileField = capability?.isFileUpload || false;
+
+                      // Get settings options if available
                       const hasSettingOptions = settingOptions.has(column.key);
                       const columnOptions = hasSettingOptions ? settingOptions.get(column.key)! : [];
-                      // Use column.inlineEditable from config to determine if field is editable
-                      const fieldEditable = column.inlineEditable || false;
-                      const isTagsField = column.key.toLowerCase() === 'tags' || column.key.toLowerCase().endsWith('_tags');
 
                       return (
                         <td
@@ -867,7 +886,20 @@ export function DataTable<T = any>({
                           onClick={(e) => isEditing && e.stopPropagation()}
                         >
                           {isEditing && fieldEditable ? (
-                            hasSettingOptions ? (
+                            // FILE UPLOAD FIELD (drag-drop)
+                            editType === 'file' ? (
+                              <InlineFileUploadCell
+                                value={(record as any)[column.key]}
+                                entityType={onEdit ? 'artifact' : 'cost'} // Inferred from context
+                                entityId={(record as any).id}
+                                fieldName={column.key}
+                                accept={capability.acceptedFileTypes}
+                                onUploadComplete={(fileUrl) => onInlineEdit?.(recordId, column.key, fileUrl)}
+                                disabled={false}
+                              />
+                            ) :
+                            // SETTINGS DROPDOWN FIELD
+                            editType === 'select' && hasSettingOptions ? (
                               // Render elegant select dropdown for setting fields
                               <div className="relative w-full">
                                 <select
@@ -894,8 +926,9 @@ export function DataTable<T = any>({
                                 {/* Custom dropdown arrow */}
                                 <ChevronDown className="h-4 w-4 text-gray-500 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                               </div>
-                            ) : isTagsField ? (
-                              // Render text input for tags fields
+                            ) :
+                            // TAGS FIELD (comma-separated text)
+                            editType === 'tags' ? (
                               <input
                                 type="text"
                                 value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
@@ -909,8 +942,49 @@ export function DataTable<T = any>({
                                   color: '#333'
                                 }}
                               />
+                            ) :
+                            // NUMBER FIELD
+                            editType === 'number' ? (
+                              <input
+                                type="number"
+                                value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
+                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full px-2 py-1.5 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                style={{
+                                  fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                                  fontSize: '13px',
+                                  color: '#333'
+                                }}
+                              />
+                            ) :
+                            // DATE FIELD
+                            editType === 'date' ? (
+                              <input
+                                type="date"
+                                value={(() => {
+                                  const dateValue = editedData[column.key] ?? (record as any)[column.key];
+                                  if (!dateValue) return '';
+                                  // Format to yyyy-MM-dd if it's a full ISO timestamp
+                                  try {
+                                    const date = new Date(dateValue);
+                                    if (isNaN(date.getTime())) return '';
+                                    return date.toISOString().split('T')[0];
+                                  } catch {
+                                    return '';
+                                  }
+                                })()}
+                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full px-2 py-1.5 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                style={{
+                                  fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                                  fontSize: '13px',
+                                  color: '#333'
+                                }}
+                              />
                             ) : (
-                              // Render text input for other editable fields (should not reach here normally)
+                              // TEXT FIELD (default)
                               <input
                                 type="text"
                                 value={editedData[column.key] ?? (record as any)[column.key] ?? ''}

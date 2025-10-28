@@ -1,10 +1,24 @@
 # Project & Task Entity System - UI/UX Enhancement Documentation
 
-> **Complete guide to the enhanced entity detail page system** with share/link modals, compact layouts, and header redesign
+> **Complete guide to the enhanced entity detail page system** with share/link modals, compact layouts, and inline editing
 
-**Last Updated:** 2025-10-24
-**Version:** 2.0.0
+**Last Updated:** 2025-10-28
+**Version:** 2.3.0
 **Related Docs:** [UI/UX Architecture](./ui_ux_route_api.md), [Data Model](./datamodel.md)
+
+**v2.3 Updates (2025-10-28):**
+- **Convention Over Configuration inline editing** - Auto-detects editable fields by naming patterns
+- **Zero manual configuration** - Removed all `inlineEditable` flags from entityConfig
+- **Inline file upload** - Drag-drop file upload directly in table cells
+- **Bidirectional transformers** - Automatic data format conversion (tags, arrays, etc.)
+- **Field capability detection** - Single source of truth in `fieldCapabilities.ts`
+
+**v2.2 Updates (2025-10-27):**
+- **Sticky headers** for EntityMainPage and EntityDetailPage with proper z-index layering
+- **DRY metadata components**: MetadataField, MetadataRow, MetadataSeparator
+- **Reduced spacing**: gap-2 → gap-1.5 (rows), gap-1 → gap-0.5 (fields)
+- **File handling**: FilePreview and DragDropFileUpload components for artifact, cost, revenue
+- **Layout overflow fix**: Proper scrolling with pb-8 padding
 
 ---
 
@@ -30,6 +44,7 @@
 This document covers the major UI/UX enhancements made to the entity detail page system, focusing on:
 
 - **Header Redesign**: Name, code, slug, ID moved to page header with inline editing
+- **Auto-detected Inline Editing (v2.3)**: Fields automatically editable based on naming conventions
 - **Share Modal**: Universal sharing to users, roles, or public links
 - **Link Modal**: Entity relationship management with search and preview
 - **Compact Layout**: Reduced spacing and elegant striped dividers
@@ -40,7 +55,8 @@ This document covers the major UI/UX enhancements made to the entity detail page
 
 - **50% less vertical space** - More content visible without scrolling
 - **Universal modals** - Single implementation works across 13+ entity types
-- **Improved UX** - Intuitive sharing and linking with real-time feedback
+- **Zero configuration inline editing (v2.3)** - Auto-detection eliminates 65+ manual flags
+- **Improved UX** - Intuitive sharing, linking, and editing with real-time feedback
 - **Performance** - Eliminated infinite API loops with proper dependency management
 - **Accessibility** - Clear visual hierarchy and keyboard navigation
 
@@ -99,9 +115,10 @@ EntityDetailPage
 └─────────────────────────────────────────────┘
 ```
 
-**After:**
+**After (v2.2 - Sticky Header with DRY Components):**
 ```
 ┌─────────────────────────────────────────────────────────────┐
+│ [STICKY HEADER - z-index: 20]                              │
 │ [Back] > Project                                            │
 │                                                             │
 │ project name: Corporate Office Space Planning [📋]         │
@@ -109,70 +126,92 @@ EntityDetailPage
 │ · id: abc123... [📋]                                        │
 │                                                             │
 │ [🔗] [📤] [✏️] [🗑️]                                        │
+│                                                             │
+│ [Overview] [Tasks] [Wiki] [Artifacts]  ← Tabs also sticky  │
 └─────────────────────────────────────────────────────────────┘
+│ [SCROLLABLE CONTENT BELOW]                                  │
 ```
 
 ### Implementation
 
-**EntityDetailPage.tsx** (lines 100-180):
+**EntityDetailPage.tsx (v2.2)** - Using DRY Components:
 
 ```typescript
-{/* Header - Name, Code, Slug, ID with copy icons */}
-<div className="flex items-start gap-2 flex-wrap mb-1">
-  <span className="text-sm text-gray-400 font-normal flex-shrink-0">
-    {config.displayName} name:
-  </span>
-  {isEditing ? (
-    <input
-      type="text"
-      value={editedData.name || editedData.title || ''}
-      onChange={(e) => handleFieldChange(data.name ? 'name' : 'title', e.target.value)}
-      className="flex-1 text-lg font-semibold text-gray-900 bg-white border-b-2 border-gray-300 hover:border-blue-400 focus:border-blue-500 focus:ring-0 focus:outline-none px-2 py-1 rounded-t"
+{/* Sticky Header Section */}
+<div className="sticky top-0 z-20 bg-gray-50 pb-4">
+  {/* Compact metadata row using DRY components */}
+  <MetadataRow className="overflow-x-auto">
+    {/* Name */}
+    <MetadataField
+      label={`${config.displayName} name`}
+      value={isEditing ? (editedData.name || '') : (data.name || '')}
+      isEditing={isEditing}
+      fieldKey="name"
+      copiedField={copiedField}
+      onCopy={handleCopy}
+      onChange={handleFieldChange}
+      placeholder="Enter name..."
+      inputWidth="16rem"
     />
-  ) : (
-    <>
-      <h1 className="text-lg font-semibold text-gray-900 truncate">
-        {data.name || data.title || `${config.displayName} Details`}
-      </h1>
-      <button
-        onClick={() => handleCopy('name', data.name || data.title)}
-        className="p-1 hover:bg-gray-100 rounded transition-colors"
-        title="Copy name"
-      >
-        {copiedField === 'name' ? (
-          <Check className="h-3.5 w-3.5 text-green-600" />
-        ) : (
-          <Copy className="h-3.5 w-3.5 text-gray-400" />
-        )}
-      </button>
-    </>
-  )}
-</div>
 
-{/* Code, Slug, ID row */}
-<div className="flex items-center gap-2 flex-wrap text-sm text-gray-500">
-  {data.code && (
-    <>
-      <span className="text-gray-400">·</span>
-      <span className="text-gray-400 font-normal">code:</span>
-      {isEditing ? (
-        <input
-          type="text"
-          value={editedData.code || ''}
-          onChange={(e) => handleFieldChange('code', e.target.value)}
-          className="text-sm font-mono bg-white border-b border-gray-300 hover:border-blue-400 focus:border-blue-500 focus:ring-0 focus:outline-none px-1"
-        />
-      ) : (
-        <>
-          <span className="font-mono">{data.code}</span>
-          <button onClick={() => handleCopy('code', data.code)}>
-            {copiedField === 'code' ? <Check /> : <Copy />}
-          </button>
-        </>
-      )}
-    </>
-  )}
-  {/* Similar for slug and id... */}
+    <MetadataSeparator show={!!(data.code || data.slug || id)} />
+
+    {/* Code */}
+    {(data.code || isEditing) && (
+      <MetadataField
+        label="code"
+        value={isEditing ? (editedData.code || '') : data.code}
+        isEditing={isEditing}
+        fieldKey="code"
+        copiedField={copiedField}
+        onCopy={handleCopy}
+        onChange={handleFieldChange}
+        placeholder="CODE"
+        inputWidth="8rem"
+      />
+    )}
+
+    <MetadataSeparator show={!!(data.code && (data.slug || isEditing))} />
+
+    {/* Slug */}
+    {(data.slug || isEditing) && (
+      <MetadataField
+        label="slug"
+        value={isEditing ? (editedData.slug || '') : data.slug}
+        isEditing={isEditing}
+        fieldKey="slug"
+        copiedField={copiedField}
+        onCopy={handleCopy}
+        onChange={handleFieldChange}
+        placeholder="slug-name"
+        prefix="/"
+        inputWidth="10rem"
+      />
+    )}
+
+    <MetadataSeparator show={!!((data.code || data.slug) && id)} />
+
+    {/* ID */}
+    {id && (
+      <MetadataField
+        label="id"
+        value={id}
+        isEditing={false}
+        fieldKey="id"
+        copiedField={copiedField}
+        onCopy={handleCopy}
+        className="text-gray-500"
+      />
+    )}
+  </MetadataRow>
+
+  {/* Action buttons */}
+  <div className="flex items-center space-x-2 mt-3">
+    {/* Edit, Share, Link buttons */}
+  </div>
+
+  {/* Tabs */}
+  <DynamicChildEntityTabs />
 </div>
 ```
 

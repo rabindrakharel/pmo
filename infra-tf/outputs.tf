@@ -25,6 +25,25 @@ output "lambda_deployer_logs" {
   value       = module.lambda_deployer.log_group_name
 }
 
+# ============================================================================
+# SSL Renewal Automation Outputs
+# ============================================================================
+
+output "lambda_ssl_renewal_function" {
+  description = "Lambda function name for SSL renewal"
+  value       = module.lambda_ssl_renewal.lambda_function_name
+}
+
+output "lambda_ssl_renewal_logs" {
+  description = "CloudWatch log group for SSL renewal Lambda"
+  value       = module.lambda_ssl_renewal.log_group_name
+}
+
+output "ssl_renewal_schedule" {
+  description = "EventBridge schedule for SSL renewal"
+  value       = "Monthly on 1st at 2 AM UTC"
+}
+
 output "app_subnet_ids" {
   description = "IDs of public app subnets"
   value       = module.vpc.public_subnet_ids

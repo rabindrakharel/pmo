@@ -1,15 +1,21 @@
 # Navigation Context System - Complete Guide
 
-**Version:** 1.1.0
-**Last Updated:** 2025-10-27
+**Version:** 1.3.0
+**Last Updated:** 2025-10-28
 **Status:** Production Ready
 
-**Recent Updates (v1.1.0):**
-- Removed back arrow button from EntityDetailPage (navigation via ExitButton only)
-- Reduced tab heights by 50% (py-4 → py-2)
-- Reduced table row/header heights by 30% (py-4 → py-2.5)
-- Unified metadata styling with DRY principles (consistent font across name, code, slug, ID)
-- All form elements standardized to py-1.5 height
+**Recent Updates (v1.3.0):**
+- **Horizontal header navigation** - Breadcrumb moved from vertical sidebar to horizontal header layout
+- **Space-efficient design** - Chevron-separated breadcrumb trail in header
+- **Removed sidebar positioning** - No more fixed left sidebar or margin adjustments
+- **Type-only display** - Breadcrumb shows "[Icon] [Type]" format without entity names for cleaner UI
+- **Header integration** - Breadcrumb now part of main header component
+
+**Previous Updates (v1.2.0):**
+- **Sticky headers** for EntityMainPage (z-10) and EntityDetailPage (z-20)
+- **MetadataField DRY components** for reusable metadata rendering
+- Reduced metadata spacing: gap-2 → gap-1.5 (rows), gap-1 → gap-0.5 (fields)
+- **Layout overflow fix**: overflow-y-auto with pb-8 padding to prevent content cutoff
 
 ---
 
@@ -35,7 +41,7 @@
 The Navigation Context System is a comprehensive solution for tracking and managing hierarchical entity navigation in the PMO platform. It provides:
 
 - **Stack-based navigation history** tracking user paths through nested entities
-- **Visual navigation tree** displaying the current hierarchy path
+- **Horizontal header breadcrumb** displaying the current hierarchy path
 - **Smart back navigation** returning users to the correct parent entity and tab
 - **Context preservation** maintaining state across entity transitions
 
@@ -44,12 +50,13 @@ The Navigation Context System is a comprehensive solution for tracking and manag
 | Feature | Description |
 |---------|-------------|
 | **Hierarchical Tracking** | Maintains complete navigation path (e.g., Business → Project → Task → Wiki) |
-| **Visual Breadcrumb** | Left sidebar tree showing current location and path |
+| **Header Breadcrumb** | Horizontal breadcrumb trail showing "[Icon] [Type]" format only |
 | **Smart Back Navigation** | Returns to parent with correct child tab active |
-| **Entity State Management** | Tracks entity type, ID, name, and active tabs |
-| **Click-to-Navigate** | Jump to any previous level by clicking tree nodes |
-| **Auto-Updates** | Syncs entity name changes in real-time |
+| **Entity State Management** | Tracks entity type, ID, name (internal), and active tabs |
+| **Click-to-Navigate** | Jump to any previous level by clicking breadcrumb nodes |
+| **Type-Only Display** | Shows entity types without names for cleaner, more compact UI |
 | **Duplicate Prevention** | Prevents redundant entries in history stack |
+| **Space-Efficient** | Compact horizontal layout with chevron separators |
 
 ### Use Cases
 
@@ -99,12 +106,14 @@ User Journey:
 │               │                               │               │
 │               │                               │               │
 │  ┌────────────▼──────────────┐   ┌───────────▼────────────┐ │
-│  │  NavigationBreadcrumb     │   │   Page Components      │ │
-│  │  (Visual Tree Component)  │   │                        │ │
-│  │                           │   │  - EntityDetailPage    │ │
-│  │  - Displays history       │   │  - WikiEditorPage      │ │
-│  │  - Click to navigate      │   │  - FormEditPage        │ │
-│  │  - Shows current entity   │   │  - ExitButton          │ │
+│  │  Layout Component         │   │   Page Components      │ │
+│  │  ┌─────────────────────┐  │   │                        │ │
+│  │  │ Header              │  │   │  - EntityDetailPage    │ │
+│  │  │ ┌─────────────────┐ │  │   │  - WikiEditorPage      │ │
+│  │  │ │NavigationBread- │ │  │   │  - FormEditPage        │ │
+│  │  │ │crumb (Horiz.)   │ │  │   │  - ExitButton          │ │
+│  │  │ └─────────────────┘ │  │   │                        │ │
+│  │  └─────────────────────┘  │   │                        │ │
 │  └───────────────────────────┘   └────────────────────────┘ │
 │                                                               │
 └─────────────────────────────────────────────────────────────┘
@@ -142,9 +151,8 @@ User Journey:
          ▼
 ┌──────────────────────────────┐
 │  NavigationBreadcrumb        │
-│  Renders visual tree:        │
-│  ● Business                  │
-│  └─● Project (current)       │
+│  Renders in header:          │
+│  [🏢] [Business] → [📁] [Project] │
 └──────────────────────────────┘
 ```
 
@@ -279,34 +287,32 @@ The root context provider that manages navigation state.
 
 **File:** `apps/web/src/components/shared/navigation/NavigationBreadcrumb.tsx`
 
-Visual component displaying the navigation tree on the left side.
+Visual component displaying the navigation breadcrumb horizontally in the header.
 
 #### Features
-- **Fixed positioning**: Left side of screen, below header
-- **Vertical tree layout**: Nodes connected with gradient lines
+- **Header integration**: Positioned in the main header component
+- **Horizontal layout**: Inline breadcrumb trail with chevron separators
 - **Interactive nodes**: Click to navigate to any level
-- **Current entity highlight**: Blue background and pulse animation
-- **Depth indicator**: Shows how many levels deep
+- **Current entity highlight**: Blue background with icon
+- **Compact design**: Space-efficient display with entity name and type
 
 #### Conditional Rendering
 Only visible when:
 1. `history.length > 0` (has navigation history)
-2. `!isVisible` (sidebar is hidden)
 
 #### Visual States
 
 | State | Appearance |
 |-------|------------|
-| **Current Node** | Blue background (`bg-blue-50`), blue border, white icon, pulse animation |
-| **Previous Nodes** | White background, gray border, colored icon on hover |
-| **Connecting Lines** | Gradient blue lines (`from-blue-300 to-blue-200`) |
+| **Current Node** | Blue background (`bg-blue-50`), blue icon circle |
+| **Previous Nodes** | Hover background (`hover:bg-gray-100`), clickable |
+| **Separators** | Chevron icons (`ChevronRight`) between nodes |
 
 #### Layout Specifications
-- **Width**: 192px (`w-48`)
-- **Position**: `fixed left-0 top-16 bottom-0`
-- **Z-index**: 30
-- **Padding**: 16px (`p-4`)
-- **Background**: Gradient (`from-gray-50 to-white`)
+- **Display**: Inline horizontal (`flex items-center gap-1`)
+- **Position**: Header component (left side)
+- **Overflow**: Horizontal scroll if needed (`overflow-x-auto`)
+- **Node Style**: Icon + Entity Name + [Type] format
 
 ---
 
@@ -615,26 +621,28 @@ function App() {
 **File:** `apps/web/src/components/shared/layout/Layout.tsx`
 
 ```tsx
-import { useNavigationHistory } from '../../../contexts/NavigationHistoryContext';
 import { NavigationBreadcrumb } from '../navigation/NavigationBreadcrumb';
 
 export function Layout({ children }: LayoutProps) {
-  const { history } = useNavigationHistory();
-  const { isVisible } = useSidebar();
-
-  const showNavigationBreadcrumb = history.length > 0 && !isVisible;
-
   return (
     <div className="h-screen bg-gray-50 flex">
       {/* Sidebar (if visible) */}
       {isVisible && <Sidebar />}
 
-      {/* Navigation Breadcrumb (when sidebar hidden) */}
-      {showNavigationBreadcrumb && <NavigationBreadcrumb />}
-
       {/* Main Content */}
-      <div className={`flex-1 ${showNavigationBreadcrumb ? 'ml-48' : ''}`}>
-        {children}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header Bar */}
+        <header className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            {/* Navigation Breadcrumb */}
+            <NavigationBreadcrumb />
+          </div>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
       </div>
     </div>
   );
@@ -774,19 +782,19 @@ export function WikiEditorPage() {
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│  Top Bar (Header)                                     h: 64px   │
-├────────────┬───────────────────────────────────────────────────┤
-│            │                                                    │
-│ Navigation │                                                    │
-│ Breadcrumb │         Main Content Area                         │
-│            │                                                    │
-│  w: 192px  │         (Adjusted with ml-48 margin)              │
-│  (w-48)    │                                                    │
-│            │                                                    │
-│ Fixed Left │         Scrollable content                        │
-│            │                                                    │
-│            │                                                    │
-└────────────┴───────────────────────────────────────────────────┘
+│  Header (h: 64px)                                              │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │ [Icon] [Type] → [Icon] [Type] → [Icon] [Current Type]   │ │
+│  │ Breadcrumb (Horizontal, overflow-x-auto)                  │ │
+│  └───────────────────────────────────────────────────────────┘ │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│                    Main Content Area                           │
+│                                                                │
+│                    Scrollable content                          │
+│                    (No margin adjustments needed)              │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ### UI Component Heights (Updated v1.1.0)
@@ -827,90 +835,71 @@ const metadataValueStyle = {
 
 **Example Display:**
 ```
-Task name: Website Redesign · code: TASK-123 · slug: /website-redesign · id: uuid
+Task code: TASK-123 · slug: /website-redesign · id: uuid
+(Entity name shown in detail page header, not in breadcrumb)
 ```
 
 ### Color Palette
 
 | Element | Color | Hex Code |
 |---------|-------|----------|
-| **Background** | Gray 50 → White gradient | `#F9FAFB` → `#FFFFFF` |
-| **Border** | Gray 200 | `#E5E7EB` |
 | **Current Node BG** | Blue 50 | `#EFF6FF` |
-| **Current Node Border** | Blue 200 | `#BFDBFE` |
 | **Current Node Icon BG** | Blue 500 | `#3B82F6` |
-| **Previous Node BG** | White | `#FFFFFF` |
-| **Previous Node Border** | Gray 300 | `#D1D5DB` |
-| **Connecting Lines** | Blue 300 → Blue 200 | `#93C5FD` → `#BFDBFE` |
+| **Current Node Icon Border** | Blue 600 | `#2563EB` |
+| **Previous Node BG (Hover)** | Gray 100 | `#F3F4F6` |
+| **Previous Node Icon BG** | White | `#FFFFFF` |
+| **Previous Node Icon Border** | Gray 300 | `#D1D5DB` |
+| **Separator Icon** | Gray 400 | `#9CA3AF` |
 | **Text Primary** | Gray 900 | `#111827` |
-| **Text Secondary** | Gray 600 | `#4B5563` |
-| **Text Label** | Gray 500 | `#6B7280` |
+| **Text Secondary** | Gray 700 | `#374151` |
+| **Text Type Label** | Gray 500/Blue 600 | `#6B7280`/`#2563EB` |
 
 ### Typography
 
 | Element | Font | Size | Weight | Transform |
 |---------|------|------|--------|-----------|
-| **Header** | Open Sans | 12px (text-xs) | 500 (medium) | - |
-| **Entity Type** | Open Sans | 10px (text-[10px]) | 500 (medium) | uppercase |
-| **Entity Name** | Open Sans | 12px (text-xs) | 400 (normal) | - |
-| **Entity Name (Current)** | Open Sans | 12px (text-xs) | 500 (medium) | - |
-| **Depth Counter** | Open Sans | 10px (text-[10px]) | 400 (normal) | - |
+| **Entity Type** | Sans | 12px (text-xs) | 500 (medium) | - |
+| **Type Brackets** | Sans | 12px (text-xs) | 500 (medium) | [ ] |
+| **Icon Circle** | - | 20px (w-5 h-5) | - | - |
 
 ### Spacing
 
 ```css
-Container:
-  padding: 16px (p-4)
+Breadcrumb Container:
+  display: flex
+  items-center
+  gap: 4px (gap-1)
+  overflow-x: auto
 
-Header Section:
-  margin-bottom: 16px (mb-4)
-  padding-bottom: 12px (pb-3)
-  border-bottom: 1px solid gray-200
-
-Node Spacing:
-  gap between nodes: 4px (space-y-1)
-
-Node Internal:
-  padding: 8px (p-2)
-  icon-to-text gap: 10px (gap-2.5)
+Node Button:
+  padding: 4px 8px (py-1 px-2)
+  gap: 6px (gap-1.5)
+  border-radius: 6px (rounded-md)
 
 Icon Circle:
-  size: 24px (w-6 h-6)
-  border: 2px
-  icon size: 14px (h-3.5 w-3.5)
+  size: 20px (w-5 h-5)
+  border: 1px
+  icon size: 12px (h-3 w-3)
 
-Connecting Line:
-  width: 2px (w-[2px])
-  left offset: 11px (left-[11px])
-  top offset: 32px (top-8)
+Separator:
+  size: 14px (h-3.5 w-3.5)
+  margin: 0 4px
 ```
 
 ### Animation
 
 ```css
-/* Current Node Pulse */
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.8; }
-}
-
 /* Hover Transition */
 transition: all 200ms ease-in-out;
 ```
 
-### Shadow & Border Radius
+### Border Radius
 
 ```css
-Container:
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1) (shadow-sm)
-  border-radius: 0
-
-Current Node:
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1) (shadow-sm)
-  border-radius: 8px (rounded-lg)
+Node Button:
+  border-radius: 6px (rounded-md)
 
 Icon Circle:
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1) (shadow-md, current only)
   border-radius: 9999px (rounded-full)
 ```
 
@@ -932,9 +921,8 @@ pushEntity({
   timestamp: 1732742400000
 });
 
-// Visual breadcrumb shows:
-// ● Business
-//   Regional Operations
+// Header breadcrumb shows:
+// [🏢] [Business]
 
 // ---
 
@@ -951,12 +939,8 @@ pushEntity({
 // Parent tab tracking:
 updateParentActiveTab('project');
 
-// Visual breadcrumb shows:
-// ● Business
-//   Regional Operations
-//   │
-//   └─● Project (current)
-//      Fall 2024 Campaign
+// Header breadcrumb shows:
+// [🏢] [Business] → [📁] [Project]
 
 // ---
 
@@ -971,15 +955,8 @@ pushEntity({
 
 updateParentActiveTab('task');
 
-// Visual breadcrumb shows:
-// ● Business
-//   Regional Operations
-//   │
-//   ├─● Project
-//   │  Fall 2024 Campaign
-//   │  │
-//   │  └─● Task (current)
-//   │     Website Redesign
+// Header breadcrumb shows:
+// [🏢] [Business] → [📁] [Project] → [✓] [Task]
 ```
 
 ---
@@ -1028,18 +1005,8 @@ pushEntity({
   timestamp: 1732742700000
 });
 
-// Visual breadcrumb shows:
-// ● Business
-//   Regional Operations
-//   │
-//   ├─● Project
-//   │  Fall 2024 Campaign
-//   │  │
-//   │  ├─● Task
-//   │  │  Website Redesign
-//   │  │  │
-//   │  │  └─● Wiki (current)
-//   │  │     Untitled
+// Header breadcrumb shows:
+// [🏢] [Business] → [📁] [Project] → [✓] [Task] → [📄] [Wiki]
 
 // ---
 
@@ -1047,9 +1014,9 @@ pushEntity({
 // WikiEditorPage calls:
 updateCurrentEntityName('Setup Guide');
 
-// Visual breadcrumb updates in real-time:
-// ● Wiki (current)
-//   Setup Guide ← Updated
+// Header breadcrumb remains:
+// [🏢] [Business] → [📁] [Project] → [✓] [Task] → [📄] [Wiki]
+// (Entity names not shown in breadcrumb)
 ```
 
 ---
@@ -1118,7 +1085,7 @@ goBack();
 
 ### Example 4: Clicking Breadcrumb Node to Jump
 
-**Scenario:** User clicks on a node in the breadcrumb tree
+**Scenario:** User clicks on a node in the breadcrumb trail
 
 ```tsx
 // Current state:
@@ -1129,18 +1096,9 @@ history = [
   { entityType: 'wiki', entityId: 'w1', entityName: 'Setup Guide' }               // index: 3 (current)
 ]
 
-// Visual breadcrumb:
-// ● Business             ← User clicks here
-//   Regional Operations
-//   │
-//   ├─● Project
-//   │  Fall 2024 Campaign
-//   │  │
-//   │  ├─● Task
-//   │  │  Website Redesign
-//   │  │  │
-//   │  │  └─● Wiki (current)
-//   │  │     Setup Guide
+// Header breadcrumb:
+// [🏢] [Business] → [📁] [Project] → [✓] [Task] → [📄] [Wiki]
+//      ↑ User clicks here
 
 // NavigationBreadcrumb.handleNodeClick(0):
 function handleNodeClick(index: number) {
@@ -1159,7 +1117,7 @@ function handleNodeClick(index: number) {
 // Result:
 // - history = [{ entityType: 'business', entityId: 'b1' }]
 // - User is now on Business detail page
-// - Visual breadcrumb shows only Business node
+// - Header breadcrumb shows only: [🏢] [Business]
 ```
 
 ---
@@ -1191,17 +1149,16 @@ pushEntity({
   timestamp: Date.now()
 });
 
-// Visual breadcrumb:
-// ● Project
-//   Campaign
-//   │
-//   └─● Form (current)
-//      Untitled
+// Header breadcrumb:
+// [📁] [Project] → [📋] [Form]
 
 // ---
 
 // User designs form and saves
 updateCurrentEntityName('Customer Feedback Form');
+
+// Header breadcrumb remains:
+// [📁] [Project] → [📋] [Form]
 
 // User clicks Exit
 goBack();
@@ -1210,6 +1167,7 @@ goBack();
 // - Returns to /project/p1/form
 // - Forms tab is active
 // - Shows "Customer Feedback Form" in the list
+// - Header breadcrumb: [📁] [Project]
 ```
 
 ---
@@ -1396,23 +1354,11 @@ history[0].entityName = 'New Name';  // DON'T DO THIS!
 
 **Symptoms:**
 - Navigation history is populated
-- Breadcrumb component doesn't render
+- Breadcrumb component doesn't render in header
 
 **Possible Causes:**
 
-1. **Sidebar is visible**
-   ```tsx
-   // Check Layout.tsx condition
-   const showNavigationBreadcrumb = history.length > 0 && !isVisible;
-
-   // Solution: Hide sidebar when entering detail pages
-   const { hideSidebar } = useSidebar();
-   useEffect(() => {
-     hideSidebar();
-   }, []);
-   ```
-
-2. **History is empty**
+1. **History is empty**
    ```tsx
    // Check if entities are being registered
    useEffect(() => {
@@ -1421,12 +1367,22 @@ history[0].entityName = 'New Name';  // DON'T DO THIS!
    }, [data, id]);
    ```
 
-3. **NavigationHistoryProvider not wrapping app**
+2. **NavigationHistoryProvider not wrapping app**
    ```tsx
    // Check App.tsx structure
    <NavigationHistoryProvider>
      <AppRoutes />  {/* Must be inside provider */}
    </NavigationHistoryProvider>
+   ```
+
+3. **Header not rendering breadcrumb**
+   ```tsx
+   // Check Layout.tsx header structure
+   <header className="...">
+     <div className="flex items-center justify-between">
+       <NavigationBreadcrumb />  {/* Must be present */}
+     </div>
+   </header>
    ```
 
 ---
@@ -1465,38 +1421,19 @@ history[0].entityName = 'New Name';  // DON'T DO THIS!
 
 ---
 
-### Problem: Entity Name Not Updating
+### Problem: Entity Name Not Showing
 
-**Symptoms:**
-- User changes entity name
-- Breadcrumb still shows old name
+**Note:** Entity names are intentionally NOT shown in the breadcrumb as of v1.3.0.
 
-**Possible Causes:**
+**Current Behavior:**
+- Breadcrumb shows: `[Icon] [Type]` format only
+- Entity names are displayed in the detail page header, not in breadcrumb
+- This provides cleaner, more compact navigation
 
-1. **updateCurrentEntityName not called**
-   ```tsx
-   // Add effect to sync name changes
-   useEffect(() => {
-     if (data?.name) {
-       updateCurrentEntityName(data.name);
-     }
-   }, [data?.name, updateCurrentEntityName]);
-   ```
-
-2. **Wrong dependency array**
-   ```tsx
-   // ❌ Wrong
-   useEffect(() => {
-     updateCurrentEntityName(data.name);
-   }, [data]);  // Updates on every data change
-
-   // ✅ Correct
-   useEffect(() => {
-     if (data?.name) {
-       updateCurrentEntityName(data.name);
-     }
-   }, [data?.name]);  // Only when name changes
-   ```
+**If you need entity names:**
+- View the entity detail page header (name, code, slug, ID shown there)
+- `updateCurrentEntityName()` still works for internal tracking
+- Names are preserved in navigation history for context
 
 ---
 
@@ -1616,32 +1553,31 @@ useEffect(() => {
 ### Problem: Visual Glitches in Breadcrumb
 
 **Symptoms:**
-- Connecting lines misaligned
-- Icons cut off
+- Icons misaligned
 - Text overflow
+- Breadcrumb wrapping unexpectedly
 
 **Solutions:**
 
-1. **Line alignment issue**
-   ```css
-   /* Check NavigationBreadcrumb.tsx */
-   <div className="absolute left-[11px] top-8 w-[2px] h-[calc(100%+4px)]" />
-   /* Adjust left offset to match icon center */
+1. **Text overflow**
+   ```tsx
+   /* Display entity type only */
+   <span className="text-xs font-medium whitespace-nowrap">
+     [{node.entityType}]
+   </span>
    ```
 
 2. **Icon size mismatch**
    ```tsx
    /* Ensure consistent sizing */
-   Icon container: w-6 h-6 (24px)
-   Icon: h-3.5 w-3.5 (14px)
+   Icon container: w-5 h-5 (20px)
+   Icon: h-3 w-3 (12px)
    ```
 
-3. **Text overflow**
+3. **Horizontal scrolling**
    ```tsx
-   /* Add truncate class */
-   <div className="text-xs font-normal truncate">
-     {node.entityName}
-   </div>
+   /* Container should allow horizontal scroll */
+   <div className="flex items-center gap-1 overflow-x-auto">
    ```
 
 ---
@@ -1934,6 +1870,81 @@ window.addEventListener('storage', (e) => {
 
 ## Changelog
 
+### Version 1.3.0 (2025-10-28)
+
+#### Major Architecture Change: Horizontal Header Breadcrumb
+
+**Migration from Sidebar to Header:**
+- Moved NavigationBreadcrumb from fixed left sidebar to horizontal header layout
+- Removed all sidebar-specific positioning and width constraints
+- Eliminated margin adjustments on main content area (no more `ml-48` or `ml-44`)
+- Breadcrumb now integrated directly into Layout header component
+
+**Visual Design Updates:**
+- **Horizontal layout** with chevron separators (`→`) between nodes
+- **Inline display** showing: `[Icon] [Type]` format (entity names not shown)
+- **Entity type in brackets** (e.g., `[Project]`, `[Task]`) instead of uppercase labels
+- **Space-efficient** compact design suitable for header placement
+- **Responsive scrolling** with `overflow-x-auto` for long navigation paths
+
+**Component Changes:**
+- Removed vertical tree structure with connecting lines
+- Removed depth indicator footer
+- Simplified node structure: icon + type only (no entity names)
+- Current node uses blue background (`bg-blue-50`)
+- Hover states on clickable nodes (`hover:bg-gray-100`)
+- ChevronRight separators between nodes
+
+**Layout Integration:**
+- Header structure: `<header>` → `<div justify-between>` → `<NavigationBreadcrumb />`
+- No conditional rendering based on sidebar visibility
+- Always visible when history exists
+- No margin compensation needed on content area
+
+**Typography:**
+- Entity type: 12px (text-xs), medium weight, in brackets `[Type]`
+- Icon size: 12px (h-3 w-3) in 20px circle (w-5 h-5)
+- Entity names: Not displayed in breadcrumb (shown in detail page header)
+
+**Impact:**
+- More screen real estate for content (no sidebar width needed)
+- Cleaner, modern breadcrumb trail design
+- Better horizontal space utilization
+- Simplified layout logic
+
+### Version 1.2.0 (2025-10-27)
+
+#### UI/UX Improvements
+- **Sticky headers** for main and detail pages
+  - EntityMainPage: sticky header with z-10 (entity name, view switcher, create button)
+  - EntityDetailPage: sticky header+tabs with z-20 (metadata, action buttons, tabs)
+  - Headers remain visible during scroll for better UX
+- **MetadataField DRY components**
+  - Created MetadataField component with view/edit/copy modes
+  - Created MetadataRow container (gap-1.5)
+  - Created MetadataSeparator for visual dots between fields
+  - Reduced 160+ lines of repetitive code to reusable components
+- **Improved spacing density**
+  - Metadata row spacing: gap-2 → gap-1.5 (25% reduction)
+  - Field internal spacing: gap-1 → gap-0.5 (50% reduction)
+  - More compact display without sacrificing readability
+- **Layout overflow fix**
+  - Changed main content from overflow-hidden to overflow-y-auto
+  - Added pb-8 padding to prevent content cutoff at bottom
+  - Navigation breadcrumb properly offset with ml-48 margin
+
+#### Technical Updates
+- Added MetadataField.tsx with three exported components
+- Updated Layout.tsx for proper scrolling behavior
+- Enhanced sticky positioning with proper z-index layering
+- Improved navigation breadcrumb positioning logic
+
+#### Impact
+- Headers stay visible during scroll (sticky)
+- More compact metadata display (tighter spacing)
+- No more content cutoff at bottom of pages
+- Cleaner, more maintainable code with DRY components
+
 ### Version 1.1.0 (2025-10-27)
 
 #### UI/UX Improvements
@@ -2018,19 +2029,21 @@ apps/web/src/
 The Navigation Context System provides:
 
 ✅ **Stack-based tracking** of entity navigation paths
-✅ **Visual breadcrumb tree** showing current hierarchy
+✅ **Horizontal header breadcrumb** showing current hierarchy
 ✅ **Smart back navigation** preserving tab context
 ✅ **Real-time updates** when entity names change
 ✅ **Click-to-navigate** to any previous level
+✅ **Space-efficient design** with no sidebar overhead
 ✅ **Seamless integration** with existing pages
 ✅ **Production-ready** with comprehensive error handling
 
 **Ready to use:** All components installed and integrated.
 **Well-documented:** This guide covers all aspects.
 **Maintainable:** Clean architecture with clear patterns.
+**Modern design:** Horizontal breadcrumb trail with chevron separators.
 
 ---
 
-**Last Updated:** 2025-10-27
+**Last Updated:** 2025-10-28
 **Author:** PMO Platform Team
 **License:** MIT

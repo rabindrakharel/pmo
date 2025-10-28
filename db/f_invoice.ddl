@@ -145,6 +145,13 @@ CREATE TABLE app.f_invoice (
     gl_account VARCHAR(50),                             -- General ledger account code
     cost_center VARCHAR(50),                            -- Cost center/department
 
+    -- Standardized S3 Attachment Fields
+    attachment TEXT,                                     -- Full S3 URI: s3://bucket/key (invoice PDF)
+    attachment_format VARCHAR(20),                       -- File extension: pdf, png, jpg, svg, etc.
+    attachment_size_bytes BIGINT,                        -- File size in bytes
+    attachment_object_bucket VARCHAR(100),               -- S3 bucket name: 'pmo-attachments'
+    attachment_object_key VARCHAR(500),                  -- S3 object key: invoices/{id}/invoice.ext
+
     -- Timestamps
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),

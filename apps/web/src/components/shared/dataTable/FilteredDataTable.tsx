@@ -4,6 +4,7 @@ import type { Column, RowAction } from '../ui/DataTable';
 import { useNavigate } from 'react-router-dom';
 import { ActionButtonsBar } from '../button/ActionButtonsBar';
 import { getEntityConfig, type EntityConfig } from '../../../lib/entityConfig';
+import { transformForApi, transformFromApi } from '../../../lib/dataTransformers';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -188,7 +189,8 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         if (inlineEditable) {
           // Enable inline editing mode
           setEditingRow(record.id);
-          setEditedData({ ...record });
+          // Transform data from API format for editing (arrays → comma-separated strings)
+          setEditedData(transformFromApi({ ...record }));
         } else {
           // Navigate to edit page
           navigate(`/${entityType}/${record.id}/edit`);
@@ -241,12 +243,17 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         updateEndpoint = `${config.apiEndpoint}/${record.id}`;
       }
 
+      // Transform edited data for API (tags string → array, etc.)
+      const transformedData = transformForApi(editedData, record);
+
+      console.log('Sending update:', transformedData);
+
       const response = await fetch(
         `${API_BASE_URL}${updateEndpoint}`,
         {
           method: 'PUT',
           headers,
-          body: JSON.stringify(editedData)
+          body: JSON.stringify(transformedData)
         }
       );
 
@@ -255,8 +262,9 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         setEditingRow(null);
         setEditedData({});
       } else {
-        console.error('Failed to update record:', response.statusText);
-        alert('Failed to update record. Please try again.');
+        const errorText = await response.text();
+        console.error('Failed to update record:', response.statusText, errorText);
+        alert(`Failed to update record: ${response.statusText}`);
       }
     } catch (error) {
       console.error('Error updating record:', error);

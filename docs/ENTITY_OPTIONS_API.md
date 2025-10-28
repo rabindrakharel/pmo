@@ -2,10 +2,13 @@
 
 **Status:** ✅ Implemented
 **Date:** 2025-10-23
+**Last Updated:** 2025-10-28 (v2.3 - Works with auto-detected inline editing)
 
 ## Overview
 
 Global API system for fetching entity dropdown options (id, name pairs) for any entity type. This eliminates the need for entity-specific dropdown endpoints and provides a unified interface for populating selection fields across the entire application.
+
+**v2.3 Integration:** This API is automatically used by the inline editing system when fields are detected as settings/data label fields (e.g., fields ending in `_name`, `_stage`, `_tier` with `loadOptionsFromSettings: true`). See `fieldCapabilities.ts` for auto-detection rules.
 
 ## Architecture
 

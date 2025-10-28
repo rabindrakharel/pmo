@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Save, Upload, CheckCircle, X } from 'lucide-react';
-import { Layout, EntityFormContainer } from '../../components/shared';
+import { Layout, EntityFormContainer, DragDropFileUpload } from '../../components/shared';
 import { getEntityConfig } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { APIFactory } from '../../lib/api';
@@ -29,9 +29,13 @@ interface EntityCreatePageProps {
 
 export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const config = getEntityConfig(entityType);
   const EntityIcon = getEntityIcon(entityType);
   const { hideSidebar } = useSidebar();
+
+  // Get parent context from navigation state (if creating from child list page)
+  const parentContext = location.state as { parentType?: string; parentId?: string; returnTo?: string } | undefined;
 
   // Hide sidebar when entering entity create page
   useEffect(() => {
@@ -60,11 +64,25 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
       }
     });
 
-    // Entity-specific defaults for artifacts
+    // Entity-specific defaults
     if (entityType === 'artifact') {
       const timestamp = Date.now();
       defaults.code = defaults.code || `ART-${timestamp}`;
       defaults.slug = defaults.slug || `artifact-${timestamp}`;
+    } else if (entityType === 'cost') {
+      const timestamp = Date.now();
+      defaults.code = defaults.code || `CST-${timestamp}`;
+      defaults.slug = defaults.slug || `cost-${timestamp}`;
+      defaults.cost_code = defaults.cost_code || `COST-${timestamp}`;
+      defaults.invoice_currency = defaults.invoice_currency || 'CAD';
+      defaults.exch_rate = defaults.exch_rate || 1.0;
+    } else if (entityType === 'revenue') {
+      const timestamp = Date.now();
+      defaults.code = defaults.code || `REV-${timestamp}`;
+      defaults.slug = defaults.slug || `revenue-${timestamp}`;
+      defaults.revenue_code = defaults.revenue_code || `REV-${timestamp}`;
+      defaults.invoice_currency = defaults.invoice_currency || 'CAD';
+      defaults.exch_rate = defaults.exch_rate || 1.0;
     }
 
     return defaults;
@@ -101,26 +119,42 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
     setIsUploading(true);
     try {
       const tempId = `temp-${Date.now()}`;
+      const uploadType = entityType === 'cost' ? 'invoice' : entityType === 'revenue' ? 'receipt' : 'artifact';
+
       const objectKey = await uploadToS3({
-        entityType: 'artifact',
+        entityType: entityType === 'cost' || entityType === 'revenue' ? entityType : 'artifact',
         entityId: tempId,
         file: selectedFile,
         fileName: selectedFile.name,
         contentType: selectedFile.type || 'application/octet-stream',
-        uploadType: 'artifact',
+        uploadType,
         tenantId: 'demo'
       });
 
       if (objectKey) {
         setUploadedObjectKey(objectKey);
-        // Auto-populate form fields immediately
+
+        // Auto-populate form fields based on entity type
         const fileExtension = selectedFile.name.split('.').pop() || 'unknown';
-        setFormData(prev => ({
-          ...prev,
-          name: !prev.name ? selectedFile.name.replace(/\.[^/.]+$/, '') : prev.name, // Remove extension
-          file_format: fileExtension,
-          file_size_bytes: selectedFile.size
-        }));
+
+        if (entityType === 'artifact') {
+          setFormData(prev => ({
+            ...prev,
+            name: !prev.name ? selectedFile.name.replace(/\.[^/.]+$/, '') : prev.name,
+            file_format: fileExtension,
+            file_size_bytes: selectedFile.size
+          }));
+        } else if (entityType === 'cost') {
+          setFormData(prev => ({
+            ...prev,
+            name: !prev.name ? selectedFile.name.replace(/\.[^/.]+$/, '') : prev.name
+          }));
+        } else if (entityType === 'revenue') {
+          setFormData(prev => ({
+            ...prev,
+            name: !prev.name ? selectedFile.name.replace(/\.[^/.]+$/, '') : prev.name
+          }));
+        }
       }
     } catch (error) {
       console.error('Upload failed:', error);
@@ -161,11 +195,19 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
       const dataToCreate = { ...formData };
       delete dataToCreate.assignee_employee_ids;
 
-      // Add artifact-specific S3 fields if uploading a file
-      if (entityType === 'artifact' && uploadedObjectKey) {
-        dataToCreate.object_key = uploadedObjectKey;
-        dataToCreate.bucket_name = 'cohuron-attachments-prod-957207443425';
-        // file_format and file_size_bytes are already in formData from handleFileUpload
+      // Add attachment fields based on entity type
+      if (uploadedObjectKey) {
+        if (entityType === 'artifact') {
+          dataToCreate.object_key = uploadedObjectKey;
+          dataToCreate.bucket_name = 'cohuron-attachments-prod-957207443425';
+          // file_format and file_size_bytes are already in formData from handleFileUpload
+        } else if (entityType === 'cost') {
+          // Store full S3 URI for cost invoice attachment
+          dataToCreate.invoice_attachment = `s3://cohuron-attachments-prod-957207443425/${uploadedObjectKey}`;
+        } else if (entityType === 'revenue') {
+          // Store full S3 URI for revenue receipt attachment
+          dataToCreate.sales_receipt_attachment = `s3://cohuron-attachments-prod-957207443425/${uploadedObjectKey}`;
+        }
       }
 
       // Type-safe API call using APIFactory
@@ -179,9 +221,24 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
         await createTaskAssignees(createdId, assigneeIds);
       }
 
-      // Navigate to the detail page
+      // Create parent-child linkage if created from child list page
+      if (createdId && parentContext?.parentType && parentContext?.parentId) {
+        await createParentChildLinkage(
+          parentContext.parentType,
+          parentContext.parentId,
+          entityType,
+          createdId
+        );
+      }
+
+      // Navigate to appropriate page
       if (createdId) {
-        navigate(`/${entityType}/${createdId}`);
+        // If created from child list page, return to that page
+        if (parentContext?.returnTo) {
+          navigate(parentContext.returnTo);
+        } else {
+          navigate(`/${entityType}/${createdId}`);
+        }
       } else {
         navigate(`/${entityType}`);
       }
@@ -246,8 +303,60 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
     }
   };
 
+  // Helper function to create parent-child linkage via linkage API
+  const createParentChildLinkage = async (
+    parentType: string,
+    parentId: string,
+    childType: string,
+    childId: string
+  ) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        console.error('No auth token found');
+        return;
+      }
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+      const response = await fetch(`${apiUrl}/api/v1/linkage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          parent_entity_type: parentType,
+          parent_entity_id: parentId,
+          child_entity_type: childType,
+          child_entity_id: childId,
+          relationship_type: 'contains'
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Failed to create linkage:`, response.status, errorText);
+        console.warn('Entity created but linkage failed - can be fixed later');
+        return;
+      }
+
+      const result = await response.json();
+      console.log(`✅ Created linkage: ${parentType}/${parentId} → ${childType}/${childId}`);
+      return result;
+    } catch (error) {
+      console.error('Failed to create parent-child linkage:', error);
+      // Don't throw - entity is created, linkage can be fixed later
+    }
+  };
+
   const handleCancel = () => {
-    navigate(`/${entityType}`);
+    // If created from child list page, return to that page
+    if (parentContext?.returnTo) {
+      navigate(parentContext.returnTo);
+    } else {
+      navigate(`/${entityType}`);
+    }
   };
 
   if (!config) {
@@ -311,82 +420,19 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
           </div>
         )}
 
-        {/* File Upload Section (Artifacts Only) */}
-        {entityType === 'artifact' && (
-          <div className="bg-white rounded-lg shadow p-6 space-y-4">
-            <h2 className="text-sm font-medium text-gray-900">File Upload</h2>
-
-            {!selectedFile ? (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <input
-                  type="file"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  id="artifact-file-upload"
-                />
-                <label htmlFor="artifact-file-upload" className="cursor-pointer">
-                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-sm font-medium text-gray-700">
-                    Click to select a file
-                  </p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Upload documents, images, videos, or any file type
-                  </p>
-                </label>
-              </div>
-            ) : (
-              <div className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                    {uploadedObjectKey ? (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <Upload className="h-5 w-5 text-blue-600" />
-                    )}
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {selectedFile.name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {(selectedFile.size / 1024).toFixed(2)} KB
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleRemoveFile}
-                    className="p-1 hover:bg-gray-100 rounded transition-colors"
-                    disabled={isUploading}
-                  >
-                    <X className="h-4 w-4 text-gray-400" />
-                  </button>
-                </div>
-
-                {!uploadedObjectKey && (
-                  <Button
-                    variant="secondary"
-                    icon={Upload}
-                    onClick={handleFileUpload}
-                    disabled={isUploading}
-                    loading={isUploading}
-                    size="sm"
-                  >
-                    {isUploading ? 'Uploading...' : 'Upload to S3'}
-                  </Button>
-                )}
-
-                {uploadedObjectKey && (
-                  <div className="flex items-center space-x-2 text-sm text-green-600">
-                    <CheckCircle className="h-4 w-4" />
-                    <span>File uploaded successfully</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {uploadErrors.default && (
-              <p className="text-sm text-red-600">{uploadErrors.default}</p>
-            )}
-          </div>
+        {/* File Upload Section (Artifacts, Cost, Revenue) */}
+        {(entityType === 'artifact' || entityType === 'cost' || entityType === 'revenue') && (
+          <DragDropFileUpload
+            entityType={entityType as 'artifact' | 'cost' | 'revenue'}
+            selectedFile={selectedFile}
+            uploadedObjectKey={uploadedObjectKey}
+            isUploading={isUploading}
+            onFileSelect={(file) => setSelectedFile(file)}
+            onFileRemove={handleRemoveFile}
+            onFileUpload={handleFileUpload}
+            uploadError={uploadErrors.default}
+            accept={entityType === 'cost' || entityType === 'revenue' ? '.pdf,.png,.jpg,.jpeg' : undefined}
+          />
         )}
 
         {/* Form Container - Uses same component as EntityDetailPage */}

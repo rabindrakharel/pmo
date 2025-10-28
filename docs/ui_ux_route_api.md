@@ -2,9 +2,39 @@
 
 > **Comprehensive mapping of the entire PMO platform architecture** - From database tables to frontend components, showing how all layers work together using DRY principles.
 >
-> **Last Updated:** 2025-10-27 | **Status:** Production v2.1 (Hierarchy Mapping + Security Fixes)
+> **Last Updated:** 2025-10-28 | **Status:** Production v2.4 (Enhanced Display Transformers)
 >
-> **v2.1 Updates (2025-10-27):**
+> **v2.4 Updates (2025-10-28):**
+> - ✅ **Enhanced Data Transformers** with display formatting utilities
+> - ✅ Relative timestamp formatting ("3 days ago", "20 seconds ago")
+> - ✅ Date range visualization with progress indicators
+> - ✅ Automatic detection of date range pairs (start_date + end_date)
+> - ✅ Compact form spacing (50% reduction in vertical spacing)
+> - ✅ Unified DateRangeVisualizer component with progress bars
+> - ✅ Smart field rendering: timestamps show relative time, date ranges show progress
+> - ✅ Single source of truth: `dataTransformers.ts` handles ALL transformations
+>
+> **v2.3 Updates (2025-10-28):**
+> - ✅ **Convention Over Configuration** inline editing system
+> - ✅ Auto-detection of field capabilities by naming patterns (ZERO manual config)
+> - ✅ Removed 65 manual `inlineEditable` flags from entityConfig
+> - ✅ Centralized capability detection (`fieldCapabilities.ts`)
+> - ✅ Inline file upload with drag-drop (`InlineFileUploadCell`)
+> - ✅ Bidirectional data transformers (frontend + API)
+> - ✅ Support for tags, settings dropdowns, files, numbers, dates
+> - ✅ Single source of truth for ALL field editability rules
+>
+> **v2.2 Updates (2025-10-27):**
+> - ✅ Sticky headers for EntityMainPage and EntityDetailPage
+> - ✅ Drag-and-drop file upload for all entity types (artifact, cost, revenue)
+> - ✅ Universal FilePreview component with S3 URI support
+> - ✅ DragDropFileUpload component with visual feedback
+> - ✅ MetadataField DRY components (MetadataField, MetadataRow, MetadataSeparator)
+> - ✅ Reduced metadata spacing (gap-1.5 rows, gap-0.5 fields)
+> - ✅ Fixed content overflow in Layout component
+> - ✅ Navigation breadcrumb system with SidebarContext and NavigationHistoryContext
+>
+> **v2.1 Updates:**
 > - ✅ Parent-child entity endpoints with automatic relationship detection
 > - ✅ Dual query strategy: foreign_key vs linkage-based relationships
 > - ✅ SQL injection vulnerability fixed (parameterized queries)
@@ -31,8 +61,9 @@
 8. [Settings & Sequential States](#settings--sequential-states)
 9. [Routing Architecture](#routing-architecture)
 10. [RBAC & Permissions](#rbac--permissions)
-11. [Deployment Architecture](#deployment-architecture)
-12. [DRY Principles Implementation](#dry-principles-implementation)
+11. [Reusable Backend Libraries & Patterns](#reusable-backend-libraries--patterns)
+12. [Deployment Architecture](#deployment-architecture)
+13. [DRY Principles Implementation](#dry-principles-implementation)
 
 ---
 
@@ -444,33 +475,48 @@ apps/web/src/
 │   │   ├── entity/
 │   │   │   ├── EntityFormContainer.tsx - Universal form wrapper
 │   │   │   ├── SequentialStateVisualizer.tsx - Timeline component
-│   │   │   └── DynamicChildEntityTabs.tsx    - Dynamic tab system
-│   │   ├── modal/                      - **NEW: Universal Modal System**
+│   │   │   ├── DynamicChildEntityTabs.tsx    - Dynamic tab system
+│   │   │   └── MetadataField.tsx       - **NEW v2.2**: DRY metadata components
+│   │   ├── modal/                      - Universal Modal System (v2.0)
 │   │   │   ├── Modal.tsx               - Base modal component
 │   │   │   ├── ShareModal.tsx          - Share to users/roles/public
 │   │   │   ├── LinkModal.tsx           - Entity linkage management
 │   │   │   └── index.ts                - Modal exports
+│   │   ├── file/                       - **NEW v2.2**: File handling
+│   │   │   ├── FilePreview.tsx         - Universal file preview
+│   │   │   └── DragDropFileUpload.tsx  - Drag-drop upload component
+│   │   ├── navigation/                 - **NEW v2.2**: Navigation system
+│   │   │   └── NavigationBreadcrumb.tsx - Breadcrumb component
 │   │   ├── table/
 │   │   │   ├── DataTable.tsx           - Reusable table component
 │   │   │   └── FilteredDataTable.tsx   - Table with filtering
 │   │   ├── ui/
 │   │   │   ├── KanbanView.tsx          - Kanban board component
-│   │   │   └── SearchableMultiSelect.tsx - Multi-select dropdown
+│   │   │   ├── SearchableMultiSelect.tsx - Multi-select dropdown
+│   │   │   └── DateRangeVisualizer.tsx - **NEW v2.4**: Date range progress viz
 │   │   └── button/
-│   │       └── Button.tsx              - Standardized button
+│   │       ├── Button.tsx              - Standardized button
+│   │       └── ExitButton.tsx          - **NEW v2.2**: Navigation exit
 │   └── entity/
 │       └── form/
 │           ├── FormBuilder.tsx         - Dynamic form generator
 │           └── InteractiveForm.tsx     - Form submission viewer
 │
+├── contexts/                           - **NEW v2.2**: React contexts
+│   ├── SidebarContext.tsx              - Sidebar state management
+│   └── NavigationHistoryContext.tsx    - Navigation history tracking
+│
 ├── lib/
-│   ├── entityConfig.ts                 - **SINGLE SOURCE OF TRUTH**
+│   ├── entityConfig.ts                 - **SINGLE SOURCE OF TRUTH** (entity metadata)
 │   ├── entityIcons.ts                  - Centralized icon mappings
 │   ├── sequentialStateConfig.ts        - Sequential state patterns
+│   ├── fieldCapabilities.ts            - **NEW v2.3**: Convention-based capability detection
+│   ├── dataTransformers.ts             - **UPDATED v2.4**: Data + display transformers
 │   ├── api.ts                          - API client factory
 │   ├── settingsLoader.ts               - Settings cache/loader
 │   └── hooks/
-│       └── useKanbanColumns.ts         - Kanban column management
+│       ├── useKanbanColumns.ts         - Kanban column management
+│       └── useS3Upload.ts              - S3 file upload hook
 │
 └── pages/
     └── shared/
@@ -491,10 +537,14 @@ apps/web/src/
 **Features:**
 - ✅ Auto-loads entity config from `getEntityConfig(entityType)`
 - ✅ Supports 3 view modes: table, kanban, grid
+- ✅ **Sticky header (v2.2)** - Entity name, description, and controls stay visible during scroll
+  - Position: sticky, top: 0, z-index: 10
+  - Contains: entity icon, name, description, view switcher, create button
 - ✅ Row click → Navigate to detail page
 - ✅ Create button (if user has permission 4)
 - ✅ Bulk actions (share, delete)
-- ✅ Inline editing for configured columns
+- ✅ Inline editing for ALL eligible fields (auto-detected by naming patterns - v2.3)
+- ✅ Sidebar auto-collapse on page load
 
 **Used by:** All 13+ entity types
 
@@ -542,25 +592,36 @@ export function EntityMainPage({ entityType }: { entityType: string }) {
   - Entity type + name displayed prominently
   - Code, slug, ID shown with one-click copy buttons
   - Editable in edit mode (saves with form fields)
-- ✅ **Universal Action Buttons (NEW v2.0)** - Available for ALL entity types
-  - **Link button** - Opens LinkModal for entity relationship management
-  - **Share button** - Opens ShareModal for sharing/permissions (no longer conditional)
-  - **Edit button** - Enables inline editing mode with Save/Cancel
-  - Special buttons for specific entities:
-    - Download button (artifacts with object_key)
-    - Design Email button (marketing entity)
+- ✅ **Sticky Header with Action Buttons (v2.2)** - Remains visible during scroll
+  - Position: sticky, top: 0, z-index: 20
+  - **Universal Action Buttons (v2.0)** - Available for ALL entity types:
+    - **Link button** - Opens LinkModal for entity relationship management
+    - **Share button** - Opens ShareModal for sharing/permissions
+    - **Edit button** - Enables inline editing mode with Save/Cancel (auto-detects editable fields - v2.3)
+    - Special buttons: Download (artifacts), Design Email (marketing)
+  - **Compact Metadata Header (v2.2)** - DRY components:
+    - MetadataField: reusable field with view/edit/copy modes
+    - MetadataRow: container with gap-1.5 spacing
+    - MetadataSeparator: visual dots (·) between fields
+    - Displays: name, code, slug, id, version (badge for artifacts)
+    - Reduced spacing: gap-2 → gap-1.5 (rows), gap-1 → gap-0.5 (fields)
 - ✅ **Overview tab** - Compact Notion-style field layout (50% space reduction)
   - Striped dividers (15% opacity) for subtle separation
   - Reduced spacing: py-4 → py-1.5, p-8 → p-4
   - Excludes header fields (name, code, slug, id) from form
 - ✅ **Dynamic child entity tabs** (loaded from API)
-- ✅ **Inline edit mode** with visual field highlighting
+- ✅ **Inline edit mode** with auto-detected field types: text, select, tags, file upload, number, date (v2.3)
 - ✅ **Share Modal** - Share to users, roles, or generate public links
 - ✅ **Link Modal** - Manage entity relationships with search
+- ✅ **File Preview & Upload (v2.2):**
+  - FilePreview: universal component for artifact, cost, revenue
+  - DragDropFileUpload: drag-and-drop with visual feedback (border, background, 1.02x scale)
+  - Supports PDF, images, video with S3 presigned URLs
+  - Auto-detects file format from S3 URIs
 - ✅ **Special renderers:**
   - Wiki → `WikiContentRenderer` (rich text)
   - Form → `InteractiveForm` (form submission viewer)
-  - Artifact → Preview with fixed fetch loop (useRef pattern)
+  - Artifact/Cost/Revenue → FilePreview with fixed fetch loop (useRef pattern)
 - ✅ **Sequential state visualization** for workflow fields
 
 **Used by:** All 13+ entity types
@@ -1355,14 +1416,14 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Project Name',
         sortable: true,
         filterable: true,
-        inlineEditable: false
+        // ✅ v2.3: Auto-detected as editable (common field name 'name')
       },
       {
         key: 'project_stage',
         title: 'Stage',
         sortable: true,
         loadOptionsFromSettings: true, // Auto-loads from settings
-        inlineEditable: true,           // Can edit in table
+        // ✅ v2.3: Auto-detected as editable dropdown (by _stage suffix + loadOptionsFromSettings)
         render: (value) => renderBadge(value, stageColors)
       },
       {
@@ -1673,6 +1734,964 @@ INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission) VALUES
 
 ---
 
+## Reusable Backend Libraries & Patterns
+
+### Overview
+
+The API layer (`apps/api/src/lib/`) contains **18 reusable libraries** that implement DRY principles across all entity endpoints. These libraries eliminate code duplication and ensure consistent behavior across 31+ API modules.
+
+**Core Philosophy:**
+- **Write Once, Use Everywhere**: Common patterns implemented as functions/factories
+- **Convention Over Configuration**: Automatic behavior based on naming patterns
+- **Type Safety**: Full TypeScript support with schema validation
+- **Extensibility**: Easy to extend for new entity types
+
+---
+
+### Route Factory Libraries
+
+These libraries automatically generate standardized endpoints for entities, eliminating 300+ lines of duplicate code per entity.
+
+#### 1. `child-entity-route-factory.ts`
+
+**Purpose:** Create standardized child entity list endpoints
+
+**Function:** `createChildEntityEndpoint(fastify, parentEntity, childEntity, childTable)`
+
+**Creates:** `GET /api/v1/{parentEntity}/:id/{childEntity}`
+
+**Features:**
+- Automatic RBAC check for parent entity access
+- Linkage-based query using `d_entity_id_map`
+- Pagination support (page, limit)
+- Active-only filtering
+- Sorted by `created_ts DESC`
+
+**Usage Example:**
+```typescript
+// In apps/api/src/modules/project/routes.ts
+import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
+
+// Creates GET /api/v1/project/:id/task
+createChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
+
+// Creates GET /api/v1/project/:id/wiki
+createChildEntityEndpoint(fastify, 'project', 'wiki', 'd_wiki');
+
+// Creates GET /api/v1/project/:id/form
+createChildEntityEndpoint(fastify, 'project', 'form', 'd_form_head');
+```
+
+**SQL Pattern:**
+```sql
+SELECT c.*, COALESCE(c.name, 'Untitled') as name
+FROM app.{childTable} c
+INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = c.id::text
+WHERE eim.parent_entity_id = $parentId
+  AND eim.parent_entity_type = $parentEntity
+  AND eim.child_entity_type = $childEntity
+  AND eim.active_flag = true
+  AND c.active_flag = true
+ORDER BY c.created_ts DESC
+LIMIT $limit OFFSET $offset
+```
+
+**Returns:**
+```json
+{
+  "data": [...],
+  "total": 25,
+  "page": 1,
+  "limit": 20
+}
+```
+
+---
+
+#### 2. `createMinimalChildEntityEndpoint()`
+
+**Purpose:** Create-then-link workflow for child entities
+
+**Function:** `createMinimalChildEntityEndpoint(fastify, parentEntity, childEntity, childTable)`
+
+**Creates:** `POST /api/v1/{parentEntity}/:id/{childEntity}/create-minimal`
+
+**Workflow:**
+1. Creates minimal child entity (name, code, slug, defaults)
+2. Automatically creates parent-child linkage in `d_entity_id_map`
+3. Returns child ID for immediate navigation
+
+**Usage Example:**
+```typescript
+// In project/routes.ts
+createMinimalChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
+```
+
+**Frontend Workflow:**
+```javascript
+// 1. User clicks "Add Task" button in project detail page
+// 2. Frontend calls: POST /api/v1/project/{projectId}/task/create-minimal
+// 3. Backend creates task + linkage
+// 4. Frontend navigates to: /task/{newTaskId} for editing
+```
+
+**Request Body:**
+```json
+{
+  "name": "Website Redesign" // Optional, defaults to "New Task"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "uuid-here",
+  "name": "Website Redesign",
+  "message": "task created successfully. Please complete the details."
+}
+```
+
+---
+
+#### 3. `entity-delete-route-factory.ts`
+
+**Purpose:** Universal soft-delete with cascading cleanup
+
+**Function:** `createEntityDeleteEndpoint(fastify, entityType, options?)`
+
+**Creates:** `DELETE /api/v1/{entityType}/:id`
+
+**Features:**
+- Soft-delete main entity table (`active_flag=false`, `to_ts=NOW()`)
+- Soft-delete entity registry (`d_entity_instance_id`)
+- Soft-delete all linkages (parent and child in `d_entity_id_map`)
+- Optional custom cleanup callback (e.g., S3 file deletion)
+- RBAC check for delete permission (permission `3`)
+
+**Usage Example:**
+```typescript
+// In task/routes.ts
+import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+
+createEntityDeleteEndpoint(fastify, 'task');
+
+// With custom cleanup for artifacts
+createEntityDeleteEndpoint(fastify, 'artifact', {
+  customCleanup: async (artifactId) => {
+    // Delete S3 files before soft-deleting record
+    await deleteArtifactFiles(artifactId);
+  }
+});
+```
+
+**Utility Functions:**
+```typescript
+// Standalone delete (no endpoint)
+await universalEntityDelete('task', taskId);
+
+// Check if entity exists
+const exists = await entityExists('project', projectId);
+
+// Get entity count
+const count = await getEntityCount('task', true); // activeOnly
+```
+
+**Entity-to-Table Mapping:**
+```typescript
+export const ENTITY_TABLE_MAP: Record<string, string> = {
+  task: 'd_task',
+  form: 'd_form_head',
+  artifact: 'd_artifact',
+  wiki: 'd_wiki',
+  project: 'd_project',
+  biz: 'd_business',
+  office: 'd_office',
+  client: 'd_client',
+  employee: 'd_employee',
+  // ... all entity types
+};
+```
+
+---
+
+### Data Transformation Libraries
+
+#### 4. `dataTransformers.ts` (Frontend) & `data-transformers.ts` (Backend)
+
+**Purpose:** Centralized data transformation for API communication AND UI display formatting
+
+**Problem Solved:**
+1. Frontend inline editing sends data as strings (e.g., tags as comma-separated), but database expects specific types (arrays, JSON, etc.)
+2. Timestamps and dates need consistent, user-friendly formatting across all entity detail pages
+3. Date ranges need visual progress indicators showing days passed/remaining
+
+**Single Source of Truth:** `apps/web/src/lib/dataTransformers.ts` (310+ lines)
+
+---
+
+**API Transformation Functions:**
+
+**a) `transformTags(tags: any): string[]`**
+
+Transforms tags field from multiple formats to array:
+```typescript
+// String → Array
+transformTags('frontend, backend, devops')
+// Returns: ['frontend', 'backend', 'devops']
+
+// Array → Passthrough (filtered)
+transformTags(['frontend', '', 'backend'])
+// Returns: ['frontend', 'backend']
+
+// Empty → Empty array
+transformTags('')
+// Returns: []
+```
+
+**b) `transformRequestBody(data: Record<string, any>)`**
+
+Comprehensive request transformation:
+```typescript
+const transformed = transformRequestBody({
+  name: 'New Project',
+  tags: 'urgent, high-priority',  // String → Array
+  project_tags: 'phase1, planning', // Any field ending with _tags
+  budget_allocated: '',            // Empty string → null
+  descr: 'Description here'        // Normal fields passthrough
+});
+
+// Result:
+// {
+//   name: 'New Project',
+//   tags: ['urgent', 'high-priority'],
+//   project_tags: ['phase1', 'planning'],
+//   budget_allocated: null,
+//   descr: 'Description here'
+// }
+```
+
+**Usage in Routes:**
+```typescript
+// In PUT /api/v1/project/:id
+import { transformRequestBody } from '../../lib/data-transformers.js';
+
+fastify.put('/api/v1/project/:id', async (request, reply) => {
+  const rawData = request.body;
+  const data = transformRequestBody(rawData); // Transform before DB
+
+  // Now use transformed data in SQL
+  await db.execute(sql`
+    UPDATE app.d_project
+    SET name = ${data.name},
+        tags = ${JSON.stringify(data.tags)}::jsonb
+    WHERE id = ${id}
+  `);
+});
+```
+
+---
+
+**Display Transformation Functions (v2.4):**
+
+**c) `formatRelativeTime(dateString): string`**
+
+Transforms timestamps into human-readable relative time:
+```typescript
+// Used for created_ts, updated_ts, and any field ending with _at
+formatRelativeTime('2025-10-28T11:45:00Z')  // Called 2 minutes ago
+// Returns: "2 minutes ago"
+
+formatRelativeTime('2025-10-25T10:00:00Z')  // Called 3 days ago
+// Returns: "3 days ago"
+
+formatRelativeTime('2025-10-28T11:57:55Z')  // Just now
+// Returns: "just now"
+```
+
+**Auto-detection:** EntityFormContainer automatically uses this for:
+- `created_ts`, `updated_ts` (audit timestamps)
+- Any field key ending with `_at` (convention-based)
+- Shows full date on hover as tooltip
+
+**d) `formatFriendlyDate(dateString): string`**
+
+Formats dates in a friendly, readable format:
+```typescript
+formatFriendlyDate('2024-10-31')
+// Returns: "Oct 31, 2024"
+
+formatFriendlyDate('2025-04-29')
+// Returns: "Apr 29, 2025"
+```
+
+**e) `calculateDateRangeProgress(startDate, endDate): DateRangeProgress | null`**
+
+Calculates comprehensive date range metrics for timeline visualization:
+```typescript
+const progress = calculateDateRangeProgress('2024-11-01', '2025-04-30');
+// Returns:
+// {
+//   startDate: Date,
+//   endDate: Date,
+//   today: Date,
+//   totalDays: 180,
+//   daysPassed: 27,
+//   daysRemaining: 153,
+//   progressPercent: 15,
+//   isBeforeStart: false,
+//   isAfterEnd: false,
+//   isActive: true
+// }
+```
+
+**Used by DateRangeVisualizer component** to show:
+- Progress bar with current position indicator
+- Days passed and days remaining
+- Progress percentage
+- Color-coded status (not started, active, completed)
+
+**Convention-based Auto-detection:**
+EntityFormContainer automatically detects date range pairs:
+- `start_date` + `end_date` → renders as single DateRangeVisualizer
+- `planned_start_date` + `planned_end_date` → "Planned Date Range"
+- `actual_start_date` + `actual_end_date` → "Actual Date Range"
+
+**Example in EntityFormContainer:**
+```typescript
+// Automatic detection - NO manual configuration needed!
+if (field.key === 'planned_end_date' && data.planned_start_date) {
+  // Render date range visualizer for both dates together
+  return <DateRangeVisualizer
+    startDate={data.planned_start_date}
+    endDate={value}
+  />;
+}
+
+if (field.key === 'updated_ts' && value) {
+  // Render relative time for timestamp fields
+  return <span title={formatFriendlyDate(value)}>
+    {formatRelativeTime(value)}
+  </span>;
+}
+```
+
+**Benefits:**
+- ✅ Consistent date/time formatting across ALL 18+ entity types
+- ✅ Zero configuration - works by naming convention
+- ✅ Rich visual feedback for project/task timelines
+- ✅ Single source of truth eliminates formatting bugs
+
+---
+
+### Schema & Metadata Libraries
+
+#### 5. `universal-schema-metadata.ts`
+
+**Purpose:** Convention-based column classification and behavior
+
+**Features:**
+- Automatically classifies columns by naming patterns
+- Determines API restrictions (PII, financial, auth fields)
+- Defines UI field types (date, email, phone, etc.)
+- Handles special behaviors (audit, hierarchy, permissions)
+
+**Column Metadata Interface:**
+```typescript
+export interface ColumnMetadata {
+  // API Restrictions
+  'api:restrict'?: boolean;          // Hide in write paths
+  'api:pii_masking'?: boolean;       // Mask PII data
+  'api:financial_masking'?: boolean; // Restrict financial data
+  'api:auth_field'?: boolean;        // Never expose
+  'api:safety_info'?: boolean;       // Safety protocols
+  'api:system_field'?: boolean;      // Read-only system fields
+
+  // UI Field Types
+  'ui:date'?: boolean;               // Date picker
+  'ui:datetime'?: boolean;           // DateTime picker
+  'ui:email'?: boolean;              // Email validation
+  'ui:phone'?: boolean;              // Phone formatting
+  'ui:url'?: boolean;                // URL validation
+  'ui:number'?: boolean;             // Numeric input
+  'ui:textarea'?: boolean;           // Multi-line text
+  'ui:json'?: boolean;               // JSON editor
+  'ui:file'?: boolean;               // File upload
+  'ui:multiselect'?: boolean;        // Multi-select dropdown
+  'ui:toggle'?: boolean;             // Boolean toggle
+
+  // UI Display Modes
+  'ui:badge'?: boolean;              // Badge/pill display
+  'ui:progress'?: boolean;           // Progress bar
+  'ui:avatar'?: boolean;             // User avatar
+  'ui:tags'?: boolean;               // Tag chips
+  'ui:status'?: boolean;             // Status indicator
+
+  // Special Behaviors
+  'flexible'?: boolean;              // JSONB flexible schema
+  'audit'?: boolean;                 // Audit trail
+  'hierarchy'?: boolean;             // Hierarchical data
+  'financial'?: boolean;             // Budget/cost data
+  'temporal'?: boolean;              // Time-based data
+  'workflow'?: boolean;              // Workflow state
+}
+```
+
+**Naming Pattern Examples:**
+```typescript
+// API Restrictions - detected by naming
+'password_*'          → 'api:auth_field' (never expose)
+'sin', 'ssn', 'dob'   → 'api:pii_masking' (mask unless authorized)
+'salary', 'wage_*'    → 'api:financial_masking' (financial restriction)
+'*_ts', 'version'     → 'api:system_field' (read-only)
+
+// UI Field Types - detected by suffix/name
+'*_date'              → 'ui:date' (date picker)
+'*_ts', '*_timestamp' → 'ui:datetime' (datetime picker)
+'email'               → 'ui:email' (email validation)
+'phone', 'tel'        → 'ui:phone' (phone formatting)
+'*_url', 'website'    → 'ui:url' (URL validation)
+'descr', 'notes'      → 'ui:textarea' (multi-line input)
+'tags'                → 'ui:tags' (tag chips)
+'metadata', 'attr'    → 'ui:json' (JSON editor)
+
+// Special Patterns
+'parent_*_id'         → 'hierarchy' (parent-child relationship)
+'created_ts', 'updated_ts' → 'audit' (audit trail)
+'budget_*', 'cost_*'  → 'financial' (financial data)
+'*_stage', '*_status' → 'workflow' (workflow state)
+```
+
+**Functions:**
+
+**a) `getUniversalColumnMetadata(columnName: string): ColumnMetadata`**
+
+Returns metadata for any column based on naming:
+```typescript
+getUniversalColumnMetadata('planned_start_date')
+// Returns: { 'ui:date': true, 'temporal': true }
+
+getUniversalColumnMetadata('employee_email')
+// Returns: { 'ui:email': true, 'contact': true, 'api:pii_masking': true }
+
+getUniversalColumnMetadata('budget_allocated')
+// Returns: { 'ui:number': true, 'ui:currency': true, 'financial': true, 'api:financial_masking': true }
+```
+
+**b) `filterUniversalColumns(entity, userPermissions)`**
+
+Filters entity fields based on user permissions:
+```typescript
+const project = {
+  id: 'uuid',
+  name: 'Project Alpha',
+  budget_allocated: 100000,
+  salary_data: {...},  // Financial data
+  created_ts: '2024-01-01',
+  password_hash: 'xxx' // Auth field
+};
+
+const filtered = filterUniversalColumns(project, {
+  canSeePII: false,
+  canSeeFinancial: false,
+  canSeeSystemFields: true,
+  canSeeSafetyInfo: true
+});
+
+// Returns:
+// {
+//   id: 'uuid',
+//   name: 'Project Alpha',
+//   budget_allocated: '***RESTRICTED***', // Masked
+//   created_ts: '2024-01-01'
+//   // salary_data: excluded
+//   // password_hash: excluded
+// }
+```
+
+---
+
+#### 6. `denormalized-fields.ts`
+
+**Purpose:** Handle computed/joined fields that shouldn't be in UPDATE statements
+
+**Problem:** Frontend receives denormalized data (e.g., `assignee_name` from JOIN), but these fields don't exist in the base table. UPDATE statements would fail.
+
+**Function:** `removeDenormalizedFields(data, tableName)`
+
+Strips computed fields before SQL UPDATE:
+```typescript
+const data = {
+  id: 'uuid',
+  name: 'Task 1',
+  assignee_id: 'emp-uuid',
+  assignee_name: 'John Doe', // ← Denormalized (from JOIN)
+  project_name: 'Alpha',     // ← Denormalized (from JOIN)
+  manager_employee_name: 'Jane' // ← Denormalized
+};
+
+const clean = removeDenormalizedFields(data, 'd_task');
+
+// Returns:
+// {
+//   id: 'uuid',
+//   name: 'Task 1',
+//   assignee_id: 'emp-uuid'
+//   // Removed: assignee_name, project_name, manager_employee_name
+// }
+```
+
+**Denormalized Field Patterns:**
+```
+{foreignKey}_name        → Excluded (e.g., assignee_name from assignee_id)
+{foreignKey}_code        → Excluded
+{foreignKey}_email       → Excluded
+{parentEntity}_name      → Excluded (e.g., project_name)
+total, count, summary    → Excluded (computed aggregates)
+```
+
+---
+
+### Configuration & Entity Libraries
+
+#### 7. `entityConfig.ts` (Backend)
+
+**Purpose:** Server-side entity configuration mirror
+
+**Features:**
+- Defines entity metadata for API routes
+- Maps entity types to database tables
+- Specifies required fields for validation
+- Configures relationship types
+
+**Structure:**
+```typescript
+export const ENTITY_CONFIG = {
+  project: {
+    table: 'd_project',
+    displayName: 'Project',
+    requiredFields: ['name', 'code', 'slug'],
+    relationships: {
+      parent: ['business', 'office'],
+      children: ['task', 'artifact', 'wiki', 'form']
+    }
+  },
+  task: {
+    table: 'd_task',
+    displayName: 'Task',
+    requiredFields: ['name', 'code'],
+    relationships: {
+      parent: ['project'],
+      children: ['artifact', 'wiki']
+    }
+  }
+  // ... all entity types
+};
+```
+
+---
+
+#### 8. `authz.ts`
+
+**Purpose:** RBAC authorization utilities
+
+**Functions:**
+
+**a) `checkEntityPermission(userId, entityType, entityId, permissionLevel)`**
+
+Check if user has specific permission:
+```typescript
+// Check if user can edit project
+const canEdit = await checkEntityPermission(
+  userId,
+  'project',
+  projectId,
+  1 // 1 = edit permission
+);
+
+if (!canEdit) {
+  return reply.status(403).send({ error: 'Access denied' });
+}
+```
+
+**Permission Levels:**
+```
+0 = View
+1 = Edit
+2 = Share
+3 = Delete
+4 = Create
+```
+
+**b) `getUserEntityAccess(userId, entityType)`**
+
+Get all entities user can access:
+```typescript
+const accessibleProjects = await getUserEntityAccess(userId, 'project');
+// Returns: ['project-uuid-1', 'project-uuid-2', 'all']
+```
+
+---
+
+### S3 & File Management
+
+#### 9. `s3-attachments.ts`
+
+**Purpose:** S3/MinIO file upload and presigned URL generation
+
+**Functions:**
+
+**a) `generatePresignedUploadUrl(bucket, key, contentType)`**
+
+Generate presigned URL for client-side upload:
+```typescript
+const url = await generatePresignedUploadUrl(
+  'pmo-attachments',
+  `artifacts/${artifactId}/document.pdf`,
+  'application/pdf'
+);
+
+// Returns: https://s3.amazonaws.com/pmo-attachments/artifacts/...?X-Amz-...
+// Valid for: 15 minutes
+```
+
+**b) `generatePresignedDownloadUrl(bucket, key, expirySeconds)`**
+
+Generate presigned URL for file download:
+```typescript
+const url = await generatePresignedDownloadUrl(
+  'pmo-attachments',
+  `artifacts/${artifactId}/document.pdf`,
+  3600 // 1 hour
+);
+
+// Returns: https://s3.amazonaws.com/pmo-attachments/...?X-Amz-...
+```
+
+**c) `parseS3Uri(uri)`**
+
+Parse S3 URI to bucket + key:
+```typescript
+const { bucket, key } = parseS3Uri('s3://pmo-attachments/artifacts/123/file.pdf');
+// Returns: { bucket: 'pmo-attachments', key: 'artifacts/123/file.pdf' }
+```
+
+**Usage in Routes:**
+```typescript
+// POST /api/v1/artifact/:id/request-upload
+fastify.post('/api/v1/artifact/:id/request-upload', async (request, reply) => {
+  const { id } = request.params;
+  const { fileName, contentType } = request.body;
+
+  const key = `artifacts/${id}/${fileName}`;
+  const uploadUrl = await generatePresignedUploadUrl(
+    'pmo-attachments',
+    key,
+    contentType
+  );
+
+  return { uploadUrl, key, bucket: 'pmo-attachments' };
+});
+```
+
+---
+
+### Query Builder & Schema Libraries
+
+#### 10. `entityQueryBuilder.ts`
+
+**Purpose:** Dynamic SQL query generation for entity endpoints
+
+**Functions:**
+
+**a) `buildEntityListQuery(entityType, filters, pagination, userId)`**
+
+Generate filtered list query with RBAC:
+```typescript
+const query = buildEntityListQuery('project', {
+  project_stage: 'In Progress',
+  search: 'website',
+  business_id: 'biz-uuid'
+}, {
+  limit: 50,
+  offset: 0,
+  orderBy: 'name',
+  orderDirection: 'ASC'
+}, userId);
+
+// Generates:
+// SELECT p.* FROM app.d_project p
+// WHERE active_flag = true
+//   AND project_stage = 'In Progress'
+//   AND (name ILIKE '%website%' OR descr ILIKE '%website%')
+//   AND metadata->>'business_id' = 'biz-uuid'
+//   AND EXISTS (SELECT 1 FROM entity_id_rbac_map ...)
+// ORDER BY name ASC
+// LIMIT 50 OFFSET 0
+```
+
+**b) `buildEntityUpdateQuery(entityType, entityId, updates)`**
+
+Generate safe UPDATE query with parameterization:
+```typescript
+const query = buildEntityUpdateQuery('project', projectId, {
+  name: 'Updated Name',
+  project_stage: 'Completed',
+  budget_spent: 50000
+});
+
+// Generates:
+// UPDATE app.d_project
+// SET name = $1,
+//     project_stage = $2,
+//     budget_spent = $3,
+//     updated_ts = NOW(),
+//     version = version + 1
+// WHERE id = $4
+// RETURNING *
+```
+
+---
+
+#### 11. `schema-driven-routes.ts`
+
+**Purpose:** Auto-generate CRUD endpoints from schema definitions
+
+**Function:** `createSchemaBasedRoutes(fastify, entityType, schema)`
+
+Automatically creates:
+- `GET /api/v1/{entityType}` - List with filtering
+- `GET /api/v1/{entityType}/:id` - Get single
+- `POST /api/v1/{entityType}` - Create
+- `PUT /api/v1/{entityType}/:id` - Update
+- `DELETE /api/v1/{entityType}/:id` - Delete
+
+**Usage:**
+```typescript
+// Define schema once
+const TaskSchema = Type.Object({
+  id: Type.String(),
+  name: Type.String(),
+  code: Type.String(),
+  // ... all fields
+});
+
+// Generate all 5 endpoints automatically
+createSchemaBasedRoutes(fastify, 'task', TaskSchema);
+```
+
+---
+
+### Middleware & Validation
+
+#### 12. `schema-middleware.ts`
+
+**Purpose:** Request validation and response serialization
+
+**Middleware:**
+
+**a) `validateRequest` - Pre-handler for request validation
+**b) `serializeResponse` - Post-handler for response serialization
+**c) `handleErrors` - Error handler with user-friendly messages
+
+**Usage:**
+```typescript
+fastify.post('/api/v1/project', {
+  preHandler: [fastify.authenticate, validateRequest],
+  schema: {
+    body: CreateProjectSchema,
+    response: {
+      201: ProjectSchema,
+      400: ErrorSchema
+    }
+  }
+}, async (request, reply) => {
+  // Request already validated
+  // Response will be serialized
+});
+```
+
+---
+
+### Utility Libraries
+
+#### 13. `logger.ts`
+
+**Purpose:** Structured logging with Pino
+
+**Features:**
+- Request/response logging
+- Error tracking
+- Performance metrics
+- Environment-based log levels
+
+**Usage:**
+```typescript
+import { logger } from '../../lib/logger.js';
+
+logger.info('Creating project', { projectId, userId });
+logger.error('Failed to update task', { error, taskId });
+logger.warn('Missing required field', { field: 'name', entityType });
+```
+
+---
+
+#### 14. `config.ts`
+
+**Purpose:** Environment configuration management
+
+**Exported:**
+```typescript
+export const config = {
+  database: {
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '5434'),
+    database: process.env.DB_NAME || 'app',
+    user: process.env.DB_USER || 'app',
+    password: process.env.DB_PASSWORD
+  },
+  jwt: {
+    secret: process.env.JWT_SECRET,
+    expiresIn: '24h'
+  },
+  s3: {
+    endpoint: process.env.S3_ENDPOINT,
+    accessKeyId: process.env.S3_ACCESS_KEY_ID,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+    region: process.env.S3_REGION || 'us-east-1'
+  },
+  server: {
+    port: parseInt(process.env.API_PORT || '4000'),
+    host: process.env.API_HOST || '0.0.0.0'
+  }
+};
+```
+
+---
+
+#### 15. `shared-url-factory.ts`
+
+**Purpose:** Generate consistent URLs for entity relationships
+
+**Functions:**
+```typescript
+// Generate entity detail URL
+getEntityDetailUrl('project', projectId)
+// Returns: '/project/uuid'
+
+// Generate child entity list URL
+getChildEntityListUrl('project', projectId, 'task')
+// Returns: '/project/uuid/task'
+
+// Generate API endpoint URL
+getApiEndpoint('project', projectId)
+// Returns: '/api/v1/project/uuid'
+```
+
+---
+
+### Configuration Transformers
+
+#### 16. `configTransformer.ts`
+
+**Purpose:** Transform frontend entity config to backend format
+
+**Transforms:**
+- Frontend field definitions → Backend validation schemas
+- UI metadata → API restrictions
+- Display settings → Query optimizations
+
+---
+
+#### 17. `simpleConfigTransformer.ts`
+
+**Purpose:** Lightweight config transformation for simple entities
+
+**Use Case:** Entities with minimal configuration that don't need full transformation
+
+---
+
+### Library Usage Summary
+
+| Library | Primary Use Case | Eliminates |
+|---------|-----------------|------------|
+| `child-entity-route-factory` | Child entity list endpoints | 300+ lines per entity |
+| `entity-delete-route-factory` | Delete endpoints with cleanup | 100+ lines per entity |
+| `data-transformers` | Request body transformation | Inline editing bugs |
+| `universal-schema-metadata` | Column classification | Manual metadata config |
+| `authz` | RBAC checks | Permission check duplication |
+| `s3-attachments` | File upload/download | S3 integration code |
+| `entityQueryBuilder` | Dynamic SQL generation | SQL injection risks |
+| `schema-driven-routes` | Full CRUD generation | 500+ lines per entity |
+| `logger` | Structured logging | Console.log statements |
+| `config` | Environment management | Hardcoded values |
+
+---
+
+### How to Add a New Entity
+
+With these libraries, adding a new entity requires minimal code:
+
+**1. Create DDL file** (`db/XX_d_new_entity.ddl`)
+```sql
+CREATE TABLE app.d_new_entity (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug varchar(100) UNIQUE NOT NULL,
+  code varchar(50) UNIQUE NOT NULL,
+  name varchar(200) NOT NULL,
+  descr text,
+  tags jsonb DEFAULT '[]'::jsonb,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  active_flag boolean DEFAULT true,
+  created_ts timestamptz DEFAULT now(),
+  updated_ts timestamptz DEFAULT now(),
+  version integer DEFAULT 1
+);
+```
+
+**2. Create routes file** (`apps/api/src/modules/new-entity/routes.ts`)
+```typescript
+import { FastifyInstance } from 'fastify';
+import { createSchemaBasedRoutes } from '../../lib/schema-driven-routes.js';
+import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
+
+const NewEntitySchema = Type.Object({
+  id: Type.String(),
+  name: Type.String(),
+  // ... fields
+});
+
+export async function newEntityRoutes(fastify: FastifyInstance) {
+  // Auto-generate 5 CRUD endpoints
+  createSchemaBasedRoutes(fastify, 'new-entity', NewEntitySchema);
+
+  // Add delete endpoint
+  createEntityDeleteEndpoint(fastify, 'new-entity');
+
+  // Add child entity endpoints if needed
+  createChildEntityEndpoint(fastify, 'new-entity', 'artifact', 'd_artifact');
+}
+```
+
+**3. Add to ENTITY_TABLE_MAP** (`lib/child-entity-route-factory.ts`)
+```typescript
+export const ENTITY_TABLE_MAP: Record<string, string> = {
+  // ... existing
+  'new-entity': 'd_new_entity'
+};
+```
+
+**4. Register routes** (`apps/api/src/server.ts`)
+```typescript
+import { newEntityRoutes } from './modules/new-entity/routes.js';
+
+await fastify.register(newEntityRoutes);
+```
+
+**Total Code:** ~50 lines (vs 500+ lines without libraries)
+
+---
+
 ## Deployment Architecture
 
 ### AWS Infrastructure (Terraform)
@@ -1831,6 +2850,55 @@ GET /api/v1/setting?category=<name>
 ```
 
 **Add New Option:** Insert row in DB → Appears everywhere automatically
+
+### 6. Convention Over Configuration Inline Editing (v2.3)
+
+**ZERO Manual Configuration Required:**
+
+**File:** `apps/web/src/lib/fieldCapabilities.ts` (234 lines)
+
+**Auto-Detection Rules (Convention):**
+
+| Field Pattern | Edit Type | Detected By | Example |
+|--------------|-----------|-------------|---------|
+| `tags`, `*_tags` | Comma-separated text | Name pattern | `tags: "react, typescript"` |
+| `*_name`, `*_stage`, `*_tier` | Dropdown (settings) | Suffix + `loadOptionsFromSettings` | `project_stage_name` |
+| `*attachment`, `*invoice`, `*receipt` | File upload (drag-drop) | Name pattern | `invoice_attachment` |
+| `name`, `descr`, `title` | Text input | Common field names | `name`, `description` |
+| `*_amount`, `*_count`, `sort_order` | Number input | Suffix pattern | `budget_amount` |
+| `*_date`, `*_ts` (non-system) | Date picker | Suffix pattern | `due_date` |
+| `id`, `created_ts`, `updated_ts` | **Readonly** | System field pattern | Never editable |
+
+**Benefit:** Add a field named `customer_tier_name` with `loadOptionsFromSettings: true` → Automatically becomes an editable dropdown!
+
+**Data Transformation (Bidirectional):**
+
+```typescript
+// Frontend: apps/web/src/lib/dataTransformers.ts
+transformForApi({ tags: "tag1, tag2, tag3" })  // User input
+→ { tags: ["tag1", "tag2", "tag3"] }           // API format
+
+transformFromApi({ tags: ["tag1", "tag2", "tag3"] })  // API response
+→ { tags: "tag1, tag2, tag3" }                        // Editable format
+
+// Backend: apps/api/src/lib/data-transformers.ts
+transformRequestBody({ tags: "tag1, tag2, tag3" })  // Inline edit
+→ { tags: ["tag1", "tag2", "tag3"] }                // DB format
+```
+
+**Code Reduction:**
+
+- ❌ **Before:** 65 manual `inlineEditable: true` flags across entityConfig
+- ✅ **After:** ZERO manual flags - auto-detected by convention
+- **Result:** 75% less configuration code, 100% consistency
+
+**Components:**
+
+- `InlineFileUploadCell` - Compact drag-drop file upload for table cells
+- `DataTable` - Auto-detects capabilities, renders appropriate editors
+- `FilteredDataTable` - Applies transformations before API calls
+
+**See:** `DRY_INLINE_EDIT_TRANSFORMATION.md` for complete documentation
 
 ---
 

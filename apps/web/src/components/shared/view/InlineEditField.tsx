@@ -122,7 +122,17 @@ export function InlineEditField({
             ) : type === 'date' ? (
               <input
                 type="date"
-                value={editValue}
+                value={(() => {
+                  if (!editValue) return '';
+                  // Format to yyyy-MM-dd if it's a full ISO timestamp
+                  try {
+                    const date = new Date(editValue);
+                    if (isNaN(date.getTime())) return '';
+                    return date.toISOString().split('T')[0];
+                  } catch {
+                    return editValue;
+                  }
+                })()}
                 onChange={(e) => onValueChange(e.target.value)}
                 className="flex-1 px-2 py-1 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 onKeyDown={handleKeyDown}

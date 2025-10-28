@@ -13,7 +13,7 @@
 -- 1. CREATE ARTIFACT (Upload Document/File)
 --    • Endpoint: POST /api/v1/artifact (multipart/form-data)
 --    • Body: {name, code, artifact_type, file, primary_entity_type, primary_entity_id, visibility, security_classification}
---    • Returns: {id: "new-uuid", version: 1, file_size_bytes, ...}
+--    • Returns: {id: "new-uuid", version: 1, attachment_size_bytes, ...}
 --    • Database: INSERT with version=1, active_flag=true, is_latest_version=true, created_ts=now()
 --    • File Storage: Uploads file to MinIO/S3 bucket; stores reference in d_artifact_data
 --    • RBAC: Requires permission 4 (create) on entity='artifact', entity_id='all'
@@ -125,16 +125,17 @@ CREATE TABLE app.d_artifact (
 
     -- Artifact classification
     artifact_type varchar(50) DEFAULT 'document', -- document, template, image, video, etc.
-    file_format varchar(20), -- pdf, docx, xlsx, png, jpg, etc.
-    file_size_bytes bigint,
 
     -- Relationships (will be mapped via entity_id_map)
     entity_type varchar(50), -- parent entity type and entity id - project, task, business, office
-    entity_id uuid, 
+    entity_id uuid,
 
-    -- S3 backend 
-    bucket_name varchar(100), -- e.g. 'artifacts-bucket'
-    object_key varchar(500), -- /tenant_id={client_id}/entity={entity_name}/entity_id={entity_id from database}/attachment_id_hash.extension
+    -- Standardized S3 Attachment Fields
+    attachment text, -- Full S3 URI: s3://bucket/key
+    attachment_format varchar(20), -- File extension: pdf, docx, xlsx, png, jpg, svg, etc.
+    attachment_size_bytes bigint, -- File size in bytes
+    attachment_object_bucket varchar(100), -- S3 bucket name: 'pmo-attachments'
+    attachment_object_key varchar(500), -- S3 object key: artifacts/{id}/filename.ext
 
     -- Access control
     visibility varchar(20) DEFAULT 'internal', -- public, internal, restricted, private
@@ -172,8 +173,11 @@ INSERT INTO app.d_artifact (
     tags,
     metadata,
     artifact_type,
-    file_format,
-    file_size_bytes,
+    attachment_format,
+    attachment_size_bytes,
+    attachment_object_bucket,
+    attachment_object_key,
+    attachment,
     entity_type,
     entity_id,
     visibility,
@@ -190,6 +194,9 @@ INSERT INTO app.d_artifact (
     'document',
     'pdf',
     2458000,
+    'pmo-attachments',
+    'artifacts/11a11111-1111-1111-1111-111111111111/fall-service-brochure.pdf',
+    's3://pmo-attachments/artifacts/11a11111-1111-1111-1111-111111111111/fall-service-brochure.pdf',
     'project',
     '84215ccb-313d-48f8-9c37-4398f28c0b1f',
     'public',
@@ -207,8 +214,11 @@ INSERT INTO app.d_artifact (
     tags,
     metadata,
     artifact_type,
-    file_format,
-    file_size_bytes,
+    attachment_format,
+    attachment_size_bytes,
+    attachment_object_bucket,
+    attachment_object_key,
+    attachment,
     entity_type,
     entity_id,
     visibility,
@@ -225,6 +235,9 @@ INSERT INTO app.d_artifact (
     'template',
     'pdf',
     185000,
+    'pmo-attachments',
+    'artifacts/22a22222-2222-2222-2222-222222222222/file.pdf',
+    's3://pmo-attachments/artifacts/22a22222-2222-2222-2222-222222222222/file.pdf',
     'project',
     '84215ccb-313d-48f8-9c37-4398f28c0b1f',
     'internal',
@@ -242,8 +255,11 @@ INSERT INTO app.d_artifact (
     tags,
     metadata,
     artifact_type,
-    file_format,
-    file_size_bytes,
+    attachment_format,
+    attachment_size_bytes,
+    attachment_object_bucket,
+    attachment_object_key,
+    attachment,
     entity_type,
     entity_id,
     visibility,
@@ -260,6 +276,9 @@ INSERT INTO app.d_artifact (
     'template',
     'docx',
     92000,
+    'pmo-attachments',
+    'artifacts/33a33333-3333-3333-3333-333333333333/file.docx',
+    's3://pmo-attachments/artifacts/33a33333-3333-3333-3333-333333333333/file.docx',
     'project',
     '84215ccb-313d-48f8-9c37-4398f28c0b1f',
     'internal',
@@ -277,8 +296,11 @@ INSERT INTO app.d_artifact (
     tags,
     metadata,
     artifact_type,
-    file_format,
-    file_size_bytes,
+    attachment_format,
+    attachment_size_bytes,
+    attachment_object_bucket,
+    attachment_object_key,
+    attachment,
     entity_type,
     entity_id,
     visibility,
@@ -295,6 +317,9 @@ INSERT INTO app.d_artifact (
     'video',
     'mp4',
     458000000,
+    'pmo-attachments',
+    'artifacts/44a44444-4444-4444-4444-444444444444/file.mp4',
+    's3://pmo-attachments/artifacts/44a44444-4444-4444-4444-444444444444/file.mp4',
     'project',
     '84215ccb-313d-48f8-9c37-4398f28c0b1f',
     'internal',
@@ -312,8 +337,11 @@ INSERT INTO app.d_artifact (
     tags,
     metadata,
     artifact_type,
-    file_format,
-    file_size_bytes,
+    attachment_format,
+    attachment_size_bytes,
+    attachment_object_bucket,
+    attachment_object_key,
+    attachment,
     entity_type,
     entity_id,
     visibility,
@@ -330,6 +358,9 @@ INSERT INTO app.d_artifact (
     'image',
     'jpg',
     125000000,
+    'pmo-attachments',
+    'artifacts/55a55555-5555-5555-5555-555555555555/file.jpg',
+    's3://pmo-attachments/artifacts/55a55555-5555-5555-5555-555555555555/file.jpg',
     'project',
     '84215ccb-313d-48f8-9c37-4398f28c0b1f',
     'public',
@@ -347,8 +378,11 @@ INSERT INTO app.d_artifact (
     tags,
     metadata,
     artifact_type,
-    file_format,
-    file_size_bytes,
+    attachment_format,
+    attachment_size_bytes,
+    attachment_object_bucket,
+    attachment_object_key,
+    attachment,
     entity_type,
     entity_id,
     visibility,
@@ -365,6 +399,9 @@ INSERT INTO app.d_artifact (
     'document',
     'xlsx',
     487000,
+    'pmo-attachments',
+    'artifacts/66a66666-6666-6666-6666-666666666666/file.xlsx',
+    's3://pmo-attachments/artifacts/66a66666-6666-6666-6666-666666666666/file.xlsx',
     'project',
     '84215ccb-313d-48f8-9c37-4398f28c0b1f',
     'restricted',
@@ -382,8 +419,11 @@ INSERT INTO app.d_artifact (
     tags,
     metadata,
     artifact_type,
-    file_format,
-    file_size_bytes,
+    attachment_format,
+    attachment_size_bytes,
+    attachment_object_bucket,
+    attachment_object_key,
+    attachment,
     entity_type,
     entity_id,
     visibility,
@@ -400,6 +440,9 @@ INSERT INTO app.d_artifact (
     'template',
     'pdf',
     245000,
+    'pmo-attachments',
+    'artifacts/77a77777-7777-7777-7777-777777777777/file.pdf',
+    's3://pmo-attachments/artifacts/77a77777-7777-7777-7777-777777777777/file.pdf',
     'project',
     '84215ccb-313d-48f8-9c37-4398f28c0b1f',
     'internal',
@@ -560,7 +603,7 @@ BEGIN
         -- Insert artifact
         INSERT INTO app.d_artifact (
             slug, code, name, descr, tags, metadata,
-            artifact_type, file_format, file_size_bytes,
+            artifact_type, attachment_format, attachment_size_bytes,
             entity_type, entity_id,
             visibility, security_classification, is_latest_version
         ) VALUES (
@@ -571,7 +614,7 @@ BEGIN
             v_tags,
             v_metadata,
             v_artifact_type,
-            v_file_format,
+            v_attachment_format,
             v_file_size,
             v_entity_type,
             v_entity_id,
@@ -593,7 +636,7 @@ END $$;
 -- Safety and Compliance Documents
 INSERT INTO app.d_artifact (
     slug, code, name, descr, tags, metadata,
-    artifact_type, file_format, file_size_bytes,
+    artifact_type, attachment_format, attachment_size_bytes,
     entity_type, entity_id,
     visibility, security_classification, is_latest_version
 )
@@ -623,7 +666,7 @@ FROM (VALUES
 -- Marketing and Sales Materials
 INSERT INTO app.d_artifact (
     slug, code, name, descr, tags, metadata,
-    artifact_type, file_format, file_size_bytes,
+    artifact_type, attachment_format, attachment_size_bytes,
     entity_type, entity_id,
     visibility, security_classification, is_latest_version
 )
@@ -635,7 +678,7 @@ SELECT
     '["marketing", "sales", "customer-facing", "branding"]'::jsonb,
     '{"brand_approved": true, "languages": ["en", "fr"], "print_ready": true}'::jsonb,
     artifact_type,
-    file_format,
+    attachment_format,
     file_size,
     'project',
     (SELECT id FROM app.d_project WHERE active_flag = true ORDER BY random() LIMIT 1),
@@ -648,12 +691,12 @@ FROM (VALUES
     ('Commercial Solutions Guide', 'Detailed guide to commercial service packages', 'document', 'pdf', 5800000),
     ('Customer Success Stories', 'Case studies and testimonials from satisfied clients', 'document', 'pdf', 2400000),
     ('Before After Photo Gallery', 'Visual portfolio of completed projects', 'image', 'jpg', 15000000)
-) AS t(name, descr, artifact_type, file_format, file_size);
+) AS t(name, descr, artifact_type, attachment_format, file_size);
 
 -- Technical Documentation
 INSERT INTO app.d_artifact (
     slug, code, name, descr, tags, metadata,
-    artifact_type, file_format, file_size_bytes,
+    artifact_type, attachment_format, attachment_size_bytes,
     entity_type, entity_id,
     visibility, security_classification, is_latest_version
 )
@@ -683,7 +726,7 @@ FROM (VALUES
 -- Training Videos
 INSERT INTO app.d_artifact (
     slug, code, name, descr, tags, metadata,
-    artifact_type, file_format, file_size_bytes,
+    artifact_type, attachment_format, attachment_size_bytes,
     entity_type, entity_id,
     visibility, security_classification, is_latest_version
 )

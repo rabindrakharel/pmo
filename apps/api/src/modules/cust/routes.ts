@@ -2,11 +2,12 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import { 
-  getUniversalColumnMetadata, 
+import {
+  getUniversalColumnMetadata,
   filterUniversalColumns,
-  getColumnsByMetadata 
+  getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
+import { transformRequestBody } from '../../lib/data-transformers.js';
 
 // Schema based on actual d_cust table structure from db/XIV_d_cust.ddl
 const CustSchema = Type.Object({
@@ -264,7 +265,8 @@ export async function custRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const data = request.body as any;
+    // Transform request data (tags string → array, etc.)
+    const data = transformRequestBody(request.body as any);
 
 
     try {
@@ -335,8 +337,8 @@ export async function custRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const data = request.body as any;
-
+    // Transform request data (tags string → array, etc.)
+    const data = transformRequestBody(request.body as any);
 
     try {
       const existing = await db.execute(sql`
@@ -391,13 +393,31 @@ export async function custRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to update customer' });
       }
 
+      // Parse JSONB fields that come as strings from raw SQL
+      // Note: The SELECT above returns "metadata as attr", so the field is named attr in the result
+      const record = result[0] as any;
+      if (typeof record.tags === 'string') {
+        record.tags = JSON.parse(record.tags);
+      }
+      // Metadata is returned as 'attr' due to column aliasing in SELECT above
+      // The RETURNING * doesn't use aliasing, so we need to rename it
+      if (record.metadata && !record.attr) {
+        record.attr = record.metadata;
+        if (typeof record.attr === 'string') {
+          record.attr = JSON.parse(record.attr);
+        }
+        delete record.metadata;
+      } else if (typeof record.attr === 'string') {
+        record.attr = JSON.parse(record.attr);
+      }
+
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
         canSeeSystemFields: true,
       };
-      
-      return filterUniversalColumns(result[0], userPermissions);
+
+      return filterUniversalColumns(record, userPermissions);
     } catch (error) {
       fastify.log.error('Error updating customer:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

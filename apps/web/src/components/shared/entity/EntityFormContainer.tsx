@@ -9,6 +9,8 @@ import { isSequentialStateField } from '../../../lib/sequentialStateConfig';
 import { renderEmployeeNames } from '../../../lib/entityConfig';
 import { entityOptionsApi } from '../../../lib/api';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
+import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
+import { formatRelativeTime, formatFriendlyDate } from '../../../lib/dataTransformers';
 
 /**
  * EntityFormContainer
@@ -122,8 +124,48 @@ export function EntityFormContainer({
         return renderEmployeeNames(value, data);
       }
 
+      // Special handling for timestamp fields (created_at, updated_at, created_ts, updated_ts)
+      if (field.type === 'timestamp' && value) {
+        return (
+          <span className="text-sm text-gray-600" title={formatFriendlyDate(value)}>
+            {formatRelativeTime(value)}
+          </span>
+        );
+      }
+
+      // Special handling for date range fields (start_date + end_date, planned_start_date + planned_end_date, etc.)
+      const isStartDateField = field.key === 'start_date' || field.key === 'planned_start_date' || field.key === 'actual_start_date';
+      const isEndDateField = field.key === 'end_date' || field.key === 'planned_end_date' || field.key === 'actual_end_date';
+
+      // Get corresponding start/end field keys
+      let startFieldKey: string | null = null;
+      let endFieldKey: string | null = null;
+
+      if (field.key === 'start_date' || field.key === 'end_date') {
+        startFieldKey = 'start_date';
+        endFieldKey = 'end_date';
+      } else if (field.key === 'planned_start_date' || field.key === 'planned_end_date') {
+        startFieldKey = 'planned_start_date';
+        endFieldKey = 'planned_end_date';
+      } else if (field.key === 'actual_start_date' || field.key === 'actual_end_date') {
+        startFieldKey = 'actual_start_date';
+        endFieldKey = 'actual_end_date';
+      }
+
+      if (isStartDateField && endFieldKey && data[endFieldKey]) {
+        // Skip rendering start_date individually if we have both dates
+        // They will be rendered together in the end_date field
+        return null;
+      }
+
+      if (isEndDateField && startFieldKey && data[startFieldKey]) {
+        // Render date range visualizer for both start and end dates
+        return <DateRangeVisualizer startDate={data[startFieldKey]} endDate={value} />;
+      }
+
+      // Regular date field rendering
       if (field.type === 'date' && value) {
-        return new Date(value).toLocaleDateString();
+        return formatFriendlyDate(value);
       }
       if (field.type === 'select') {
         // Use sequential state visualizer for workflow stages/funnels
@@ -328,6 +370,16 @@ export function EntityFormContainer({
             required={field.required && mode === 'create'}
           />
         );
+      case 'timestamp':
+        // Timestamp fields are readonly and show relative time
+        return (
+          <span
+            className="text-gray-600"
+            title={value ? formatFriendlyDate(value) : undefined}
+          >
+            {value ? formatRelativeTime(value) : '-'}
+          </span>
+        );
       default:
         return <span>{value || '-'}</span>;
     }
@@ -342,17 +394,29 @@ export function EntityFormContainer({
     <div className="bg-gradient-to-br from-white via-white to-gray-50/30 rounded-xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="p-4">
         <div className="space-y-0">
-          {visibleFields.map((field, index) => (
+          {visibleFields.map((field, index) => {
+            // Hide start_date fields if we have both start and end dates (they'll render together)
+            const isStartDateField = field.key === 'start_date' || field.key === 'planned_start_date' || field.key === 'actual_start_date';
+            const hasCorrespondingEndDate =
+              (field.key === 'start_date' && data.end_date) ||
+              (field.key === 'planned_start_date' && data.planned_end_date) ||
+              (field.key === 'actual_start_date' && data.actual_end_date);
+
+            if (isStartDateField && !isEditing && hasCorrespondingEndDate) {
+              return null;
+            }
+
+            return (
             <div key={field.key}>
               {index > 0 && (
                 <div
-                  className="h-px my-1.5"
+                  className="h-px my-0.75"
                   style={{
                     backgroundImage: 'repeating-linear-gradient(90deg, rgba(209, 213, 219, 0.15) 0px, rgba(209, 213, 219, 0.15) 4px, transparent 4px, transparent 8px)'
                   }}
                 />
               )}
-              <div className="group transition-all duration-200 ease-out py-1.5"
+              <div className="group transition-all duration-200 ease-out py-0.75"
             >
               <div className="grid grid-cols-[160px_1fr] gap-4 items-start">
                 <label
@@ -363,7 +427,11 @@ export function EntityFormContainer({
                   }}
                 >
                   <span className="opacity-60 group-hover:opacity-100 transition-opacity">
-                    {field.label}
+                    {/* Show "Date Range" label when displaying both start and end dates together */}
+                    {field.key === 'end_date' && data.start_date && !isEditing ? 'Date Range' :
+                     field.key === 'planned_end_date' && data.planned_start_date && !isEditing ? 'Planned Date Range' :
+                     field.key === 'actual_end_date' && data.actual_start_date && !isEditing ? 'Actual Date Range' :
+                     field.label}
                   </span>
                   {field.required && mode === 'create' && (
                     <span className="text-rose-400 text-xs">*</span>
@@ -391,7 +459,8 @@ export function EntityFormContainer({
               </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

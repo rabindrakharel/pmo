@@ -17,12 +17,13 @@ const ArtifactSchema = Type.Object({
   tags: Type.Optional(Type.Any()),
   metadata: Type.Optional(Type.Any()),
   artifact_type: Type.Optional(Type.String()),
-  file_format: Type.Optional(Type.String()),
-  file_size_bytes: Type.Optional(Type.Number()),
+  attachment: Type.Optional(Type.String()),
+  attachment_format: Type.Optional(Type.String()),
+  attachment_size_bytes: Type.Optional(Type.Number()),
   entity_type: Type.Optional(Type.String()),
   entity_id: Type.Optional(Type.String()),
-  bucket_name: Type.Optional(Type.String()),
-  object_key: Type.Optional(Type.String()),
+  attachment_object_bucket: Type.Optional(Type.String()),
+  attachment_attachment_object_key: Type.Optional(Type.String()),
   visibility: Type.Optional(Type.String()),
   security_classification: Type.Optional(Type.String()),
   parent_artifact_id: Type.Optional(Type.String()),
@@ -49,12 +50,13 @@ const CreateArtifactSchema = Type.Object({
 
   // Classification
   artifact_type: Type.Optional(Type.String()),
-  file_format: Type.Optional(Type.String()),
-  file_size_bytes: Type.Optional(Type.Number()),
+  attachment: Type.Optional(Type.String()),
+  attachment_format: Type.Optional(Type.String()),
+  attachment_size_bytes: Type.Optional(Type.Number()),
 
   // S3/Storage
-  bucket_name: Type.Optional(Type.String()),
-  object_key: Type.Optional(Type.String()),
+  attachment_object_bucket: Type.Optional(Type.String()),
+  attachment_attachment_object_key: Type.Optional(Type.String()),
 
   // Access control
   visibility: Type.Optional(Type.String()), // public, internal, restricted, private
@@ -123,8 +125,8 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       const rows = await db.execute(sql`
         SELECT
           id, slug, code, name, descr, internal_url, shared_url, tags, metadata,
-          artifact_type, file_format, file_size_bytes, entity_type, entity_id,
-          bucket_name, object_key, visibility, security_classification,
+          artifact_type, attachment_format, attachment_size_bytes, entity_type, entity_id,
+          attachment_object_bucket, attachment_object_key, visibility, security_classification,
           parent_artifact_id, is_latest_version, version, active_flag,
           from_ts, to_ts, created_ts, updated_ts
         FROM app.d_artifact a
@@ -156,8 +158,8 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       const result = await db.execute(sql`
         SELECT
           id, slug, code, name, descr, internal_url, shared_url, tags, metadata,
-          artifact_type, file_format, file_size_bytes, entity_type, entity_id,
-          bucket_name, object_key, visibility, security_classification,
+          artifact_type, attachment_format, attachment_size_bytes, entity_type, entity_id,
+          attachment_object_bucket, attachment_object_key, visibility, security_classification,
           parent_artifact_id, is_latest_version, version, active_flag,
           from_ts, to_ts, created_ts, updated_ts
         FROM app.d_artifact
@@ -201,8 +203,8 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       const result = await db.execute(sql`
         INSERT INTO app.d_artifact (
           slug, code, name, descr, tags, metadata, artifact_type,
-          file_format, file_size_bytes,
-          bucket_name, object_key,
+          attachment_format, attachment_size_bytes,
+          attachment_object_bucket, attachment_object_key,
           entity_type, entity_id,
           visibility, security_classification,
           parent_artifact_id, is_latest_version,
@@ -215,10 +217,10 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           ${JSON.stringify(data.tags || [])}::jsonb,
           ${JSON.stringify(data.attr || data.metadata || {})}::jsonb,
           ${data.artifact_type},
-          ${data.file_format || null},
-          ${data.file_size_bytes || null},
-          ${data.bucket_name || null},
-          ${data.object_key || null},
+          ${data.attachment_format || null},
+          ${data.attachment_size_bytes || null},
+          ${data.attachment_object_bucket || null},
+          ${data.attachment_object_key || null},
           ${data.entity_type || data.primary_entity_type || null},
           ${data.entity_id || data.primary_entity_id || null},
           ${data.visibility || 'internal'},
@@ -267,16 +269,16 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
       // Classification
       if (data.artifact_type !== undefined) updates.artifact_type = data.artifact_type;
-      if (data.file_format !== undefined) updates.file_format = data.file_format;
-      if (data.file_size_bytes !== undefined) updates.file_size_bytes = data.file_size_bytes;
+      if (data.attachment_format !== undefined) updates.attachment_format = data.attachment_format;
+      if (data.attachment_size_bytes !== undefined) updates.attachment_size_bytes = data.attachment_size_bytes;
 
       // Access control
       if (data.visibility !== undefined) updates.visibility = data.visibility;
       if (data.security_classification !== undefined) updates.security_classification = data.security_classification;
 
       // S3/Storage
-      if (data.bucket_name !== undefined) updates.bucket_name = data.bucket_name;
-      if (data.object_key !== undefined) updates.object_key = data.object_key;
+      if (data.attachment_object_bucket !== undefined) updates.attachment_object_bucket = data.attachment_object_bucket;
+      if (data.attachment_object_key !== undefined) updates.attachment_object_key = data.attachment_object_key;
 
       // Entity relationship
       if (data.entity_type !== undefined) updates.entity_type = data.entity_type;
@@ -397,9 +399,9 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       const result = await db.execute(sql`
         INSERT INTO app.d_artifact (
           slug, code, name, descr, tags, metadata,
-          artifact_type, file_format, file_size_bytes,
+          artifact_type, attachment_format, attachment_size_bytes,
           entity_type, entity_id,
-          bucket_name, object_key,
+          attachment_object_bucket, attachment_object_key,
           visibility, security_classification,
           is_latest_version, active_flag
         ) VALUES (
@@ -466,7 +468,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       // Get artifact metadata
       const result = await db.execute(sql`
         SELECT
-          id, name, file_format, file_size_bytes, object_key, bucket_name
+          id, name, attachment_format, attachment_size_bytes, attachment_object_key, attachment_object_bucket
         FROM app.d_artifact
         WHERE id = ${id} AND active_flag = true
       `);
@@ -477,13 +479,13 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
       const artifact = result[0];
 
-      if (!artifact.object_key) {
+      if (!artifact.attachment_object_key) {
         return reply.status(400).send({ error: 'Artifact has no associated file' });
       }
 
       // Generate presigned download URL
       const downloadResult = await s3AttachmentService.generatePresignedDownloadUrl(
-        artifact.object_key as string
+        artifact.attachment_object_key as string
       );
 
       // Update download count (temporarily disabled - TODO: fix jsonb_set issue)
@@ -503,12 +505,51 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       return {
         url: downloadResult.url,
         objectKey: downloadResult.objectKey,
-        fileName: `${artifact.name}.${artifact.file_format || 'bin'}`,
-        fileSize: artifact.file_size_bytes,
+        fileName: `${artifact.name}.${artifact.attachment_format || 'bin'}`,
+        fileSize: artifact.attachment_size_bytes,
         expiresIn: downloadResult.expiresIn,
       };
     } catch (error) {
       fastify.log.error({ error }, 'Error generating download URL');
+      return reply.status(500).send({
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Generate presigned URL for preview (for cost/revenue attachments)
+  fastify.post('/api/v1/artifact/preview-url', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['artifact'],
+      summary: 'Generate preview URL for object key',
+      description: 'Generate presigned download URL for any S3 object key (used for cost/revenue attachments)',
+      body: Type.Object({
+        objectKey: Type.String({ description: 'S3 object key' }),
+      }),
+      response: {
+        200: Type.Object({
+          url: Type.String({ description: 'Presigned download URL' }),
+          expiresIn: Type.Number({ description: 'URL expiration time in seconds' }),
+        }),
+      },
+    },
+  }, async (request, reply) => {
+    const { objectKey } = request.body as any;
+
+    try {
+      // Generate presigned download URL
+      const downloadResult = await s3AttachmentService.generatePresignedDownloadUrl(objectKey);
+
+      fastify.log.info(`Preview URL generated for object key: ${objectKey}`);
+
+      return {
+        url: downloadResult.url,
+        expiresIn: downloadResult.expiresIn,
+      };
+    } catch (error) {
+      fastify.log.error({ error }, 'Error generating preview URL');
       return reply.status(500).send({
         error: 'Internal server error',
         details: error instanceof Error ? error.message : String(error)
@@ -585,9 +626,9 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         fileName: Type.String(),
         contentType: Type.Optional(Type.String()),
         fileSize: Type.Optional(Type.Number()),
-        file_format: Type.Optional(Type.String()),
-        file_size_bytes: Type.Optional(Type.Number()),
-        object_key: Type.Optional(Type.String()), // Pre-uploaded object key from frontend
+        attachment_format: Type.Optional(Type.String()),
+        attachment_size_bytes: Type.Optional(Type.Number()),
+        attachment_object_key: Type.Optional(Type.String()), // Pre-uploaded object key from frontend
         descr: Type.Optional(Type.String()),
         visibility: Type.Optional(Type.String()),
         security_classification: Type.Optional(Type.String()),
@@ -619,15 +660,15 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       const maxV = await db.execute(sql`SELECT COALESCE(MAX(version), 0) as max_version FROM app.d_artifact WHERE (id = ${rootId} OR parent_artifact_id = ${rootId})`);
       const nextVersion = (maxV[0] as any).max_version + 1;
 
-      // Use provided object_key if frontend already uploaded, otherwise generate presigned URL
+      // Use provided attachment_object_key if frontend already uploaded, otherwise generate presigned URL
       let finalObjectKey: string;
       let uploadUrl: string | null = null;
       let expiresIn: number | null = null;
 
-      if (data.object_key) {
-        // Frontend already uploaded the file, use the provided object_key
-        finalObjectKey = data.object_key;
-        fastify.log.info('Using pre-uploaded object_key:', finalObjectKey);
+      if (data.attachment_object_key) {
+        // Frontend already uploaded the file, use the provided attachment_object_key
+        finalObjectKey = data.attachment_object_key;
+        fastify.log.info('Using pre-uploaded attachment_object_key:', finalObjectKey);
       } else {
         // Generate presigned upload URL for backward compatibility
         const uploadResult = await s3AttachmentService.generatePresignedUploadUrl({
@@ -651,16 +692,16 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
       const newResult = await db.execute(sql`
         INSERT INTO app.d_artifact (
-          slug, code, name, descr, tags, metadata, artifact_type, file_format, file_size_bytes,
-          entity_type, entity_id, bucket_name, object_key, visibility, security_classification,
+          slug, code, name, descr, tags, metadata, artifact_type, attachment_format, attachment_size_bytes,
+          entity_type, entity_id, attachment_object_bucket, attachment_object_key, visibility, security_classification,
           parent_artifact_id, is_latest_version, from_ts, to_ts, active_flag, version
         ) VALUES (
           ${slug}, ${code}, ${current.name}, ${data.descr || current.descr},
           ${data.tags ? JSON.stringify(data.tags) : current.tags}::jsonb,
           ${JSON.stringify({ uploadedBy: userId, uploadedAt: new Date().toISOString(), previousVersion: current.id })}::jsonb,
           ${data.artifact_type || current.artifact_type},
-          ${data.file_format || ext},
-          ${data.file_size_bytes || data.fileSize || current.file_size_bytes},
+          ${data.attachment_format || ext},
+          ${data.attachment_size_bytes || data.fileSize || current.attachment_size_bytes},
           ${current.entity_type}, ${current.entity_id}, ${config.S3_ATTACHMENTS_BUCKET}, ${finalObjectKey},
           ${data.visibility || current.visibility},
           ${data.security_classification || current.security_classification},

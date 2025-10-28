@@ -2,13 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import {
-  getUniversalColumnMetadata,
-  filterUniversalColumns,
-  getColumnsByMetadata
-} from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
+import { s3AttachmentService } from '../../lib/s3-attachments.js';
 
 // Schema based on d_revenue table structure from db/37_d_revenue.ddl
 const RevenueSchema = Type.Object({
@@ -20,15 +16,16 @@ const RevenueSchema = Type.Object({
   descr: Type.Optional(Type.String()),
   tags: Type.Optional(Type.Any()),
   metadata: Type.Optional(Type.Any()),
-  // Financial fields
   revenue_amt_local: Type.Number(),
   revenue_amt_invoice: Type.Optional(Type.Number()),
   invoice_currency: Type.Optional(Type.String()),
   exch_rate: Type.Optional(Type.Number()),
   revenue_forecasted_amt_lcl: Type.Optional(Type.Number()),
-  // Attachment fields
-  sales_receipt_attachment: Type.Optional(Type.String()),
-  // Temporal fields
+  attachment: Type.Optional(Type.String()),
+  attachment_format: Type.Optional(Type.String()),
+  attachment_size_bytes: Type.Optional(Type.Number()),
+  attachment_object_bucket: Type.Optional(Type.String()),
+  attachment_object_key: Type.Optional(Type.String()),
   from_ts: Type.Optional(Type.String()),
   to_ts: Type.Optional(Type.String()),
   active_flag: Type.Optional(Type.Boolean()),
@@ -50,7 +47,11 @@ const CreateRevenueSchema = Type.Object({
   invoice_currency: Type.Optional(Type.String()),
   exch_rate: Type.Optional(Type.Number()),
   revenue_forecasted_amt_lcl: Type.Optional(Type.Number()),
-  sales_receipt_attachment: Type.Optional(Type.String()),
+  attachment: Type.Optional(Type.String()),
+  attachment_format: Type.Optional(Type.String()),
+  attachment_size_bytes: Type.Optional(Type.Number()),
+  attachment_object_bucket: Type.Optional(Type.String()),
+  attachment_object_key: Type.Optional(Type.String()),
   active_flag: Type.Optional(Type.Boolean()),
 });
 
@@ -91,63 +92,67 @@ export async function revenueRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      let conditions: string[] = ['r.active_flag = true'];
+      // Base RBAC filtering
+      const baseConditions = [
+        sql`(
+          EXISTS (
+            SELECT 1 FROM app.entity_id_rbac_map rbac
+            WHERE rbac.empid = ${userId}
+              AND rbac.entity = 'revenue'
+              AND (rbac.entity_id = r.id::text OR rbac.entity_id = 'all')
+              AND 0 = ANY(rbac.permission)
+          )
+        )`
+      ];
+
+      const conditions = [...baseConditions];
 
       if (active !== undefined) {
-        conditions.push(`r.active_flag = ${active}`);
+        conditions.push(sql`r.active_flag = ${active}`);
+      } else {
+        conditions.push(sql`r.active_flag = true`);
       }
 
       if (search) {
-        conditions.push(`(r.name ILIKE $search OR r.revenue_code ILIKE $search OR r.descr ILIKE $search)`);
+        conditions.push(sql`(
+          r.name ILIKE ${`%${search}%`} OR
+          r.revenue_code ILIKE ${`%${search}%`} OR
+          r.descr ILIKE ${`%${search}%`}
+        )`);
       }
 
       if (revenue_code) {
-        conditions.push(`r.revenue_code = $revenue_code`);
+        conditions.push(sql`r.revenue_code = ${revenue_code}`);
       }
 
       if (invoice_currency) {
-        conditions.push(`r.invoice_currency = $invoice_currency`);
+        conditions.push(sql`r.invoice_currency = ${invoice_currency}`);
       }
 
-      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-
-      // Query with RBAC enforcement
-      const query = sql.raw(`
-        SELECT r.*
+      // Count query
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as total
         FROM app.d_revenue r
-        ${whereClause}
-        AND EXISTS (
-          SELECT 1 FROM app.entity_id_rbac_map rbac
-          WHERE rbac.empid = ${sql.placeholder('userId')}
-            AND rbac.entity = 'revenue'
-            AND (rbac.entity_id = r.id::text OR rbac.entity_id = 'all')
-            AND 0 = ANY(rbac.permission)
-        )
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+      `);
+      const total = Number(countResult[0]?.total || 0);
+
+      // Data query
+      const revenues = await db.execute(sql`
+        SELECT
+          r.id, r.code, r.slug, r.revenue_code, r.name, r.descr, r.tags, r.metadata,
+          r.revenue_amt_local, r.revenue_amt_invoice, r.invoice_currency, r.exch_rate,
+          r.revenue_forecasted_amt_lcl,
+          r.attachment, r.attachment_format, r.attachment_size_bytes,
+          r.attachment_object_bucket, r.attachment_object_key,
+          r.from_ts, r.to_ts, r.active_flag, r.created_ts, r.updated_ts, r.version
+        FROM app.d_revenue r
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY r.created_ts DESC
-        LIMIT ${sql.placeholder('limit')} OFFSET ${sql.placeholder('offset')}
+        LIMIT ${limit} OFFSET ${offset}
       `);
 
-      const countQuery = sql.raw(`
-        SELECT COUNT(*) as count
-        FROM app.d_revenue r
-        ${whereClause}
-        AND EXISTS (
-          SELECT 1 FROM app.entity_id_rbac_map rbac
-          WHERE rbac.empid = ${sql.placeholder('userId')}
-            AND rbac.entity = 'revenue'
-            AND (rbac.entity_id = r.id::text OR rbac.entity_id = 'all')
-            AND 0 = ANY(rbac.permission)
-        )
-      `);
-
-      const results = await db.execute(query.mapWith({
-        userId, search: search ? `%${search}%` : undefined, revenue_code, invoice_currency, limit, offset
-      }));
-
-      const countResult = await db.execute(countQuery.mapWith({ userId, search: search ? `%${search}%` : undefined, revenue_code, invoice_currency }));
-      const total = parseInt(countResult.rows[0]?.count || '0', 10);
-
-      return reply.send({ data: results.rows, total, limit, offset });
+      return { data: revenues, total, limit, offset };
     } catch (error: any) {
       fastify.log.error(`Revenue list error: ${error.message}`);
       return reply.code(500).send({ error: 'Failed to fetch revenues' });
@@ -177,27 +182,25 @@ export async function revenueRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const query = sql.raw(`
+      const result = await db.execute(sql`
         SELECT r.*
         FROM app.d_revenue r
-        WHERE r.id = ${sql.placeholder('id')}
+        WHERE r.id = ${id}
           AND r.active_flag = true
           AND EXISTS (
             SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.empid = ${sql.placeholder('userId')}
+            WHERE rbac.empid = ${userId}
               AND rbac.entity = 'revenue'
               AND (rbac.entity_id = r.id::text OR rbac.entity_id = 'all')
               AND 0 = ANY(rbac.permission)
           )
       `);
 
-      const result = await db.execute(query.mapWith({ id, userId }));
-
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return reply.code(404).send({ error: 'Revenue not found or access denied' });
       }
 
-      return reply.send(result.rows[0]);
+      return reply.send(result[0]);
     } catch (error: any) {
       fastify.log.error(`Revenue get error: ${error.message}`);
       return reply.code(500).send({ error: 'Failed to fetch revenue' });
@@ -225,59 +228,46 @@ export async function revenueRoutes(fastify: FastifyInstance) {
 
     try {
       // Check RBAC permission for creating revenue
-      const rbacCheck = await db.execute(
-        sql.raw(`
-          SELECT 1 FROM app.entity_id_rbac_map
-          WHERE empid = ${sql.placeholder('userId')}
-            AND entity = 'revenue'
-            AND entity_id = 'all'
-            AND 4 = ANY(permission)
-        `).mapWith({ userId })
-      );
+      const rbacCheck = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map
+        WHERE empid = ${userId}
+          AND entity = 'revenue'
+          AND entity_id = 'all'
+          AND 4 = ANY(permission)
+      `);
 
-      if (rbacCheck.rows.length === 0) {
+      if (rbacCheck.length === 0) {
         return reply.code(403).send({ error: 'Permission denied to create revenue' });
       }
 
       // Generate slug and code if not provided
-      const slug = body.slug || body.name.toLowerCase().replace(/\s+/g, '-');
+      const slug = body.slug || body.name?.toLowerCase().replace(/\s+/g, '-') || `revenue-${Date.now()}`;
       const code = body.code || `REV-${Date.now()}`;
+      const name = body.name || `Revenue ${code}`;
 
-      const query = sql.raw(`
+      const result = await db.execute(sql`
         INSERT INTO app.d_revenue (
           slug, code, revenue_code, name, descr, tags, metadata,
           revenue_amt_local, revenue_amt_invoice, invoice_currency, exch_rate,
-          revenue_forecasted_amt_lcl, sales_receipt_attachment, active_flag
+          revenue_forecasted_amt_lcl,
+          attachment, attachment_format, attachment_size_bytes,
+          attachment_object_bucket, attachment_object_key,
+          active_flag
         ) VALUES (
-          ${sql.placeholder('slug')}, ${sql.placeholder('code')}, ${sql.placeholder('revenue_code')},
-          ${sql.placeholder('name')}, ${sql.placeholder('descr')},
-          ${sql.placeholder('tags')}, ${sql.placeholder('metadata')},
-          ${sql.placeholder('revenue_amt_local')}, ${sql.placeholder('revenue_amt_invoice')},
-          ${sql.placeholder('invoice_currency')}, ${sql.placeholder('exch_rate')},
-          ${sql.placeholder('revenue_forecasted_amt_lcl')}, ${sql.placeholder('sales_receipt_attachment')},
-          ${sql.placeholder('active_flag')}
+          ${slug}, ${code}, ${body.revenue_code},
+          ${name}, ${body.descr || null},
+          ${JSON.stringify(body.tags || [])}, ${JSON.stringify(body.metadata || {})},
+          ${body.revenue_amt_local}, ${body.revenue_amt_invoice || null},
+          ${body.invoice_currency || 'CAD'}, ${body.exch_rate || 1.0},
+          ${body.revenue_forecasted_amt_lcl || null},
+          ${body.attachment || null}, ${body.attachment_format || null}, ${body.attachment_size_bytes || null},
+          ${body.attachment_object_bucket || null}, ${body.attachment_object_key || null},
+          ${body.active_flag !== undefined ? body.active_flag : true}
         )
         RETURNING *
       `);
 
-      const result = await db.execute(query.mapWith({
-        slug,
-        code,
-        revenue_code: body.revenue_code,
-        name: body.name || `Revenue ${code}`,
-        descr: body.descr || null,
-        tags: JSON.stringify(body.tags || []),
-        metadata: JSON.stringify(body.metadata || {}),
-        revenue_amt_local: body.revenue_amt_local,
-        revenue_amt_invoice: body.revenue_amt_invoice || null,
-        invoice_currency: body.invoice_currency || 'CAD',
-        exch_rate: body.exch_rate || 1.0,
-        revenue_forecasted_amt_lcl: body.revenue_forecasted_amt_lcl || null,
-        sales_receipt_attachment: body.sales_receipt_attachment || null,
-        active_flag: body.active_flag !== undefined ? body.active_flag : true,
-      }));
-
-      return reply.code(201).send(result.rows[0]);
+      return reply.code(201).send(result[0]);
     } catch (error: any) {
       fastify.log.error(`Revenue create error: ${error.message}`);
       return reply.code(500).send({ error: 'Failed to create revenue' });
@@ -310,87 +300,121 @@ export async function revenueRoutes(fastify: FastifyInstance) {
 
     try {
       // Check RBAC permission for editing revenue
-      const rbacCheck = await db.execute(
-        sql.raw(`
-          SELECT 1 FROM app.entity_id_rbac_map
-          WHERE empid = ${sql.placeholder('userId')}
-            AND entity = 'revenue'
-            AND (entity_id = ${sql.placeholder('id')} OR entity_id = 'all')
-            AND 1 = ANY(permission)
-        `).mapWith({ userId, id })
-      );
+      const rbacCheck = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map
+        WHERE empid = ${userId}
+          AND entity = 'revenue'
+          AND (entity_id = ${id} OR entity_id = 'all')
+          AND 1 = ANY(permission)
+      `);
 
-      if (rbacCheck.rows.length === 0) {
+      if (rbacCheck.length === 0) {
         return reply.code(403).send({ error: 'Permission denied to update revenue' });
       }
 
-      const updateFields: string[] = [];
-      const params: any = { id };
+      const updateParts: any[] = [];
 
-      if (body.name !== undefined) {
-        updateFields.push(`name = ${sql.placeholder('name')}`);
-        params.name = body.name;
-      }
-      if (body.descr !== undefined) {
-        updateFields.push(`descr = ${sql.placeholder('descr')}`);
-        params.descr = body.descr;
-      }
-      if (body.revenue_code !== undefined) {
-        updateFields.push(`revenue_code = ${sql.placeholder('revenue_code')}`);
-        params.revenue_code = body.revenue_code;
-      }
-      if (body.revenue_amt_local !== undefined) {
-        updateFields.push(`revenue_amt_local = ${sql.placeholder('revenue_amt_local')}`);
-        params.revenue_amt_local = body.revenue_amt_local;
-      }
-      if (body.revenue_amt_invoice !== undefined) {
-        updateFields.push(`revenue_amt_invoice = ${sql.placeholder('revenue_amt_invoice')}`);
-        params.revenue_amt_invoice = body.revenue_amt_invoice;
-      }
-      if (body.invoice_currency !== undefined) {
-        updateFields.push(`invoice_currency = ${sql.placeholder('invoice_currency')}`);
-        params.invoice_currency = body.invoice_currency;
-      }
-      if (body.exch_rate !== undefined) {
-        updateFields.push(`exch_rate = ${sql.placeholder('exch_rate')}`);
-        params.exch_rate = body.exch_rate;
-      }
-      if (body.revenue_forecasted_amt_lcl !== undefined) {
-        updateFields.push(`revenue_forecasted_amt_lcl = ${sql.placeholder('revenue_forecasted_amt_lcl')}`);
-        params.revenue_forecasted_amt_lcl = body.revenue_forecasted_amt_lcl;
-      }
-      if (body.sales_receipt_attachment !== undefined) {
-        updateFields.push(`sales_receipt_attachment = ${sql.placeholder('sales_receipt_attachment')}`);
-        params.sales_receipt_attachment = body.sales_receipt_attachment;
-      }
+      if (body.name !== undefined) updateParts.push(sql`name = ${body.name}`);
+      if (body.descr !== undefined) updateParts.push(sql`descr = ${body.descr}`);
+      if (body.revenue_code !== undefined) updateParts.push(sql`revenue_code = ${body.revenue_code}`);
+      if (body.revenue_amt_local !== undefined) updateParts.push(sql`revenue_amt_local = ${body.revenue_amt_local}`);
+      if (body.revenue_amt_invoice !== undefined) updateParts.push(sql`revenue_amt_invoice = ${body.revenue_amt_invoice}`);
+      if (body.invoice_currency !== undefined) updateParts.push(sql`invoice_currency = ${body.invoice_currency}`);
+      if (body.exch_rate !== undefined) updateParts.push(sql`exch_rate = ${body.exch_rate}`);
+      if (body.revenue_forecasted_amt_lcl !== undefined) updateParts.push(sql`revenue_forecasted_amt_lcl = ${body.revenue_forecasted_amt_lcl}`);
+      if (body.attachment !== undefined) updateParts.push(sql`attachment = ${body.attachment}`);
+      if (body.attachment_format !== undefined) updateParts.push(sql`attachment_format = ${body.attachment_format}`);
+      if (body.attachment_size_bytes !== undefined) updateParts.push(sql`attachment_size_bytes = ${body.attachment_size_bytes}`);
+      if (body.attachment_object_bucket !== undefined) updateParts.push(sql`attachment_object_bucket = ${body.attachment_object_bucket}`);
+      if (body.attachment_object_key !== undefined) updateParts.push(sql`attachment_object_key = ${body.attachment_object_key}`);
 
-      if (updateFields.length === 0) {
+      if (updateParts.length === 0) {
         return reply.code(400).send({ error: 'No fields to update' });
       }
 
-      updateFields.push('version = version + 1');
-      updateFields.push('updated_ts = now()');
+      updateParts.push(sql`version = version + 1`);
+      updateParts.push(sql`updated_ts = now()`);
 
-      const query = sql.raw(`
+      const result = await db.execute(sql`
         UPDATE app.d_revenue
-        SET ${updateFields.join(', ')}
-        WHERE id = ${sql.placeholder('id')} AND active_flag = true
+        SET ${sql.join(updateParts, sql`, `)}
+        WHERE id = ${id} AND active_flag = true
         RETURNING *
       `);
 
-      const result = await db.execute(query.mapWith(params));
-
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return reply.code(404).send({ error: 'Revenue not found' });
       }
 
-      return reply.send(result.rows[0]);
+      return reply.send(result[0]);
     } catch (error: any) {
       fastify.log.error(`Revenue update error: ${error.message}`);
       return reply.code(500).send({ error: 'Failed to update revenue' });
     }
   });
 
+  // Presigned upload URL for revenue attachments
+  fastify.post('/api/v1/revenue/presigned-upload', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['revenue'],
+      summary: 'Generate presigned upload URL for revenue receipt attachment',
+      body: Type.Object({
+        filename: Type.String(),
+        contentType: Type.Optional(Type.String())
+      }),
+      response: {
+        200: Type.Object({
+          uploadUrl: Type.String(),
+          objectKey: Type.String()
+        })
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const { filename, contentType } = request.body as { filename: string; contentType?: string };
+      const userId = (request as any).user?.sub;
+
+      // Check RBAC permission for creating revenue
+      const rbacCheck = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map
+        WHERE empid = ${userId}
+          AND entity = 'revenue'
+          AND entity_id = 'all'
+          AND 4 = ANY(permission)
+      `);
+
+      if (rbacCheck.length === 0) {
+        return reply.code(403).send({ error: 'Permission denied to upload revenue attachments' });
+      }
+
+      // Generate presigned upload URL using s3AttachmentService
+      const result = await s3AttachmentService.generatePresignedUploadUrl({
+        tenantId: 'demo',
+        entityType: 'revenue',
+        entityId: 'temp-' + Date.now(), // Temporary ID, will be replaced when revenue is created
+        fileName: filename,
+        contentType: contentType || 'application/octet-stream'
+      });
+
+      return reply.send({
+        uploadUrl: result.url,
+        objectKey: result.objectKey
+      });
+    } catch (error: any) {
+      fastify.log.error(`Presigned upload error: ${error.message}`);
+      return reply.code(500).send({ error: 'Failed to generate upload URL' });
+    }
+  });
+
   // Delete revenue (soft delete)
   await createEntityDeleteEndpoint(fastify, 'revenue');
+
+  // Child entity endpoints - revenue under parent entities
+  // Enables routes like /api/v1/project/{id}/revenue, /api/v1/task/{id}/revenue, etc.
+  createChildEntityEndpoint(fastify, 'project', 'revenue', 'd_revenue');
+  createChildEntityEndpoint(fastify, 'task', 'revenue', 'd_revenue');
+  createChildEntityEndpoint(fastify, 'biz', 'revenue', 'd_revenue');
+  createChildEntityEndpoint(fastify, 'cust', 'revenue', 'd_revenue');
+  createChildEntityEndpoint(fastify, 'office', 'revenue', 'd_revenue');
 }

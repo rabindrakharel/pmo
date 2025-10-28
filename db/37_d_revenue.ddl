@@ -139,8 +139,12 @@ CREATE TABLE app.d_revenue (
     exch_rate decimal(10,6) DEFAULT 1.0,                     -- Exchange rate for conversion
     revenue_forecasted_amt_lcl decimal(15,2),                -- Forecasted revenue amount (local)
 
-    -- Attachment fields
-    sales_receipt_attachment text,                            -- S3 URI for sales receipt document
+    -- Standardized S3 Attachment Fields
+    attachment text,                                          -- Full S3 URI: s3://bucket/key
+    attachment_format varchar(20),                            -- File extension: pdf, png, jpg, svg, etc.
+    attachment_size_bytes bigint,                             -- File size in bytes
+    attachment_object_bucket varchar(100),                    -- S3 bucket name: 'pmo-attachments'
+    attachment_object_key varchar(500),                       -- S3 object key: revenue/{id}/receipt.ext
 
     -- Temporal fields
     from_ts timestamptz DEFAULT now(),
@@ -278,6 +282,89 @@ INSERT INTO app.d_revenue (
     85000.00, 85000.00, 'CAD', 1.0,
     80000.00, 's3://pmo-attachments/receipts/2024/08/rev-2024-007.pdf'
 );
+
+-- =====================================================
+-- REGISTER REVENUES IN d_entity_id_map
+-- =====================================================
+
+-- Link all revenues to their parent entities (projects)
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+SELECT
+    'project',
+    (r.metadata->>'project_id')::uuid,
+    'revenue',
+    r.id,
+    'has_revenue'
+FROM app.d_revenue r
+WHERE r.metadata->>'project_id' IS NOT NULL
+  AND r.active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Link revenues to businesses
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+SELECT
+    'biz',
+    (r.metadata->>'business_id')::uuid,
+    'revenue',
+    r.id,
+    'has_revenue'
+FROM app.d_revenue r
+WHERE r.metadata->>'business_id' IS NOT NULL
+  AND r.active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Link revenues to offices
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+SELECT
+    'office',
+    (r.metadata->>'office_id')::uuid,
+    'revenue',
+    r.id,
+    'has_revenue'
+FROM app.d_revenue r
+WHERE r.metadata->>'office_id' IS NOT NULL
+  AND r.active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Link revenues to tasks
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+SELECT
+    'task',
+    (r.metadata->>'task_id')::uuid,
+    'revenue',
+    r.id,
+    'has_revenue'
+FROM app.d_revenue r
+WHERE r.metadata->>'task_id' IS NOT NULL
+  AND r.active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- Link revenues to customers
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+SELECT
+    'cust',
+    (r.metadata->>'customer_id')::uuid,
+    'revenue',
+    r.id,
+    'has_revenue'
+FROM app.d_revenue r
+WHERE r.metadata->>'customer_id' IS NOT NULL
+  AND r.active_flag = true
+ON CONFLICT DO NOTHING;
+
+-- =====================================================
+-- REGISTER REVENUES IN d_entity_instance_id
+-- =====================================================
+
+INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
+SELECT 'revenue', id, name, slug, code
+FROM app.d_revenue
+WHERE active_flag = true
+ON CONFLICT (entity_type, entity_id) DO UPDATE
+SET entity_name = EXCLUDED.entity_name,
+    entity_slug = EXCLUDED.entity_slug,
+    entity_code = EXCLUDED.entity_code,
+    updated_ts = now();
 
 COMMENT ON TABLE app.d_revenue IS 'Revenue center entity for tracking project, task, and business revenue with forecasting and receipt management';
 COMMENT ON COLUMN app.d_revenue.revenue_amt_local IS 'Revenue amount in local currency (primary reporting currency)';

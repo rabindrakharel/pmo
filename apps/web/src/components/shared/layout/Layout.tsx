@@ -49,13 +49,9 @@ interface LayoutProps {
 export function Layout({ children, createButton }: LayoutProps) {
   const { user, logout } = useAuth();
   const { isVisible, isCollapsed, collapseSidebar, uncollapseSidebar } = useSidebar();
-  const { history } = useNavigationHistory();
   const [currentPage, setCurrentPage] = useState(window.location.pathname);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
-  // Show navigation breadcrumb when there's history and sidebar is hidden
-  const showNavigationBreadcrumb = history.length > 0 && !isVisible;
 
   const handleLogout = async () => {
     await logout();
@@ -126,7 +122,7 @@ export function Layout({ children, createButton }: LayoutProps) {
     <div className="h-screen bg-gray-50 flex">
       {/* Collapsible Sidebar */}
       {isVisible && (
-        <div className={`${isCollapsed ? 'w-16' : 'w-64'} bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col`}>
+        <div className={`${isCollapsed ? 'w-16' : 'w-44'} bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col`}>
         <div className="flex flex-col h-full">
           {/* Logo and Collapse Button */}
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-14 px-4 border-b border-gray-200`}>
@@ -161,7 +157,7 @@ export function Layout({ children, createButton }: LayoutProps) {
           )}
 
           {/* Main Navigation */}
-          <nav className="flex-1 px-2 py-3 space-y-0.5">
+          <nav className="flex-1 px-2 py-2 space-y-0">
             {/* Settings Dropdown */}
             <div>
               <button
@@ -170,7 +166,7 @@ export function Layout({ children, createButton }: LayoutProps) {
                   settingsSubItems.some(item => currentPage === item.href)
                     ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
-                } w-full group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 text-sm font-normal rounded-l-lg transition-all duration-200`}
+                } w-full group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-1.5 text-sm font-normal rounded-l-lg transition-all duration-200`}
                 title={isCollapsed ? 'Settings' : undefined}
               >
                 <Settings className={`${
@@ -188,7 +184,7 @@ export function Layout({ children, createButton }: LayoutProps) {
 
               {/* Settings Submenu */}
               {!isCollapsed && isSettingsOpen && (
-                <div className="ml-4 mt-1 space-y-0.5">
+                <div className="ml-4 mt-0.5 space-y-0">
                   {settingsSubItems.map((item) => {
                     const IconComponent = item.icon;
                     const isActive = isCurrentPage(item.href);
@@ -200,7 +196,7 @@ export function Layout({ children, createButton }: LayoutProps) {
                           isActive
                             ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
                             : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
-                        } group flex items-center px-3 py-2 text-sm font-normal rounded-l-lg transition-all duration-200`}
+                        } group flex items-center px-3 py-1 text-sm font-normal rounded-l-lg transition-all duration-200`}
                         onClick={() => setCurrentPage(item.href)}
                       >
                         <IconComponent className={`${
@@ -226,7 +222,7 @@ export function Layout({ children, createButton }: LayoutProps) {
                     isActive
                       ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
-                  } group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 text-sm font-normal rounded-l-lg transition-all duration-200`}
+                  } group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-1.5 text-sm font-normal rounded-l-lg transition-all duration-200`}
                   onClick={() => setCurrentPage(item.href)}
                   title={isCollapsed ? item.name : undefined}
                 >
@@ -362,19 +358,18 @@ export function Layout({ children, createButton }: LayoutProps) {
       </div>
       )}
 
-      {/* Navigation Breadcrumb - Shows when sidebar is hidden */}
-      {showNavigationBreadcrumb && <NavigationBreadcrumb />}
-
       {/* Main content area - always present */}
-      <div className={`flex-1 flex flex-col overflow-hidden ${showNavigationBreadcrumb ? 'ml-48' : ''}`}>
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header Bar */}
         <header className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-between">
+            {/* Navigation Breadcrumb */}
+            <NavigationBreadcrumb />
           </div>
         </header>
 
         {/* Page content - this is the key part that must stay mounted */}
-        <main className="flex-1 overflow-hidden bg-gray-50 p-4">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 p-4 pb-8">
           {/* Create Button in Content Area */}
           {createButton && (
             <div className="flex justify-end mb-4">
@@ -386,7 +381,9 @@ export function Layout({ children, createButton }: LayoutProps) {
               />
             </div>
           )}
-          {children}
+          <div className="pb-4">
+            {children}
+          </div>
         </main>
       </div>
     </div>

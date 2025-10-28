@@ -452,7 +452,17 @@ export function InlineDate({
   label,
 }: BaseInlineEditProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(value || '');
+  const [editValue, setEditValue] = useState(() => {
+    // Format initial value to yyyy-MM-dd for date input
+    if (!value) return '';
+    try {
+      const date = new Date(value);
+      if (isNaN(date.getTime())) return '';
+      return date.toISOString().split('T')[0];
+    } catch {
+      return value;
+    }
+  });
   const [isSaving, setIsSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -475,7 +485,21 @@ export function InlineDate({
   };
 
   const handleCancel = () => {
-    setEditValue(value || '');
+    // Format value to yyyy-MM-dd when canceling
+    if (value) {
+      try {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          setEditValue(date.toISOString().split('T')[0]);
+        } else {
+          setEditValue(value);
+        }
+      } catch {
+        setEditValue(value);
+      }
+    } else {
+      setEditValue('');
+    }
     setIsEditing(false);
   };
 

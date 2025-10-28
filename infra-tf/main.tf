@@ -178,3 +178,18 @@ module "lambda_deployer" {
 
   depends_on = [module.ec2, module.s3_code]
 }
+
+# ============================================================================
+# Lambda SSL Renewal Module - Automated SSL Certificate Renewal
+# ============================================================================
+
+module "lambda_ssl_renewal" {
+  source = "./modules/lambda-ssl-renewal"
+
+  project_name    = var.project_name
+  aws_region      = var.aws_region
+  ec2_instance_id = module.ec2.instance_id
+  global_tags     = var.global_tags
+
+  depends_on = [module.ec2]
+}

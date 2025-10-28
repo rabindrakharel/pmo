@@ -233,35 +233,37 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
 
   return (
     <Layout>
-      <div className="h-full flex flex-col space-y-4 w-[97%] max-w-[1536px] mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <EntityIcon className="h-5 w-5 text-gray-600 stroke-[1.5]" />
-            <div>
-              <h1 className="text-sm font-normal text-gray-800">{config.pluralName}</h1>
-              <p className="mt-1 text-sm text-gray-500">
-                Manage and track {config.pluralName.toLowerCase()}
-              </p>
+      <div className="h-full flex flex-col w-[97%] max-w-[1536px] mx-auto">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-10 bg-gray-50 pb-4 pt-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <EntityIcon className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+              <div>
+                <h1 className="text-sm font-normal text-gray-800">{config.pluralName}</h1>
+                <p className="mt-1 text-sm text-gray-500">
+                  Manage and track {config.pluralName.toLowerCase()}
+                </p>
+              </div>
             </div>
-          </div>
 
-          {/* View Switcher and Create Button */}
-          <div className="flex items-center space-x-3">
-            {config.supportedViews.length > 1 && (
-              <ViewSwitcher
-                currentView={view}
-                supportedViews={config.supportedViews}
-                onChange={setView}
-              />
-            )}
-            <button
-              onClick={handleCreateClick}
-              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors"
-            >
-              <Plus className="h-4 w-4 mr-2 stroke-[1.5]" />
-              Create {config.displayName}
-            </button>
+            {/* View Switcher and Create Button */}
+            <div className="flex items-center space-x-3">
+              {config.supportedViews.length > 1 && (
+                <ViewSwitcher
+                  currentView={view}
+                  supportedViews={config.supportedViews}
+                  onChange={setView}
+                />
+              )}
+              <button
+                onClick={handleCreateClick}
+                className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors"
+              >
+                <Plus className="h-4 w-4 mr-2 stroke-[1.5]" />
+                Create {config.displayName}
+              </button>
+            </div>
           </div>
         </div>
 
