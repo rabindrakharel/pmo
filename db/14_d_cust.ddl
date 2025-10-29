@@ -160,22 +160,16 @@
 
 CREATE TABLE app.d_cust (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-
-  -- Standard fields (common across all entities) - ALWAYS FIRST
-  slug varchar(255),
-  code varchar(100),
-  name text NOT NULL,
+  code varchar(50) UNIQUE NOT NULL,
+  name varchar(200) NOT NULL,
   descr text,
-  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
-  from_ts timestamptz NOT NULL DEFAULT now(),
-  to_ts timestamptz,
-  active_flag boolean NOT NULL DEFAULT true,
-  created_ts timestamptz NOT NULL DEFAULT now(),
-  updated_ts timestamptz NOT NULL DEFAULT now(),
-  version int DEFAULT 1,
-
-  -- Entity metadata (new standard)
   metadata jsonb DEFAULT '{}'::jsonb,
+  active_flag boolean DEFAULT true,
+  from_ts timestamptz DEFAULT now(),
+  to_ts timestamptz,
+  created_ts timestamptz DEFAULT now(),
+  updated_ts timestamptz DEFAULT now(),
+  version integer DEFAULT 1,
 
   -- Customer identification
   cust_number text NOT NULL,
@@ -216,9 +210,9 @@ CREATE TABLE app.d_cust (
   password_hash text,
   last_login_ts timestamptz,
   password_reset_token text,
-  password_reset_expires timestamptz,
+  password_reset_expires_ts timestamptz,
   failed_login_attempts int DEFAULT 0,
-  account_locked_until timestamptz,
+  account_locked_until_ts timestamptz,
 
   -- Entity configuration (activated entities for this user)
   entities text[] DEFAULT ARRAY[]::text[]
@@ -234,39 +228,36 @@ CREATE TABLE app.d_cust (
 
 -- Premium Residential Customers
 INSERT INTO app.d_cust (
-  slug, code, name, cust_number, cust_type, cust_status,
+  code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
   opportunity_funnel_stage_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
-  tags, metadata
+  metadata
 ) VALUES
-('thompson-family-residence', 'CL-RES-001', 'Thompson Family Residence', 'CL-RES-001', 'residential', 'active',
+('CL-RES-001', 'Thompson Family Residence', 'CL-RES-001', 'residential', 'active',
  'Robert Thompson', 'robert.thompson@email.com', '416-555-0101',
  '1847 Sheridan Park Dr', 'Oakville', 'ON', 'L6H 7S3',
  'Contract Signed', 'Residential', 'Referral', 'Premium',
- '["residential", "premium", "oakville", "referral"]'::jsonb,
  '{"acquisition_date": "2021-03-15", "payment_terms": "net-15", "service_categories": ["landscaping", "garden_design", "seasonal_maintenance"], "lifetime_value": 85000.00, "annual_contract_value": 25000.00, "preferred_service_times": {"preferred_days": ["tuesday", "wednesday", "thursday"], "time_range": "9am-3pm"}, "acquisition_cost": 450.00, "property_size_sqft": 8500, "pool": true, "garden_specialty": "perennial_borders", "seasonal_decorations": true, "referral_source": "neighbor"}'::jsonb),
 
-('chen-estate', 'CL-RES-003', 'The Chen Estate', 'CL-RES-003', 'residential', 'active',
+('CL-RES-003', 'The Chen Estate', 'CL-RES-003', 'residential', 'active',
  'David Chen', 'david.chen@outlook.com', '905-555-0103',
  '3425 Mississauga Rd', 'Mississauga', 'ON', 'L5L 3R8',
  'Contract Signed', 'Residential', 'Referral', 'Premium',
- '["residential", "premium", "mississauga", "estate"]'::jsonb,
  '{"acquisition_date": "2020-08-10", "payment_terms": "net-30", "service_categories": ["landscaping", "garden_design", "seasonal_maintenance", "pool_maintenance"], "lifetime_value": 120000.00, "annual_contract_value": 35000.00, "preferred_service_times": {"preferred_days": ["monday", "tuesday"], "time_range": "10am-2pm", "seasonal_intensive": true}, "acquisition_cost": 380.00, "property_size_sqft": 12500, "pool": true, "tennis_court": true, "garden_specialty": "japanese_design", "irrigation_system": true}'::jsonb);
 
 -- Standard Residential Customers
 INSERT INTO app.d_cust (
-  slug, code, name, cust_number, cust_type, cust_status,
+  code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
   opportunity_funnel_stage_name, industry_sector_name, acquisition_channel_name, customer_tier_name,
-  tags, metadata
+  metadata
 ) VALUES
-('martinez-family-home', 'CL-RES-002', 'Martinez Family Home', 'CL-RES-002', 'residential', 'active',
+('CL-RES-002', 'Martinez Family Home', 'CL-RES-002', 'residential', 'active',
  'Isabella Martinez', 'isabella.martinez@gmail.com', '647-555-0102',
  '2156 Lakeshore Rd W', 'Oakville', 'ON', 'L6L 1H2',
  'Contract Signed', 'Residential', 'Organic Search', 'Standard',
- '["residential", "standard", "oakville", "online"]'::jsonb,
  '{"acquisition_date": "2021-05-20", "payment_terms": "net-15", "service_categories": ["landscaping", "seasonal_cleanup", "snow_removal"], "lifetime_value": 42000.00, "annual_contract_value": 12000.00, "preferred_service_times": {"preferred_days": ["friday", "saturday"], "time_range": "8am-5pm"}, "acquisition_cost": 850.00, "property_size_sqft": 6200, "driveway": "double", "garden_type": "low_maintenance", "snow_priority": "high"}'::jsonb),
 
 ('wilson-townhouse', 'CL-RES-004', 'Wilson Townhouse', 'CL-RES-004', 'residential', 'active',

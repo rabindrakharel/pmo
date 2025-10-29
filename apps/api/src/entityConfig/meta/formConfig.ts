@@ -47,13 +47,13 @@ export const formConfig: EntityConfig = {
       label: 'Category',
       uiBehavior: { visible: true, priority: 5, filter: true, renderAs: 'badge', width: 120 }
     },
-    created: {
-      apiField: 'created',
+    created_ts: {
+      apiField: 'created_ts',
       label: 'Created',
       uiBehavior: { visible: true, priority: 6, sort: true, width: 120 }
     },
-    updated: {
-      apiField: 'updated',
+    updated_ts: {
+      apiField: 'updated_ts',
       label: 'Updated',
       uiBehavior: { visible: true, priority: 7, sort: true, width: 120 }
     }

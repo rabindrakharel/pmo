@@ -122,16 +122,16 @@ export interface EntityConfig {
 // ============================================================================
 
 export const ENTITY_CONFIG: Record<string, EntityConfig> = {
-  // BUSINESS SCOPE
+  // BUSINESS (biz)
   business: {
-    table: 'app.d_scope_business',
+    table: 'app.d_business',
     primaryKey: 'id',
-    apiEndpoint: '/api/v1/scope/business',
+    apiEndpoint: '/api/v1/biz',
     displayName: 'Business Unit',
     displayNamePlural: 'Business Units',
     icon: 'building-2',
-    description: 'Business organizational hierarchy for departmental organization and budget allocation',
-    
+    description: 'Business organizational hierarchy with 3-level structure (Department → Division → Corporate)',
+
     fields: {
       id: {
         ddlColumn: 'id',
@@ -141,6 +141,16 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
         hidden: true,
         label: 'ID'
       },
+      code: {
+        ddlColumn: 'code',
+        apiField: 'code',
+        type: 'string',
+        required: true,
+        label: 'Business Code',
+        placeholder: 'e.g., LAND-DEPT',
+        validation: { minLength: 1, maxLength: 50, unique: true },
+        sortable: true
+      },
       name: {
         ddlColumn: 'name',
         apiField: 'name',
@@ -148,12 +158,12 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
         required: true,
         label: 'Business Unit Name',
         placeholder: 'Enter business unit name',
-        validation: { minLength: 1, maxLength: 255 },
+        validation: { minLength: 1, maxLength: 200 },
         sortable: true,
         filterable: true,
         searchable: true
       },
-      description: {
+      descr: {
         ddlColumn: 'descr',
         apiField: 'descr',
         type: 'text',
@@ -162,55 +172,24 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
         inputType: 'textarea',
         searchable: true
       },
-      code: {
-        ddlColumn: 'code',
-        apiField: 'code',
-        type: 'string',
-        label: 'Business Code',
-        placeholder: 'e.g., TECH-DIV',
-        validation: { pattern: /^[A-Z0-9-]+$/ },
-        sortable: true
+      metadata: {
+        ddlColumn: 'metadata',
+        apiField: 'metadata',
+        type: 'json',
+        label: 'Metadata',
+        inputType: 'json',
+        defaultValue: {}
       },
-      businessType: {
-        ddlColumn: 'business_type',
-        apiField: 'businessType',
-        type: 'string',
-        label: 'Business Type',
-        inputType: 'select',
-        defaultValue: 'operational',
-        options: [
-          { value: 'operational', label: 'Operational' },
-          { value: 'support', label: 'Support' },
-          { value: 'strategic', label: 'Strategic' },
-          { value: 'temporary', label: 'Temporary' }
-        ],
+      active_flag: {
+        ddlColumn: 'active_flag',
+        apiField: 'activeFlag',
+        type: 'boolean',
+        label: 'Active',
+        inputType: 'checkbox',
+        defaultValue: true,
         filterable: true
       },
-      levelId: {
-        ddlColumn: 'level_id',
-        apiField: 'levelId',
-        type: 'number',
-        required: true,
-        label: 'Organization Level',
-        inputType: 'select',
-        options: [
-          { value: 0, label: 'Corporation (Level 0)' },
-          { value: 1, label: 'Division (Level 1)' },
-          { value: 2, label: 'Department (Level 2)' }
-        ],
-        validation: { min: 0, max: 2 },
-        filterable: true,
-        sortable: true
-      },
-      levelName: {
-        ddlColumn: 'level_name',
-        apiField: 'levelName',
-        type: 'string',
-        required: true,
-        label: 'Level Name',
-        sortable: true
-      },
-      parentId: {
+      parent_id: {
         ddlColumn: 'parent_id',
         apiField: 'parentId',
         type: 'uuid',
@@ -218,31 +197,53 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
         inputType: 'relationship',
         relationshipConfig: {
           entity: 'business',
-          endpoint: '/api/v1/scope/business',
+          endpoint: '/api/v1/biz',
           displayField: 'name',
           valueField: 'id',
           allowEmpty: true
         }
       },
-      budgetAllocated: {
-        ddlColumn: 'budget_allocated',
-        apiField: 'budgetAllocated',
+      level_name: {
+        ddlColumn: 'level_name',
+        apiField: 'levelName',
+        type: 'string',
+        required: true,
+        label: 'Level Name',
+        inputType: 'select',
+        options: [
+          { value: 'Department', label: 'Department' },
+          { value: 'Division', label: 'Division' },
+          { value: 'Corporate', label: 'Corporate' }
+        ],
+        filterable: true,
+        sortable: true
+      },
+      office_id: {
+        ddlColumn: 'office_id',
+        apiField: 'officeId',
+        type: 'uuid',
+        label: 'Office',
+        inputType: 'relationship',
+        relationshipConfig: {
+          entity: 'office',
+          endpoint: '/api/v1/office',
+          displayField: 'name',
+          valueField: 'id',
+          allowEmpty: true
+        }
+      },
+      budget_allocated_amt: {
+        ddlColumn: 'budget_allocated_amt',
+        apiField: 'budgetAllocatedAmt',
         type: 'number',
         label: 'Budget Allocated (CAD)',
         inputType: 'currency',
         validation: { min: 0 },
         sortable: true
       },
-      fteAllocation: {
-        ddlColumn: 'fte_allocation',
-        apiField: 'fteAllocation',
-        type: 'number',
-        label: 'FTE Allocation',
-        validation: { min: 0 }
-      },
-      managerEmpId: {
-        ddlColumn: 'manager_emp_id',
-        apiField: 'managerEmpId',
+      manager_employee_id: {
+        ddlColumn: 'manager_employee_id',
+        apiField: 'managerEmployeeId',
         type: 'uuid',
         label: 'Manager',
         inputType: 'relationship',
@@ -254,105 +255,87 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
           allowEmpty: true
         }
       },
-      approvalLimit: {
-        ddlColumn: 'approval_limit',
-        apiField: 'approvalLimit',
-        type: 'number',
-        label: 'Approval Limit (CAD)',
-        inputType: 'currency',
-        validation: { min: 0 }
+      from_ts: {
+        ddlColumn: 'from_ts',
+        apiField: 'fromTs',
+        type: 'datetime',
+        generated: true,
+        label: 'From Date',
+        sortable: true
       },
-      operationalStatus: {
-        ddlColumn: 'operational_status',
-        apiField: 'operationalStatus',
-        type: 'string',
-        label: 'Operational Status',
-        inputType: 'select',
-        defaultValue: 'active',
-        options: [
-          { value: 'active', label: 'Active' },
-          { value: 'inactive', label: 'Inactive' },
-          { value: 'restructuring', label: 'Restructuring' },
-          { value: 'sunset', label: 'Sunset' }
-        ],
-        filterable: true
+      to_ts: {
+        ddlColumn: 'to_ts',
+        apiField: 'toTs',
+        type: 'datetime',
+        label: 'To Date',
+        sortable: true
       },
-      active: {
-        ddlColumn: 'active',
-        apiField: 'active',
-        type: 'boolean',
-        label: 'Active',
-        inputType: 'checkbox',
-        defaultValue: true,
-        filterable: true
-      },
-      tags: {
-        ddlColumn: 'tags',
-        apiField: 'tags',
-        type: 'array',
-        itemType: 'string',
-        label: 'Tags',
-        inputType: 'tags',
-        defaultValue: []
-      },
-      created: {
-        ddlColumn: 'created',
-        apiField: 'created',
+      created_ts: {
+        ddlColumn: 'created_ts',
+        apiField: 'createdTs',
         type: 'datetime',
         generated: true,
         label: 'Created',
         sortable: true
       },
-      updated: {
-        ddlColumn: 'updated',
-        apiField: 'updated',
+      updated_ts: {
+        ddlColumn: 'updated_ts',
+        apiField: 'updatedTs',
         type: 'datetime',
         generated: true,
         label: 'Updated',
         sortable: true
+      },
+      version: {
+        ddlColumn: 'version',
+        apiField: 'version',
+        type: 'number',
+        generated: true,
+        label: 'Version',
+        defaultValue: 1
       }
     },
-    
+
     listView: {
       defaultSort: 'name',
       defaultSortOrder: 'asc',
-      searchFields: ['name', 'description', 'code'],
-      filterFields: ['businessType', 'levelId', 'operationalStatus', 'active'],
-      displayFields: ['name', 'code', 'businessType', 'levelName', 'operationalStatus'],
+      searchFields: ['name', 'descr', 'code'],
+      filterFields: ['level_name', 'active_flag'],
+      displayFields: ['name', 'code', 'level_name', 'budget_allocated_amt'],
       itemsPerPage: 25
     },
-    
+
     createForm: {
       sections: [
         {
           title: 'Basic Information',
-          fields: ['name', 'description', 'code']
+          fields: ['name', 'code', 'descr']
         },
         {
           title: 'Organization',
-          fields: ['levelId', 'levelName', 'parentId', 'businessType']
+          fields: ['level_name', 'parent_id', 'office_id']
         },
         {
-          title: 'Financial',
-          fields: ['budgetAllocated', 'fteAllocation', 'approvalLimit']
+          title: 'Financial & Management',
+          fields: ['budget_allocated_amt', 'manager_employee_id']
         },
         {
-          title: 'Management',
-          fields: ['managerEmpId', 'operationalStatus', 'active', 'tags']
+          title: 'Additional',
+          fields: ['metadata', 'active_flag']
         }
       ]
     }
   },
 
-  // LOCATION SCOPE
-  location: {
-    table: 'app.d_scope_location',
+  // OFFICE (location)
+  office: {
+    table: 'app.d_office',
     primaryKey: 'id',
-    apiEndpoint: '/api/v1/scope/location',
-    displayName: 'Location',
-    displayNamePlural: 'Locations',
+    apiEndpoint: '/api/v1/office',
+    displayName: 'Office',
+    displayNamePlural: 'Offices',
     icon: 'map-pin',
-    description: 'Geographic and administrative organizational structure',
+    description: 'Physical office locations with 4-level hierarchy (Office → District → Region → Corporate)',
     
     fields: {
       id: {
@@ -514,9 +497,9 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
           allowEmpty: true
         }
       },
-      active: {
-        ddlColumn: 'active',
-        apiField: 'active',
+      active_flag: {
+        ddlColumn: 'active_flag',
+        apiField: 'activeFlag',
         type: 'boolean',
         label: 'Active',
         inputType: 'checkbox',
@@ -532,19 +515,26 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
         inputType: 'tags',
         defaultValue: []
       },
-      created: {
-        ddlColumn: 'created',
-        apiField: 'created',
+      created_ts: {
+        ddlColumn: 'created_ts',
+        apiField: 'createdTs',
         type: 'datetime',
         generated: true,
         label: 'Created'
+      },
+      updated_ts: {
+        ddlColumn: 'updated_ts',
+        apiField: 'updatedTs',
+        type: 'datetime',
+        generated: true,
+        label: 'Updated'
       }
     },
-    
+
     listView: {
       defaultSort: 'name',
       searchFields: ['name', 'description', 'address'],
-      filterFields: ['levelId', 'provinceCode', 'active'],
+      filterFields: ['levelId', 'provinceCode', 'active_flag'],
       displayFields: ['name', 'levelName', 'address', 'provinceCode'],
       itemsPerPage: 25
     }
@@ -552,13 +542,13 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
 
   // PROJECT
   project: {
-    table: 'app.ops_project_head',
+    table: 'app.d_project',
     primaryKey: 'id',
     apiEndpoint: '/api/v1/project',
     displayName: 'Project',
     displayNamePlural: 'Projects',
     icon: 'folder',
-    description: 'Project lifecycle management and execution',
+    description: 'Project management with budget tracking, timelines, and team assignments',
     
     fields: {
       id: {
@@ -655,7 +645,7 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
         filterable: true
       },
       budgetAllocated: {
-        ddlColumn: 'budget_allocated',
+        ddlColumn: 'budget_allocated_amt',
         apiField: 'budgetAllocated',
         type: 'number',
         label: 'Budget Allocated',
@@ -771,30 +761,38 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
         inputType: 'tags',
         defaultValue: []
       },
-      active: {
-        ddlColumn: 'active',
-        apiField: 'active',
+      active_flag: {
+        ddlColumn: 'active_flag',
+        apiField: 'activeFlag',
         type: 'boolean',
         label: 'Active',
         inputType: 'checkbox',
         defaultValue: true,
         filterable: true
       },
-      created: {
-        ddlColumn: 'created',
-        apiField: 'created',
+      created_ts: {
+        ddlColumn: 'created_ts',
+        apiField: 'createdTs',
         type: 'datetime',
         generated: true,
         label: 'Created',
         sortable: true
+      },
+      updated_ts: {
+        ddlColumn: 'updated_ts',
+        apiField: 'updatedTs',
+        type: 'datetime',
+        generated: true,
+        label: 'Updated',
+        sortable: true
       }
     },
-    
+
     listView: {
-      defaultSort: 'created',
+      defaultSort: 'created_ts',
       defaultSortOrder: 'desc',
       searchFields: ['name', 'description', 'projectCode'],
-      filterFields: ['projectType', 'priorityLevel', 'projectStage', 'projectStatus', 'active'],
+      filterFields: ['projectType', 'priorityLevel', 'projectStage', 'projectStatus', 'active_flag'],
       displayFields: ['name', 'projectCode', 'projectType', 'priorityLevel', 'projectStage', 'budgetAllocated'],
       itemsPerPage: 25
     },
@@ -819,7 +817,7 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
         },
         {
           title: 'Additional',
-          fields: ['tags', 'active']
+          fields: ['tags', 'active_flag']
         }
       ]
     }
@@ -1027,9 +1025,9 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
         inputType: 'json',
         defaultValue: {}
       },
-      active: {
-        ddlColumn: 'active',
-        apiField: 'active',
+      active_flag: {
+        ddlColumn: 'active_flag',
+        apiField: 'activeFlag',
         type: 'boolean',
         label: 'Active',
         inputType: 'checkbox',
@@ -1045,19 +1043,26 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
         inputType: 'tags',
         defaultValue: []
       },
-      created: {
-        ddlColumn: 'created',
-        apiField: 'created',
+      created_ts: {
+        ddlColumn: 'created_ts',
+        apiField: 'createdTs',
         type: 'datetime',
         generated: true,
         label: 'Created'
+      },
+      updated_ts: {
+        ddlColumn: 'updated_ts',
+        apiField: 'updatedTs',
+        type: 'datetime',
+        generated: true,
+        label: 'Updated'
       }
     },
-    
+
     listView: {
       defaultSort: 'name',
       searchFields: ['name', 'email', 'employeeCode'],
-      filterFields: ['status', 'employmentType', 'workMode', 'active'],
+      filterFields: ['status', 'employmentType', 'workMode', 'active_flag'],
       displayFields: ['name', 'email', 'employmentType', 'status', 'workMode'],
       itemsPerPage: 25
     },
@@ -1177,9 +1182,9 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
         inputType: 'checkbox',
         defaultValue: false
       },
-      active: {
-        ddlColumn: 'active',
-        apiField: 'active',
+      active_flag: {
+        ddlColumn: 'active_flag',
+        apiField: 'activeFlag',
         type: 'boolean',
         label: 'Active',
         inputType: 'checkbox',
@@ -1195,19 +1200,26 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
         inputType: 'tags',
         defaultValue: []
       },
-      created: {
-        ddlColumn: 'created',
-        apiField: 'created',
+      created_ts: {
+        ddlColumn: 'created_ts',
+        apiField: 'createdTs',
         type: 'datetime',
         generated: true,
         label: 'Created'
+      },
+      updated_ts: {
+        ddlColumn: 'updated_ts',
+        apiField: 'updatedTs',
+        type: 'datetime',
+        generated: true,
+        label: 'Updated'
       }
     },
-    
+
     listView: {
       defaultSort: 'name',
       searchFields: ['name', 'description', 'roleCategory'],
-      filterFields: ['roleType', 'authorityLevel', 'active'],
+      filterFields: ['roleType', 'authorityLevel', 'active_flag'],
       displayFields: ['name', 'roleType', 'roleCategory', 'authorityLevel', 'approvalLimit'],
       itemsPerPage: 25
     },
@@ -1224,7 +1236,7 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
         },
         {
           title: 'Additional',
-          fields: ['tags', 'active']
+          fields: ['tags', 'active_flag']
         }
       ]
     }

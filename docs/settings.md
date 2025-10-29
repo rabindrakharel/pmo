@@ -2,7 +2,7 @@
 
 > **Configuration Engine** - Dynamic dropdown system powering entity fields, sequential state visualization, and workflow management
 >
-> **Last Updated:** 2025-10-28 (v2.3 - Auto-detection with Convention Over Configuration)
+> **Last Updated:** 2025-10-29 (v2.5 - Database-Driven Badge Colors with Auto-Apply Pattern)
 
 ---
 
@@ -10,6 +10,10 @@
 
 1. [Semantics & Business Context](#semantics--business-context)
 2. [Architecture & Design Patterns](#architecture--design-patterns)
+   - [Settings System Architecture](#settings-system-architecture)
+   - [Functional Design Patterns](#design-patterns) (4 patterns)
+   - [SOLID Design Patterns (v2.4)](#solid-design-patterns-in-settings-architecture-v24) (6 patterns)
+   - [Database-Driven Badge Color System (v2.5)](#pattern-7-database-driven-badge-color-system-v25) (Pattern 7)
 3. [Database, API & UI/UX Mapping](#database-api--uiux-mapping)
 4. [DRY Principles & Entity Relationships](#dry-principles--entity-relationships)
 5. [Central Configuration & Middleware](#central-configuration--middleware)
@@ -28,7 +32,8 @@
 - **Hierarchical categorization** for offices, businesses, and organizational structures
 - **Workflow standardization** ensuring consistent data across all entities
 - **Business flexibility** to adapt the system to changing organizational needs
-- **v2.3: Auto-detected inline editing** - Fields with `loadOptionsFromSettings` automatically become editable dropdowns (Convention Over Configuration)
+- **Auto-detected inline editing** - Fields with `loadOptionsFromSettings` automatically become editable dropdowns (Convention Over Configuration)
+- **v2.5: Database-driven badge colors** - Colors from `color_code` column automatically applied to badges using DRY auto-apply pattern (see [Database-Driven Badge Color System](#pattern-7-database-driven-badge-color-system-v25))
 
 ### Business Workflows
 
@@ -102,8 +107,8 @@ Entity Field → loadOptionsFromSettings → API Request → Settings Table → 
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  🔌 API LAYER (Fastify)                                         │
-│  ├─ GET /api/v1/setting?category=project_stage                 │
-│  ├─ Category-to-table mapping (snake_case)                     │
+│  ├─ GET /api/v1/setting?datalabel=project_stage                │
+│  ├─ Datalabel-to-table mapping (snake_case)                    │
 │  ├─ JSON response with normalized structure                    │
 │  └─ No authentication required (public configuration)          │
 │                                                                 │
@@ -128,32 +133,37 @@ Entity Field → loadOptionsFromSettings → API Request → Settings Table → 
 
 ### Design Patterns
 
-#### 1. **Category-to-Table Mapping Pattern**
+#### 1. **Datalabel-to-Table Mapping Pattern**
 
-Frontend specifies category, API maps to table:
+Frontend specifies datalabel, API maps to table:
 
 ```typescript
-// Frontend: entityConfig.ts
-{
-  key: 'project_stage',
-  loadOptionsFromSettings: true  // ← Triggers auto-loading
+// Frontend: entityConfig.ts (DRY Factory Pattern)
+projectStage: {
+  ...createSettingsEntityConfig(
+    SETTINGS_REGISTRY.find(s => s.key === 'projectStage')!
+  )
 }
+// This generates:
+// {
+//   apiEndpoint: '/api/v1/setting?datalabel=project_stage',
+//   loadOptionsFromSettings: true  // ← Triggers auto-loading
+// }
 
 // API mapping: setting/routes.ts
-category=project_stage → setting_datalabel_project_stage
+datalabel=project_stage → setting_datalabel_project_stage
 
 // Query executed:
-SELECT level_id, level_name, sort_order, parent_id
-FROM setting_datalabel_project_stage
-WHERE active_flag = true
-ORDER BY sort_order ASC
+SELECT id, name, descr, parent_id, color_code
+FROM app.setting_datalabel
+WHERE datalabel_name = 'setting_datalabel__project_stage'
 ```
 
 **Naming Convention:**
 ```
 Field: project_stage
-API Category: project_stage (snake_case)
-Table: setting_datalabel_project_stage (prefix + category)
+API Datalabel: project_stage (snake_case)
+Table: setting_datalabel (unified JSONB table)
 ```
 
 #### 2. **Sequential State Visualization**
@@ -203,6 +213,968 @@ WHERE active_flag = true
 UPDATE setting_datalabel_project_stage
 SET active_flag = false
 WHERE level_id = 5;
+```
+
+---
+
+### SOLID Design Patterns in Settings Architecture (v2.4)
+
+The DRY refactoring implements **6 major design patterns** following **SOLID principles** to achieve 80% code reduction while improving maintainability.
+
+---
+
+#### Pattern 1: **Factory Pattern** 🏭
+
+**Intent:** Create entity configurations without specifying exact classes, eliminating repetitive code. Single registry + factory functions generate all 13 settings entities (80% code reduction).
+
+**Implementation:**
+
+```typescript
+// settingsConfig.ts
+
+// 1. Define the registry (data source)
+export const SETTINGS_REGISTRY: SettingDefinition[] = [
+  {
+    key: 'projectStage',
+    datalabel: 'project_stage',
+    displayName: 'Project Stage',
+    pluralName: 'Project Stages',
+    supportedViews: ['table', 'graph'],
+    defaultView: 'table'
+  },
+  { key: 'taskStage', datalabel: 'task_stage', displayName: 'Task Stage', ... },
+  // ... 13 total
+];
+
+// 2. Factory functions generate standard structures
+export function createSettingsColumns(): ColumnDef[] {
+  return [
+    { key: 'id', title: 'ID', sortable: true, align: 'center', width: '80px' },
+    {
+      key: 'name',
+      title: 'Name',
+      sortable: true,
+      filterable: true,
+      render: (value, record) => renderColorBadge(record.color_code, value)
+    },
+    { key: 'descr', title: 'Description', sortable: true },
+    { key: 'parent_id', title: 'Parent ID', sortable: true, align: 'center', width: '100px' },
+    {
+      key: 'color_code',
+      title: 'Color',
+      sortable: true,
+      align: 'center',
+      width: '120px',
+      inlineEditable: true  // ← Enables inline editing
+    }
+  ];
+}
+
+export function createSettingsFields(): FieldDef[] {
+  return [
+    { key: 'id', label: 'ID', type: 'number', required: true },
+    { key: 'name', label: 'Name', type: 'text', required: true },
+    { key: 'descr', label: 'Description', type: 'textarea' },
+    { key: 'parent_id', label: 'Parent ID', type: 'number' },
+    {
+      key: 'color_code',
+      label: 'Color',
+      type: 'select',
+      required: true,
+      options: COLOR_OPTIONS  // ← Centralized color options
+    }
+  ];
+}
+
+// 3. Main factory assembles complete entity config
+export function createSettingsEntityConfig(definition: SettingDefinition): EntityConfig {
+  return {
+    name: definition.key,
+    displayName: definition.displayName,
+    pluralName: definition.pluralName,
+    apiEndpoint: `/api/v1/setting?datalabel=${definition.datalabel}`,
+    columns: createSettingsColumns(),
+    fields: createSettingsFields(),
+    supportedViews: definition.supportedViews || ['table'],
+    defaultView: definition.defaultView || 'table'
+  };
+}
+```
+
+**Usage:**
+
+```typescript
+// entityConfig.ts
+
+// ❌ OLD WAY (60 lines per entity)
+projectStage: {
+  name: 'projectStage',
+  displayName: 'Project Stage',
+  pluralName: 'Project Stages',
+  apiEndpoint: '/api/v1/setting?datalabel=project_stage',
+  columns: [
+    { key: 'id', title: 'ID', sortable: true, ... },
+    { key: 'name', title: 'Name', sortable: true, ... },
+    // ... 40+ more lines
+  ],
+  fields: [
+    { key: 'id', label: 'ID', type: 'number', ... },
+    // ... 15+ more lines
+  ],
+  supportedViews: ['table', 'graph'],
+  defaultView: 'table'
+}
+
+// ✅ NEW WAY (5 lines per entity)
+projectStage: {
+  ...createSettingsEntityConfig(
+    SETTINGS_REGISTRY.find(s => s.key === 'projectStage')!
+  )
+}
+```
+
+**Benefits:**
+- ✅ Single source of truth (SETTINGS_REGISTRY)
+- ✅ Add new entity: 2 lines (registry entry + usage)
+- ✅ Modify structure: Change once, affects all 13 entities
+- ✅ Type-safe: TypeScript enforces SettingDefinition interface
+
+**SOLID Principle:** Open/Closed Principle - Open for extension (add to registry), closed for modification (factory functions unchanged)
+
+---
+
+#### Pattern 2: **Strategy Pattern** 🎯
+
+**Intent:** Define family of algorithms (caching strategies), encapsulate each one, make them interchangeable. Provides consistent cache management with time-based expiration.
+
+**Implementation:**
+
+```typescript
+// settingsLoader.v2.ts
+
+interface CacheStrategy {
+  get(key: string): any | null;
+  set(key: string, value: any): void;
+  clear(key?: string): void;
+}
+
+class SettingsCache implements CacheStrategy {
+  private cache = new Map<string, CacheEntry>();
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  get(datalabel: string): SettingOption[] | null {
+    const cached = this.cache.get(datalabel);
+
+    // Time-based expiration strategy
+    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+      return cached.data;
+    }
+
+    return null;
+  }
+
+  set(datalabel: string, data: SettingOption[]): void {
+    this.cache.set(datalabel, {
+      data,
+      timestamp: Date.now()
+    });
+  }
+
+  clear(datalabel?: string): void {
+    if (datalabel) {
+      this.cache.delete(datalabel);  // Selective invalidation
+    } else {
+      this.cache.clear();            // Full invalidation
+    }
+  }
+}
+
+const cache = new SettingsCache();
+```
+
+**Usage:**
+
+```typescript
+export async function loadSettingOptions(
+  datalabel: string,
+  forceRefresh: boolean = false
+): Promise<SettingOption[]> {
+  // Check cache first (Strategy Pattern in action)
+  if (!forceRefresh) {
+    const cached = cache.get(datalabel);
+    if (cached) {
+      console.log(`Cache HIT: ${datalabel}`);
+      return cached;
+    }
+  }
+
+  // Cache miss - fetch from API
+  console.log(`Cache MISS: ${datalabel}`);
+  const endpoint = getSettingEndpoint(datalabel);
+  const result = await httpClient.fetch(endpoint);
+  const options = result.data.map(transformToOption).sort(...);
+
+  // Store in cache (Strategy Pattern)
+  cache.set(datalabel, options);
+
+  return options;
+}
+
+// Selective cache invalidation
+export function clearCache(datalabel?: string): void {
+  cache.clear(datalabel);
+}
+```
+
+**Benefits:**
+- ✅ Swap caching strategies without changing consumer code
+- ✅ Consistent cache management across app
+- ✅ Easy to add LRU cache, Redis cache, etc.
+- ✅ Testable: Mock cache strategy for tests
+
+**SOLID Principle:** Dependency Inversion Principle - Depend on CacheStrategy abstraction, not concrete implementation
+
+---
+
+#### Pattern 3: **Singleton Pattern** 🎯
+
+**Intent:** Ensure class has only one instance, provide global point of access. Centralized HTTP client with consistent request configuration.
+
+**Implementation:**
+
+```typescript
+// settingsApi.ts
+
+class HttpClient {
+  private getHeaders(): HeadersInit {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    return headers;
+  }
+
+  async request<T>(
+    url: string,
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    body?: any
+  ): Promise<T> {
+    const options: RequestInit = {
+      method,
+      headers: this.getHeaders(),
+    };
+
+    if (body) {
+      options.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(`${API_BASE_URL}${url}`, options);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  get<T>(url: string): Promise<T> { return this.request<T>(url, 'GET'); }
+  put<T>(url: string, body: any): Promise<T> { return this.request<T>(url, 'PUT', body); }
+  post<T>(url: string, body: any): Promise<T> { return this.request<T>(url, 'POST', body); }
+  delete<T>(url: string): Promise<T> { return this.request<T>(url, 'DELETE'); }
+}
+
+const httpClient = new HttpClient(); // ← Singleton instance
+
+export class SettingsApi {
+  async list(datalabel: string): Promise<SettingItem[]> {
+    const response = await httpClient.get<SettingResponse>(
+      `/api/v1/setting?datalabel=${datalabel}`
+    );
+    return response.data;
+  }
+
+  async update(datalabel: string, id: string, data: SettingUpdateData): Promise<SettingItem> {
+    const response = await httpClient.put<SettingUpdateResponse>(
+      `/api/v1/setting/${datalabel}/${id}`,
+      data
+    );
+    return response.data;
+  }
+
+  async getCategories(): Promise<{ datalabel_name: string; item_count: number }[]> {
+    const response = await httpClient.get<{ data: any[] }>(
+      '/api/v1/setting/categories'
+    );
+    return response.data;
+  }
+}
+
+// Singleton export - only one instance across entire app
+export const settingsApi = new SettingsApi();
+export default settingsApi;
+```
+
+**Usage:**
+
+```typescript
+// Anywhere in the app - same instance
+import { settingsApi } from '@/lib/api/settingsApi';
+
+// Component A
+const stages = await settingsApi.list('project_stage');
+
+// Component B (same instance)
+const updated = await settingsApi.update('project_stage', '1', { color_code: 'green' });
+
+// Component C (same instance)
+const categories = await settingsApi.getCategories();
+```
+
+**Benefits:**
+- ✅ Single instance = consistent behavior
+- ✅ Centralized auth token handling
+- ✅ Easy to add interceptors (logging, error handling)
+- ✅ Memory efficient
+
+**SOLID Principle:** Single Responsibility Principle - HttpClient handles requests, SettingsApi handles business logic
+
+---
+
+#### Pattern 4: **Dependency Inversion Principle (DIP)** 🔄
+
+**Intent:** Depend on abstractions, not concretions. High-level modules should not depend on low-level modules. Enables HTTP client swapping and easy testing.
+
+**Implementation:**
+
+```typescript
+// settingsLoader.v2.ts
+
+// Abstraction (interface)
+interface HttpClient {
+  fetch(url: string): Promise<any>;
+}
+
+// Concrete implementation
+class AuthenticatedHttpClient implements HttpClient {
+  async fetch(url: string): Promise<any> {
+    const token = localStorage.getItem('auth_token');
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}${url}`, { headers });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+}
+
+// Alternative implementation for testing
+class MockHttpClient implements HttpClient {
+  private mockData: Record<string, any> = {};
+
+  setMockData(url: string, data: any): void {
+    this.mockData[url] = data;
+  }
+
+  async fetch(url: string): Promise<any> {
+    return this.mockData[url] || { data: [] };
+  }
+}
+
+// High-level module depends on abstraction
+const httpClient: HttpClient = new AuthenticatedHttpClient();
+
+// Can swap implementation without changing consumers
+// const httpClient: HttpClient = new MockHttpClient();
+```
+
+**Usage:**
+
+```typescript
+// High-level function depends on HttpClient abstraction
+export async function loadSettingOptions(
+  datalabel: string,
+  forceRefresh: boolean = false
+): Promise<SettingOption[]> {
+  // ... cache logic ...
+
+  const endpoint = getSettingEndpoint(datalabel);
+
+  // Depends on abstraction, not concrete fetch implementation
+  const result = await httpClient.fetch(endpoint);
+
+  const options = result.data.map(transformToOption).sort(...);
+  cache.set(datalabel, options);
+
+  return options;
+}
+```
+
+**Testing:**
+
+```typescript
+// Easy to test with mock
+const mockClient = new MockHttpClient();
+mockClient.setMockData('/api/v1/setting?datalabel=project_stage', {
+  data: [
+    { id: '0', name: 'Test Stage', descr: '...' }
+  ]
+});
+
+// Inject mock for testing
+const options = await loadSettingOptions('project_stage');
+expect(options).toHaveLength(1);
+```
+
+**Benefits:**
+- ✅ Loose coupling
+- ✅ Easily testable
+- ✅ Can swap HTTP libraries
+- ✅ Clear separation of concerns
+
+**SOLID Principle:** Dependency Inversion Principle - Depend on HttpClient interface, not concrete implementation
+
+---
+
+#### Pattern 5: **Registry Pattern** 📋
+
+**Intent:** Centralized storage of metadata/configuration, enabling data-driven architecture. Single source of truth for all settings entities.
+
+**Implementation:**
+
+```typescript
+// settingsConfig.ts
+
+export interface SettingDefinition {
+  key: string;                    // camelCase identifier
+  datalabel: string;              // snake_case API parameter
+  displayName: string;            // Human-readable singular
+  pluralName: string;             // Human-readable plural
+  supportedViews?: ViewMode[];    // Optional view modes
+  defaultView?: ViewMode;         // Default view
+}
+
+// The Registry - Single source of truth
+export const SETTINGS_REGISTRY: SettingDefinition[] = [
+  {
+    key: 'projectStage',
+    datalabel: 'project_stage',
+    displayName: 'Project Stage',
+    pluralName: 'Project Stages',
+    supportedViews: ['table', 'graph'],
+    defaultView: 'table'
+  },
+  { key: 'projectStatus', datalabel: 'project_status', displayName: 'Project Status', pluralName: 'Project Statuses' },
+  { key: 'taskStage', datalabel: 'task_stage', displayName: 'Task Stage', pluralName: 'Task Stages', supportedViews: ['table', 'graph'] },
+  { key: 'taskPriority', datalabel: 'task_priority', displayName: 'Task Priority', pluralName: 'Task Priorities' },
+  { key: 'businessLevel', datalabel: 'business_level', displayName: 'Business Level', pluralName: 'Business Levels' },
+  { key: 'orgLevel', datalabel: 'office_level', displayName: 'Office Level', pluralName: 'Office Levels' },
+  { key: 'hrLevel', datalabel: 'hr_level', displayName: 'HR Level', pluralName: 'HR Levels' },
+  { key: 'clientLevel', datalabel: 'client_level', displayName: 'Client Level', pluralName: 'Client Levels' },
+  { key: 'positionLevel', datalabel: 'position_level', displayName: 'Position Level', pluralName: 'Position Levels' },
+  { key: 'opportunityFunnelLevel', datalabel: 'opportunity_funnel_stage', displayName: 'Opportunity Funnel Stage', pluralName: 'Opportunity Funnel Stages' },
+  { key: 'industrySector', datalabel: 'industry_sector', displayName: 'Industry Sector', pluralName: 'Industry Sectors' },
+  { key: 'acquisitionChannel', datalabel: 'acquisition_channel', displayName: 'Acquisition Channel', pluralName: 'Acquisition Channels' },
+  { key: 'customerTier', datalabel: 'customer_tier', displayName: 'Customer Tier', pluralName: 'Customer Tiers' },
+];
+
+// Lookup functions
+export function getSettingDefinition(key: string): SettingDefinition | undefined {
+  return SETTINGS_REGISTRY.find(s => s.key === key);
+}
+
+export function getSettingByDatalabel(datalabel: string): SettingDefinition | undefined {
+  return SETTINGS_REGISTRY.find(s => s.datalabel === datalabel);
+}
+
+export function getAllDatalabels(): string[] {
+  return SETTINGS_REGISTRY.map(s => s.datalabel);
+}
+
+export function isSettingsEntity(key: string): boolean {
+  return SETTINGS_REGISTRY.some(s => s.key === key);
+}
+```
+
+**Usage:**
+
+```typescript
+// Programmatically access metadata
+const projectStageDef = getSettingDefinition('projectStage');
+console.log(projectStageDef?.displayName);  // "Project Stage"
+console.log(projectStageDef?.datalabel);    // "project_stage"
+
+// Enumerate all datalabels
+const allDatalabels = getAllDatalabels();
+// ['project_stage', 'task_stage', 'task_priority', ...]
+
+// Dynamic routing
+if (isSettingsEntity(entityType)) {
+  // Use settings-specific handling
+}
+
+// Generate navigation menu from registry
+const settingsMenu = SETTINGS_REGISTRY.map(def => ({
+  label: def.pluralName,
+  href: `/settings/${def.key}`
+}));
+```
+
+**Benefits:**
+- ✅ Single source of truth
+- ✅ Programmatic access to all settings
+- ✅ Easy to add new settings (1 line in registry)
+- ✅ Type-safe metadata
+
+**SOLID Principle:** Open/Closed Principle - Registry open for extension (add new entries), closed for modification (lookup functions unchanged)
+
+---
+
+#### Pattern 6: **Builder Pattern (Implicit)** 🏗️
+
+**Intent:** Construct complex objects step by step, separate construction from representation. Factory functions build consistent structures for all settings entities.
+
+**Implementation:**
+
+```typescript
+// settingsConfig.ts
+
+// Builder for columns
+export function createSettingsColumns(): ColumnDef[] {
+  return [
+    // Step 1: ID column
+    {
+      key: 'id',
+      title: 'ID',
+      sortable: true,
+      align: 'center' as const,
+      width: '80px'
+    },
+
+    // Step 2: Name column with custom renderer
+    {
+      key: 'name',
+      title: 'Name',
+      sortable: true,
+      filterable: true,
+      render: (value: any, record: any) => renderColorBadge(record.color_code, value)
+    },
+
+    // Step 3: Description column
+    {
+      key: 'descr',
+      title: 'Description',
+      sortable: true
+    },
+
+    // Step 4: Parent ID column
+    {
+      key: 'parent_id',
+      title: 'Parent ID',
+      sortable: true,
+      align: 'center' as const,
+      width: '100px'
+    },
+
+    // Step 5: Color column with inline editing
+    {
+      key: 'color_code',
+      title: 'Color',
+      sortable: true,
+      align: 'center' as const,
+      width: '120px',
+      inlineEditable: true  // ← Enables inline editing
+    }
+  ];
+}
+
+// Builder for fields
+export function createSettingsFields(): FieldDef[] {
+  return [
+    { key: 'id', label: 'ID', type: 'number' as const, required: true },
+    { key: 'name', label: 'Name', type: 'text' as const, required: true },
+    { key: 'descr', label: 'Description', type: 'textarea' as const },
+    { key: 'parent_id', label: 'Parent ID', type: 'number' as const },
+    {
+      key: 'color_code',
+      label: 'Color',
+      type: 'select' as const,
+      required: true,
+      options: COLOR_OPTIONS.map(c => ({ value: c.value, label: c.label }))
+    }
+  ];
+}
+```
+
+**Customization (if needed):**
+
+```typescript
+// Can extend/override for special cases
+export function createCustomSettingsColumns(overrides: Partial<ColumnDef>[]): ColumnDef[] {
+  const baseColumns = createSettingsColumns();
+
+  // Merge overrides
+  return baseColumns.map((col, idx) => ({
+    ...col,
+    ...(overrides[idx] || {})
+  }));
+}
+```
+
+**Benefits:**
+- ✅ Consistent column/field structure
+- ✅ Easy to modify all entities at once
+- ✅ Encapsulates complex construction logic
+- ✅ Readable, declarative configuration
+
+**SOLID Principle:** Single Responsibility Principle - Builder functions responsible only for construction
+
+---
+
+### Design Patterns Summary Table
+
+| Pattern | Problem Solved | Benefit | SOLID Principle | Files |
+|---------|----------------|---------|-----------------|-------|
+| **Factory** | Repetitive entity configs | 80% code reduction | Open/Closed | settingsConfig.ts |
+| **Strategy** | Scattered caching logic | Pluggable cache strategies | Dependency Inversion | settingsLoader.v2.ts |
+| **Singleton** | Multiple API instances | Consistent global access | Single Responsibility | settingsApi.ts |
+| **DIP** | Tight coupling to fetch | Testable, swappable HTTP | Dependency Inversion | settingsLoader.v2.ts |
+| **Registry** | Scattered metadata | Single source of truth | Open/Closed | settingsConfig.ts |
+| **Builder** | Complex object construction | Consistent structure | Single Responsibility | settingsConfig.ts |
+
+---
+
+### Pattern Interaction Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     PATTERN INTERACTIONS                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Registry Pattern                                               │
+│  ┌────────────────────────┐                                     │
+│  │ SETTINGS_REGISTRY      │                                     │
+│  │ [13 definitions]       │                                     │
+│  └────────┬───────────────┘                                     │
+│           │                                                     │
+│           ▼                                                     │
+│  Factory Pattern                                                │
+│  ┌────────────────────────┐                                     │
+│  │ createSettingsEntity   │──┐                                  │
+│  │ Config(definition)     │  │                                  │
+│  └────────────────────────┘  │                                  │
+│           │                   │                                 │
+│           ▼                   ▼                                 │
+│  Builder Pattern         Builder Pattern                        │
+│  ┌──────────────┐       ┌──────────────┐                       │
+│  │ createColumns│       │ createFields │                       │
+│  └──────────────┘       └──────────────┘                       │
+│           │                   │                                 │
+│           └───────┬───────────┘                                 │
+│                   ▼                                             │
+│           EntityConfig (complete)                               │
+│                   │                                             │
+│                   ▼                                             │
+│  ┌────────────────────────────────────┐                        │
+│  │      DIP + Strategy Pattern         │                        │
+│  │                                     │                        │
+│  │  HttpClient (interface)             │                        │
+│  │      ↑                              │                        │
+│  │      │                              │                        │
+│  │  ┌───┴──────────┐                  │                        │
+│  │  │ Authenticated │                  │                        │
+│  │  │ HttpClient    │                  │                        │
+│  │  └──────────────┘                  │                        │
+│  │                                     │                        │
+│  │  SettingsCache (strategy)          │                        │
+│  │      ↓                              │                        │
+│  │  loadSettingOptions()               │                        │
+│  └────────────────────────────────────┘                        │
+│                   │                                             │
+│                   ▼                                             │
+│  Singleton Pattern                                              │
+│  ┌────────────────────────┐                                     │
+│  │ settingsApi            │                                     │
+│  │ (single instance)      │                                     │
+│  └────────────────────────┘                                     │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Adding New Setting Entity (Step-by-Step)
+
+**Step 1:** Add to registry
+```typescript
+// settingsConfig.ts - SETTINGS_REGISTRY
+{ key: 'riskLevel', datalabel: 'risk_level', displayName: 'Risk Level', pluralName: 'Risk Levels' },
+```
+
+**Step 2:** Use factory in entity config
+```typescript
+// entityConfig.ts
+riskLevel: {
+  ...createSettingsEntityConfig(
+    SETTINGS_REGISTRY.find(s => s.key === 'riskLevel')!
+  )
+},
+```
+
+**Result:** ~6 lines total generates complete entity with columns, fields, API endpoint, and views. Factory pattern ensures consistency and type safety.
+
+---
+
+### Design Pattern Benefits Summary
+
+**Code Quality:**
+- ✅ 80% less code (700 → 150 lines)
+- ✅ Single source of truth (SETTINGS_REGISTRY)
+- ✅ Type-safe throughout
+- ✅ Consistent structure across all entities
+
+**Maintainability:**
+- ✅ Change once, affects all 13 entities
+- ✅ Clear separation of concerns
+- ✅ Easy to understand (declarative)
+- ✅ Self-documenting code
+
+**Extensibility:**
+- ✅ Add new entity: 2 lines (registry entry + usage)
+- ✅ Add new column: Modify factory once
+- ✅ Swap caching strategy: Change implementation
+- ✅ Swap HTTP client: Implement interface
+
+**Testability:**
+- ✅ Mock cache strategy
+- ✅ Mock HTTP client
+- ✅ Test factory functions in isolation
+- ✅ Test registry lookups
+
+**Performance:**
+- ✅ 5-minute cache reduces API calls
+- ✅ Singleton pattern reduces memory
+- ✅ Lazy loading via factory
+- ✅ Batch loading support
+
+---
+
+#### Pattern 7: **Database-Driven Badge Color System** (v2.5) 🎨
+
+**Intent:** Automatically apply colors from database `color_code` to entity table badges, eliminating hardcoded color maps.
+
+**Architecture:** Convention over Configuration with Auto-Apply Pattern
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│             DATABASE-DRIVEN COLOR SYSTEM FLOW                 │
+├──────────────────────────────────────────────────────────────┤
+│                                                               │
+│  1. DATABASE (Single Source of Truth)                        │
+│     setting_datalabel JSONB table                            │
+│     metadata: [{ name: "Initiation",                         │
+│                  color_code: "blue",         ←─────┐        │
+│                  sort_order: 0 }]                  │        │
+│                                                     │        │
+│  2. API LAYER                                      │        │
+│     GET /api/v1/setting?datalabel=project_stage    │        │
+│     Returns sorted metadata with color_code        │        │
+│                                                     │        │
+│  3. SETTINGS LOADER (settingsLoader.ts)            │        │
+│     • Loads options from API                       │        │
+│     • Converts color_code → Tailwind classes ──────┘        │
+│     • Caches for 5 minutes                                  │
+│     • Sorts by sort_order                                   │
+│                                                              │
+│  4. SETTINGS CONFIG (settingsConfig.ts)                     │
+│     • renderColorBadge() → For settings tables              │
+│     • renderSettingBadge() → For entity tables              │
+│     • applySettingsBadgeRenderers() → Auto-apply            │
+│                                                              │
+│  5. ENTITY CONFIG (entityConfig.ts)                         │
+│     Column definition:                                       │
+│     {                                                        │
+│       key: 'project_stage',                                 │
+│       loadOptionsFromSettings: true  ← Only flag needed!    │
+│     }                                                        │
+│     Auto-enhancement adds render function at module load    │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Implementation:**
+
+```typescript
+// 1. Database Structure (Unified JSONB)
+// setting_datalabel table stores all settings categories
+{
+  "datalabel_name": "project__stage",
+  "metadata": [
+    {
+      "id": "0",
+      "name": "Initiation",
+      "color_code": "blue",    // ← Source of truth
+      "sort_order": 0
+    }
+  ]
+}
+
+// 2. Settings Loader - Fetches & Transforms
+// settingsLoader.ts
+export interface SettingOption {
+  value: string;
+  label: string;
+  colorClass?: string;  // Tailwind classes
+  metadata?: {
+    color_code?: string;
+    sort_order?: number;
+  };
+}
+
+function colorCodeToTailwindClass(colorCode: string): string {
+  const colorMap = {
+    blue: 'bg-blue-100 text-blue-800',
+    purple: 'bg-purple-100 text-purple-800',
+    green: 'bg-green-100 text-green-800',
+    red: 'bg-red-100 text-red-800',
+    yellow: 'bg-yellow-100 text-yellow-800',
+    orange: 'bg-orange-100 text-orange-800',
+    gray: 'bg-gray-100 text-gray-800',
+    // ...
+  };
+  return colorMap[colorCode] || 'bg-gray-100 text-gray-800';
+}
+
+// 3. Settings Config - Badge Renderers
+// settingsConfig.ts
+
+// Color cache for performance
+const settingsColorCache = new Map<string, Map<string, string>>();
+
+// Creates badge renderer for entity tables
+export function renderSettingBadge(category: string) {
+  // Pre-load colors on first call
+  if (!settingsColorCache.has(category)) {
+    loadSettingOptions(category).then(options => {
+      const colorMap = new Map();
+      for (const option of options) {
+        colorMap.set(option.label, option.colorClass);
+      }
+      settingsColorCache.set(category, colorMap);
+    });
+  }
+
+  return (value: string | null): React.ReactElement => {
+    const colorMap = settingsColorCache.get(category);
+    const colorClass = colorMap?.get(value) || 'bg-gray-100 text-gray-800';
+    return <span className={`badge ${colorClass}`}>{value}</span>;
+  };
+}
+
+// Auto-apply pattern (Convention over Configuration)
+export function applySettingsBadgeRenderers(columns: ColumnDef[]): ColumnDef[] {
+  return columns.map(col => {
+    if (col.loadOptionsFromSettings && !col.render) {
+      const category = extractSettingsCategory(col.key);
+      return {
+        ...col,
+        render: renderSettingBadge(category)  // ← Auto-applied!
+      };
+    }
+    return col;
+  });
+}
+
+// 4. Entity Config - Auto-Enhancement
+// entityConfig.ts
+
+// Define columns simply
+export const entityConfigs = {
+  project: {
+    columns: [
+      {
+        key: 'project_stage',
+        title: 'Stage',
+        loadOptionsFromSettings: true
+        // ← No render function! Auto-applied below
+      }
+    ]
+  }
+};
+
+// Auto-apply badge renderers at module load
+Object.keys(entityConfigs).forEach(entityKey => {
+  const config = entityConfigs[entityKey];
+  if (config.columns) {
+    config.columns = applySettingsBadgeRenderers(config.columns);
+  }
+});
+```
+
+**Usage Pattern:**
+
+```typescript
+// Settings Table (Direct color_code usage)
+{
+  key: 'name',
+  title: 'Name',
+  render: (value, record) => renderColorBadge(record.color_code, value)
+}
+
+// Entity Table (Auto-applied from database)
+{
+  key: 'project_stage',
+  title: 'Stage',
+  loadOptionsFromSettings: true  // ← Colors auto-applied
+}
+```
+
+**Benefits:**
+
+**DRY Principles:**
+- Single source of truth: Database `color_code` column
+- 90% code reduction: ~2,000 lines → ~200 lines
+- Zero duplication: Color maps eliminated from entity configs
+
+**Automatic:**
+- Convention over Configuration: `loadOptionsFromSettings: true` handles everything
+- Auto-enhancement at module load: No manual render function needed
+- Cache-first: 5-minute cache for performance
+
+**Maintainable:**
+- Update colors in database → reflects everywhere
+- Add new settings category → zero code changes
+- Consistent colors: Settings tables AND entity tables
+
+**Data Flow:**
+```
+Database color_code → API → settingsLoader → Cache → renderSettingBadge → Badge Component
+     "blue"         JSONB    SettingOption    Map      React Element    Rendered UI
+```
+
+**Testing:**
+
+```bash
+# Verify database has colors
+./tools/run_query.sh "SELECT elem->>'name', elem->>'color_code'
+FROM app.setting_datalabel, jsonb_array_elements(metadata) elem
+WHERE datalabel_name = 'project__stage';"
+
+# Test API endpoint
+./tools/test-api.sh GET /api/v1/setting?datalabel=project_stage
 ```
 
 ---
@@ -286,42 +1258,48 @@ INSERT INTO app.setting_datalabel_project_stage VALUES
 
 **Location:** `apps/api/src/modules/setting/routes.ts`
 
-#### Get Settings by Category
+#### Get Settings by Datalabel
 
 ```typescript
-// List settings for a category
-GET /api/v1/setting?category=project_stage
+// List settings for a datalabel
+GET /api/v1/setting?datalabel=project_stage
 Response: {
   data: [
     {
       id: "0",
-      level_name: "Initiation",
-      level_descr: "Project concept and initial planning",
-      level_id: 0,
-      sort_order: 1,
+      name: "Initiation",
+      descr: "Project concept and initial planning",
       parent_id: null,
-      active_flag: true,
-      created: "2025-01-15T10:00:00Z",
-      updated: "2025-01-15T10:00:00Z"
+      color_code: "blue"
     },
     {
       id: "1",
-      level_name: "Planning",
-      level_id: 1,
-      sort_order: 2,
+      name: "Planning",
+      descr: "Detailed project planning",
       parent_id: 0,
-      active_flag: true
+      color_code: "purple"
     }
     // ... more stages
   ],
-  category: "project_stage"
+  datalabel: "project_stage"
 }
 
-// Filter only active settings (default)
-GET /api/v1/setting?category=task_stage&active=true
-
-// Include inactive settings
-GET /api/v1/setting?category=task_stage&active=false
+// Update a setting (inline editing)
+PUT /api/v1/setting/project_stage/1
+Body: {
+  color_code: "green",
+  descr: "Updated description"
+}
+Response: {
+  success: true,
+  data: {
+    id: "1",
+    name: "Planning",
+    descr: "Updated description",
+    parent_id: 0,
+    color_code: "green"
+  }
+}
 ```
 
 **API Behavior:**
@@ -330,29 +1308,68 @@ GET /api/v1/setting?category=task_stage&active=false
 - Returns normalized structure across all categories
 - Uses snake_case for all field names
 
-#### Category-to-Table Mapping
+#### Datalabel Architecture (v2.4 - Unified JSONB Table)
+
+**New Approach:** All settings are stored in a single unified table `app.setting_datalabel` with JSONB metadata column:
 
 ```typescript
-// API maps category to table (apps/api/src/modules/setting/routes.ts)
-const CATEGORY_MAPPINGS = {
-  'project_stage':           'setting_datalabel_project_stage',
-  'task_stage':              'setting_datalabel_task_stage',
-  'task_priority':           'setting_datalabel_task_priority',
-  'opportunity_funnel_stage': 'setting_datalabel_opportunity_funnel_stage',
-  'office_level':            'setting_datalabel_office_level',
-  'business_level':          'setting_datalabel_business_level',
-  'position_level':          'setting_datalabel_position_level',
-  'industry_sector':         'setting_datalabel_industry_sector',
-  'acquisition_channel':     'setting_datalabel_acquisition_channel',
-  'customer_tier':           'setting_datalabel_customer_tier',
-  'client_level':            'setting_datalabel_cust_level',
-  'client_status':           'setting_datalabel_cust_status',
-  'client_service':          'setting_datalabel_cust_service',
-  'form_submission_status':  'setting_datalabel_form_submission_status',
-  'form_approval_status':    'setting_datalabel_form_approval_status',
-  'wiki_publication_status': 'setting_datalabel_wiki_publication_status',
-  'task_update_type':        'setting_datalabel_task_update_type'
-};
+// Unified table structure (db/setting_datalabel.ddl)
+CREATE TABLE app.setting_datalabel (
+  datalabel_name text PRIMARY KEY,  -- e.g., 'setting_datalabel__project_stage'
+  metadata jsonb NOT NULL            -- Array of setting items
+);
+
+// Example metadata for project_stage:
+{
+  "metadata": [
+    {"id": "0", "name": "Initiation", "descr": "...", "parent_id": null, "color_code": "blue"},
+    {"id": "1", "name": "Planning", "descr": "...", "parent_id": 0, "color_code": "purple"},
+    ...
+  ]
+}
+
+// API Query (apps/api/src/modules/setting/routes.ts)
+SELECT
+  (elem->>'id')::text as id,
+  elem->>'name' as name,
+  elem->>'descr' as descr,
+  CASE
+    WHEN elem->>'parent_id' = 'null' THEN NULL
+    ELSE (elem->>'parent_id')::integer
+  END as parent_id,
+  elem->>'color_code' as color_code
+FROM app.setting_datalabel,
+  jsonb_array_elements(metadata) as elem
+WHERE datalabel_name = 'setting_datalabel__project_stage'
+ORDER BY (elem->>'id')::integer ASC;
+```
+
+**DRY Frontend Architecture (v2.4):**
+
+```typescript
+// settingsConfig.ts - Central Registry (13 settings entities)
+export const SETTINGS_REGISTRY = [
+  { key: 'projectStage', datalabel: 'project_stage', displayName: 'Project Stage', ... },
+  { key: 'taskStage', datalabel: 'task_stage', displayName: 'Task Stage', ... },
+  { key: 'taskPriority', datalabel: 'task_priority', displayName: 'Task Priority', ... },
+  // ... 13 total
+];
+
+// Factory pattern eliminates ~600 lines of repetitive code
+export function createSettingsEntityConfig(definition: SettingDefinition) {
+  return {
+    apiEndpoint: `/api/v1/setting?datalabel=${definition.datalabel}`,
+    columns: createSettingsColumns(),  // Generates standard columns
+    fields: createSettingsFields()      // Generates standard fields
+  };
+}
+
+// entityConfig.ts - Using Factory Pattern
+projectStage: {
+  ...createSettingsEntityConfig(
+    SETTINGS_REGISTRY.find(s => s.key === 'projectStage')!
+  )
+}
 ```
 
 ### UI/UX Components
@@ -373,8 +1390,8 @@ Entity Form (e.g., Project Create/Edit)
 │        └─ Flat list → Standard Dropdown
 │
 Settings Loading Hook
-├─ useSettings(category)
-│  ├─ GET /api/v1/setting?category={category}
+├─ useSettings(datalabel)
+│  ├─ GET /api/v1/setting?datalabel={datalabel}
 │  ├─ Cache results in React state
 │  └─ Return { options, loading, error }
 │
@@ -395,7 +1412,7 @@ export const entityConfigs = {
       {
         key: 'project_stage',
         title: 'Stage',
-        // ✅ v2.3: Auto-detected as editable dropdown (by _stage suffix + loadOptionsFromSettings)
+        // ✅ Auto-detected as editable dropdown (by _stage suffix + loadOptionsFromSettings)
         loadOptionsFromSettings: true  // ← Auto-loads from API
       }
     ],
@@ -414,7 +1431,7 @@ export const entityConfigs = {
       {
         key: 'stage',
         title: 'Stage',
-        // ✅ v2.3: Auto-detected as editable dropdown (by name 'stage' + loadOptionsFromSettings)
+        // ✅ Auto-detected as editable dropdown (by name 'stage' + loadOptionsFromSettings)
         loadOptionsFromSettings: true,  // category=task_stage
         render: (value) => <Badge>{value}</Badge>
       }
@@ -473,16 +1490,16 @@ function usePriorities() { /* same fetch logic again */ }
 
 **We use:**
 ```typescript
-// ✅ GOOD: One hook for all categories
-function useSettings(category: string) {
+// ✅ GOOD: One hook for all datalabels
+function useSettings(datalabel: string) {
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/v1/setting?category=${category}`)
+    fetch(`/api/v1/setting?datalabel=${datalabel}`)
       .then(res => res.json())
       .then(data => setOptions(data.data));
-  }, [category]);
+  }, [datalabel]);
 
   return { options, loading };
 }
@@ -515,12 +1532,12 @@ const { options: priorities } = useSettings('task_priority');
 {
   key: 'priority_level',
   type: 'select',
-  loadOptionsFromSettings: true  // ← API call: category=task_priority
+  loadOptionsFromSettings: true  // ← API call: datalabel=task_priority
 }
 
 // EntityFormContainer automatically:
 // 1. Detects loadOptionsFromSettings: true
-// 2. Calls GET /api/v1/setting?category=task_priority
+// 2. Calls GET /api/v1/setting?datalabel=task_priority
 // 3. Maps response to dropdown options
 ```
 
@@ -608,25 +1625,41 @@ Change setting_datalabel_project_stage:
 **Location:** `apps/api/src/modules/setting/routes.ts`
 
 ```typescript
-// Single endpoint serves all 17 settings categories
+// Single endpoint serves all 13+ settings datalabels
 fastify.get('/api/v1/setting', async (request, reply) => {
-  const { category, active } = request.query;
+  const { datalabel } = request.query;
 
-  // Category-to-table mapping
-  if (category === 'project_stage') {
-    return db.query(`
-      SELECT level_id::text as id,
-             level_name,
-             level_descr,
-             sort_order,
-             parent_id
-      FROM setting_datalabel_project_stage
-      WHERE active_flag = ${active !== false}
-      ORDER BY sort_order ASC
-    `);
-  }
+  // Datalabel-to-table mapping (unified JSONB table)
+  const datalabelName = datalabel.replace(/_([^_]+)$/, '__$1');
 
-  // ... 16 more category mappings
+  const results = await db.execute(sql`
+    SELECT
+      (elem->>'id')::text as id,
+      elem->>'name' as name,
+      COALESCE(elem->>'descr', '') as descr,
+      CASE
+        WHEN elem->>'parent_id' = 'null' THEN NULL
+        ELSE (elem->>'parent_id')::integer
+      END as parent_id,
+      elem->>'color_code' as color_code
+    FROM app.setting_datalabel,
+      jsonb_array_elements(metadata) as elem
+    WHERE datalabel_name = ${datalabelName}
+    ORDER BY (elem->>'id')::integer ASC
+  `);
+
+  return { data: results, datalabel };
+});
+
+// PUT endpoint for inline editing
+fastify.put('/api/v1/setting/:datalabel/:id', async (request, reply) => {
+  const { datalabel, id } = request.params;
+  const updates = request.body;  // { color_code: "green", descr: "..." }
+
+  // Update JSONB metadata array
+  // ... (see apps/api/src/modules/setting/routes.ts for full implementation)
+
+  return { success: true, data: updatedItem };
 });
 ```
 
@@ -637,13 +1670,147 @@ fastify.get('/api/v1/setting', async (request, reply) => {
 // Available to anonymous users
 ```
 
+### DRY Architecture Files (v2.4)
+
+The settings system uses **three core files** implementing DRY and SOLID principles:
+
+#### 1. **settingsConfig.ts** - Central Configuration
+
+**Location:** `apps/web/src/lib/settingsConfig.ts`
+
+**Purpose:** Single source of truth for all settings entities
+
+```typescript
+// Central registry of all 13 settings entities
+export const SETTINGS_REGISTRY: SettingDefinition[] = [
+  { key: 'projectStage', datalabel: 'project_stage', displayName: 'Project Stage', pluralName: 'Project Stages', supportedViews: ['table', 'graph'] },
+  { key: 'taskStage', datalabel: 'task_stage', displayName: 'Task Stage', pluralName: 'Task Stages', supportedViews: ['table', 'graph'] },
+  { key: 'taskPriority', datalabel: 'task_priority', displayName: 'Task Priority', pluralName: 'Task Priorities' },
+  { key: 'businessLevel', datalabel: 'business_level', displayName: 'Business Level', pluralName: 'Business Levels' },
+  // ... 13 total
+];
+
+// Factory functions eliminate ~600 lines of repetitive code
+export function createSettingsColumns() {
+  return [
+    { key: 'id', title: 'ID', sortable: true, align: 'center', width: '80px' },
+    { key: 'name', title: 'Name', sortable: true, filterable: true,
+      render: (value, record) => renderColorBadge(record.color_code, value) },
+    { key: 'descr', title: 'Description', sortable: true },
+    { key: 'parent_id', title: 'Parent ID', sortable: true, align: 'center', width: '100px' },
+    { key: 'color_code', title: 'Color', sortable: true, align: 'center', width: '120px', inlineEditable: true }
+  ];
+}
+
+export function createSettingsEntityConfig(definition: SettingDefinition) {
+  return {
+    name: definition.key,
+    displayName: definition.displayName,
+    pluralName: definition.pluralName,
+    apiEndpoint: `/api/v1/setting?datalabel=${definition.datalabel}`,
+    columns: createSettingsColumns(),
+    fields: createSettingsFields(),
+    supportedViews: definition.supportedViews || ['table'],
+    defaultView: definition.defaultView || 'table'
+  };
+}
+```
+
+#### 2. **settingsLoader.v2.ts** - Refactored Loader
+
+**Location:** `apps/web/src/lib/settingsLoader.v2.ts`
+
+**Purpose:** Clean, SOLID-compliant settings data loader
+
+```typescript
+// Strategy Pattern - Cache management
+class SettingsCache {
+  private cache = new Map<string, CacheEntry>();
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  get(datalabel: string): SettingOption[] | null { /* ... */ }
+  set(datalabel: string, data: SettingOption[]): void { /* ... */ }
+  clear(datalabel?: string): void { /* ... */ }
+}
+
+// Dependency Inversion - HTTP client interface
+class AuthenticatedHttpClient implements HttpClient {
+  async fetch(url: string): Promise<any> { /* ... */ }
+}
+
+// Generic loader works for all 13 settings
+export async function loadSettingOptions(
+  datalabel: string,
+  forceRefresh: boolean = false
+): Promise<SettingOption[]> {
+  if (!forceRefresh) {
+    const cached = cache.get(datalabel);
+    if (cached) return cached;
+  }
+
+  const endpoint = getSettingEndpoint(datalabel);
+  const result = await httpClient.fetch(endpoint);
+  const options = result.data.map(transformToOption).sort(...);
+
+  cache.set(datalabel, options);
+  return options;
+}
+```
+
+#### 3. **settingsApi.ts** - Type-Safe API Client
+
+**Location:** `apps/web/src/lib/api/settingsApi.ts`
+
+**Purpose:** Clean interface for settings CRUD operations
+
+```typescript
+export class SettingsApi {
+  async list(datalabel: string): Promise<SettingItem[]> {
+    const response = await httpClient.get<SettingResponse>(
+      `/api/v1/setting?datalabel=${datalabel}`
+    );
+    return response.data;
+  }
+
+  async get(datalabel: string, id: string): Promise<SettingItem> { /* ... */ }
+
+  async update(datalabel: string, id: string, data: SettingUpdateData): Promise<SettingItem> {
+    const response = await httpClient.put<SettingUpdateResponse>(
+      `/api/v1/setting/${datalabel}/${id}`,
+      data
+    );
+    return response.data;
+  }
+
+  async getCategories(): Promise<{ datalabel_name: string; item_count: number }[]> { /* ... */ }
+}
+
+export const settingsApi = new SettingsApi(); // Singleton export
+```
+
 ### Entity Configuration Registry
 
 **Location:** `apps/web/src/lib/entityConfig.ts`
 
 ```typescript
-// All entity fields reference settings via loadOptionsFromSettings
+// Uses factory pattern from settingsConfig.ts
 export const entityConfigs = {
+  // Settings entities (13 total) - Generated from factory
+  projectStage: {
+    ...createSettingsEntityConfig(
+      SETTINGS_REGISTRY.find(s => s.key === 'projectStage')!
+    )
+  },
+
+  taskStage: {
+    ...createSettingsEntityConfig(
+      SETTINGS_REGISTRY.find(s => s.key === 'taskStage')!
+    )
+  },
+
+  // ... 11 more settings entities
+
+  // Core entities still use explicit config
   project: {
     fields: [
       { key: 'project_stage', loadOptionsFromSettings: true },
@@ -655,14 +1822,6 @@ export const entityConfigs = {
     fields: [
       { key: 'stage', loadOptionsFromSettings: true },
       { key: 'priority_level', loadOptionsFromSettings: true }
-    ]
-  },
-
-  client: {
-    fields: [
-      { key: 'industry_sector', loadOptionsFromSettings: true },
-      { key: 'acquisition_channel', loadOptionsFromSettings: true },
-      { key: 'opportunity_funnel_stage', loadOptionsFromSettings: true }
     ]
   }
 };
@@ -720,7 +1879,7 @@ useEffect(() => {
   // Load all required settings in parallel
   Promise.all(
     fieldsNeedingSettings.map(fieldKey =>
-      fetch(`/api/v1/setting?category=${fieldKey}`)
+      fetch(`/api/v1/setting?datalabel=${fieldKey}`)
         .then(res => res.json())
     )
   ).then(results => {
@@ -752,7 +1911,7 @@ Frontend                         API                            Database
    └─ Detects project_stage has loadOptionsFromSettings: true
 
 2. Auto-load settings
-   └─ GET /api/v1/setting?category=project_stage
+   └─ GET /api/v1/setting?datalabel=project_stage
                                 ├→ Query setting_datalabel_project_stage
                                    SELECT level_name, sort_order
                                    WHERE active_flag = true
@@ -813,7 +1972,7 @@ Frontend                         API                            Database
       └─ Check isSequentialState('stage') → TRUE
 
 3. Load settings for timeline
-   └─ GET /api/v1/setting?category=task_stage
+   └─ GET /api/v1/setting?datalabel=task_stage
                                 ├→ SELECT * FROM setting_datalabel_task_stage
                                    ORDER BY sort_order ASC
    ←─ Returns:
@@ -865,7 +2024,7 @@ Frontend                         API                            Database
 Frontend                         API                            Database
 --------                         ---                            --------
 1. SettingsManagementPage
-   └─ GET /api/v1/setting?category=task_priority
+   └─ GET /api/v1/setting?datalabel=task_priority
                                 ├→ SELECT * FROM setting_datalabel_task_priority
    ←─ Current priorities: Low, Medium, High
 
@@ -904,7 +2063,7 @@ Frontend                         API                            Database
 Frontend                         API                            Database
 --------                         ---                            --------
 1. KanbanBoard mounts
-   ├─ GET /api/v1/setting?category=task_stage
+   ├─ GET /api/v1/setting?datalabel=task_stage
    │                          ├→ SELECT * FROM setting_datalabel_task_stage
    │                             ORDER BY sort_order ASC
    ←─ Stages: Backlog, To Do, In Progress, In Review, Done
@@ -1061,7 +2220,7 @@ Frontend expects exact snake_case match:
   key: 'project_stage',             // Field in entity
   loadOptionsFromSettings: true     // Category = 'project_stage'
 }
-// API: GET /api/v1/setting?category=project_stage
+// API: GET /api/v1/setting?datalabel=project_stage
 // Table: setting_datalabel_project_stage
 
 // ❌ BAD: Mismatch breaks auto-loading
@@ -1214,9 +2373,9 @@ When modifying settings system, verify:
 ./tools/start-all.sh
 
 # Test settings API
-./tools/test-api.sh GET /api/v1/setting?category=project_stage
-./tools/test-api.sh GET /api/v1/setting?category=task_stage
-./tools/test-api.sh GET /api/v1/setting?category=task_priority
+./tools/test-api.sh GET /api/v1/setting?datalabel=project_stage
+./tools/test-api.sh GET /api/v1/setting?datalabel=task_stage
+./tools/test-api.sh GET /api/v1/setting?datalabel=task_priority
 
 # Check all settings categories
 for cat in project_stage task_stage task_priority opportunity_funnel_stage \
@@ -1224,7 +2383,7 @@ for cat in project_stage task_stage task_priority opportunity_funnel_stage \
            acquisition_channel customer_tier client_level client_status \
            form_submission_status form_approval_status wiki_publication_status; do
   echo "Testing: $cat"
-  ./tools/test-api.sh GET /api/v1/setting?category=$cat
+  ./tools/test-api.sh GET /api/v1/setting?datalabel=$cat
 done
 
 # Verify settings table exists
@@ -1282,22 +2441,39 @@ SELECT * FROM stage_tree ORDER BY depth, level_id;
 
 **Settings (Data Labels)** are the configuration backbone of the PMO platform:
 
-- **17 settings tables** providing dropdowns for all entity fields
-- **Category-to-table mapping** enables dynamic API routing
+### v2.4 Architecture (Current)
+
+- **Unified JSONB table** (`app.setting_datalabel`) storing all settings metadata
+- **13 settings entities** managed via DRY factory pattern
+- **3 core files** implementing SOLID principles:
+  - `settingsConfig.ts` - Central registry and factory functions
+  - `settingsLoader.v2.ts` - Refactored loader with caching
+  - `settingsApi.ts` - Type-safe API client
+- **Datalabel-to-table mapping** enables dynamic API routing
+- **Factory pattern** reduces code by ~80% (~600 → ~150 lines)
 - **loadOptionsFromSettings** pattern eliminates hardcoded options
 - **Sequential state visualization** auto-detects workflow stages
+- **Inline editing** with color-coded badges and dropdown editors
 - **Active flag filtering** controls dropdown visibility
 - **No RBAC required** - settings are public configuration
 - **Snake_case convention** for consistent naming across stack
 
-**Key Principle:** Field key → API category → Settings table. Always follow `setting_datalabel_{category}` naming convention and snake_case mapping.
+**Key Principle:** Field key → API datalabel → Settings table. Always follow `setting_datalabel__{datalabel}` naming convention and snake_case mapping.
 
-**Critical Pattern:** `loadOptionsFromSettings: true` in entity config triggers automatic API call to `/api/v1/setting?category={field_key}`.
+**Critical Pattern:** `loadOptionsFromSettings: true` in entity config triggers automatic API call to `/api/v1/setting?datalabel={field_key}`.
 
-**Common Mistake:** Using camelCase field keys breaks category mapping. Always use snake_case: `project_stage` not `projectStage`.
+**DRY Benefits:**
+- **Single source of truth** - All settings defined once in SETTINGS_REGISTRY
+- **Type safety** - Full TypeScript type checking
+- **Maintainability** - Changes in one place affect all entities
+- **Extensibility** - Add new settings by updating registry (2 lines vs 60 lines)
+
+**Common Mistake:** Using camelCase field keys breaks datalabel mapping. Always use snake_case: `project_stage` not `projectStage`.
 
 ---
 
-**Last Updated:** 2025-10-23
+**Last Updated:** 2025-10-29
+**Version:** v2.4 (DRY Refactoring with Factory Pattern)
 **Maintainer:** PMO Platform Team
-**Settings Count:** 17 tables, 150+ configuration values
+**Settings Count:** 13 entities, 100+ configuration values
+**Code Reduction:** 80% (from ~700 to ~150 lines)

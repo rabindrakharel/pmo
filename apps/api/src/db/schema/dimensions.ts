@@ -10,14 +10,14 @@ export const dScopeOrg = pgTable('d_scope_org', {
   tags: jsonb('tags').notNull().default('[]'),
   fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
-  active: boolean('active').notNull().default(true),
+  activeFlag: boolean('active_flag').notNull().default(true),
   levelId: integer('level_id').notNull(),
   parentId: uuid('parent_id'),
   levelName: text('level_name').notNull(),
   hierarchyType: text('hierarchy_type').notNull(), // 'business', 'location'
   attr: jsonb('attr').notNull().default('{}'),
-  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+  createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
 });
 
 
@@ -29,13 +29,13 @@ export const dScopeHr = pgTable('d_scope_hr', {
   tags: jsonb('tags').notNull().default('[]'),
   fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
-  active: boolean('active').notNull().default(true),
+  activeFlag: boolean('active_flag').notNull().default(true),
   levelId: integer('level_id').notNull().references(() => metaHrLevel.levelId),
   parentId: uuid('parent_id'),
   levelName: text('level_name').notNull(),
   attr: jsonb('attr').notNull().default('{}'),
-  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+  createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
 });
 
 // Scope Worksite
@@ -46,13 +46,13 @@ export const dScopeWorksite = pgTable('d_scope_worksite', {
   tags: jsonb('tags').notNull().default('[]'),
   fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
-  active: boolean('active').notNull().default(true),
+  activeFlag: boolean('active_flag').notNull().default(true),
   worksiteType: text('worksite_type').notNull(),
   locId: uuid('loc_id'),
   bizId: uuid('biz_id'),
   attr: jsonb('attr').notNull().default('{}'),
-  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+  createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
 });
 
 // Scope Project
@@ -63,12 +63,12 @@ export const dScopeProject = pgTable('d_scope_project', {
   tags: jsonb('tags').notNull().default('[]'),
   fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
-  active: boolean('active').notNull().default(true),
+  activeFlag: boolean('active_flag').notNull().default(true),
   projectType: text('project_type').notNull(),
   projectCode: text('project_code').unique(),
   attr: jsonb('attr').notNull().default('{}'),
-  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+  createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
 });
 
 // Scope Task
@@ -79,12 +79,12 @@ export const dScopeTask = pgTable('d_scope_task', {
   tags: jsonb('tags').notNull().default('[]'),
   fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
-  active: boolean('active').notNull().default(true),
+  activeFlag: boolean('active_flag').notNull().default(true),
   taskType: text('task_type').notNull(),
   taskHeadId: uuid('task_head_id'),
   attr: jsonb('attr').notNull().default('{}'),
-  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+  createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
 });
 
 // Scope App
@@ -95,12 +95,12 @@ export const dScopeApp = pgTable('d_scope_app', {
   tags: jsonb('tags').notNull().default('[]'),
   fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
-  active: boolean('active').notNull().default(true),
+  activeFlag: boolean('active_flag').notNull().default(true),
   appType: text('app_type').notNull(), // 'page', 'component', 'api'
   appPath: text('app_path').notNull(),
   attr: jsonb('attr').notNull().default('{}'),
-  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+  createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
 });
 
 // Employee
@@ -114,10 +114,10 @@ export const dEmployee = pgTable('d_employee', {
   attr: jsonb('attr').notNull().default('{}'),
   fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
-  active: boolean('active').notNull().default(true),
-  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
-  
+  activeFlag: boolean('active_flag').notNull().default(true),
+  createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
+
   // Employee identification
   employeeNumber: text('employee_number').unique().notNull(),
   email: text('email').unique().notNull(),
@@ -167,11 +167,11 @@ export const dRole = pgTable('d_role', {
   tags: jsonb('tags').notNull().default('[]'),
   fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
-  active: boolean('active').notNull().default(true),
+  activeFlag: boolean('active_flag').notNull().default(true),
   permissions: jsonb('permissions').notNull().default('[]'),
   attr: jsonb('attr').notNull().default('{}'),
-  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+  createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
 });
 
 // Customer
@@ -185,9 +185,9 @@ export const dCust = pgTable('d_cust', {
   attr: jsonb('attr').notNull().default('{}'),
   fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
-  active: boolean('active').notNull().default(true),
-  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
+  activeFlag: boolean('active_flag').notNull().default(true),
+  createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
 
   // Customer identification
   custNumber: text('cust_number').unique(),
@@ -242,10 +242,10 @@ export const dScopeUnified = pgTable('d_scope_unified', {
   attr: jsonb('attr').notNull().default('{}'),
   fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
-  active: boolean('active').notNull().default(true),
-  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
-  
+  activeFlag: boolean('active_flag').notNull().default(true),
+  createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
+
   // Unified scope identification
   scopeType: text('scope_type').notNull(),
   scopeReferenceTable: text('scope_reference_table').notNull(),
@@ -283,10 +283,10 @@ export const relEmployeeScopeUnified = pgTable('rel_employee_scope_unified', {
   // Temporal and audit fields
   fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
-  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
-  active: boolean('active').notNull().default(true),
-  
+  createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
+  activeFlag: boolean('active_flag').notNull().default(true),
+
   // Scope context (for direct reference without joins)
   scopeType: text('scope_type').notNull(),
   scopeReferenceTable: text('scope_reference_table').notNull(),
@@ -392,10 +392,10 @@ export const dWiki = pgTable('d_wiki', {
   attr: jsonb('attr').notNull().default('{}'),
   fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
-  active: boolean('active').notNull().default(true),
-  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
-  
+  activeFlag: boolean('active_flag').notNull().default(true),
+  createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
+
   // Wiki-specific fields
   wikiType: text('wiki_type').notNull().default('page'),
   contentFormat: text('content_format').notNull().default('markdown'),

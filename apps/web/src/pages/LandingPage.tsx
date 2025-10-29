@@ -291,7 +291,7 @@ export function LandingPage() {
                 key={index}
                 className={`relative bg-white rounded-2xl shadow-lg border-2 p-8 ${
                   plan.popular
-                    ? 'border-slate-600 ring-4 ring-slate-100'
+                    ? 'border-gray-300 ring-4 ring-slate-100'
                     : 'border-gray-200'
                 }`}
               >
@@ -440,7 +440,7 @@ export function LandingPage() {
               </ul>
             </div>
           </div>
-          <div className="border-t border-gray-800 pt-8 text-center text-sm">
+          <div className="border-t border-gray-300 pt-8 text-center text-sm">
             <p>&copy; 2025 Huron Home Services. All rights reserved.</p>
           </div>
         </div>

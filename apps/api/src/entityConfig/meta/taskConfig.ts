@@ -77,13 +77,13 @@ export const taskConfig: EntityConfig = {
       label: 'Project',
       uiBehavior: { visible: true, priority: 11, filter: true, width: 150 }
     },
-    created: {
-      apiField: 'created',
+    created_ts: {
+      apiField: 'created_ts',
       label: 'Created',
       uiBehavior: { visible: false, priority: 12, sort: true }
     },
-    updated: {
-      apiField: 'updated',
+    updated_ts: {
+      apiField: 'updated_ts',
       label: 'Updated',
       uiBehavior: { visible: false, priority: 13, sort: true }
     }

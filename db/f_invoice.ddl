@@ -47,8 +47,8 @@ CREATE TABLE app.f_invoice (
     invoice_datetime TIMESTAMP NOT NULL DEFAULT NOW(),  -- Precise invoice timestamp
     due_date DATE,                                      -- Payment due date
     payment_terms VARCHAR(50) DEFAULT 'net_30',         -- 'due_on_receipt', 'net_30', 'net_60', 'net_90'
-    service_period_start DATE,                          -- Period covered by invoice (start)
-    service_period_end DATE,                            -- Period covered by invoice (end)
+    service_period_start_date DATE,                     -- Period covered by invoice (start)
+    service_period_end_date DATE,                       -- Period covered by invoice (end)
 
     -- Customer Dimension
     client_id UUID NOT NULL,                            -- Link to d_client (REQUIRED)

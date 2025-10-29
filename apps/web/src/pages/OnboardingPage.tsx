@@ -311,7 +311,7 @@ export function OnboardingPage() {
                         onClick={() => toggleEntity(entity.id)}
                         className={`relative p-6 rounded-lg border-2 text-left transition-all ${
                           isSelected
-                            ? 'border-slate-600 bg-slate-50 ring-2 ring-slate-100'
+                            ? 'border-gray-300 bg-slate-50 ring-2 ring-slate-100'
                             : 'border-gray-200 hover:border-gray-300 bg-white'
                         }`}
                       >

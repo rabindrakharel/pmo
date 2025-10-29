@@ -36,7 +36,7 @@ CREATE TABLE app.d_workflow_automation (
     execution_order INTEGER DEFAULT 0,           -- Order of execution if multiple workflows match
     max_executions INTEGER DEFAULT -1,           -- -1 = unlimited, >0 = max times to execute
     execution_count INTEGER DEFAULT 0,           -- Current execution count
-    last_executed_at TIMESTAMPTZ,               -- Last execution timestamp
+    last_executed_ts TIMESTAMPTZ,               -- Last execution timestamp
 
     -- Metadata
     created_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,

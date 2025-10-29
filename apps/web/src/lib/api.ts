@@ -207,28 +207,28 @@ export const taskApi = {
 };
 
 export const settingApi = {
-  async get(category: 'task_stage' | 'project_status' | 'project_stage' | 'biz_level' | 'org_level' | 'hr_level' | 'client_level' | 'position_level') {
-    const response = await apiClient.get(`/api/v1/setting?category=${category}`);
+  async get(datalabel: 'task_stage' | 'project_status' | 'project_stage' | 'biz_level' | 'org_level' | 'hr_level' | 'client_level' | 'position_level') {
+    const response = await apiClient.get(`/api/v1/setting?datalabel=${datalabel}`);
     return response.data;
   },
 
-  async getItem(category: string, id: string) {
-    const response = await apiClient.get(`/api/v1/setting/${category}/${id}`);
+  async getItem(datalabel: string, id: string) {
+    const response = await apiClient.get(`/api/v1/setting/${datalabel}/${id}`);
     return response.data;
   },
 
-  async create(category: string, data: any) {
-    const response = await apiClient.post(`/api/v1/setting/${category}`, data);
+  async create(datalabel: string, data: any) {
+    const response = await apiClient.post(`/api/v1/setting/${datalabel}`, data);
     return response.data;
   },
 
-  async update(category: string, id: string, data: any) {
-    const response = await apiClient.put(`/api/v1/setting/${category}/${id}`, data);
+  async update(datalabel: string, id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/setting/${datalabel}/${id}`, data);
     return response.data;
   },
 
-  async delete(category: string, id: string) {
-    const response = await apiClient.delete(`/api/v1/setting/${category}/${id}`);
+  async delete(datalabel: string, id: string) {
+    const response = await apiClient.delete(`/api/v1/setting/${datalabel}/${id}`);
     return response.data;
   },
 };

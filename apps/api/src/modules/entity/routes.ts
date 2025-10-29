@@ -35,9 +35,8 @@ function normalizeEntityType(entityType: string): string {
 }
 
 const EntityTypeMetadataSchema = Type.Object({
-  entity_type: Type.String(),
-  entity_name: Type.String(),
-  entity_slug: Type.String(),
+  code: Type.String(),
+  name: Type.String(),
   ui_label: Type.String(),
   ui_icon: Type.Optional(Type.String()),
   child_entities: Type.Array(Type.Object({
@@ -79,16 +78,15 @@ export async function entityRoutes(fastify: FastifyInstance) {
     try {
       const result = await db.execute(sql`
         SELECT
-          entity_type,
-          entity_name,
-          entity_slug,
+          code,
+          name,
           ui_label,
           ui_icon,
           child_entities,
           display_order,
           active_flag
         FROM app.d_entity
-        WHERE entity_type = ${normalizedEntityType}
+        WHERE code = ${normalizedEntityType}
           AND active_flag = true
         LIMIT 1
       `);
@@ -122,9 +120,8 @@ export async function entityRoutes(fastify: FastifyInstance) {
     try {
       const result = await db.execute(sql`
         SELECT
-          entity_type,
-          entity_name,
-          entity_slug,
+          code,
+          name,
           ui_label,
           ui_icon,
           child_entities,
@@ -187,13 +184,13 @@ export async function entityRoutes(fastify: FastifyInstance) {
       // Step 1: Get entity TYPE metadata from d_entity
       const entityTypeResult = await db.execute(sql`
         SELECT
-          entity_type,
-          entity_name,
+          code,
+          name,
           ui_label,
           ui_icon,
           child_entities
         FROM app.d_entity
-        WHERE entity_type = ${normalizedEntityType}
+        WHERE code = ${normalizedEntityType}
           AND active_flag = true
         LIMIT 1
       `);

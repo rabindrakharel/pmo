@@ -313,7 +313,7 @@ export function RBACButton({
       ? 'border-blue-600 text-white bg-blue-600 hover:bg-blue-700 hover:border-blue-700 focus:ring-blue-500'
       : 'border-gray-300 bg-gray-300 text-gray-500 cursor-not-allowed',
     secondary: hasPermission
-      ? 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 focus:ring-gray-500'
+      ? 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 focus:ring-gray-500'
       : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed',
     danger: hasPermission
       ? 'border-red-600 text-white bg-red-600 hover:bg-red-700 hover:border-red-700 focus:ring-red-500'

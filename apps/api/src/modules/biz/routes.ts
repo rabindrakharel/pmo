@@ -16,15 +16,14 @@ import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factor
 // Schema based on actual d_business table structure
 const BizSchema = Type.Object({
   id: Type.String(),
-  slug: Type.String(),
   code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Array(Type.String())),
+  metadata: Type.Optional(Type.Any()),
   parent_id: Type.Optional(Type.String()),
   level_name: Type.String(),
   office_id: Type.Optional(Type.String()),
-  budget_allocated: Type.Optional(Type.Number()),
+  budget_allocated_amt: Type.Optional(Type.Number()),
   manager_employee_id: Type.Optional(Type.String()),
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
@@ -116,8 +115,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
         const searchTerms = [
           sql`b.name ILIKE ${`%${search}%`}`,
           sql`COALESCE(b."descr", '') ILIKE ${`%${search}%`}`,
-          sql`b.code ILIKE ${`%${search}%`}`,
-          sql`b.slug ILIKE ${`%${search}%`}`
+          sql`b.code ILIKE ${`%${search}%`}`
         ];
         baseConditions.push(sql`(${sql.join(searchTerms, sql` OR `)})`);
       }
@@ -131,8 +129,8 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       const bizUnits = await db.execute(sql`
         SELECT
-          b.id, b.slug, b.code, b.name, b.descr, b.tags, b.parent_id,
-          b.level_name, b.office_id, b.budget_allocated, b.manager_employee_id,
+          b.id, b.code, b.name, b.descr, b.metadata, b.parent_id,
+          b.level_name, b.office_id, b.budget_allocated_amt, b.manager_employee_id,
           b.from_ts, b.to_ts, b.active_flag, b.created_ts, b.updated_ts, b.version
         FROM app.d_business b
         WHERE ${sql.join(baseConditions, sql` AND `)}
@@ -159,6 +157,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       };
     } catch (error) {
       fastify.log.error('Error fetching business units:', error as any);
+      console.error('Full error details:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -199,8 +198,8 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       const children = await db.execute(sql`
         SELECT
-          id, name, descr, level_name, parent_id, tags,
-          budget_allocated, manager_employee_id, office_id,
+          id, name, descr, level_name, parent_id, metadata,
+          budget_allocated_amt, manager_employee_id, office_id,
           from_ts, to_ts, active_flag, created_ts, updated_ts, version
         FROM app.d_business
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
@@ -515,9 +514,9 @@ export async function bizRoutes(fastify: FastifyInstance) {
     try {
       const bizUnit = await db.execute(sql`
         SELECT
-          id, name, descr, tags, parent_id, level_name,
-          slug, code, from_ts, to_ts, active_flag, created_ts, updated_ts, version,
-          office_id, budget_allocated, manager_employee_id
+          id, name, descr, metadata, parent_id, level_name,
+          code, from_ts, to_ts, active_flag, created_ts, updated_ts, version,
+          office_id, budget_allocated_amt, manager_employee_id
         FROM app.d_business
         WHERE id = ${id}
       `);
@@ -611,20 +610,19 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       const result = await db.execute(sql`
         INSERT INTO app.d_business (
-          name, descr, slug, code, level_name, parent_id,
-          office_id, budget_allocated, manager_employee_id, tags, active_flag
+          name, descr, code, level_name, parent_id,
+          office_id, budget_allocated_amt, manager_employee_id, metadata, active_flag
         )
         VALUES (
           ${data.name},
           ${data.descr || null},
-          ${data.slug || null},
           ${data.code || null},
           ${data.level_name},
           ${data.parent_id || null},
           ${data.office_id || null},
-          ${data.budget_allocated || null},
+          ${data.budget_allocated || data.budget_allocated_amt || null},
           ${data.manager_employee_id || null},
-          ${data.tags ? JSON.stringify(data.tags) : '[]'}::jsonb,
+          ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
           ${data.active_flag !== false}
         )
         RETURNING *
@@ -688,17 +686,18 @@ export async function bizRoutes(fastify: FastifyInstance) {
       }
 
       const updateFields = [];
-      
+
       if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
       if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
-      if (data.slug !== undefined) updateFields.push(sql`slug = ${data.slug}`);
       if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
       if (data.level_name !== undefined) updateFields.push(sql`level_name = ${data.level_name}`);
       if (data.parent_id !== undefined) updateFields.push(sql`parent_id = ${data.parent_id}`);
       if (data.office_id !== undefined) updateFields.push(sql`office_id = ${data.office_id}`);
-      if (data.budget_allocated !== undefined) updateFields.push(sql`budget_allocated = ${data.budget_allocated}`);
+      if (data.budget_allocated !== undefined || data.budget_allocated_amt !== undefined) {
+        updateFields.push(sql`budget_allocated_amt = ${data.budget_allocated_amt || data.budget_allocated}`);
+      }
       if (data.manager_employee_id !== undefined) updateFields.push(sql`manager_employee_id = ${data.manager_employee_id}`);
-      if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
+      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
       if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
 
       if (updateFields.length === 0) {

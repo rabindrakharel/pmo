@@ -91,13 +91,13 @@ function generateSchemas(tableName: string, sampleData?: Record<string, any>) {
     entityProperties[column] = isOptional ? Type.Optional(tsType) : tsType;
     
     // Create schema (exclude system fields)
-    if (!['id', 'created', 'updated'].includes(column)) {
+    if (!['id', 'created_ts', 'updated_ts'].includes(column)) {
       const required = ['name', 'title'].includes(column);
       createProperties[column] = required ? tsType : Type.Optional(tsType);
     }
-    
+
     // Update schema (all optional)
-    if (!['id', 'created', 'updated'].includes(column)) {
+    if (!['id', 'created_ts', 'updated_ts'].includes(column)) {
       updateProperties[column] = Type.Optional(tsType);
     }
   });
@@ -186,10 +186,10 @@ function generateListRoute(
       }
       
       // Build sort clause
-      const sortColumns = getSortColumns(tableName, ['name', 'created']);
-      const sortColumn = sortBy && SCHEMA_METADATA[tableName] && sortBy in SCHEMA_METADATA[tableName].columns 
-        ? sortBy 
-        : sortColumns[0] || 'created';
+      const sortColumns = getSortColumns(tableName, ['name', 'created_ts']);
+      const sortColumn = sortBy && SCHEMA_METADATA[tableName] && sortBy in SCHEMA_METADATA[tableName].columns
+        ? sortBy
+        : sortColumns[0] || 'created_ts';
       
       // Execute query
       const query = sql`
@@ -339,10 +339,10 @@ function generateCreateRoute(
       const createData = {
         ...data,
         id: sql`gen_random_uuid()`,
-        created: sql`now()`,
-        updated: sql`now()`,
+        created_ts: sql`now()`,
+        updated_ts: sql`now()`,
         from_ts: sql`now()`,
-        active: true,
+        active_flag: true,
       };
       
       // Build insert query
@@ -432,7 +432,7 @@ function generateUpdateRoute(
       // Add standard update fields
       const updateData = {
         ...data,
-        updated: sql`now()`,
+        updated_ts: sql`now()`,
       };
       
       // Build update query
@@ -519,7 +519,7 @@ function generateDeleteRoute(
       // Soft delete by setting active_flag = false and to_ts = now()
       await db.execute(sql`
         UPDATE ${sql.identifier(tableName)}
-        SET active_flag = false, to_ts = now(), updated = now()
+        SET active_flag = false, to_ts = now(), updated_ts = now()
         WHERE id = ${id}
       `);
       

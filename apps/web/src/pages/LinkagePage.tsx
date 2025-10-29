@@ -445,7 +445,7 @@ export function LinkagePage() {
                         className={`flex items-center gap-1 px-2 py-1 rounded border text-xs font-normal transition-all ${
                           selectedParentTypes.includes(type.value)
                             ? 'bg-blue-50 border-blue-400 text-blue-700 shadow-sm'
-                            : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
+                            : 'bg-white border-gray-300 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
                         }`}
                       >
                         <IconComponent className="h-3 w-3 stroke-[1.5]" />
@@ -466,7 +466,7 @@ export function LinkagePage() {
                       placeholder="Search parent entity by name..."
                       value={parentSearchQuery}
                       onChange={(e) => setParentSearchQuery(e.target.value)}
-                      className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-400 focus:ring-0"
+                      className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-300 focus:ring-0"
                     />
                   </div>
                 </div>
@@ -548,7 +548,7 @@ export function LinkagePage() {
                               className={`flex items-center gap-1 px-2 py-1 rounded border text-xs font-normal transition-all ${
                                 selectedChildType === type
                                   ? 'bg-green-50 border-green-400 text-green-700 shadow-sm'
-                                  : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
+                                  : 'bg-white border-gray-300 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
                               }`}
                             >
                               <IconComponent className="h-3 w-3 stroke-[1.5]" />
@@ -572,7 +572,7 @@ export function LinkagePage() {
                       placeholder="Search child entity by name..."
                       value={childSearchQuery}
                       onChange={(e) => setChildSearchQuery(e.target.value)}
-                      className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-400 focus:ring-0"
+                      className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-300 focus:ring-0"
                     />
                   </div>
                 </div>

@@ -12,16 +12,16 @@
 --
 -- 1. REGISTER ENTITY INSTANCE (Auto-created on Entity Creation)
 --    • Trigger: When any entity is created (INSERT into d_project, d_task, d_employee, etc.)
---    • Database: INSERT INTO d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
+--    • Database: INSERT INTO d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
 --    • Returns: Registry confirmation
 --    • Business Rule: Automatic registration via database triggers on entity table INSERTs
 --    • RBAC: Inherits from source entity creation permissions
 --
 -- 2. UPDATE ENTITY INSTANCE METADATA (Auto-synced on Entity Update)
 --    • Trigger: When source entity is updated (UPDATE d_project.name, etc.)
---    • Database: UPDATE d_entity_instance_id SET entity_name=$1, entity_slug=$2, updated_ts=now() WHERE entity_type=$3 AND entity_id=$4
+--    • Database: UPDATE d_entity_instance_id SET entity_name=$1, entity_code=$2, updated_ts=now() WHERE entity_type=$3 AND entity_id=$4
 --    • SCD Behavior: IN-PLACE UPDATE
---      - Synchronizes name, slug, code changes from source entity
+--      - Synchronizes name and code changes from source entity
 --      - Maintains referential consistency across entity_id_map and entity_id_rbac_map
 --    • Business Rule: Automatic sync via database triggers on entity table UPDATEs
 --
@@ -77,7 +77,6 @@
 -- • entity_type: Entity classification ('office', 'business', 'project', 'task', 'employee', etc.)
 -- • entity_id: UUID from source entity table (d_project.id, d_task.id, etc.)
 -- • entity_name: Display name (synchronized from source entity)
--- • entity_slug: URL-friendly identifier (synchronized from source entity)
 -- • entity_code: Business code/number (synchronized from source entity)
 -- • active_flag: Operational status (synchronized from source entity soft delete)
 -- • created_ts: Registry creation timestamp (never modified)
@@ -96,7 +95,6 @@ CREATE TABLE app.d_entity_instance_id (
     entity_id uuid NOT NULL,
     order_id int4 GENERATED ALWAYS AS IDENTITY, --ordering need only, sidebar ordering
     entity_name varchar(255) NOT NULL,
-    entity_slug varchar(100),
     entity_code varchar(100),
     active_flag boolean DEFAULT true,
     created_ts timestamptz DEFAULT now(),
@@ -118,66 +116,66 @@ COMMENT ON TABLE app.d_entity_instance_id IS 'Central registry of all entity INS
 -- =====================================================
 
 -- Register office entities
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-SELECT 'office', id, name, slug, code
+INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+SELECT 'office', id, name, code
 FROM app.d_office WHERE active_flag = true;
 
 -- Register business entities
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-SELECT 'business', id, name, slug, code
+INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+SELECT 'business', id, name, code
 FROM app.d_business WHERE active_flag = true;
 
 -- Register project entities
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-SELECT 'project', id, name, slug, code
+INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+SELECT 'project', id, name, code
 FROM app.d_project WHERE active_flag = true;
 
 -- Register task entities
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-SELECT 'task', id, name, slug, code
+INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+SELECT 'task', id, name, code
 FROM app.d_task WHERE active_flag = true;
 
 -- Register employee entities
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-SELECT 'employee', id, name, slug, code
+INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+SELECT 'employee', id, name, code
 FROM app.d_employee WHERE active_flag = true;
 
 -- Register customer entities
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-SELECT 'cust', id, name, slug, code
+INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+SELECT 'cust', id, name, code
 FROM app.d_cust WHERE active_flag = true;
 
 -- Register role entities
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-SELECT 'role', id, name, slug, code
+INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+SELECT 'role', id, name, code
 FROM app.d_role WHERE active_flag = true;
 
 -- Register position entities
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-SELECT 'position', id, name, slug, code
+INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+SELECT 'position', id, name, code
 FROM app.d_position WHERE active_flag = true;
 
 -- Register worksite entities
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-SELECT 'worksite', id, name, slug, code
+INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+SELECT 'worksite', id, name, code
 FROM app.d_worksite WHERE active_flag = true;
 
 -- Register wiki entities
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-SELECT 'wiki', id, name, slug, code
+INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+SELECT 'wiki', id, name, code
 FROM app.d_wiki WHERE active_flag = true;
 
 -- Register artifact entities
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-SELECT 'artifact', id, name, slug, code
+INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+SELECT 'artifact', id, name, code
 FROM app.d_artifact WHERE active_flag = true;
 
 -- Register form entities
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-SELECT 'form', id, name, slug, code
+INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+SELECT 'form', id, name, code
 FROM app.d_form_head WHERE active_flag = true;
 
 -- Register reports entities
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-SELECT 'reports', id, name, slug, code
+INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+SELECT 'reports', id, name, code
 FROM app.d_reports WHERE active_flag = true;

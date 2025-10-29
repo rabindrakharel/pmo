@@ -89,7 +89,7 @@ export function useKanbanColumns(
 
         const token = localStorage.getItem('auth_token');
         const response = await fetch(
-          `${API_BASE_URL}/api/v1/setting?category=${settingsCategory}`,
+          `${API_BASE_URL}/api/v1/setting?datalabel=${settingsCategory}`,
           {
             headers: {
               'Authorization': `Bearer ${token}`,

@@ -2,9 +2,24 @@
 
 > **Comprehensive mapping of the entire PMO platform architecture** - From database tables to frontend components, showing how all layers work together using DRY principles.
 >
-> **Last Updated:** 2025-10-28 | **Status:** Production v2.4 (Enhanced Display Transformers)
+> **Last Updated:** 2025-10-29 | **Status:** Production v2.6 (Database-Driven Colors)
 >
-> **v2.4 Updates (2025-10-28):**
+> **v2.6 Updates (2025-10-29):**
+> - ✅ **DATABASE-DRIVEN BADGE COLORS**: Automatic color rendering from database `color_code` field
+> - ✅ Convention over Configuration: `loadOptionsFromSettings: true` handles colors + options + sorting
+> - ✅ Auto-apply pattern: Badge renderers automatically added at module load
+> - ✅ 90% code reduction: Eliminated ~2,000 lines of hardcoded color maps from entity configs
+> - ✅ Single source of truth: Database controls all badge colors (project_stage, task_priority, etc.)
+> - ✅ See [Settings System Pattern 7](./settings.md#pattern-7-database-driven-badge-color-system-v25) for details
+>
+> **v2.5 Updates (2025-10-28):**
+> - ✅ **UNIFIED FIELD SYSTEM**: Consolidated 3 libraries into `data_transform_render.tsx`
+> - ✅ Single source of truth: Data transformation + Field capabilities + Metadata rendering
+> - ✅ Eliminated code duplication across `dataTransformers.ts`, `fieldCapabilities.ts`, `MetadataField.tsx`
+> - ✅ 750+ lines of field logic in ONE centralized module
+> - ✅ Improved maintainability: All field behavior defined in one place
+
+**v2.4 Updates (2025-10-28):**
 > - ✅ **Enhanced Data Transformers** with display formatting utilities
 > - ✅ Relative timestamp formatting ("3 days ago", "20 seconds ago")
 > - ✅ Date range visualization with progress indicators
@@ -476,7 +491,7 @@ apps/web/src/
 │   │   │   ├── EntityFormContainer.tsx - Universal form wrapper
 │   │   │   ├── SequentialStateVisualizer.tsx - Timeline component
 │   │   │   ├── DynamicChildEntityTabs.tsx    - Dynamic tab system
-│   │   │   └── MetadataField.tsx       - **NEW v2.2**: DRY metadata components
+│   │   │   └── (Metadata components moved to data_transform_render.tsx in v2.5)
 │   │   ├── modal/                      - Universal Modal System (v2.0)
 │   │   │   ├── Modal.tsx               - Base modal component
 │   │   │   ├── ShareModal.tsx          - Share to users/roles/public
@@ -510,8 +525,7 @@ apps/web/src/
 │   ├── entityConfig.ts                 - **SINGLE SOURCE OF TRUTH** (entity metadata)
 │   ├── entityIcons.ts                  - Centralized icon mappings
 │   ├── sequentialStateConfig.ts        - Sequential state patterns
-│   ├── fieldCapabilities.ts            - **NEW v2.3**: Convention-based capability detection
-│   ├── dataTransformers.ts             - **UPDATED v2.4**: Data + display transformers
+│   ├── data_transform_render.tsx        - **NEW v2.5**: UNIFIED field system (transformers + capabilities + rendering)
 │   ├── api.ts                          - API client factory
 │   ├── settingsLoader.ts               - Settings cache/loader
 │   └── hooks/
@@ -1422,9 +1436,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
         key: 'project_stage',
         title: 'Stage',
         sortable: true,
-        loadOptionsFromSettings: true, // Auto-loads from settings
+        loadOptionsFromSettings: true
+        // ✅ v2.6: Badge colors auto-applied from database (no render function needed!)
         // ✅ v2.3: Auto-detected as editable dropdown (by _stage suffix + loadOptionsFromSettings)
-        render: (value) => renderBadge(value, stageColors)
+        // System automatically adds render function at module load via applySettingsBadgeRenderers()
       },
       {
         key: 'budget_allocated',
@@ -1914,18 +1929,237 @@ export const ENTITY_TABLE_MAP: Record<string, string> = {
 
 ---
 
-### Data Transformation Libraries
 
-#### 4. `dataTransformers.ts` (Frontend) & `data-transformers.ts` (Backend)
+---
 
-**Purpose:** Centralized data transformation for API communication AND UI display formatting
+## 🏛️ Core Architecture: Schema vs Behavior (v2.5)
+
+### The Two Pillars of Entity Management
+
+The PMO platform follows a clean **separation of concerns** between data structure and data behavior:
+
+| Aspect | entityConfig.ts | data_transform_render.tsxx |
+|--------|----------------|---------------------------|
+| **Role** | WHAT (Schema) | HOW (Behavior) |
+| **Nature** | Declarative | Imperative |
+| **Defines** | Data structure | Data processing |
+| **Contains** | Entity metadata | Field logic |
+| **Analogy** | Database schema | Business logic |
+| **Lines** | 2,500+ lines | 750+ lines |
+
+---
+
+### entityConfig.ts - "WHAT" (Schema & Structure)
+
+**File:** `apps/web/src/lib/entityConfig.ts` (2,500+ lines)
+
+**Architectural Role:** Declarative schema definition for all entities
+
+**This file defines WHAT data exists:**
+
+✅ **Entity Metadata**
+- Name, displayName, pluralName, apiEndpoint
+- Which entities exist in the system (project, task, employee, etc.)
+
+✅ **Column Definitions** (Table Views)
+- Which fields appear in list views
+- Column width, alignment, sortability
+- Custom renderers for complex fields
+
+✅ **Field Definitions** (Forms)
+- Which fields can be edited
+- Field types (text, date, select, jsonb)
+- Validation rules, placeholders, labels
+
+✅ **View Configurations**
+- Supported view modes (table, kanban, grid)
+- Kanban grouping configuration
+- Grid card layout
+
+✅ **Relationships**
+- Parent-child entity mappings
+- Hierarchical configurations
+- Entity-specific settings
+
+**What this file does NOT do:**
+- ❌ Does NOT transform data
+- ❌ Does NOT detect field capabilities
+- ❌ Does NOT render UI components
+- ❌ Does NOT process or validate data
+
+**Example:**
+```typescript
+// entityConfig.ts defines WHAT fields exist
+export const entityConfigs = {
+  project: {
+    name: 'project',
+    displayName: 'Project',
+    apiEndpoint: '/api/v1/project',
+    fields: [
+      { key: 'name', label: 'Project Name', type: 'text', required: true },
+      { key: 'tags', label: 'Tags', type: 'array' },  // ← Declares field exists
+      { key: 'created_ts', label: 'Created', type: 'date', readonly: true }
+    ]
+  }
+};
+```
+
+---
+
+### data_transform_render.tsxx - "HOW" (Behavior & Logic)
+
+**File:** `apps/web/src/lib/data_transform_render.tsxx` (750+ lines)
+
+**Architectural Role:** Imperative data processing and field behavior
+
+**This file defines HOW data behaves:**
+
+✅ **Part 1: Data Transformation** (API ↔ Frontend)
+- `transformForApi()` - Convert frontend data to API format
+- `transformTagsField()` - "tag1, tag2" → ["tag1", "tag2"]
+- `transformDateField()` - ISO timestamp → yyyy-MM-dd
+- `transformFromApi()` - Convert API data for editing
+
+✅ **Part 2: Display Transformers** (UI Formatting)
+- `formatRelativeTime()` - "2025-10-25" → "3 days ago"
+- `formatFriendlyDate()` - "Oct 28, 2024"
+- `calculateDateRangeProgress()` - Project timeline progress
+
+✅ **Part 3: Field Capability Detection** (Convention over Configuration)
+- `getFieldCapability()` - Auto-detect if field is editable
+- Detects by naming patterns: tags, *_ts, attachment, etc.
+- Returns edit type: text, select, file, readonly
+
+✅ **Part 4: Metadata Rendering** (UI Components)
+- `MetadataField` - Reusable field component
+- `MetadataRow` - Field container
+- `MetadataSeparator` - Visual separator
+
+**What this file does NOT do:**
+- ❌ Does NOT define entity schemas
+- ❌ Does NOT declare field types
+- ❌ Does NOT configure views/columns
+
+**Example:**
+```typescript
+// data_transform_render.tsxx defines HOW to process those fields
+import { transformForApi, getFieldCapability, formatRelativeTime } from './data_transform_render';
+
+// Transform tags from user input to API format
+const apiData = transformForApi({ tags: "frontend, backend" });
+// → { tags: ["frontend", "backend"] }
+
+// Auto-detect that tags field is editable
+const capability = getFieldCapability({ key: 'tags' });
+// → { inlineEditable: true, editType: 'tags' }
+
+// Format timestamp for display
+const display = formatRelativeTime('2025-10-25T12:00:00Z');
+// → "3 days ago"
+```
+
+---
+
+### Why This Separation Matters
+
+**1. Maintainability**
+- Change HOW tags are processed? → Edit `data_transform_render.tsxx` only
+- Add new entity? → Edit `entityConfig.ts` only
+- Single responsibility principle enforced
+
+**2. Reusability**
+- Field transformation logic is reused across ALL entities
+- No need to copy-paste transformation code
+- Convention over configuration reduces boilerplate
+
+**3. Type Safety**
+- TypeScript enforces correct usage
+- `ColumnDef` and `FieldDef` imported from entityConfig
+- Clear contracts between schema and behavior
+
+**4. Testability**
+- Test schema independently of behavior
+- Test transformations without entity configs
+- Clear boundaries for unit tests
+
+**Think of it like a Database:**
+- `entityConfig.ts` = CREATE TABLE statements (schema)
+- `data_transform_render.tsxx` = Stored procedures/triggers (logic)
+
+---
+
+
+
+---
+
+## 📋 Standard Fields Pattern (v2.5)
+
+### Universal Fields Across ALL Entities
+
+Every entity in the PMO platform now includes these **standard fields** for consistency:
+
+| Field | Type | Purpose | Display | Editable |
+|-------|------|---------|---------|----------|
+| `tags` | array | User-defined labels for categorization | Blue pill badges | ✅ Yes |
+| `metadata` | jsonb | Flexible key-value storage for entity-specific data | Formatted JSON | ✅ Yes |
+| `created_ts` | timestamp | Audit field - when record was created | "3 days ago" (relative) | ❌ No (readonly) |
+| `updated_ts` | timestamp | Audit field - when record was last modified | "20 seconds ago" (relative) | ❌ No (readonly) |
+
+### Implementation
+
+**In entityConfig.ts (Schema - "WHAT"):**
+```typescript
+fields: [
+  // ... entity-specific fields
+  { key: 'tags', label: 'Tags', type: 'array' },
+  { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+  { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+  { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
+]
+```
+
+**In data_transform_render.tsx (Behavior - "HOW"):**
+- `type: 'array'` → Auto-detected by `getFieldCapability()` → Editable as comma-separated text
+- `type: 'jsonb'` → Rendered as formatted JSON in EntityFormContainer
+- `type: 'timestamp'` → Auto-formatted by `formatRelativeTime()` → "3 days ago"
+- `readonly: true` → Detected by field capability system → Not editable
+
+### Coverage
+
+✅ **100% Coverage**: All 21 entity types now have standard fields
+- project, task, biz, office, employee, role, worksite, client, position
+- artifact, wiki, form, product, inventory, order, shipment, invoice
+- marketing, cost, revenue, workflow_automation
+
+### Benefits
+
+1. **Consistency**: Every entity page looks and behaves the same way
+2. **Auditability**: Know when every record was created/modified
+3. **Flexibility**: `metadata` field stores entity-specific attributes
+4. **Discoverability**: `tags` field enables search and categorization
+5. **DRY**: Field behavior defined once in `data_transform_render.tsx`
+
+---
+
+### Unified Field System (v2.5)
+
+#### 4. `data_transform_render.tsx` - CONSOLIDATED Field Logic
+
+**Purpose:** SINGLE SOURCE OF TRUTH for ALL field-related behavior
+
+**Consolidates 3 Previous Libraries:**
+1. ✅ `dataTransformers.ts` - Data transformation (API ↔ Frontend)
+2. ✅ `fieldCapabilities.ts` - Field capability detection (what can be edited, how)
+3. ✅ `MetadataField.tsx` - UI rendering components
 
 **Problem Solved:**
 1. Frontend inline editing sends data as strings (e.g., tags as comma-separated), but database expects specific types (arrays, JSON, etc.)
 2. Timestamps and dates need consistent, user-friendly formatting across all entity detail pages
 3. Date ranges need visual progress indicators showing days passed/remaining
+4. Field capabilities were spread across multiple files (now unified)
+5. Metadata rendering components duplicated logic (now DRY)
 
-**Single Source of Truth:** `apps/web/src/lib/dataTransformers.ts` (310+ lines)
+**Single Source of Truth:** `apps/web/src/lib/data_transform_render.tsx` (750+ lines)
 
 ---
 
@@ -2855,7 +3089,7 @@ GET /api/v1/setting?category=<name>
 
 **ZERO Manual Configuration Required:**
 
-**File:** `apps/web/src/lib/fieldCapabilities.ts` (234 lines)
+**File:** `apps/web/src/lib/data_transform_render.tsx` (Part 3: Field Capability Detection)
 
 **Auto-Detection Rules (Convention):**
 
@@ -2874,7 +3108,7 @@ GET /api/v1/setting?category=<name>
 **Data Transformation (Bidirectional):**
 
 ```typescript
-// Frontend: apps/web/src/lib/dataTransformers.ts
+// Frontend: apps/web/src/lib/data_transform_render.tsx (Part 1: Data Transformation)
 transformForApi({ tags: "tag1, tag2, tag3" })  // User input
 → { tags: ["tag1", "tag2", "tag3"] }           // API format
 

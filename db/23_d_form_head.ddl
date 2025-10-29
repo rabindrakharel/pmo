@@ -84,8 +84,6 @@ CREATE TABLE app.d_form_head (
     descr text,
     internal_url varchar(500),   -- Internal form URL: /form/{id} (authenticated access)
     shared_url varchar(500),     -- Public shared URL: /form/{8-char-random} (presigned, no auth required)
-    tags jsonb DEFAULT '[]'::jsonb,
-
     -- Form Type
     form_type varchar(50) DEFAULT 'multi_step',
 

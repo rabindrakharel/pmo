@@ -73,8 +73,6 @@ CREATE TABLE app.d_email_template (
     name varchar(200) NOT NULL,
     subject varchar(500) NOT NULL,
     descr text,
-    tags jsonb DEFAULT '[]'::jsonb,
-
     -- Template Status
     status varchar(50) DEFAULT 'draft', -- draft, published, archived
 
@@ -109,7 +107,6 @@ CREATE TABLE app.d_email_template (
 -- Welcome Email Template
 INSERT INTO app.d_email_template (
     id,
-    slug,
     code,
     name,
     subject,
@@ -123,7 +120,6 @@ INSERT INTO app.d_email_template (
     active_flag
 ) VALUES (
     'a1111111-1111-1111-1111-111111111111',
-    'welcome-email',
     'WEL001',
     'Welcome Email - New Customer',
     'Welcome to Huron Home Services!',
@@ -204,7 +200,6 @@ INSERT INTO app.d_email_template (
 -- Customer Feedback Email Template
 INSERT INTO app.d_email_template (
     id,
-    slug,
     code,
     name,
     subject,
@@ -218,7 +213,6 @@ INSERT INTO app.d_email_template (
     active_flag
 ) VALUES (
     'b2222222-2222-2222-2222-222222222222',
-    'customer-feedback',
     'FBK001',
     'Customer Feedback Request',
     'We value your feedback!',

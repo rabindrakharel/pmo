@@ -79,9 +79,15 @@ export function NavigationBreadcrumb() {
               </div>
 
               {/* Entity Type Only */}
-              <span className={`text-xs font-medium whitespace-nowrap ${
-                isCurrent ? 'text-blue-600' : 'text-gray-700 group-hover:text-gray-900'
-              }`}>
+              <span
+                className={`text-xs font-normal whitespace-nowrap ${
+                  isCurrent ? 'text-blue-600' : 'text-gray-700 group-hover:text-gray-900'
+                }`}
+                style={{
+                  fontFamily: "Inter, 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                  letterSpacing: '-0.01em'
+                }}
+              >
                 [{config?.displayName || node.entityType}]
               </span>
             </button>

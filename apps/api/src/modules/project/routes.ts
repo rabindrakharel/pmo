@@ -14,19 +14,14 @@ import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.
 // Schema based on actual d_project table structure from db/XV_d_project.ddl
 const ProjectSchema = Type.Object({
   id: Type.String(),
-  slug: Type.String(),
   code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Any()),
   metadata: Type.Optional(Type.Any()),
-  // Project relationships
-  business_id: Type.Optional(Type.String()),
-  office_id: Type.Optional(Type.String()),
   // Project fields
   project_stage: Type.Optional(Type.String()),
-  budget_allocated: Type.Optional(Type.Number()),
-  budget_spent: Type.Optional(Type.Number()),
+  budget_allocated_amt: Type.Optional(Type.Number()),
+  budget_spent_amt: Type.Optional(Type.Number()),
   planned_start_date: Type.Optional(Type.String()),
   planned_end_date: Type.Optional(Type.String()),
   actual_start_date: Type.Optional(Type.String()),
@@ -132,8 +127,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         conditions.push(sql`(
           p.name ILIKE ${`%${search}%`} OR
           p.descr ILIKE ${`%${search}%`} OR
-          p.code ILIKE ${`%${search}%`} OR
-          p.slug ILIKE ${`%${search}%`}
+          p.code ILIKE ${`%${search}%`}
         )`);
       }
 
@@ -146,9 +140,9 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       const projects = await db.execute(sql`
         SELECT
-          p.id, p.code, p.slug, p.name, p.descr, p.tags, p.metadata,
+          p.id, p.code, p.name, p.descr, p.metadata,
           p.project_stage,
-          p.budget_allocated, p.budget_spent,
+          p.budget_allocated_amt, p.budget_spent_amt,
           p.planned_start_date, p.planned_end_date, p.actual_start_date, p.actual_end_date,
           p.manager_employee_id, p.sponsor_employee_id, p.stakeholder_employee_ids,
           p.from_ts, p.to_ts, p.active_flag, p.created_ts, p.updated_ts, p.version
@@ -166,6 +160,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       };
     } catch (error) {
       fastify.log.error('Error fetching projects:', error as any);
+      console.error('Full error details:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -672,9 +667,9 @@ export async function projectRoutes(fastify: FastifyInstance) {
     try {
       const project = await db.execute(sql`
         SELECT
-          id, code, slug, name, descr, tags, metadata,
+          id, code, name, descr, metadata,
           project_stage,
-          budget_allocated, budget_spent,
+          budget_allocated_amt, budget_spent_amt,
           planned_start_date, planned_end_date, actual_start_date, actual_end_date,
           manager_employee_id, sponsor_employee_id, stakeholder_employee_ids,
           from_ts, to_ts, active_flag, created_ts, updated_ts, version
@@ -768,23 +763,21 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       const result = await db.execute(sql`
         INSERT INTO app.d_project (
-          slug, code, name, descr, tags, metadata,
+          code, name, descr, metadata,
           project_stage,
-          budget_allocated, budget_spent,
+          budget_allocated_amt, budget_spent_amt,
           planned_start_date, planned_end_date, actual_start_date, actual_end_date,
           manager_employee_id, sponsor_employee_id, stakeholder_employee_ids,
           active_flag
         )
         VALUES (
-          ${data.slug || `project-${Date.now()}`},
           ${data.code || data.project_code || `PROJ-${Date.now()}`},
           ${data.name || 'Untitled Project'},
           ${data.descr || null},
-          ${data.tags ? JSON.stringify(data.tags) : '[]'}::jsonb,
           ${data.metadata || data.attr ? JSON.stringify(data.metadata || data.attr || {}) : '{}'}::jsonb,
           ${data.project_stage || null},
-          ${data.budget_allocated || null},
-          ${data.budget_spent || 0},
+          ${data.budget_allocated || data.budget_allocated_amt || null},
+          ${data.budget_spent || data.budget_spent_amt || 0},
           ${data.planned_start_date || null},
           ${data.planned_end_date || null},
           ${data.actual_start_date || null},
@@ -882,14 +875,16 @@ export async function projectRoutes(fastify: FastifyInstance) {
       if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
       if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
       if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
-      if (data.slug !== undefined) updateFields.push(sql`slug = ${data.slug}`);
-      if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
       if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
 
       // Project fields
       if (data.project_stage !== undefined) updateFields.push(sql`project_stage = ${data.project_stage}`);
-      if (data.budget_allocated !== undefined) updateFields.push(sql`budget_allocated = ${data.budget_allocated}`);
-      if (data.budget_spent !== undefined) updateFields.push(sql`budget_spent = ${data.budget_spent}`);
+      if (data.budget_allocated !== undefined || data.budget_allocated_amt !== undefined) {
+        updateFields.push(sql`budget_allocated_amt = ${data.budget_allocated_amt || data.budget_allocated}`);
+      }
+      if (data.budget_spent !== undefined || data.budget_spent_amt !== undefined) {
+        updateFields.push(sql`budget_spent_amt = ${data.budget_spent_amt || data.budget_spent}`);
+      }
       if (data.planned_start_date !== undefined) updateFields.push(sql`planned_start_date = ${data.planned_start_date}`);
       if (data.planned_end_date !== undefined) updateFields.push(sql`planned_end_date = ${data.planned_end_date}`);
       if (data.actual_start_date !== undefined) updateFields.push(sql`actual_start_date = ${data.actual_start_date}`);

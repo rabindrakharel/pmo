@@ -117,24 +117,24 @@ const UNIVERSAL_COLUMN_PATTERNS: Record<string, ColumnMetadata> = {
     'temporal': true, 
     'ui:datetime': true 
   },
-  'active': { 
-    'api:restrict': true, 
-    'ui:toggle': true, 
-    'ui:status': true 
+  'active_flag': {
+    'api:restrict': true,
+    'ui:toggle': true,
+    'ui:status': true
   },
-  'created': { 
-    'api:restrict': true, 
-    'audit': true, 
-    'temporal': true, 
-    'ui:datetime': true, 
-    'ui:readonly': true 
+  'created_ts': {
+    'api:restrict': true,
+    'audit': true,
+    'temporal': true,
+    'ui:datetime': true,
+    'ui:readonly': true
   },
-  'updated': { 
-    'api:restrict': true, 
-    'audit': true, 
-    'temporal': true, 
-    'ui:datetime': true, 
-    'ui:readonly': true 
+  'updated_ts': {
+    'api:restrict': true,
+    'audit': true,
+    'temporal': true,
+    'ui:datetime': true,
+    'ui:readonly': true
   },
 
   // =================================================================
@@ -213,7 +213,7 @@ const UNIVERSAL_COLUMN_PATTERNS: Record<string, ColumnMetadata> = {
   // =================================================================
   // FINANCIAL DATA
   // =================================================================
-  'budget_allocated': { 
+  'budget_allocated_amt': { 
     'api:financial_masking': true, 
     'financial': true, 
     'ui:number': true 
@@ -569,8 +569,8 @@ const PATTERN_RULES: Array<{
   { pattern: /_percentage$/, metadata: { 'ui:percentage': true, 'ui:progress': true } },
   
   // Financial patterns
-  { pattern: /^(budget|salary|amount|cost|price|fee)/, metadata: { 'financial': true, 'api:financial_masking': true, 'ui:number': true } },
-  { pattern: /_amount$/, metadata: { 'financial': true, 'api:financial_masking': true, 'ui:number': true } },
+  { pattern: /^(budget|salary|amount|amt|cost|price|fee)/, metadata: { 'financial': true, 'api:financial_masking': true, 'ui:number': true } },
+  { pattern: /_(amount|amt)$/, metadata: { 'financial': true, 'api:financial_masking': true, 'ui:number': true } },
   
   // Permission patterns
   { pattern: /_permission/, metadata: { 'permission': true, 'ui:json': true } },

@@ -5,8 +5,27 @@ import {
   loadFieldOptions,
   type SettingOption
 } from '../../../lib/settingsLoader';
-import { detectColumnCapabilities, type FieldCapability } from '../../../lib/fieldCapabilities';
+import { detectColumnCapabilities, type FieldCapability, formatCurrency, isCurrencyField, renderSettingBadge, COLOR_MAP } from '../../../lib/data_transform_render';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
+import { getColumnWidth } from '../../../lib/entityConfig';
+
+/**
+ * Helper function to render cell value with automatic currency formatting
+ */
+function renderCellValue(column: Column, value: any): React.ReactNode {
+  // Return empty state if no value
+  if (value === null || value === undefined || value === '') {
+    return <span className="text-gray-400 italic">—</span>;
+  }
+
+  // Auto-format currency fields
+  if (isCurrencyField(column.key) && typeof value === 'number') {
+    return formatCurrency(value);
+  }
+
+  // Default: toString
+  return value.toString();
+}
 
 export interface Column<T = any> {
   key: string;
@@ -73,6 +92,10 @@ export interface DataTableProps<T = any> {
   onInlineEdit?: (rowId: string, field: string, value: any) => void;
   onSaveInlineEdit?: (record: T) => void;
   onCancelInlineEdit?: () => void;
+  // Settings entity support
+  colorOptions?: { value: string; label: string }[];
+  allowReordering?: boolean;
+  onReorder?: (newData: T[]) => void;
   // Note: Permission checking removed - handled at API level via RBAC joins
 }
 
@@ -102,6 +125,9 @@ export function DataTable<T = any>({
   onInlineEdit,
   onSaveInlineEdit,
   onCancelInlineEdit,
+  colorOptions,
+  allowReordering = false,
+  onReorder,
 }: DataTableProps<T>) {
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -115,6 +141,10 @@ export function DataTable<T = any>({
   const [showFilterDropdown, setShowFilterDropdown] = useState<boolean>(false);
   const filterContainerRef = useRef<HTMLDivElement | null>(null);
   const columnSelectorRef = useRef<HTMLDivElement | null>(null);
+
+  // Drag and drop state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   // ============================================================================
   // CENTRALIZED CAPABILITY DETECTION - TRUE DRY SYSTEM
@@ -290,7 +320,7 @@ export function DataTable<T = any>({
               type="radio"
               checked={isSelected}
               onChange={(e) => handleSelectRow(recordId, e.target.checked)}
-              className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500 cursor-pointer"
+              className="h-4 w-4 text-gray-600 border-gray-300 focus:ring-gray-500 cursor-pointer"
               onClick={(e) => e.stopPropagation()}
               name="row-selection"
             />
@@ -315,7 +345,7 @@ export function DataTable<T = any>({
 
                 const buttonVariants = {
                   default: 'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
-                  primary: 'text-blue-600 hover:text-blue-900 hover:bg-blue-50',
+                  primary: 'text-gray-700 hover:text-gray-900 hover:bg-gray-100',
                   danger: 'text-red-600 hover:text-red-900 hover:bg-red-50',
                 };
 
@@ -418,6 +448,59 @@ export function DataTable<T = any>({
     return initialColumns.find(col => col.key === columnKey)?.title || columnKey;
   };
 
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    if (!allowReordering) return;
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.currentTarget.innerHTML);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    if (!allowReordering || draggedIndex === null) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    if (index !== dragOverIndex) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragLeave = () => {
+    if (!allowReordering) return;
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    if (!allowReordering || draggedIndex === null) return;
+    e.preventDefault();
+
+    if (draggedIndex !== dropIndex) {
+      // Work with filteredAndSortedData since that's what the user sees
+      // and what the indices correspond to
+      const newData = [...filteredAndSortedData];
+      const draggedItem = newData[draggedIndex];
+
+      // Remove from old position
+      newData.splice(draggedIndex, 1);
+
+      // Insert at new position
+      newData.splice(dropIndex, 0, draggedItem);
+
+      // Call the onReorder callback with reordered data
+      onReorder?.(newData);
+    }
+
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    if (!allowReordering) return;
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };;
+
 
   const toggleColumnVisibility = (key: string) => {
     setVisibleColumns(prev => {
@@ -462,7 +545,7 @@ export function DataTable<T = any>({
             <select
               value={pageSize}
               onChange={(e) => onChange?.(1, Number(e.target.value))}
-              className="ml-6 px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition-all duration-200"
+              className="ml-6 px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-gray-400/30 focus:border-gray-300 transition-all duration-200"
             >
               {pageSizeOptions.map(size => (
                 <option key={size} value={size}>{size} per page</option>
@@ -499,7 +582,7 @@ export function DataTable<T = any>({
                   onClick={() => onChange?.(pageNum, pageSize)}
                   className={`px-3 py-1.5 text-sm border rounded-lg font-normal transition-all duration-200 ${
                     current === pageNum
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      ? 'bg-gray-100 text-gray-900 border-gray-300 shadow-sm'
                       : 'border-gray-200 bg-white/70 hover:bg-white hover:border-gray-300 hover:shadow-sm text-gray-700'
                   }`}
                 >
@@ -525,7 +608,7 @@ export function DataTable<T = any>({
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-300"></div>
           <span className="ml-3 text-gray-600">Loading...</span>
         </div>
       </div>
@@ -533,7 +616,7 @@ export function DataTable<T = any>({
   }
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col m-1 ${className}`}>
+    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col m-1 h-full ${className}`}>
       {(filterable || columnSelection) && (
         <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-50/50 border-b border-gray-100">
           {filterable && (
@@ -548,7 +631,7 @@ export function DataTable<T = any>({
                   <select
                     value={selectedFilterColumn}
                     onChange={(e) => setSelectedFilterColumn(e.target.value)}
-                    className="appearance-none px-4 py-1.5 pr-10 w-48 border border-gray-300 rounded-xl text-sm bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all duration-200 shadow-sm font-normal text-gray-700"
+                    className="appearance-none px-4 py-1.5 pr-10 w-48 border border-gray-300 rounded-xl text-sm bg-white hover:bg-gray-50 focus:ring-2 focus:ring-gray-400/30 focus:border-gray-300 transition-all duration-200 shadow-sm font-normal text-gray-700"
                   >
                     <option value="" className="text-gray-500">Select column...</option>
                     {initialColumns.filter(col => col.filterable).map(column => (
@@ -573,7 +656,7 @@ export function DataTable<T = any>({
                           setShowFilterDropdown(true);
                         }}
                         onFocus={() => setShowFilterDropdown(true)}
-                        className="pl-10 pr-4 py-1.5 w-64 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition-all duration-200"
+                        className="pl-10 pr-4 py-1.5 w-64 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-gray-400/30 focus:border-gray-300 transition-all duration-200"
                       />
                     </div>
 
@@ -581,26 +664,44 @@ export function DataTable<T = any>({
                       <div className="absolute top-full left-0 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-xl z-50 backdrop-blur-sm max-h-48 overflow-y-auto">
                         <div className="p-2">
                           {getColumnOptions(selectedFilterColumn)
-                            .filter(option => 
+                            .filter(option =>
                               option.toLowerCase().includes(filterSearchTerm.toLowerCase())
                             )
-                            .map((option) => (
-                              <label
-                                key={option}
-                                className="flex items-center px-3 py-1.5 hover:bg-blue-50/50 rounded-lg cursor-pointer transition-colors group"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={(dropdownFilters[selectedFilterColumn] || []).includes(option)}
-                                  onChange={(e) => handleDropdownFilter(selectedFilterColumn, option, e.target.checked)}
-                                  className="mr-3 text-blue-600 rounded focus:ring-blue-500 focus:ring-offset-0"
-                                />
-                                <span className="text-sm text-gray-700 truncate group-hover:text-gray-900">{option}</span>
-                              </label>
-                            ))
+                            .map((option) => {
+                              // Check if this column has settings options loaded
+                              const selectedColumn = initialColumns.find(col => col.key === selectedFilterColumn);
+                              const capability = columnCapabilities.get(selectedFilterColumn);
+                              let colorCode: string | undefined;
+
+                              // If this is a settings field, look up the color from loaded options
+                              if (selectedColumn?.loadOptionsFromSettings || capability?.loadOptionsFromSettings) {
+                                const settingOpts = settingOptions.get(selectedFilterColumn);
+                                if (settingOpts) {
+                                  const matchingOption = settingOpts.find((opt: SettingOption) => opt.label === option);
+                                  if (matchingOption?.metadata?.color_code) {
+                                    colorCode = matchingOption.metadata.color_code;
+                                  }
+                                }
+                              }
+
+                              return (
+                                <label
+                                  key={option}
+                                  className="flex items-center px-3 py-1.5 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors group"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={(dropdownFilters[selectedFilterColumn] || []).includes(option)}
+                                    onChange={(e) => handleDropdownFilter(selectedFilterColumn, option, e.target.checked)}
+                                    className="mr-3 text-gray-600 rounded focus:ring-gray-500 focus:ring-offset-0"
+                                  />
+                                  {renderSettingBadge(colorCode, option)}
+                                </label>
+                              );
+                            })
                           }
                           {getColumnOptions(selectedFilterColumn)
-                            .filter(option => 
+                            .filter(option =>
                               option.toLowerCase().includes(filterSearchTerm.toLowerCase())
                             ).length === 0 && (
                             <div className="px-2 py-1.5 text-xs text-gray-500 text-center">
@@ -700,24 +801,44 @@ export function DataTable<T = any>({
               <div className="flex items-center flex-wrap gap-2">
                 <span className="text-xs text-gray-500 font-medium">Active filters:</span>
                 {Object.entries(dropdownFilters).map(([columnKey, values]) =>
-                  values.map((value) => (
-                    <div
-                      key={`${columnKey}-${value}`}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium"
-                    >
-                      <span className="text-blue-600">{getColumnTitle(columnKey)}:</span>
-                      <span className="max-w-32 truncate" title={value}>
-                        {value}
-                      </span>
-                      <button
-                        onClick={() => removeFilterChip(columnKey, value)}
-                        className="ml-1 hover:bg-blue-200 rounded-full p-0.5 transition-colors"
-                        title={`Remove ${value} filter`}
+                  values.map((value) => {
+                    // Check if this column has settings options loaded
+                    const column = initialColumns.find(col => col.key === columnKey);
+                    const capability = columnCapabilities.get(columnKey);
+                    let colorCode: string | undefined;
+
+                    // If this is a settings field, look up the color from loaded options
+                    if (column?.loadOptionsFromSettings || capability?.loadOptionsFromSettings) {
+                      const settingOpts = settingOptions.get(columnKey);
+                      if (settingOpts) {
+                        const matchingOption = settingOpts.find((opt: SettingOption) => opt.label === value);
+                        if (matchingOption?.metadata?.color_code) {
+                          colorCode = matchingOption.metadata.color_code;
+                        }
+                      }
+                    }
+
+                    const chipColorClass = colorCode ? (COLOR_MAP[colorCode] || COLOR_MAP.gray) : 'bg-gray-100 text-gray-800';
+
+                    return (
+                      <div
+                        key={`${columnKey}-${value}`}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${chipColorClass}`}
                       >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))
+                        <span className="opacity-75">{getColumnTitle(columnKey)}:</span>
+                        <span className="max-w-32 truncate" title={value}>
+                          {value}
+                        </span>
+                        <button
+                          onClick={() => removeFilterChip(columnKey, value)}
+                          className="ml-1 hover:bg-black/10 rounded-full p-0.5 transition-colors"
+                          title={`Remove ${value} filter`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -749,7 +870,7 @@ export function DataTable<T = any>({
                       index === 0 ? 'sticky left-0 z-40 bg-gray-50 shadow-r' : ''
                     }`}
                     style={{
-                      width: columns.length > 7 ? '200px' : (column.width || 'auto'),
+                      width: columns.length > 7 ? '200px' : (getColumnWidth(column.key, column.width) || 'auto'),
                       textAlign: column.align || 'left',
                       color: '#6b6d70',
                       font: "400 12px / 16px 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
@@ -782,19 +903,49 @@ export function DataTable<T = any>({
               {filteredAndSortedData.map((record, index) => {
                 const recordId = getRowKey(record, index);
                 const isEditing = inlineEditable && editingRow === recordId;
+                const isDragging = draggedIndex === index;
+                const isDragOver = dragOverIndex === index;
 
                 return (
-                  <tr
-                    key={recordId}
-                    onClick={() => !isEditing && onRowClick?.(record)}
-                    className={`group transition-all duration-150 ${
-                      isEditing
-                        ? 'bg-blue-50/30'
-                        : onRowClick
-                          ? 'cursor-pointer hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-transparent hover:shadow-sm'
-                          : 'hover:bg-gray-50/30'
-                    }`}
-                  >
+                  <>
+                    {/* Drop indicator line */}
+                    {isDragOver && draggedIndex !== null && (
+                      <tr className="relative pointer-events-none">
+                        <td colSpan={columns.length} className="p-0 h-0">
+                          <div className="absolute left-0 right-0 h-1 bg-gray-500 shadow-lg z-50 animate-pulse"
+                               style={{
+                                 top: '-2px',
+                                 boxShadow: '0 0 8px rgba(107, 114, 128, 0.5)'
+                               }}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                    <tr
+                      key={recordId}
+                      draggable={allowReordering && !isEditing}
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, index)}
+                      onDragEnd={handleDragEnd}
+                      onClick={() => !isEditing && onRowClick?.(record)}
+                      className={`group transition-all duration-200 ${
+                        isDragging
+                          ? 'opacity-40 scale-[0.98] bg-gray-100'
+                          : isDragOver
+                            ? 'bg-gray-100/50'
+                            : ''
+                      } ${
+                        isEditing
+                          ? 'bg-gray-50/30'
+                          : allowReordering && !isEditing
+                            ? 'cursor-move hover:bg-gray-100/40 hover:shadow-md'
+                            : onRowClick
+                              ? 'cursor-pointer hover:bg-gradient-to-r hover:from-gray-50/30 hover:to-transparent hover:shadow-sm'
+                              : 'hover:bg-gray-50/30'
+                      }`}
+                    >
                     {columns.map((column, colIndex) => {
                       // Special handling for selection and actions columns
                       if (column.key === '_selection' || column.key === '_actions') {
@@ -824,9 +975,7 @@ export function DataTable<T = any>({
                             >
                               {column.render
                                 ? column.render((record as any)[column.key], record, data)
-                                : (record as any)[column.key]?.toString() || (
-                                  <span className="text-gray-400 italic">—</span>
-                                )
+                                : renderCellValue(column, (record as any)[column.key])
                               }
                             </div>
                             {/* Add Save/Cancel buttons for editing row in actions column */}
@@ -893,10 +1042,38 @@ export function DataTable<T = any>({
                                 entityType={onEdit ? 'artifact' : 'cost'} // Inferred from context
                                 entityId={(record as any).id}
                                 fieldName={column.key}
-                                accept={capability.acceptedFileTypes}
+                                accept={capability?.acceptedFileTypes}
                                 onUploadComplete={(fileUrl) => onInlineEdit?.(recordId, column.key, fileUrl)}
                                 disabled={false}
                               />
+                            ) :
+                            // COLOR PICKER FIELD (for settings entities)
+                            column.key === 'color_code' && colorOptions ? (
+                              <div className="relative w-full">
+                                <select
+                                  value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
+                                  onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-full px-2.5 py-1.5 pr-8 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400/30 focus:border-gray-300 bg-white shadow-sm hover:border-gray-300 transition-colors cursor-pointer appearance-none"
+                                  style={{
+                                    fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                                    fontSize: '13px',
+                                    color: '#333',
+                                    minHeight: '32px',
+                                    maxHeight: '32px',
+                                    lineHeight: '1.2'
+                                  }}
+                                >
+                                  <option value="" className="text-gray-400">Select color...</option>
+                                  {colorOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value} className="text-gray-900 py-1.5">
+                                      {opt.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                {/* Custom dropdown arrow */}
+                                <ChevronDown className="h-4 w-4 text-gray-500 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                              </div>
                             ) :
                             // SETTINGS DROPDOWN FIELD
                             editType === 'select' && hasSettingOptions ? (
@@ -906,7 +1083,7 @@ export function DataTable<T = any>({
                                   value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
                                   onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="w-full px-2.5 py-1.5 pr-8 border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-white shadow-sm hover:border-blue-400 transition-colors cursor-pointer appearance-none"
+                                  className="w-full px-2.5 py-1.5 pr-8 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400/30 focus:border-gray-300 bg-white shadow-sm hover:border-gray-300 transition-colors cursor-pointer appearance-none"
                                   style={{
                                     fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                                     fontSize: '13px',
@@ -935,7 +1112,7 @@ export function DataTable<T = any>({
                                 onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
                                 placeholder="Enter tags (comma-separated)"
-                                className="w-full px-2 py-1.5 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-gray-500 focus:border-gray-300"
                                 style={{
                                   fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                                   fontSize: '13px',
@@ -950,7 +1127,7 @@ export function DataTable<T = any>({
                                 value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
                                 onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-full px-2 py-1.5 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-gray-500 focus:border-gray-300"
                                 style={{
                                   fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                                   fontSize: '13px',
@@ -976,7 +1153,7 @@ export function DataTable<T = any>({
                                 })()}
                                 onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-full px-2 py-1.5 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-gray-500 focus:border-gray-300"
                                 style={{
                                   fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                                   fontSize: '13px',
@@ -990,7 +1167,7 @@ export function DataTable<T = any>({
                                 value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
                                 onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-full px-2 py-1.5 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-gray-500 focus:border-gray-300"
                                 style={{
                                   fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                                   fontSize: '13px',
@@ -1022,9 +1199,7 @@ export function DataTable<T = any>({
                             >
                               {column.render
                                 ? column.render((record as any)[column.key], record, data)
-                                : (record as any)[column.key]?.toString() || (
-                                  <span className="text-gray-400 italic">—</span>
-                                )
+                                : renderCellValue(column, (record as any)[column.key])
                               }
                             </div>
                           )}
@@ -1032,6 +1207,7 @@ export function DataTable<T = any>({
                       );
                     })}
                   </tr>
+                  </>
                 );
               })}
             </tbody>

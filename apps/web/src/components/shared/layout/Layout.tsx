@@ -9,22 +9,9 @@ import {
   ChevronLeft,
   ChevronDown,
   ChevronRight,
-  Building2,
-  MapPin,
-  FolderOpen,
-  UserCheck,
-  FileText,
-  BookOpen,
-  CheckSquare,
-  Users,
   Tag,
   Link as LinkIcon,
   Mail,
-  Package,
-  Warehouse,
-  ShoppingCart,
-  Truck,
-  Receipt,
   Zap,
   Plug
 } from 'lucide-react';
@@ -34,6 +21,7 @@ import { useSidebar } from '../../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../../contexts/NavigationHistoryContext';
 import { CreateButton } from '../button/CreateButton';
 import { NavigationBreadcrumb } from '../navigation/NavigationBreadcrumb';
+import { getIconComponent } from '../../../lib/iconMapping';
 
 interface CreateButtonConfig {
   label: string;
@@ -46,16 +34,54 @@ interface LayoutProps {
   createButton?: CreateButtonConfig;
 }
 
+interface EntityType {
+  code: string;
+  name: string;
+  ui_label: string;
+  ui_icon: string | null;
+  display_order: number;
+}
+
 export function Layout({ children, createButton }: LayoutProps) {
   const { user, logout } = useAuth();
   const { isVisible, isCollapsed, collapseSidebar, uncollapseSidebar } = useSidebar();
   const [currentPage, setCurrentPage] = useState(window.location.pathname);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [entityTypes, setEntityTypes] = useState<EntityType[]>([]);
+  const [isLoadingEntities, setIsLoadingEntities] = useState(true);
 
   const handleLogout = async () => {
     await logout();
   };
+
+  // Fetch entity types from the database
+  useEffect(() => {
+    const fetchEntityTypes = async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+
+        const response = await fetch(`${apiBaseUrl}/api/v1/entity/types`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setEntityTypes(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch entity types:', error);
+      } finally {
+        setIsLoadingEntities(false);
+      }
+    };
+
+    fetchEntityTypes();
+  }, []);
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -73,33 +99,13 @@ export function Layout({ children, createButton }: LayoutProps) {
     }
   }, [isUserMenuOpen]);
 
-  const mainNavigationItems = [
-    // Organizational Entities (4)
-    { name: 'Business', href: '/biz', icon: Building2, category: 'organizational' },
-    { name: 'Project', href: '/project', icon: FolderOpen, category: 'operational' },
-    { name: 'Office', href: '/office', icon: MapPin, category: 'organizational' },
-    { name: 'Customer', href: '/cust', icon: Users, category: 'organizational' },
-
-    // Personnel Entities (2)
-    { name: 'Role', href: '/role', icon: UserCheck, category: 'personnel' },
-    { name: 'Employee', href: '/employee', icon: Users, category: 'personnel' },
-
-    // Product & Operations (5)
-    { name: 'Product', href: '/product', icon: Package, category: 'operations' },
-    { name: 'Inventory', href: '/inventory', icon: Warehouse, category: 'operations' },
-    { name: 'Order', href: '/order', icon: ShoppingCart, category: 'operations' },
-    { name: 'Shipment', href: '/shipment', icon: Truck, category: 'operations' },
-    { name: 'Invoice', href: '/invoice', icon: Receipt, category: 'operations' },
-
-    // Content Entities (3)
-    { name: 'Wiki', href: '/wiki', icon: BookOpen, category: 'content' },
-    { name: 'Form', href: '/form', icon: FileText, category: 'content' },
-    { name: 'Task', href: '/task', icon: CheckSquare, category: 'operational' },
-    { name: 'Artifact', href: '/artifact', icon: FileText, category: 'content' },
-
-    // Marketing (1)
-    { name: 'Marketing', href: '/marketing', icon: Mail, category: 'marketing' },
-  ];
+  // Convert fetched entity types to navigation items
+  const mainNavigationItems = entityTypes.map((entity) => ({
+    name: entity.name,
+    href: `/${entity.code}`,
+    icon: getIconComponent(entity.ui_icon),
+    code: entity.code
+  }));
 
   const settingsSubItems = [
     { name: 'Data Labels', href: '/labels', icon: Tag },
@@ -164,7 +170,7 @@ export function Layout({ children, createButton }: LayoutProps) {
                 onClick={() => !isCollapsed && setIsSettingsOpen(!isSettingsOpen)}
                 className={`${
                   settingsSubItems.some(item => currentPage === item.href)
-                    ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
+                    ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-300'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                 } w-full group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-1.5 text-sm font-normal rounded-l-lg transition-all duration-200`}
                 title={isCollapsed ? 'Settings' : undefined}
@@ -190,11 +196,11 @@ export function Layout({ children, createButton }: LayoutProps) {
                     const isActive = isCurrentPage(item.href);
                     return (
                       <a
-                        key={item.name}
+                        key={item.href}
                         href={item.href}
                         className={`${
                           isActive
-                            ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
+                            ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-300'
                             : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                         } group flex items-center px-3 py-1 text-sm font-normal rounded-l-lg transition-all duration-200`}
                         onClick={() => setCurrentPage(item.href)}
@@ -216,11 +222,11 @@ export function Layout({ children, createButton }: LayoutProps) {
               const isActive = isCurrentPage(item.href);
               return (
                 <a
-                  key={item.name}
+                  key={item.href}
                   href={item.href}
                   className={`${
                     isActive
-                      ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-900'
+                      ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-300'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                   } group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-1.5 text-sm font-normal rounded-l-lg transition-all duration-200`}
                   onClick={() => setCurrentPage(item.href)}
@@ -267,7 +273,7 @@ export function Layout({ children, createButton }: LayoutProps) {
                       const isActive = isCurrentPage(item.href);
                       return (
                         <a
-                          key={item.name}
+                          key={item.href}
                           href={item.href}
                           onClick={() => {
                             setCurrentPage(item.href);
@@ -322,7 +328,7 @@ export function Layout({ children, createButton }: LayoutProps) {
                       const isActive = isCurrentPage(item.href);
                       return (
                         <a
-                          key={item.name}
+                          key={item.href}
                           href={item.href}
                           onClick={() => {
                             setCurrentPage(item.href);
@@ -361,7 +367,7 @@ export function Layout({ children, createButton }: LayoutProps) {
       {/* Main content area - always present */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header Bar */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4">
+        <header className="bg-white border-b border-gray-200 px-6 py-2">
           <div className="flex items-center justify-between">
             {/* Navigation Breadcrumb */}
             <NavigationBreadcrumb />
@@ -381,7 +387,7 @@ export function Layout({ children, createButton }: LayoutProps) {
               />
             </div>
           )}
-          <div className="pb-4">
+          <div className="pb-2">
             {children}
           </div>
         </main>

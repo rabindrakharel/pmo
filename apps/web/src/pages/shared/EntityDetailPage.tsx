@@ -12,6 +12,7 @@ import { FormDataTable, InteractiveForm, FormSubmissionEditor } from '../../comp
 import { EmailTemplateRenderer } from '../../components/entity/marketing';
 import { getEntityConfig } from '../../lib/entityConfig';
 import { APIFactory } from '../../lib/api';
+import { formatRelativeTime, formatFriendlyDate } from '../../lib/data_transform_render';
 import { Button } from '../../components/shared/button/Button';
 import { useS3Upload } from '../../lib/hooks/useS3Upload';
 import { useSidebar } from '../../contexts/SidebarContext';
@@ -200,16 +201,6 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
         }
       }
 
-      // Parse tags if it's a string
-      if (responseData.tags && typeof responseData.tags === 'string') {
-        try {
-          responseData.tags = JSON.parse(responseData.tags);
-        } catch (e) {
-          console.error('Failed to parse tags:', e);
-          responseData.tags = [];
-        }
-      }
-
       // Parse metadata (or attr alias) if it's a string
       const metadataField = responseData.metadata || responseData.attr;
       if (metadataField && typeof metadataField === 'string') {
@@ -260,8 +251,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             // Include any updated metadata fields from editedData
             visibility: editedData.visibility,
             security_classification: editedData.security_classification,
-            artifact_type: editedData.artifact_type,
-            tags: editedData.tags
+            artifact_type: editedData.artifact_type
           })
         });
 
@@ -627,10 +617,10 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
     <Layout>
       <div className="w-[97%] max-w-[1536px] mx-auto">
         {/* Sticky Header Section */}
-        <div className="sticky top-0 z-20 bg-gray-50 pb-4">
+        <div className="sticky top-0 z-20 bg-gray-50 pb-2">
           {/* Header */}
-          <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 flex-1 min-w-0">
+          <div className="flex items-center justify-between py-2">
+          <div className="flex items-center space-x-3 flex-1 min-w-0">
             <div className="flex-1 min-w-0">
               {/* Compact metadata row using DRY components */}
               <MetadataRow className="overflow-x-auto">
@@ -647,7 +637,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                   inputWidth="16rem"
                 />
 
-                <MetadataSeparator show={!!(data.code || data.slug || id)} />
+                <MetadataSeparator show={!!(data.code || id)} />
 
                 {/* Code */}
                 {(data.code || isEditing) && (
@@ -664,25 +654,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                   />
                 )}
 
-                <MetadataSeparator show={!!(data.code && (data.slug || isEditing))} />
-
-                {/* Slug */}
-                {(data.slug || isEditing) && (
-                  <MetadataField
-                    label="slug"
-                    value={isEditing ? (editedData.slug || '') : data.slug}
-                    isEditing={isEditing}
-                    fieldKey="slug"
-                    copiedField={copiedField}
-                    onCopy={handleCopy}
-                    onChange={handleFieldChange}
-                    placeholder="slug-name"
-                    prefix={isEditing ? '/' : '/'}
-                    inputWidth="10rem"
-                  />
-                )}
-
-                <MetadataSeparator show={!!((data.code || data.slug) && id)} />
+                <MetadataSeparator show={!!(data.code && id)} />
 
                 {/* ID */}
                 {id && (
@@ -697,7 +669,47 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                   />
                 )}
 
-                <MetadataSeparator show={!!(entityType === 'artifact' && data.version && (data.code || data.slug || id))} />
+                <MetadataSeparator show={!!(data.created_ts || data.updated_ts)} />
+
+                {/* Created */}
+                {data.created_ts && (
+                  <>
+                    <span className="text-gray-400 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">created:</span>
+                    <span
+                      className="text-gray-800 font-normal text-xs"
+                      style={{
+                        fontFamily: "Inter, 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                        letterSpacing: '-0.01em',
+                        fontWeight: '500'
+                      }}
+                      title={formatFriendlyDate(data.created_ts)}
+                    >
+                      {formatRelativeTime(data.created_ts)}
+                    </span>
+                  </>
+                )}
+
+                <MetadataSeparator show={!!(data.created_ts && data.updated_ts)} />
+
+                {/* Updated */}
+                {data.updated_ts && (
+                  <>
+                    <span className="text-gray-400 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">updated:</span>
+                    <span
+                      className="text-gray-800 font-normal text-xs"
+                      style={{
+                        fontFamily: "Inter, 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                        letterSpacing: '-0.01em',
+                        fontWeight: '500'
+                      }}
+                      title={formatFriendlyDate(data.updated_ts)}
+                    >
+                      {formatRelativeTime(data.updated_ts)}
+                    </span>
+                  </>
+                )}
+
+                <MetadataSeparator show={!!(entityType === 'artifact' && data.version && id)} />
 
                 {/* Version badge (for artifacts) */}
                 {entityType === 'artifact' && data.version && (
@@ -719,7 +731,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
           </div>
 
           {/* Edit/Save/Cancel buttons */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1.5">
             {!isEditing ? (
               <>
                 {/* Special Design Email button for marketing entity */}
@@ -739,7 +751,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                     className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                     title="Download"
                   >
-                    <Download className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+                    <Download className="h-4 w-4 text-gray-600 stroke-[1.5]" />
                   </button>
                 )}
                 {/* Link button for managing entity relationships */}
@@ -752,7 +764,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                   title="Manage links"
                 >
-                  <LinkIcon className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+                  <LinkIcon className="h-4 w-4 text-gray-600 stroke-[1.5]" />
                 </button>
 
                 {/* Share button - available for all entities */}
@@ -761,7 +773,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                   title="Share"
                 >
-                  <Share2 className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+                  <Share2 className="h-4 w-4 text-gray-600 stroke-[1.5]" />
                 </button>
 
                 {/* Edit button */}
@@ -779,7 +791,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                   title="Edit"
                 >
-                  <Edit2 className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+                  <Edit2 className="h-4 w-4 text-gray-600 stroke-[1.5]" />
                 </button>
 
                 {/* Exit button */}
@@ -799,7 +811,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                   className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
                   title="Save"
                 >
-                  <Save className="h-5 w-5 text-blue-600 stroke-[1.5]" />
+                  <Save className="h-4 w-4 text-blue-600 stroke-[1.5]" />
                 </button>
 
                 {/* Exit button */}
@@ -811,7 +823,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
 
           {/* Sticky Tabs Section */}
           {allTabs && allTabs.length > 0 && (
-            <div className="bg-white rounded-lg shadow mt-4">
+            <div className="bg-white rounded-lg shadow-sm mt-2 overflow-hidden">
               <DynamicChildEntityTabs
                 title={data?.name || data?.title || config.displayName}
                 parentType={entityType}
@@ -825,7 +837,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
         </div>
 
         {/* Content Area - Shows Overview or Child Entity Table */}
-        <div className="mt-4">
+        <div className="mt-2">
         {isOverviewTab ? (
           // Overview Tab - Entity Details
           <>

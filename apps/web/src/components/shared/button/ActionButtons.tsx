@@ -82,7 +82,7 @@ export function ShareButton({
   const baseClasses = 'inline-flex items-center font-normal rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
 
   const variantClasses = variant === 'primary'
-    ? 'text-white bg-gray-600 border border-gray-600 hover:bg-gray-700 focus:ring-gray-500'
+    ? 'text-white bg-gray-600 border border-gray-300 hover:bg-gray-700 focus:ring-gray-500'
     : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-blue-500';
 
   const disabledClasses = disabled ? 'opacity-50 cursor-not-allowed' : '';

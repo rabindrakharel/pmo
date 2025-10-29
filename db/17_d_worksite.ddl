@@ -103,7 +103,7 @@ CREATE TABLE app.d_worksite (
 
   -- Safety and compliance
   safety_rating text,
-  safety_last_inspection date,
+  safety_last_inspection_date date,
   environmental_permits jsonb DEFAULT '[]'::jsonb,
 
   -- Seasonal operations
@@ -122,12 +122,11 @@ CREATE TABLE app.d_worksite (
 -- Comprehensive worksite data covering all operational facility types
 
 -- Corporate Headquarters
-INSERT INTO app.d_worksite (
-  slug, code, name, "descr", worksite_type, addr, postal_code,
+INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage, vehicle_parking,
   security_required, indoor_space_sqft, outdoor_space_sqft, office_space,
   washroom_facilities, power_available, water_available, safety_rating,
-  safety_last_inspection, seasonal_use, tags, metadata
+  safety_last_inspection, seasonal_use, metadata
 ) VALUES
 ('huron-home-hq', 'HHS-HQ', 'Huron Home Services HQ',
  'Corporate headquarters and primary operational facility with administrative offices, equipment storage, vehicle maintenance, and dispatch coordination',
@@ -149,7 +148,6 @@ INSERT INTO app.d_worksite (
  'A+',
  CURRENT_DATE - INTERVAL '30 days',
  false,
- '["headquarters", "operational", "administrative", "secure"]'::jsonb,
  '{
    "headquarters": true, "dispatch_center": true, "equipment_maintenance": true,
    "training_facility": true, "administrative_offices": true, "secure_storage": true,
@@ -157,12 +155,11 @@ INSERT INTO app.d_worksite (
  }'::jsonb);
 
 -- Branch Office - Toronto Service Center
-INSERT INTO app.d_worksite (
-  slug, code, name, "descr", worksite_type, addr, postal_code,
+INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage, vehicle_parking,
   security_required, indoor_space_sqft, outdoor_space_sqft, office_space,
   washroom_facilities, power_available, water_available, safety_rating,
-  safety_last_inspection, seasonal_use, tags, metadata
+  safety_last_inspection, seasonal_use, metadata
 ) VALUES
 ('toronto-service-center', 'HHS-TOR-SC', 'Toronto Service Center',
  'Regional service center providing equipment storage, crew coordination, and client support for Toronto market operations',
@@ -184,19 +181,17 @@ INSERT INTO app.d_worksite (
  'A',
  CURRENT_DATE - INTERVAL '45 days',
  false,
- '["branch", "service-center", "regional", "toronto"]'::jsonb,
  '{
    "regional_hub": true, "equipment_staging": true, "crew_coordination": true,
    "client_support": true, "urban_operations": true, "high_density_market": true
  }'::jsonb);
 
 -- Seasonal Winter Operations Center
-INSERT INTO app.d_worksite (
-  slug, code, name, "descr", worksite_type, addr, postal_code,
+INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage, vehicle_parking,
   security_required, indoor_space_sqft, outdoor_space_sqft, office_space,
   washroom_facilities, power_available, water_available, safety_rating,
-  safety_last_inspection, seasonal_use, seasonal_period, tags, metadata
+  safety_last_inspection, seasonal_use, seasonal_period, metadata
 ) VALUES
 ('winter-ops-staging', 'HHS-WINTER-STG', 'Winter Ops - Equipment Staging',
  'Seasonal winter operations facility for snow removal equipment staging, salt storage, and emergency response coordination',
@@ -219,7 +214,6 @@ INSERT INTO app.d_worksite (
  CURRENT_DATE - INTERVAL '15 days',
  true,
  'winter',
- '["seasonal", "winter", "equipment", "emergency"]'::jsonb,
  '{
    "seasonal_operations": true, "salt_storage_capacity": "200_tons",
    "snow_plow_storage": 25, "emergency_response": true,
@@ -227,12 +221,11 @@ INSERT INTO app.d_worksite (
  }'::jsonb);
 
 -- Project-Specific Worksite - Solar Installation
-INSERT INTO app.d_worksite (
-  slug, code, name, "descr", worksite_type, addr, postal_code,
+INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage, vehicle_parking,
   security_required, indoor_space_sqft, outdoor_space_sqft, office_space,
   washroom_facilities, power_available, water_available, safety_rating,
-  safety_last_inspection, seasonal_use, tags, metadata
+  safety_last_inspection, seasonal_use, metadata
 ) VALUES
 ('solar-install-1847-sheridan', 'HHS-SOL-1847', 'Solar Install - 1847 Sheridan Park Dr',
  'Temporary project worksite for residential solar panel installation with equipment staging and crew coordination',
@@ -254,19 +247,17 @@ INSERT INTO app.d_worksite (
  'B+',
  CURRENT_DATE - INTERVAL '7 days',
  false,
- '["project", "solar", "residential", "temporary"]'::jsonb,
  '{
    "project_specific": true, "solar_installation": true, "residential_client": true,
    "equipment_staging": true, "temporary_setup": true, "client_property": true
  }'::jsonb);
 
 -- Commercial Landscaping Project Worksite
-INSERT INTO app.d_worksite (
-  slug, code, name, "descr", worksite_type, addr, postal_code,
+INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage, vehicle_parking,
   security_required, indoor_space_sqft, outdoor_space_sqft, office_space,
   washroom_facilities, power_available, water_available, safety_rating,
-  safety_last_inspection, seasonal_use, tags, metadata
+  safety_last_inspection, seasonal_use, metadata
 ) VALUES
 ('landscaping-square-one', 'HHS-LAND-SQ1', 'Landscaping - Square One Plaza',
  'Commercial landscaping project worksite for Square One Shopping Centre plaza renovation and maintenance',
@@ -288,19 +279,17 @@ INSERT INTO app.d_worksite (
  'A',
  CURRENT_DATE - INTERVAL '10 days',
  false,
- '["project", "commercial", "landscaping", "plaza"]'::jsonb,
  '{
    "commercial_project": true, "high_visibility": true, "public_access": true,
    "retail_environment": true, "premium_standards": true, "ongoing_maintenance": true
  }'::jsonb);
 
 -- Equipment Storage and Maintenance Facility
-INSERT INTO app.d_worksite (
-  slug, code, name, "descr", worksite_type, addr, postal_code,
+INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage, vehicle_parking,
   security_required, indoor_space_sqft, outdoor_space_sqft, office_space,
   washroom_facilities, power_available, water_available, safety_rating,
-  safety_last_inspection, seasonal_use, tags, metadata
+  safety_last_inspection, seasonal_use, metadata
 ) VALUES
 ('equipment-storage-meadowvale', 'HHS-EQUIP-MV', 'Equipment Storage - Meadowvale',
  'Dedicated equipment storage and maintenance facility for landscaping and technical service equipment',
@@ -322,7 +311,6 @@ INSERT INTO app.d_worksite (
  'A',
  CURRENT_DATE - INTERVAL '20 days',
  false,
- '["storage", "equipment", "maintenance", "secure"]'::jsonb,
  '{
    "equipment_storage": true, "maintenance_facility": true, "secure_compound": true,
    "inventory_management": true, "repair_capabilities": true, "parts_storage": true

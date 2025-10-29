@@ -45,8 +45,7 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
   // Initialize formData with default values based on field types
   const getDefaultFormData = () => {
     const defaults: Record<string, any> = {
-      active_flag: true,
-      tags: []
+      active_flag: true
     };
 
     // Set defaults for required fields based on entity type
@@ -68,18 +67,15 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
     if (entityType === 'artifact') {
       const timestamp = Date.now();
       defaults.code = defaults.code || `ART-${timestamp}`;
-      defaults.slug = defaults.slug || `artifact-${timestamp}`;
     } else if (entityType === 'cost') {
       const timestamp = Date.now();
       defaults.code = defaults.code || `CST-${timestamp}`;
-      defaults.slug = defaults.slug || `cost-${timestamp}`;
       defaults.cost_code = defaults.cost_code || `COST-${timestamp}`;
       defaults.invoice_currency = defaults.invoice_currency || 'CAD';
       defaults.exch_rate = defaults.exch_rate || 1.0;
     } else if (entityType === 'revenue') {
       const timestamp = Date.now();
       defaults.code = defaults.code || `REV-${timestamp}`;
-      defaults.slug = defaults.slug || `revenue-${timestamp}`;
       defaults.revenue_code = defaults.revenue_code || `REV-${timestamp}`;
       defaults.invoice_currency = defaults.invoice_currency || 'CAD';
       defaults.exch_rate = defaults.exch_rate || 1.0;

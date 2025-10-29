@@ -400,7 +400,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
     // Auto-generate required fields if missing
     if (!data.name) data.name = 'Untitled';
-    if (!data.slug) data.slug = `task-${Date.now()}`;
+    // Removed slug - not in d_task schema
     if (!data.code) data.code = `TASK-${Date.now()}`;
 
     // Direct RBAC check for task create permission
@@ -422,17 +422,15 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Create task using actual DDL structure (matches 19_d_task.ddl)
       const result = await db.execute(sql`
         INSERT INTO app.d_task (
-          slug, code, name, descr, tags, metadata,
+          code, name, descr, metadata,
           stage, priority_level,
           estimated_hours, actual_hours, story_points,
           active_flag
         )
         VALUES (
-          ${data.slug},
-          ${data.code},
-          ${data.name},
+          ${data.code || `TASK-${Date.now()}`},
+          ${data.name || 'Untitled Task'},
           ${data.descr || null},
-          ${data.tags ? JSON.stringify(data.tags) : '[]'}::jsonb,
           ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
           ${data.stage || null},
           ${data.priority_level || 'medium'},
@@ -453,7 +451,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Register the task in d_entity_instance_id for global entity operations
       await db.execute(sql`
         INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-        VALUES ('task', ${newTask.id}::uuid, ${newTask.name}, ${newTask.slug}, ${newTask.code})
+        VALUES ('task', ${newTask.id}::uuid, ${newTask.name}, ${newTask.code}, ${newTask.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name,
             entity_slug = EXCLUDED.entity_slug,
@@ -532,11 +530,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Update only fields that exist in d_task DDL (19_d_task.ddl)
       if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
       if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
-      if (data.slug !== undefined) updateFields.push(sql`slug = ${data.slug}`);
       if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
       if (data.internal_url !== undefined) updateFields.push(sql`internal_url = ${data.internal_url}`);
       if (data.shared_url !== undefined) updateFields.push(sql`shared_url = ${data.shared_url}`);
-      if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
       if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
       if (data.stage !== undefined) updateFields.push(sql`stage = ${data.stage}`);
       if (data.priority_level !== undefined) updateFields.push(sql`priority_level = ${data.priority_level}`);
@@ -564,12 +560,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       const updatedTask = result[0] as any;
 
-      // Sync with d_entity_instance_id registry when name/slug/code changes
-      if (data.name !== undefined || data.slug !== undefined || data.code !== undefined) {
+      // Sync with d_entity_instance_id registry when name/code changes
+      if (data.name !== undefined || data.code !== undefined) {
         await db.execute(sql`
           UPDATE app.d_entity_instance_id
           SET entity_name = ${updatedTask.name},
-              entity_slug = ${updatedTask.slug},
+              entity_slug = ${updatedTask.code},
               entity_code = ${updatedTask.code},
               updated_ts = NOW()
           WHERE entity_type = 'task' AND entity_id = ${id}::uuid

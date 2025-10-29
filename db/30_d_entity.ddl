@@ -19,8 +19,8 @@
 -- API SEMANTICS & LIFECYCLE:
 --
 -- 1. GET ENTITY TYPE METADATA
---    • Endpoint: GET /api/v1/entity/type/:entity_type
---    • Database: SELECT * FROM d_entity WHERE entity_type=$1
+--    • Endpoint: GET /api/v1/entity/type/:code
+--    • Database: SELECT * FROM d_entity WHERE code=$1
 --    • Returns: Entity type with icon, label, child_entities array
 --    • Frontend: Used for dynamic tab generation, navigation
 --
@@ -31,8 +31,8 @@
 --    • Frontend: Used for entity type pickers, navigation menus
 --
 -- 3. GET CHILD ENTITY TYPES FOR PARENT
---    • Endpoint: GET /api/v1/entity/type/:entity_type/children
---    • Database: SELECT child_entities FROM d_entity WHERE entity_type=$1
+--    • Endpoint: GET /api/v1/entity/type/:code/children
+--    • Database: SELECT child_entities FROM d_entity WHERE code=$1
 --    • Returns: Array of child entity metadata with icons and labels
 --    • Frontend: DynamicChildEntityTabs component
 --
@@ -61,9 +61,8 @@
 --   shipment           → (no children - leaf node)
 --
 -- KEY FIELDS:
--- • entity_type: Entity type identifier ('office', 'business', 'project', 'task', etc.)
--- • entity_name: Display name for the entity type (Office, Business, Project, Task, etc.)
--- • entity_slug: URL-friendly identifier
+-- • code: Entity type identifier ('office', 'business', 'project', 'task', etc.)
+-- • name: Display name for the entity type (Office, Business, Project, Task, etc.)
 -- • ui_label: UI display label for the entity type plural (Offices, Businesses, Projects, Tasks, etc.)
 -- • ui_icon: Lucide icon name (e.g., 'FolderOpen', 'CheckSquare', 'Users')
 -- • child_entities: JSONB array of child entity metadata
@@ -79,9 +78,8 @@
 -- =====================================================
 
 CREATE TABLE app.d_entity (
-    entity_type varchar(50) NOT NULL PRIMARY KEY,
-    entity_name varchar(100) NOT NULL,
-    entity_slug varchar(100) NOT NULL,
+    code varchar(50) NOT NULL PRIMARY KEY,
+    name varchar(100) NOT NULL,
     ui_label varchar(100) NOT NULL,
     ui_icon varchar(50),
     child_entities jsonb DEFAULT '[]'::jsonb,
@@ -97,7 +95,8 @@ CREATE INDEX idx_d_entity_display_order ON app.d_entity(display_order);
 CREATE INDEX idx_d_entity_child_entities_gin ON app.d_entity USING gin(child_entities);
 
 COMMENT ON TABLE app.d_entity IS 'Entity TYPE metadata with parent-child relationships and icons - single source of truth for entity type definitions';
-COMMENT ON COLUMN app.d_entity.entity_type IS 'Entity type identifier (office, business, project, task, etc.)';
+COMMENT ON COLUMN app.d_entity.code IS 'Entity type identifier (office, business, project, task, etc.)';
+COMMENT ON COLUMN app.d_entity.name IS 'Entity name (Office, Business, Project, Task, etc.)';
 COMMENT ON COLUMN app.d_entity.ui_label IS 'UI display label for entity type plural (Offices, Businesses, Projects, Tasks, etc.)';
 COMMENT ON COLUMN app.d_entity.ui_icon IS 'Lucide icon name for UI display (FolderOpen, CheckSquare, Users, etc.)';
 COMMENT ON COLUMN app.d_entity.child_entities IS 'JSONB array of child entity metadata: [{"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1}]';
@@ -108,11 +107,10 @@ COMMENT ON COLUMN app.d_entity.child_entities IS 'JSONB array of child entity me
 -- =====================================================
 
 -- Office entity type (has 6 child types)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'office',
   'Office',
-  'office',
   'Offices',
   'MapPin',
   '[
@@ -127,11 +125,10 @@ VALUES (
 );
 
 -- Business entity type (has 3 child types)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'business',
   'Business',
-  'business',
   'Businesses',
   'Building2',
   '[
@@ -143,11 +140,10 @@ VALUES (
 );
 
 -- Project entity type (has 6 child types)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'project',
   'Project',
-  'project',
   'Projects',
   'FolderOpen',
   '[
@@ -162,11 +158,10 @@ VALUES (
 );
 
 -- Task entity type (has 4 child types)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'task',
   'Task',
-  'task',
   'Tasks',
   'CheckSquare',
   '[
@@ -179,11 +174,10 @@ VALUES (
 );
 
 -- Customer entity type (has 5 child types)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'cust',
   'Customer',
-  'cust',
   'Customers',
   'Users',
   '[
@@ -197,11 +191,10 @@ VALUES (
 );
 
 -- Role entity type (has 1 child type)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'role',
   'Role',
-  'role',
   'Roles',
   'UserCheck',
   '[
@@ -211,11 +204,10 @@ VALUES (
 );
 
 -- Form entity type (has 1 child type)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'form',
   'Form',
-  'form',
   'Forms',
   'FileText',
   '[
@@ -225,11 +217,10 @@ VALUES (
 );
 
 -- Employee entity type (leaf node - no children)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'employee',
   'Employee',
-  'employee',
   'Employees',
   'Users',
   '[]'::jsonb,
@@ -237,11 +228,10 @@ VALUES (
 );
 
 -- Wiki entity type (leaf node - no children)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'wiki',
   'Wiki',
-  'wiki',
   'Wiki Pages',
   'BookOpen',
   '[]'::jsonb,
@@ -249,11 +239,10 @@ VALUES (
 );
 
 -- Artifact entity type (leaf node - no children)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'artifact',
   'Artifact',
-  'artifact',
   'Artifacts',
   'FileText',
   '[]'::jsonb,
@@ -261,11 +250,10 @@ VALUES (
 );
 
 -- Worksite entity type (leaf node - no children)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'worksite',
   'Worksite',
-  'worksite',
   'Worksites',
   'MapPin',
   '[]'::jsonb,
@@ -273,11 +261,10 @@ VALUES (
 );
 
 -- Position entity type (leaf node - no children)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'position',
   'Position',
-  'position',
   'Positions',
   'Briefcase',
   '[]'::jsonb,
@@ -285,11 +272,10 @@ VALUES (
 );
 
 -- Reports entity type (leaf node - no children)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'reports',
   'Reports',
-  'reports',
   'Reports',
   'BarChart',
   '[]'::jsonb,
@@ -297,11 +283,10 @@ VALUES (
 );
 
 -- Product entity type (leaf node - no children)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'product',
   'Product',
-  'product',
   'Products',
   'Package',
   '[]'::jsonb,
@@ -309,11 +294,10 @@ VALUES (
 );
 
 -- Inventory entity type (leaf node - no children)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'inventory',
   'Inventory',
-  'inventory',
   'Inventory',
   'Warehouse',
   '[]'::jsonb,
@@ -321,11 +305,10 @@ VALUES (
 );
 
 -- Order entity type (has 2 child types)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'order',
   'Order',
-  'order',
   'Orders',
   'ShoppingCart',
   '[
@@ -336,11 +319,10 @@ VALUES (
 );
 
 -- Invoice entity type (leaf node - no children)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'invoice',
   'Invoice',
-  'invoice',
   'Invoices',
   'Receipt',
   '[]'::jsonb,
@@ -348,11 +330,10 @@ VALUES (
 );
 
 -- Shipment entity type (leaf node - no children)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'shipment',
   'Shipment',
-  'shipment',
   'Shipments',
   'Truck',
   '[]'::jsonb,
@@ -360,11 +341,10 @@ VALUES (
 );
 
 -- Cost entity type (leaf node - no children)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'cost',
   'Cost',
-  'cost',
   'Costs',
   'DollarSign',
   '[]'::jsonb,
@@ -372,11 +352,10 @@ VALUES (
 );
 
 -- Revenue entity type (leaf node - no children)
-INSERT INTO app.d_entity (entity_type, entity_name, entity_slug, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'revenue',
   'Revenue',
-  'revenue',
   'Revenue',
   'TrendingUp',
   '[]'::jsonb,

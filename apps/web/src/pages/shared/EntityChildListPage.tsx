@@ -150,9 +150,7 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
           body: JSON.stringify({
             name: 'Untitled',  // Minimal placeholder - user will replace on edit page
             code: `${childType.toUpperCase()}-${timestamp}`,  // Auto-generated unique code
-            slug: `${childType}-${timestamp}`,  // Auto-generated unique slug
             descr: '',  // Empty - user will provide
-            tags: [],
             metadata: {}
           })
         }
@@ -349,7 +347,7 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
             <button
               onClick={handleCreateClick}
               disabled={loading}
-              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="h-4 w-4 mr-2 stroke-[1.5]" />
               {loading ? 'Creating...' : `Create ${config.displayName}`}

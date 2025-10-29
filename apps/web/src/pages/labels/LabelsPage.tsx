@@ -244,12 +244,12 @@ export function LabelsPage() {
                           No settings found matching "{searchQuery}"
                         </div>
                       ) : (
-                        filteredGroups.map((group) => {
+                        filteredGroups.map((group, idx) => {
                           const colorClasses = getColorClasses(group.color);
                           const GroupIcon = group.icon;
 
                           return (
-                            <div key={group.name} className="border-b border-gray-100 last:border-b-0">
+                            <div key={idx} className="border-b border-gray-100 last:border-b-0">
                               {/* Entity Group Header */}
                               <div className={`px-4 py-2 ${colorClasses.bg} ${colorClasses.border} border-b`}>
                                 <div className="flex items-center gap-2">

@@ -57,7 +57,7 @@ CREATE TABLE app.d_form_data (
     approval_status varchar(50), -- pending, approved, rejected
     approved_by_empid uuid,
     approval_notes text,
-    approved_at timestamptz,
+    approved_ts timestamptz,
 
     -- Temporal fields
     created_ts timestamptz DEFAULT now(),

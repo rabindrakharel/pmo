@@ -10,7 +10,76 @@ import { renderEmployeeNames } from '../../../lib/entityConfig';
 import { entityOptionsApi } from '../../../lib/api';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
-import { formatRelativeTime, formatFriendlyDate } from '../../../lib/dataTransformers';
+import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField } from '../../../lib/data_transform_render';
+import { MetadataTable } from './MetadataTable';
+
+/**
+ * Helper function to render badge with color based on field type and value
+ */
+function renderFieldBadge(fieldKey: string, value: string): React.ReactNode {
+  // Priority field colors
+  if (fieldKey.toLowerCase().includes('priority')) {
+    const colorMap: Record<string, string> = {
+      'high': 'bg-red-100 text-red-800',
+      'medium': 'bg-yellow-100 text-yellow-800',
+      'low': 'bg-green-100 text-green-800',
+      'critical': 'bg-red-200 text-red-900',
+      'urgent': 'bg-orange-100 text-orange-800'
+    };
+    const colorClass = colorMap[value.toLowerCase()] || 'bg-gray-100 text-gray-800';
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
+        {value}
+      </span>
+    );
+  }
+
+  // Stage field colors
+  if (fieldKey.toLowerCase().includes('stage')) {
+    const colorMap: Record<string, string> = {
+      'initiation': 'bg-blue-100 text-blue-800',
+      'planning': 'bg-indigo-100 text-indigo-800',
+      'execution': 'bg-purple-100 text-purple-800',
+      'monitoring': 'bg-yellow-100 text-yellow-800',
+      'closure': 'bg-green-100 text-green-800',
+      'backlog': 'bg-gray-100 text-gray-800',
+      'to do': 'bg-blue-100 text-blue-800',
+      'in progress': 'bg-purple-100 text-purple-800',
+      'in review': 'bg-yellow-100 text-yellow-800',
+      'done': 'bg-green-100 text-green-800',
+      'blocked': 'bg-red-100 text-red-800'
+    };
+    const colorClass = colorMap[value.toLowerCase()] || 'bg-gray-100 text-gray-800';
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
+        {value}
+      </span>
+    );
+  }
+
+  // Status field colors
+  if (fieldKey.toLowerCase().includes('status')) {
+    const colorMap: Record<string, string> = {
+      'active': 'bg-green-100 text-green-800',
+      'inactive': 'bg-gray-100 text-gray-800',
+      'pending': 'bg-yellow-100 text-yellow-800',
+      'completed': 'bg-green-100 text-green-800',
+      'cancelled': 'bg-red-100 text-red-800',
+      'draft': 'bg-gray-100 text-gray-800',
+      'published': 'bg-green-100 text-green-800',
+      'archived': 'bg-gray-300 text-gray-700'
+    };
+    const colorClass = colorMap[value.toLowerCase()] || 'bg-gray-100 text-gray-800';
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
+        {value}
+      </span>
+    );
+  }
+
+  // Default: just return text
+  return <span className="text-sm text-gray-700">{value}</span>;
+}
 
 /**
  * EntityFormContainer
@@ -127,7 +196,15 @@ export function EntityFormContainer({
       // Special handling for timestamp fields (created_at, updated_at, created_ts, updated_ts)
       if (field.type === 'timestamp' && value) {
         return (
-          <span className="text-sm text-gray-600" title={formatFriendlyDate(value)}>
+          <span
+            className="text-gray-600"
+            title={formatFriendlyDate(value)}
+            style={{
+              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '14px',
+              letterSpacing: '-0.01em'
+            }}
+          >
             {formatRelativeTime(value)}
           </span>
         );
@@ -165,7 +242,18 @@ export function EntityFormContainer({
 
       // Regular date field rendering
       if (field.type === 'date' && value) {
-        return formatFriendlyDate(value);
+        return (
+          <span
+            className="text-gray-700"
+            style={{
+              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '14px',
+              letterSpacing: '-0.01em'
+            }}
+          >
+            {formatFriendlyDate(value)}
+          </span>
+        );
       }
       if (field.type === 'select') {
         // Use sequential state visualizer for workflow stages/funnels
@@ -180,10 +268,55 @@ export function EntityFormContainer({
         }
 
         const option = options.find((opt: any) => String(opt.value) === String(value));
-        return option?.label || (value ?? '-');
+        const displayValue = option?.label || value;
+
+        if (!displayValue) return (
+          <span
+            className="text-gray-400"
+            style={{
+              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '14px',
+              letterSpacing: '-0.01em'
+            }}
+          >
+            -
+          </span>
+        );
+
+        // Render badge for priority, stage, status fields
+        if (field.key.toLowerCase().includes('priority') ||
+            field.key.toLowerCase().includes('stage') ||
+            field.key.toLowerCase().includes('status')) {
+          return renderFieldBadge(field.key, displayValue);
+        }
+
+        return (
+          <span
+            className="text-gray-700"
+            style={{
+              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '14px',
+              letterSpacing: '-0.01em'
+            }}
+          >
+            {displayValue}
+          </span>
+        );
       }
       if (field.type === 'textarea' || field.type === 'richtext') {
-        return <div className="whitespace-pre-wrap">{value || '-'}</div>;
+        return (
+          <div
+            className="whitespace-pre-wrap text-gray-700"
+            style={{
+              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '14px',
+              letterSpacing: '-0.01em',
+              lineHeight: '1.6'
+            }}
+          >
+            {value || '-'}
+          </div>
+        );
       }
       if (field.type === 'array' && Array.isArray(value)) {
         return (
@@ -196,24 +329,85 @@ export function EntityFormContainer({
           </div>
         );
       }
-      if (field.type === 'jsonb' && value) {
+      if (field.type === 'jsonb') {
+        // Use MetadataTable for metadata field, raw JSON for others
+        if (field.key === 'metadata') {
+          return <MetadataTable value={value || {}} isEditing={false} />;
+        }
+        // Other JSONB fields show as formatted JSON
+        if (value) {
+          return (
+            <pre
+              className="font-mono bg-gray-50 p-2 rounded overflow-auto max-h-40"
+              style={{
+                fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                fontSize: '13px',
+                color: '#333'
+              }}
+            >
+              {JSON.stringify(value, null, 2)}
+            </pre>
+          );
+        }
+        return <span className="text-gray-400">No data</span>;
+      }
+      if (field.type === 'number') {
+        // Auto-detect and format currency fields
+        if (isCurrencyField(field.key)) {
+          return (
+            <span
+              className="text-gray-700 font-medium"
+              style={{
+                fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                fontSize: '14px',
+                letterSpacing: '-0.01em'
+              }}
+            >
+              {formatCurrency(value)}
+            </span>
+          );
+        }
+        // Handle explicit prefix (deprecated, use isCurrencyField instead)
+        if (field.prefix) {
+          return (
+            <span
+              className="text-gray-700"
+              style={{
+                fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                fontSize: '14px',
+                letterSpacing: '-0.01em'
+              }}
+            >
+              {`${field.prefix}${value || 0}`}
+            </span>
+          );
+        }
+        // Regular number
         return (
-          <pre
-            className="font-mono bg-gray-50 p-2 rounded overflow-auto max-h-40"
+          <span
+            className="text-gray-700"
             style={{
-              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '13px',
-              color: '#333'
+              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+              fontSize: '14px',
+              letterSpacing: '-0.01em'
             }}
           >
-            {JSON.stringify(value, null, 2)}
-          </pre>
+            {value || '-'}
+          </span>
         );
       }
-      if (field.type === 'number' && field.prefix) {
-        return `${field.prefix}${value || 0}`;
-      }
-      return value || '-';
+      return (
+        <span
+          className="text-gray-700"
+          style={{
+            fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+            fontSize: '14px',
+            letterSpacing: '-0.01em'
+          }}
+        >
+          {value || '-'}
+        </span>
+      );
     }
 
     // Edit mode
@@ -226,13 +420,14 @@ export function EntityFormContainer({
             type={field.type}
             value={value || ''}
             onChange={(e) => onChange(field.key, e.target.value)}
-            className={`w-full border-0 focus:ring-0 focus:outline-none transition-all duration-200 bg-transparent px-0 py-0 ${
-              field.readonly ? 'cursor-not-allowed text-gray-400' : 'text-gray-900'
+            className={`w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 ${
+              field.readonly ? 'cursor-not-allowed text-gray-400' : 'text-gray-900 placeholder:text-gray-400/60 hover:placeholder:text-gray-500/80'
             }`}
             style={{
               fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '14px',
-              letterSpacing: '-0.01em'
+              letterSpacing: '-0.01em',
+              fontWeight: '400'
             }}
             placeholder={field.placeholder}
             disabled={field.disabled || field.readonly}
@@ -246,12 +441,13 @@ export function EntityFormContainer({
             value={value || ''}
             onChange={(e) => onChange(field.key, e.target.value)}
             rows={field.type === 'richtext' ? 6 : 4}
-            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-200 bg-transparent px-0 py-0 resize-none text-gray-900"
+            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 resize-none text-gray-900 placeholder:text-gray-400/60 hover:placeholder:text-gray-500/80"
             style={{
               fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '14px',
               letterSpacing: '-0.01em',
-              lineHeight: '1.6'
+              lineHeight: '1.6',
+              fontWeight: '400'
             }}
             placeholder={field.placeholder}
             disabled={field.disabled || field.readonly}
@@ -265,16 +461,28 @@ export function EntityFormContainer({
             value={Array.isArray(value) ? value.join(', ') : ''}
             onChange={(e) => onChange(field.key, e.target.value.split(',').map(v => v.trim()).filter(Boolean))}
             placeholder={field.placeholder || "Enter comma-separated values"}
-            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-200 bg-transparent px-0 py-0 text-gray-900"
+            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-gray-900 placeholder:text-gray-400/60 hover:placeholder:text-gray-500/80"
             style={{
               fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '14px',
-              letterSpacing: '-0.01em'
+              letterSpacing: '-0.01em',
+              fontWeight: '400'
             }}
             disabled={field.disabled || field.readonly}
           />
         );
       case 'jsonb':
+        // Use MetadataTable for metadata field in edit mode
+        if (field.key === 'metadata') {
+          return (
+            <MetadataTable
+              value={value || {}}
+              onChange={(newValue) => onChange(field.key, newValue)}
+              isEditing={true}
+            />
+          );
+        }
+        // Other JSONB fields use textarea with JSON
         return (
           <textarea
             value={value ? JSON.stringify(value, null, 2) : ''}
@@ -320,16 +528,17 @@ export function EntityFormContainer({
               }
               onChange(field.key, newValue === '' ? undefined : newValue);
             }}
-            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-200 bg-transparent px-0 py-0 text-gray-900 cursor-pointer"
+            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-gray-900 cursor-pointer hover:text-blue-700"
             style={{
               fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '14px',
-              letterSpacing: '-0.01em'
+              letterSpacing: '-0.01em',
+              fontWeight: '400'
             }}
             disabled={field.disabled || field.readonly}
             required={field.required && mode === 'create'}
           >
-            <option value="">Select...</option>
+            <option value="" className="text-gray-400">Select...</option>
             {options.map((opt: any) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
@@ -360,11 +569,12 @@ export function EntityFormContainer({
             type="date"
             value={value ? new Date(value).toISOString().split('T')[0] : ''}
             onChange={(e) => onChange(field.key, e.target.value)}
-            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-200 bg-transparent px-0 py-0 text-gray-900 cursor-pointer"
+            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-gray-900 cursor-pointer hover:text-blue-700"
             style={{
               fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '14px',
-              letterSpacing: '-0.01em'
+              letterSpacing: '-0.01em',
+              fontWeight: '400'
             }}
             disabled={field.disabled || field.readonly}
             required={field.required && mode === 'create'}
@@ -385,14 +595,14 @@ export function EntityFormContainer({
     }
   };
 
-  // Exclude name, code, slug, id from form (they're in the page header now)
+  // Exclude name, code, slug, id, tags, created_ts, updated_ts from form (they're in the page header now)
   // But keep description/descr field
-  const excludedFields = ['name', 'title', 'code', 'slug', 'id'];
+  const excludedFields = ['name', 'title', 'code', 'slug', 'id', 'tags', 'created_ts', 'updated_ts'];
   const visibleFields = config.fields.filter(f => !excludedFields.includes(f.key));
 
   return (
-    <div className="bg-gradient-to-br from-white via-white to-gray-50/30 rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="p-4">
+    <div className="bg-gradient-to-br from-white via-white to-blue-50/5 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.03),0_8px_24px_-8px_rgba(0,0,0,0.04)] overflow-hidden backdrop-blur-sm border border-gray-100/50">
+      <div className="p-6">
         <div className="space-y-0">
           {visibleFields.map((field, index) => {
             // Hide start_date fields if we have both start and end dates (they'll render together)
@@ -410,23 +620,25 @@ export function EntityFormContainer({
             <div key={field.key}>
               {index > 0 && (
                 <div
-                  className="h-px my-0.75"
+                  className="h-px my-1.5 opacity-60"
                   style={{
-                    backgroundImage: 'repeating-linear-gradient(90deg, rgba(209, 213, 219, 0.15) 0px, rgba(209, 213, 219, 0.15) 4px, transparent 4px, transparent 8px)'
+                    backgroundImage: 'linear-gradient(90deg, transparent, rgba(209, 213, 219, 0.2) 50%, transparent)'
                   }}
                 />
               )}
-              <div className="group transition-all duration-200 ease-out py-0.75"
+              <div className="group transition-all duration-300 ease-out py-1"
             >
               <div className="grid grid-cols-[160px_1fr] gap-4 items-start">
                 <label
-                  className="text-xs font-medium text-gray-500 pt-1 flex items-center gap-1.5"
+                  className="text-xs font-medium text-gray-500 pt-2 flex items-center gap-1.5"
                   style={{
                     fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                    letterSpacing: '-0.01em'
+                    letterSpacing: '0.01em',
+                    textTransform: 'uppercase',
+                    fontSize: '11px'
                   }}
                 >
-                  <span className="opacity-60 group-hover:opacity-100 transition-opacity">
+                  <span className="opacity-50 group-hover:opacity-100 transition-all duration-300 group-hover:text-blue-600">
                     {/* Show "Date Range" label when displaying both start and end dates together */}
                     {field.key === 'end_date' && data.start_date && !isEditing ? 'Date Range' :
                      field.key === 'planned_end_date' && data.planned_start_date && !isEditing ? 'Planned Date Range' :
@@ -434,16 +646,16 @@ export function EntityFormContainer({
                      field.label}
                   </span>
                   {field.required && mode === 'create' && (
-                    <span className="text-rose-400 text-xs">*</span>
+                    <span className="text-rose-400 text-xs animate-pulse">*</span>
                   )}
                 </label>
                 <div
                   className={`
-                    relative break-words rounded-lg px-2.5 py-1 -ml-2.5
-                    transition-all duration-200
+                    relative break-words rounded-md px-3 py-2 -ml-3
+                    transition-all duration-300 ease-out
                     ${isEditing
-                      ? 'bg-white/80 border border-gray-200 hover:border-blue-300 hover:shadow-sm focus-within:border-blue-400 focus-within:shadow-md focus-within:bg-white'
-                      : 'border border-transparent hover:bg-gray-50/50'
+                      ? 'bg-gradient-to-br from-gray-50/50 via-white/50 to-gray-50/30 hover:from-blue-50/30 hover:via-white/70 hover:to-blue-50/20 hover:shadow-[0_0_0_1px_rgba(59,130,246,0.1),0_2px_8px_-2px_rgba(59,130,246,0.08)] focus-within:from-white focus-within:via-white focus-within:to-blue-50/20 focus-within:shadow-[0_0_0_1px_rgba(59,130,246,0.25),0_4px_16px_-4px_rgba(59,130,246,0.15),0_0_24px_-8px_rgba(96,165,250,0.2)] focus-within:scale-[1.002]'
+                      : 'hover:bg-gradient-to-br hover:from-gray-50/40 hover:via-white/20 hover:to-gray-50/30'
                     }
                   `}
                   style={{
@@ -451,7 +663,7 @@ export function EntityFormContainer({
                     fontSize: '13px',
                     color: '#1f2937',
                     letterSpacing: '-0.01em',
-                    lineHeight: '1.4'
+                    lineHeight: '1.5'
                   }}
                 >
                   {renderField(field)}

@@ -196,7 +196,7 @@ export function InlineFileUploadCell({
       className={`
         relative min-h-[40px] px-2 py-1 rounded border-2 border-dashed
         transition-all cursor-pointer
-        ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'}
+        ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-300'}
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
         ${uploadError ? 'border-red-300 bg-red-50' : ''}
       `}

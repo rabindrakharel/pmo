@@ -86,7 +86,7 @@ export function SearchableMultiSelect({
         className={`
           min-h-[38px] w-full border border-gray-300 rounded-md bg-white px-3 py-2
           flex flex-wrap gap-1 items-center cursor-pointer
-          ${disabled || readonly ? 'bg-gray-50 cursor-not-allowed' : 'hover:border-gray-400'}
+          ${disabled || readonly ? 'bg-gray-50 cursor-not-allowed' : 'hover:border-gray-300'}
           ${isOpen ? 'ring-2 ring-blue-500 border-blue-500' : ''}
         `}
       >

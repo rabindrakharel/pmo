@@ -491,7 +491,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
                     className={`flex items-center gap-1 px-2 py-1 rounded border text-xs font-normal transition-all ${
                       selectedEntityType === type
                         ? 'bg-blue-50 border-blue-400 text-blue-700 shadow-sm'
-                        : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
+                        : 'bg-white border-gray-300 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
                     }`}
                   >
                     <IconComponent className="h-3 w-3 stroke-[1.5]" />
@@ -523,7 +523,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={`Search ${selectedEntityType} by name...`}
-              className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-400 focus:ring-0"
+              className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-300 focus:ring-0"
             />
           </div>
         )}

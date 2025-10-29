@@ -1,10 +1,53 @@
 import React from 'react';
+import {
+  SETTINGS_REGISTRY,
+  createSettingsEntityConfig,
+  renderColorBadge,
+  renderSettingBadge,
+  applySettingsBadgeRenderers
+} from './settingsConfig';
 
 /**
- * Entity Configuration System
+ * ============================================================================
+ * ENTITY CONFIGURATION SYSTEM - "WHAT" (Schema & Structure)
+ * ============================================================================
  *
- * Centralized configuration for all 13 core entities in the PMO system.
- * Defines columns, fields, views, and relationships for each entity type.
+ * ARCHITECTURAL ROLE: Declarative schema definition for all entities
+ *
+ * This file defines WHAT data exists and HOW it's structured:
+ * - Entity metadata (name, displayName, apiEndpoint)
+ * - Column definitions (what fields appear in tables)
+ * - Field definitions (what can be edited in forms)
+ * - View configurations (table, kanban, grid)
+ * - Relationships (parent-child, hierarchies)
+ *
+ * WHAT THIS FILE DOES:
+ * ✅ Declares the structure of 18+ entity types
+ * ✅ Defines which fields exist on each entity
+ * ✅ Specifies UI metadata (labels, types, options)
+ * ✅ Configures view modes and capabilities
+ *
+ * WHAT THIS FILE DOES NOT DO:
+ * ❌ Does NOT transform data (see data_transform_render.ts)
+ * ❌ Does NOT detect field capabilities (see data_transform_render.ts)
+ * ❌ Does NOT render UI components (see data_transform_render.ts)
+ * ❌ Does NOT process or validate data (see data_transform_render.ts)
+ *
+ * SEPARATION OF CONCERNS:
+ * - entityConfig.ts        = WHAT (this file) - Schema definition (declarative)
+ * - data_transform_render.ts = HOW             - Data behavior (imperative)
+ *
+ * Think of it as:
+ * - entityConfig.ts        = Database schema / Type definitions
+ * - data_transform_render.ts = Business logic / Data processing
+ *
+ * USAGE:
+ * ```typescript
+ * import { entityConfigs } from './entityConfig';
+ * const projectConfig = entityConfigs.project;
+ * // projectConfig.fields tells you WHAT fields exist
+ * // data_transform_render.ts tells you HOW to process them
+ * ```
  */
 
 // ============================================================================
@@ -113,7 +156,7 @@ export interface EntityConfig {
 // Helper Functions for Column Renderers
 // ============================================================================
 
-import { formatRelativeTime, formatFriendlyDate } from './dataTransformers';
+import { formatRelativeTime, formatFriendlyDate } from './data_transform_render';
 
 export const formatDate = (dateString?: string) => {
   if (!dateString) return '-';
@@ -145,6 +188,8 @@ export const renderBadge = (value: string, colorMap: Record<string, string>): Re
     value
   );
 };
+
+// renderColorBadge is now imported from settingsConfig.ts
 
 export const renderTags = (tags?: string[] | string): React.ReactElement | null => {
   // Handle both array and JSON string formats
@@ -230,6 +275,241 @@ export const renderEmployeeNames = (names?: string[] | string, record?: any): Re
 };
 
 // ============================================================================
+// CENTRALIZED FIELD TYPE DETECTION & FORMATTING (DRY SYSTEM)
+// ============================================================================
+/**
+ * Auto-detects field types from STRICT naming patterns and applies consistent widths.
+ * The data model uses strict, predictable naming conventions.
+ *
+ * STRICT PATTERN RULES:
+ * - Currency ALWAYS contains _amt (budget_allocated_amt, unit_price_amt)
+ * - Dates ALWAYS contain _date (start_date, end_date, planned_start_date)
+ * - Timestamps ALWAYS contain _ts (created_ts, updated_ts)
+ * - Stages ALWAYS contain _stage (project_stage, task_stage)
+ * - Status ALWAYS contains _status (publication_status, client_status)
+ * - Priority ALWAYS contains _priority (priority_level, task_priority)
+ * - Levels ALWAYS contain _level (office_level, business_level)
+ * - Tiers ALWAYS contain _tier (customer_tier, service_tier)
+ * - Types ALWAYS contain _type (wiki_type, artifact_type)
+ * - Flags ALWAYS contain _flag or start with is_ (active_flag, is_active)
+ * - Metadata is exactly "metadata" or "attr"
+ * - Attachments are exactly "attachment", "object_key", or "file_path"
+ *
+ * NO fuzzy matching, NO guessing. The database IS strict, so detection IS strict.
+ */
+
+export enum FieldCategory {
+  // Text fields
+  TEXT_LONG = 'TEXT_LONG',           // name, title, descr, addr → 250px
+  TEXT_MEDIUM = 'TEXT_MEDIUM',       // code, email, phone → 140px
+  TEXT_SHORT = 'TEXT_SHORT',         // abbreviations → 100px (unused)
+
+  // Numeric fields
+  NUMBER_CURRENCY = 'NUMBER_CURRENCY', // contains _amt → 120px
+  NUMBER_MEDIUM = 'NUMBER_MEDIUM',     // _hours, _qty, _count → 100px
+  NUMBER_SHORT = 'NUMBER_SHORT',       // id, sort_order → 80px (unused)
+
+  // Temporal fields
+  DATE = 'DATE',                     // contains _date → 110px
+  TIMESTAMP = 'TIMESTAMP',           // contains _ts → 100px
+
+  // Label/Badge fields (settings-driven)
+  LABEL = 'LABEL',                   // _stage, _status, _priority, _level, _tier, _type → 120px
+
+  // Boolean fields
+  FLAG = 'FLAG',                     // _flag, is_ → 90px
+
+  // Complex fields
+  METADATA = 'METADATA',             // metadata, attr → hidden (JSONB)
+  TAGS = 'TAGS',                     // tags, keywords → 180px
+  ASSIGNEES = 'ASSIGNEES',           // employee, assignee → 180px
+
+  // File/Attachment fields
+  ATTACHMENT = 'ATTACHMENT',         // attachment, object_key → 220px
+  ATTACHMENT_FORMAT = 'ATTACHMENT_FORMAT',  // attachment_format, file_format → 90px
+  ATTACHMENT_SIZE = 'ATTACHMENT_SIZE',      // attachment_size_bytes → 90px
+
+  // Relationship fields
+  ENTITY_LINK = 'ENTITY_LINK',       // ends with _id (not 'id' itself) → 110px
+
+  // Misc
+  CATEGORY = 'CATEGORY',             // category, department, class → 140px
+  DEFAULT = 'DEFAULT'                // Fallback → auto width
+}
+
+/**
+ * Maps field categories to their standard column widths
+ */
+export const FIELD_WIDTHS: Record<FieldCategory, string | undefined> = {
+  [FieldCategory.TEXT_LONG]: '250px',
+  [FieldCategory.TEXT_MEDIUM]: '140px',
+  [FieldCategory.TEXT_SHORT]: '100px',
+  [FieldCategory.NUMBER_CURRENCY]: '120px',
+  [FieldCategory.NUMBER_MEDIUM]: '100px',
+  [FieldCategory.NUMBER_SHORT]: '80px',
+  [FieldCategory.DATE]: '110px',
+  [FieldCategory.TIMESTAMP]: '100px',
+  [FieldCategory.LABEL]: '120px',
+  [FieldCategory.FLAG]: '90px',
+  [FieldCategory.METADATA]: undefined, // Hidden by default
+  [FieldCategory.TAGS]: '180px',
+  [FieldCategory.ASSIGNEES]: '180px',
+  [FieldCategory.ATTACHMENT]: '220px',
+  [FieldCategory.ATTACHMENT_FORMAT]: '90px',
+  [FieldCategory.ATTACHMENT_SIZE]: '90px',
+  [FieldCategory.ENTITY_LINK]: '110px',
+  [FieldCategory.CATEGORY]: '140px',
+  [FieldCategory.DEFAULT]: undefined // Auto width
+};
+
+/**
+ * Detects field category from field name using STRICT data model conventions
+ *
+ * The database follows strict naming patterns:
+ * - Currency ALWAYS contains _amt
+ * - Dates ALWAYS contain _date
+ * - Timestamps ALWAYS contain _ts
+ * - Stages ALWAYS contain _stage
+ * - Priority ALWAYS contains _priority
+ * - etc.
+ *
+ * This function uses STRICT pattern matching because the data model IS strict.
+ */
+export function detectFieldCategory(fieldKey: string): FieldCategory {
+  const key = fieldKey.toLowerCase();
+
+  // ========== STRICT PATTERNS FROM DATA MODEL ==========
+
+  // Currency: ALWAYS contains _amt (budget_allocated_amt, unit_price_amt, etc.)
+  if (key.includes('_amt')) {
+    return FieldCategory.NUMBER_CURRENCY;
+  }
+
+  // Date: ALWAYS contains _date (start_date, end_date, planned_start_date, etc.)
+  if (key.includes('_date')) {
+    return FieldCategory.DATE;
+  }
+
+  // Timestamp: ALWAYS contains _ts (created_ts, updated_ts, etc.)
+  if (key.includes('_ts')) {
+    return FieldCategory.TIMESTAMP;
+  }
+
+  // Stage: ALWAYS contains _stage (project_stage, task_stage, etc.)
+  if (key.includes('_stage')) {
+    return FieldCategory.LABEL;
+  }
+
+  // Status: ALWAYS contains _status (publication_status, client_status, etc.)
+  if (key.includes('_status')) {
+    return FieldCategory.LABEL;
+  }
+
+  // Priority: ALWAYS contains _priority (priority_level, task_priority, etc.)
+  if (key.includes('_priority')) {
+    return FieldCategory.LABEL;
+  }
+
+  // Level: ALWAYS contains _level (office_level, business_level, position_level, etc.)
+  if (key.includes('_level')) {
+    return FieldCategory.LABEL;
+  }
+
+  // Tier: ALWAYS contains _tier (customer_tier, service_tier, etc.)
+  if (key.includes('_tier')) {
+    return FieldCategory.LABEL;
+  }
+
+  // Type: ALWAYS contains _type (wiki_type, artifact_type, etc.)
+  if (key.includes('_type')) {
+    return FieldCategory.LABEL;
+  }
+
+  // Flag: ALWAYS contains _flag (active_flag, is_active, etc.)
+  if (key.includes('_flag') || key.startsWith('is_')) {
+    return FieldCategory.FLAG;
+  }
+
+  // ========== EXACT MATCHES ==========
+
+  // Metadata (JSONB key-value)
+  if (key === 'metadata' || key === 'attr') {
+    return FieldCategory.METADATA;
+  }
+
+  // Tags/Keywords (arrays)
+  if (key === 'tags' || key === 'keywords') {
+    return FieldCategory.TAGS;
+  }
+
+  // Category fields
+  if (key === 'category' || key === 'department' || key === 'class' || key === 'subclass') {
+    return FieldCategory.CATEGORY;
+  }
+
+  // Text fields - long content
+  if (key === 'name' || key === 'title' || key === 'descr' || key === 'addr' || key === 'summary') {
+    return FieldCategory.TEXT_LONG;
+  }
+
+  // Text fields - medium identifiers
+  if (key === 'code' || key === 'slug' || key === 'email' || key === 'phone') {
+    return FieldCategory.TEXT_MEDIUM;
+  }
+
+  // Attachment fields
+  if (key === 'attachment' || key === 'object_key' || key === 'file_path') {
+    return FieldCategory.ATTACHMENT;
+  }
+  if (key === 'attachment_format' || key === 'file_format') {
+    return FieldCategory.ATTACHMENT_FORMAT;
+  }
+  if (key === 'attachment_size_bytes' || key === 'file_size_bytes') {
+    return FieldCategory.ATTACHMENT_SIZE;
+  }
+
+  // ========== PATTERN MATCHES (Secondary) ==========
+
+  // Assignees: contains employee or assignee
+  if (key.includes('employee') || key.includes('assignee')) {
+    return FieldCategory.ASSIGNEES;
+  }
+
+  // Security/visibility classifications
+  if (key.includes('visibility') || key.includes('security') || key.includes('classification')) {
+    return FieldCategory.LABEL;
+  }
+
+  // Numeric fields: hours, qty, count, version
+  if (key.includes('_hours') || key.includes('_qty') || key.includes('_count') || key === 'version') {
+    return FieldCategory.NUMBER_MEDIUM;
+  }
+
+  // Entity references: ends with _id (but not 'id' itself)
+  if (key.endsWith('_id') && key !== 'id') {
+    return FieldCategory.ENTITY_LINK;
+  }
+
+  // Default: let browser auto-size
+  return FieldCategory.DEFAULT;
+}
+
+/**
+ * Automatically applies width to column based on field naming pattern
+ * Use this in DataTable to auto-set widths for any entity
+ */
+export function getColumnWidth(columnKey: string, explicitWidth?: string): string | undefined {
+  // Explicit width takes precedence
+  if (explicitWidth) {
+    return explicitWidth;
+  }
+
+  // Auto-detect from field name pattern
+  const category = detectFieldCategory(columnKey);
+  return FIELD_WIDTHS[category];
+}
+
+// ============================================================================
 // Entity Configurations
 // ============================================================================
 
@@ -261,17 +541,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Stage',
         sortable: true,
         filterable: true,
-        loadOptionsFromSettings: true,
-        render: (value) => renderBadge(value, {
-          'Initiation': 'bg-blue-100 text-blue-800',
-          'Planning': 'bg-purple-100 text-purple-800',
-          'Execution': 'bg-yellow-100 text-yellow-800',
-          'Monitoring': 'bg-orange-100 text-orange-800',
-          'Closure': 'bg-green-100 text-green-800'
-        })
+        loadOptionsFromSettings: true
       },
       {
-        key: 'budget_allocated',
+        key: 'budget_allocated_amt',
         title: 'Budget',
         sortable: true,
         align: 'right',
@@ -288,24 +561,17 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'End Date',
         sortable: true,
         render: renderDate
-      },
-      {
-        key: 'tags',
-        title: 'Tags',
-        render: renderTags
       }
     ],
 
     fields: [
       { key: 'name', label: 'Project Name', type: 'text', required: true },
       { key: 'code', label: 'Project Code', type: 'text', required: true },
-      { key: 'slug', label: 'Slug', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'richtext' },
       { key: 'project_stage', label: 'Stage', type: 'select', loadOptionsFromSettings: true },
-      { key: 'budget_allocated', label: 'Budget', type: 'number' },
+      { key: 'budget_allocated_amt', label: 'Budget', type: 'number' },
       { key: 'planned_start_date', label: 'Start Date', type: 'date' },
       { key: 'planned_end_date', label: 'End Date', type: 'date' },
-      { key: 'tags', label: 'Tags', type: 'array' },
       { key: 'metadata', label: 'Metadata', type: 'jsonb' },
       { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
       { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
@@ -343,29 +609,14 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Stage',
         sortable: true,
         filterable: true,
-        loadOptionsFromSettings: true,
-        render: (value) => renderBadge(value, {
-          'Backlog': 'bg-gray-100 text-gray-800',
-          'To Do': 'bg-blue-100 text-blue-800',
-          'In Progress': 'bg-yellow-100 text-yellow-800',
-          'In Review': 'bg-purple-100 text-purple-800',
-          'Done': 'bg-green-100 text-green-800',
-          'Blocked': 'bg-red-100 text-red-800'
-        })
+        loadOptionsFromSettings: true
       },
       {
         key: 'priority_level',
         title: 'Priority',
         sortable: true,
         filterable: true,
-        loadOptionsFromSettings: true,
-        render: (value) => renderBadge(value, {
-          'high': 'bg-red-100 text-red-800',
-          'critical': 'bg-red-100 text-red-800',
-          'urgent': 'bg-red-100 text-red-800',
-          'medium': 'bg-yellow-100 text-yellow-800',
-          'low': 'bg-green-100 text-green-800'
-        })
+        loadOptionsFromSettings: true
       },
       {
         key: 'estimated_hours',
@@ -387,24 +638,20 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: false,
         filterable: false,
         render: (value, record) => renderEmployeeNames(value, record)
-      },
-      {
-        key: 'tags',
-        title: 'Tags',
-        render: renderTags
       }
     ],
 
     fields: [
       { key: 'name', label: 'Task Name', type: 'text', required: true },
       { key: 'code', label: 'Task Code', type: 'text', required: true },
-      { key: 'slug', label: 'Slug', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'richtext' },
       { key: 'stage', label: 'Stage', type: 'select', loadOptionsFromSettings: true },
       { key: 'priority_level', label: 'Priority', type: 'select', loadOptionsFromSettings: true },
       { key: 'estimated_hours', label: 'Estimated Hours', type: 'number' },
       { key: 'assignee_employee_ids', label: 'Assignees', type: 'multiselect', loadOptionsFromEntity: 'employee' },
-      { key: 'tags', label: 'Tags', type: 'array' }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table', 'kanban'],
@@ -441,8 +688,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
             { className: 'flex items-center gap-2' },
             record.attr?.icon && React.createElement('span', { className: 'text-lg' }, record.attr.icon),
             React.createElement('span', { className: 'font-medium text-gray-900' }, value)
-          ),
-          record.slug && React.createElement('div', { className: 'text-sm text-gray-500' }, `/${record.slug}`)
+          )
         )
       },
       {
@@ -489,18 +735,12 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Last Updated',
         sortable: true,
         render: renderTimestamp
-      },
-      {
-        key: 'tags',
-        title: 'Tags',
-        render: renderTags
       }
     ],
 
     fields: [
       { key: 'name', label: 'Name', type: 'text', required: true },
       { key: 'code', label: 'Code', type: 'text', required: true },
-      { key: 'slug', label: 'Slug', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'wiki_type', label: 'Type', type: 'select', options: [
         { value: 'page', label: 'Page' },
@@ -520,8 +760,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
       ]},
       { key: 'summary', label: 'Summary', type: 'textarea' },
       { key: 'keywords', label: 'Keywords', type: 'array' },
-      { key: 'tags', label: 'Tags', type: 'array' },
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -699,7 +940,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
       // ========== BASIC INFORMATION ==========
       { key: 'name', label: 'Artifact Name', type: 'text', required: true, placeholder: 'e.g., Project Blueprint Q1 2025' },
       { key: 'code', label: 'Code', type: 'text', required: true, placeholder: 'e.g., ART-2025-001' },
-      { key: 'slug', label: 'Slug', type: 'text', required: true, placeholder: 'e.g., project-blueprint-q1-2025' },
       { key: 'descr', label: 'Description', type: 'richtext', placeholder: 'Describe the purpose and contents of this artifact...' },
 
       // ========== CLASSIFICATION ==========
@@ -746,9 +986,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
         ]
       },
 
-      // ========== ADDITIONAL ==========
-      { key: 'tags', label: 'Tags', type: 'array', placeholder: 'Add tags for categorization...' },
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
+      // ========== ADDITIONAL ==========,
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -804,7 +1045,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
         { value: 'true', label: 'Active' },
         { value: 'false', label: 'Inactive' }
       ]},
-      { key: 'tags', label: 'Tags', type: 'array' }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -833,13 +1076,12 @@ export const entityConfigs: Record<string, EntityConfig> = {
           React.createElement(
             'div',
             { className: 'flex items-center text-xs text-gray-500 gap-2 mt-0.5' },
-            record.code && React.createElement('span', null, record.code),
-            record.slug && React.createElement('span', { className: 'text-gray-400' }, `/${record.slug}`)
+            record.code && React.createElement('span', null, record.code)
           )
         )
       },
       {
-        key: 'name',
+        key: 'business_level',
         title: 'Level',
         sortable: true,
         filterable: true,
@@ -852,7 +1094,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         }) : '-'
       },
       {
-        key: 'budget_allocated',
+        key: 'budget_allocated_amt',
         title: 'Budget',
         sortable: true,
         align: 'right',
@@ -864,11 +1106,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: true,
         filterable: true,
         render: (value) => value ? React.createElement('div', { className: 'max-w-xs truncate text-gray-600' }, value) : '-'
-      },
-      {
-        key: 'tags',
-        title: 'Tags',
-        render: renderTags
       },
       {
         key: 'active_flag',
@@ -884,18 +1121,19 @@ export const entityConfigs: Record<string, EntityConfig> = {
     fields: [
       { key: 'name', label: 'Business Unit Name', type: 'text', required: true },
       { key: 'code', label: 'Code', type: 'text', required: true },
-      { key: 'slug', label: 'Slug', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'name', label: 'Level Name', type: 'select', required: true, loadOptionsFromSettings: true },
       { key: 'parent_id', label: 'Parent Unit', type: 'select', options: [] },
       { key: 'office_id', label: 'Office', type: 'select', options: [] },
-      { key: 'budget_allocated', label: 'Budget Allocated (CAD)', type: 'number' },
+      { key: 'budget_allocated_amt', label: 'Budget Allocated (CAD)', type: 'number' },
       { key: 'manager_employee_id', label: 'Manager', type: 'select', options: [] },
-      { key: 'tags', label: 'Tags', type: 'array' },
       { key: 'active_flag', label: 'Active', type: 'select', options: [
         { value: 'true', label: 'Active' },
         { value: 'false', label: 'Inactive' }
-      ], coerceBoolean: true }
+      ], coerceBoolean: true },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -959,7 +1197,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'addr', label: 'Address', type: 'textarea' },
       { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'office_level_id', label: 'Level', type: 'select', loadOptionsFromSettings: true },
-      { key: 'parent_id', label: 'Parent Office', type: 'select', options: [] }
+      { key: 'parent_id', label: 'Parent Office', type: 'select', options: [] },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -1036,8 +1277,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'country', label: 'Country', type: 'text' },
       { key: 'emergency_contact_name', label: 'Emergency Contact Name', type: 'text' },
       { key: 'emergency_contact_phone', label: 'Emergency Contact Phone', type: 'text' },
-      { key: 'created_ts', label: 'Created', type: 'date', readonly: true },
-      { key: 'updated_ts', label: 'Updated', type: 'date', readonly: true }
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 
     supportedViews: ['table'],
@@ -1079,7 +1321,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
     fields: [
       { key: 'name', label: 'Role Name', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'tags', label: 'Tags', type: 'array' }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -1107,18 +1351,15 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Description',
         sortable: true,
         render: (value) => value || '-'
-      },
-      {
-        key: 'tags',
-        title: 'Tags',
-        render: renderTags
       }
     ],
 
     fields: [
       { key: 'name', label: 'Worksite Name', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'tags', label: 'Tags', type: 'array' }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table', 'grid'],
@@ -1169,34 +1410,14 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Opportunity Funnel',
         sortable: true,
         filterable: true,
-        loadOptionsFromSettings: true,
-        render: (value) => value ? renderBadge(value, {
-          'Lead': 'bg-gray-100 text-gray-800',
-          'Qualified': 'bg-blue-100 text-blue-800',
-          'Site Visit Scheduled': 'bg-purple-100 text-purple-800',
-          'Proposal Sent': 'bg-yellow-100 text-yellow-800',
-          'Negotiation': 'bg-orange-100 text-orange-800',
-          'Contract Signed': 'bg-green-100 text-green-800',
-          'Lost': 'bg-red-100 text-red-800',
-          'On Hold': 'bg-gray-100 text-gray-600'
-        }) : '-'
+        loadOptionsFromSettings: true
       },
       {
         key: 'industry_sector_name',
         title: 'Industry Sector',
         sortable: true,
         filterable: true,
-        loadOptionsFromSettings: true,
-        render: (value) => value ? renderBadge(value, {
-          'Residential': 'bg-blue-100 text-blue-800',
-          'Commercial Real Estate': 'bg-purple-100 text-purple-800',
-          'Healthcare': 'bg-green-100 text-green-800',
-          'Education': 'bg-yellow-100 text-yellow-800',
-          'Hospitality': 'bg-pink-100 text-pink-800',
-          'Municipal/Government': 'bg-indigo-100 text-indigo-800',
-          'Industrial': 'bg-gray-100 text-gray-800',
-          'Property Management': 'bg-teal-100 text-teal-800'
-        }) : '-'
+        loadOptionsFromSettings: true
       },
       {
         key: 'acquisition_channel_name',
@@ -1211,15 +1432,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Customer Tier',
         sortable: true,
         filterable: true,
-        loadOptionsFromSettings: true,
-        render: (value) => value ? renderBadge(value, {
-          'Standard': 'bg-gray-100 text-gray-800',
-          'Plus': 'bg-blue-100 text-blue-800',
-          'Premium': 'bg-purple-100 text-purple-800',
-          'Enterprise': 'bg-green-100 text-green-800',
-          'Government': 'bg-indigo-100 text-indigo-800',
-          'Strategic': 'bg-yellow-100 text-yellow-800'
-        }) : '-'
+        loadOptionsFromSettings: true
       }
     ],
 
@@ -1244,7 +1457,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'industry_sector_name', label: 'Industry Sector', type: 'select', loadOptionsFromSettings: true },
       { key: 'acquisition_channel_name', label: 'Acquisition Channel', type: 'select', loadOptionsFromSettings: true },
       { key: 'customer_tier_name', label: 'Customer Tier', type: 'select', loadOptionsFromSettings: true },
-      { key: 'tags', label: 'Tags', type: 'array' }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -1272,18 +1487,15 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Description',
         sortable: true,
         render: (value) => value || '-'
-      },
-      {
-        key: 'tags',
-        title: 'Tags',
-        render: renderTags
       }
     ],
 
     fields: [
       { key: 'name', label: 'Position Name', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'tags', label: 'Tags', type: 'array' }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -1291,543 +1503,102 @@ export const entityConfigs: Record<string, EntityConfig> = {
   },
 
   // --------------------------------------------------------------------------
-  // META: PROJECT STAGE
+  // SETTINGS ENTITIES (DRY - Generated from Registry)
   // --------------------------------------------------------------------------
+  // All settings entities use the factory pattern from settingsConfig.ts
+  // This eliminates ~600 lines of repetitive code
+
+  // Project Stage
   projectStage: {
-    name: 'projectStage',
-    displayName: 'Project Stage',
-    pluralName: 'Project Stages',
-    apiEndpoint: '/api/v1/setting?category=project_stage',
-
-    columns: [
-      { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true },
-      { key: 'descr', title: 'Description', sortable: true },
-      {
-        key: 'parent_id',
-        title: 'Parent Stage',
-        sortable: true,
-        align: 'left',
-        width: '150px',
-        render: (value, record, allData) => {
-          if (!value && value !== 0) return React.createElement('span', { className: 'text-gray-400' }, '-');
-          const parent = allData?.find((item: any) => item.level_id === value);
-          return parent
-            ? React.createElement('span', { className: 'text-gray-700' }, parent.level_name)
-            : React.createElement('span', { className: 'text-gray-400' }, `ID: ${value}`);
-        }
-      },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        align: 'center',
-        width: '100px',
-        render: (value) => renderBadge(value !== false ? 'Active' : 'Inactive', {
-          'Active': 'bg-green-100 text-green-800',
-          'Inactive': 'bg-red-100 text-red-800'
-        })
-      }
-    ],
-
-    fields: [
-      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'name', label: 'Stage Name', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'sort_order', label: 'Sort Order', type: 'number' },
-      { key: 'color_code', label: 'Color Code', type: 'text', placeholder: '#3B82F6' }
-    ],
-
-    supportedViews: ['table', 'graph'],
-    defaultView: 'table'
+    ...createSettingsEntityConfig(
+      SETTINGS_REGISTRY.find(s => s.key === 'projectStage')!
+    )
   },
 
-  // --------------------------------------------------------------------------
-  // META: PROJECT STATUS
-  // --------------------------------------------------------------------------
+  // Project Status
   projectStatus: {
-    name: 'projectStatus',
-    displayName: 'Project Status',
-    pluralName: 'Project Statuses',
-    apiEndpoint: '/api/v1/setting?category=project_status',
-
-    columns: [
-      { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true },
-      { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        align: 'center',
-        width: '100px',
-        render: (value) => renderBadge(value !== false ? 'Active' : 'Inactive', {
-          'Active': 'bg-green-100 text-green-800',
-          'Inactive': 'bg-red-100 text-red-800'
-        })
-      }
-    ],
-
-    fields: [
-      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'name', label: 'Status Name', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'sort_order', label: 'Sort Order', type: 'number' }
-    ],
-
-    supportedViews: ['table'],
-    defaultView: 'table'
+    ...createSettingsEntityConfig(
+      SETTINGS_REGISTRY.find(s => s.key === 'projectStatus')!
+    )
   },
 
-  // --------------------------------------------------------------------------
-  // META: TASK STAGE
-  // --------------------------------------------------------------------------
+  // Task Stage
   taskStage: {
-    name: 'taskStage',
-    displayName: 'Task Stage',
-    pluralName: 'Task Stages',
-    apiEndpoint: '/api/v1/setting?category=task_stage',
-
-    columns: [
-      { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true },
-      { key: 'descr', title: 'Description', sortable: true },
-      {
-        key: 'parent_id',
-        title: 'Parent Stage',
-        sortable: true,
-        align: 'left',
-        width: '150px',
-        render: (value, record, allData) => {
-          if (!value && value !== 0) return React.createElement('span', { className: 'text-gray-400' }, '-');
-          const parent = allData?.find((item: any) => item.level_id === value);
-          return parent
-            ? React.createElement('span', { className: 'text-gray-700' }, parent.level_name)
-            : React.createElement('span', { className: 'text-gray-400' }, `ID: ${value}`);
-        }
-      },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        align: 'center',
-        width: '100px',
-        render: (value) => renderBadge(value !== false ? 'Active' : 'Inactive', {
-          'Active': 'bg-green-100 text-green-800',
-          'Inactive': 'bg-red-100 text-red-800'
-        })
-      }
-    ],
-
-    fields: [
-      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'name', label: 'Stage Name', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'sort_order', label: 'Sort Order', type: 'number' },
-      { key: 'color_code', label: 'Color Code', type: 'text', placeholder: '#3B82F6' }
-    ],
-
-    supportedViews: ['table', 'graph'],
-    defaultView: 'table'
+    ...createSettingsEntityConfig(
+      SETTINGS_REGISTRY.find(s => s.key === 'taskStage')!
+    )
   },
 
-  // --------------------------------------------------------------------------
-  // META: TASK STAGE
-  // --------------------------------------------------------------------------
-  taskStage: {
-    name: 'taskStage',
-    displayName: 'Task Stage',
-    pluralName: 'Task Stages',
-    apiEndpoint: '/api/v1/setting?category=task_stage',
-
-    columns: [
-      { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true },
-      { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        align: 'center',
-        width: '100px',
-        render: (value) => renderBadge(value !== false ? 'Active' : 'Inactive', {
-          'Active': 'bg-green-100 text-green-800',
-          'Inactive': 'bg-red-100 text-red-800'
-        })
-      }
-    ],
-
-    fields: [
-      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'name', label: 'Stage Name', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'sort_order', label: 'Sort Order', type: 'number' }
-    ],
-
-    supportedViews: ['table'],
-    defaultView: 'table'
+  // Task Priority
+  taskPriority: {
+    ...createSettingsEntityConfig(
+      SETTINGS_REGISTRY.find(s => s.key === 'taskPriority')!
+    )
   },
 
-  // --------------------------------------------------------------------------
-  // META: BUSINESS LEVEL
-  // --------------------------------------------------------------------------
+  // Business Level
   businessLevel: {
-    name: 'businessLevel',
-    displayName: 'Business Level',
-    pluralName: 'Business Levels',
-    apiEndpoint: '/api/v1/setting?category=business_level',
-
-    columns: [
-      { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true },
-      { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        align: 'center',
-        width: '100px',
-        render: (value) => renderBadge(value !== false ? 'Active' : 'Inactive', {
-          'Active': 'bg-green-100 text-green-800',
-          'Inactive': 'bg-red-100 text-red-800'
-        })
-      }
-    ],
-
-    fields: [
-      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'name', label: 'Level Name', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'sort_order', label: 'Sort Order', type: 'number' }
-    ],
-
-    supportedViews: ['table'],
-    defaultView: 'table'
+    ...createSettingsEntityConfig(
+      SETTINGS_REGISTRY.find(s => s.key === 'businessLevel')!
+    )
   },
 
-  // --------------------------------------------------------------------------
-  // META: OFFICE LEVEL (ORG LEVEL)
-  // --------------------------------------------------------------------------
+  // Office Level
   orgLevel: {
-    name: 'orgLevel',
-    displayName: 'Office Level',
-    pluralName: 'Office Levels',
-    apiEndpoint: '/api/v1/setting?category=office_level',
-
-    columns: [
-      { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true },
-      { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        align: 'center',
-        width: '100px',
-        render: (value) => renderBadge(value !== false ? 'Active' : 'Inactive', {
-          'Active': 'bg-green-100 text-green-800',
-          'Inactive': 'bg-red-100 text-red-800'
-        })
-      }
-    ],
-
-    fields: [
-      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'name', label: 'Level Name', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'sort_order', label: 'Sort Order', type: 'number' }
-    ],
-
-    supportedViews: ['table'],
-    defaultView: 'table'
+    ...createSettingsEntityConfig(
+      SETTINGS_REGISTRY.find(s => s.key === 'orgLevel')!
+    )
   },
 
-  // --------------------------------------------------------------------------
-  // META: HR LEVEL
-  // --------------------------------------------------------------------------
+  // HR Level
   hrLevel: {
-    name: 'hrLevel',
-    displayName: 'HR Level',
-    pluralName: 'HR Levels',
-    apiEndpoint: '/api/v1/setting?category=hr_level',
-
-    columns: [
-      { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true },
-      { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        align: 'center',
-        width: '100px',
-        render: (value) => renderBadge(value !== false ? 'Active' : 'Inactive', {
-          'Active': 'bg-green-100 text-green-800',
-          'Inactive': 'bg-red-100 text-red-800'
-        })
-      }
-    ],
-
-    fields: [
-      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'name', label: 'Level Name', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'sort_order', label: 'Sort Order', type: 'number' }
-    ],
-
-    supportedViews: ['table'],
-    defaultView: 'table'
+    ...createSettingsEntityConfig(
+      SETTINGS_REGISTRY.find(s => s.key === 'hrLevel')!
+    )
   },
 
-  // --------------------------------------------------------------------------
-  // META: CLIENT LEVEL
-  // --------------------------------------------------------------------------
+  // Client Level
   clientLevel: {
-    name: 'clientLevel',
-    displayName: 'Client Level',
-    pluralName: 'Client Levels',
-    apiEndpoint: '/api/v1/setting?category=client_level',
-
-    columns: [
-      { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true },
-      { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        align: 'center',
-        width: '100px',
-        render: (value) => renderBadge(value !== false ? 'Active' : 'Inactive', {
-          'Active': 'bg-green-100 text-green-800',
-          'Inactive': 'bg-red-100 text-red-800'
-        })
-      }
-    ],
-
-    fields: [
-      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'name', label: 'Level Name', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'sort_order', label: 'Sort Order', type: 'number' }
-    ],
-
-    supportedViews: ['table'],
-    defaultView: 'table'
+    ...createSettingsEntityConfig(
+      SETTINGS_REGISTRY.find(s => s.key === 'clientLevel')!
+    )
   },
 
-  // --------------------------------------------------------------------------
-  // META: POSITION LEVEL
-  // --------------------------------------------------------------------------
+  // Position Level
   positionLevel: {
-    name: 'positionLevel',
-    displayName: 'Position Level',
-    pluralName: 'Position Levels',
-    apiEndpoint: '/api/v1/setting?category=position_level',
-
-    columns: [
-      { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true },
-      { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        align: 'center',
-        width: '100px',
-        render: (value) => renderBadge(value !== false ? 'Active' : 'Inactive', {
-          'Active': 'bg-green-100 text-green-800',
-          'Inactive': 'bg-red-100 text-red-800'
-        })
-      }
-    ],
-
-    fields: [
-      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'name', label: 'Level Name', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'sort_order', label: 'Sort Order', type: 'number' }
-    ],
-
-    supportedViews: ['table'],
-    defaultView: 'table'
+    ...createSettingsEntityConfig(
+      SETTINGS_REGISTRY.find(s => s.key === 'positionLevel')!
+    )
   },
 
-  // --------------------------------------------------------------------------
-  // META: OPPORTUNITY FUNNEL LEVEL
-  // --------------------------------------------------------------------------
+  // Opportunity Funnel Stage
   opportunityFunnelLevel: {
-    name: 'opportunityFunnelLevel',
-    displayName: 'Opportunity Funnel Stage',
-    pluralName: 'Opportunity Funnel Stages',
-    apiEndpoint: '/api/v1/setting?category=opportunity_funnel_stage',
-
-    columns: [
-      { key: 'stage_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'stage_name', title: 'Name', sortable: true, filterable: true },
-      { key: 'stage_descr', title: 'Description', sortable: true },
-      {
-        key: 'parent_id',
-        title: 'Parent Stage',
-        sortable: true,
-        align: 'left',
-        width: '150px',
-        render: (value, record, allData) => {
-          if (!value && value !== 0) return React.createElement('span', { className: 'text-gray-400' }, '-');
-          const parent = allData?.find((item: any) => item.stage_id === value);
-          return parent
-            ? React.createElement('span', { className: 'text-gray-700' }, parent.stage_name)
-            : React.createElement('span', { className: 'text-gray-400' }, `ID: ${value}`);
-        }
-      },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        align: 'center',
-        width: '100px',
-        render: (value) => renderBadge(value !== false ? 'Active' : 'Inactive', {
-          'Active': 'bg-green-100 text-green-800',
-          'Inactive': 'bg-red-100 text-red-800'
-        })
-      }
-    ],
-
-    fields: [
-      { key: 'stage_id', label: 'Stage ID', type: 'number', required: true },
-      { key: 'stage_name', label: 'Stage Name', type: 'text', required: true },
-      { key: 'stage_descr', label: 'Description', type: 'textarea' },
-      { key: 'sort_order', label: 'Sort Order', type: 'number' },
-      { key: 'color_code', label: 'Color Code', type: 'text', placeholder: '#3B82F6' }
-    ],
-
-    supportedViews: ['table', 'graph'],
-    defaultView: 'table'
+    ...createSettingsEntityConfig(
+      SETTINGS_REGISTRY.find(s => s.key === 'opportunityFunnelLevel')!
+    )
   },
 
-  // --------------------------------------------------------------------------
-  // META: INDUSTRY SECTOR
-  // --------------------------------------------------------------------------
+  // Industry Sector
   industrySector: {
-    name: 'industrySector',
-    displayName: 'Industry Sector',
-    pluralName: 'Industry Sectors',
-    apiEndpoint: '/api/v1/setting?category=industry_sector',
-
-    columns: [
-      { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true },
-      { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        align: 'center',
-        width: '100px',
-        render: (value) => renderBadge(value !== false ? 'Active' : 'Inactive', {
-          'Active': 'bg-green-100 text-green-800',
-          'Inactive': 'bg-red-100 text-red-800'
-        })
-      }
-    ],
-
-    fields: [
-      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'name', label: 'Sector Name', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'sort_order', label: 'Sort Order', type: 'number' }
-    ],
-
-    supportedViews: ['table'],
-    defaultView: 'table'
+    ...createSettingsEntityConfig(
+      SETTINGS_REGISTRY.find(s => s.key === 'industrySector')!
+    )
   },
 
-  // --------------------------------------------------------------------------
-  // META: ACQUISITION CHANNEL
-  // --------------------------------------------------------------------------
+  // Acquisition Channel
   acquisitionChannel: {
-    name: 'acquisitionChannel',
-    displayName: 'Acquisition Channel',
-    pluralName: 'Acquisition Channels',
-    apiEndpoint: '/api/v1/setting?category=acquisition_channel',
-
-    columns: [
-      { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true },
-      { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        align: 'center',
-        width: '100px',
-        render: (value) => renderBadge(value !== false ? 'Active' : 'Inactive', {
-          'Active': 'bg-green-100 text-green-800',
-          'Inactive': 'bg-red-100 text-red-800'
-        })
-      }
-    ],
-
-    fields: [
-      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'name', label: 'Channel Name', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'sort_order', label: 'Sort Order', type: 'number' }
-    ],
-
-    supportedViews: ['table'],
-    defaultView: 'table'
+    ...createSettingsEntityConfig(
+      SETTINGS_REGISTRY.find(s => s.key === 'acquisitionChannel')!
+    )
   },
 
-  // --------------------------------------------------------------------------
-  // META: CUSTOMER TIER
-  // --------------------------------------------------------------------------
+  // Customer Tier
   customerTier: {
-    name: 'customerTier',
-    displayName: 'Customer Tier',
-    pluralName: 'Customer Tiers',
-    apiEndpoint: '/api/v1/setting?category=customer_tier',
-
-    columns: [
-      { key: 'level_id', title: 'ID', sortable: true, align: 'center', width: '80px' },
-      { key: 'name', title: 'Name', sortable: true, filterable: true },
-      { key: 'descr', title: 'Description', sortable: true },
-      { key: 'sort_order', title: 'Sort Order', sortable: true, align: 'center', width: '120px' },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        align: 'center',
-        width: '100px',
-        render: (value) => renderBadge(value !== false ? 'Active' : 'Inactive', {
-          'Active': 'bg-green-100 text-green-800',
-          'Inactive': 'bg-red-100 text-red-800'
-        })
-      }
-    ],
-
-    fields: [
-      { key: 'level_id', label: 'Level ID', type: 'number', required: true },
-      { key: 'name', label: 'Tier Name', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'sort_order', label: 'Sort Order', type: 'number' }
-    ],
-
-    supportedViews: ['table'],
-    defaultView: 'table'
+    ...createSettingsEntityConfig(
+      SETTINGS_REGISTRY.find(s => s.key === 'customerTier')!
+    )
   },
+
 
   // --------------------------------------------------------------------------
   // PRODUCT
@@ -1881,11 +1652,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
           'Active': 'bg-green-100 text-green-800',
           'Inactive': 'bg-red-100 text-red-800'
         })
-      },
-      {
-        key: 'tags',
-        title: 'Tags',
-        render: renderTags
       }
     ],
 
@@ -1897,8 +1663,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'class', label: 'Class', type: 'text' },
       { key: 'subclass', label: 'Subclass', type: 'text' },
       { key: 'unit_of_measure', label: 'Unit of Measure', type: 'text', placeholder: 'each, ft, sqft, lb, gal' },
-      { key: 'tags', label: 'Tags', type: 'array' },
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -1952,7 +1719,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'product_id', label: 'Product ID', type: 'text', required: true },
       { key: 'store_id', label: 'Store/Location ID', type: 'text' },
       { key: 'qty', label: 'Quantity', type: 'number' },
-      { key: 'notes', label: 'Notes', type: 'textarea' }
+      { key: 'notes', label: 'Notes', type: 'textarea' },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -2027,7 +1797,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
         { value: 'delivered', label: 'Delivered' },
         { value: 'cancelled', label: 'Cancelled' }
       ]},
-      { key: 'notes', label: 'Notes', type: 'textarea' }
+      { key: 'notes', label: 'Notes', type: 'textarea' },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -2109,7 +1882,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
         { value: 'in_transit', label: 'In Transit' },
         { value: 'delivered', label: 'Delivered' }
       ]},
-      { key: 'notes', label: 'Notes', type: 'textarea' }
+      { key: 'notes', label: 'Notes', type: 'textarea' },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -2255,7 +2031,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
         { value: 'paid', label: 'Paid' },
         { value: 'overdue', label: 'Overdue' }
       ]},
-      { key: 'notes', label: 'Notes', type: 'textarea' }
+      { key: 'notes', label: 'Notes', type: 'textarea' },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -2318,18 +2097,12 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Last Updated',
         sortable: true,
         render: renderTimestamp
-      },
-      {
-        key: 'tags',
-        title: 'Tags',
-        render: renderTags
       }
     ],
 
     fields: [
       { key: 'name', label: 'Template Name', type: 'text', required: true },
       { key: 'code', label: 'Template Code', type: 'text' },
-      { key: 'slug', label: 'Slug', type: 'text' },
       { key: 'subject', label: 'Email Subject', type: 'text', required: true },
       { key: 'preview_text', label: 'Preview Text', type: 'text', placeholder: 'Text shown in email preview' },
       { key: 'descr', label: 'Description', type: 'textarea' },
@@ -2346,8 +2119,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'from_name', label: 'From Name', type: 'text', placeholder: 'Huron Home Services' },
       { key: 'from_email', label: 'From Email', type: 'text', placeholder: 'info@huronhome.ca' },
       { key: 'reply_to_email', label: 'Reply To Email', type: 'text', placeholder: 'support@huronhome.ca' },
-      { key: 'tags', label: 'Tags', type: 'array' },
-      { key: 'template_schema', label: 'Template Content', type: 'jsonb', readonly: true }
+      { key: 'template_schema', label: 'Template Content', type: 'jsonb', readonly: true },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table', 'grid'],
@@ -2532,7 +2307,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'action_entity_id', label: 'Action Entity ID (if specific)', type: 'text', placeholder: 'UUID of specific entity' },
       { key: 'actions', label: 'Actions (JSON Array)', type: 'jsonb', required: true, placeholder: '[{"type": "update_field", "field": "status", "value": "in_progress"}]' },
       { key: 'execution_order', label: 'Execution Order', type: 'number', placeholder: '0 (lower = higher priority)' },
-      { key: 'max_executions', label: 'Max Executions', type: 'number', placeholder: '-1 (unlimited)' }
+      { key: 'max_executions', label: 'Max Executions', type: 'number', placeholder: '-1 (unlimited)' },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -2622,11 +2400,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
           }
           return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${kb.toFixed(0)} KB`);
         }
-      },
-      {
-        key: 'tags',
-        title: 'Tags',
-        render: renderTags
       }
     ],
 
@@ -2658,7 +2431,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'name', label: 'Cost Name', type: 'text', required: true, placeholder: 'e.g., Office Supplies Q1 2025' },
       { key: 'code', label: 'Code', type: 'text', required: true, placeholder: 'e.g., CST-2025-001' },
       { key: 'cost_code', label: 'Cost Code', type: 'text', required: true, placeholder: 'e.g., EXP-OFFICE-SUPPLIES' },
-      { key: 'slug', label: 'Slug', type: 'text', required: true, placeholder: 'e.g., office-supplies-q1-2025' },
       { key: 'descr', label: 'Description', type: 'richtext', placeholder: 'Describe the cost item and its purpose...' },
 
       // ========== FINANCIAL INFORMATION ==========
@@ -2679,9 +2451,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'exch_rate', label: 'Exchange Rate', type: 'number', placeholder: '1.00' },
       { key: 'cust_budgeted_amt_lcl', label: 'Budgeted Amount (CAD)', type: 'number', placeholder: '0.00' },
 
-      // ========== ADDITIONAL ==========
-      { key: 'tags', label: 'Tags', type: 'array', placeholder: 'Add tags for categorization...' },
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
+      // ========== ADDITIONAL ==========,
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
@@ -2771,11 +2544,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
           }
           return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${kb.toFixed(0)} KB`);
         }
-      },
-      {
-        key: 'tags',
-        title: 'Tags',
-        render: renderTags
       }
     ],
 
@@ -2807,7 +2575,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'name', label: 'Revenue Name', type: 'text', required: true, placeholder: 'e.g., Product Sales Q1 2025' },
       { key: 'code', label: 'Code', type: 'text', required: true, placeholder: 'e.g., REV-2025-001' },
       { key: 'revenue_code', label: 'Revenue Code', type: 'text', required: true, placeholder: 'e.g., INC-PRODUCT-SALES' },
-      { key: 'slug', label: 'Slug', type: 'text', required: true, placeholder: 'e.g., product-sales-q1-2025' },
       { key: 'descr', label: 'Description', type: 'richtext', placeholder: 'Describe the revenue source and details...' },
 
       // ========== FINANCIAL INFORMATION ==========
@@ -2828,15 +2595,37 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'exch_rate', label: 'Exchange Rate', type: 'number', placeholder: '1.00' },
       { key: 'revenue_forecasted_amt_lcl', label: 'Forecasted Amount (CAD)', type: 'number', placeholder: '0.00' },
 
-      // ========== ADDITIONAL ==========
-      { key: 'tags', label: 'Tags', type: 'array', placeholder: 'Add tags for categorization...' },
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
+      // ========== ADDITIONAL ==========,
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
     defaultView: 'table'
   }
 };
+
+// ============================================================================
+// AUTO-APPLY SETTINGS BADGE RENDERERS (DRY Enhancement)
+// ============================================================================
+
+/**
+ * Automatically apply badge renderers to all columns with loadOptionsFromSettings
+ * This eliminates the need to manually specify render functions for settings fields
+ *
+ * BEFORE (Manual):
+ * { key: 'project_stage', loadOptionsFromSettings: true, render: renderSettingBadge('project_stage') }
+ *
+ * AFTER (Automatic):
+ * { key: 'project_stage', loadOptionsFromSettings: true }  // ← render added automatically!
+ */
+Object.keys(entityConfigs).forEach(entityKey => {
+  const config = entityConfigs[entityKey];
+  if (config.columns) {
+    config.columns = applySettingsBadgeRenderers(config.columns);
+  }
+});
 
 // ============================================================================
 // Helper Functions
@@ -2899,21 +2688,20 @@ export const SHAREABLE_ENTITIES = {
     name: 'task',
     displayName: 'Task',
     icon: 'CheckSquare',
-    detailFields: ['name', 'descr', 'stage', 'priority_level', 'estimated_hours', 'actual_hours', 'story_points', 'tags'],
+    detailFields: ['name', 'descr', 'stage', 'priority_level', 'estimated_hours', 'actual_hours', 'story_points'],
     hasUpdates: true, // Shows task updates/comments
   },
   artifact: {
     name: 'artifact',
     displayName: 'Artifact',
     icon: 'FileText',
-    detailFields: ['name', 'descr', 'artifact_type', 'file_format', 'file_size_bytes', 'tags'],
-    hasUpdates: false,
-  },
+    detailFields: ['name', 'descr', 'artifact_type', 'file_format', 'file_size_bytes'],
+    hasUpdates: false},
   wiki: {
     name: 'wiki',
     displayName: 'Wiki',
     icon: 'BookOpen',
-    detailFields: ['name', 'descr', 'tags'],
+    detailFields: ['name', 'descr'],
     hasUpdates: false,
     customRenderer: true, // Uses WikiContentRenderer
   },
@@ -2924,7 +2712,6 @@ export const SHAREABLE_ENTITIES = {
     detailFields: ['name', 'descr', 'form_schema'],
     hasUpdates: false,
     customRenderer: true, // Uses InteractiveForm
-  },
-} as const;
+  }} as const;
 
 export type ShareableEntityType = keyof typeof SHAREABLE_ENTITIES;

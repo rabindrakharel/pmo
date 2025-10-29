@@ -577,7 +577,7 @@ export function EntityAssignmentDataTable({
               {!showSearchInput ? (
                 <button
                   onClick={() => setShowSearchInput(true)}
-                  className="add-button inline-flex items-center gap-1 px-2.5 py-1 border border-dashed border-gray-300 text-gray-500 text-xs rounded hover:border-gray-400 hover:text-gray-600 transition-colors"
+                  className="add-button inline-flex items-center gap-1 px-2.5 py-1 border border-dashed border-gray-300 text-gray-500 text-xs rounded hover:border-gray-300 hover:text-gray-600 transition-colors"
                 >
                   <Plus className="h-3 w-3" />
                   Add Parent Entity

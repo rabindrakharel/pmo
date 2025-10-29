@@ -121,11 +121,10 @@ CREATE TABLE app.d_role (
 -- Comprehensive role definitions across all operational areas and hierarchy levels
 
 -- Executive Leadership Roles
-INSERT INTO app.d_role (
-  slug, code, name, "descr", role_code, role_category, is_system_role, is_management_role,
+INSERT INTO app.d_role (slug, code, name, "descr", role_code, role_category, is_system_role, is_management_role,
   is_client_facing, is_safety_critical, requires_background_check, requires_bonding,
   department_scope, reporting_level, required_certifications, required_skills,
-  required_experience_years, education_requirements, tags, metadata
+  required_experience_years, education_requirements, metadata
 ) VALUES
 ('chief-executive-officer', 'CEO', 'Chief Executive Officer',
  'Ultimate executive authority responsible for corporate strategy, board relations, and enterprise leadership',
@@ -168,11 +167,10 @@ INSERT INTO app.d_role (
  '{"operational_oversight": true, "safety_accountability": true, "service_quality": true, "performance_management": true, "crisis_management": true}');
 
 -- Senior Management Roles
-INSERT INTO app.d_role (
-  slug, code, name, "descr", role_code, role_category, is_system_role, is_management_role,
+INSERT INTO app.d_role (slug, code, name, "descr", role_code, role_category, is_system_role, is_management_role,
   is_client_facing, is_safety_critical, requires_background_check, requires_bonding,
   department_scope, reporting_level, required_certifications, required_skills,
-  required_experience_years, education_requirements, tags, metadata
+  required_experience_years, education_requirements, metadata
 ) VALUES
 ('senior-vice-president', 'SVP', 'Senior Vice President',
  'Senior executive responsible for multiple business divisions and strategic business unit management',
@@ -215,11 +213,10 @@ INSERT INTO app.d_role (
  '{"team_size": 40, "budget_authority": 25000000, "security_oversight": true, "vendor_management": true}');
 
 -- Operational Managers
-INSERT INTO app.d_role (
-  slug, code, name, "descr", role_code, role_category, is_system_role, is_management_role,
+INSERT INTO app.d_role (slug, code, name, "descr", role_code, role_category, is_system_role, is_management_role,
   is_client_facing, is_safety_critical, requires_background_check, requires_bonding,
   department_scope, reporting_level, required_certifications, required_skills,
-  required_experience_years, education_requirements, tags, metadata
+  required_experience_years, education_requirements, metadata
 ) VALUES
 ('landscaping-manager', 'MGR-LAND', 'Landscaping Manager',
  'Manager responsible for landscaping operations, design projects, and client service delivery',
@@ -272,11 +269,10 @@ INSERT INTO app.d_role (
  '{"team_size": 12, "project_pipeline": 200, "electrical_license_req": true, "green_energy_specialist": true}');
 
 -- Field Supervisors and Technical Leads
-INSERT INTO app.d_role (
-  slug, code, name, "descr", role_code, role_category, is_system_role, is_management_role,
+INSERT INTO app.d_role (slug, code, name, "descr", role_code, role_category, is_system_role, is_management_role,
   is_client_facing, is_safety_critical, requires_background_check, requires_bonding,
   department_scope, reporting_level, required_certifications, required_skills,
-  required_experience_years, education_requirements, tags, metadata
+  required_experience_years, education_requirements, metadata
 ) VALUES
 ('field-supervisor', 'SUP-FIELD', 'Field Supervisor',
  'Supervisory role responsible for field operations, crew management, and quality control',
@@ -309,11 +305,10 @@ INSERT INTO app.d_role (
  '{"customer_interaction": true, "service_delivery": true, "technical_work": true, "equipment_operation": true}');
 
 -- Administrative and Support Roles
-INSERT INTO app.d_role (
-  slug, code, name, "descr", role_code, role_category, is_system_role, is_management_role,
+INSERT INTO app.d_role (slug, code, name, "descr", role_code, role_category, is_system_role, is_management_role,
   is_client_facing, is_safety_critical, requires_background_check, requires_bonding,
   department_scope, reporting_level, required_certifications, required_skills,
-  required_experience_years, education_requirements, tags, metadata
+  required_experience_years, education_requirements, metadata
 ) VALUES
 ('project-coordinator', 'COORD-PROJ', 'Project Coordinator',
  'Coordination role responsible for project scheduling, communication, and administrative support',
@@ -356,11 +351,10 @@ INSERT INTO app.d_role (
  '{"user_support": true, "system_maintenance": true, "security_administration": true, "infrastructure_management": true}');
 
 -- Operational and Seasonal Roles
-INSERT INTO app.d_role (
-  slug, code, name, "descr", role_code, role_category, is_system_role, is_management_role,
+INSERT INTO app.d_role (slug, code, name, "descr", role_code, role_category, is_system_role, is_management_role,
   is_client_facing, is_safety_critical, requires_background_check, requires_bonding,
   department_scope, reporting_level, required_certifications, required_skills,
-  required_experience_years, education_requirements, tags, metadata
+  required_experience_years, education_requirements, metadata
 ) VALUES
 ('seasonal-worker', 'SEASONAL', 'Seasonal Worker',
  'Temporary role for seasonal operations including landscaping and snow removal support',

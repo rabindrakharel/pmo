@@ -1221,7 +1221,7 @@ export function DataTableInput({
             <tr>
               <th className="w-12 px-2 py-2 text-xs font-normal text-gray-500">#</th>
               {tableCols.map((col, colIdx) => (
-                <th key={col.name} className="px-3 py-2 text-xs font-normal text-gray-700 relative group">
+                <th key={colIdx} className="px-3 py-2 text-xs font-normal text-gray-700 relative group">
                   <div className="flex items-center justify-between">
                     <input
                       type="text"
@@ -1251,8 +1251,8 @@ export function DataTableInput({
             {Array.from({ length: numRows }).map((_, rowIdx) => (
               <tr key={rowIdx} className="group hover:bg-gray-50">
                 <td className="px-2 py-2 text-xs text-gray-500 text-center">{rowIdx + 1}</td>
-                {tableCols.map((col) => (
-                  <td key={col.name} className="px-2 py-2">
+                {tableCols.map((col, colIdx) => (
+                  <td key={colIdx} className="px-2 py-2">
                     <input
                       type="text"
                       value={tableData[`${dataTableName}__${col.name}_${rowIdx + 1}`] || ''}
@@ -2457,9 +2457,9 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                   <div className="md:col-span-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
                     <p className="text-xs font-medium text-gray-700 mb-2">📝 Available Numeric Fields:</p>
                     <div className="flex flex-wrap gap-2">
-                      {numericFields.map((f) => (
+                      {numericFields.map((f, idx) => (
                         <button
-                          key={f.name}
+                          key={idx}
                           type="button"
                           onClick={() => {
                             const currentExpr = field.calculationExpression || '';

@@ -20,7 +20,7 @@
 --
 -- 2. UPDATE WIKI PAGE (Content Editing, Draft Revisions)
 --    • Endpoint: PUT /api/v1/wiki/{id}
---    • Body: {name, descr, metadata, tags, publication_status, visibility}
+--    • Body: {name, descr, metadata, publication_status, visibility}
 --    • Returns: {id: "same-uuid", version: 2, updated_ts: "new-timestamp"}
 --    • Database: UPDATE SET [fields], version=version+1, updated_ts=now() WHERE id=$1
 --    • SCD Behavior: IN-PLACE UPDATE
@@ -35,7 +35,7 @@
 --    • Frontend Action: User clicks "Publish" button on draft page
 --    • Endpoint: PUT /api/v1/wiki/{id}
 --    • Body: {publication_status: "published"}
---    • Database: UPDATE SET publication_status='published', published_at=now(), published_by_empid=$user_id, version=version+1 WHERE id=$1
+--    • Database: UPDATE SET publication_status='published', published_ts=now(), published_by_empid=$user_id, version=version+1 WHERE id=$1
 --    • Business Rule: Publishes page to intended audience based on visibility setting
 --
 -- 4. ARCHIVE/DEPRECATE WIKI PAGE
@@ -62,7 +62,7 @@
 --            AND (rbac.entity_id=w.id::text OR rbac.entity_id='all')
 --            AND 0=ANY(rbac.permission)  -- View permission
 --        )
---      ORDER BY w.published_at DESC, w.name ASC
+--      ORDER BY w.published_ts DESC, w.name ASC
 --      LIMIT $1 OFFSET $2
 --    • RBAC: User sees ONLY wiki pages they have view access to
 --    • Frontend: Renders in EntityMainPage with table view + search
@@ -100,7 +100,7 @@
 -- • parent_wiki_id: Hierarchical relationship (NULL for root pages, UUID for child pages)
 -- • visibility: Access level ('public', 'internal', 'restricted', 'private')
 -- • keywords: ARRAY for search indexing and SEO
--- • published_at, published_by_empid: Publication tracking for accountability
+-- • published_ts, published_by_empid: Publication tracking for accountability
 --
 -- RELATIONSHIPS:
 -- • parent_wiki_id → d_wiki (self-reference for hierarchical structure)
@@ -112,13 +112,11 @@
 
 CREATE TABLE app.d_wiki (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    slug varchar(100) UNIQUE NOT NULL,
     code varchar(50) UNIQUE NOT NULL,
     name varchar(200) NOT NULL,
     descr text,
     internal_url varchar(500),   -- Internal wiki URL: /wiki/{id} (authenticated access)
     shared_url varchar(500),     -- Public shared URL: /wiki/shared/{8-char-random} (presigned, no auth required)
-    tags jsonb DEFAULT '[]'::jsonb,
     metadata jsonb DEFAULT '{}'::jsonb,
 
     -- Wiki classification
@@ -132,7 +130,7 @@ CREATE TABLE app.d_wiki (
 
     -- Publication status
     publication_status varchar(50) DEFAULT 'draft', -- draft, published, archived, deprecated
-    published_at timestamptz,
+    published_ts timestamptz,
     published_by_empid uuid,
 
     -- Access control
@@ -152,9 +150,9 @@ CREATE TABLE app.d_wiki (
     primary_entity_id uuid,
 
     -- Temporal fields
+    active_flag boolean DEFAULT true,
     from_ts timestamptz DEFAULT now(),
     to_ts timestamptz,
-    active_flag boolean DEFAULT true,
     created_ts timestamptz DEFAULT now(),
     updated_ts timestamptz DEFAULT now(),
     version integer DEFAULT 1

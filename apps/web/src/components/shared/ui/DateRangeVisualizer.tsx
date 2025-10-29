@@ -1,6 +1,6 @@
 import React from 'react';
-import { Calendar, TrendingUp } from 'lucide-react';
-import { calculateDateRangeProgress, formatFriendlyDate } from '../../../lib/dataTransformers';
+import { Calendar } from 'lucide-react';
+import { calculateDateRangeProgress, formatFriendlyDate } from '../../../lib/data_transform_render';
 
 interface DateRangeVisualizerProps {
   startDate: string | Date | null | undefined;
@@ -9,19 +9,17 @@ interface DateRangeVisualizerProps {
 }
 
 /**
- * DateRangeVisualizer Component
+ * DateRangeVisualizer - Simple Linear Timeline
  *
- * Displays an elegant visualization of a date range with:
- * - Start and end date points
- * - Current progress indicator
- * - Days passed and remaining
- * - Visual progress bar
- *
- * Used for project timelines, task durations, etc.
+ * A minimal, clean visualization featuring:
+ * - Simple horizontal line (solid for passed, dotted for remaining)
+ * - Total duration in weeks, days, and hours
+ * - Calendar dates at start and end
  */
 export function DateRangeVisualizer({ startDate, endDate, className = '' }: DateRangeVisualizerProps) {
   const progress = calculateDateRangeProgress(startDate, endDate);
 
+  // Single date handling
   if (!progress) {
     return (
       <div className={`text-sm text-gray-400 ${className}`}>
@@ -42,79 +40,60 @@ export function DateRangeVisualizer({ startDate, endDate, className = '' }: Date
     );
   }
 
-  const { progressPercent, daysPassed, daysRemaining, isBeforeStart, isAfterEnd, isActive } = progress;
+  const { progressPercent, daysPassed, daysRemaining, totalDays } = progress;
 
-  // Determine status color
-  let statusColor = 'bg-blue-500';
-  let statusText = 'Active';
-  let textColor = 'text-blue-700';
-  let bgColor = 'bg-blue-50';
-  let borderColor = 'border-blue-200';
-
-  if (isBeforeStart) {
-    statusColor = 'bg-gray-400';
-    statusText = 'Not Started';
-    textColor = 'text-gray-600';
-    bgColor = 'bg-gray-50';
-    borderColor = 'border-gray-200';
-  } else if (isAfterEnd) {
-    statusColor = 'bg-gray-500';
-    statusText = 'Completed';
-    textColor = 'text-gray-700';
-    bgColor = 'bg-gray-50';
-    borderColor = 'border-gray-300';
-  } else if (progressPercent > 75) {
-    statusColor = 'bg-amber-500';
-    textColor = 'text-amber-700';
-    bgColor = 'bg-amber-50';
-    borderColor = 'border-amber-200';
-  }
+  // Calculate weeks and hours
+  const totalWeeks = Math.floor(totalDays / 7);
+  const totalHours = totalDays * 24;
+  const passedHours = daysPassed * 24;
+  const remainingHours = daysRemaining * 24;
 
   return (
-    <div className={`${bgColor} ${borderColor} border rounded-lg p-3 ${className}`}>
-      {/* Header with dates */}
-      <div className="flex items-center justify-between mb-2.5 text-xs">
-        <div className="flex items-center gap-1.5">
-          <Calendar className="h-3.5 w-3.5 text-gray-500" />
-          <span className="font-medium text-gray-700">{formatFriendlyDate(startDate)}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="font-medium text-gray-700">{formatFriendlyDate(endDate)}</span>
-          <Calendar className="h-3.5 w-3.5 text-gray-500" />
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="relative h-2 bg-gray-200 rounded-full mb-2 overflow-hidden">
-        <div
-          className={`absolute top-0 left-0 h-full ${statusColor} transition-all duration-300 rounded-full`}
-          style={{ width: `${progressPercent}%` }}
-        />
-        {/* Today marker */}
-        {isActive && (
-          <div
-            className="absolute top-0 h-full w-0.5 bg-gray-800"
-            style={{ left: `${progressPercent}%` }}
-          >
-            <div className="absolute -top-1 -left-1.5 w-3 h-3 bg-gray-800 rounded-full border-2 border-white" />
+    <div className={`${className}`}>
+      <div className="space-y-2">
+        {/* Duration Summary */}
+        <div className="flex items-center justify-between text-xs text-gray-600 font-medium">
+          <div className="flex items-center gap-1">
+            <Calendar className="h-3.5 w-3.5" />
+            <span>{formatFriendlyDate(startDate)}</span>
           </div>
-        )}
-      </div>
-
-      {/* Stats */}
-      <div className="flex items-center justify-between text-xs">
-        <div className="flex items-center gap-3">
-          <span className={`font-medium ${textColor}`}>
-            {daysPassed} {daysPassed === 1 ? 'day' : 'days'} passed
-          </span>
-          <span className="text-gray-400">·</span>
-          <span className={`font-medium ${textColor}`}>
-            {isAfterEnd ? '0 days' : `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'}`} remaining
-          </span>
+          <div className="flex items-center gap-3">
+            <span>{totalWeeks} weeks</span>
+            <span>•</span>
+            <span>{totalDays} days</span>
+            <span>•</span>
+            <span>{totalHours.toLocaleString()} hours</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span>{formatFriendlyDate(endDate)}</span>
+            <Calendar className="h-3.5 w-3.5" />
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <TrendingUp className="h-3.5 w-3.5 text-gray-500" />
-          <span className="font-semibold text-gray-700">{Math.round(progressPercent)}%</span>
+
+        {/* Timeline Bar */}
+        <div className="relative flex items-center">
+          {/* Passed - Solid Line */}
+          <div
+            style={{
+              flex: progressPercent,
+              height: '2px',
+              borderTop: '2px solid #D1D5DB',
+            }}
+          />
+          {/* Remaining - Dotted Line */}
+          <div
+            style={{
+              flex: 100 - progressPercent,
+              height: '2px',
+              borderTop: '2px dotted #D1D5DB',
+            }}
+          />
+        </div>
+
+        {/* Progress Details */}
+        <div className="flex items-center justify-between text-xs text-gray-500">
+          <span>{daysPassed} days passed • {passedHours.toLocaleString()} hours</span>
+          <span>{daysRemaining} days remaining • {remainingHours.toLocaleString()} hours</span>
         </div>
       </div>
     </div>

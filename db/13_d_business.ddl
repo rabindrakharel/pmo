@@ -12,7 +12,7 @@
 --
 -- 1. CREATE BUSINESS UNIT
 --    • Endpoint: POST /api/v1/biz
---    • Body: {name, code, slug, level_name, parent_id, office_id, budget_allocated, manager_employee_id}
+--    • Body: {name, code, level_name, parent_id, office_id, budget_allocated_amt, manager_employee_id}
 --    • Returns: {id: "new-uuid", version: 1, ...}
 --    • Database: INSERT with version=1, active_flag=true, created_ts=now()
 --    • RBAC: Requires permission 4 (create) on entity='biz', entity_id='all'
@@ -20,7 +20,7 @@
 --
 -- 2. UPDATE BUSINESS UNIT (Budget Changes, Manager Assignment, Office Reassignment)
 --    • Endpoint: PUT /api/v1/biz/{id}
---    • Body: {name, parent_id, office_id, budget_allocated, manager_employee_id, tags}
+--    • Body: {name, parent_id, office_id, budget_allocated_amt, manager_employee_id, tags}
 --    • Returns: {id: "same-uuid", version: 2, updated_ts: "new-timestamp"}
 --    • Database: UPDATE SET [fields], version=version+1, updated_ts=now() WHERE id=$1
 --    • SCD Behavior: IN-PLACE UPDATE
@@ -85,10 +85,10 @@
 --
 -- 8. GET BUDGET ALLOCATION SUMMARY
 --    • Endpoint: GET /api/v1/biz/{id}/budget-summary
---    • Database: Aggregates budget_allocated and project budgets
+--    • Database: Aggregates budget_allocated_amt and project budgets
 --      SELECT
---        b.budget_allocated,
---        SUM(p.budget_spent) AS total_spent,
+--        b.budget_allocated_amt,
+--        SUM(p.budget_spent_amt) AS total_spent,
 --        COUNT(p.id) AS project_count
 --      FROM d_business b
 --      LEFT JOIN d_project p ON p.business_id=b.id AND p.active_flag=true
@@ -116,7 +116,7 @@
 -- • office_id: Office location assignment
 --   - Links business unit to physical office location
 --   - Used for geographic operational coordination
--- • budget_allocated: Financial allocation for business unit
+-- • budget_allocated_amt: Financial allocation for business unit
 --   - Tracks planned spending capacity
 --   - Compared against sum of project budgets
 -- • manager_employee_id: Business unit manager
@@ -134,11 +134,11 @@
 
 CREATE TABLE app.d_business (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    slug varchar(100) UNIQUE NOT NULL,
     code varchar(50) UNIQUE NOT NULL,
     name varchar(200) NOT NULL,
     descr text,
-    tags jsonb DEFAULT '[]'::jsonb,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    active_flag boolean DEFAULT true,
 
     -- Hierarchy fields
     parent_id uuid ,
@@ -148,13 +148,11 @@ CREATE TABLE app.d_business (
     office_id uuid ,
 
     -- Business fields
-    budget_allocated decimal(15,2),
-    manager_employee_id uuid, -- Will be added later when employee system is defined
+    budget_allocated_amt decimal(15,2),
+    manager_employee_id uuid,
 
-    -- Temporal fields
     from_ts timestamptz DEFAULT now(),
     to_ts timestamptz,
-    active_flag boolean DEFAULT true,
     created_ts timestamptz DEFAULT now(),
     updated_ts timestamptz DEFAULT now(),
     version integer DEFAULT 1
@@ -165,15 +163,12 @@ CREATE TABLE app.d_business (
 -- Sample business unit hierarchy data for PMO company
 -- Level 2: Corporate (Top level)
 INSERT INTO app.d_business (
-    id, slug, code, name, descr, tags,
-    parent_id, level_name, office_id, budget_allocated, manager_employee_id
+    id, code, name, descr,
+    parent_id, level_name, office_id, budget_allocated_amt, manager_employee_id
 ) VALUES (
-    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    'huron-home-services-corp',
     'HHS-CORP',
     'Huron Home Services Corporation',
     'Corporate parent entity overseeing all divisions and operations. Led by CEO James Miller with comprehensive oversight of strategic direction, financial performance, and operational excellence.',
-    '["corporate", "parent", "strategic", "oversight"]'::jsonb,
     NULL, 'Corporate',
     '11111111-1111-1111-1111-111111111111', 5000000.00,
     '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
@@ -181,15 +176,12 @@ INSERT INTO app.d_business (
 
 -- Level 1: Service Operations Division
 INSERT INTO app.d_business (
-    id, slug, code, name, descr, tags,
-    parent_id, level_name, office_id, budget_allocated, manager_employee_id
+    id, code, name, descr,
+    parent_id, level_name, office_id, budget_allocated_amt, manager_employee_id
 ) VALUES (
-    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-    'service-operations-division',
     'SOD-001',
     'Service Operations Division',
     'Primary service delivery division managing all customer-facing operations including landscaping, HVAC, plumbing, and property maintenance services across Ontario.',
-    '["service_delivery", "operations", "customer_facing", "field_services"]'::jsonb,
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Division',
     '22222222-2222-2222-2222-222222222222', 3000000.00,
     '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
@@ -197,15 +189,12 @@ INSERT INTO app.d_business (
 
 -- Level 1: Corporate Services Division
 INSERT INTO app.d_business (
-    id, slug, code, name, descr, tags,
-    parent_id, level_name, office_id, budget_allocated, manager_employee_id
+    id, code, name, descr,
+    parent_id, level_name, office_id, budget_allocated_amt, manager_employee_id
 ) VALUES (
-    'cccccccc-cccc-cccc-cccc-cccccccccccc',
-    'corporate-services-division',
     'CSD-001',
     'Corporate Services Division',
     'Internal support division providing HR, Finance, IT, Legal, and Administrative services to support business operations. Ensures compliance, efficiency, and strategic support.',
-    '["corporate_services", "support", "hr", "finance", "it", "admin"]'::jsonb,
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Division',
     '11111111-1111-1111-1111-111111111111', 1500000.00,
     '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
@@ -213,15 +202,12 @@ INSERT INTO app.d_business (
 
 -- Level 0: Landscaping Department
 INSERT INTO app.d_business (
-    id, slug, code, name, descr, tags,
-    parent_id, level_name, office_id, budget_allocated, manager_employee_id
+    id, code, name, descr,
+    parent_id, level_name, office_id, budget_allocated_amt, manager_employee_id
 ) VALUES (
-    'dddddddd-dddd-dddd-dddd-dddddddddddd',
-    'landscaping-department',
     'LAND-DEPT',
     'Landscaping Department',
     'Comprehensive landscaping services including design, installation, maintenance, seasonal cleanup, and grounds management for residential and commercial properties.',
-    '["landscaping", "grounds", "seasonal", "maintenance", "design"]'::jsonb,
     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Department',
     '44444444-4444-4444-4444-444444444444', 800000.00,
     '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
@@ -229,15 +215,12 @@ INSERT INTO app.d_business (
 
 -- Level 0: HVAC Department
 INSERT INTO app.d_business (
-    id, slug, code, name, descr, tags,
-    parent_id, level_name, office_id, budget_allocated, manager_employee_id
+    id, code, name, descr,
+    parent_id, level_name, office_id, budget_allocated_amt, manager_employee_id
 ) VALUES (
-    'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
-    'hvac-department',
     'HVAC-DEPT',
     'HVAC Department',
     'Heating, ventilation, and air conditioning services including installation, repair, maintenance, and energy efficiency consulting for residential and commercial clients.',
-    '["hvac", "heating", "cooling", "energy_efficiency", "maintenance"]'::jsonb,
     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Department',
     '44444444-4444-4444-4444-444444444444', 600000.00,
     '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
@@ -245,15 +228,12 @@ INSERT INTO app.d_business (
 
 -- Level 0: Property Maintenance Department
 INSERT INTO app.d_business (
-    id, slug, code, name, descr, tags,
-    parent_id, level_name, office_id, budget_allocated, manager_employee_id
+    id, code, name, descr,
+    parent_id, level_name, office_id, budget_allocated_amt, manager_employee_id
 ) VALUES (
-    'ffffffff-ffff-ffff-ffff-ffffffffffff',
-    'property-maintenance-department',
     'PROP-DEPT',
     'Property Maintenance Department',
     'General property maintenance services including repairs, preventive maintenance, emergency response, and facility management for commercial and residential properties.',
-    '["property_maintenance", "repairs", "preventive", "emergency", "facility_mgmt"]'::jsonb,
     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Department',
     '44444444-4444-4444-4444-444444444444', 500000.00,
     '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
@@ -261,15 +241,12 @@ INSERT INTO app.d_business (
 
 -- Level 0: Human Resources Department
 INSERT INTO app.d_business (
-    id, slug, code, name, descr, tags,
-    parent_id, level_name, office_id, budget_allocated, manager_employee_id
+    id, code, name, descr,
+    parent_id, level_name, office_id, budget_allocated_amt, manager_employee_id
 ) VALUES (
-    'gggggggg-gggg-gggg-gggg-gggggggggggg',
-    'human-resources-department',
     'HR-DEPT',
     'Human Resources Department',
     'Comprehensive HR services including recruitment, employee relations, training, benefits administration, performance management, and compliance oversight.',
-    '["human_resources", "recruitment", "training", "benefits", "compliance"]'::jsonb,
     'cccccccc-cccc-cccc-cccc-cccccccccccc', 'Department',
     '11111111-1111-1111-1111-111111111111', 400000.00,
     '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'

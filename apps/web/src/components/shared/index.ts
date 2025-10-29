@@ -26,7 +26,7 @@ export { FilteredDataTable } from './dataTable/FilteredDataTable';
 // ============================================================================
 export { DynamicChildEntityTabs, useDynamicChildEntityTabs } from './entity/DynamicChildEntityTabs';
 export { EntityFormContainer } from './entity/EntityFormContainer';
-export { MetadataField, MetadataRow, MetadataSeparator } from './entity/MetadataField';
+export { MetadataField, MetadataRow, MetadataSeparator } from '../../lib/data_transform_render';
 
 // ============================================================================
 // FILE COMPONENTS
@@ -76,6 +76,8 @@ export { ModularEditor } from './editor/ModularEditor';
 // UI COMPONENTS
 // ============================================================================
 export { DataTable } from './ui/DataTable';
+// EditableTags component removed - tags field no longer in use
+// export { EditableTags } from './ui/EditableTags';
 export { GridView } from './ui/GridView';
 export { KanbanBoard } from './ui/KanbanBoard';
 export { TreeView } from './ui/TreeView';

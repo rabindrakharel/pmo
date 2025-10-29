@@ -73,9 +73,9 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
       // Standard audit fields (apply to all tables)
       'from_ts': { 'api:restrict': true },
       'to_ts': { 'api:restrict': true },
-      'active': { 'api:restrict': true },
-      'created': { 'api:restrict': true },
-      'updated': { 'api:restrict': true },
+      'active_flag': { 'api:restrict': true },
+      'created_ts': { 'api:restrict': true },
+      'updated_ts': { 'api:restrict': true },
       
       // Standard flexible fields
       'tags': { 'flexible': true },
@@ -176,7 +176,7 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
     defaultBehavior: {},
     columns: {
       'code': { 'ui:search': true },
-      'budget_allocated': { 'api:financial_masking': true },
+      'budget_allocated_amt': { 'api:financial_masking': true },
       'approval_limit': { 'api:financial_masking': true },
       'parent_id': { 'ui:hierarchy': true },
       'cost_center_code': { 'ui:cost_center': true },
@@ -232,7 +232,7 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
     defaultBehavior: {},
     columns: {
       'project_code': { 'ui:search': true },
-      'budget_allocated': { 'api:financial_masking': true },
+      'budget_allocated_amt': { 'api:financial_masking': true },
       'planned_start_date': { 'ui:timeline': true },
       'planned_end_date': { 'ui:timeline': true },
       'actual_start_date': { 'ui:timeline': true },

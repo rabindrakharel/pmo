@@ -93,11 +93,11 @@ CREATE TABLE app.d_position (
   is_executive boolean NOT NULL DEFAULT false,
 
   -- Compensation and authority
-  salary_band_min numeric(10,2),
-  salary_band_max numeric(10,2),
+  salary_band_min_amt numeric(10,2),
+  salary_band_max_amt numeric(10,2),
   bonus_target_pct numeric(5,2),
   equity_eligible boolean DEFAULT false,
-  approval_limit numeric(12,2),
+  approval_limit_amt numeric(12,2),
 
   -- Organizational capacity
   direct_reports_max int,
@@ -112,10 +112,9 @@ CREATE TABLE app.d_position (
 -- Comprehensive position structure supporting career progression and authority delegation
 
 -- Level 0: CEO/President (Root Level)
-INSERT INTO app.d_position (
-  slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
-  is_management, is_executive, salary_band_min, salary_band_max, bonus_target_pct,
-  equity_eligible, approval_limit, direct_reports_max, remote_eligible, tags, metadata
+INSERT INTO app.d_position (slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
+  is_management, is_executive, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
+  equity_eligible, approval_limit_amt, direct_reports_max, remote_eligible, metadata
 ) VALUES
 ('chief-executive-officer-pos', 'CEO-POS', 'Chief Executive Officer',
  'Chief Executive Officer responsible for overall strategic direction, board reporting, and enterprise leadership',
@@ -125,10 +124,9 @@ INSERT INTO app.d_position (
  '{"board_reporting": true, "public_facing": true, "strategic_planning": true, "investor_relations": true, "ultimate_authority": true, "succession_planning": true}');
 
 -- Level 1: C-Level Executives
-INSERT INTO app.d_position (
-  slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
-  is_management, is_executive, salary_band_min, salary_band_max, bonus_target_pct,
-  equity_eligible, approval_limit, direct_reports_max, remote_eligible, tags, metadata
+INSERT INTO app.d_position (slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
+  is_management, is_executive, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
+  equity_eligible, approval_limit_amt, direct_reports_max, remote_eligible, metadata
 ) VALUES
 ('chief-financial-officer-pos', 'CFO-POS', 'Chief Financial Officer',
  'Senior executive responsible for financial strategy, reporting, compliance, and treasury management',
@@ -152,10 +150,9 @@ INSERT INTO app.d_position (
  '{"operational_excellence": true, "service_quality": true, "safety_oversight": true, "performance_management": true}');
 
 -- Level 2: SVP/EVP Positions
-INSERT INTO app.d_position (
-  slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
-  is_management, is_executive, salary_band_min, salary_band_max, bonus_target_pct,
-  equity_eligible, approval_limit, direct_reports_max, remote_eligible, tags, metadata
+INSERT INTO app.d_position (slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
+  is_management, is_executive, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
+  equity_eligible, approval_limit_amt, direct_reports_max, remote_eligible, metadata
 ) VALUES
 ('senior-vice-president-ops', 'SVP-OPS', 'Senior Vice President - Operations',
  'Senior executive responsible for multiple operational divisions and strategic business unit management',
@@ -165,10 +162,9 @@ INSERT INTO app.d_position (
  '{"multi_division_oversight": true, "p_and_l_responsibility": true, "strategic_planning": true, "operational_leadership": true}');
 
 -- Level 3: VP Positions
-INSERT INTO app.d_position (
-  slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
-  is_management, is_executive, salary_band_min, salary_band_max, bonus_target_pct,
-  equity_eligible, approval_limit, direct_reports_max, remote_eligible, tags, metadata
+INSERT INTO app.d_position (slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
+  is_management, is_executive, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
+  equity_eligible, approval_limit_amt, direct_reports_max, remote_eligible, metadata
 ) VALUES
 ('vice-president-hr-pos', 'VP-HR-POS', 'Vice President - Human Resources',
  'Executive responsible for talent management, organizational development, and employee relations',
@@ -185,10 +181,9 @@ INSERT INTO app.d_position (
  '{"technology_operations": true, "systems_management": true, "digital_projects": true, "vendor_relations": true}');
 
 -- Level 4: AVP Positions
-INSERT INTO app.d_position (
-  slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
-  is_management, is_executive, salary_band_min, salary_band_max, bonus_target_pct,
-  equity_eligible, approval_limit, direct_reports_max, remote_eligible, tags, metadata
+INSERT INTO app.d_position (slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
+  is_management, is_executive, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
+  equity_eligible, approval_limit_amt, direct_reports_max, remote_eligible, metadata
 ) VALUES
 ('assistant-vp-operations', 'AVP-OPS', 'Assistant Vice President - Operations',
  'Senior management role responsible for operational coordination and performance management',
@@ -198,10 +193,9 @@ INSERT INTO app.d_position (
  '{"operational_coordination": true, "performance_oversight": true, "process_improvement": true, "team_development": true}');
 
 -- Level 5: Senior Director Positions
-INSERT INTO app.d_position (
-  slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
-  is_management, is_executive, salary_band_min, salary_band_max, bonus_target_pct,
-  equity_eligible, approval_limit, direct_reports_max, remote_eligible, tags, metadata
+INSERT INTO app.d_position (slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
+  is_management, is_executive, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
+  equity_eligible, approval_limit_amt, direct_reports_max, remote_eligible, metadata
 ) VALUES
 ('senior-director-finance', 'SR-DIR-FIN', 'Senior Director - Finance',
  'Senior management role responsible for financial planning, analysis, and strategic financial initiatives',
@@ -218,10 +212,9 @@ INSERT INTO app.d_position (
  '{"service_excellence": true, "operational_oversight": true, "quality_management": true, "customer_satisfaction": true}');
 
 -- Level 6: Director Positions
-INSERT INTO app.d_position (
-  slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
-  is_management, is_executive, salary_band_min, salary_band_max, bonus_target_pct,
-  equity_eligible, approval_limit, direct_reports_max, remote_eligible, tags, metadata
+INSERT INTO app.d_position (slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
+  is_management, is_executive, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
+  equity_eligible, approval_limit_amt, direct_reports_max, remote_eligible, metadata
 ) VALUES
 ('director-finance-pos', 'DIR-FIN-POS', 'Director - Finance',
  'Management role responsible for financial operations, reporting, and departmental management',
@@ -245,10 +238,9 @@ INSERT INTO app.d_position (
  '{"landscaping_operations": true, "project_oversight": true, "service_quality": true, "team_leadership": true}');
 
 -- Level 7: Associate Director Positions (Leaf Level)
-INSERT INTO app.d_position (
-  slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
-  is_management, is_executive, salary_band_min, salary_band_max, bonus_target_pct,
-  equity_eligible, approval_limit, direct_reports_max, remote_eligible, tags, metadata
+INSERT INTO app.d_position (slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
+  is_management, is_executive, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
+  equity_eligible, approval_limit_amt, direct_reports_max, remote_eligible, metadata
 ) VALUES
 ('associate-director-finance', 'ASSOC-DIR-FIN', 'Associate Director - Finance',
  'Management role responsible for financial analysis, reporting support, and specialized financial functions',

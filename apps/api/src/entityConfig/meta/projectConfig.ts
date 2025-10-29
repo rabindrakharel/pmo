@@ -57,18 +57,18 @@ export const projectConfig: EntityConfig = {
       label: 'End Date',
       uiBehavior: { visible: true, priority: 7, sort: true, width: 120 }
     },
-    budget_allocated: {
-      apiField: 'budget_allocated',
+    budget_allocated_amt: {
+      apiField: 'budget_allocated_amt',
       label: 'Budget',
       uiBehavior: { visible: true, priority: 8, renderAs: 'currency', width: 120 }
     },
-    created: {
-      apiField: 'created',
+    created_ts: {
+      apiField: 'created_ts',
       label: 'Created',
       uiBehavior: { visible: false, priority: 9, sort: true }
     },
-    updated: {
-      apiField: 'updated',
+    updated_ts: {
+      apiField: 'updated_ts',
       label: 'Updated',
       uiBehavior: { visible: false, priority: 10, sort: true }
     }

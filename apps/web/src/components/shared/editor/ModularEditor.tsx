@@ -56,7 +56,7 @@ const ToolbarButton: React.FC<ToolbarButtonProps> = ({
       p-2 rounded-md border transition-all duration-200 text-sm font-medium
       ${isActive 
         ? 'bg-blue-100 border-blue-300 text-blue-700 shadow-sm' 
-        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
+        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-300'
       }
       ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
     `}
@@ -75,7 +75,7 @@ const ToolbarSelect: React.FC<ToolbarSelectProps> = ({
     value={value}
     onChange={(e) => onChange(e.target.value)}
     disabled={disabled}
-    className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white text-gray-700 hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+    className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white text-gray-700 hover:border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
   >
     {options.map((option) => (
       <option key={option.value} value={option.value}>

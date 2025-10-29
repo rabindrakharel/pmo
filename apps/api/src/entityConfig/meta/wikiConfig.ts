@@ -52,13 +52,13 @@ export const wikiConfig: EntityConfig = {
       label: 'Tags',
       uiBehavior: { visible: true, priority: 6, filter: true, width: 180 }
     },
-    created: {
-      apiField: 'created',
+    created_ts: {
+      apiField: 'created_ts',
       label: 'Created',
       uiBehavior: { visible: true, priority: 7, sort: true, width: 120 }
     },
-    updated: {
-      apiField: 'updated',
+    updated_ts: {
+      apiField: 'updated_ts',
       label: 'Updated',
       uiBehavior: { visible: true, priority: 8, sort: true, width: 120 }
     }

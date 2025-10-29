@@ -62,13 +62,13 @@ export const artifactConfig: EntityConfig = {
       label: 'Current',
       uiBehavior: { visible: true, priority: 8, renderAs: 'boolean', width: 80 }
     },
-    created: {
-      apiField: 'created',
+    created_ts: {
+      apiField: 'created_ts',
       label: 'Created',
       uiBehavior: { visible: true, priority: 9, sort: true, width: 120 }
     },
-    updated: {
-      apiField: 'updated',
+    updated_ts: {
+      apiField: 'updated_ts',
       label: 'Updated',
       uiBehavior: { visible: false, priority: 10, sort: true }
     }

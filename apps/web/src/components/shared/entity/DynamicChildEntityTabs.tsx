@@ -84,14 +84,14 @@ export function DynamicChildEntityTabs({
   const activeTab = tabs.find(tab => currentPath === tab.path);
 
   return (
-    <div className={`bg-white border-b border-gray-200 ${className}`}>
+    <div className={`bg-white ${className}`}>
       {/* Tab Navigation */}
-      <div className="px-6 pt-2">
-        <nav className="flex space-x-8" aria-label="Tabs">
+      <div className="px-6 py-1.5">
+        <nav className="flex items-center gap-6" aria-label="Tabs">
           {tabs.map((tab) => {
             const isActive = activeTab?.id === tab.id;
             const IconComponent = tab.icon || getEntityIcon(tab.id);
-            
+
             return (
               <button
                 key={tab.id}
@@ -99,32 +99,23 @@ export function DynamicChildEntityTabs({
                 disabled={tab.disabled}
                 title={tab.tooltip}
                 className={[
-                  'group inline-flex items-center space-x-2 py-2 px-1 border-b-2 font-normal text-sm transition-colors duration-200',
+                  'group inline-flex items-center gap-1.5 px-1 py-1.5 border-b-2 font-normal text-xs transition-all duration-200',
                   isActive
-                    ? 'border-gray-800 text-gray-800'
+                    ? 'border-gray-300 text-gray-700'
                     : tab.disabled
                     ? 'border-transparent text-gray-400 cursor-not-allowed'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 cursor-pointer'
+                    : 'border-transparent text-gray-600 hover:border-gray-300 cursor-pointer'
                 ].join(' ')}
               >
-                <IconComponent className={[
-                  'h-3.5 w-3.5 transition-colors duration-200 stroke-[1.5]',
-                  isActive
-                    ? 'text-gray-600'
-                    : tab.disabled
-                    ? 'text-gray-400'
-                    : 'text-gray-400 group-hover:text-gray-500'
-                ].join(' ')} />
+                {/* Icon */}
+                <IconComponent className="h-3.5 w-3.5 stroke-[1.5]" />
+
+                {/* Label */}
                 <span>{tab.label}</span>
+
+                {/* Count badge */}
                 {tab.count !== undefined && (
-                  <span className={[
-                    'inline-flex items-center px-2 py-0.5 rounded text-xs font-normal transition-colors duration-200',
-                    isActive
-                      ? 'bg-gray-100 text-gray-700'
-                      : tab.disabled
-                      ? 'bg-gray-100 text-gray-400'
-                      : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
-                  ].join(' ')}>
+                  <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full text-[10px] font-normal bg-gray-100 text-gray-600">
                     {tab.count}
                   </span>
                 )}
@@ -133,6 +124,9 @@ export function DynamicChildEntityTabs({
           })}
         </nav>
       </div>
+
+      {/* Bottom border */}
+      <div className="h-px bg-gray-200" />
     </div>
   );
 }

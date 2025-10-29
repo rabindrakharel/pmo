@@ -11,12 +11,38 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000
 export interface SettingOption {
   value: string | number;
   label: string;
+  colorClass?: string; // Badge color class (e.g., 'bg-blue-100 text-blue-800')
   metadata?: {
     level_id?: number;
     level_descr?: string;
     sort_order?: number;
     active_flag?: boolean;
+    color_code?: string; // Color code from database (e.g., 'blue', 'red')
   };
+}
+
+/**
+ * Convert color code from database to Tailwind badge classes
+ */
+function colorCodeToTailwindClass(colorCode: string | null | undefined): string | undefined {
+  if (!colorCode) return undefined;
+
+  const colorMap: Record<string, string> = {
+    blue: 'bg-blue-100 text-blue-800',
+    purple: 'bg-purple-100 text-purple-800',
+    yellow: 'bg-yellow-100 text-yellow-800',
+    orange: 'bg-orange-100 text-orange-800',
+    green: 'bg-green-100 text-green-800',
+    red: 'bg-red-100 text-red-800',
+    gray: 'bg-gray-100 text-gray-800',
+    cyan: 'bg-cyan-100 text-cyan-800',
+    indigo: 'bg-indigo-100 text-indigo-800',
+    amber: 'bg-amber-100 text-amber-800',
+    rose: 'bg-rose-100 text-rose-800',
+    emerald: 'bg-emerald-100 text-emerald-800',
+  };
+
+  return colorMap[colorCode.toLowerCase()] || 'bg-gray-100 text-gray-800';
 }
 
 // In-memory cache for settings to avoid repeated API calls
@@ -75,24 +101,24 @@ export const FIELD_TO_SETTING_MAP: Record<string, string> = {
  * Mapping of setting categories to their API endpoints
  */
 export const SETTING_CATEGORY_TO_ENDPOINT: Record<string, string> = {
-  'project_stage': '/api/v1/setting?category=project_stage',
-  'project_status': '/api/v1/setting?category=project_status',
-  'task_stage': '/api/v1/setting?category=task_stage',
-  'task_priority': '/api/v1/setting?category=task_priority',
-  'opportunity_funnel_stage': '/api/v1/setting?category=opportunity_funnel_stage',
-  'industry_sector': '/api/v1/setting?category=industry_sector',
-  'acquisition_channel': '/api/v1/setting?category=acquisition_channel',
-  'customer_tier': '/api/v1/setting?category=customer_tier',
-  'client_status': '/api/v1/setting?category=client_status',
-  'business_level': '/api/v1/setting?category=business_level',
-  'office_level': '/api/v1/setting?category=office_level',
-  'position_level': '/api/v1/setting?category=position_level',
-  'hr_level': '/api/v1/setting?category=hr_level',
-  'client_level': '/api/v1/setting?category=client_level',
-  'form_submission_status': '/api/v1/setting?category=form_submission_status',
-  'form_approval_status': '/api/v1/setting?category=form_approval_status',
-  'wiki_publication_status': '/api/v1/setting?category=wiki_publication_status',
-  'task_update_type': '/api/v1/setting?category=task_update_type',
+  'project_stage': '/api/v1/setting?datalabel=project_stage',
+  'project_status': '/api/v1/setting?datalabel=project_status',
+  'task_stage': '/api/v1/setting?datalabel=task_stage',
+  'task_priority': '/api/v1/setting?datalabel=task_priority',
+  'opportunity_funnel_stage': '/api/v1/setting?datalabel=opportunity_funnel_stage',
+  'industry_sector': '/api/v1/setting?datalabel=industry_sector',
+  'acquisition_channel': '/api/v1/setting?datalabel=acquisition_channel',
+  'customer_tier': '/api/v1/setting?datalabel=customer_tier',
+  'client_status': '/api/v1/setting?datalabel=client_status',
+  'business_level': '/api/v1/setting?datalabel=business_level',
+  'office_level': '/api/v1/setting?datalabel=office_level',
+  'position_level': '/api/v1/setting?datalabel=position_level',
+  'hr_level': '/api/v1/setting?datalabel=hr_level',
+  'client_level': '/api/v1/setting?datalabel=client_level',
+  'form_submission_status': '/api/v1/setting?datalabel=form_submission_status',
+  'form_approval_status': '/api/v1/setting?datalabel=form_approval_status',
+  'wiki_publication_status': '/api/v1/setting?datalabel=wiki_publication_status',
+  'task_update_type': '/api/v1/setting?datalabel=task_update_type',
 };
 
 /**
@@ -165,16 +191,19 @@ export async function loadSettingOptions(
         const name = item.stage_name || item.level_name || item.name || item.title;
         const id = item.stage_id ?? item.level_id ?? item.id;
         const descr = item.stage_descr || item.level_descr || item.descr;
+        const colorCode = item.color_code;
 
         return {
           // Use name as value for text-based fields, otherwise use id
           value: name || (id !== undefined ? id : item.id),
           label: name || String(item.id),
+          colorClass: colorCodeToTailwindClass(colorCode),
           metadata: {
             level_id: id,
             descr: descr,
             sort_order: item.sort_order,
             active_flag: item.active_flag,
+            color_code: colorCode,
           }
         };
       })

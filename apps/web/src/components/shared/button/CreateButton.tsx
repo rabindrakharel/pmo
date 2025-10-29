@@ -31,7 +31,7 @@ export function CreateButton({ label, href, entityType, size = 'sm', className =
   return (
     <button
       onClick={() => navigate(href)}
-      className={`inline-flex items-center ${sizeClasses[size]} border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors ${className}`}
+      className={`inline-flex items-center ${sizeClasses[size]} border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors ${className}`}
     >
       <Plus className={`${iconSizes[size]} mr-2 stroke-[1.5]`} />
       {label}

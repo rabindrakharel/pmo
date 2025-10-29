@@ -57,13 +57,13 @@ export const bizConfig: EntityConfig = {
       label: 'Parent Unit',
       uiBehavior: { visible: true, priority: 7, filter: true, width: 180 }
     },
-    created: {
-      apiField: 'created',
+    created_ts: {
+      apiField: 'created_ts',
       label: 'Created',
       uiBehavior: { visible: false, priority: 8, sort: true }
     },
-    updated: {
-      apiField: 'updated',
+    updated_ts: {
+      apiField: 'updated_ts',
       label: 'Updated',
       uiBehavior: { visible: false, priority: 9, sort: true }
     }

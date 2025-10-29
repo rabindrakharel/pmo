@@ -301,7 +301,7 @@ export function ArtifactUploadPage() {
           className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
             isDragging
               ? 'border-blue-500 bg-blue-50'
-              : 'border-gray-300 bg-gray-50 hover:border-gray-400'
+              : 'border-gray-300 bg-gray-50 hover:border-gray-300'
           }`}
         >
           <input

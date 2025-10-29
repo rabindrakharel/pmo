@@ -142,23 +142,7 @@ validate_all_ddls() {
     print_status $BLUE "📋 Validating DDL files..."
 
     local ddl_files=(
-        "setting_datalabel__office_level.ddl"
-        "setting_datalabel__business_level.ddl"
-        "setting_datalabel__project_stage.ddl"
-        "setting_datalabel__task_stage.ddl"
-        "setting_datalabel__cust_level.ddl"
-        "setting_datalabel__customer_tier.ddl"
-        "setting_datalabel__position_level.ddl"
-        "setting_datalabel__opportunity_funnel_stage.ddl"
-        "setting_datalabel__industry_sector.ddl"
-        "setting_datalabel__acquisition_channel.ddl"
-        "setting_datalabel__cust_status.ddl"
-        "setting_datalabel__cust_service.ddl"
-        "setting_datalabel__task_priority.ddl"
-        "setting_datalabel__task_update_type.ddl"
-        "setting_datalabel__form_submission_status.ddl"
-        "setting_datalabel__form_approval_status.ddl"
-        "setting_datalabel__wiki_publication_status.ddl"
+        "setting_datalabel.ddl"
         "11_d_employee.ddl"
         "12_d_office.ddl"
         "13_d_business.ddl"
@@ -225,24 +209,8 @@ import_ddls() {
     # Initial setup - Drop and recreate schema
     execute_sql "$DB_PATH/0_schemaCreate.ddl" "Initial schema setup (drop and recreate)"
 
-    # Setting configuration tables - Foundation layer (All settings first)
-    execute_sql "$DB_PATH/setting_datalabel__office_level.ddl" "Office level settings"
-    execute_sql "$DB_PATH/setting_datalabel__business_level.ddl" "Business level settings"
-    execute_sql "$DB_PATH/setting_datalabel__project_stage.ddl" "Project stage settings"
-    execute_sql "$DB_PATH/setting_datalabel__task_stage.ddl" "Task stage settings"
-    execute_sql "$DB_PATH/setting_datalabel__cust_level.ddl" "Customer level settings"
-    execute_sql "$DB_PATH/setting_datalabel__customer_tier.ddl" "Customer tier settings"
-    execute_sql "$DB_PATH/setting_datalabel__position_level.ddl" "Position level settings"
-    execute_sql "$DB_PATH/setting_datalabel__opportunity_funnel_stage.ddl" "Opportunity funnel stage settings"
-    execute_sql "$DB_PATH/setting_datalabel__industry_sector.ddl" "Industry sector settings"
-    execute_sql "$DB_PATH/setting_datalabel__acquisition_channel.ddl" "Acquisition channel settings"
-    execute_sql "$DB_PATH/setting_datalabel__cust_status.ddl" "Customer status settings"
-    execute_sql "$DB_PATH/setting_datalabel__cust_service.ddl" "Customer service settings"
-    execute_sql "$DB_PATH/setting_datalabel__task_priority.ddl" "Task priority settings"
-    execute_sql "$DB_PATH/setting_datalabel__task_update_type.ddl" "Task update type settings"
-    execute_sql "$DB_PATH/setting_datalabel__form_submission_status.ddl" "Form submission status settings"
-    execute_sql "$DB_PATH/setting_datalabel__form_approval_status.ddl" "Form approval status settings"
-    execute_sql "$DB_PATH/setting_datalabel__wiki_publication_status.ddl" "Wiki publication status settings"
+    # Unified setting configuration table - Foundation layer (DRY - Single table for all labels)
+    execute_sql "$DB_PATH/setting_datalabel.ddl" "Unified data label settings (all entity labels)"
 
     # Core personnel - Must come before organizational assignments
     execute_sql "$DB_PATH/11_d_employee.ddl" "Employee entities with authentication"
@@ -350,11 +318,8 @@ validate_schema() {
     local entity_map_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_entity_id_map;" 2>/dev/null | xargs || echo "0")
     local rbac_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.entity_id_rbac_map;" 2>/dev/null | xargs || echo "0")
 
-    # Meta configuration tables
-    local office_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_datalabel_office_level;" 2>/dev/null | xargs || echo "0")
-    local business_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_datalabel_business_level;" 2>/dev/null | xargs || echo "0")
-    local project_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_datalabel_project_stage;" 2>/dev/null | xargs || echo "0")
-    local task_meta_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_datalabel_task_stage;" 2>/dev/null | xargs || echo "0")
+    # Unified data labels table
+    local datalabel_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_datalabel;" 2>/dev/null | xargs || echo "0")
 
     print_status $CYAN "   Core Entities:"
     print_status $CYAN "     Offices: $office_count"
@@ -388,11 +353,8 @@ validate_schema() {
     print_status $CYAN "     Entity mappings: $entity_map_count"
     print_status $CYAN "     RBAC permissions: $rbac_count"
 
-    print_status $CYAN "   Meta Configuration:"
-    print_status $CYAN "     Office levels: $office_meta_count"
-    print_status $CYAN "     Business levels: $business_meta_count"
-    print_status $CYAN "     Project stages: $project_meta_count"
-    print_status $CYAN "     Task stages: $task_meta_count"
+    print_status $CYAN "   Unified Data Labels:"
+    print_status $CYAN "     Entity-label combinations: $datalabel_count (task__stage, project__stage, etc.)"
 
     # Verify James Miller CEO account
     local james_email=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT email FROM app.d_employee WHERE name = 'James Miller';" 2>/dev/null | xargs || echo "")

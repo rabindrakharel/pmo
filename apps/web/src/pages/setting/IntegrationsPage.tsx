@@ -64,7 +64,7 @@ export function IntegrationsPage() {
         );
       case 'available':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
             Available
           </span>
         );
@@ -73,10 +73,10 @@ export function IntegrationsPage() {
 
   const getCategoryColor = (category: Integration['category']) => {
     const colors = {
-      api: 'border-blue-200 bg-blue-50',
-      webhook: 'border-purple-200 bg-purple-50',
-      database: 'border-green-200 bg-green-50',
-      service: 'border-orange-200 bg-orange-50'
+      api: 'border-gray-200 bg-gray-50',
+      webhook: 'border-gray-200 bg-gray-50',
+      database: 'border-gray-200 bg-gray-50',
+      service: 'border-gray-200 bg-gray-50'
     };
     return colors[category] || 'border-gray-200 bg-gray-50';
   };
@@ -89,8 +89,8 @@ export function IntegrationsPage() {
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
-                <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg mr-3">
-                  <Plug className="h-5 w-5 text-white stroke-[1.5]" />
+                <div className="p-2 bg-gray-100 border border-gray-300 rounded-lg mr-3">
+                  <Plug className="h-5 w-5 text-gray-700 stroke-[1.5]" />
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">Integrations</h1>
@@ -98,7 +98,7 @@ export function IntegrationsPage() {
                 </div>
               </div>
               <button
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:bg-gray-100 disabled:text-gray-400"
                 disabled
               >
                 <Plus className="h-4 w-4" />
@@ -107,12 +107,12 @@ export function IntegrationsPage() {
             </div>
 
             {/* Info Banner */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
               <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="h-5 w-5 text-gray-600 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <h3 className="text-sm font-medium text-blue-900 mb-1">Integration Platform</h3>
-                  <p className="text-sm text-blue-700">
+                  <h3 className="text-sm font-medium text-gray-900 mb-1">Integration Platform</h3>
+                  <p className="text-sm text-gray-700">
                     Connect your PMO platform with external services, APIs, and databases.
                     Configure webhooks for real-time notifications and manage API keys for secure access.
                   </p>
@@ -148,7 +148,7 @@ export function IntegrationsPage() {
                     </div>
                     <p className="text-sm text-gray-600 mb-4">{integration.description}</p>
                     <button
-                      className="w-full px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+                      className="w-full px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:bg-gray-100 disabled:text-gray-400"
                       disabled
                     >
                       Configure Integration

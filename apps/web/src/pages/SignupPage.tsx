@@ -181,7 +181,7 @@ export function SignupPage() {
                   {customerTypes.map((type) => (
                     <label
                       key={type.value}
-                      className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 hover:border-slate-400 focus:outline-none"
+                      className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 hover:border-gray-300 focus:outline-none"
                     >
                       <input
                         {...register('custType')}

@@ -201,7 +201,7 @@ export function SecurityPage() {
                   </div>
                 </div>
               </div>
-              <button className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-colors">
+              <button className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors">
                 <Smartphone className="h-4 w-4 mr-2 stroke-[1.5]" />
                 Enable Two-Factor Authentication
               </button>

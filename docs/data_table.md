@@ -4,8 +4,8 @@
 
 **Component:** `apps/web/src/components/shared/ui/DataTable.tsx`
 **Created:** 2025-10-23
-**Last Updated:** 2025-10-28 (v2.3 - Convention Over Configuration)
-**Related:** [UI/UX Architecture](./ui_ux_route_api.md), [Settings System](./settings.md), [Field Capabilities](../apps/web/src/lib/fieldCapabilities.ts)
+**Last Updated:** 2025-10-29 (v2.6 - Database-Driven Badge Colors)
+**Related:** [UI/UX Architecture](./ui_ux_route_api.md), [Settings System](./settings.md), [Settings Pattern 7 (Colors)](./settings.md#pattern-7-database-driven-badge-color-system-v25), [Styling Patterns](./styling_patterns.md)
 
 ---
 
@@ -19,7 +19,9 @@
 6. [Column Configuration](#column-configuration)
 7. [Data Flow Examples](#data-flow-examples)
 8. [Advanced Features](#advanced-features)
-9. [Testing & Debugging](#testing--debugging)
+9. [Settings Table Enhancements (v2.4)](#settings-table-enhancements-v24) ⭐ NEW
+10. [Drag & Drop System (v2.4)](#drag--drop-system-v24) ⭐ NEW
+11. [Testing & Debugging](#testing--debugging)
 
 ---
 
@@ -31,8 +33,12 @@
 
 ### Key Features
 
+- ✅ **Database-driven badge colors** (v2.6) - Automatic color rendering from database `color_code` field ([Pattern 7](./settings.md#pattern-7-database-driven-badge-color-system-v25))
 - ✅ **Auto-detection** (v2.3) - Field capabilities detected by naming conventions
 - ✅ **Inline editing** - Edit records without navigation (text, select, tags, files, numbers, dates)
+- ✅ **Inline row adding** (v2.4) - Add new rows directly in settings tables
+- ✅ **Drag & drop reordering** (v2.4) - Reorder rows with visual feedback and ID recalculation
+- ✅ **Color picker** (v2.4) - Dropdown with predefined color options for settings
 - ✅ **Sorting & filtering** - Client-side and server-side support
 - ✅ **Pagination** - Configurable page sizes and navigation
 - ✅ **Row actions** - View, edit, share, delete with permission control
@@ -1047,6 +1053,599 @@ const handleBulkDelete = async () => {
 
 ---
 
+## Settings Table Enhancements (v2.4)
+
+### Overview
+
+Version 2.4 introduces specialized features for **settings entities** (data label configuration tables), enabling inline row management, drag-and-drop reordering, and enhanced color selection. These features are automatically activated for settings tables while maintaining backward compatibility with regular entity tables.
+
+### Settings Entity Detection
+
+**Automatic Detection Pattern:**
+```typescript
+// FilteredDataTable.tsx
+const isSettingsEntity = useMemo(() => {
+  return config?.apiEndpoint?.includes('/api/v1/setting?datalabel=') || false;
+}, [config]);
+```
+
+**When Detected:**
+- API endpoint matches `/api/v1/setting?datalabel={category}`
+- Automatically enables: inline row adding, reordering, color picker
+- Automatically hides: view action icon (keeps edit/delete)
+
+**Applies to all 13 settings entities:**
+- `position_level`, `office_level`, `business_level`
+- `project_stage`, `task_stage`, `task_priority`
+- `customer_tier`, `client_status`
+- `industry_sector`, `acquisition_channel`
+- `opportunity_funnel_stage`
+- `form_approval_status`, `form_submission_status`
+- `wiki_publication_status`
+
+---
+
+### Feature 1: Inline Row Adding
+
+**Purpose:** Add new settings rows directly in the table without navigation.
+
+**UI Component:**
+```tsx
+{isSettingsEntity && (
+  <div className="mb-4 flex justify-end">
+    <button
+      onClick={handleAddRow}
+      disabled={!!editingRow}
+      className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:bg-gray-100 disabled:text-gray-400"
+    >
+      <PlusIcon className="h-4 w-4 mr-2 stroke-[1.5]" />
+      Add Row
+    </button>
+  </div>
+)}
+```
+
+**Design:** Light gray border button (v2.5 standard - see [Styling Patterns](./styling_patterns.md))
+
+**Implementation Flow:**
+```typescript
+// FilteredDataTable.tsx
+const handleAddRow = () => {
+  if (!isSettingsEntity) return;
+
+  // Calculate next ID
+  const maxId = data.length > 0
+    ? Math.max(...data.map((d: any) => parseInt(d.id) || 0))
+    : -1;
+  const newId = (maxId + 1).toString();
+
+  // Create empty row
+  const newRow = {
+    id: newId,
+    name: '',
+    descr: '',
+    parent_id: null,
+    color_code: 'gray'  // v2.5: Default gray color
+  };
+
+  // Add to state and enter edit mode
+  setData([...data, newRow]);
+  setEditingRow(newId);
+  setEditedData(newRow);
+  setIsAddingRow(true);
+};
+
+// Save new row via POST
+const handleSaveNewRow = async () => {
+  const datalabel = extractDatalabel(config.apiEndpoint);
+  const createEndpoint = `/api/v1/setting/${datalabel}`;
+
+  const response = await fetch(`${API_BASE_URL}${createEndpoint}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(editedData)
+  });
+
+  if (response.ok) {
+    await fetchData();
+    setEditingRow(null);
+    setEditedData({});
+    setIsAddingRow(false);
+  }
+};
+```
+
+**User Experience:**
+1. Click "Add Row" button
+2. Empty row appears at bottom with auto-incremented ID
+3. Row automatically enters edit mode
+4. Fill in name, description, select color
+5. Click Save (POST) or Cancel (removes row)
+
+---
+
+### Feature 2: Color Picker Dropdown
+
+**Purpose:** Provide consistent color selection from predefined options.
+
+**Color Options:**
+```typescript
+// settingsConfig.ts
+export const COLOR_OPTIONS = [
+  { value: 'blue', label: 'Blue' },
+  { value: 'purple', label: 'Purple' },
+  { value: 'green', label: 'Green' },
+  { value: 'red', label: 'Red' },
+  { value: 'yellow', label: 'Yellow' },
+  { value: 'orange', label: 'Orange' },
+  { value: 'gray', label: 'Gray' },
+  { value: 'cyan', label: 'Cyan' },
+  { value: 'pink', label: 'Pink' },
+  { value: 'amber', label: 'Amber' },
+] as const;
+```
+
+**Rendering in DataTable:**
+```typescript
+// DataTable.tsx - Inline edit mode
+{column.key === 'color_code' && colorOptions ? (
+  <div className="relative w-full">
+    <select
+      value={editedData[column.key] ?? record[column.key] ?? ''}
+      onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
+      className="w-full px-2.5 py-1.5 pr-8 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400/30 focus:border-gray-400"
+    >
+      <option value="">Select color...</option>
+      {colorOptions.map(opt => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+    <ChevronDown className="h-4 w-4 text-gray-500 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+  </div>
+) : (
+  // Other field types...
+)}
+```
+
+**Benefits:**
+- ✅ No typos (dropdown prevents free text)
+- ✅ Consistent colors across platform
+- ✅ Easy to add new colors (single source of truth)
+- ✅ Visual consistency with color badges
+
+---
+
+### Feature 3: Row Reordering with ID Recalculation
+
+**Purpose:** Allow users to reorder settings rows with automatic ID updates.
+
+**Implementation:**
+```typescript
+// FilteredDataTable.tsx
+const handleReorder = async (newData: any[]) => {
+  if (!isSettingsEntity || !config) return;
+
+  // Recalculate IDs based on new positions
+  const reorderedData = newData.map((item, index) => ({
+    ...item,  // Preserve ALL fields
+    id: index.toString()  // Only override ID
+  }));
+
+  // Update local state immediately (optimistic UI)
+  setData(reorderedData);
+
+  // Update sequentially to avoid race conditions
+  const datalabel = extractDatalabel(config.apiEndpoint);
+
+  for (let newIndex = 0; newIndex < reorderedData.length; newIndex++) {
+    const item = reorderedData[newIndex];
+    const updateEndpoint = `/api/v1/setting/${datalabel}/${newIndex}`;
+
+    await fetch(`${API_BASE_URL}${updateEndpoint}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(item)  // Complete item with new ID
+    });
+  }
+
+  // Refresh from server
+  await fetchData();
+};
+```
+
+**Key Design Decisions:**
+
+1. **Preserve All Fields:**
+   ```typescript
+   // ✅ Correct - preserves all data
+   { ...item, id: index.toString() }
+
+   // ❌ Wrong - loses fields
+   { id: '0', name: item.name, descr: item.descr }
+   ```
+
+2. **Sequential Updates:**
+   ```typescript
+   // ✅ Correct - sequential
+   for (let i = 0; i < items.length; i++) {
+     await updateItem(i);
+   }
+
+   // ❌ Wrong - parallel causes race conditions
+   await Promise.all(items.map(updateItem));
+   ```
+
+3. **Complete Data Spread:**
+   - All fields must be sent to API during reorder
+   - Only `id` field gets overwritten
+   - Prevents data loss or corruption
+
+**Example:**
+```
+Before reorder:
+  0: { id: "0", name: "Level 1", color: "blue", parent_id: null }
+  1: { id: "1", name: "Level 2", color: "green", parent_id: "0" }
+  2: { id: "2", name: "Level 3", color: "red", parent_id: "1" }
+
+User drags row 2 to position 0
+
+After reorder:
+  0: { id: "0", name: "Level 3", color: "red", parent_id: "1" }
+  1: { id: "1", name: "Level 1", color: "blue", parent_id: null }
+  2: { id: "2", name: "Level 2", color: "green", parent_id: "0" }
+```
+
+---
+
+### Feature 4: Hidden View Action
+
+**Purpose:** Simplify settings table interface by removing view icon.
+
+**Implementation:**
+```typescript
+// FilteredDataTable.tsx
+const rowActions: RowAction[] = useMemo(() => {
+  if (!config || !showActionIcons) return [];
+  const actions: RowAction[] = [];
+
+  // Don't show view icon for settings entities
+  if (showActionIcons && !isSettingsEntity) {
+    actions.push({
+      key: 'view',
+      label: 'View',
+      icon: <Eye className="h-4 w-4" />,
+      onClick: (record) => handleRowClick(record)
+    });
+  }
+
+  // Edit and delete always shown
+  if (showEditIcon) {
+    actions.push({ key: 'edit', ... });
+  }
+  if (showDeleteIcon) {
+    actions.push({ key: 'delete', ... });
+  }
+
+  return actions;
+}, [config, isSettingsEntity, showActionIcons, showEditIcon, showDeleteIcon]);
+```
+
+**Rationale:**
+- Settings rows are simple configuration data
+- No detail page to navigate to
+- Edit and delete are sufficient actions
+- Cleaner, less cluttered interface
+
+---
+
+### Props Added for Settings Features
+
+```typescript
+// DataTable.tsx - New props interface
+export interface DataTableProps<T = any> {
+  // ... existing props
+
+  // Settings entity support (v2.4)
+  colorOptions?: { value: string; label: string }[];
+  allowReordering?: boolean;
+  onReorder?: (newData: T[]) => void;
+}
+```
+
+**Usage Example:**
+```typescript
+<DataTable
+  data={data}
+  columns={columns}
+  inlineEditable={true}
+  editingRow={editingRow}
+  onInlineEdit={handleInlineEdit}
+  onSaveInlineEdit={handleSaveInlineEditWrapper}
+  onCancelInlineEdit={handleCancelInlineEditWrapper}
+
+  // Settings-specific props (passed only when isSettingsEntity = true)
+  colorOptions={isSettingsEntity ? COLOR_OPTIONS : undefined}
+  allowReordering={isSettingsEntity}
+  onReorder={handleReorder}
+/>
+```
+
+---
+
+## Drag & Drop System (v2.4)
+
+### Overview
+
+Version 2.4 introduces an intuitive drag-and-drop reordering system for settings tables, featuring:
+- **No drag handle column** - Entire row is draggable
+- **Visual feedback** - Gray pulsing line shows drop position (v2.5: light gray styling)
+- **Smooth animations** - Professional appearance
+- **Data integrity** - All fields preserved during reorder
+
+### Visual Design
+
+**Hover State (v2.5):**
+```css
+/* Row becomes draggable on hover */
+cursor: move;
+background: rgb(243 244 246 / 0.4);  /* Light gray-100 */
+box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+transition: all 200ms;
+```
+
+**Dragging State:**
+```css
+/* Dragged row appearance */
+opacity: 0.4;
+transform: scale(0.98);
+background: rgb(243 244 246);  /* Gray-100 */
+```
+
+**Drop Target (v2.5 - Gray Styling):**
+```css
+/* Gray pulsing line above target row */
+.drop-indicator {
+  height: 4px;
+  background: rgb(107 114 128);  /* Gray-500 */
+  box-shadow: 0 0 8px rgba(107, 114, 128, 0.5);
+  animation: pulse 1.5s infinite;
+}
+
+/* Target row background */
+background: rgb(243 244 246 / 0.5);  /* Light gray-100 */
+```
+
+---
+
+### Implementation
+
+**Drag State Management:**
+```typescript
+// DataTable.tsx
+const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+```
+
+**Drag Handlers:**
+```typescript
+const handleDragStart = (e: React.DragEvent, index: number) => {
+  if (!allowReordering) return;
+  setDraggedIndex(index);
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/html', e.currentTarget.innerHTML);
+};
+
+const handleDragOver = (e: React.DragEvent, index: number) => {
+  if (!allowReordering || draggedIndex === null) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+
+  if (index !== dragOverIndex) {
+    setDragOverIndex(index);
+  }
+};
+
+const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+  if (!allowReordering || draggedIndex === null) return;
+  e.preventDefault();
+
+  if (draggedIndex !== dropIndex) {
+    const newData = [...filteredAndSortedData];
+    const draggedItem = newData[draggedIndex];
+
+    // Remove from old position
+    newData.splice(draggedIndex, 1);
+
+    // Insert at new position
+    newData.splice(dropIndex, 0, draggedItem);
+
+    // Callback to parent with reordered data
+    onReorder?.(newData);
+  }
+
+  setDraggedIndex(null);
+  setDragOverIndex(null);
+};
+
+const handleDragEnd = () => {
+  if (!allowReordering) return;
+  setDraggedIndex(null);
+  setDragOverIndex(null);
+};
+```
+
+**Row Rendering:**
+```typescript
+<>
+  {/* Drop indicator line (v2.5: gray styling) */}
+  {isDragOver && draggedIndex !== null && (
+    <tr className="relative pointer-events-none">
+      <td colSpan={columns.length} className="p-0 h-0">
+        <div
+          className="absolute left-0 right-0 h-1 bg-gray-500 shadow-lg z-50 animate-pulse"
+          style={{
+            top: '-2px',
+            boxShadow: '0 0 8px rgba(107, 114, 128, 0.5)'
+          }}
+        />
+      </td>
+    </tr>
+  )}
+
+  {/* Draggable row (v2.5: gray hover states) */}
+  <tr
+    draggable={allowReordering && !isEditing}
+    onDragStart={(e) => handleDragStart(e, index)}
+    onDragOver={(e) => handleDragOver(e, index)}
+    onDragLeave={handleDragLeave}
+    onDrop={(e) => handleDrop(e, index)}
+    onDragEnd={handleDragEnd}
+    className={`
+      ${isDragging ? 'opacity-40 scale-[0.98] bg-gray-100' : ''}
+      ${isDragOver ? 'bg-gray-100/50' : ''}
+      ${allowReordering && !isEditing ? 'cursor-move hover:bg-gray-100/40 hover:shadow-md' : ''}
+      transition-all duration-200
+    `}
+  >
+    {/* Row cells */}
+  </tr>
+</>
+```
+
+---
+
+### User Experience Flow
+
+```
+1. USER HOVERS OVER ROW
+   └─> Cursor changes to move icon (⋮⋮)
+   └─> Row background highlights in light gray (v2.5)
+   └─> Subtle shadow appears
+
+2. USER CLICKS AND HOLDS ROW
+   └─> Row becomes semi-transparent (40%)
+   └─> Row slightly scales down (98%)
+   └─> Row background turns gray
+
+3. USER DRAGS UP OR DOWN
+   └─> Gray pulsing line appears above potential drop target (v2.5)
+   └─> Target row background turns light gray (v2.5)
+   └─> Clear visual indication of drop position
+
+4. USER RELEASES MOUSE
+   └─> Row drops into new position
+   └─> All data moves with the row
+   └─> IDs recalculated (0, 1, 2, 3...)
+   └─> Sequential API updates (PUT for each row)
+   └─> Data refreshed from server
+   └─> Visual feedback disappears smoothly
+```
+
+---
+
+### Key Design Decisions
+
+**1. No Drag Handle Column**
+- **Before:** Had dedicated ☰ column (40px wide)
+- **After:** Entire row is draggable
+- **Benefit:** More intuitive, less clutter
+
+**2. Visual Drop Indicator**
+- **Gray pulsing line** - Shows exact drop position (v2.5: light gray-500)
+- **Target row highlight** - Confirms hover state
+- **Animation** - Draws user's attention
+
+**3. Prevent Drag While Editing**
+```typescript
+draggable={allowReordering && !isEditing}
+```
+- Can't drag a row that's being edited
+- Prevents accidental drags during data entry
+
+**4. Optimistic UI Update**
+```typescript
+// Update state immediately
+setData(reorderedData);
+
+// Then update API
+for (let i = 0; i < reorderedData.length; i++) {
+  await updateItem(i);
+}
+
+// Finally refresh from server
+await fetchData();
+```
+- Instant visual feedback
+- Server sync happens in background
+- Final refresh ensures consistency
+
+---
+
+### Performance Considerations
+
+**Sequential vs Parallel Updates:**
+```typescript
+// ✅ Sequential (chosen approach)
+for (let i = 0; i < items.length; i++) {
+  await updateItem(i);
+}
+// Pros: Prevents race conditions, data integrity
+// Cons: Slower (~300-500ms for 6 rows)
+
+// ❌ Parallel (not used)
+await Promise.all(items.map(updateItem));
+// Pros: Faster
+// Cons: Race conditions, potential data corruption
+```
+
+**Why Sequential:**
+- Settings tables typically have < 20 rows
+- 500ms total time is acceptable
+- Data integrity is critical
+- Race conditions would cause bugs
+
+**Optimization:**
+- Optimistic UI update (instant visual feedback)
+- Server refresh only after all updates complete
+- Smooth 200ms transitions mask latency
+
+---
+
+### Testing Drag & Drop
+
+**Manual Test:**
+```bash
+# 1. Start the app
+./tools/start-all.sh
+
+# 2. Navigate to settings page
+open http://localhost:5173/setting?datalabel=position_level
+
+# 3. Hover over row → See cursor change + highlight
+# 4. Click and drag row → See transparency + gray line (v2.5)
+# 5. Drop at target → See reorder + ID updates
+# 6. Verify in database
+./tools/run_query.sh "SELECT id, name FROM app.setting_datalabel_position_level ORDER BY id;"
+```
+
+**Console Debugging:**
+```typescript
+// Add to handleReorder in FilteredDataTable.tsx
+console.log('Reorder triggered');
+console.log('New data order:', newData.map(d => ({ id: d.id, name: d.name })));
+
+// Should show:
+// [
+//   { id: '0', name: 'Senior' },
+//   { id: '1', name: 'Junior' },
+//   { id: '2', name: 'Executive' }
+// ]
+```
+
+---
+
 ## Testing & Debugging
 
 ### Debug Auto-Detection
@@ -1116,27 +1715,70 @@ console.log(transformed); // Should be { tags: ["a", "b", "c"] }
 
 1. **Universal Component** - One DataTable handles ALL 13+ entity types
 2. **Auto-Detection (v2.3)** - Zero manual config, field behavior determined by naming
-3. **DRY Backend Integration** - Same endpoints, same transformers, same patterns
-4. **Convention Over Configuration** - Field names dictate behavior
-5. **Bidirectional Transformation** - Automatic data format conversion
-6. **Settings Integration** - Dropdown options loaded from settings API
-7. **Inline Editing** - Edit records without navigation
+3. **Settings Enhancements (v2.4)** - Inline row adding, reordering, color picker for settings tables
+4. **Drag & Drop (v2.4)** - Intuitive row reordering with visual feedback and data integrity
+5. **DRY Backend Integration** - Same endpoints, same transformers, same patterns
+6. **Convention Over Configuration** - Field names dictate behavior
+7. **Bidirectional Transformation** - Automatic data format conversion
+8. **Settings Integration** - Dropdown options loaded from settings API
+9. **Inline Editing** - Edit records without navigation
+10. **Visual Feedback** - Gray pulsing drop indicators (v2.5), smooth animations
+
+### Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| **v2.6** | 2025-10-29 | Database-driven badge colors |
+| **v2.5** | 2025-10-29 | Color & border standardization (gray-300 universal) |
+| **v2.4** | 2025-10-29 | Settings table enhancements, drag-and-drop, color picker |
+| **v2.3** | 2025-10-28 | Auto-detection, convention over configuration |
+| **v2.0** | 2025-10-23 | Initial DRY architecture, inline editing |
 
 ### Files Reference
 
 | File | Purpose |
 |------|---------|
-| `apps/web/src/components/shared/ui/DataTable.tsx` | Core component |
-| `apps/web/src/components/shared/dataTable/FilteredDataTable.tsx` | Wrapper with API integration |
+| `apps/web/src/components/shared/ui/DataTable.tsx` | Core component with drag-drop |
+| `apps/web/src/components/shared/dataTable/FilteredDataTable.tsx` | Wrapper with API integration + settings features |
+| `apps/web/src/lib/settingsConfig.ts` | Settings registry, factory pattern, COLOR_OPTIONS |
 | `apps/web/src/lib/fieldCapabilities.ts` | Auto-detection rules |
 | `apps/web/src/lib/dataTransformers.ts` | Frontend transformers |
 | `apps/web/src/lib/entityConfig.ts` | Column configurations |
 | `apps/api/src/lib/data-transformers.ts` | Backend transformers |
 | `apps/api/src/modules/{entity}/routes.ts` | Entity API endpoints |
-| `apps/api/src/modules/setting/routes.ts` | Settings API |
+| `apps/api/src/modules/setting/routes.ts` | Settings API with PUT/POST |
+
+### v2.5 Feature Summary (Color & Border Standardization)
+
+**Universal Changes:**
+- ✅ All borders standardized to gray-300 (#D1D5DB)
+- ✅ All buttons use light gray border style
+- ✅ Gray pulsing line drop indicator (was blue)
+- ✅ Gray hover states for drag-drop (was blue)
+- ✅ Default color_code changed to 'gray' (was 'blue')
+
+**Reference:** See [Styling Patterns v5.0](./styling_patterns.md)
+
+### v2.4 Feature Summary
+
+**Settings Tables Only:**
+- ✅ Inline row adding with "Add Row" button
+- ✅ Drag-and-drop row reordering (entire row draggable)
+- ✅ Visual drop indicator with pulsing animation
+- ✅ ID recalculation after reorder (0, 1, 2, 3...)
+- ✅ Color picker dropdown (10 predefined colors)
+- ✅ Hidden view icon (cleaner interface)
+- ✅ Sequential API updates (data integrity)
+- ✅ Optimistic UI updates (instant feedback)
+
+**Regular Tables:**
+- ✅ All v2.3 features remain unchanged
+- ✅ No impact on existing functionality
+- ✅ Backward compatible
 
 ---
 
-**Last Updated:** 2025-10-28
-**Version:** v2.3 - TRUE DRY with Convention Over Configuration
+**Last Updated:** 2025-10-29
+**Version:** v2.4 - Settings Table Enhancements & Drag-Drop
 **Status:** ✅ Production Ready
+**Test Page:** http://localhost:5173/setting?datalabel=position_level

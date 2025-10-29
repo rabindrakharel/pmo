@@ -36,7 +36,7 @@
 --    • Database:
 --      - Runs query_definition against data_source_config
 --      - Stores results in d_report_data
---      - UPDATE SET last_execution_time=now(), execution_duration_ms=$1 WHERE id=$2
+--      - UPDATE SET last_execution_ts=now(), execution_duration_ms=$1 WHERE id=$2
 --    • RBAC: Requires permission 0 (view) on entity='reports', entity_id={id}
 --    • Business Rule: Manual execution bypasses refresh_frequency schedule
 --
@@ -75,7 +75,7 @@
 --      - SELECT * FROM d_reports WHERE id=$1 AND active_flag=true
 --      - JOIN d_report_data to fetch latest execution results
 --    • RBAC: Checks entity_id_rbac_map for view permission
---    • Frontend: Renders chart/table/dashboard with latest data; shows last_execution_time
+--    • Frontend: Renders chart/table/dashboard with latest data; shows last_execution_ts
 --
 -- 8. GET REPORT EXECUTION HISTORY
 --    • Endpoint: GET /api/v1/reports/{id}/history?limit=10
@@ -111,7 +111,7 @@
 -- • visualization_config: JSONB defining chart options (colors, axes, legends)
 -- • auto_refresh_enabled: Scheduler flag (true=auto-execute, false=manual only)
 -- • email_subscribers: ARRAY of employee UUIDs receiving email notifications
--- • last_execution_time, execution_duration_ms: Performance tracking
+-- • last_execution_ts, execution_duration_ms: Performance tracking
 --
 -- RELATIONSHIPS:
 -- • email_subscribers[] → d_employee (who receives email notifications)
@@ -122,11 +122,9 @@
 
 CREATE TABLE app.d_reports (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    slug varchar(100) UNIQUE NOT NULL,
     code varchar(50) UNIQUE NOT NULL,
     name varchar(200) NOT NULL,
     descr text,
-    tags jsonb DEFAULT '[]'::jsonb,
     metadata jsonb DEFAULT '{}'::jsonb,
 
     -- Report definition
@@ -148,7 +146,7 @@ CREATE TABLE app.d_reports (
     email_subscribers uuid[] DEFAULT '{}',
 
     -- Performance tracking
-    last_execution_time timestamptz,
+    last_execution_ts timestamptz,
     execution_duration_ms integer,
     last_error_message text,
 
@@ -157,9 +155,9 @@ CREATE TABLE app.d_reports (
     primary_entity_id uuid,
 
     -- Temporal fields
+    active_flag boolean DEFAULT true,
     from_ts timestamptz DEFAULT now(),
     to_ts timestamptz,
-    active_flag boolean DEFAULT true,
     created_ts timestamptz DEFAULT now(),
     updated_ts timestamptz DEFAULT now(),
     version integer DEFAULT 1

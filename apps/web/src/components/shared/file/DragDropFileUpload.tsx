@@ -109,7 +109,7 @@ export function DragDropFileUpload({
             border-2 border-dashed rounded-lg p-8 text-center transition-all
             ${isDragging
               ? 'border-blue-500 bg-blue-50 scale-[1.02]'
-              : 'border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100'
+              : 'border-gray-300 bg-gray-50 hover:border-gray-300 hover:bg-gray-100'
             }
             ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           `}

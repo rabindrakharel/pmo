@@ -4,7 +4,8 @@ import type { Column, RowAction } from '../ui/DataTable';
 import { useNavigate } from 'react-router-dom';
 import { ActionButtonsBar } from '../button/ActionButtonsBar';
 import { getEntityConfig, type EntityConfig } from '../../../lib/entityConfig';
-import { transformForApi, transformFromApi } from '../../../lib/dataTransformers';
+import { transformForApi, transformFromApi } from '../../../lib/data_transform_render';
+import { COLOR_OPTIONS } from '../../../lib/settingsConfig';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -55,6 +56,12 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editedData, setEditedData] = useState<any>({});
+  const [isAddingRow, setIsAddingRow] = useState(false);
+
+  // Check if this is a settings entity
+  const isSettingsEntity = useMemo(() => {
+    return config?.apiEndpoint?.includes('/api/v1/setting?datalabel=') || false;
+  }, [config]);
 
   // Use columns directly from config, and add parent ID column if applicable
   const columns: Column[] = useMemo(() => {
@@ -93,8 +100,8 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
     const actions: RowAction[] = [];
 
-    // Only show view icon if showActionIcons is true (default behavior)
-    if (showActionIcons) {
+    // Don't show view icon for settings entities (they use inline editing instead)
+    if (showActionIcons && !isSettingsEntity) {
       actions.push({
         key: 'view',
         label: 'View',
@@ -131,7 +138,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     }
 
     return actions;
-  }, [config, showActionIcons, showEditIcon, showDeleteIcon, inlineEditable]);
+  }, [config, showActionIcons, showEditIcon, showDeleteIcon, inlineEditable, isSettingsEntity]);
 
   const fetchData = async () => {
     if (!config) return;
@@ -230,14 +237,14 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       // Build the correct API endpoint
       let updateEndpoint = '';
 
-      // Check if this is a settings entity with category query parameter
-      if (config.apiEndpoint.includes('/api/v1/setting?category=')) {
-        // Extract the category from the apiEndpoint
-        const categoryMatch = config.apiEndpoint.match(/category=([^&]+)/);
-        const category = categoryMatch ? categoryMatch[1] : entityType;
+      // Check if this is a settings entity with datalabel query parameter
+      if (config.apiEndpoint.includes('/api/v1/setting?datalabel=')) {
+        // Extract the datalabel from the apiEndpoint
+        const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
+        const datalabel = datalabelMatch ? datalabelMatch[1] : entityType;
 
-        // Settings API uses: PUT /api/v1/setting/{category}/{id}
-        updateEndpoint = `/api/v1/setting/${category}/${record.id}`;
+        // Settings API uses: PUT /api/v1/setting/{datalabel}/{id}
+        updateEndpoint = `/api/v1/setting/${datalabel}/${record.id}`;
       } else {
         // Regular entities use: PUT /api/v1/{entity}/{id}
         updateEndpoint = `${config.apiEndpoint}/${record.id}`;
@@ -293,14 +300,14 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       // Build the correct API endpoint
       let deleteEndpoint = '';
 
-      // Check if this is a settings entity with category query parameter
-      if (config.apiEndpoint.includes('/api/v1/setting?category=')) {
-        // Extract the category from the apiEndpoint
-        const categoryMatch = config.apiEndpoint.match(/category=([^&]+)/);
-        const category = categoryMatch ? categoryMatch[1] : entityType;
+      // Check if this is a settings entity with datalabel query parameter
+      if (config.apiEndpoint.includes('/api/v1/setting?datalabel=')) {
+        // Extract the datalabel from the apiEndpoint
+        const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
+        const datalabel = datalabelMatch ? datalabelMatch[1] : entityType;
 
-        // Settings API uses: DELETE /api/v1/setting/{category}/{id}
-        deleteEndpoint = `/api/v1/setting/${category}/${record.id}`;
+        // Settings API uses: DELETE /api/v1/setting/{datalabel}/{id}
+        deleteEndpoint = `/api/v1/setting/${datalabel}/${record.id}`;
       } else {
         // Regular entities use: DELETE /api/v1/{entity}/{id}
         deleteEndpoint = `${config.apiEndpoint}/${record.id}`;
@@ -361,6 +368,147 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     }
   };
 
+  // Handle adding a new row for settings entities
+  const handleAddRow = () => {
+    if (!isSettingsEntity) return;
+
+    // Find the next available ID
+    const maxId = data.length > 0 ? Math.max(...data.map((d: any) => parseInt(d.id) || 0)) : -1;
+    const newId = (maxId + 1).toString();
+
+    // Create a new empty row
+    const newRow = {
+      id: newId,
+      name: '',
+      descr: '',
+      parent_id: null,
+      color_code: 'gray' // Default color
+    };
+
+    // Add to data and start editing
+    setData([...data, newRow]);
+    setEditingRow(newId);
+    setEditedData(newRow);
+    setIsAddingRow(true);
+  };
+
+  // Handle row reordering for settings entities
+  const handleReorder = async (newData: any[]) => {
+    if (!isSettingsEntity || !config) return;
+
+    // Recalculate IDs based on new positions
+    const reorderedData = newData.map((item, index) => ({
+      ...item,
+      id: index.toString()
+    }));
+
+    // Update local state immediately
+    setData(reorderedData);
+
+    // Send updates to API for each changed item
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      // Extract datalabel from endpoint
+      const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
+      const datalabel = datalabelMatch ? datalabelMatch[1] : entityType;
+
+      // CRITICAL: Update sequentially (not parallel) to avoid race conditions
+      for (let newIndex = 0; newIndex < reorderedData.length; newIndex++) {
+        const item = reorderedData[newIndex];
+        const updateEndpoint = `/api/v1/setting/${datalabel}/${newIndex}`;
+
+        const response = await fetch(`${API_BASE_URL}${updateEndpoint}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(item)  // item already has the correct new id from the map above
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Failed to update setting at position ${newIndex}:`, errorText);
+          throw new Error(`Failed to update item at position ${newIndex}: ${errorText}`);
+        }
+      }
+
+      // Refresh data from server
+      await fetchData();
+    } catch (error) {
+      console.error('Error reordering rows:', error);
+      alert('An error occurred while reordering. Please try again.');
+      // Revert to original data
+      await fetchData();
+    }
+  };
+
+  // Save new row to API
+  const handleSaveNewRow = async () => {
+    if (!isSettingsEntity || !config) return;
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      // Extract datalabel from endpoint
+      const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
+      const datalabel = datalabelMatch ? datalabelMatch[1] : entityType;
+
+      const createEndpoint = `/api/v1/setting/${datalabel}`;
+
+      const response = await fetch(`${API_BASE_URL}${createEndpoint}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(editedData)
+      });
+
+      if (response.ok) {
+        await fetchData();
+        setEditingRow(null);
+        setEditedData({});
+        setIsAddingRow(false);
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to create record:', response.statusText, errorText);
+        alert(`Failed to create record: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error creating record:', error);
+      alert('An error occurred while creating. Please try again.');
+    }
+  };
+
+  // Override save handler for new rows
+  const handleSaveInlineEditWrapper = async (record: any) => {
+    if (isAddingRow) {
+      await handleSaveNewRow();
+    } else {
+      await handleSaveInlineEdit(record);
+    }
+  };
+
+  // Override cancel handler for new rows
+  const handleCancelInlineEditWrapper = () => {
+    if (isAddingRow) {
+      // Remove the new row from data
+      setData(data.filter((item: any) => item.id !== editingRow));
+      setIsAddingRow(false);
+    }
+    handleCancelInlineEdit();
+  };
+
   useEffect(() => {
     if (config) {
       fetchData();
@@ -391,7 +539,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
 
   return (
-    <div className="flex flex-col bg-white rounded-lg shadow">
+    <div className="flex flex-col h-full">
       {/* Action buttons bar - only show if action buttons are enabled */}
       {showActionButtons && (
         <ActionButtonsBar
@@ -405,8 +553,24 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         />
       )}
 
-      {/* Data table */}
+      {/* Data table wrapper - provides padding and flex-1 to fill available space */}
       <div className="flex-1 p-6">
+        {/* Add Row button for settings entities */}
+        {isSettingsEntity && (
+          <div className="mb-4 flex justify-end">
+            <button
+              onClick={handleAddRow}
+              disabled={!!editingRow}
+              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+            >
+              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Row
+            </button>
+          </div>
+        )}
+
         <DataTable
           data={data}
           columns={columns}
@@ -417,7 +581,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           columnSelection={true}
           rowActions={rowActions}
           onRowClick={handleRowClick}
-          className="h-full"
+          className=""
           selectable={showActionButtons && (!!onBulkDelete || !!onBulkShare)}
           selectedRows={selectedRows}
           onSelectionChange={setSelectedRows}
@@ -425,8 +589,11 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           editingRow={editingRow}
           editedData={editedData}
           onInlineEdit={handleInlineEdit}
-          onSaveInlineEdit={handleSaveInlineEdit}
-          onCancelInlineEdit={handleCancelInlineEdit}
+          onSaveInlineEdit={handleSaveInlineEditWrapper}
+          onCancelInlineEdit={handleCancelInlineEditWrapper}
+          colorOptions={isSettingsEntity ? COLOR_OPTIONS : undefined}
+          allowReordering={isSettingsEntity}
+          onReorder={handleReorder}
         />
       </div>
     </div>
