@@ -13,14 +13,12 @@ import { universalEntityDelete } from '../../lib/entity-delete-route-factory.js'
 
 const TaskSchema = Type.Object({
   id: Type.String(),
-  slug: Type.String(),
   code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
   internal_url: Type.Optional(Type.String()),
   shared_url: Type.Optional(Type.String()),
-  tags: Type.Any(), // jsonb
-  metadata: Type.Any(), // jsonb
+  metadata: Type.Optional(Type.Any()),
 
   // Status and priority
   stage: Type.Optional(Type.String()),
@@ -43,14 +41,12 @@ const TaskSchema = Type.Object({
 // Task Records are deprecated - using single table approach from DDL
 
 const CreateTaskSchema = Type.Object({
-  slug: Type.Optional(Type.String({ minLength: 1 })),
   code: Type.Optional(Type.String({ minLength: 1 })),
   name: Type.Optional(Type.String({ minLength: 1 })),
   descr: Type.Optional(Type.String()),
   internal_url: Type.Optional(Type.String()),
   shared_url: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String(), Type.Any()])),
-  metadata: Type.Optional(Type.Union([Type.Object({}), Type.String(), Type.Any()])),
+  metadata: Type.Optional(Type.Any()),
 
   // Status and priority
   stage: Type.Optional(Type.String()),
@@ -178,9 +174,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Get paginated tasks with assignee names from entity_id_map
       const tasks = await db.execute(sql`
         SELECT
-          t.id, t.slug, t.code, t.name, t.descr,
+          t.id, t.code, t.name, t.descr,
           t.internal_url, t.shared_url,
-          COALESCE(t.tags, '[]'::jsonb) as tags,
           COALESCE(t.metadata, '{}'::jsonb) as metadata,
           -- Get assignee IDs from entity_id_map
           COALESCE(
@@ -236,22 +231,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         canSeeSafetyInfo: true,
       };
       
-      const data = tasks.map(task => {
-        // Parse JSON fields properly
-        const parsedTask = {
-          ...task,
-          tags: Array.isArray(task.tags) ? task.tags : (task.tags ? JSON.parse(task.tags as string) : []),
-          materials_required: Array.isArray(task.materials_required) ? task.materials_required : (task.materials_required ? JSON.parse(task.materials_required as string) : []),
-          equipment_required: Array.isArray(task.equipment_required) ? task.equipment_required : (task.equipment_required ? JSON.parse(task.equipment_required as string) : []),
-          safety_requirements: Array.isArray(task.safety_requirements) ? task.safety_requirements : (task.safety_requirements ? JSON.parse(task.safety_requirements as string) : []),
-          predecessor_tasks: Array.isArray(task.predecessor_tasks) ? task.predecessor_tasks : (task.predecessor_tasks ? JSON.parse(task.predecessor_tasks as string) : []),
-          successor_tasks: Array.isArray(task.successor_tasks) ? task.successor_tasks : (task.successor_tasks ? JSON.parse(task.successor_tasks as string) : []),
-          blocking_issues: Array.isArray(task.blocking_issues) ? task.blocking_issues : (task.blocking_issues ? JSON.parse(task.blocking_issues as string) : []),
-          attr: task.attr || {},
-        };
-        
-        return filterUniversalColumns(parsedTask, userPermissions);
-      });
+      const data = tasks.map(task => filterUniversalColumns(task, userPermissions));
 
       return {
         data,
@@ -307,9 +287,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Get single task with assignee names from entity_id_map
       const task = await db.execute(sql`
         SELECT
-          t.id, t.slug, t.code, t.name, t.descr,
+          t.id, t.code, t.name, t.descr,
           t.internal_url, t.shared_url,
-          COALESCE(t.tags, '[]'::jsonb) as tags,
           COALESCE(t.metadata, '{}'::jsonb) as metadata,
           -- Get assignee IDs from entity_id_map
           COALESCE(
@@ -355,23 +334,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Task not found' });
       }
 
-      const taskData = task[0] as any;
-
-      // Parse JSON fields properly
-      const parsedTask = {
-        ...taskData,
-        tags: Array.isArray(taskData.tags) ? taskData.tags : (taskData.tags ? JSON.parse(taskData.tags) : []),
-        metadata: taskData.metadata || {},
-      };
-
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
         canSeeSystemFields: true,
         canSeeSafetyInfo: true,
       };
-      
-      return filterUniversalColumns(parsedTask, userPermissions);
+
+      return filterUniversalColumns(task[0], userPermissions);
     } catch (error) {
       fastify.log.error('Error fetching task:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -400,7 +370,6 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
     // Auto-generate required fields if missing
     if (!data.name) data.name = 'Untitled';
-    // Removed slug - not in d_task schema
     if (!data.code) data.code = `TASK-${Date.now()}`;
 
     // Direct RBAC check for task create permission
@@ -450,11 +419,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Register the task in d_entity_instance_id for global entity operations
       await db.execute(sql`
-        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-        VALUES ('task', ${newTask.id}::uuid, ${newTask.name}, ${newTask.code}, ${newTask.code})
+        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+        VALUES ('task', ${newTask.id}::uuid, ${newTask.name}, ${newTask.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name,
-            entity_slug = EXCLUDED.entity_slug,
             entity_code = EXCLUDED.entity_code,
             updated_ts = NOW()
       `);
@@ -565,7 +533,6 @@ export async function taskRoutes(fastify: FastifyInstance) {
         await db.execute(sql`
           UPDATE app.d_entity_instance_id
           SET entity_name = ${updatedTask.name},
-              entity_slug = ${updatedTask.code},
               entity_code = ${updatedTask.code},
               updated_ts = NOW()
           WHERE entity_type = 'task' AND entity_id = ${id}::uuid
@@ -691,17 +658,17 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Update task status with audit info
       const updateResult = await db.execute(sql`
-        UPDATE app.d_task 
-        SET 
-          task_status = ${task_status},
-          updated = NOW(),
-          attr = COALESCE(attr, '{}'::jsonb) || jsonb_build_object(
+        UPDATE app.d_task
+        SET
+          stage = ${task_status},
+          updated_ts = NOW(),
+          metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
             'kanban_moved_at', NOW()::text,
             'kanban_moved_by', ${moved_by || employeeId},
             'kanban_position', ${position || 0}
           )
         WHERE id = ${id}
-        RETURNING id, task_status, updated
+        RETURNING id, stage as task_status, updated_ts as updated
       `);
 
       if (updateResult.length === 0) {
@@ -779,24 +746,24 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const tasks = await db.execute(sql`
         SELECT * FROM app.d_task
         WHERE ${sql.join(filters, sql` AND `)}
-        ORDER BY 
-          CASE task_status 
-            WHEN 'backlog' THEN 1 
-            WHEN 'in_progress' THEN 2 
-            WHEN 'blocked' THEN 3 
-            WHEN 'done' THEN 4 
-            ELSE 5 
+        ORDER BY
+          CASE stage
+            WHEN 'backlog' THEN 1
+            WHEN 'in_progress' THEN 2
+            WHEN 'blocked' THEN 3
+            WHEN 'done' THEN 4
+            ELSE 5
           END,
-          (attr->>'kanban_position')::int NULLS LAST,
-          created
+          (metadata->>'kanban_position')::int NULLS LAST,
+          created_ts
       `);
 
       // Group tasks by status
       const columns = {
-        backlog: tasks.filter(t => t.task_status === 'backlog'),
-        in_progress: tasks.filter(t => t.task_status === 'in_progress'),
-        blocked: tasks.filter(t => t.task_status === 'blocked'),
-        done: tasks.filter(t => ['done', 'completed'].includes(String(t.task_status))),
+        backlog: tasks.filter(t => t.stage === 'backlog'),
+        in_progress: tasks.filter(t => t.stage === 'in_progress'),
+        blocked: tasks.filter(t => t.stage === 'blocked'),
+        done: tasks.filter(t => ['done', 'completed'].includes(String(t.stage))),
       };
 
       // Calculate stats
@@ -880,7 +847,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Get case notes from task records table
       const notes = await db.execute(sql`
-        SELECT 
+        SELECT
           tr.id,
           tr.record_content as content,
           tr.record_type as content_type,
@@ -888,11 +855,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
           e.name as author_name,
           tr.created as created_at,
           tr.updated as updated_at,
-          COALESCE(tr.attr->>'mentions', '[]')::jsonb as mentions,
-          COALESCE(tr.attr->>'attachments', '[]')::jsonb as attachments
+          COALESCE(tr.metadata->>'mentions', '[]')::jsonb as mentions,
+          COALESCE(tr.metadata->>'attachments', '[]')::jsonb as attachments
         FROM app.d_task_data tr
         LEFT JOIN app.d_employee e ON e.id = tr.created_by_employee_id
-        WHERE tr.task_head_id = ${taskId}
+        WHERE tr.task_id = ${taskId}
           AND tr.record_type IN ('case_note', 'rich_note')
           AND tr.active_flag = true
         ORDER BY tr.created DESC
@@ -982,21 +949,23 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Insert case note
       const noteResult = await db.execute(sql`
         INSERT INTO app.d_task_data (
-          task_head_id,
+          task_id,
+          project_id,
           record_type,
           record_content,
-          created_by_employee_id,
-          attr,
-          active
+          updated_by_empid,
+          metadata,
+          active_flag
         ) VALUES (
-          ${taskId},
+          ${taskId}::uuid,
+          (SELECT (metadata->>'project_id')::uuid FROM app.d_task WHERE id = ${taskId}::uuid),
           ${content_type},
           ${content},
-          ${employeeId},
-          ${JSON.stringify({ mentions, attachments })},
+          ${employeeId}::uuid,
+          ${JSON.stringify({ mentions, attachments })}::jsonb,
           true
         )
-        RETURNING id, created
+        RETURNING id, created_ts as created
       `);
 
       return reply.status(201).send({
@@ -1061,37 +1030,37 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Get all task records for activity feed
       const activities = await db.execute(sql`
-        SELECT 
+        SELECT
           tr.id,
           tr.record_type as activity_type,
           tr.record_content as description,
-          tr.created_by_employee_id as actor_id,
+          tr.updated_by_empid as actor_id,
           e.name as actor_name,
-          tr.created as timestamp,
-          tr.attr as metadata
+          tr.created_ts as timestamp,
+          tr.metadata
         FROM app.d_task_data tr
-        LEFT JOIN app.d_employee e ON e.id = tr.created_by_employee_id
-        WHERE tr.task_head_id = ${taskId}
+        LEFT JOIN app.d_employee e ON e.id = tr.updated_by_empid
+        WHERE tr.task_id = ${taskId}
           AND tr.active_flag = true
-        
+
         UNION ALL
-        
+
         -- Add system events from task updates
-        SELECT 
+        SELECT
           gen_random_uuid() as id,
           'system_update' as activity_type,
-          CASE 
-            WHEN th.created = th.updated THEN 'Task created'
+          CASE
+            WHEN t.created_ts = t.updated_ts THEN 'Task created'
             ELSE 'Task updated'
           END as description,
           NULL as actor_id,
           'System' as actor_name,
-          th.updated as timestamp,
-          th.attr as metadata
-        FROM app.d_task th
-        WHERE th.id = ${taskId}
-          AND th.active_flag = true
-          
+          t.updated_ts as timestamp,
+          t.metadata
+        FROM app.d_task t
+        WHERE t.id = ${taskId}
+          AND t.active_flag = true
+
         ORDER BY timestamp DESC
         LIMIT 50
       `);

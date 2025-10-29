@@ -397,7 +397,7 @@ export interface FieldCapability {
   inlineEditable: boolean;
   editType: 'text' | 'select' | 'tags' | 'file' | 'number' | 'date' | 'readonly';
   loadOptionsFromSettings?: boolean;
-  settingsCategory?: string;
+  settingsDatalabel?: string;
   acceptedFileTypes?: string;
   isFileUpload: boolean;
 }
@@ -475,7 +475,7 @@ export function getFieldCapability(column: ColumnDef | FieldDef): FieldCapabilit
       inlineEditable: true,
       editType: 'select',
       loadOptionsFromSettings: true,
-      settingsCategory: extractSettingsCategory(key),
+      settingsDatalabel: extractSettingsDatalabel(key),
       isFileUpload: false
     };
   }
@@ -527,13 +527,13 @@ export function getFieldCapability(column: ColumnDef | FieldDef): FieldCapabilit
 }
 
 /**
- * Extracts settings category from field name
+ * Extracts settings datalabel from field name
  * Examples:
  * - opportunity_funnel_stage_name → opportunity_funnel_stage
  * - customer_tier_name → customer_tier
  * - project_stage → project_stage
  */
-function extractSettingsCategory(fieldName: string): string {
+function extractSettingsDatalabel(fieldName: string): string {
   // Remove _name, _id, _level suffixes
   return fieldName
     .replace(/_name$/, '')
@@ -619,7 +619,7 @@ export function getEditableColumnKeys(columns: ColumnDef[]): string[] {
  *    {
  *      key: 'project_stage',
  *      title: 'Stage',
- *      render: (value) => renderSettingBadge(value, { category: 'project_stage' })
+ *      render: (value) => renderSettingBadge(value, { datalabel: 'project_stage' })
  *    }
  *    ```
  *
@@ -632,7 +632,7 @@ export function getEditableColumnKeys(columns: ColumnDef[]): string[] {
  * 4. FILTER CHIPS (Active Filters)
  *    When rendering active filter badges:
  *    ```typescript
- *    const colorCode = getSettingColor(category, value);
+ *    const colorCode = getSettingColor(datalabel, value);
  *    renderSettingBadge(colorCode, value);
  *    ```
  *
@@ -648,8 +648,8 @@ export function getEditableColumnKeys(columns: ColumnDef[]): string[] {
  * ----------
  * 1. Database: setting_datalabel_* tables have color_code field ('blue', 'purple', etc.)
  * 2. API: Returns settings with metadata: { color_code: 'purple' }
- * 3. Frontend Cache: loadSettingsColors() caches category → (value → color_code)
- * 4. Lookup: getSettingColor(category, value) retrieves from cache
+ * 3. Frontend Cache: loadSettingsColors() caches datalabel → (value → color_code)
+ * 4. Lookup: getSettingColor(datalabel, value) retrieves from cache
  * 5. Render: COLOR_MAP translates 'purple' → Tailwind classes
  * 6. Display: Badge shows with correct color from database
  *
@@ -685,7 +685,7 @@ export const COLOR_MAP: Record<string, string> = {
 
 /**
  * Settings Color Cache
- * Stores mapping of category → (value → color_code)
+ * Stores mapping of datalabel → (value → color_code)
  * Populated by loadSettingsColors()
  *
  * Example structure:
@@ -697,19 +697,19 @@ export const COLOR_MAP: Record<string, string> = {
 const settingsColorCache = new Map<string, Map<string, string>>();
 
 /**
- * Load colors for a settings category from API
+ * Load colors for a settings datalabel from API
  * Caches the results for subsequent lookups
  *
- * @param category - Settings category (e.g., 'project_stage', 'task_priority')
+ * @param datalabel - Settings datalabel (e.g., 'project_stage', 'task_priority')
  * @returns Promise that resolves when colors are loaded
  *
  * @example
  * await loadSettingsColors('project_stage');
  * const color = getSettingColor('project_stage', 'Planning'); // 'purple'
  */
-export async function loadSettingsColors(category: string): Promise<void> {
+export async function loadSettingsColors(datalabel: string): Promise<void> {
   // Already loaded
-  if (settingsColorCache.has(category)) {
+  if (settingsColorCache.has(datalabel)) {
     return;
   }
 
@@ -718,9 +718,9 @@ export async function loadSettingsColors(category: string): Promise<void> {
     const { loadSettingOptions } = await import('./settingsLoader');
 
     // Load settings from API (includes color_code in metadata)
-    const options = await loadSettingOptions(category);
+    const options = await loadSettingOptions(datalabel);
 
-    // Build color map for this category
+    // Build color map for this datalabel
     const colorMap = new Map<string, string>();
     for (const option of options) {
       const label = String(option.label);
@@ -730,11 +730,11 @@ export async function loadSettingsColors(category: string): Promise<void> {
       }
     }
 
-    settingsColorCache.set(category, colorMap);
+    settingsColorCache.set(datalabel, colorMap);
   } catch (error) {
-    console.error(`Failed to load colors for ${category}:`, error);
+    console.error(`Failed to load colors for ${datalabel}:`, error);
     // Set empty map to prevent retries
-    settingsColorCache.set(category, new Map());
+    settingsColorCache.set(datalabel, new Map());
   }
 }
 
@@ -742,7 +742,7 @@ export async function loadSettingsColors(category: string): Promise<void> {
  * Get color code for a settings value
  * Returns the color_code from database or undefined if not found
  *
- * @param category - Settings category (e.g., 'project_stage')
+ * @param datalabel - Settings datalabel (e.g., 'project_stage')
  * @param value - The value to look up (e.g., 'Planning')
  * @returns Color code (e.g., 'purple') or undefined
  *
@@ -750,24 +750,24 @@ export async function loadSettingsColors(category: string): Promise<void> {
  * const color = getSettingColor('project_stage', 'Planning'); // 'purple'
  * const color = getSettingColor('task_priority', 'High'); // 'red'
  */
-export function getSettingColor(category: string, value: string | null | undefined): string | undefined {
+export function getSettingColor(datalabel: string, value: string | null | undefined): string | undefined {
   if (!value) return undefined;
 
-  const colorMap = settingsColorCache.get(category);
+  const colorMap = settingsColorCache.get(datalabel);
   return colorMap?.get(value);
 }
 
 /**
- * Preload colors for multiple categories
+ * Preload colors for multiple datalabels
  * Useful for batch loading on page mount
  *
- * @param categories - Array of category names
+ * @param datalabels - Array of datalabel names
  *
  * @example
  * await preloadSettingsColors(['project_stage', 'task_stage', 'task_priority']);
  */
-export async function preloadSettingsColors(categories: string[]): Promise<void> {
-  await Promise.all(categories.map(cat => loadSettingsColors(cat)));
+export async function preloadSettingsColors(datalabels: string[]): Promise<void> {
+  await Promise.all(datalabels.map(dl => loadSettingsColors(dl)));
 }
 
 /**
@@ -784,9 +784,9 @@ export async function preloadSettingsColors(categories: string[]): Promise<void>
  * @example
  * render: (value, record) => renderSettingBadge(record.color_code, value)
  *
- * MODE 2: Category-based lookup (for entity tables with settings values)
+ * MODE 2: Datalabel-based lookup (for entity tables with settings values)
  * @example
- * render: (value) => renderSettingBadge(value, { category: 'project_stage' })
+ * render: (value) => renderSettingBadge(value, { datalabel: 'project_stage' })
  * // Looks up color from database: 'Planning' → 'purple'
  *
  * MODE 3: Filter dropdowns with loaded options
@@ -794,29 +794,29 @@ export async function preloadSettingsColors(categories: string[]): Promise<void>
  * renderSettingBadge(option.metadata?.color_code, option.label)
  *
  * @param colorCodeOrValue - Either the direct color_code OR the value to look up
- * @param labelOrOptions - Either the label string OR options object with category
+ * @param labelOrOptions - Either the label string OR options object with datalabel
  * @param size - Badge size: 'xs' (default) | 'sm' | 'md'
  * @returns React element with colored badge
  */
 export function renderSettingBadge(
   colorCodeOrValue: string | null | undefined,
-  labelOrOptions?: string | null | undefined | { category: string },
+  labelOrOptions?: string | null | undefined | { datalabel: string },
   size: 'xs' | 'sm' | 'md' = 'xs'
 ): React.ReactElement {
   let label: string | null | undefined;
   let colorCode: string | undefined;
 
   // Determine usage mode
-  if (typeof labelOrOptions === 'object' && labelOrOptions !== null && 'category' in labelOrOptions) {
-    // MODE 2: Category-based lookup
+  if (typeof labelOrOptions === 'object' && labelOrOptions !== null && 'datalabel' in labelOrOptions) {
+    // MODE 2: Datalabel-based lookup
     // colorCodeOrValue is actually the value to display
-    // labelOrOptions contains the category
+    // labelOrOptions contains the datalabel
     label = colorCodeOrValue;
-    const category = labelOrOptions.category;
+    const datalabel = labelOrOptions.datalabel;
 
     // Look up color from cache
     if (label) {
-      colorCode = getSettingColor(category, label);
+      colorCode = getSettingColor(datalabel, label);
     }
   } else {
     // MODE 1 or 3: Direct color code

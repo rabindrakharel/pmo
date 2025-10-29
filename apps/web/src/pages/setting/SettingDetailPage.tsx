@@ -1,0 +1,291 @@
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { Layout } from '../../components/shared';
+import { SettingsDataTable } from '../../components/shared/ui/SettingsDataTable';
+import { ExitButton } from '../../components/shared/button/ExitButton';
+import { getIconComponent } from '../../lib/iconMapping';
+import { useSettings } from '../../contexts/SettingsContext';
+import {
+  fetchSettingItems,
+  updateSettingItemMultiple,
+  fetchAllCategories,
+  createSettingItem,
+  deleteSettingItem,
+  reorderSettingItems,
+  type SettingItem
+} from '../../services/settingsService';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+
+/**
+ * Convert datalabel_name from API to single-underscore format
+ * Example: "project__stage" → "project_stage"
+ */
+function convertDatalabelFormat(datalabelName: string): string {
+  return datalabelName.replace(/__/, '_');
+}
+
+/**
+ * Convert snake_case to camelCase for entity config lookup
+ * Example: "project_stage" → "projectStage"
+ */
+function snakeToCamelCase(str: string): string {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+interface SettingConfig {
+  datalabel: string;
+  entityConfigKey: string; // camelCase key for entityConfig lookup
+  title: string;
+  icon: string;
+}
+
+// Use SettingItem from service
+type SettingsRecord = SettingItem;
+
+export function SettingDetailPage() {
+  const { category } = useParams<{ category: string }>();
+  const { exitSettingsMode } = useSettings();
+  const [config, setConfig] = useState<SettingConfig | null>(null);
+  const [data, setData] = useState<SettingsRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadSettingConfig() {
+      if (!category) {
+        setError('No category specified');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // Fetch all categories using service
+        const categories = await fetchAllCategories();
+
+        // Convert URL param (camelCase) to snake_case and find matching datalabel
+        // URL: /setting/projectStage → look for project_stage datalabel
+        const searchDatalabel = category
+          .replace(/([A-Z])/g, '_$1')
+          .toLowerCase()
+          .replace(/^_/, '');
+
+        // Find the datalabel that matches (either exact or after conversion)
+        const found = categories.find((cat: any) => {
+          const convertedName = convertDatalabelFormat(cat.datalabel_name);
+          return convertedName === searchDatalabel;
+        });
+
+        if (!found) {
+          setError(`Setting '${category}' not found`);
+          setLoading(false);
+          return;
+        }
+
+        const datalabel = convertDatalabelFormat(found.datalabel_name);
+        const entityConfigKey = snakeToCamelCase(datalabel);
+        setConfig({
+          datalabel,
+          entityConfigKey,
+          title: found.ui_label || datalabel,
+          icon: found.ui_icon || 'Tag',
+        });
+        setLoading(false);
+      } catch (err) {
+        console.error('Error loading setting config:', err);
+        setError('Failed to load setting configuration');
+        setLoading(false);
+      }
+    }
+
+    loadSettingConfig();
+  }, [category]);
+
+  // Fetch settings data when config is loaded
+  useEffect(() => {
+    async function loadSettingsData() {
+      if (!config) return;
+
+      try {
+        // Use service to fetch setting items
+        const items = await fetchSettingItems(config.datalabel);
+        setData(items);
+      } catch (err) {
+        console.error('Error loading settings data:', err);
+        setError('Failed to load settings data');
+      }
+    }
+
+    loadSettingsData();
+  }, [config]);
+
+  // Handle row update - DRY approach (all fields at once)
+  // Backend recomposes entire metadata array
+  const handleRowUpdate = async (id: string | number, updates: Partial<SettingItem>) => {
+    if (!config) return;
+
+    try {
+      // Use service to update all fields at once
+      // Backend will fetch entire metadata, update this item, and save the whole array
+      const result = await updateSettingItemMultiple(config.datalabel, id, updates);
+
+      if (result) {
+        // Update local state with fresh data from server
+        setData(result.metadata);
+      }
+    } catch (err) {
+      console.error('Error updating setting:', err);
+      alert('Failed to update setting');
+    }
+  };
+
+  // Legacy: Handle inline edit - single field update
+  // Kept for backward compatibility
+  const handleInlineEdit = async (id: string | number, field: string, value: any) => {
+    if (!config) return;
+
+    try {
+      // Use service to update - it will recompose the entire metadata payload
+      const result = await updateSettingItemMultiple(config.datalabel, id, {
+        [field]: value,
+      } as Partial<SettingItem>);
+
+      if (result) {
+        // Update local state with fresh data from server
+        setData(result.metadata);
+      }
+    } catch (err) {
+      console.error('Error updating setting:', err);
+      alert('Failed to update setting');
+    }
+  };
+
+  // Handle add row - uses DRY service
+  const handleAddRow = async (newRecord: Partial<SettingsRecord>) => {
+    if (!config) return;
+
+    try {
+      // Create via service - adds to metadata array
+      const createdItem = await createSettingItem(config.datalabel, {
+        name: newRecord.name || '',
+        descr: newRecord.descr,
+        parent_id: newRecord.parent_id,
+        color_code: newRecord.color_code || 'blue',
+      });
+
+      if (createdItem) {
+        // Refresh data from server
+        const items = await fetchSettingItems(config.datalabel);
+        setData(items);
+      }
+    } catch (err) {
+      console.error('Error creating setting:', err);
+      alert('Failed to create setting');
+    }
+  };
+
+  // Handle delete row - uses DRY service
+  const handleDeleteRow = async (id: string | number) => {
+    if (!config) return;
+
+    try {
+      // Delete via service - recomposes entire metadata array without this item
+      await deleteSettingItem(config.datalabel, id);
+
+      // Refresh data from server
+      const items = await fetchSettingItems(config.datalabel);
+      setData(items);
+    } catch (err) {
+      console.error('Error deleting setting:', err);
+      alert('Failed to delete setting');
+    }
+  };
+
+  // Handle reorder - uses DRY service
+  // Reorders the entire metadata array in the database
+  const handleReorder = async (reorderedData: SettingsRecord[]) => {
+    if (!config) return;
+
+    try {
+      // Save new order via service - recomposes entire metadata array
+      await reorderSettingItems(config.datalabel, reorderedData);
+
+      // Update local state
+      setData(reorderedData);
+    } catch (err) {
+      console.error('Error reordering settings:', err);
+      alert('Failed to reorder settings');
+
+      // Refresh from server on error
+      const items = await fetchSettingItems(config.datalabel);
+      setData(items);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-white shadow rounded-lg p-6">
+            <div className="flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-3 text-sm text-gray-600">Loading...</span>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (error || !config) {
+    return (
+      <Layout>
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-white shadow rounded-lg p-6">
+            <p className="text-sm text-gray-600">{error || 'Setting not found'}</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  const IconComponent = getIconComponent(config.icon);
+
+  return (
+    <Layout>
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <IconComponent className="h-5 w-5 text-gray-600 stroke-[1.5] mr-3" />
+                <div className="flex-1">
+                  <h1 className="text-sm font-normal text-gray-900">{config.title}</h1>
+                  <p className="text-sm text-gray-600">Manage {config.title.toLowerCase()} settings</p>
+                </div>
+              </div>
+              <ExitButton onClick={exitSettingsMode} />
+            </div>
+
+            {/* Data Table */}
+            <div className="mt-6">
+              <SettingsDataTable
+                data={data}
+                onRowUpdate={handleRowUpdate}
+                onInlineEdit={handleInlineEdit}
+                onAddRow={handleAddRow}
+                onDeleteRow={handleDeleteRow}
+                onReorder={handleReorder}
+                allowAddRow={true}
+                allowEdit={true}
+                allowDelete={true}
+                allowReorder={true}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </Layout>
+  );
+}

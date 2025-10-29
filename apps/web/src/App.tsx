@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { NavigationHistoryProvider } from './contexts/NavigationHistoryContext';
+import { SettingsProvider } from './contexts/SettingsContext';
 import { LoginForm } from './components/shared';
 
 // Landing & Auth Pages
@@ -25,7 +26,7 @@ import { EmailDesignerPage } from './pages/marketing/EmailDesignerPage';
 // Profile & Settings Pages
 import { ProfilePage } from './pages/profile';
 import { LabelsPage } from './pages/labels';
-import { SettingsPage, DataLabelPage, IntegrationsPage } from './pages/setting';
+import { SettingsPage, DataLabelPage, IntegrationsPage, SettingsOverviewPage, SettingDetailPage } from './pages/setting';
 import { SecurityPage } from './pages/security';
 import { BillingPage } from './pages/billing';
 import { LinkagePage } from './pages/LinkagePage';
@@ -212,6 +213,30 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/integrations"
+        element={
+          <ProtectedRoute>
+            <IntegrationsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/setting/overview"
+        element={
+          <ProtectedRoute>
+            <SettingsOverviewPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/setting/:category"
+        element={
+          <ProtectedRoute>
+            <SettingDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/security"
         element={
           <ProtectedRoute>
@@ -248,9 +273,11 @@ function App() {
     <AuthProvider>
       <SidebarProvider>
         <Router>
-          <NavigationHistoryProvider>
-            <AppRoutes />
-          </NavigationHistoryProvider>
+          <SettingsProvider>
+            <NavigationHistoryProvider>
+              <AppRoutes />
+            </NavigationHistoryProvider>
+          </SettingsProvider>
         </Router>
       </SidebarProvider>
     </AuthProvider>

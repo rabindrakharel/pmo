@@ -132,7 +132,12 @@
       "Bash(timeout 5 tail:*)",
       "Bash(for file in /home/rabin/projects/pmo/docs/*.md)",
       "Bash(do if [ \"$file\" != \"/home/rabin/projects/pmo/docs/instructionToLLM.md\" ])",
-      "Bash([ \"$file\" != \"/home/rabin/projects/pmo/docs/settings.md\" ])"
+      "Bash([ \"$file\" != \"/home/rabin/projects/pmo/docs/settings.md\" ])",
+      "Bash(timeout 1 ./tools/logs-api.sh:*)",
+      "Bash(for table in d_client d_worksite d_task d_business d_project)",
+      "Bash(do echo \"=== $table ===\")",
+      "Bash(/dev/null)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": [],

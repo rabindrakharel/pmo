@@ -1,5 +1,31 @@
+/**
+ * ============================================================================
+ * ENTITY DATA TABLE - Universal table component for all entity types
+ * ============================================================================
+ *
+ * Full-featured data table with:
+ * - Inline editing with auto-detected field types (text, select, date, number, file upload)
+ * - Quick add row at bottom (matches SettingsDataTable pattern)
+ * - Filtering, sorting, column selection, pagination
+ * - Settings-driven dropdowns with colored badges
+ * - Drag & drop reordering support
+ *
+ * INLINE EDITING PATTERN (Matches SettingsDataTable):
+ * - Click Edit icon (✏️) on any row to enter edit mode
+ * - Edit icon transforms into Check icon (✓) with Cancel (✗)
+ * - All editable fields become inputs/dropdowns
+ * - Click Check to save, X to cancel
+ *
+ * ADD ROW FEATURE:
+ * - When allowAddRow=true, shows "+ Add new row" button at bottom
+ * - Clicking opens inline form with all visible columns
+ * - Provides quick way to add records (complements detailed create form)
+ *
+ * Used by: All entity pages (projects, tasks, clients, etc.)
+ * Different from: SettingsDataTable (specialized for settings with fixed schema)
+ */
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { ChevronDown, ChevronUp, Search, Filter, Columns, ChevronLeft, ChevronRight, Eye, Edit, Share, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Search, Filter, Columns, ChevronLeft, ChevronRight, Edit, Share, Trash2, X, Plus, Check } from 'lucide-react';
 import {
   isSettingField,
   loadFieldOptions,
@@ -164,7 +190,7 @@ export interface RowAction<T = any> {
   variant?: 'default' | 'primary' | 'danger';
 }
 
-export interface DataTableProps<T = any> {
+export interface EntityDataTableProps<T = any> {
   data: T[];
   columns: Column<T>[];
   loading?: boolean;
@@ -184,6 +210,7 @@ export interface DataTableProps<T = any> {
   className?: string;
   rowActions?: RowAction<T>[];
   showDefaultActions?: boolean;
+  /** @deprecated View action removed - row clicks navigate to detail view */
   onView?: (record: T) => void;
   onEdit?: (record: T) => void;
   onShare?: (record: T) => void;
@@ -203,10 +230,13 @@ export interface DataTableProps<T = any> {
   colorOptions?: { value: string; label: string }[];
   allowReordering?: boolean;
   onReorder?: (newData: T[]) => void;
+  // Inline row addition support
+  allowAddRow?: boolean;
+  onAddRow?: (newRecord: Partial<T>) => void;
   // Note: Permission checking removed - handled at API level via RBAC joins
 }
 
-export function DataTable<T = any>({
+export function EntityDataTable<T = any>({
   data,
   columns: initialColumns,
   loading = false,
@@ -235,7 +265,9 @@ export function DataTable<T = any>({
   colorOptions,
   allowReordering = false,
   onReorder,
-}: DataTableProps<T>) {
+  allowAddRow = false,
+  onAddRow,
+}: EntityDataTableProps<T>) {
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
@@ -252,6 +284,10 @@ export function DataTable<T = any>({
   // Drag and drop state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // Add row state
+  const [isAddingRow, setIsAddingRow] = useState(false);
+  const [newRowData, setNewRowData] = useState<Partial<T>>({});
 
   // ============================================================================
   // CENTRALIZED CAPABILITY DETECTION - TRUE DRY SYSTEM
@@ -392,19 +428,10 @@ export function DataTable<T = any>({
   }, [showFilterDropdown, showColumnSelector]);
 
   // Create default actions if needed
+  // NOTE: View action removed - row clicks already navigate to detail view
   const defaultActions: RowAction<T>[] = useMemo(() => {
     const actions: RowAction<T>[] = [];
-    
-    if (onView) {
-      actions.push({
-        key: 'view',
-        label: 'View',
-        icon: <Eye className="h-4 w-4" />,
-        onClick: onView,
-        variant: 'default',
-      });
-    }
-    
+
     if (onEdit) {
       actions.push({
         key: 'edit',
@@ -414,7 +441,7 @@ export function DataTable<T = any>({
         variant: 'primary',
       });
     }
-    
+
     if (onShare) {
       actions.push({
         key: 'share',
@@ -424,7 +451,7 @@ export function DataTable<T = any>({
         variant: 'default',
       });
     }
-    
+
     if (onDelete) {
       actions.push({
         key: 'delete',
@@ -434,9 +461,9 @@ export function DataTable<T = any>({
         variant: 'danger',
       });
     }
-    
+
     return actions;
-  }, [onView, onEdit, onShare, onDelete]);
+  }, [onEdit, onShare, onDelete]);
 
   const allActions = useMemo(() => {
     return showDefaultActions ? [...defaultActions, ...rowActions] : rowActions;
@@ -639,8 +666,30 @@ export function DataTable<T = any>({
     if (!allowReordering) return;
     setDraggedIndex(null);
     setDragOverIndex(null);
-  };;
+  };
 
+  // Add row handlers
+  const handleStartAddRow = () => {
+    setIsAddingRow(true);
+    setNewRowData({});
+  };
+
+  const handleSaveNewRow = () => {
+    // Basic validation - ensure at least one field is filled
+    const hasData = Object.values(newRowData).some(val => val !== null && val !== undefined && val !== '');
+    if (!hasData) {
+      alert('Please fill in at least one field');
+      return;
+    }
+    onAddRow?.(newRowData);
+    setIsAddingRow(false);
+    setNewRowData({});
+  };
+
+  const handleCancelAddRow = () => {
+    setIsAddingRow(false);
+    setNewRowData({});
+  };
 
   const toggleColumnVisibility = (key: string) => {
     setVisibleColumns(prev => {
@@ -1087,8 +1136,8 @@ export function DataTable<T = any>({
                       }`}
                     >
                     {columns.map((column, colIndex) => {
-                      // Special handling for selection and actions columns
-                      if (column.key === '_selection' || column.key === '_actions') {
+                      // Special handling for selection column
+                      if (column.key === '_selection') {
                         return (
                           <td
                             key={column.key}
@@ -1118,31 +1167,93 @@ export function DataTable<T = any>({
                                 : renderCellValue(column, (record as any)[column.key])
                               }
                             </div>
-                            {/* Add Save/Cancel buttons for editing row in actions column */}
-                            {isEditing && column.key === '_actions' && (
-                              <div className="flex items-center gap-2 mt-2">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onSaveInlineEdit?.(record);
-                                  }}
-                                  className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                                  title="Save"
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onCancelInlineEdit?.();
-                                  }}
-                                  className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
-                                  title="Cancel"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            )}
+                          </td>
+                        );
+                      }
+
+                      // ============================================================================
+                      // ACTIONS COLUMN - INLINE EDITING PATTERN (Matches SettingsDataTable)
+                      // ============================================================================
+                      // When row is being edited:
+                      //   - Edit icon (✏️) transforms into Check icon (✓)
+                      //   - Cancel (✗) icon appears
+                      //   - Other action icons are hidden
+                      // When row is NOT being edited:
+                      //   - Show all action icons (Edit, Delete, Share, etc.)
+                      // ============================================================================
+                      if (column.key === '_actions') {
+                        return (
+                          <td
+                            key={column.key}
+                            className={`px-6 py-2.5 ${
+                              colIndex === 0 ? 'sticky left-0 z-20 bg-white shadow-r' : ''
+                            }`}
+                            style={{
+                              textAlign: column.align || 'center',
+                              boxSizing: 'border-box'
+                            }}
+                          >
+                            <div className="flex items-center justify-center gap-1">
+                              {isEditing ? (
+                                <>
+                                  {/* When editing: Show Check (Save) and X (Cancel) icons */}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onSaveInlineEdit?.(record);
+                                    }}
+                                    className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                                    title="Save"
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onCancelInlineEdit?.();
+                                    }}
+                                    className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                                    title="Cancel"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  {/* When not editing: Show all action icons */}
+                                  {allActions.map((action) => {
+                                    const isDisabled = action.disabled ? action.disabled(record) : false;
+
+                                    const buttonVariants = {
+                                      default: 'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
+                                      primary: 'text-gray-700 hover:text-gray-900 hover:bg-gray-100',
+                                      danger: 'text-red-600 hover:text-red-900 hover:bg-red-50',
+                                    };
+
+                                    return (
+                                      <button
+                                        key={action.key}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (!isDisabled) {
+                                            action.onClick(record);
+                                          }
+                                        }}
+                                        disabled={isDisabled}
+                                        className={`p-1.5 rounded transition-colors ${
+                                          isDisabled
+                                            ? 'text-gray-300 cursor-not-allowed'
+                                            : buttonVariants[action.variant || 'default']
+                                        } ${action.className || ''}`}
+                                        title={action.label}
+                                      >
+                                        {action.icon}
+                                      </button>
+                                    );
+                                  })}
+                                </>
+                              )}
+                            </div>
                           </td>
                         );
                       }
@@ -1309,13 +1420,8 @@ export function DataTable<T = any>({
                                 fontSize: '13px',
                                 color: '#333',
                                 userSelect: 'none',
-                                WebkitUserSelect: 'none',
-                                MozUserSelect: 'none',
-                                msUserSelect: 'none',
-                                WebkitTapHighlightColor: 'transparent',
-                                WebkitUserDrag: 'none',
                                 cursor: 'default'
-                              }}
+                              } as React.CSSProperties}
                             >
                               {column.render
                                 ? column.render((record as any)[column.key], record, data)
@@ -1333,17 +1439,125 @@ export function DataTable<T = any>({
             </tbody>
           </table>
         </div>
-        
-        {filteredAndSortedData.length === 0 && !loading && (
+
+        {filteredAndSortedData.length === 0 && !loading && !allowAddRow && (
           <div className="absolute inset-0 flex items-center justify-center">
             <p className="text-gray-500">No data found</p>
           </div>
         )}
       </div>
-      
+
+      {/* Add Row Button/Form - Match SettingsDataTable styling */}
+      {allowAddRow && (
+        <div className="border-t border-gray-200 bg-white">
+          {!isAddingRow ? (
+            <button
+              onClick={handleStartAddRow}
+              className="w-full px-6 py-3 text-left text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add new row</span>
+            </button>
+          ) : (
+            <div className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {columns
+                  .filter(col => col.key !== '_selection' && col.key !== '_actions')
+                  .filter(col => visibleColumns.has(col.key))
+                  .map(column => {
+                    const capability = columnCapabilities.get(column.key);
+                    const editType = capability?.editType || 'text';
+                    const hasSettingOptions = settingOptions.has(column.key);
+                    const columnOptions = hasSettingOptions ? settingOptions.get(column.key)! : [];
+
+                    return (
+                      <div key={column.key}>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          {column.title}
+                        </label>
+
+                        {/* Render appropriate input based on edit type */}
+                        {editType === 'select' && hasSettingOptions ? (
+                          <ColoredDropdown
+                            value={(newRowData as any)[column.key] ?? ''}
+                            options={columnOptions}
+                            onChange={(value) => setNewRowData({ ...newRowData, [column.key]: value } as Partial<T>)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : editType === 'number' ? (
+                          <input
+                            type="number"
+                            value={(newRowData as any)[column.key] ?? ''}
+                            onChange={(e) => setNewRowData({ ...newRowData, [column.key]: e.target.value } as Partial<T>)}
+                            placeholder={`Enter ${column.title.toLowerCase()}`}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
+                          />
+                        ) : editType === 'date' ? (
+                          <input
+                            type="date"
+                            value={(newRowData as any)[column.key] ?? ''}
+                            onChange={(e) => setNewRowData({ ...newRowData, [column.key]: e.target.value } as Partial<T>)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
+                          />
+                        ) : column.key === 'color_code' && colorOptions ? (
+                          <select
+                            value={(newRowData as any)[column.key] ?? ''}
+                            onChange={(e) => setNewRowData({ ...newRowData, [column.key]: e.target.value } as Partial<T>)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
+                          >
+                            <option value="">Select color...</option>
+                            {colorOptions.map(opt => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={(newRowData as any)[column.key] ?? ''}
+                            onChange={(e) => setNewRowData({ ...newRowData, [column.key]: e.target.value } as Partial<T>)}
+                            placeholder={`Enter ${column.title.toLowerCase()}`}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {/* Action Buttons - Match SettingsDataTable styling */}
+              <div className="flex items-center gap-2 mt-4">
+                <button
+                  onClick={handleSaveNewRow}
+                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 bg-white rounded-md hover:bg-gray-50 hover:border-gray-400 transition-colors text-sm shadow-sm"
+                >
+                  <Check className="h-4 w-4" />
+                  Save
+                </button>
+                <button
+                  onClick={handleCancelAddRow}
+                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-600 bg-white rounded-md hover:bg-gray-50 hover:border-gray-400 transition-colors text-sm"
+                >
+                  <X className="h-4 w-4" />
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex-shrink-0 mt-4">
         <PaginationComponent />
       </div>
     </div>
   );
 }
+
+// ============================================================================
+// BACKWARDS COMPATIBILITY EXPORTS
+// ============================================================================
+// For existing code that imports "DataTable" - will be deprecated later
+export const DataTable = EntityDataTable;
+export type DataTableProps<T = any> = EntityDataTableProps<T>;

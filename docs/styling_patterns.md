@@ -1305,6 +1305,195 @@ divide-x divide-gray-300
 </span>
 ```
 
+### 13.4 Database-Driven Colored Badges (v2.6) ⭐
+
+**Purpose:** Automatically render colored badges using database `color_code` field instead of hardcoding colors
+
+**Location:** `apps/web/src/lib/data_transform_render.tsx` (Part 4: Badge Rendering)
+
+**Architecture:**
+
+```
+Database color_code → settingsColorCache → COLOR_MAP → Tailwind classes → React element
+    "blue"              Map<string, string>    Record      "bg-blue-100"   <span>Badge</span>
+```
+
+**Usage Patterns:**
+
+**Pattern A - Settings Tables (Direct Color):**
+```jsx
+// entityConfig.ts - Settings table name column
+{
+  key: 'name',
+  title: 'Name',
+  render: (value, record) => renderSettingBadge(record.color_code, value)
+}
+
+// Renders:
+<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+  Planning
+</span>
+```
+
+**Pattern B - Entity Tables (Auto-Applied):**
+```jsx
+// entityConfig.ts - Entity stage/status columns
+{
+  key: 'project_stage',
+  title: 'Stage',
+  loadOptionsFromSettings: true  // ← Automatically adds badge renderer!
+}
+
+// Auto-enhancement at module load:
+// settingsConfig.applySettingsBadgeRenderers() adds:
+// render: renderSettingBadge(value, { category: 'project_stage' })
+```
+
+**Pattern C - Inline Edit Dropdowns (ColoredDropdown):**
+```jsx
+// DataTable.tsx - Inline edit mode
+<ColoredDropdown
+  value={currentValue}
+  options={columnOptions}  // From settingsLoader with color_code
+  onChange={handleChange}
+/>
+
+// Inside ColoredDropdown component:
+const selectedColor = selectedOption?.metadata?.color_code;
+
+// Selected value button
+<button>
+  {selectedOption ? (
+    renderSettingBadge(selectedColor, String(selectedOption.label))
+  ) : (
+    <span className="text-gray-400">Select...</span>
+  )}
+</button>
+
+// Dropdown menu options
+{options.map(opt => {
+  const optionColor = opt.metadata?.color_code;
+  return (
+    <button onClick={() => handleSelect(opt.value)}>
+      {renderSettingBadge(optionColor, String(opt.label))}
+    </button>
+  );
+})}
+```
+
+**Pattern D - Filter Dropdowns (DataTable):**
+```jsx
+// DataTable.tsx - Filter dropdown rendering
+{isSettingsField ? (
+  colorCode ? renderSettingBadge(colorCode, option) : renderSettingBadge(undefined, option)
+) : (
+  <span className="text-sm text-gray-700">{option}</span>
+)}
+```
+
+**Color Map (Complete Palette):**
+
+```typescript
+export const COLOR_MAP: Record<string, { bg: string; text: string; border: string }> = {
+  blue:   { bg: 'bg-blue-100',   text: 'text-blue-800',   border: 'border-blue-300' },
+  purple: { bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-300' },
+  green:  { bg: 'bg-green-100',  text: 'text-green-800',  border: 'border-green-300' },
+  red:    { bg: 'bg-red-100',    text: 'text-red-800',    border: 'border-red-300' },
+  yellow: { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-300' },
+  orange: { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-300' },
+  gray:   { bg: 'bg-gray-100',   text: 'text-gray-800',   border: 'border-gray-300' },
+  cyan:   { bg: 'bg-cyan-100',   text: 'text-cyan-800',   border: 'border-cyan-300' },
+  pink:   { bg: 'bg-pink-100',   text: 'text-pink-800',   border: 'border-pink-300' },
+  amber:  { bg: 'bg-amber-100',  text: 'text-amber-800',  border: 'border-amber-300' },
+};
+```
+
+**Badge Size Variants:**
+
+```typescript
+// Size: 'xs' (default) - Most common, used in tables
+<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+  Planning
+</span>
+
+// Size: 'sm' - Slightly larger, used in detail pages
+<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+  Planning
+</span>
+
+// Size: 'md' - Large, used in headers
+<span className="inline-flex items-center px-4 py-1.5 rounded-full text-base font-medium bg-blue-100 text-blue-800">
+  Planning
+</span>
+```
+
+**Tailwind Color Classes (100/800 Pattern):**
+
+| Color  | Background (100) | Text (800) | Border (300) | Hex Codes |
+|--------|-----------------|------------|--------------|-----------|
+| Blue   | `bg-blue-100`   | `text-blue-800` | `border-blue-300` | #DBEAFE / #1E40AF |
+| Purple | `bg-purple-100` | `text-purple-800` | `border-purple-300` | #F3E8FF / #6B21A8 |
+| Green  | `bg-green-100`  | `text-green-800` | `border-green-300` | #DCFCE7 / #166534 |
+| Red    | `bg-red-100`    | `text-red-800` | `border-red-300` | #FEE2E2 / #991B1B |
+| Yellow | `bg-yellow-100` | `text-yellow-800` | `border-yellow-300` | #FEF9C3 / #854D0E |
+| Orange | `bg-orange-100` | `text-orange-800` | `border-orange-300` | #FFEDD5 / #9A3412 |
+| Gray   | `bg-gray-100`   | `text-gray-800` | `border-gray-300` | #F3F4F6 / #1F2937 |
+| Cyan   | `bg-cyan-100`   | `text-cyan-800` | `border-cyan-300` | #CFFAFE / #155E75 |
+| Pink   | `bg-pink-100`   | `text-pink-800` | `border-pink-300` | #FCE7F3 / #9F1239 |
+| Amber  | `bg-amber-100`  | `text-amber-800` | `border-amber-300` | #FEF3C7 / #92400E |
+
+**ColoredDropdown Styling (Inline Edit):**
+
+```jsx
+// Dropdown button (selected value)
+<button
+  className="w-full px-2.5 py-1.5 pr-8 border border-gray-300 rounded-md
+             focus:ring-2 focus:ring-gray-400/30 focus:border-gray-300
+             bg-white shadow-sm hover:border-gray-300 transition-colors
+             cursor-pointer text-left"
+>
+  {renderSettingBadge(selectedColor, selectedLabel)}
+</button>
+
+// Dropdown menu container
+<div className="absolute z-50 w-full mt-1 bg-white border border-gray-200
+                rounded-md shadow-lg max-h-60 overflow-auto">
+  <div className="py-1">
+    {/* Options */}
+  </div>
+</div>
+
+// Dropdown option button
+<button
+  className="w-full px-3 py-2 text-left hover:bg-gray-50
+             transition-colors flex items-center"
+>
+  {renderSettingBadge(optionColor, optionLabel)}
+</button>
+```
+
+**Reuse Count:** 100+ occurrences across:
+- Settings tables: 16 tables × name column
+- Entity tables: 50+ stage/status/priority fields
+- Filter dropdowns: All settings-based filters
+- Inline edit dropdowns: All editable settings fields
+
+**Benefits:**
+
+| Aspect | Old (Hardcoded) | New (Database-Driven) |
+|--------|----------------|----------------------|
+| Code lines | ~2,000 lines | ~200 lines (90% reduction) |
+| Color updates | Redeploy app | Update database only |
+| New categories | Add code + deploy | Zero code changes |
+| Consistency | Manual sync | Automatic everywhere |
+| Visual matching | Settings ≠ entities | Perfect match |
+
+**See Also:**
+- [Settings Pattern 7 - Database-Driven Colors](./settings.md#pattern-7-database-driven-badge-color-system-v25)
+- [Settings Pattern 7.1 - Inline Edit Dropdowns](./settings.md#pattern-71-inline-edit-dropdowns-with-colored-badges-v26)
+- [DataTable ColoredDropdown](./data_table.md#coloreddropdown-component-v26)
+- [Badge Rendering System](./ui_ux_route_api.md#badge-rendering-functions-v26)
+
 ---
 
 ## 14. Alert & Message Patterns

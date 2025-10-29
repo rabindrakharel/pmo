@@ -14,11 +14,10 @@ import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.
 // Schema based on actual d_office table structure
 const OfficeSchema = Type.Object({
   id: Type.String(),
-  slug: Type.String(),
   code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Array(Type.String())),
+  metadata: Type.Optional(Type.Any()),
   parent_id: Type.Optional(Type.String()),
   parent_name: Type.Optional(Type.String()),
   level_name: Type.String(),
@@ -38,10 +37,9 @@ const OfficeSchema = Type.Object({
 
 const CreateOfficeSchema = Type.Object({
   code: Type.String({ minLength: 1 }),
-  slug: Type.String({ minLength: 1 }),
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Array(Type.String())),
+  metadata: Type.Optional(Type.Any()),
   parent_id: Type.Optional(Type.String({ format: 'uuid' })),
   level_name: Type.String(),
   address_line1: Type.Optional(Type.String()),
@@ -120,7 +118,6 @@ export async function officeRoutes(fastify: FastifyInstance) {
           sql`COALESCE(name, '') ILIKE ${`%${search}%`}`,
           sql`COALESCE("descr", '') ILIKE ${`%${search}%`}`,
           sql`COALESCE(code, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(slug, '') ILIKE ${`%${search}%`}`,
           sql`COALESCE(city, '') ILIKE ${`%${search}%`}`,
           sql`COALESCE(province, '') ILIKE ${`%${search}%`}`
         ];
@@ -137,7 +134,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
 
       const orgs = await db.execute(sql`
         SELECT
-          o.id, o.slug, o.code, o.name, o."descr", o.tags,
+          o.id, o.code, o.name, o."descr", o.metadata,
           o.parent_id, o.level_name,
           o.address_line1, o.address_line2, o.city, o.province, o.postal_code, o.country,
           o.from_ts, o.to_ts, o.active_flag, o.created_ts, o.updated_ts, o.version,
@@ -167,7 +164,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
         offset,
       };
     } catch (error) {
-      (fastify.log as any).error('Error fetching organizations:', error as any);
+      fastify.log.error({ error, stack: (error as Error).stack }, 'Error fetching organizations');
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -212,7 +209,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
     try {
       const org = await db.execute(sql`
         SELECT
-          id, slug, code, name, "descr", tags,
+          id, code, name, "descr", metadata,
           parent_id, level_name,
           address_line1, address_line2, city, province, postal_code, country,
           from_ts, to_ts, active_flag, created_ts, updated_ts, version,
@@ -369,9 +366,9 @@ export async function officeRoutes(fastify: FastifyInstance) {
 
     try {
       // Check for unique organization code if provided
-      if (data.org_code) {
+      if (data.code) {
         const existingOrg = await db.execute(sql`
-          SELECT id FROM app.d_office WHERE org_code = ${data.org_code} AND active_flag = true
+          SELECT id FROM app.d_office WHERE code = ${data.code} AND active_flag = true
         `);
         if (existingOrg.length > 0) {
           return reply.status(400).send({ error: 'Organization with this code already exists' });
@@ -379,9 +376,9 @@ export async function officeRoutes(fastify: FastifyInstance) {
       }
 
       // Validate parent organization if provided
-      if (data.parent_org_id) {
+      if (data.parent_id) {
         const parentOrg = await db.execute(sql`
-          SELECT id FROM app.d_office WHERE id = ${data.parent_org_id} AND active_flag = true
+          SELECT id FROM app.d_office WHERE id = ${data.parent_id} AND active_flag = true
         `);
         if (parentOrg.length === 0) {
           return reply.status(400).send({ error: 'Parent organization not found' });
@@ -390,23 +387,23 @@ export async function officeRoutes(fastify: FastifyInstance) {
 
       const result = await db.execute(sql`
         INSERT INTO app.d_office (
-          org_code, org_type, location, contact_info,
-          parent_org_id, territory_size, established_date,
-          name, "descr", tags, attr, active
+          code, name, "descr", metadata, parent_id, level_name,
+          address_line1, address_line2, city, province, postal_code, country, active_flag
         )
         VALUES (
-          ${data.org_code || null},
-          ${data.org_type || 'department'},
-          ${data.location || null},
-          ${data.contact_info || null},
-          ${data.parent_org_id || null},
-          ${data.territory_size || null},
-          ${data.established_date || null},
+          ${data.code},
           ${data.name},
           ${data.descr || null},
-          ${data.tags ? JSON.stringify(data.tags) : '[]'}::jsonb,
-          ${data.attr ? JSON.stringify(data.attr) : '{}'}::jsonb,
-          ${data.active !== false}
+          ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
+          ${data.parent_id || null},
+          ${data.level_name},
+          ${data.address_line1 || null},
+          ${data.address_line2 || null},
+          ${data.city || null},
+          ${data.province || null},
+          ${data.postal_code || null},
+          ${data.country || 'Canada'},
+          ${data.active_flag !== false}
         )
         RETURNING *
       `);
@@ -481,22 +478,23 @@ export async function officeRoutes(fastify: FastifyInstance) {
 
       if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
       if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
-      if (data.org_code !== undefined) updateFields.push(sql`org_code = ${data.org_code}`);
-      if (data.org_type !== undefined) updateFields.push(sql`org_type = ${data.org_type}`);
-      if (data.location !== undefined) updateFields.push(sql`location = ${data.location}`);
-      if (data.contact_info !== undefined) updateFields.push(sql`contact_info = ${data.contact_info}`);
-      if (data.parent_org_id !== undefined) updateFields.push(sql`parent_org_id = ${data.parent_org_id}`);
-      if (data.territory_size !== undefined) updateFields.push(sql`territory_size = ${data.territory_size}`);
-      if (data.established_date !== undefined) updateFields.push(sql`established_date = ${data.established_date}`);
-      if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
-      if (data.attr !== undefined) updateFields.push(sql`attr = ${JSON.stringify(data.attr)}::jsonb`);
-      if (data.active !== undefined) updateFields.push(sql`active_flag = ${data.active}`);
+      if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
+      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
+      if (data.parent_id !== undefined) updateFields.push(sql`parent_id = ${data.parent_id}`);
+      if (data.level_name !== undefined) updateFields.push(sql`level_name = ${data.level_name}`);
+      if (data.address_line1 !== undefined) updateFields.push(sql`address_line1 = ${data.address_line1}`);
+      if (data.address_line2 !== undefined) updateFields.push(sql`address_line2 = ${data.address_line2}`);
+      if (data.city !== undefined) updateFields.push(sql`city = ${data.city}`);
+      if (data.province !== undefined) updateFields.push(sql`province = ${data.province}`);
+      if (data.postal_code !== undefined) updateFields.push(sql`postal_code = ${data.postal_code}`);
+      if (data.country !== undefined) updateFields.push(sql`country = ${data.country}`);
+      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      updateFields.push(sql`updated = NOW()`);
+      updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
         UPDATE app.d_office

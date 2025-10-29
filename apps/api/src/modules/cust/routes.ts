@@ -9,18 +9,19 @@ import {
 } from '../../lib/universal-schema-metadata.js';
 import { transformRequestBody } from '../../lib/data-transformers.js';
 
-// Schema based on actual d_cust table structure from db/XIV_d_cust.ddl
+// Schema based on actual d_cust table structure from db/14_d_cust.ddl
 const CustSchema = Type.Object({
   id: Type.String(),
+  code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  tags: Type.Array(Type.String()),
-  attr: Type.Object({}),
+  metadata: Type.Optional(Type.Any()),
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
   active_flag: Type.Boolean(),
   created_ts: Type.String(),
   updated_ts: Type.String(),
+  version: Type.Number(),
   // Customer-specific fields - match actual d_cust table
   cust_number: Type.String(),
   cust_type: Type.String(),
@@ -37,6 +38,7 @@ const CustSchema = Type.Object({
 });
 
 const CreateCustSchema = Type.Object({
+  code: Type.String({ minLength: 1 }),
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
   cust_number: Type.String({ minLength: 1 }),
@@ -45,8 +47,7 @@ const CreateCustSchema = Type.Object({
   primary_contact_name: Type.Optional(Type.String()),
   primary_email: Type.Optional(Type.String()),
   primary_phone: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Array(Type.String())),
-  metadata: Type.Optional(Type.Object({})),
+  metadata: Type.Optional(Type.Any()),
   active_flag: Type.Optional(Type.Boolean()),
 });
 
@@ -109,7 +110,7 @@ export async function custRoutes(fastify: FastifyInstance) {
 
       const customers = await db.execute(sql`
         SELECT
-          c.id, c.name, c."descr", c.tags, c.metadata as attr, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts,
+          c.id, c.code, c.name, c."descr", c.metadata, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts, c.version,
           c.cust_number, c.cust_type, c.cust_status, c.primary_contact_name,
           c.primary_email, c.primary_phone, c.city,
           c.opportunity_funnel_stage_name,
@@ -157,7 +158,7 @@ export async function custRoutes(fastify: FastifyInstance) {
     try {
       const customer = await db.execute(sql`
         SELECT
-          c.id, c.name, c."descr", c.tags, c.metadata as attr, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts,
+          c.id, c.code, c.name, c."descr", c.metadata, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts, c.version,
           c.cust_number, c.cust_type, c.cust_status, c.primary_contact_name,
           c.primary_email, c.primary_phone, c.city,
           c.opportunity_funnel_stage_name,
@@ -211,7 +212,7 @@ export async function custRoutes(fastify: FastifyInstance) {
       // Get the customer
       const customerResult = await db.execute(sql`
         SELECT
-          c.id, c.name, c."descr", c.tags, c.metadata as attr, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts,
+          c.id, c.code, c.name, c."descr", c.metadata, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts, c.version,
           c.cust_number, c.cust_type, c.cust_status, c.primary_contact_name,
           c.primary_email, c.primary_phone, c.city,
           c.opportunity_funnel_stage_name,
@@ -282,11 +283,12 @@ export async function custRoutes(fastify: FastifyInstance) {
 
       const result = await db.execute(sql`
         INSERT INTO app.d_cust (
-          name, "descr", cust_number, cust_type, cust_status,
+          code, name, "descr", cust_number, cust_type, cust_status,
           primary_contact_name, primary_email, primary_phone,
-          tags, metadata, active_flag
+          metadata, active_flag
         )
         VALUES (
+          ${data.code},
           ${data.name},
           ${data.descr || null},
           ${data.cust_number},
@@ -295,7 +297,6 @@ export async function custRoutes(fastify: FastifyInstance) {
           ${data.primary_contact_name || null},
           ${data.primary_email || null},
           ${data.primary_phone || null},
-          ${data.tags ? JSON.stringify(data.tags) : '[]'}::jsonb,
           ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
           ${data.active_flag !== false}
         )
@@ -364,6 +365,7 @@ export async function custRoutes(fastify: FastifyInstance) {
 
       const updateFields = [];
 
+      if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
       if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
       if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
       if (data.cust_number !== undefined) updateFields.push(sql`cust_number = ${data.cust_number}`);
@@ -372,7 +374,6 @@ export async function custRoutes(fastify: FastifyInstance) {
       if (data.primary_contact_name !== undefined) updateFields.push(sql`primary_contact_name = ${data.primary_contact_name}`);
       if (data.primary_email !== undefined) updateFields.push(sql`primary_email = ${data.primary_email}`);
       if (data.primary_phone !== undefined) updateFields.push(sql`primary_phone = ${data.primary_phone}`);
-      if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
       if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
       if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
 
@@ -393,31 +394,13 @@ export async function custRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to update customer' });
       }
 
-      // Parse JSONB fields that come as strings from raw SQL
-      // Note: The SELECT above returns "metadata as attr", so the field is named attr in the result
-      const record = result[0] as any;
-      if (typeof record.tags === 'string') {
-        record.tags = JSON.parse(record.tags);
-      }
-      // Metadata is returned as 'attr' due to column aliasing in SELECT above
-      // The RETURNING * doesn't use aliasing, so we need to rename it
-      if (record.metadata && !record.attr) {
-        record.attr = record.metadata;
-        if (typeof record.attr === 'string') {
-          record.attr = JSON.parse(record.attr);
-        }
-        delete record.metadata;
-      } else if (typeof record.attr === 'string') {
-        record.attr = JSON.parse(record.attr);
-      }
-
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
         canSeeSystemFields: true,
       };
 
-      return filterUniversalColumns(record, userPermissions);
+      return filterUniversalColumns(result[0], userPermissions);
     } catch (error) {
       fastify.log.error('Error updating customer:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

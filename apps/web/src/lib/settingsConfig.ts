@@ -24,19 +24,20 @@ import {
 /**
  * Color options for dropdowns
  * Used in settings table color_code field
+ * Each option includes metadata with color_code for badge rendering
  */
 export const COLOR_OPTIONS = [
-  { value: 'blue', label: 'Blue' },
-  { value: 'purple', label: 'Purple' },
-  { value: 'green', label: 'Green' },
-  { value: 'red', label: 'Red' },
-  { value: 'yellow', label: 'Yellow' },
-  { value: 'orange', label: 'Orange' },
-  { value: 'gray', label: 'Gray' },
-  { value: 'cyan', label: 'Cyan' },
-  { value: 'pink', label: 'Pink' },
-  { value: 'amber', label: 'Amber' },
-] as const;
+  { value: 'blue', label: 'Blue', metadata: { color_code: 'blue' } },
+  { value: 'purple', label: 'Purple', metadata: { color_code: 'purple' } },
+  { value: 'green', label: 'Green', metadata: { color_code: 'green' } },
+  { value: 'red', label: 'Red', metadata: { color_code: 'red' } },
+  { value: 'yellow', label: 'Yellow', metadata: { color_code: 'yellow' } },
+  { value: 'orange', label: 'Orange', metadata: { color_code: 'orange' } },
+  { value: 'gray', label: 'Gray', metadata: { color_code: 'gray' } },
+  { value: 'cyan', label: 'Cyan', metadata: { color_code: 'cyan' } },
+  { value: 'pink', label: 'Pink', metadata: { color_code: 'pink' } },
+  { value: 'amber', label: 'Amber', metadata: { color_code: 'amber' } },
+];
 
 // Re-export COLOR_MAP from centralized source
 export { COLOR_MAP };
@@ -74,18 +75,18 @@ export function renderColorBadge(colorCode: string, label?: string): React.React
  *
  * This replaces hardcoded color maps with database-driven colors.
  */
-export function createSettingBadgeRenderer(category: string) {
-  // Preload colors for this category
-  loadSettingsColors(category);
+export function createSettingBadgeRenderer(datalabel: string) {
+  // Preload colors for this datalabel
+  loadSettingsColors(datalabel);
 
   // Return renderer function
   return (value: string | null | undefined): React.ReactElement => {
-    return renderSettingBadge(value, { category });
+    return renderSettingBadge(value, { datalabel });
   };
 }
 
 /**
- * Extract settings category from field key
+ * Extract settings datalabel from field key
  *
  * Examples:
  * - project_stage → project_stage
@@ -94,9 +95,9 @@ export function createSettingBadgeRenderer(category: string) {
  * - stage → task_stage (special case for task.stage)
  * - priority_level → task_priority (special case)
  */
-function extractSettingsCategory(fieldKey: string): string {
+function extractSettingsDatalabel(fieldKey: string): string {
   // Remove common suffixes
-  let category = fieldKey
+  let datalabel = fieldKey
     .replace(/_name$/, '')
     .replace(/_id$/, '')
     .replace(/_level_id$/, '');
@@ -108,7 +109,7 @@ function extractSettingsCategory(fieldKey: string): string {
     'status': 'task_stage'
   };
 
-  return specialMappings[category] || category;
+  return specialMappings[datalabel] || datalabel;
 }
 
 /**
@@ -132,10 +133,10 @@ export function applySettingsBadgeRenderers<T extends { key: string; loadOptions
   return columns.map(col => {
     // If loadOptionsFromSettings is true and no custom render function exists
     if (col.loadOptionsFromSettings && !col.render) {
-      const category = extractSettingsCategory(col.key);
+      const datalabel = extractSettingsDatalabel(col.key);
       return {
         ...col,
-        render: createSettingBadgeRenderer(category)
+        render: createSettingBadgeRenderer(datalabel)
       };
     }
     return col;
@@ -201,7 +202,13 @@ export function createSettingsColumns() {
       sortable: true,
       align: 'center' as const,
       width: '120px',
-      inlineEditable: true
+      inlineEditable: true,
+      options: COLOR_OPTIONS,
+      render: (value: any) => {
+        // Capitalize first letter for display
+        const displayValue = value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
+        return renderColorBadge(value, displayValue);
+      }
     }
   ];
 }
@@ -221,7 +228,7 @@ export function createSettingsFields() {
       label: 'Color',
       type: 'select' as const,
       required: true,
-      options: COLOR_OPTIONS.map(c => ({ value: c.value, label: c.label }))
+      options: COLOR_OPTIONS
     }
   ];
 }

@@ -10,6 +10,7 @@ const SettingItemSchema = Type.Object({
   descr: Type.String(),
   parent_id: Type.Union([Type.Number(), Type.Null()]),
   color_code: Type.String(),
+  position: Type.Optional(Type.Number()),
 });
 
 export async function settingRoutes(fastify: FastifyInstance) {
@@ -32,26 +33,37 @@ export async function settingRoutes(fastify: FastifyInstance) {
     const { datalabel } = request.query as any;
 
     try {
-      // Convert snake_case to entity__label format
-      // e.g., 'task_stage' -> 'task__stage', 'project_stage' -> 'project__stage'
-      const datalabelName = datalabel.replace(/_([^_]+)$/, '__$1');
+      // Convert snake_case to entity__attribute format
+      // Database pattern: {entity}__{attribute}
+      // - Entity is always a single word
+      // - Attribute can have underscores (e.g., funnel_stage, approval_status)
+      // Examples:
+      // - 'task_stage' -> 'task__stage'
+      // - 'opportunity_funnel_stage' -> 'opportunity__funnel_stage'
+      // - 'form_approval_status' -> 'form__approval_status'
+      //
+      // Strategy: Replace the FIRST underscore with double underscore
+      const datalabelName = datalabel.replace(/_/, '__');
 
       // Query unified table and expand JSONB metadata array
-      const results = await db.execute(sql`
+      // IMPORTANT: Use WITH ORDINALITY to preserve array order (not ID order)
+      // Array position = display order (set by drag & drop reordering)
+      const results = await db.execute(sql.raw(`
         SELECT
-          (elem->>'id')::text as id,
-          elem->>'name' as name,
-          COALESCE(elem->>'descr', '') as descr,
+          (elem.value->>'id')::text as id,
+          elem.value->>'name' as name,
+          COALESCE(elem.value->>'descr', '') as descr,
           CASE
-            WHEN elem->>'parent_id' = 'null' THEN NULL
-            ELSE (elem->>'parent_id')::integer
+            WHEN elem.value->>'parent_id' = 'null' THEN NULL
+            ELSE (elem.value->>'parent_id')::integer
           END as parent_id,
-          elem->>'color_code' as color_code
+          elem.value->>'color_code' as color_code,
+          elem.ordinality - 1 as position
         FROM app.setting_datalabel,
-          jsonb_array_elements(metadata) as elem
-        WHERE datalabel_name = ${datalabelName}
-        ORDER BY (elem->>'id')::integer ASC
-      `);
+          jsonb_array_elements(metadata) WITH ORDINALITY as elem
+        WHERE datalabel_name = '${datalabelName}'
+        ORDER BY elem.ordinality
+      `));
 
       if (results.length === 0) {
         return reply.status(404).send({ error: `Datalabel '${datalabel}' not found` });
@@ -71,6 +83,8 @@ export async function settingRoutes(fastify: FastifyInstance) {
         200: Type.Object({
           data: Type.Array(Type.Object({
             datalabel_name: Type.String(),
+            ui_label: Type.String(),
+            ui_icon: Type.Union([Type.String(), Type.Null()]),
             item_count: Type.Number(),
           })),
         }),
@@ -81,6 +95,8 @@ export async function settingRoutes(fastify: FastifyInstance) {
       const results = await db.execute(sql`
         SELECT
           datalabel_name,
+          ui_label,
+          ui_icon,
           jsonb_array_length(metadata) as item_count
         FROM app.setting_datalabel
         ORDER BY datalabel_name
@@ -89,6 +105,90 @@ export async function settingRoutes(fastify: FastifyInstance) {
       return { data: results };
     } catch (error) {
       fastify.log.error('Error fetching categories:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Create a new setting item in metadata array
+  fastify.post('/api/v1/setting/:datalabel', {
+    schema: {
+      params: Type.Object({
+        datalabel: Type.String(),
+      }),
+      body: Type.Object({
+        name: Type.String(),
+        descr: Type.Optional(Type.String()),
+        parent_id: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
+        color_code: Type.Optional(Type.String()),
+      }),
+      response: {
+        200: Type.Object({
+          success: Type.Boolean(),
+          data: SettingItemSchema,
+        }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { datalabel } = request.params as any;
+    const newItem = request.body as any;
+
+    try {
+      // Convert snake_case to entity__attribute format
+      const datalabelName = datalabel.replace(/_/, '__');
+
+      // Get current metadata
+      const current = await db.execute(sql`
+        SELECT metadata FROM app.setting_datalabel
+        WHERE datalabel_name = ${datalabelName}
+      `);
+
+      if (current.length === 0) {
+        return reply.status(404).send({ error: `Datalabel '${datalabel}' not found` });
+      }
+
+      // Parse metadata array
+      const metadata = current[0].metadata as any[];
+
+      // Find the next available ID
+      const maxId = metadata.reduce((max, item) => Math.max(max, parseInt(item.id)), -1);
+      const newId = maxId + 1;
+
+      // Create the new item
+      const itemToAdd = {
+        id: newId,
+        name: newItem.name,
+        descr: newItem.descr || '',
+        parent_id: newItem.parent_id ?? null,
+        color_code: newItem.color_code || 'blue',
+      };
+
+      // Add to the end of the array
+      metadata.push(itemToAdd);
+
+      // Update the database
+      const metadataJson = JSON.stringify(metadata);
+      await db.execute(sql`
+        UPDATE app.setting_datalabel
+        SET metadata = ${sql.raw(`'${metadataJson.replace(/'/g, "''")}'`)}::jsonb
+        WHERE datalabel_name = ${datalabelName}
+      `);
+
+      // Return the created item
+      return reply.status(200).send({
+        success: true,
+        data: {
+          id: String(newId),
+          name: itemToAdd.name,
+          descr: itemToAdd.descr,
+          parent_id: itemToAdd.parent_id,
+          color_code: itemToAdd.color_code,
+          position: metadata.length - 1,
+        },
+      });
+    } catch (error) {
+      fastify.log.error('Error creating setting:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -120,8 +220,9 @@ export async function settingRoutes(fastify: FastifyInstance) {
     const updates = request.body as any;
 
     try {
-      // Convert snake_case to entity__label format
-      const datalabelName = datalabel.replace(/_([^_]+)$/, '__$1');
+      // Convert snake_case to entity__attribute format
+      // Replace the FIRST underscore with double underscore
+      const datalabelName = datalabel.replace(/_/, '__');
 
       // Get current metadata
       const current = await db.execute(sql`
@@ -168,6 +269,140 @@ export async function settingRoutes(fastify: FastifyInstance) {
       };
     } catch (error) {
       fastify.log.error('Error updating setting:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Delete a setting item from metadata array
+  fastify.delete('/api/v1/setting/:datalabel/:id', {
+    schema: {
+      params: Type.Object({
+        datalabel: Type.String(),
+        id: Type.String(),
+      }),
+      response: {
+        200: Type.Object({
+          success: Type.Boolean(),
+          message: Type.String(),
+        }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { datalabel, id } = request.params as any;
+
+    try {
+      // Convert snake_case to entity__attribute format
+      const datalabelName = datalabel.replace(/_/, '__');
+
+      // Get current metadata
+      const current = await db.execute(sql`
+        SELECT metadata FROM app.setting_datalabel
+        WHERE datalabel_name = ${datalabelName}
+      `);
+
+      if (current.length === 0) {
+        return reply.status(404).send({ error: `Datalabel '${datalabel}' not found` });
+      }
+
+      // Parse metadata array and remove the item
+      const metadata = current[0].metadata as any[];
+      const itemIndex = metadata.findIndex((item: any) => item.id === parseInt(id));
+
+      if (itemIndex === -1) {
+        return reply.status(404).send({ error: `Item with id '${id}' not found` });
+      }
+
+      // Remove the item from array
+      metadata.splice(itemIndex, 1);
+
+      // Update the database
+      const metadataJson = JSON.stringify(metadata);
+      await db.execute(sql`
+        UPDATE app.setting_datalabel
+        SET metadata = ${sql.raw(`'${metadataJson.replace(/'/g, "''")}'`)}::jsonb
+        WHERE datalabel_name = ${datalabelName}
+      `);
+
+      return reply.status(200).send({
+        success: true,
+        message: `Item ${id} deleted successfully`,
+      });
+    } catch (error) {
+      fastify.log.error('Error deleting setting:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Reorder metadata array
+  fastify.put('/api/v1/setting/:datalabel/reorder', {
+    schema: {
+      params: Type.Object({
+        datalabel: Type.String(),
+      }),
+      body: Type.Object({
+        order: Type.Array(Type.Object({
+          id: Type.Union([Type.String(), Type.Number()]),
+          position: Type.Number(),
+        })),
+      }),
+      response: {
+        200: Type.Object({
+          success: Type.Boolean(),
+          message: Type.String(),
+        }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { datalabel } = request.params as any;
+    const { order } = request.body as any;
+
+    try {
+      // Convert snake_case to entity__attribute format
+      const datalabelName = datalabel.replace(/_/, '__');
+
+      // Get current metadata
+      const current = await db.execute(sql`
+        SELECT metadata FROM app.setting_datalabel
+        WHERE datalabel_name = ${datalabelName}
+      `);
+
+      if (current.length === 0) {
+        return reply.status(404).send({ error: `Datalabel '${datalabel}' not found` });
+      }
+
+      // Parse metadata array
+      const metadata = current[0].metadata as any[];
+
+      // Create a map of items by ID for quick lookup
+      const itemMap = new Map();
+      metadata.forEach(item => {
+        itemMap.set(String(item.id), item);
+      });
+
+      // Reorder based on the provided order
+      const reorderedMetadata = order
+        .sort((a: any, b: any) => a.position - b.position)
+        .map((orderItem: any) => itemMap.get(String(orderItem.id)))
+        .filter(Boolean); // Remove any null/undefined entries
+
+      // Update the database
+      const metadataJson = JSON.stringify(reorderedMetadata);
+      await db.execute(sql`
+        UPDATE app.setting_datalabel
+        SET metadata = ${sql.raw(`'${metadataJson.replace(/'/g, "''")}'`)}::jsonb
+        WHERE datalabel_name = ${datalabelName}
+      `);
+
+      return reply.status(200).send({
+        success: true,
+        message: 'Items reordered successfully',
+      });
+    } catch (error) {
+      fastify.log.error('Error reordering settings:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

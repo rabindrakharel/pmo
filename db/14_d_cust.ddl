@@ -93,7 +93,7 @@
 --    • Endpoint: PUT /api/v1/cust/{id}
 --    • Body: {opportunity_funnel_stage_name: "Qualified"}
 --    • Database: UPDATE SET opportunity_funnel_stage_name=$1, updated_ts=now(), version=version+1 WHERE id=$2
---    • Business Rule: opportunity_funnel_stage_name loads from setting_datalabel_opportunity_funnel_stage
+--    • Business Rule: opportunity_funnel_stage_name loads from app.setting_datalabel (datalabel_name='opportunity__funnel_stage')
 --
 -- 9. APP USER SIGNUP (New User Registration)
 --    • Endpoint: POST /api/v1/auth/customer/signup
@@ -131,13 +131,13 @@
 -- • cust_type: Sector classification ('residential', 'commercial', 'municipal', 'industrial')
 -- • cust_status: Account status ('active', 'inactive', 'prospect', 'former')
 -- • opportunity_funnel_stage_name: Sales pipeline stage (Lead, Qualified, Proposal, Contract Signed)
---   - Loaded from setting_datalabel_opportunity_funnel_stage via /api/v1/setting?category=opportunity_funnel_stage
+--   - Loaded from app.setting_datalabel table (datalabel_name='opportunity__funnel_stage') via /api/v1/setting?datalabel=opportunity_funnel_stage
 -- • customer_tier_name: Service tier ('Standard', 'Premium', 'Enterprise', 'Government')
---   - Loaded from setting_datalabel_customer_tier via /api/v1/setting?category=customer_tier
+--   - Loaded from app.setting_datalabel table (datalabel_name='customer__tier') via /api/v1/setting?datalabel=customer_tier
 -- • industry_sector_name: Industry classification (Residential, Commercial Real Estate, Healthcare, Education)
---   - Loaded from setting_datalabel_industry_sector via /api/v1/setting?category=industry_sector
+--   - Loaded from app.setting_datalabel table (datalabel_name='industry__sector') via /api/v1/setting?datalabel=industry_sector
 -- • acquisition_channel_name: How client was acquired (Referral, Organic Search, Cold Outreach)
---   - Loaded from setting_datalabel_acquisition_channel via /api/v1/setting?category=acquisition_channel
+--   - Loaded from app.setting_datalabel table (datalabel_name='acquisition__channel') via /api/v1/setting?datalabel=acquisition_channel
 -- • primary_contact_name, primary_email, primary_phone: Main contact details
 -- • metadata: JSONB field storing lifetime_value, annual_contract_value, service_categories, payment_terms
 --

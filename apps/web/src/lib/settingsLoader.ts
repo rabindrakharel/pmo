@@ -50,7 +50,7 @@ const settingsCache: Map<string, { data: SettingOption[]; timestamp: number }> =
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 /**
- * Mapping of field names to their corresponding setting categories
+ * Mapping of field names to their corresponding setting datalabels
  * This defines which fields should load from which settings tables
  */
 export const FIELD_TO_SETTING_MAP: Record<string, string> = {
@@ -98,9 +98,9 @@ export const FIELD_TO_SETTING_MAP: Record<string, string> = {
 };
 
 /**
- * Mapping of setting categories to their API endpoints
+ * Mapping of setting datalabels to their API endpoints
  */
-export const SETTING_CATEGORY_TO_ENDPOINT: Record<string, string> = {
+export const SETTING_DATALABEL_TO_ENDPOINT: Record<string, string> = {
   'project_stage': '/api/v1/setting?datalabel=project_stage',
   'project_status': '/api/v1/setting?datalabel=project_status',
   'task_stage': '/api/v1/setting?datalabel=task_stage',
@@ -129,38 +129,38 @@ export function isSettingField(fieldKey: string): boolean {
 }
 
 /**
- * Get the setting category for a given field key
+ * Get the setting datalabel for a given field key
  */
-export function getSettingCategory(fieldKey: string): string | null {
+export function getSettingDatalabel(fieldKey: string): string | null {
   return FIELD_TO_SETTING_MAP[fieldKey] || null;
 }
 
 /**
- * Get the API endpoint for a setting category
+ * Get the API endpoint for a setting datalabel
  */
-export function getSettingEndpoint(category: string): string | null {
-  return SETTING_CATEGORY_TO_ENDPOINT[category] || null;
+export function getSettingEndpoint(datalabel: string): string | null {
+  return SETTING_DATALABEL_TO_ENDPOINT[datalabel] || null;
 }
 
 /**
  * Load settings options from the API with caching
  */
 export async function loadSettingOptions(
-  category: string,
+  datalabel: string,
   forceRefresh: boolean = false
 ): Promise<SettingOption[]> {
   // Check cache first
   if (!forceRefresh) {
-    const cached = settingsCache.get(category);
+    const cached = settingsCache.get(datalabel);
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
       return cached.data;
     }
   }
 
   // Get API endpoint
-  const endpoint = getSettingEndpoint(category);
+  const endpoint = getSettingEndpoint(datalabel);
   if (!endpoint) {
-    console.warn(`No endpoint found for setting category: ${category}`);
+    console.warn(`No endpoint found for setting datalabel: ${datalabel}`);
     return [];
   }
 
@@ -216,14 +216,14 @@ export async function loadSettingOptions(
       });
 
     // Cache the results
-    settingsCache.set(category, {
+    settingsCache.set(datalabel, {
       data: options,
       timestamp: Date.now()
     });
 
     return options;
   } catch (error) {
-    console.error(`Error loading setting options for ${category}:`, error);
+    console.error(`Error loading setting options for ${datalabel}:`, error);
     return [];
   }
 }
@@ -233,39 +233,39 @@ export async function loadSettingOptions(
  * This is the main function to use in components
  */
 export async function loadFieldOptions(fieldKey: string): Promise<SettingOption[]> {
-  const category = getSettingCategory(fieldKey);
-  if (!category) {
+  const datalabel = getSettingDatalabel(fieldKey);
+  if (!datalabel) {
     return [];
   }
-  return loadSettingOptions(category);
+  return loadSettingOptions(datalabel);
 }
 
 /**
- * Preload multiple setting categories at once
+ * Preload multiple setting datalabels at once
  * Useful for preloading all settings needed for a form
  */
-export async function preloadSettings(categories: string[]): Promise<void> {
+export async function preloadSettings(datalabels: string[]): Promise<void> {
   await Promise.all(
-    categories.map(category => loadSettingOptions(category))
+    datalabels.map(datalabel => loadSettingOptions(datalabel))
   );
 }
 
 /**
  * Clear the settings cache (useful after updates)
  */
-export function clearSettingsCache(category?: string): void {
-  if (category) {
-    settingsCache.delete(category);
+export function clearSettingsCache(datalabel?: string): void {
+  if (datalabel) {
+    settingsCache.delete(datalabel);
   } else {
     settingsCache.clear();
   }
 }
 
 /**
- * Get all available setting categories
+ * Get all available setting datalabels
  */
-export function getAllSettingCategories(): string[] {
-  return Object.keys(SETTING_CATEGORY_TO_ENDPOINT);
+export function getAllSettingDatalabels(): string[] {
+  return Object.keys(SETTING_DATALABEL_TO_ENDPOINT);
 }
 
 /**
@@ -277,31 +277,31 @@ export async function batchLoadFieldOptions(
 ): Promise<Map<string, SettingOption[]>> {
   const resultMap = new Map<string, SettingOption[]>();
 
-  // Get unique categories
-  const categories = new Set(
+  // Get unique datalabels
+  const datalabels = new Set(
     fieldKeys
-      .map(key => getSettingCategory(key))
-      .filter((cat): cat is string => cat !== null)
+      .map(key => getSettingDatalabel(key))
+      .filter((dl): dl is string => dl !== null)
   );
 
-  // Load all categories in parallel
-  const categoryResults = await Promise.all(
-    Array.from(categories).map(async (category) => ({
-      category,
-      options: await loadSettingOptions(category)
+  // Load all datalabels in parallel
+  const datalabelResults = await Promise.all(
+    Array.from(datalabels).map(async (datalabel) => ({
+      datalabel,
+      options: await loadSettingOptions(datalabel)
     }))
   );
 
-  // Build a category -> options map
-  const categoryMap = new Map(
-    categoryResults.map(({ category, options }) => [category, options])
+  // Build a datalabel -> options map
+  const datalabelMap = new Map(
+    datalabelResults.map(({ datalabel, options }) => [datalabel, options])
   );
 
   // Map field keys to their options
   for (const fieldKey of fieldKeys) {
-    const category = getSettingCategory(fieldKey);
-    if (category) {
-      resultMap.set(fieldKey, categoryMap.get(category) || []);
+    const datalabel = getSettingDatalabel(fieldKey);
+    if (datalabel) {
+      resultMap.set(fieldKey, datalabelMap.get(datalabel) || []);
     }
   }
 

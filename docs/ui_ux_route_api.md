@@ -2317,6 +2317,229 @@ if (field.key === 'updated_ts' && value) {
 
 ---
 
+**Badge Rendering Functions (v2.6):**
+
+**f) `renderSettingBadge(colorCodeOrValue, labelOrOptions?, size?): React.ReactElement`**
+
+**Purpose:** Universal badge renderer for settings fields with database-driven colors
+
+**Three Usage Modes:**
+
+**Mode 1 - Direct Color Code (Settings Tables):**
+```typescript
+// Render badge with explicit color from database
+renderSettingBadge('blue', 'Planning')
+// Returns: <span class="bg-blue-100 text-blue-800">Planning</span>
+```
+
+**Mode 2 - Category-Based Lookup (Entity Tables):**
+```typescript
+// Render badge with automatic color lookup from cache
+renderSettingBadge('Planning', { category: 'project_stage' })
+// 1. Looks up 'Planning' in cached 'project_stage' colors
+// 2. Finds color_code = 'blue'
+// 3. Returns: <span class="bg-blue-100 text-blue-800">Planning</span>
+```
+
+**Mode 3 - Filter Dropdowns (DataTable):**
+```typescript
+// Render badge in filter dropdown with preloaded options
+const options = await loadSettingOptions('project_stage');
+renderSettingBadge(undefined, options[0].label)
+// Returns colored badge based on option metadata
+```
+
+**Architecture:**
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│           DATABASE-DRIVEN BADGE RENDERING SYSTEM              │
+├──────────────────────────────────────────────────────────────┤
+│                                                               │
+│  1. DATABASE (Source of Truth)                               │
+│     setting_datalabel table → metadata JSONB                 │
+│     [{ name: "Planning", color_code: "blue" }]               │
+│                          ↓                                    │
+│  2. API LAYER                                                │
+│     GET /api/v1/setting?datalabel=project_stage              │
+│     Returns sorted metadata with color_code                  │
+│                          ↓                                    │
+│  3. SETTINGS LOADER (Cache Layer)                            │
+│     loadSettingsColors(category)                             │
+│     • Fetches from API                                       │
+│     • Stores in settingsColorCache Map                       │
+│     • Cache duration: 5 minutes                              │
+│                          ↓                                    │
+│  4. BADGE RENDERER                                           │
+│     renderSettingBadge(value, options)                       │
+│     • Looks up color from cache                              │
+│     • Generates Tailwind classes                             │
+│     • Returns React element                                  │
+│                          ↓                                    │
+│  5. UI COMPONENTS                                            │
+│     • DataTable cells - Badge display                        │
+│     • Filter dropdowns - Colored options                     │
+│     • Inline edit dropdowns - ColoredDropdown                │
+│     • EntityDetailPage - Status badges                       │
+│                                                               │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Color Cache System:**
+
+```typescript
+// In-memory cache for performance
+const settingsColorCache = new Map<string, Map<string, string>>();
+// Structure: category → (value → color_code)
+// Example: 'project_stage' → Map('Planning' → 'blue', 'Execution' → 'yellow')
+
+// Preload colors for a category
+export async function loadSettingsColors(category: string): Promise<void> {
+  if (settingsColorCache.has(category)) return; // Already cached
+
+  const options = await loadSettingOptions(category); // From settingsLoader
+  const colorMap = new Map<string, string>();
+
+  for (const option of options) {
+    const label = String(option.label);
+    const colorCode = option.metadata?.color_code;
+    if (colorCode) {
+      colorMap.set(label, colorCode);
+    }
+  }
+
+  settingsColorCache.set(category, colorMap);
+}
+
+// Lookup color from cache
+export function getSettingColor(category: string, value: string): string | undefined {
+  const colorMap = settingsColorCache.get(category);
+  return colorMap?.get(value);
+}
+```
+
+**COLOR_MAP - Tailwind Class Mapping:**
+
+```typescript
+export const COLOR_MAP: Record<string, { bg: string; text: string; border: string }> = {
+  blue: { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-300' },
+  purple: { bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-300' },
+  green: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300' },
+  red: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300' },
+  yellow: { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-300' },
+  orange: { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-300' },
+  gray: { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-300' },
+  cyan: { bg: 'bg-cyan-100', text: 'text-cyan-800', border: 'border-cyan-300' },
+  pink: { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-300' },
+  amber: { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' },
+};
+```
+
+**Usage Examples:**
+
+**In Entity Config (Auto-Applied):**
+```typescript
+// entityConfig.ts
+{
+  key: 'project_stage',
+  title: 'Stage',
+  loadOptionsFromSettings: true  // ← Automatically adds badge renderer!
+}
+
+// Auto-enhancement at module load (settingsConfig.ts)
+Object.keys(entityConfigs).forEach(entityKey => {
+  const config = entityConfigs[entityKey];
+  if (config.columns) {
+    config.columns = applySettingsBadgeRenderers(config.columns);
+    // ↑ Adds render: renderSettingBadge('Planning', { category: 'project_stage' })
+  }
+});
+```
+
+**In Settings Tables:**
+```typescript
+// Direct color_code from record
+{
+  key: 'name',
+  title: 'Name',
+  render: (value, record) => renderSettingBadge(record.color_code, value)
+}
+```
+
+**In DataTable Inline Edit:**
+```typescript
+// ColoredDropdown component uses renderSettingBadge internally
+<ColoredDropdown
+  value={currentValue}
+  options={columnOptions}  // Contains color_code in metadata
+  onChange={handleChange}
+/>
+
+// Inside ColoredDropdown
+const selectedColor = selectedOption?.metadata?.color_code;
+return renderSettingBadge(selectedColor, String(selectedOption.label));
+```
+
+**Data Flow Example:**
+
+```
+User Action: Edit project stage field in DataTable
+
+1. DataTable renders ColoredDropdown component
+   ↓
+2. ColoredDropdown gets options from settingsLoader
+   options = [
+     { value: 'Planning', label: 'Planning', metadata: { color_code: 'blue' } },
+     { value: 'Execution', label: 'Execution', metadata: { color_code: 'yellow' } }
+   ]
+   ↓
+3. User clicks dropdown → shows list of colored badges
+   [Badge: Planning (blue)]
+   [Badge: Execution (yellow)]
+   ↓
+4. User selects "Execution"
+   ↓
+5. onChange triggers → renderSettingBadge('yellow', 'Execution')
+   ↓
+6. Returns: <span class="inline-flex items-center px-2.5 py-0.5 rounded-full
+                      text-xs font-medium bg-yellow-100 text-yellow-800">
+                Execution
+              </span>
+```
+
+**Performance Optimization:**
+
+1. **Preloading:** Colors loaded on DataTable mount
+```typescript
+useEffect(() => {
+  const categories = extractCategoriesFromColumns(columns);
+  await Promise.all(categories.map(cat => loadSettingsColors(cat)));
+}, [columns]);
+```
+
+2. **Caching:** 5-minute cache prevents repeated API calls
+3. **Lazy Loading:** Categories loaded only when needed
+4. **Batch Loading:** Multiple categories loaded in parallel
+
+**Benefits:**
+
+| Aspect | Old System (Hardcoded) | New System (Database-Driven) |
+|--------|----------------------|---------------------------|
+| Color source | TypeScript files | Database `color_code` field |
+| Code duplication | ~2,000 lines | ~200 lines (90% reduction) |
+| Updates | Redeploy app | Update database only |
+| Consistency | Manual sync required | Automatic everywhere |
+| New categories | Add code + deploy | Zero code changes |
+| Visual matching | Settings ≠ entities | Perfect match |
+
+**See Also:**
+- [Settings Pattern 7 - Database-Driven Colors](./settings.md#pattern-7-database-driven-badge-color-system-v25)
+- [Settings Pattern 7.1 - Inline Edit Dropdowns](./settings.md#pattern-71-inline-edit-dropdowns-with-colored-badges-v26)
+- [DataTable ColoredDropdown](./data_table.md#coloreddropdown-component-v26)
+- [Styling Patterns - Badge Colors](./styling_patterns.md#13-badge--tag-patterns)
+
+---
+
 ### Schema & Metadata Libraries
 
 #### 5. `universal-schema-metadata.ts`

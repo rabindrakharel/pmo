@@ -89,7 +89,7 @@
 --
 -- KEY BUSINESS FIELDS:
 -- • project_stage: Workflow state (Initiation, Planning, Execution, Monitoring, Closure, On Hold, Cancelled)
---   - Loaded from setting_datalabel_project_stage via /api/v1/setting?category=project_stage
+--   - Loaded from app.setting_datalabel table (datalabel_name='project__stage') via /api/v1/setting?datalabel=project_stage
 --   - Drives Kanban column placement in frontend
 --   - Updated via inline editing or drag-drop in UI
 -- • budget_allocated vs budget_spent: Financial tracking

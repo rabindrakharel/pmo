@@ -75,7 +75,8 @@ export { ModularEditor } from './editor/ModularEditor';
 // ============================================================================
 // UI COMPONENTS
 // ============================================================================
-export { DataTable } from './ui/DataTable';
+export { EntityDataTable, DataTable } from './ui/EntityDataTable'; // DataTable = backwards compat
+export { SettingsDataTable } from './ui/SettingsDataTable';
 // EditableTags component removed - tags field no longer in use
 // export { EditableTags } from './ui/EditableTags';
 export { GridView } from './ui/GridView';

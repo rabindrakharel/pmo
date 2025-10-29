@@ -53,7 +53,7 @@ const WorksiteSchema = Type.Object({
 
   // Safety and compliance
   safety_rating: Type.Optional(Type.String()),
-  safety_last_inspection: Type.Optional(Type.String()),
+  safety_last_inspection_date: Type.Optional(Type.String()),
   environmental_permits: Type.Optional(Type.Array(Type.String())),
 
   // Seasonal operations
@@ -88,7 +88,7 @@ const CreateWorksiteSchema = Type.Object({
   power_available: Type.Optional(Type.Boolean()),
   water_available: Type.Optional(Type.Boolean()),
   safety_rating: Type.Optional(Type.String()),
-  safety_last_inspection: Type.Optional(Type.String({ format: 'date' })),
+  safety_last_inspection_date: Type.Optional(Type.String({ format: 'date' })),
   environmental_permits: Type.Optional(Type.Array(Type.String())),
   seasonal_use: Type.Optional(Type.Boolean()),
   seasonal_period: Type.Optional(Type.String()),
@@ -168,7 +168,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
           equipment_storage, vehicle_parking, security_required,
           indoor_space_sqft, outdoor_space_sqft, office_space,
           washroom_facilities, power_available, water_available,
-          safety_rating, safety_last_inspection, environmental_permits,
+          safety_rating, safety_last_inspection_date, environmental_permits,
           seasonal_use, seasonal_period, emergency_contact
         FROM app.d_worksite
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
@@ -183,7 +183,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
         offset,
       };
     } catch (error) {
-      fastify.log.error('Error fetching worksites:', error as any);
+      fastify.log.error({ error, stack: (error as Error).stack }, 'Error fetching worksites');
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

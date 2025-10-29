@@ -197,7 +197,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       {
         key: 'project_stage',
         title: 'Stage',
-        loadOptionsFromSettings: true,  // Auto-loads from setting_datalabel_project_stage
+        loadOptionsFromSettings: true,  // Auto-loads from app.setting_datalabel table
         inlineEditable: true,            // Enable inline editing
         render: (value, record) => renderBadge(record.project_stage_name, colorMap)
       }

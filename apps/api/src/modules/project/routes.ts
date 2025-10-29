@@ -41,11 +41,9 @@ const ProjectSchema = Type.Object({
 
 const CreateProjectSchema = Type.Object({
   name: Type.Optional(Type.String({ minLength: 1 })),
-  slug: Type.Optional(Type.String({ minLength: 1 })),
   code: Type.Optional(Type.String({ minLength: 1 })),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String()])),
-  metadata: Type.Optional(Type.Union([Type.Object({}), Type.String()])),
+  metadata: Type.Optional(Type.Any()),
   business_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
   office_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
   project_stage: Type.Optional(Type.String()),
@@ -705,7 +703,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
     // Auto-generate required fields if missing
     if (!data.name) data.name = 'Untitled';
-    if (!data.slug) data.slug = `project-${Date.now()}`;
     if (!data.code) data.code = `PROJECT-${Date.now()}`;
 
     const userId = (request as any).user?.sub;
@@ -730,22 +727,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
     try {
       // Check for unique project code if provided
-      if (data.project_code) {
+      if (data.code) {
         const existingProject = await db.execute(sql`
-          SELECT id FROM app.d_project WHERE project_code = ${data.project_code} AND active_flag = true
+          SELECT id FROM app.d_project WHERE code = ${data.code} AND active_flag = true
         `);
         if (existingProject.length > 0) {
           return reply.status(400).send({ error: 'Project with this code already exists' });
-        }
-      }
-
-      // Check for unique slug if provided
-      if (data.slug) {
-        const existingSlug = await db.execute(sql`
-          SELECT id FROM app.d_project WHERE slug = ${data.slug} AND active_flag = true
-        `);
-        if (existingSlug.length > 0) {
-          return reply.status(400).send({ error: 'Project with this slug already exists' });
         }
       }
 
@@ -771,10 +758,10 @@ export async function projectRoutes(fastify: FastifyInstance) {
           active_flag
         )
         VALUES (
-          ${data.code || data.project_code || `PROJ-${Date.now()}`},
+          ${data.code || `PROJ-${Date.now()}`},
           ${data.name || 'Untitled Project'},
           ${data.descr || null},
-          ${data.metadata || data.attr ? JSON.stringify(data.metadata || data.attr || {}) : '{}'}::jsonb,
+          ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
           ${data.project_stage || null},
           ${data.budget_allocated || data.budget_allocated_amt || null},
           ${data.budget_spent || data.budget_spent_amt || 0},
@@ -785,7 +772,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           ${data.manager_employee_id || null},
           ${data.sponsor_employee_id || null},
           ${data.stakeholder_employee_ids && data.stakeholder_employee_ids.length > 0 ? `{${data.stakeholder_employee_ids.join(',')}}` : '{}'}::uuid[],
-          ${data.active_flag !== false && data.active !== false}
+          ${data.active_flag !== false}
         )
         RETURNING *
       `);
@@ -798,11 +785,10 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       // Register the project in d_entity_instance_id for global entity operations
       await db.execute(sql`
-        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
-        VALUES ('project', ${newProject.id}::uuid, ${newProject.name}, ${newProject.slug}, ${newProject.code})
+        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+        VALUES ('project', ${newProject.id}::uuid, ${newProject.name}, ${newProject.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name,
-            entity_slug = EXCLUDED.entity_slug,
             entity_code = EXCLUDED.entity_code,
             updated_ts = NOW()
       `);

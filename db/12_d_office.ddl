@@ -16,7 +16,7 @@
 --    • Returns: {id: "new-uuid", version: 1, ...}
 --    • Database: INSERT with version=1, active_flag=true, created_ts=now()
 --    • RBAC: Requires permission 4 (create) on entity='office', entity_id='all'
---    • Business Rule: level_name must match setting_datalabel_office_level entries ("Office", "District", "Region", "Corporate")
+--    • Business Rule: level_name must match app.setting_datalabel (datalabel_name='office__level') entries ("Office", "District", "Region", "Corporate")
 --
 -- 2. UPDATE OFFICE (Address Changes, Reassignment to Parent)
 --    • Endpoint: PUT /api/v1/office/{id}
@@ -90,7 +90,7 @@
 --
 -- KEY BUSINESS FIELDS:
 -- • level_name: Hierarchy level ("Office", "District", "Region", "Corporate")
---   - Loaded from setting_datalabel_office_level via /api/v1/setting?category=office_level
+--   - Loaded from app.setting_datalabel table (datalabel_name='office__level') via /api/v1/setting?datalabel=office_level
 --   - Determines position in organizational tree
 --   - Only level 0 (Office) has full address details
 -- • parent_id: Hierarchical relationship (NULL for Corporate, UUID for all others)

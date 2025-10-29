@@ -6,6 +6,7 @@ import {
   renderSettingBadge,
   applySettingsBadgeRenderers
 } from './settingsConfig';
+import type { SettingOption } from './settingsLoader';
 
 /**
  * ============================================================================
@@ -70,6 +71,11 @@ export interface ColumnDef {
    * settings category.
    */
   loadOptionsFromSettings?: boolean;
+  /**
+   * Static options for inline editing dropdowns (alternative to loadOptionsFromSettings)
+   * Use this when options are hardcoded (e.g., color_code field in settings tables)
+   */
+  options?: SettingOption[];
   /**
    * When true, this column can be edited inline in the DataTable.
    * Fields with loadOptionsFromSettings automatically become editable with dropdowns.

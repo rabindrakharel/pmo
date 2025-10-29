@@ -2,7 +2,12 @@
 
 > **Configuration Engine** - Dynamic dropdown system powering entity fields, sequential state visualization, and workflow management
 >
-> **Last Updated:** 2025-10-29 (v2.5 - Database-Driven Badge Colors with Auto-Apply Pattern)
+> **Last Updated:** 2025-10-29 (v3.0 - Component Separation with SettingsDataTable)
+
+**Related Documentation:**
+- **[SettingsDataTable](./settings_datatable.md)** - Dedicated table component for settings pages
+- **[EntityDataTable](./entity_datatable.md)** - Full-featured table for entity pages
+- **[DataTable Overview](./data_table.md)** - Overview of both table components
 
 ---
 
@@ -1176,6 +1181,237 @@ WHERE datalabel_name = 'project__stage';"
 # Test API endpoint
 ./tools/test-api.sh GET /api/v1/setting?datalabel=project_stage
 ```
+
+#### Pattern 7.1: **Inline Edit Dropdowns with Colored Badges** (v2.6) 🎨
+
+**Intent:** Enable inline editing of settings fields in DataTable with colored badge dropdowns instead of plain HTML `<select>` elements.
+
+**Problem:** Native HTML `<select>` dropdowns cannot display colored badges in `<option>` tags - they only support plain text.
+
+**Solution:** Custom `ColoredDropdown` React component that renders colored badges for both selected value and dropdown options.
+
+**Architecture:**
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│           INLINE EDIT DROPDOWN ARCHITECTURE                   │
+├──────────────────────────────────────────────────────────────┤
+│                                                               │
+│  1. USER CLICKS EDIT BUTTON                                  │
+│     DataTable sets isEditing state = true                    │
+│                                                               │
+│  2. CELL RENDERS IN EDIT MODE                                │
+│     editType === 'select' && hasSettingOptions?              │
+│     ↓                                                         │
+│     <ColoredDropdown                                          │
+│       value={current_value}                                  │
+│       options={columnOptions}  ← From settingsLoader        │
+│       onChange={handleSave}    ← Calls onInlineEdit         │
+│     />                                                        │
+│                                                               │
+│  3. COLORED DROPDOWN COMPONENT                               │
+│     • useState for dropdown open/close                       │
+│     • useEffect for click-outside detection                  │
+│     • useRef for dropdown DOM reference                      │
+│     ┌────────────────────────────────────────┐              │
+│     │ SELECTED VALUE (Button)                 │              │
+│     │  renderSettingBadge(color_code, label) │              │
+│     │  [Initiation ▼]  ← Colored badge       │              │
+│     └────────────────────────────────────────┘              │
+│     ┌────────────────────────────────────────┐              │
+│     │ DROPDOWN MENU (Conditional render)     │              │
+│     │  ┌──────────────────────────────────┐  │              │
+│     │  │ [Planning] ← Blue badge          │  │              │
+│     │  │ [Execution] ← Yellow badge       │  │              │
+│     │  │ [Closure] ← Green badge          │  │              │
+│     │  └──────────────────────────────────┘  │              │
+│     └────────────────────────────────────────┘              │
+│                                                               │
+│  4. USER SELECTS OPTION                                      │
+│     onClick → onChange(opt.value) → setDropdownOpen(false)  │
+│     ↓                                                         │
+│     onInlineEdit(recordId, column.key, newValue)            │
+│     ↓                                                         │
+│     PUT /api/v1/entity/:id with updated field               │
+│                                                               │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Implementation:**
+
+```typescript
+// ColoredDropdown Component - DataTable.tsx:60-130
+interface ColoredDropdownProps {
+  value: string;
+  options: SettingOption[];  // From settingsLoader
+  onChange: (value: string) => void;
+  onClick: (e: React.MouseEvent) => void;
+}
+
+function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownProps) {
+  const [dropdownOpen, setDropdownOpen] = React.useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(opt => opt.value === value);
+  const selectedColor = selectedOption?.metadata?.color_code;
+
+  return (
+    <div className="relative w-full" ref={dropdownRef}>
+      {/* Selected value display */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick(e);
+          setDropdownOpen(!dropdownOpen);
+        }}
+        className="w-full px-2.5 py-1.5 pr-8 border border-gray-300 rounded-md..."
+      >
+        {selectedOption ? (
+          renderSettingBadge(selectedColor, String(selectedOption.label))
+        ) : (
+          <span className="text-gray-400">Select...</span>
+        )}
+      </button>
+      <ChevronDown className="... absolute right-2 top-1/2 ..." />
+
+      {/* Dropdown menu */}
+      {dropdownOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border ... max-h-60 overflow-auto">
+          <div className="py-1">
+            {options.map(opt => {
+              const optionColor = opt.metadata?.color_code;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange(opt.value as string);
+                    setDropdownOpen(false);
+                  }}
+                  className="w-full px-3 py-2 text-left hover:bg-gray-50 ..."
+                >
+                  {renderSettingBadge(optionColor, String(opt.label))}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Usage in DataTable render - DataTable.tsx:1207-1213
+editType === 'select' && hasSettingOptions ? (
+  <ColoredDropdown
+    value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
+    options={columnOptions}
+    onChange={(value) => onInlineEdit?.(recordId, column.key, value)}
+    onClick={(e) => e.stopPropagation()}
+  />
+) : ...
+```
+
+**Key Technical Considerations:**
+
+**React Rules of Hooks:**
+- ✅ Component defined at top level (lines 60-130)
+- ✅ Hooks called at component level, not in render loop
+- ❌ WRONG: Calling hooks inside IIFE `(() => { useState... })()`
+- ✅ RIGHT: Extract to proper component with hooks
+
+**Click Handling:**
+- `e.stopPropagation()` prevents row click event bubbling
+- Click-outside detection closes dropdown automatically
+- Dropdown closes after selection for better UX
+
+**Color Data Flow:**
+```
+Database color_code → API → settingsLoader → SettingOption.metadata.color_code
+                                                        ↓
+                                          ColoredDropdown component
+                                                        ↓
+                                          renderSettingBadge(color_code, label)
+                                                        ↓
+                                          <span class="bg-blue-100 text-blue-800">Initiation</span>
+```
+
+**Performance:**
+- Colors preloaded on DataTable mount (`useEffect`)
+- Cache-first from `settingsLoader` (5-minute cache)
+- No API calls during dropdown interactions
+
+**Benefits:**
+
+| Feature | Native `<select>` | ColoredDropdown |
+|---------|------------------|-----------------|
+| Colored badges | ❌ Not supported | ✅ Full support |
+| Custom styling | ❌ Limited | ✅ Full control |
+| Database-driven | ❌ No | ✅ Yes |
+| Accessibility | ✅ Built-in | ⚠️ Manual ARIA |
+| Mobile-friendly | ✅ Native | ✅ Custom |
+
+**Testing:**
+
+```bash
+# Verify colors load correctly
+1. Navigate to settings page: http://localhost:5173/setting/projectStage
+2. Click Edit button on any row
+3. Click the dropdown field
+4. Verify: Selected value shows colored badge
+5. Verify: All dropdown options show colored badges
+6. Verify: Colors match database color_code values
+
+# Test API integration
+./tools/test-api.sh GET /api/v1/setting?datalabel=project_stage
+# Verify response includes color_code for each item
+```
+
+**Critical Bug Fix:**
+
+The original implementation violated React's Rules of Hooks by calling `useState` and `useEffect` inside an IIFE within the render loop:
+
+```typescript
+// ❌ WRONG - Violates Rules of Hooks
+editType === 'select' ? (
+  (() => {
+    const [state, setState] = React.useState(false); // Hook in IIFE!
+    React.useEffect(() => { ... }, []); // Hook in IIFE!
+    return <div>...</div>;
+  })()
+) : ...
+
+// ✅ RIGHT - Proper component at top level
+function ColoredDropdown({ ... }: Props) {
+  const [state, setState] = React.useState(false); // Hook at component level
+  React.useEffect(() => { ... }, []); // Hook at component level
+  return <div>...</div>;
+}
+```
+
+Error message when hooks are used incorrectly:
+```
+React has detected a change in the order of Hooks called by DataTable.
+Previous render: useState, useEffect, useState, useEffect
+Current render: useState, useEffect, useState
+```
+
+**See Also:**
+- [DataTable Inline Editing](./data_table.md#inline-editing-system)
+- [Styling Patterns - Badge Colors](./styling_patterns.md#13-badge--tag-patterns)
+- [React Rules of Hooks](https://react.dev/reference/rules/rules-of-hooks)
 
 ---
 

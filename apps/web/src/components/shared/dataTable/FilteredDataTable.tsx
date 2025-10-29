@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { DataTable } from '../ui/DataTable';
-import type { Column, RowAction } from '../ui/DataTable';
+import { EntityDataTable } from '../ui/EntityDataTable';
+import type { Column, RowAction } from '../ui/EntityDataTable';
 import { useNavigate } from 'react-router-dom';
 import { ActionButtonsBar } from '../button/ActionButtonsBar';
 import { getEntityConfig, type EntityConfig } from '../../../lib/entityConfig';
@@ -571,7 +571,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           </div>
         )}
 
-        <DataTable
+        <EntityDataTable
           data={data}
           columns={columns}
           loading={loading}

@@ -16,7 +16,7 @@
 --    • Returns: {id: "new-uuid", version: 1, ...}
 --    • Database: INSERT with version=1, active_flag=true, created_ts=now()
 --    • RBAC: Requires permission 4 (create) on entity='biz', entity_id='all'
---    • Business Rule: level_name must match setting_datalabel_business_level entries ("Department", "Division", "Corporate")
+--    • Business Rule: level_name must match app.setting_datalabel (datalabel_name='business__level') entries ("Department", "Division", "Corporate")
 --
 -- 2. UPDATE BUSINESS UNIT (Budget Changes, Manager Assignment, Office Reassignment)
 --    • Endpoint: PUT /api/v1/biz/{id}
@@ -107,7 +107,7 @@
 --
 -- KEY BUSINESS FIELDS:
 -- • level_name: Hierarchy level ("Department", "Division", "Corporate")
---   - Loaded from setting_datalabel_business_level via /api/v1/setting?category=business_level
+--   - Loaded from app.setting_datalabel table (datalabel_name='business__level') via /api/v1/setting?datalabel=business_level
 --   - Determines position in organizational tree
 --   - Department (level 0) owns projects directly
 -- • parent_id: Hierarchical relationship (NULL for Corporate, UUID for all others)

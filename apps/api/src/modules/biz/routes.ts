@@ -34,11 +34,10 @@ const BizSchema = Type.Object({
 });
 
 const CreateBizSchema = Type.Object({
-  slug: Type.Optional(Type.String({ minLength: 1 })),
   code: Type.Optional(Type.String({ minLength: 1 })),
   name: Type.Optional(Type.String({ minLength: 1 })),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String()])),
+  metadata: Type.Optional(Type.Any()),
   parent_id: Type.Optional(Type.String({ format: 'uuid' })),
   level_name: Type.Optional(Type.String({ minLength: 1 })),
   office_id: Type.Optional(Type.String({ format: 'uuid' })),
@@ -269,9 +268,9 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       const projects = await db.execute(sql`
         SELECT
-          p.id, p.slug, p.code, p.name, p.descr, p.tags, p.metadata,
+          p.id, p.code, p.name, p.descr, p.metadata,
           p.project_stage,
-          p.budget_allocated, p.budget_spent,
+          p.budget_allocated_amt, p.budget_spent_amt,
           p.planned_start_date, p.planned_end_date,
           p.actual_start_date, p.actual_end_date,
           p.manager_employee_id, p.sponsor_employee_id, p.stakeholder_employee_ids,
@@ -561,7 +560,6 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
     // Auto-generate required fields if missing
     if (!data.name) data.name = 'Untitled';
-    if (!data.slug) data.slug = `biz-${Date.now()}`;
     if (!data.code) data.code = `BIZ-${Date.now()}`;
     if (!data.level_name) data.level_name = 'Department'; // Default to Department level
 
@@ -581,16 +579,6 @@ export async function bizRoutes(fastify: FastifyInstance) {
         `);
         if (existingCode.length > 0) {
           return reply.status(400).send({ error: 'Business unit with this code already exists' });
-        }
-      }
-
-      // Check for unique slug if provided
-      if (data.slug) {
-        const existingSlug = await db.execute(sql`
-          SELECT id FROM app.d_business WHERE slug = ${data.slug} AND active_flag = true
-        `);
-        if (existingSlug.length > 0) {
-          return reply.status(400).send({ error: 'Business unit with this slug already exists' });
         }
       }
 

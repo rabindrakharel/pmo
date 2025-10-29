@@ -19,9 +19,11 @@ import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useSidebar } from '../../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../../contexts/NavigationHistoryContext';
+import { useSettings } from '../../../contexts/SettingsContext';
 import { CreateButton } from '../button/CreateButton';
 import { NavigationBreadcrumb } from '../navigation/NavigationBreadcrumb';
 import { getIconComponent } from '../../../lib/iconMapping';
+import { SettingsSidebar } from './SettingsSidebar';
 
 interface CreateButtonConfig {
   label: string;
@@ -45,9 +47,9 @@ interface EntityType {
 export function Layout({ children, createButton }: LayoutProps) {
   const { user, logout } = useAuth();
   const { isVisible, isCollapsed, collapseSidebar, uncollapseSidebar } = useSidebar();
+  const { isSettingsMode, enterSettingsMode, exitSettingsMode } = useSettings();
   const [currentPage, setCurrentPage] = useState(window.location.pathname);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [entityTypes, setEntityTypes] = useState<EntityType[]>([]);
   const [isLoadingEntities, setIsLoadingEntities] = useState(true);
 
@@ -107,13 +109,6 @@ export function Layout({ children, createButton }: LayoutProps) {
     code: entity.code
   }));
 
-  const settingsSubItems = [
-    { name: 'Data Labels', href: '/labels', icon: Tag },
-    { name: 'Data Linkage', href: '/linkage', icon: LinkIcon },
-    { name: 'Workflow Automation', href: '/workflow-automation', icon: Zap },
-    { name: 'Integrations', href: '/integrations', icon: Plug },
-  ];
-
   const profileNavigationItems = [
     { name: 'Profile', href: '/profile', icon: User },
     { name: 'Security', href: '/security', icon: Shield },
@@ -126,10 +121,15 @@ export function Layout({ children, createButton }: LayoutProps) {
 
   return (
     <div className="h-screen bg-gray-50 flex">
-      {/* Collapsible Sidebar */}
+      {/* Conditional Sidebar Rendering */}
       {isVisible && (
-        <div className={`${isCollapsed ? 'w-16' : 'w-44'} bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col`}>
-        <div className="flex flex-col h-full">
+        isSettingsMode ? (
+          // Settings Sidebar
+          <SettingsSidebar />
+        ) : (
+          // Main Sidebar
+          <div className={`${isCollapsed ? 'w-16' : 'w-44'} bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col`}>
+          <div className="flex flex-col h-full">
           {/* Logo and Collapse Button */}
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-14 px-4 border-b border-gray-200`}>
             <div className="flex items-center">
@@ -164,57 +164,17 @@ export function Layout({ children, createButton }: LayoutProps) {
 
           {/* Main Navigation */}
           <nav className="flex-1 px-2 py-2 space-y-0">
-            {/* Settings Dropdown */}
-            <div>
-              <button
-                onClick={() => !isCollapsed && setIsSettingsOpen(!isSettingsOpen)}
-                className={`${
-                  settingsSubItems.some(item => currentPage === item.href)
-                    ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-300'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
-                } w-full group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-1.5 text-sm font-normal rounded-l-lg transition-all duration-200`}
-                title={isCollapsed ? 'Settings' : undefined}
-              >
-                <Settings className={`${
-                  settingsSubItems.some(item => currentPage === item.href) ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
-                } ${isCollapsed ? '' : 'mr-3'} h-4 w-4 stroke-[1.5] transition-colors duration-200`} />
-                {!isCollapsed && (
-                  <>
-                    <span className="text-sm font-normal flex-1 text-left">Settings</span>
-                    <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
-                      isSettingsOpen ? 'transform rotate-90' : ''
-                    }`} />
-                  </>
-                )}
-              </button>
-
-              {/* Settings Submenu */}
-              {!isCollapsed && isSettingsOpen && (
-                <div className="ml-4 mt-0.5 space-y-0">
-                  {settingsSubItems.map((item) => {
-                    const IconComponent = item.icon;
-                    const isActive = isCurrentPage(item.href);
-                    return (
-                      <a
-                        key={item.href}
-                        href={item.href}
-                        className={`${
-                          isActive
-                            ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-300'
-                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
-                        } group flex items-center px-3 py-1 text-sm font-normal rounded-l-lg transition-all duration-200`}
-                        onClick={() => setCurrentPage(item.href)}
-                      >
-                        <IconComponent className={`${
-                          isActive ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
-                        } mr-3 h-4 w-4 stroke-[1.5] transition-colors duration-200`} />
-                        <span className="text-sm font-normal">{item.name}</span>
-                      </a>
-                    );
-                  })}
-                </div>
+            {/* Settings Button */}
+            <button
+              onClick={enterSettingsMode}
+              className="text-gray-600 hover:bg-gray-50 hover:text-gray-800 w-full group flex items-center px-3 py-1.5 text-sm font-normal rounded-l-lg transition-all duration-200"
+              title={isCollapsed ? 'Settings' : undefined}
+            >
+              <Settings className="text-gray-500 group-hover:text-gray-600 mr-3 h-5 w-5 stroke-[1.5] transition-colors duration-200" />
+              {!isCollapsed && (
+                <span className="text-sm font-normal flex-1 text-left">Settings</span>
               )}
-            </div>
+            </button>
 
             {/* Other Navigation Items */}
             {mainNavigationItems.map((item) => {
@@ -234,7 +194,7 @@ export function Layout({ children, createButton }: LayoutProps) {
                 >
                   <IconComponent className={`${
                     isActive ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
-                  } ${isCollapsed ? '' : 'mr-3'} h-4 w-4 stroke-[1.5] transition-colors duration-200`} />
+                  } ${isCollapsed ? '' : 'mr-3'} h-5 w-5 stroke-[1.5] transition-colors duration-200`} />
                   {!isCollapsed && <span className="text-sm font-normal">{item.name}</span>}
                 </a>
               );
@@ -287,7 +247,7 @@ export function Layout({ children, createButton }: LayoutProps) {
                         >
                           <IconComponent className={`${
                             isActive ? 'text-gray-700' : 'text-gray-500'
-                          } mr-3 h-4 w-4 stroke-[1.5]`} />
+                          } mr-3 h-5 w-5 stroke-[1.5]`} />
                           {item.name}
                         </a>
                       );
@@ -297,7 +257,7 @@ export function Layout({ children, createButton }: LayoutProps) {
                       onClick={handleLogout}
                       className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
                     >
-                      <LogOut className="mr-3 h-4 w-4 text-gray-500 stroke-[1.5]" />
+                      <LogOut className="mr-3 h-5 w-5 text-gray-500 stroke-[1.5]" />
                       Sign out
                     </button>
                   </div>
@@ -342,7 +302,7 @@ export function Layout({ children, createButton }: LayoutProps) {
                         >
                           <IconComponent className={`${
                             isActive ? 'text-gray-700' : 'text-gray-500'
-                          } mr-3 h-4 w-4 stroke-[1.5]`} />
+                          } mr-3 h-5 w-5 stroke-[1.5]`} />
                           {item.name}
                         </a>
                       );
@@ -352,7 +312,7 @@ export function Layout({ children, createButton }: LayoutProps) {
                       onClick={handleLogout}
                       className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
                     >
-                      <LogOut className="mr-3 h-4 w-4 text-gray-500 stroke-[1.5]" />
+                      <LogOut className="mr-3 h-5 w-5 text-gray-500 stroke-[1.5]" />
                       Sign out
                     </button>
                   </div>
@@ -362,6 +322,7 @@ export function Layout({ children, createButton }: LayoutProps) {
           </div>
         </div>
       </div>
+      )
       )}
 
       {/* Main content area - always present */}
