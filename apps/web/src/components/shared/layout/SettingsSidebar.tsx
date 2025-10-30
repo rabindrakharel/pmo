@@ -12,9 +12,11 @@ import {
   Briefcase,
   MapPin,
   FileText,
-  BookOpen
+  BookOpen,
+  ArrowLeft
 } from 'lucide-react';
 import { groupDatalabelsByEntity, ENTITY_METADATA, convertDatalabelToCamelCase } from '../../../lib/entityDatalabelMapping';
+import { useSettings } from '../../../contexts/SettingsContext';
 
 interface SettingsItem {
   id: string;
@@ -43,6 +45,7 @@ const ICON_MAP: Record<string, React.ComponentType<any>> = {
 export function SettingsSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { exitSettingsMode } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [datalabelSettings, setDatalabelSettings] = useState<SettingsItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -173,16 +176,28 @@ export function SettingsSidebar() {
     return location.pathname === href;
   };
 
+  const handleExitSettings = () => {
+    exitSettingsMode();
+    navigate('/project');
+  };
+
   return (
     <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center h-14 px-4 border-b border-gray-200">
+      <div className="flex items-center justify-between h-14 px-4 border-b border-gray-200">
         <div className="flex items-center">
           <div className="h-7 w-7 border border-gray-300 rounded flex items-center justify-center">
             <span className="text-gray-700 font-normal text-xs">PMO</span>
           </div>
           <span className="ml-3 text-sm font-normal text-gray-800">Settings</span>
         </div>
+        <button
+          onClick={handleExitSettings}
+          className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200"
+          title="Exit Settings"
+        >
+          <ArrowLeft className="h-4 w-4 stroke-[1.5]" />
+        </button>
       </div>
 
       {/* Search Box */}

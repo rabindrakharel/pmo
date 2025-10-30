@@ -229,52 +229,94 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         headers.Authorization = `Bearer ${token}`;
       }
 
-      // Build the correct API endpoint
-      let updateEndpoint = '';
-
-      // Check if this is a settings entity with datalabel query parameter
-      if (config.apiEndpoint.includes('/api/v1/setting?datalabel=')) {
-        // Extract the datalabel from the apiEndpoint
-        const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
-        const datalabel = datalabelMatch ? datalabelMatch[1] : entityType;
-
-        // Settings API uses: PUT /api/v1/setting/{datalabel}/{id}
-        updateEndpoint = `/api/v1/setting/${datalabel}/${record.id}`;
-      } else {
-        // Regular entities use: PUT /api/v1/{entity}/{id}
-        updateEndpoint = `${config.apiEndpoint}/${record.id}`;
-      }
+      // Check if this is a new row (temporary ID or _isNew flag)
+      const isNewRow = isAddingRow || record.id.toString().startsWith('temp_') || record._isNew;
 
       // Transform edited data for API (tags string → array, etc.)
       const transformedData = transformForApi(editedData, record);
 
-      console.log('Sending update:', transformedData);
+      // Add parent entity relationship if viewing child entities
+      if (parentType && parentId && isNewRow) {
+        transformedData.parent_type = parentType;
+        transformedData.parent_id = parentId;
+      }
 
-      const response = await fetch(
-        `${API_BASE_URL}${updateEndpoint}`,
-        {
+      // Remove temporary fields
+      delete transformedData._isNew;
+      if (isNewRow) {
+        delete transformedData.id; // Let backend generate real ID
+      }
+
+      let response;
+
+      if (isNewRow) {
+        // POST - Create new entity
+        console.log(`Creating new ${entityType}:`, transformedData);
+
+        let createEndpoint = '';
+        if (isSettingsEntity) {
+          // Extract the datalabel from the apiEndpoint
+          const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
+          const datalabel = datalabelMatch ? datalabelMatch[1] : entityType;
+          createEndpoint = `/api/v1/setting/${datalabel}`;
+        } else {
+          createEndpoint = config.apiEndpoint;
+        }
+
+        response = await fetch(`${API_BASE_URL}${createEndpoint}`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(transformedData)
+        });
+      } else {
+        // PUT - Update existing entity
+        console.log(`Updating ${entityType}:`, transformedData);
+
+        let updateEndpoint = '';
+        if (isSettingsEntity) {
+          const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
+          const datalabel = datalabelMatch ? datalabelMatch[1] : entityType;
+          updateEndpoint = `/api/v1/setting/${datalabel}/${record.id}`;
+        } else {
+          updateEndpoint = `${config.apiEndpoint}/${record.id}`;
+        }
+
+        response = await fetch(`${API_BASE_URL}${updateEndpoint}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(transformedData)
-        }
-      );
+        });
+      }
 
       if (response.ok) {
+        const result = await response.json();
+        console.log(`✅ ${isNewRow ? 'Created' : 'Updated'} ${entityType}:`, result);
+
+        // Reload data
         await fetchData();
+
+        // Clear edit state
         setEditingRow(null);
         setEditedData({});
+        setIsAddingRow(false);
       } else {
         const errorText = await response.text();
-        console.error('Failed to update record:', response.statusText, errorText);
-        alert(`Failed to update record: ${response.statusText}`);
+        console.error(`Failed to ${isNewRow ? 'create' : 'update'} record:`, response.statusText, errorText);
+        alert(`Failed to ${isNewRow ? 'create' : 'update'} record: ${response.statusText}`);
       }
     } catch (error) {
-      console.error('Error updating record:', error);
-      alert('An error occurred while updating. Please try again.');
+      console.error('Error saving record:', error);
+      alert('An error occurred while saving. Please try again.');
     }
   };
 
   const handleCancelInlineEdit = () => {
+    // If canceling a new row, remove it from data
+    if (isAddingRow && editingRow) {
+      setData(data.filter(row => row.id !== editingRow));
+      setIsAddingRow(false);
+    }
+
     setEditingRow(null);
     setEditedData({});
   };
@@ -387,27 +429,13 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     setIsAddingRow(true);
   };
 
-  // Handle add row for entity tables - adds empty row and enters edit mode
-  const handleAddEntityRow = () => {
-    if (isSettingsEntity) return; // Settings use different handler
-
-    // Generate temporary ID for the new row
-    const tempId = `temp_${Date.now()}`;
-
-    // Create empty row with default values
-    const newRow: any = {
-      id: tempId,
-      code: '',
-      name: '',
-      descr: '',
-      // Add other common fields with empty/default values
-    };
-
+  // Handle add row - adds empty row inline and enters edit mode
+  const handleAddEntityRow = (newRow: any) => {
     // Add to data array
     setData([...data, newRow]);
 
-    // Enter edit mode for this row
-    setEditingRow(tempId);
+    // Enter edit mode for this row immediately
+    setEditingRow(newRow.id);
     setEditedData(newRow);
     setIsAddingRow(true);
   };

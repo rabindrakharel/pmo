@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useSidebar } from '../../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../../contexts/NavigationHistoryContext';
 
@@ -48,10 +48,10 @@ export function ExitButton({
   return (
     <button
       onClick={handleClick}
-      className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${className}`}
+      className={`p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200 ${className}`}
       title="Exit"
     >
-      <LogOut className="h-4 w-4 text-gray-600 stroke-[1.5]" />
+      <ArrowLeft className="h-4 w-4 stroke-[1.5]" />
     </button>
   );
 }

@@ -13,19 +13,16 @@ import {
   Link as LinkIcon,
   Mail,
   Zap,
-  Plug,
-  Eye
+  Plug
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useSidebar } from '../../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../../contexts/NavigationHistoryContext';
 import { useSettings } from '../../../contexts/SettingsContext';
-import { useEntityPreview } from '../../../contexts/EntityPreviewContext';
 import { CreateButton } from '../button/CreateButton';
 import { NavigationBreadcrumb } from '../navigation/NavigationBreadcrumb';
 import { getIconComponent } from '../../../lib/iconMapping';
-import { SettingsSidebar } from './SettingsSidebar';
 
 interface CreateButtonConfig {
   label: string;
@@ -50,7 +47,6 @@ export function Layout({ children, createButton }: LayoutProps) {
   const { user, logout } = useAuth();
   const { isVisible, isCollapsed, collapseSidebar, uncollapseSidebar } = useSidebar();
   const { isSettingsMode, enterSettingsMode, exitSettingsMode } = useSettings();
-  const { entityPreviewData, isEntityPreviewOpen, openEntityPreview } = useEntityPreview();
   const [currentPage, setCurrentPage] = useState(window.location.pathname);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [entityTypes, setEntityTypes] = useState<EntityType[]>([]);
@@ -124,14 +120,9 @@ export function Layout({ children, createButton }: LayoutProps) {
 
   return (
     <div className="h-screen bg-gray-50 flex">
-      {/* Conditional Sidebar Rendering */}
-      {isVisible && (
-        isSettingsMode ? (
-          // Settings Sidebar
-          <SettingsSidebar />
-        ) : (
-          // Main Sidebar
-          <div className={`${isCollapsed ? 'w-16' : 'w-44'} bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col`}>
+      {/* Main Sidebar - Always show, never show settings sidebar */}
+      {isVisible && !isSettingsMode && (
+        <div className={`${isCollapsed ? 'w-16' : 'w-44'} bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col`}>
           <div className="flex flex-col h-full">
           {/* Logo and Collapse Button */}
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-14 px-4 border-b border-gray-200`}>
@@ -170,10 +161,10 @@ export function Layout({ children, createButton }: LayoutProps) {
             {/* Settings Button */}
             <button
               onClick={enterSettingsMode}
-              className="text-gray-600 hover:bg-gray-50 hover:text-gray-800 w-full group flex items-center px-3 py-1.5 text-sm font-normal rounded-l-lg transition-all duration-200"
+              className={`text-gray-600 hover:bg-gray-50 hover:text-gray-800 w-full group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-1.5 text-sm font-normal rounded-l-lg transition-all duration-200`}
               title={isCollapsed ? 'Settings' : undefined}
             >
-              <Settings className="text-gray-500 group-hover:text-gray-600 mr-3 h-5 w-5 stroke-[1.5] transition-colors duration-200" />
+              <Settings className={`text-gray-500 group-hover:text-gray-600 ${isCollapsed ? '' : 'mr-3'} h-5 w-5 stroke-[1.5] transition-colors duration-200`} />
               {!isCollapsed && (
                 <span className="text-sm font-normal flex-1 text-left">Settings</span>
               )}
@@ -325,7 +316,6 @@ export function Layout({ children, createButton }: LayoutProps) {
           </div>
         </div>
       </div>
-      )
       )}
 
       {/* Main content area - always present */}
@@ -335,27 +325,6 @@ export function Layout({ children, createButton }: LayoutProps) {
           <div className="flex items-center justify-between">
             {/* Navigation Breadcrumb */}
             <NavigationBreadcrumb />
-
-            {/* Entity Preview Button - Only active when entity is selected */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  if (entityPreviewData && !isEntityPreviewOpen) {
-                    openEntityPreview(entityPreviewData);
-                  }
-                }}
-                disabled={!entityPreviewData}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  entityPreviewData
-                    ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
-                    : 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                }`}
-                title={entityPreviewData ? 'Quick preview (Show entity details)' : 'Select an entity to preview'}
-              >
-                <Eye className="h-4 w-4" />
-                <span>Preview</span>
-              </button>
-            </div>
           </div>
         </header>
 

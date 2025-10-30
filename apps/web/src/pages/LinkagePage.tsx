@@ -7,6 +7,8 @@ import {
   Check,
   Database,
   Search,
+  Eye,
+  ArrowLeft,
   MapPin,        // office, worksite
   Building2,     // business
   Building,      // client
@@ -18,6 +20,8 @@ import {
   FileText       // artifact, form
 } from 'lucide-react';
 import { Layout } from '../components/shared/layout/Layout';
+import { useEntityPreview } from '../contexts/EntityPreviewContext';
+import { useSettings } from '../contexts/SettingsContext';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -46,6 +50,12 @@ interface Linkage {
 }
 
 export function LinkagePage() {
+  // Entity preview context
+  const { entityPreviewData, isEntityPreviewOpen, setPreviewData, openEntityPreview } = useEntityPreview();
+
+  // Settings context for exit button
+  const { exitSettingsMode } = useSettings();
+
   // Helper function to map entity types to API endpoints
   const getApiEndpoint = (entityType: string): string => {
     if (entityType === 'business') return 'biz';
@@ -75,13 +85,14 @@ export function LinkagePage() {
   // State for entity type child management (tabs configuration)
   const [currentEntityTypeChildren, setCurrentEntityTypeChildren] = useState<Array<{entity: string; ui_label: string; ui_icon: string; order: number}>>([]);
   const [availableChildTypes, setAvailableChildTypes] = useState<string[]>([]);
-
-  // State for inline child entity addition
-  const [showInlineAddInput, setShowInlineAddInput] = useState(false);
-  const [inlineSearchQuery, setInlineSearchQuery] = useState('');
   const [allEntityTypes, setAllEntityTypes] = useState<Array<{code: string; name: string; ui_label: string; ui_icon: string}>>([]);
 
-  // State for remove mode
+  // State for dropdown management
+  const [showAddDropdown, setShowAddDropdown] = useState(false);
+  const [selectedEntitiesToAdd, setSelectedEntitiesToAdd] = useState<string[]>([]);
+  const [addSearchQuery, setAddSearchQuery] = useState('');
+
+  // State for remove mode (inline editing)
   const [isRemoveMode, setIsRemoveMode] = useState(false);
 
   // Entity types configuration - using Lucide React icons from entityConfig.ts
@@ -313,18 +324,75 @@ export function LinkagePage() {
       // Reload metadata
       await loadEntityTypeMetadata(parentType);
       await loadValidChildTypes(parentType);
-
-      // Exit remove mode if no more children
-      const remainingChildren = updatedChildren.length;
-      if (remainingChildren === 0) {
-        setIsRemoveMode(false);
-      }
     } catch (err: any) {
       setError(err instanceof Error ? err.message : 'Failed to remove child entity type');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleBulkAddEntities = async () => {
+    if (!selectedParentTypes.length || selectedEntitiesToAdd.length === 0) return;
+
+    const parentType = selectedParentTypes[0];
+    setLoading(true);
+    setError(null);
+
+    try {
+      const token = localStorage.getItem('auth_token');
+
+      // Fetch current entity type data
+      const getResponse = await fetch(`${API_BASE_URL}/api/v1/entity/type/${parentType}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!getResponse.ok) throw new Error('Failed to fetch current entity type');
+
+      const currentData = await getResponse.json();
+      const existingChildren = currentData.child_entities || [];
+
+      // Add new children
+      const newChildren = selectedEntitiesToAdd.map((entityCode, idx) => {
+        const entityMeta = entityTypes.find(e => e.value === entityCode);
+        return {
+          entity: entityCode,
+          ui_icon: entityMeta?.IconComponent.name || 'Circle',
+          ui_label: entityMeta?.label ? entityMeta.label + 's' : entityCode,
+          order: existingChildren.length + idx + 1
+        };
+      });
+
+      const updatedChildren = [...existingChildren, ...newChildren];
+
+      // Update the entity type
+      const updateResponse = await fetch(`${API_BASE_URL}/api/v1/entity/${parentType}/children`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ child_entities: updatedChildren })
+      });
+
+      if (!updateResponse.ok) throw new Error('Failed to update entity children');
+
+      setSuccess(`Added ${selectedEntitiesToAdd.length} child tab(s) to ${getEntityLabel(parentType)}`);
+      setTimeout(() => setSuccess(null), 3000);
+
+      // Clear selection and close dropdown
+      setSelectedEntitiesToAdd([]);
+      setShowAddDropdown(false);
+
+      // Reload metadata
+      await loadEntityTypeMetadata(parentType);
+      await loadValidChildTypes(parentType);
+    } catch (err: any) {
+      setError(err instanceof Error ? err.message : 'Failed to add child entity types');
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const loadValidChildTypes = async (parentType: string) => {
     try {
@@ -479,6 +547,17 @@ export function LinkagePage() {
   const handleParentInstanceSelect = (instance: EntityInstance) => {
     setSelectedParentId(instance.id);
     setSelectedParentInstance(instance);
+
+    // Set preview data to activate the preview button (but don't open panel yet)
+    if (selectedParentTypes.length > 0) {
+      const parentType = selectedParentTypes[0];
+      const apiEndpoint = getApiEndpoint(parentType);
+      setPreviewData({
+        entityType: apiEndpoint,
+        entityId: instance.id,
+        label: `${getEntityLabel(parentType)}: ${instance.name}`
+      });
+    }
   };
 
   // Create a single linkage (for + icon)
@@ -591,12 +670,40 @@ export function LinkagePage() {
         <div className="bg-white border-b border-gray-200 px-6 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
+              {/* Exit Button - Left Side */}
+              <button
+                onClick={exitSettingsMode}
+                className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200"
+                title="Exit Settings"
+              >
+                <ArrowLeft className="h-4 w-4 stroke-[1.5]" />
+              </button>
+
               <Link2 className="h-5 w-5 text-gray-600 stroke-[1.5]" />
               <div>
                 <h1 className="text-sm font-normal text-gray-800">Entity Linkage Management</h1>
                 <p className="text-sm text-gray-500">Manage relationships between parent and child entities</p>
               </div>
             </div>
+
+            {/* Entity Preview Button - Right Side */}
+            <button
+              onClick={() => {
+                if (entityPreviewData && !isEntityPreviewOpen) {
+                  openEntityPreview(entityPreviewData);
+                }
+              }}
+              disabled={!entityPreviewData}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                entityPreviewData
+                  ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
+                  : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+              }`}
+              title={entityPreviewData ? 'Quick preview (Show entity details)' : 'Select an entity to preview'}
+            >
+              <Eye className="h-4 w-4" />
+              <span>Preview</span>
+            </button>
           </div>
         </div>
 
@@ -731,117 +838,150 @@ export function LinkagePage() {
                     <div className="text-[10px] font-medium text-gray-600 uppercase tracking-wider">
                       Manage Child Tabs
                     </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => {
-                          setShowInlineAddInput(!showInlineAddInput);
-                          setInlineSearchQuery('');
-                          setIsRemoveMode(false);
-                        }}
-                        className="flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-gray-300 text-[10px] font-normal text-gray-600 hover:bg-green-50 hover:border-green-400 hover:text-green-700 transition-all"
-                        title="Add new child entity type"
-                      >
-                        <Plus className="h-2.5 w-2.5" />
-                        Add+
-                      </button>
+                    <div className="flex items-center gap-1 relative">
+                      {/* Add+ / Done Button with Searchable Dropdown */}
+                      <div className="relative">
+                        <button
+                          onClick={() => {
+                            if (showAddDropdown) {
+                              // Done action: Save if items selected, otherwise just close
+                              if (selectedEntitiesToAdd.length > 0) {
+                                handleBulkAddEntities();
+                              } else {
+                                setShowAddDropdown(false);
+                                setSelectedEntitiesToAdd([]);
+                                setAddSearchQuery('');
+                              }
+                            } else {
+                              // Open dropdown
+                              setShowAddDropdown(true);
+                              setIsRemoveMode(false);
+                              setSelectedEntitiesToAdd([]);
+                              setAddSearchQuery('');
+                            }
+                          }}
+                          disabled={loading}
+                          className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[10px] font-normal transition-all ${
+                            showAddDropdown
+                              ? 'bg-green-50 border-green-400 text-green-700'
+                              : 'border-gray-300 text-gray-600 hover:bg-green-50 hover:border-green-400 hover:text-green-700'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          title={showAddDropdown ? (selectedEntitiesToAdd.length > 0 ? `Add ${selectedEntitiesToAdd.length} item(s) and close` : 'Close without changes') : 'Add new child entity types'}
+                        >
+                          {showAddDropdown ? (
+                            <>
+                              <Check className="h-2.5 w-2.5" />
+                              Done
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="h-2.5 w-2.5" />
+                              Add
+                            </>
+                          )}
+                        </button>
+
+                        {/* Add Dropdown with Search (No bottom button) */}
+                        {showAddDropdown && (
+                          <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-gray-300 rounded shadow-lg z-50 max-h-80 flex flex-col">
+                            <div className="p-2 border-b border-gray-200 bg-gray-50">
+                              <input
+                                type="text"
+                                value={addSearchQuery}
+                                onChange={(e) => setAddSearchQuery(e.target.value)}
+                                placeholder="Search entities..."
+                                className="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-green-400"
+                                autoFocus
+                              />
+                            </div>
+                            <div className="overflow-y-auto max-h-64">
+                              {allEntityTypes
+                                .filter(entity => {
+                                  if (entity.code === selectedParentTypes[0]) return false;
+                                  if (addSearchQuery) {
+                                    const query = addSearchQuery.toLowerCase();
+                                    return (
+                                      entity.name.toLowerCase().includes(query) ||
+                                      entity.code.toLowerCase().includes(query) ||
+                                      entity.ui_label.toLowerCase().includes(query)
+                                    );
+                                  }
+                                  return true;
+                                })
+                                .map(entity => {
+                                  const IconComponent = getEntityIconComponent(entity.code);
+                                  const isAlreadyLinked = currentEntityTypeChildren.some(c => c.entity === entity.code);
+                                  const isSelected = selectedEntitiesToAdd.includes(entity.code);
+
+                                  return (
+                                    <div
+                                      key={entity.code}
+                                      className={`flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 transition-colors ${
+                                        isAlreadyLinked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                                      }`}
+                                      onClick={() => {
+                                        if (!isAlreadyLinked) {
+                                          setSelectedEntitiesToAdd(prev =>
+                                            isSelected
+                                              ? prev.filter(code => code !== entity.code)
+                                              : [...prev, entity.code]
+                                          );
+                                        }
+                                      }}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        disabled={isAlreadyLinked}
+                                        onChange={() => {}}
+                                        className="h-3 w-3 rounded border-gray-300"
+                                      />
+                                      <IconComponent className="h-3 w-3 text-gray-600" />
+                                      <div className="flex-1">
+                                        <div className="text-[11px] font-medium text-gray-900">{entity.name}</div>
+                                        <div className="text-[9px] text-gray-500">
+                                          {isAlreadyLinked ? 'Already linked' : entity.ui_label}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Remove / Done Button (Inline Editing Mode) */}
                       <button
                         onClick={() => {
                           setIsRemoveMode(!isRemoveMode);
-                          setShowInlineAddInput(false);
+                          setShowAddDropdown(false);
                         }}
                         className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[10px] font-normal transition-all ${
                           isRemoveMode
-                            ? 'bg-red-50 border-red-400 text-red-700'
+                            ? 'bg-green-50 border-green-400 text-green-700'
                             : 'border-gray-300 text-gray-600 hover:bg-red-50 hover:border-red-400 hover:text-red-700'
                         }`}
-                        title={isRemoveMode ? "Exit remove mode" : "Remove child entity types"}
+                        title={isRemoveMode ? 'Exit remove mode' : 'Enter remove mode to delete tabs'}
                       >
-                        <X className="h-2.5 w-2.5" />
-                        Remove
+                        {isRemoveMode ? (
+                          <>
+                            <Check className="h-2.5 w-2.5" />
+                            Done
+                          </>
+                        ) : (
+                          <>
+                            <X className="h-2.5 w-2.5" />
+                            Remove
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Inline Add Input with Autocomplete */}
-              {showInlineAddInput && selectedParentTypes.length > 0 && (
-                <div className="px-3 py-2 bg-blue-50 border-b border-blue-200">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={inlineSearchQuery}
-                      onChange={(e) => setInlineSearchQuery(e.target.value)}
-                      placeholder="Type to search entities..."
-                      className="w-full px-2 py-1 text-[10px] border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
-                      autoFocus
-                    />
-
-                    {/* Autocomplete Dropdown */}
-                    {inlineSearchQuery && (
-                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-40 overflow-y-auto">
-                        {allEntityTypes
-                          .filter(entity => {
-                            // Filter out parent entity and current children
-                            const parentType = selectedParentTypes[0];
-                            const currentChildCodes = currentEntityTypeChildren.map(c => c.entity);
-
-                            if (entity.code === parentType) return false;
-                            if (currentChildCodes.includes(entity.code)) return false;
-
-                            // Filter by search query
-                            const query = inlineSearchQuery.toLowerCase();
-                            return (
-                              entity.name.toLowerCase().includes(query) ||
-                              entity.code.toLowerCase().includes(query) ||
-                              entity.ui_label.toLowerCase().includes(query)
-                            );
-                          })
-                          .slice(0, 10)
-                          .map(entity => {
-                            const IconComponent = getEntityIconComponent(entity.code);
-                            return (
-                              <button
-                                key={entity.code}
-                                onClick={() => {
-                                  handleAddChildEntityType(entity.code);
-                                  setInlineSearchQuery('');
-                                  setShowInlineAddInput(false);
-                                }}
-                                className="w-full flex items-center gap-2 px-2 py-1.5 text-left hover:bg-blue-50 transition-colors text-[11px]"
-                              >
-                                <IconComponent className="h-3 w-3 text-gray-600" />
-                                <div>
-                                  <div className="font-medium text-gray-900">{entity.name}</div>
-                                  <div className="text-[9px] text-gray-500">{entity.ui_label}</div>
-                                </div>
-                              </button>
-                            );
-                          })
-                        }
-                        {allEntityTypes.filter(entity => {
-                          const parentType = selectedParentTypes[0];
-                          const currentChildCodes = currentEntityTypeChildren.map(c => c.entity);
-                          if (entity.code === parentType) return false;
-                          if (currentChildCodes.includes(entity.code)) return false;
-                          const query = inlineSearchQuery.toLowerCase();
-                          return (
-                            entity.name.toLowerCase().includes(query) ||
-                            entity.code.toLowerCase().includes(query) ||
-                            entity.ui_label.toLowerCase().includes(query)
-                          );
-                        }).length === 0 && (
-                          <div className="px-2 py-2 text-[10px] text-gray-500 text-center">
-                            No entities found
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Child Entity Type Selection - Morphing Tabs */}
+              {/* Child Entity Type Selection - Inline Editing Mode */}
               <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
                 {selectedParentTypes.length > 0 && (
                   <>
@@ -872,13 +1012,15 @@ export function LinkagePage() {
                                 <IconComponent className="h-3 w-3 stroke-[1.5]" />
                                 <span>{getEntityLabel(type)}</span>
                               </button>
+
+                              {/* X icon on hover when in remove mode */}
                               {isRemoveMode && (
                                 <button
                                   onClick={() => handleRemoveChildEntityType(type)}
-                                  className="absolute -top-1 -right-1 bg-red-600 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                  className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
                                   title="Remove this tab"
                                 >
-                                  <X className="h-2.5 w-2.5 text-white stroke-[2.5]" />
+                                  <X className="h-2.5 w-2.5 stroke-[2.5]" />
                                 </button>
                               )}
                             </div>

@@ -148,14 +148,16 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as any;
-    
+
     try {
       const result = await db.execute(sql`
         SELECT
-          id, slug, code, name, descr, internal_url, shared_url, tags, metadata,
-          artifact_type, attachment_format, attachment_size_bytes, entity_type, entity_id,
-          attachment_object_bucket, attachment_object_key, visibility, security_classification,
-          parent_artifact_id, is_latest_version, version, active_flag,
+          id, code, name, descr, metadata,
+          artifact_type, attachment, attachment_format, attachment_size_bytes,
+          entity_type, entity_id,
+          attachment_object_bucket, attachment_object_key,
+          visibility, security_classification,
+          is_latest_version, version, active_flag,
           from_ts, to_ts, created_ts, updated_ts
         FROM app.d_artifact
         WHERE id = ${id} AND active_flag = true
@@ -328,8 +330,8 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
     try {
       const result = await db.execute(sql`
-        UPDATE app.d_artifact 
-        SET active_flag = false, updated = NOW(), to_ts = NOW()
+        UPDATE app.d_artifact
+        SET active_flag = false, updated_ts = NOW(), to_ts = NOW()
         WHERE id = ${id} AND active_flag = true
         RETURNING id
       `);

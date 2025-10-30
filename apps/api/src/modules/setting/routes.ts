@@ -151,9 +151,9 @@ export async function settingRoutes(fastify: FastifyInstance) {
       // Parse metadata array
       const metadata = current[0].metadata as any[];
 
-      // Find the next available ID
-      const maxId = metadata.reduce((max, item) => Math.max(max, parseInt(item.id)), -1);
-      const newId = maxId + 1;
+      // Assign ID based on position in array (0-based)
+      // New item will be added to the end, so ID = current length
+      const newId = metadata.length;
 
       // Create the new item
       const itemToAdd = {
@@ -317,6 +317,12 @@ export async function settingRoutes(fastify: FastifyInstance) {
       // Remove the item from array
       metadata.splice(itemIndex, 1);
 
+      // Reassign IDs to match new positions (0-based)
+      // This ensures ID always matches the array position
+      metadata.forEach((item: any, index: number) => {
+        item.id = index;
+      });
+
       // Update the database
       const metadataJson = JSON.stringify(metadata);
       await db.execute(sql`
@@ -388,6 +394,12 @@ export async function settingRoutes(fastify: FastifyInstance) {
         .sort((a: any, b: any) => a.position - b.position)
         .map((orderItem: any) => itemMap.get(String(orderItem.id)))
         .filter(Boolean); // Remove any null/undefined entries
+
+      // Reassign IDs to match new positions (0-based)
+      // This ensures ID always matches the array position
+      reorderedMetadata.forEach((item: any, index: number) => {
+        item.id = index;
+      });
 
       // Update the database
       const metadataJson = JSON.stringify(reorderedMetadata);

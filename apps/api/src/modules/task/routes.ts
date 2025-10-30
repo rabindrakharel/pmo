@@ -68,7 +68,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       querystring: Type.Object({
         project_id: Type.Optional(Type.String()),
         assigned_to_employee_id: Type.Optional(Type.String()),
-        task_status: Type.Optional(Type.String()),
+        stage: Type.Optional(Type.String()),  // DDL column name (not task_status)
         task_type: Type.Optional(Type.String()),
         task_category: Type.Optional(Type.String()),
         worksite_id: Type.Optional(Type.String()),
@@ -91,7 +91,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      project_id, assigned_to_employee_id, task_status, task_type, task_category,
+      project_id, assigned_to_employee_id, stage, task_type, task_category,
       worksite_id, client_id, active, search, limit = 50, offset = 0
     } = request.query as any;
 
@@ -116,37 +116,52 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Build query conditions
       const conditions = [...baseConditions];
-      
+
       if (active !== undefined) {
-        conditions.push(sql`active_flag = ${active}`);
+        conditions.push(sql`t.active_flag = ${active}`);
       }
-      
+
+      // Project relationship stored in metadata JSONB
       if (project_id !== undefined) {
-        conditions.push(sql`project_id = ${project_id}`);
+        conditions.push(sql`(t.metadata->>'project_id')::uuid = ${project_id}::uuid`);
       }
-      
+
+      // Assignee relationship managed via entity_id_map
       if (assigned_to_employee_id !== undefined) {
-        conditions.push(sql`assigned_to_employee_id = ${assigned_to_employee_id}`);
+        conditions.push(sql`EXISTS (
+          SELECT 1 FROM app.entity_id_map map
+          WHERE map.parent_entity_type = 'task'
+            AND map.parent_entity_id = t.id::text
+            AND map.child_entity_type = 'employee'
+            AND map.child_entity_id = ${assigned_to_employee_id}
+            AND map.relationship_type = 'assigned_to'
+            AND map.active_flag = true
+        )`);
       }
-      
-      if (task_status !== undefined) {
-        conditions.push(sql`task_status = ${task_status}`);
+
+      // Task status is stored as 'stage' column (DDL name)
+      if (stage !== undefined) {
+        conditions.push(sql`t.stage = ${stage}`);
       }
-      
+
+      // Task type stored in metadata JSONB
       if (task_type !== undefined) {
-        conditions.push(sql`task_type = ${task_type}`);
+        conditions.push(sql`t.metadata->>'task_type' = ${task_type}`);
       }
-      
+
+      // Task category stored in metadata JSONB
       if (task_category !== undefined) {
-        conditions.push(sql`task_category = ${task_category}`);
+        conditions.push(sql`t.metadata->>'task_category' = ${task_category}`);
       }
-      
+
+      // Worksite relationship stored in metadata JSONB
       if (worksite_id !== undefined) {
-        conditions.push(sql`worksite_id = ${worksite_id}`);
+        conditions.push(sql`(t.metadata->>'worksite_id')::uuid = ${worksite_id}::uuid`);
       }
-      
+
+      // Client relationship stored in metadata JSONB
       if (client_id !== undefined) {
-        conditions.push(sql`client_id = ${client_id}`);
+        conditions.push(sql`(t.metadata->>'client_id')::uuid = ${client_id}::uuid`);
       }
       
       if (search) {
@@ -648,7 +663,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Validate task exists and user has permission
       const existingTask = await db.execute(sql`
-        SELECT id, name, task_status FROM app.d_task 
+        SELECT id, name, stage FROM app.d_task
         WHERE id = ${id} AND active_flag = true
       `);
       
@@ -738,24 +753,41 @@ export async function taskRoutes(fastify: FastifyInstance) {
       }
 
       // Build filter conditions
-      const filters = [sql`project_id = ${projectId}`, sql`active_flag = true`];
-      if (assignee) filters.push(sql`assigned_to_employee_id = ${assignee}`);
-      if (priority) filters.push(sql`priority_level = ${priority}`);
+      // Project relationship stored in metadata JSONB
+      const filters = [
+        sql`(t.metadata->>'project_id')::uuid = ${projectId}::uuid`,
+        sql`t.active_flag = true`
+      ];
+
+      // Assignee relationship managed via entity_id_map
+      if (assignee) {
+        filters.push(sql`EXISTS (
+          SELECT 1 FROM app.entity_id_map map
+          WHERE map.parent_entity_type = 'task'
+            AND map.parent_entity_id = t.id::text
+            AND map.child_entity_type = 'employee'
+            AND map.child_entity_id = ${assignee}
+            AND map.relationship_type = 'assigned_to'
+            AND map.active_flag = true
+        )`);
+      }
+
+      if (priority) filters.push(sql`t.priority_level = ${priority}`);
 
       // Get all tasks for the project
       const tasks = await db.execute(sql`
-        SELECT * FROM app.d_task
+        SELECT t.* FROM app.d_task t
         WHERE ${sql.join(filters, sql` AND `)}
         ORDER BY
-          CASE stage
+          CASE t.stage
             WHEN 'backlog' THEN 1
             WHEN 'in_progress' THEN 2
             WHEN 'blocked' THEN 3
             WHEN 'done' THEN 4
             ELSE 5
           END,
-          (metadata->>'kanban_position')::int NULLS LAST,
-          created_ts
+          (t.metadata->>'kanban_position')::int NULLS LAST,
+          t.created_ts
       `);
 
       // Group tasks by status

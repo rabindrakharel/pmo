@@ -621,6 +621,9 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
           {/* Header */}
           <div className="flex items-center justify-between py-2">
           <div className="flex items-center space-x-3 flex-1 min-w-0">
+            {/* Exit button on left */}
+            <ExitButton entityType={entityType} isDetailPage={true} />
+
             <div className="flex-1 min-w-0">
               {/* Compact metadata row using DRY components */}
               <MetadataRow className="overflow-x-auto">
@@ -793,9 +796,6 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 >
                   <Edit2 className="h-4 w-4 text-gray-600 stroke-[1.5]" />
                 </button>
-
-                {/* Exit button */}
-                <ExitButton entityType={entityType} isDetailPage={true} />
               </>
             ) : (
               <>
@@ -813,9 +813,6 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 >
                   <Save className="h-4 w-4 text-blue-600 stroke-[1.5]" />
                 </button>
-
-                {/* Exit button */}
-                <ExitButton entityType={entityType} isDetailPage={true} />
               </>
             )}
           </div>

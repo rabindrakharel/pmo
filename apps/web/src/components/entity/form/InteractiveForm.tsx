@@ -398,7 +398,7 @@ export function InteractiveForm({
         try {
           const token = localStorage.getItem('auth_token');
           const response = await fetch(
-            `${API_BASE_URL}/api/v1/setting?category=${datalabelTable}`,
+            `${API_BASE_URL}/api/v1/setting?datalabel=${datalabelTable}`,
             {
               headers: token ? { Authorization: `Bearer ${token}` } : {}
             }

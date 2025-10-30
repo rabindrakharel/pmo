@@ -106,10 +106,10 @@ export function useKanbanColumns(
 
         // Map API response to KanbanSettings format
         const mapped: KanbanSettings[] = (result.data || []).map((item: any) => ({
-          value: item.level_name,
-          label: item.level_name,
-          order: item.sort_order || 0,
-          color: item.color_code || STAGE_COLORS[item.level_name]
+          value: item.name,
+          label: item.name,
+          order: item.position ?? 0,
+          color: item.color_code || STAGE_COLORS[item.name]
         }));
 
         // Sort by order from settings

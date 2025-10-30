@@ -201,7 +201,7 @@ export async function loadSettingOptions(
           metadata: {
             level_id: id,
             descr: descr,
-            sort_order: item.sort_order,
+            sort_order: item.sort_order ?? item.position,
             active_flag: item.active_flag,
             color_code: colorCode,
           }

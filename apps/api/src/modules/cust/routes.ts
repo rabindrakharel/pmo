@@ -86,18 +86,18 @@ export async function custRoutes(fastify: FastifyInstance) {
 
     try {
       const conditions = [];
-      
+
       if (active !== undefined) {
-        conditions.push(sql`active_flag = ${active}`);
+        conditions.push(sql`c.active_flag = ${active}`);
       }
-      
+
       if (search) {
         conditions.push(sql`(
-          name ILIKE ${`%${search}%`} OR
-          "descr" ILIKE ${`%${search}%`} OR
-          cust_number ILIKE ${`%${search}%`} OR
-          primary_contact_name ILIKE ${`%${search}%`} OR
-          primary_email ILIKE ${`%${search}%`}
+          c.name ILIKE ${`%${search}%`} OR
+          c."descr" ILIKE ${`%${search}%`} OR
+          c.cust_number ILIKE ${`%${search}%`} OR
+          c.primary_contact_name ILIKE ${`%${search}%`} OR
+          c.primary_email ILIKE ${`%${search}%`}
         )`);
       }
 

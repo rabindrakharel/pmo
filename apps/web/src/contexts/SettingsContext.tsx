@@ -19,6 +19,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   // Auto-detect settings mode based on route
   useEffect(() => {
     const isSettingsRoute =
+      location.pathname === '/settings' ||
       location.pathname.startsWith('/setting/') ||
       location.pathname === '/labels' ||
       location.pathname === '/linkage' ||
@@ -27,7 +28,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
     if (isSettingsRoute && !isSettingsMode) {
       // Store previous route before entering settings
-      if (!location.pathname.startsWith('/setting') && location.pathname !== '/labels' && location.pathname !== '/linkage') {
+      if (!isSettingsRoute) {
         setPreviousRoute(location.pathname);
       }
       setIsSettingsMode(true);
@@ -39,7 +40,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const enterSettingsMode = () => {
     setPreviousRoute(location.pathname);
     setIsSettingsMode(true);
-    navigate('/setting/overview'); // Navigate to settings overview
+    navigate('/settings'); // Navigate to centralized settings page
   };
 
   const exitSettingsMode = () => {

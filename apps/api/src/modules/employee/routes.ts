@@ -9,142 +9,169 @@ import {
   getColumnsByMetadata 
 } from '../../lib/universal-schema-metadata.js';
 
-// Schema based on new normalized d_employee table structure
+// Schema aligned with DDL: db/11_d_employee.ddl
+// ONLY includes fields that exist as table columns
 const EmployeeSchema = Type.Object({
+  // Standard entity fields
   id: Type.String(),
-  
-  // Standard fields
+  code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  tags: Type.Array(Type.String()),
-  attr: Type.Object({}),
+  metadata: Type.Any(),  // JSONB - contains tags, skills, certifications, etc.
+  active_flag: Type.Boolean(),
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
-  active: Type.Boolean(),
-  created: Type.String(),
-  updated: Type.String(),
-  
-  // Employee identification
+  created_ts: Type.String(),
+  updated_ts: Type.String(),
+  version: Type.Number(),
+
+  // Employee identification (DDL columns)
   employee_number: Type.String(),
   email: Type.String(),
-  phone: Type.Optional(Type.String()),
-  
-  // Personal information
   first_name: Type.String(),
   last_name: Type.String(),
-  preferred_name: Type.Optional(Type.String()),
-  date_of_birth: Type.Optional(Type.String()),
-  
-  // Employment details
-  hire_date: Type.String(),
-  termination_date: Type.Optional(Type.String()),
-  employment_status: Type.String(),
+
+  // Contact information (DDL columns)
+  phone: Type.Optional(Type.String()),
+  mobile: Type.Optional(Type.String()),
+  emergency_contact_name: Type.Optional(Type.String()),
+  emergency_contact_phone: Type.Optional(Type.String()),
+
+  // Address information (DDL columns)
+  address_line1: Type.Optional(Type.String()),
+  address_line2: Type.Optional(Type.String()),
+  city: Type.Optional(Type.String()),
+  province: Type.Optional(Type.String()),
+  postal_code: Type.Optional(Type.String()),
+  country: Type.Optional(Type.String()),
+
+  // Employment details (DDL columns)
   employee_type: Type.String(),
-  
-  // Organizational assignment
-  hr_position_id: Type.Optional(Type.String()),
-  primary_org_id: Type.Optional(Type.String()),
-  reports_to_employee_id: Type.Optional(Type.String()),
-  
-  // Compensation and benefits
-  salary_annual: Type.Optional(Type.Number()),
-  hourly_rate: Type.Optional(Type.Number()),
-  overtime_eligible: Type.Optional(Type.Boolean()),
-  benefits_eligible: Type.Optional(Type.Boolean()),
-  
-  // Skills and qualifications
-  certifications: Type.Array(Type.Any()),
-  skills: Type.Array(Type.Any()),
-  languages: Type.Array(Type.String()),
-  education_level: Type.Optional(Type.String()),
-  
-  // Work preferences and attributes
-  remote_eligible: Type.Optional(Type.Boolean()),
-  travel_required: Type.Optional(Type.Boolean()),
+  department: Type.Optional(Type.String()),
+  title: Type.Optional(Type.String()),
+  hire_date: Type.Optional(Type.String()),
+  termination_date: Type.Optional(Type.String()),
+
+  // Compensation and HR (DDL columns)
+  salary_band: Type.Optional(Type.String()),
+  pay_grade: Type.Optional(Type.String()),
+  manager_employee_id: Type.Optional(Type.String()),
+
+  // Compliance and tracking (DDL columns)
+  sin: Type.Optional(Type.String()),
+  birth_date: Type.Optional(Type.String()),  // DDL name (not date_of_birth)
+  citizenship: Type.Optional(Type.String()),
   security_clearance: Type.Optional(Type.String()),
-  emergency_contact: Type.Object({}),
+
+  // Work preferences (DDL columns)
+  remote_work_eligible: Type.Optional(Type.Boolean()),  // DDL name (not remote_eligible)
+  time_zone: Type.Optional(Type.String()),
+  preferred_language: Type.Optional(Type.String()),
 });
 
+// CREATE schema - accepts DDL columns + metadata JSONB
 const CreateEmployeeSchema = Type.Object({
+  // Standard fields
   name: Type.Optional(Type.String({ minLength: 1 })),
+  code: Type.Optional(Type.String({ minLength: 1 })),
   descr: Type.Optional(Type.String()),
+  metadata: Type.Optional(Type.Any()),  // Flexible JSONB for tags, skills, certifications, etc.
+  active_flag: Type.Optional(Type.Boolean()),
 
-  // Employee identification
+  // Employee identification (DDL columns)
   employee_number: Type.Optional(Type.String({ minLength: 1 })),
   email: Type.Optional(Type.String({ format: 'email' })),
-  phone: Type.Optional(Type.String()),
-
-  // Personal information
   first_name: Type.Optional(Type.String({ minLength: 1 })),
   last_name: Type.Optional(Type.String({ minLength: 1 })),
-  preferred_name: Type.Optional(Type.String()),
-  date_of_birth: Type.Optional(Type.String({ format: 'date' })),
 
-  // Employment details
+  // Contact information (DDL columns)
+  phone: Type.Optional(Type.String()),
+  mobile: Type.Optional(Type.String()),
+  emergency_contact_name: Type.Optional(Type.String()),
+  emergency_contact_phone: Type.Optional(Type.String()),
+
+  // Address information (DDL columns)
+  address_line1: Type.Optional(Type.String()),
+  address_line2: Type.Optional(Type.String()),
+  city: Type.Optional(Type.String()),
+  province: Type.Optional(Type.String()),
+  postal_code: Type.Optional(Type.String()),
+  country: Type.Optional(Type.String()),
+
+  // Employment details (DDL columns)
+  employee_type: Type.Optional(Type.String()),
+  department: Type.Optional(Type.String()),
+  title: Type.Optional(Type.String()),
   hire_date: Type.Optional(Type.String({ format: 'date' })),
   termination_date: Type.Optional(Type.String({ format: 'date' })),
-  employment_status: Type.Optional(Type.String()),
-  employee_type: Type.Optional(Type.String()),
-  
-  // Organizational assignment
-  hr_position_id: Type.Optional(Type.String()),
-  primary_org_id: Type.Optional(Type.String()),
-  reports_to_employee_id: Type.Optional(Type.String()),
-  
-  // Compensation and benefits
-  salary_annual: Type.Optional(Type.Number()),
-  hourly_rate: Type.Optional(Type.Number()),
-  overtime_eligible: Type.Optional(Type.Boolean()),
-  benefits_eligible: Type.Optional(Type.Boolean()),
-  
-  // Skills and qualifications
-  certifications: Type.Optional(Type.Array(Type.Any())),
-  skills: Type.Optional(Type.Array(Type.Any())),
-  languages: Type.Optional(Type.Array(Type.String())),
-  education_level: Type.Optional(Type.String()),
-  
-  // Work preferences and attributes
-  remote_eligible: Type.Optional(Type.Boolean()),
-  travel_required: Type.Optional(Type.Boolean()),
+
+  // Compensation and HR (DDL columns)
+  salary_band: Type.Optional(Type.String()),
+  pay_grade: Type.Optional(Type.String()),
+  manager_employee_id: Type.Optional(Type.String({ format: 'uuid' })),
+
+  // Compliance and tracking (DDL columns)
+  sin: Type.Optional(Type.String()),
+  birth_date: Type.Optional(Type.String({ format: 'date' })),  // DDL name
+  citizenship: Type.Optional(Type.String()),
   security_clearance: Type.Optional(Type.String()),
-  emergency_contact: Type.Optional(Type.Object({})),
-  
-  // Standard fields
-  tags: Type.Optional(Type.Array(Type.String())),
-  attr: Type.Optional(Type.Object({})),
-  active: Type.Optional(Type.Boolean()),
+
+  // Work preferences (DDL columns)
+  remote_work_eligible: Type.Optional(Type.Boolean()),  // DDL name
+  time_zone: Type.Optional(Type.String()),
+  preferred_language: Type.Optional(Type.String()),
 });
 
+// UPDATE schema - accepts DDL columns (nullable for partial updates)
 const UpdateEmployeeSchema = Type.Object({
+  // Standard fields
   name: Type.Optional(Type.String({ minLength: 1 })),
   descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  metadata: Type.Optional(Type.Any()),
+  active_flag: Type.Optional(Type.Boolean()),
 
-  // Employee identification
+  // Employee identification (DDL columns)
   employee_number: Type.Optional(Type.String({ minLength: 1 })),
   email: Type.Optional(Type.String({ format: 'email' })),
-  phone: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-
-  // Personal information
   first_name: Type.Optional(Type.String({ minLength: 1 })),
   last_name: Type.Optional(Type.String({ minLength: 1 })),
-  preferred_name: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  date_of_birth: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
 
-  // Employment details
+  // Contact information (DDL columns)
+  phone: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  mobile: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  emergency_contact_name: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  emergency_contact_phone: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+
+  // Address information (DDL columns)
+  address_line1: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  address_line2: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  city: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  province: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  postal_code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  country: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+
+  // Employment details (DDL columns)
+  employee_type: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  department: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  title: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   hire_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
   termination_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
-  employment_status: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  employee_type: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 
-  // Organizational assignment
-  title: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  department: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  // Compensation and HR (DDL columns)
+  salary_band: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  pay_grade: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   manager_employee_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
 
-  // Standard fields
-  tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String()])),
-  metadata: Type.Optional(Type.Union([Type.Object({}), Type.String()])),
-  active: Type.Optional(Type.Boolean()),
+  // Compliance and tracking (DDL columns)
+  sin: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  birth_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),  // DDL name
+  citizenship: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  security_clearance: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+
+  // Work preferences (DDL columns)
+  remote_work_eligible: Type.Optional(Type.Boolean()),  // DDL name
+  time_zone: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  preferred_language: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 });
 
 export async function empRoutes(fastify: FastifyInstance) {
@@ -199,29 +226,29 @@ export async function empRoutes(fastify: FastifyInstance) {
       const conditions = [...baseConditions];
 
       if (active_flag !== undefined) {
-        conditions.push(sql`active_flag = ${active_flag}`);
+        conditions.push(sql`e.active_flag = ${active_flag}`);
       }
 
       if (employee_type) {
-        conditions.push(sql`employee_type = ${employee_type}`);
+        conditions.push(sql`e.employee_type = ${employee_type}`);
       }
 
       if (department) {
-        conditions.push(sql`department = ${department}`);
+        conditions.push(sql`e.department = ${department}`);
       }
 
       if (remote_work_eligible !== undefined) {
-        conditions.push(sql`remote_work_eligible = ${remote_work_eligible}`);
+        conditions.push(sql`e.remote_work_eligible = ${remote_work_eligible}`);
       }
 
       if (search) {
         const searchConditions = [
-          sql`COALESCE(name, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE("descr", '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(email, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(employee_number, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(first_name, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(last_name, '') ILIKE ${`%${search}%`}`
+          sql`COALESCE(e.name, '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(e."descr", '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(e.email, '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(e.employee_number, '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(e.first_name, '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(e.last_name, '') ILIKE ${`%${search}%`}`
         ];
 
         conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
@@ -236,20 +263,20 @@ export async function empRoutes(fastify: FastifyInstance) {
 
       const employees = await db.execute(sql`
         SELECT
-          id, slug, code, name, "descr",
-          COALESCE(tags, '[]'::jsonb) as tags,
-          from_ts, to_ts, active_flag, created_ts, updated_ts, version,
-          employee_number, email, phone, mobile, first_name, last_name,
-          address_line1, address_line2, city, province, postal_code, country,
-          employee_type, department, title, hire_date, termination_date,
-          salary_band, pay_grade, manager_employee_id,
-          emergency_contact_name, emergency_contact_phone,
-          sin, birthdate, citizenship, security_clearance,
-          remote_work_eligible, time_zone, preferred_language,
-          COALESCE(metadata, '{}'::jsonb) as metadata
+          e.id, e.code, e.name, e."descr",
+          COALESCE(e.metadata->'tags', '[]'::jsonb) as tags,
+          e.from_ts, e.to_ts, e.active_flag, e.created_ts, e.updated_ts, e.version,
+          e.employee_number, e.email, e.phone, e.mobile, e.first_name, e.last_name,
+          e.address_line1, e.address_line2, e.city, e.province, e.postal_code, e.country,
+          e.employee_type, e.department, e.title, e.hire_date, e.termination_date,
+          e.salary_band, e.pay_grade, e.manager_employee_id,
+          e.emergency_contact_name, e.emergency_contact_phone,
+          e.sin, e.birth_date, e.citizenship, e.security_clearance,
+          e.remote_work_eligible, e.time_zone, e.preferred_language,
+          COALESCE(e.metadata, '{}'::jsonb) as metadata
         FROM app.d_employee e
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY name ASC NULLS LAST, created_ts DESC
+        ORDER BY e.name ASC NULLS LAST, e.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -321,15 +348,15 @@ export async function empRoutes(fastify: FastifyInstance) {
     try {
       const employee = await db.execute(sql`
         SELECT
-          id, slug, code, name, "descr",
-          COALESCE(tags, '[]'::jsonb) as tags,
+          id, code, name, "descr",
+          COALESCE(metadata->'tags', '[]'::jsonb) as tags,
           from_ts, to_ts, active_flag, created_ts, updated_ts, version,
           employee_number, email, phone, mobile, first_name, last_name,
           address_line1, address_line2, city, province, postal_code, country,
           employee_type, department, title, hire_date, termination_date,
           salary_band, pay_grade, manager_employee_id,
           emergency_contact_name, emergency_contact_phone,
-          sin, birthdate, citizenship, security_clearance,
+          sin, birth_date, citizenship, security_clearance,
           remote_work_eligible, time_zone, preferred_language,
           COALESCE(metadata, '{}'::jsonb) as metadata
         FROM app.d_employee

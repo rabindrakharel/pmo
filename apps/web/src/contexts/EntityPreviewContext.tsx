@@ -20,6 +20,7 @@ export interface EntityPreviewData {
 interface EntityPreviewContextValue {
   entityPreviewData: EntityPreviewData | null;
   isEntityPreviewOpen: boolean;
+  setPreviewData: (entity: EntityPreviewData | null) => void;
   openEntityPreview: (entity: EntityPreviewData) => void;
   closeEntityPreview: () => void;
 }
@@ -29,6 +30,11 @@ const EntityPreviewContext = createContext<EntityPreviewContextValue | undefined
 export function EntityPreviewProvider({ children }: { children: ReactNode }) {
   const [entityPreviewData, setEntityPreviewData] = useState<EntityPreviewData | null>(null);
   const [isEntityPreviewOpen, setIsEntityPreviewOpen] = useState(false);
+
+  const setPreviewData = (entity: EntityPreviewData | null) => {
+    setEntityPreviewData(entity);
+    // Don't open the panel, just set the data to activate the button
+  };
 
   const openEntityPreview = (entity: EntityPreviewData) => {
     setEntityPreviewData(entity);
@@ -46,6 +52,7 @@ export function EntityPreviewProvider({ children }: { children: ReactNode }) {
       value={{
         entityPreviewData,
         isEntityPreviewOpen,
+        setPreviewData,
         openEntityPreview,
         closeEntityPreview,
       }}

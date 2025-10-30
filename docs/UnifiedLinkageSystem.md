@@ -2,8 +2,8 @@
 
 > **Reusable Entity Relationship Management** - Single modal component with LinkagePage-style UI handling all parent-child linkage scenarios across the PMO platform
 
-**Last Updated:** 2025-10-27
-**Version:** 2.1.0 (Added dual relationship handling + parent-action entity routes)
+**Last Updated:** 2025-10-29
+**Version:** 2.3.0 (Entity Preview System with large modal popup)
 
 ---
 
@@ -13,12 +13,15 @@
 2. [Architecture](#architecture)
 3. [Component API](#component-api)
 4. [Usage Examples](#usage-examples)
-5. [Database Schema](#database-schema)
-6. [API Endpoints](#api-endpoints)
-   - [Parent-Action Entity Routes (NEW v2.1.0)](#6-parent-action-entity-routes-new-v210)
-7. [Migration Guide](#migration-guide)
-8. [Best Practices](#best-practices)
-9. [Recent Changes](#recent-changes)
+5. [Child Entity Tab Management (NEW v2.2.0)](#child-entity-tab-management-new-v220)
+6. [Entity Preview System (NEW v2.3.0)](#entity-preview-system-new-v230)
+7. [Database Schema](#database-schema)
+8. [API Endpoints](#api-endpoints)
+   - [Parent-Action Entity Routes](#parent-action-entity-routes)
+   - [Entity Type Child Management](#entity-type-child-management)
+9. [Migration Guide](#migration-guide)
+10. [Best Practices](#best-practices)
+11. [Recent Changes](#recent-changes)
 
 ---
 
@@ -28,10 +31,11 @@
 
 The **Unified Linkage System** provides a centralized way to manage parent-child relationships between entity instances in the PMO platform. It consists of:
 
-- **UnifiedLinkageModal** - Single reusable modal component
+- **UnifiedLinkageModal** - Single reusable modal component for instance linking
+- **LinkagePage** - Full-page child tab management with multi-checkbox dropdowns
 - **useLinkageModal** - Custom React hook for state management
-- **Unified Backend API** - `/api/v1/linkage` endpoints
-- **Database Tables** - `d_entity_map` (types) and `d_entity_id_map` (instances)
+- **Unified Backend API** - `/api/v1/linkage` and `/api/v1/entity` endpoints
+- **Database Tables** - `d_entity` (entity types), `d_entity_map` (valid relationships), `d_entity_id_map` (instance links)
 
 ### Why Unified?
 
@@ -381,6 +385,625 @@ function KanbanCard({ task }) {
   );
 }
 ```
+
+---
+
+## Child Entity Tab Management (NEW v2.2.0)
+
+### Overview
+
+The LinkagePage at `/linkage` provides a dedicated interface for managing which entity types can appear as child tabs on entity detail pages. This system allows administrators to configure **which child entity types** (like tasks, wiki, artifacts) appear as tabs on parent entity types (like projects, offices, businesses).
+
+### Two-Level Hierarchy
+
+The system manages two levels of relationships:
+
+1. **Type-Level Configuration** (LinkagePage)
+   - Defines which entity TYPES can contain other entity TYPES
+   - Stored in `d_entity.child_entities` JSONB field
+   - Configured via multi-checkbox dropdowns
+   - Example: "Project" entity type can have tabs for "Tasks", "Wiki", "Artifacts"
+
+2. **Instance-Level Linking** (UnifiedLinkageModal)
+   - Links specific entity INSTANCES to each other
+   - Stored in `d_entity_id_map` table
+   - Example: "Website Redesign Project" contains "Homepage Task"
+
+### UI Components
+
+#### Multi-Checkbox Dropdown System
+
+The LinkagePage features two control buttons at the top of the right panel:
+
+**Add+ Button (Green):**
+- Opens dropdown showing ALL entity types
+- Checkboxes allow multi-selection
+- Shows "Already linked" for entity types already configured as child tabs
+- Disabled checkboxes for already-linked types
+- Bulk add operation with counter: "Add (N)"
+
+**Remove Button (Red Checkmark):**
+- Opens dropdown showing CURRENT child entity types
+- Checkboxes allow multi-selection
+- Shows order number for each child tab
+- Bulk remove operation with counter: "Remove (N)"
+- Confirmation dialog before removal
+
+**Visual States:**
+```
+Normal:  [Add+] [✓]  (gray borders)
+Add Open: [Add+] [✓]  (Add+ has green background)
+Remove Open: [Add+] [✓]  (Checkmark has red background)
+```
+
+### Workflow Example
+
+**Scenario:** Configure Project entity to show Tasks, Wiki, and Artifacts tabs
+
+```
+1. Navigate to /linkage
+2. Select "Project" from left panel
+3. Click "Add+" button
+4. Dropdown shows:
+   ☐ Office      (disabled - parent type)
+   ☐ Business    Businesses
+   ☑ Task        Tasks          ← Check
+   ☑ Wiki        Wiki Pages     ← Check
+   ☑ Artifact    Artifacts      ← Check
+   ☐ Form        Already linked (disabled)
+5. Click "Add (3)"
+6. Tabs now appear: Tasks, Wiki, Artifacts
+7. Order automatically assigned: 1, 2, 3
+```
+
+**Removing Tabs:**
+```
+1. Click checkmark button (✓)
+2. Dropdown shows:
+   ☑ Tasks       Order: 1
+   ☐ Wiki        Order: 2
+   ☑ Artifacts   Order: 3
+3. Select which to remove
+4. Click "Remove (2)"
+5. Confirmation dialog appears
+6. Remaining tabs auto-reorder
+```
+
+### Database Structure
+
+**d_entity table (Entity Type Metadata):**
+```sql
+CREATE TABLE app.d_entity (
+    id uuid PRIMARY KEY,
+    code varchar(50) NOT NULL UNIQUE,
+    name varchar(100) NOT NULL,
+    ui_label varchar(100),
+    ui_icon varchar(50),
+    child_entities jsonb,  -- Array of child tab config
+    display_order integer,
+    active_flag boolean DEFAULT true
+);
+
+-- child_entities structure:
+[
+  {
+    "entity": "task",
+    "ui_icon": "CheckSquare",
+    "ui_label": "Tasks",
+    "order": 1
+  },
+  {
+    "entity": "wiki",
+    "ui_icon": "FileText",
+    "ui_label": "Wiki",
+    "order": 2
+  }
+]
+```
+
+### API Endpoints
+
+#### Get Entity Type Metadata
+```http
+GET /api/v1/entity/type/:entity_type
+
+Response:
+{
+  "code": "project",
+  "name": "Project",
+  "ui_label": "Project",
+  "ui_icon": "Folder",
+  "child_entities": [
+    {"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1},
+    {"entity": "wiki", "ui_icon": "FileText", "ui_label": "Wiki", "order": 2}
+  ],
+  "display_order": 3,
+  "active_flag": true
+}
+```
+
+#### Update Child Entity Types (Bulk)
+```http
+PUT /api/v1/entity/:code/children
+Content-Type: application/json
+
+{
+  "child_entities": [
+    {"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1},
+    {"entity": "wiki", "ui_icon": "FileText", "ui_label": "Wiki", "order": 2},
+    {"entity": "artifact", "ui_icon": "Paperclip", "ui_label": "Artifacts", "order": 3}
+  ]
+}
+
+Response:
+{
+  "success": true,
+  "message": "Updated child entities for project",
+  "data": { /* updated entity metadata */ }
+}
+```
+
+### Key Features
+
+✅ **Multi-Selection** - Add/remove multiple child types at once
+✅ **Already Linked Detection** - Prevents duplicate child tabs
+✅ **Auto-Ordering** - New tabs get next available order number
+✅ **Auto-Reordering** - Removing tabs renumbers remaining ones
+✅ **Bulk Operations** - Efficient batch updates
+✅ **State Management** - Button states reflect dropdown status
+✅ **Confirmation Dialogs** - Prevents accidental removals
+✅ **Success Messages** - Visual feedback after operations
+
+### Integration with Entity Detail Pages
+
+The `child_entities` configuration in `d_entity` drives the DynamicChildEntityTabs component:
+
+```tsx
+// EntityDetailPage.tsx
+<DynamicChildEntityTabs
+  entityType="project"
+  entityId={projectId}
+/>
+
+// Fetches from: GET /api/v1/entity/child-tabs/project/:id
+// Returns tabs based on child_entities config
+```
+
+### Benefits
+
+1. **No Code Changes Needed** - Configure tabs via UI, no deployment required
+2. **Type-Safe** - Only valid child types can be added (validated against d_entity_map)
+3. **User-Friendly** - Intuitive multi-checkbox interface
+4. **Consistent** - Same experience across all entity types
+5. **Flexible** - Different parent types can have different child tabs
+
+---
+
+## Entity Preview System (NEW v2.3.0)
+
+### Overview
+
+The **Entity Preview System** provides a quick way to preview entity details in a large modal popup without navigating away from the current page. When you select an entity instance (e.g., clicking a row in LinkagePage), a preview button becomes active. Clicking the preview button opens a full-screen modal showing the complete EntityDetailPage content.
+
+**Key Features:**
+- ✅ Large centered modal popup (95% of screen)
+- ✅ Shows complete entity detail page with all tabs
+- ✅ Preview button activates when entity selected
+- ✅ Keyboard shortcuts (ESC to close)
+- ✅ Click outside to close
+- ✅ Open in new tab button
+
+---
+
+### Architecture
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                   ENTITY PREVIEW SYSTEM                  │
+└──────────────────────────────────────────────────────────┘
+                          │
+                          ├─── EntityPreviewContext.tsx
+                          │    (State management)
+                          │
+                          ├─── EntityPreviewPanel.tsx
+                          │    (Large modal popup UI)
+                          │
+                          └─── LinkagePage.tsx
+                               (Local preview button)
+```
+
+### Components
+
+#### 1. EntityPreviewContext (`/contexts/EntityPreviewContext.tsx`)
+**Purpose:** Centralized state management for preview system
+
+**State:**
+```typescript
+interface EntityPreviewData {
+  entityType: string;    // e.g., 'project', 'task', 'biz', 'cust'
+  entityId: string;      // Entity UUID
+  label?: string;        // Optional display label
+}
+
+interface EntityPreviewContextValue {
+  entityPreviewData: EntityPreviewData | null;
+  isEntityPreviewOpen: boolean;
+  setPreviewData: (entity: EntityPreviewData | null) => void;
+  openEntityPreview: (entity: EntityPreviewData) => void;
+  closeEntityPreview: () => void;
+}
+```
+
+**Usage:**
+```typescript
+import { useEntityPreview } from '../contexts/EntityPreviewContext';
+
+function MyComponent() {
+  const { setPreviewData, openEntityPreview } = useEntityPreview();
+
+  // When instance is selected (activates preview button)
+  const handleInstanceClick = (instance) => {
+    setPreviewData({
+      entityType: 'project',
+      entityId: instance.id,
+      label: `Project: ${instance.name}`
+    });
+  };
+
+  // Preview button click handler
+  const handlePreviewClick = () => {
+    if (entityPreviewData && !isEntityPreviewOpen) {
+      openEntityPreview(entityPreviewData);
+    }
+  };
+
+  return (
+    <>
+      <button onClick={handleInstanceClick}>Select Instance</button>
+      <button
+        onClick={handlePreviewClick}
+        disabled={!entityPreviewData}
+      >
+        Preview
+      </button>
+    </>
+  );
+}
+```
+
+#### 2. EntityPreviewPanel (`/components/shared/preview/EntityPreviewPanel.tsx`)
+**Purpose:** Large centered modal popup UI component
+
+**Features:**
+- Centered modal (95vw × 95vh)
+- Embeds full EntityDetailPage in iframe
+- Shows all tabs, editing, child entities
+- Backdrop with click-outside to close
+- ESC key to close
+- Open in new tab button
+
+**Rendering:**
+- Modal with backdrop overlay
+- Header with entity icon, label, and action buttons
+- iframe loading the entity detail page URL
+- Smooth scale animation (95% → 100%)
+
+**Visual Design:**
+```css
+/* Modal dimensions */
+max-width: 95vw
+height: 95vh
+position: fixed, centered
+z-index: 50
+
+/* Animations */
+transition: opacity 300ms, transform 300ms
+scale-95 (hidden) → scale-100 (visible)
+
+/* Backdrop */
+z-index: 40
+opacity: 0.4
+background: black
+```
+
+#### 3. Preview Button in LinkagePage (`/pages/LinkagePage.tsx`)
+**Purpose:** Local preview button specific to LinkagePage
+
+**Behavior:**
+- **Disabled** when no entity selected (gray, cursor-not-allowed)
+- **Active** when entity selected (hover effects, clickable)
+- Located in page header next to "Entity Linkage Management"
+
+**Visual States:**
+```typescript
+// Disabled
+className="bg-gray-50 text-gray-400 cursor-not-allowed"
+
+// Active
+className="bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900"
+```
+
+---
+
+### Usage Patterns
+
+#### Pattern 1: Activate Preview from Row Click
+
+**Scenario:** User clicks on an entity row in LinkagePage
+
+```typescript
+import { useEntityPreview } from '../contexts/EntityPreviewContext';
+
+function LinkagePage() {
+  const { setPreviewData } = useEntityPreview();
+
+  const handleParentInstanceSelect = (instance: EntityInstance) => {
+    setSelectedParentId(instance.id);
+    setSelectedParentInstance(instance);
+
+    // Activate preview button (but don't open panel yet)
+    if (selectedParentTypes.length > 0) {
+      const parentType = selectedParentTypes[0];
+      const apiEndpoint = getApiEndpoint(parentType);
+      setPreviewData({
+        entityType: apiEndpoint,
+        entityId: instance.id,
+        label: `${getEntityLabel(parentType)}: ${instance.name}`
+      });
+    }
+  };
+
+  return (
+    <table>
+      {instances.map(instance => (
+        <tr onClick={() => handleParentInstanceSelect(instance)}>
+          <td>{instance.name}</td>
+        </tr>
+      ))}
+    </table>
+  );
+}
+```
+
+#### Pattern 2: Open Preview from Button Click
+
+**Scenario:** User clicks the preview button
+
+```typescript
+import { useEntityPreview } from '../contexts/EntityPreviewContext';
+
+function LinkagePage() {
+  const { entityPreviewData, isEntityPreviewOpen, openEntityPreview } = useEntityPreview();
+
+  return (
+    <button
+      onClick={() => {
+        if (entityPreviewData && !isEntityPreviewOpen) {
+          openEntityPreview(entityPreviewData);
+        }
+      }}
+      disabled={!entityPreviewData}
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium ${
+        entityPreviewData
+          ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+      }`}
+    >
+      <Eye className="h-4 w-4" />
+      <span>Preview</span>
+    </button>
+  );
+}
+```
+
+#### Pattern 3: Clear Preview Selection
+
+**Scenario:** User navigates away or deselects entity
+
+```typescript
+import { useEntityPreview } from '../contexts/EntityPreviewContext';
+
+function MyComponent() {
+  const { setPreviewData } = useEntityPreview();
+
+  useEffect(() => {
+    // Clear preview when unmounting
+    return () => {
+      setPreviewData(null);
+    };
+  }, [setPreviewData]);
+
+  return <div>Content</div>;
+}
+```
+
+---
+
+### User Flow
+
+#### Flow 1: Row Click → Preview Button Activation → Preview Modal
+
+```
+1. USER views LinkagePage with entity instances
+   ↓
+2. USER clicks on "Website Redesign Project" row
+   ↓
+3. SYSTEM calls setPreviewData({
+     entityType: 'project',
+     entityId: 'abc-123',
+     label: 'Project: Website Redesign'
+   })
+   ↓
+4. SYSTEM updates context state
+   • entityPreviewData = { entityType, entityId, label }
+   • Preview button becomes ACTIVE (no longer gray)
+   ↓
+5. USER sees preview button is now enabled in page header
+   ↓
+6. USER clicks "Preview" button
+   ↓
+7. SYSTEM calls openEntityPreview(entityPreviewData)
+   • Opens large centered modal popup
+   • Loads /project/abc-123 in iframe
+   • Shows complete EntityDetailPage with all tabs
+   ↓
+8. USER views project details in modal
+   ↓
+9. USER can:
+   • Navigate tabs within the iframe
+   • Edit entity (if permissions allow)
+   • View child entities
+   • Click "Open in new tab" icon
+   • Press ESC to close
+   • Click outside to close
+   • Click X button to close
+```
+
+#### Flow 2: No Entity Selected
+
+```
+1. USER loads LinkagePage
+   ↓
+2. SYSTEM state:
+   • entityPreviewData = null
+   • Preview button is DISABLED (gray)
+   ↓
+3. USER hovers over preview button
+   ↓
+4. SYSTEM shows tooltip:
+   "Select an entity to preview"
+   ↓
+5. USER cannot click (disabled state)
+```
+
+---
+
+### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| **ESC** | Close preview modal |
+
+---
+
+### Styling & Visual Design
+
+#### Preview Button States
+
+```typescript
+// Disabled (no entity selected)
+<button
+  disabled
+  className="bg-gray-50 text-gray-400 cursor-not-allowed"
+>
+  <Eye className="h-4 w-4" />
+  Preview
+</button>
+
+// Active (entity selected)
+<button
+  className="bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900"
+>
+  <Eye className="h-4 w-4" />
+  Preview
+</button>
+```
+
+#### Large Modal Popup
+
+```css
+/* Modal dimensions */
+max-width: 95vw
+height: 95vh
+position: fixed (centered)
+z-index: 50
+border-radius: 0.75rem
+
+/* Animations */
+transition: opacity 300ms, transform 300ms
+scale(0.95) (hidden) → scale(1) (visible)
+opacity: 0 (hidden) → opacity: 1 (visible)
+
+/* Backdrop */
+z-index: 40
+opacity: 0.4
+background: black
+```
+
+---
+
+### Integration with LinkagePage
+
+#### In LinkagePage Header
+
+```typescript
+import { useEntityPreview } from '../contexts/EntityPreviewContext';
+
+export function LinkagePage() {
+  const { entityPreviewData, isEntityPreviewOpen, setPreviewData, openEntityPreview } = useEntityPreview();
+
+  return (
+    <div className="bg-white border-b border-gray-200 px-6 py-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Link2 className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+          <div>
+            <h1 className="text-sm font-normal text-gray-800">Entity Linkage Management</h1>
+            <p className="text-sm text-gray-500">Manage relationships between parent and child entities</p>
+          </div>
+        </div>
+
+        {/* Entity Preview Button - Local to this page */}
+        <button
+          onClick={() => {
+            if (entityPreviewData && !isEntityPreviewOpen) {
+              openEntityPreview(entityPreviewData);
+            }
+          }}
+          disabled={!entityPreviewData}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            entityPreviewData
+              ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
+              : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+          }`}
+          title={entityPreviewData ? 'Quick preview (Show entity details)' : 'Select an entity to preview'}
+        >
+          <Eye className="h-4 w-4" />
+          <span>Preview</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+### Benefits
+
+1. **✅ Context Preservation**
+   - User stays on LinkagePage
+   - Can compare multiple entities quickly
+   - No navigation disruption
+
+2. **✅ Complete View**
+   - Shows exact EntityDetailPage content
+   - All tabs available (Overview, Child entities)
+   - Edit mode works if user has permissions
+
+3. **✅ Large & Immersive**
+   - 95% of screen size
+   - Centered modal for focus
+   - Backdrop darkens background
+
+4. **✅ Keyboard Friendly**
+   - ESC to close
+   - Tab navigation within iframe
+
+5. **✅ Flexible Integration**
+   - Preview button is local to each page
+   - Can be added to any page that selects entities
+   - Consistent pattern across the platform
 
 ---
 
@@ -1073,6 +1696,75 @@ The **Unified Linkage System** provides:
 
 ## Recent Changes
 
+### v2.3.0 (2025-10-29)
+
+#### Entity Preview System
+
+**New Features:**
+- **Large Modal Popup Preview** - 95% of screen size centered modal
+  - Shows complete EntityDetailPage content in iframe
+  - All tabs, editing, and child entities available
+  - Preview button activates when entity instance selected
+  - Opens only when preview button clicked
+
+**UI/UX Improvements:**
+- **Contextual Preview Button** - Local to each page (e.g., LinkagePage header)
+  - Disabled (gray) when no entity selected
+  - Active (clickable) when entity selected
+  - Tooltip shows current state
+- **Large & Immersive Modal** - Centered popup with backdrop
+  - 95vw × 95vh dimensions
+  - Rounded corners with smooth animations
+  - Click outside or ESC to close
+  - "Open in new tab" button
+
+**Architecture:**
+- **EntityPreviewContext** - State management with two functions:
+  - `setPreviewData()` - Activates preview button without opening
+  - `openEntityPreview()` - Opens the modal popup
+- **EntityPreviewPanel** - Modal component with iframe
+- **Preview Button Integration** - Added to LinkagePage header
+
+**Files Changed:**
+- `/apps/web/src/contexts/EntityPreviewContext.tsx` - Added setPreviewData function
+- `/apps/web/src/components/shared/preview/EntityPreviewPanel.tsx` - Large modal with iframe
+- `/apps/web/src/pages/LinkagePage.tsx` - Local preview button
+- `/apps/web/src/components/shared/layout/Layout.tsx` - Removed global preview button
+- `/docs/UnifiedLinkageSystem.md` - Added Entity Preview System documentation
+
+### v2.2.0 (2025-10-29)
+
+#### Child Entity Tab Management System
+
+**New Features:**
+- **Multi-Checkbox Dropdown Controls** - Add/Remove buttons with bulk selection capability
+  - Add+ button (green) - Select multiple entity types to add as child tabs
+  - Remove button (red checkmark) - Select multiple child tabs to remove
+  - "Already linked" detection prevents duplicate configurations
+  - Auto-ordering and auto-reordering of tabs
+
+**UI/UX Improvements:**
+- **State Management** - Button visual states reflect dropdown open/closed status
+  - Add+ normal: gray border → Add+ active: green background
+  - Remove normal: gray border → Remove active: red background
+- **Bulk Operations** - Counter shows selected items: "Add (3)", "Remove (2)"
+- **Confirmation Dialogs** - Prevents accidental removal of child tabs
+- **Success Messages** - Visual feedback after add/remove operations
+
+**API Updates:**
+- Enhanced `PUT /api/v1/entity/:code/children` for bulk updates
+- JSONB parsing for `child_entities` field in all entity type endpoints
+- Fixed schema validation errors for child_entities
+
+**Database:**
+- Stores child tab configuration in `d_entity.child_entities` JSONB field
+- Each child config includes: entity code, ui_icon, ui_label, order
+
+**Files Changed:**
+- `/apps/web/src/pages/LinkagePage.tsx` - Multi-checkbox dropdown system
+- `/apps/api/src/modules/entity/routes.ts` - JSONB parsing and bulk operations
+- `/docs/UnifiedLinkageSystem.md` - Complete documentation update
+
 ### v2.1.0 (2025-10-27)
 
 #### New Features
@@ -1132,6 +1824,6 @@ If you're using UnifiedLinkageModal from before v2.0.0:
 
 ---
 
-**Last Updated:** 2025-10-27
-**Version:** 2.1.0
+**Last Updated:** 2025-10-29
+**Version:** 2.3.0
 **Maintainer:** PMO Platform Team

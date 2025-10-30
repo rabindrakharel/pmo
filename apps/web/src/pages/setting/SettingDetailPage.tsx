@@ -125,17 +125,36 @@ export function SettingDetailPage() {
     if (!config) return;
 
     try {
-      // Use service to update all fields at once
-      // Backend will fetch entire metadata, update this item, and save the whole array
-      const result = await updateSettingItemMultiple(config.datalabel, id, updates);
+      // Check if this is a new row (temporary ID)
+      const isNewRow = id.toString().startsWith('temp_');
 
-      if (result) {
-        // Update local state with fresh data from server
-        setData(result.metadata);
+      if (isNewRow) {
+        // Create new item via service
+        const createdItem = await createSettingItem(config.datalabel, {
+          name: updates.name || '',
+          descr: updates.descr,
+          parent_id: updates.parent_id,
+          color_code: updates.color_code || 'blue',
+        });
+
+        if (createdItem) {
+          // Refresh data from server
+          const items = await fetchSettingItems(config.datalabel);
+          setData(items);
+        }
+      } else {
+        // Update existing item via service
+        // Backend will fetch entire metadata, update this item, and save the whole array
+        const result = await updateSettingItemMultiple(config.datalabel, id, updates);
+
+        if (result) {
+          // Update local state with fresh data from server
+          setData(result.metadata);
+        }
       }
     } catch (err) {
-      console.error('Error updating setting:', err);
-      alert('Failed to update setting');
+      console.error('Error saving setting:', err);
+      alert('Failed to save setting');
     }
   };
 
@@ -160,33 +179,28 @@ export function SettingDetailPage() {
     }
   };
 
-  // Handle add row - uses DRY service
-  const handleAddRow = async (newRecord: Partial<SettingsRecord>) => {
+  // Handle add row - adds empty row inline and enters edit mode
+  const handleAddRow = async (newRow: SettingsRecord) => {
     if (!config) return;
 
-    try {
-      // Create via service - adds to metadata array
-      const createdItem = await createSettingItem(config.datalabel, {
-        name: newRecord.name || '',
-        descr: newRecord.descr,
-        parent_id: newRecord.parent_id,
-        color_code: newRecord.color_code || 'blue',
-      });
+    // Add to data array
+    setData([...data, newRow]);
 
-      if (createdItem) {
-        // Refresh data from server
-        const items = await fetchSettingItems(config.datalabel);
-        setData(items);
-      }
-    } catch (err) {
-      console.error('Error creating setting:', err);
-      alert('Failed to create setting');
-    }
+    // Note: Actual save will happen via handleRowUpdate when user clicks save
   };
 
   // Handle delete row - uses DRY service
   const handleDeleteRow = async (id: string | number) => {
     if (!config) return;
+
+    // Check if this is a new unsaved row (temporary ID)
+    const isNewRow = id.toString().startsWith('temp_');
+
+    if (isNewRow) {
+      // Just remove from data array without calling API
+      setData(data.filter(item => item.id !== id));
+      return;
+    }
 
     try {
       // Delete via service - recomposes entire metadata array without this item
@@ -203,6 +217,7 @@ export function SettingDetailPage() {
 
   // Handle reorder - uses DRY service
   // Reorders the entire metadata array in the database
+  // IMPORTANT: Backend reassigns IDs to match positions, so we must refresh from server
   const handleReorder = async (reorderedData: SettingsRecord[]) => {
     if (!config) return;
 
@@ -210,8 +225,10 @@ export function SettingDetailPage() {
       // Save new order via service - recomposes entire metadata array
       await reorderSettingItems(config.datalabel, reorderedData);
 
-      // Update local state
-      setData(reorderedData);
+      // Refresh from server to get reassigned IDs
+      // Backend assigns ID = position, so dragging row 3 to position 1 changes ID from 3 to 1
+      const items = await fetchSettingItems(config.datalabel);
+      setData(items);
     } catch (err) {
       console.error('Error reordering settings:', err);
       alert('Failed to reorder settings');
@@ -257,15 +274,13 @@ export function SettingDetailPage() {
         <div className="bg-white shadow rounded-lg">
           <div className="px-4 py-5 sm:p-6">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center">
-                <IconComponent className="h-5 w-5 text-gray-600 stroke-[1.5] mr-3" />
-                <div className="flex-1">
-                  <h1 className="text-sm font-normal text-gray-900">{config.title}</h1>
-                  <p className="text-sm text-gray-600">Manage {config.title.toLowerCase()} settings</p>
-                </div>
+            <div className="flex items-center mb-6">
+              <ExitButton onClick={exitSettingsMode} className="mr-3" />
+              <IconComponent className="h-5 w-5 text-gray-600 stroke-[1.5] mr-3" />
+              <div className="flex-1">
+                <h1 className="text-sm font-normal text-gray-900">{config.title}</h1>
+                <p className="text-sm text-gray-600">Manage {config.title.toLowerCase()} settings</p>
               </div>
-              <ExitButton onClick={exitSettingsMode} />
             </div>
 
             {/* Data Table */}

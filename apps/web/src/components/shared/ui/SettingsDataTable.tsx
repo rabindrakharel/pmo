@@ -237,23 +237,28 @@ export function SettingsDataTable({
     }
   };
 
-  // Handle add row
+  // Handle add row - adds empty row inline and enters edit mode
   const handleStartAddRow = () => {
-    setIsAddingRow(true);
-    setNewRowData({
+    // Generate temporary ID for the new row
+    const tempId = `temp_${Date.now()}`;
+
+    // Create empty row with default values
+    const newRow: SettingsRecord = {
+      id: tempId,
       name: '',
       descr: '',
       parent_id: null,
       color_code: 'blue'
-    });
+    };
+
+    // Add to data and enter edit mode
+    onAddRow?.(newRow);
+
+    // Note: Parent should add this to data array and trigger edit mode
   };
 
   const handleSaveNewRow = () => {
-    if (!newRowData.name || !newRowData.name.trim()) {
-      alert('Name is required');
-      return;
-    }
-    onAddRow?.(newRowData);
+    // This is now handled by the regular save flow
     setIsAddingRow(false);
     setNewRowData({
       name: '',
@@ -526,98 +531,16 @@ export function SettingsDataTable({
         </div>
       )}
 
-      {/* Add Row Button/Form */}
+      {/* Add Row Button - Adds inline editable row */}
       {allowAddRow && (
         <div className="border-t border-gray-200 bg-white">
-          {!isAddingRow ? (
-            <button
-              onClick={handleStartAddRow}
-              className="w-full px-6 py-3 text-left text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add new row</span>
-            </button>
-          ) : (
-            <div className="p-4">
-              <div className="grid grid-cols-5 gap-4">
-                {/* ID - Auto-generated, show placeholder */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">ID</label>
-                  <input
-                    type="text"
-                    value="Auto"
-                    disabled
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-400 text-sm text-center"
-                  />
-                </div>
-
-                {/* Name - Required */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
-                  <input
-                    type="text"
-                    value={newRowData.name || ''}
-                    onChange={(e) => setNewRowData({ ...newRowData, name: e.target.value })}
-                    placeholder="Enter name"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
-                    autoFocus
-                  />
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
-                  <input
-                    type="text"
-                    value={newRowData.descr || ''}
-                    onChange={(e) => setNewRowData({ ...newRowData, descr: e.target.value })}
-                    placeholder="Enter description"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
-                  />
-                </div>
-
-                {/* Parent ID */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Parent ID</label>
-                  <input
-                    type="number"
-                    value={newRowData.parent_id ?? ''}
-                    onChange={(e) => setNewRowData({ ...newRowData, parent_id: e.target.value ? Number(e.target.value) : null })}
-                    placeholder="Parent ID"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm text-center"
-                  />
-                </div>
-
-                {/* Color Code */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Color</label>
-                  <ColoredDropdown
-                    value={newRowData.color_code || 'blue'}
-                    options={COLOR_OPTIONS}
-                    onChange={(value) => setNewRowData({ ...newRowData, color_code: value })}
-                  />
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 mt-4">
-                <button
-                  onClick={handleSaveNewRow}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 bg-white rounded-md hover:bg-gray-50 hover:border-gray-400 transition-colors text-sm shadow-sm"
-                >
-                  <Check className="h-4 w-4" />
-                  Save
-                </button>
-                <button
-                  onClick={handleCancelAddRow}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-600 bg-white rounded-md hover:bg-gray-50 hover:border-gray-400 transition-colors text-sm"
-                >
-                  <X className="h-4 w-4" />
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
+          <button
+            onClick={handleStartAddRow}
+            className="w-full px-6 py-3 text-left text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add new row</span>
+          </button>
         </div>
       )}
     </div>

@@ -25,6 +25,7 @@
  * Different from: SettingsDataTable (specialized for settings with fixed schema)
  */
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronUp, Search, Filter, Columns, ChevronLeft, ChevronRight, Edit, Share, Trash2, X, Plus, Check } from 'lucide-react';
 import {
   isSettingField,
@@ -86,11 +87,67 @@ interface ColoredDropdownProps {
 function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownProps) {
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+  const [dropdownPosition, setDropdownPosition] = React.useState({ top: 0, left: 0, width: 0, openUpward: false });
+
+  // Update dropdown position when it opens or on scroll/resize
+  React.useEffect(() => {
+    if (dropdownOpen && buttonRef.current) {
+      const updatePosition = () => {
+        if (buttonRef.current) {
+          const rect = buttonRef.current.getBoundingClientRect();
+          const maxDropdownHeight = 240; // max-h-60 = 240px
+          const viewportHeight = window.innerHeight;
+          const spaceBelow = viewportHeight - rect.bottom - 20; // 20px buffer
+          const spaceAbove = rect.top - 20; // 20px buffer
+
+          // Calculate actual content height (estimate)
+          const estimatedItemHeight = 40; // px per item
+          const estimatedContentHeight = Math.min(options.length * estimatedItemHeight, maxDropdownHeight);
+
+          // Decide if dropdown should open upward
+          const shouldOpenUpward = spaceBelow < estimatedContentHeight && spaceAbove > spaceBelow;
+
+          // Calculate position
+          let top: number;
+          if (shouldOpenUpward) {
+            // Open above: position so bottom of dropdown aligns near top of button
+            const availableHeight = Math.min(estimatedContentHeight, spaceAbove);
+            top = rect.top + window.scrollY - availableHeight - 4;
+          } else {
+            // Open below: position just below the button
+            top = rect.bottom + window.scrollY + 4;
+          }
+
+          setDropdownPosition({
+            top,
+            left: rect.left + window.scrollX,
+            width: rect.width,
+            openUpward: shouldOpenUpward,
+          });
+        }
+      };
+
+      updatePosition();
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
+    }
+  }, [dropdownOpen, options.length]);
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
         setDropdownOpen(false);
       }
     };
@@ -102,9 +159,10 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
   const selectedColor = selectedOption?.metadata?.color_code;
 
   return (
-    <div className="relative w-full" ref={dropdownRef}>
+    <div className="relative w-full">
       {/* Selected value display */}
       <button
+        ref={buttonRef}
         type="button"
         onClick={(e) => {
           e.stopPropagation();
@@ -127,9 +185,23 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
       </button>
       <ChevronDown className="h-4 w-4 text-gray-500 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
 
-      {/* Dropdown menu */}
-      {dropdownOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+      {/* Dropdown menu - rendered via portal to avoid overflow clipping */}
+      {dropdownOpen && createPortal(
+        <div
+          ref={dropdownRef}
+          className="bg-white border border-gray-200 rounded-md overflow-auto"
+          style={{
+            position: 'absolute',
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            width: `${dropdownPosition.width}px`,
+            maxHeight: '240px',
+            zIndex: 9999,
+            boxShadow: dropdownPosition.openUpward
+              ? '0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06)'
+              : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          }}
+        >
           <div className="py-1">
             {options.map(opt => {
               const optionColor = opt.metadata?.color_code;
@@ -149,7 +221,8 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -279,6 +352,10 @@ export function EntityDataTable<T = any>({
   const filterContainerRef = useRef<HTMLDivElement | null>(null);
   const columnSelectorRef = useRef<HTMLDivElement | null>(null);
 
+  // Bottom scrollbar refs (monday.com style)
+  const tableContainerRef = useRef<HTMLDivElement | null>(null);
+  const bottomScrollbarRef = useRef<HTMLDivElement | null>(null);
+
   // Drag and drop state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -286,6 +363,13 @@ export function EntityDataTable<T = any>({
   // Add row state
   const [isAddingRow, setIsAddingRow] = useState(false);
   const [newRowData, setNewRowData] = useState<Partial<T>>({});
+
+  // Bottom scrollbar positioning state
+  const [scrollbarStyles, setScrollbarStyles] = useState<{
+    left: number;
+    width: number;
+    visible: boolean;
+  }>({ left: 0, width: 0, visible: false });
 
   // ============================================================================
   // CENTRALIZED CAPABILITY DETECTION - TRUE DRY SYSTEM
@@ -666,20 +750,110 @@ export function EntityDataTable<T = any>({
     setDragOverIndex(null);
   };
 
+  // Scroll synchronization handlers (monday.com style bottom scrollbar)
+  const handleTableScroll = () => {
+    if (tableContainerRef.current && bottomScrollbarRef.current) {
+      bottomScrollbarRef.current.scrollLeft = tableContainerRef.current.scrollLeft;
+    }
+  };
+
+  const handleBottomScroll = () => {
+    if (tableContainerRef.current && bottomScrollbarRef.current) {
+      tableContainerRef.current.scrollLeft = bottomScrollbarRef.current.scrollLeft;
+    }
+  };
+
+  // Update bottom scrollbar position and width (monday.com style)
+  useEffect(() => {
+    const updateBottomScrollbar = () => {
+      if (!tableContainerRef.current) {
+        setScrollbarStyles(prev => {
+          if (!prev.visible && prev.left === 0 && prev.width === 0) return prev;
+          return { left: 0, width: 0, visible: false };
+        });
+        return;
+      }
+
+      const tableRect = tableContainerRef.current.getBoundingClientRect();
+      const tableScrollWidth = tableContainerRef.current.scrollWidth;
+      const tableClientWidth = tableContainerRef.current.clientWidth;
+
+      // Only show scrollbar if:
+      // 1. Content overflows horizontally
+      // 2. Table is visible in viewport
+      const isVisible = tableScrollWidth > tableClientWidth && tableRect.top < window.innerHeight;
+      const newLeft = Math.max(0, tableRect.left);
+      const newWidth = tableClientWidth;
+
+      // Update scrollbar content width
+      if (bottomScrollbarRef.current) {
+        const scrollbarContent = bottomScrollbarRef.current.querySelector('.scrollbar-content') as HTMLDivElement;
+        if (scrollbarContent) {
+          scrollbarContent.style.width = `${tableScrollWidth}px`;
+        }
+      }
+
+      // Only update state if values have changed (prevent infinite loop)
+      setScrollbarStyles(prev => {
+        if (
+          prev.left === newLeft &&
+          prev.width === newWidth &&
+          prev.visible === isVisible
+        ) {
+          return prev; // No change, return same object to prevent re-render
+        }
+        return {
+          left: newLeft,
+          width: newWidth,
+          visible: isVisible,
+        };
+      });
+    };
+
+    // Initial update
+    updateBottomScrollbar();
+
+    // Update on various events
+    window.addEventListener('resize', updateBottomScrollbar);
+    window.addEventListener('scroll', updateBottomScrollbar, true); // Use capture phase
+
+    // Use ResizeObserver to detect table size changes
+    const resizeObserver = new ResizeObserver(updateBottomScrollbar);
+    if (tableContainerRef.current) {
+      resizeObserver.observe(tableContainerRef.current);
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateBottomScrollbar);
+      window.removeEventListener('scroll', updateBottomScrollbar, true);
+      resizeObserver.disconnect();
+    };
+  }, [data.length, columns.length]); // Only re-run when data or column count changes
+
   // Add row handlers
+  // Handle add row - adds empty row inline and enters edit mode
   const handleStartAddRow = () => {
-    setIsAddingRow(true);
-    setNewRowData({});
+    // Generate temporary ID for the new row
+    const tempId = `temp_${Date.now()}`;
+
+    // Create empty row with default values
+    const newRow: any = {
+      id: tempId,
+      _isNew: true, // Flag to identify new rows
+    };
+
+    // Add empty row to data
+    const newData = [...data, newRow];
+
+    // Trigger parent's onAddRow with the new row data to update parent state
+    // Parent should add this to their data array
+    if (onAddRow) {
+      onAddRow(newRow);
+    }
   };
 
   const handleSaveNewRow = () => {
-    // Basic validation - ensure at least one field is filled
-    const hasData = Object.values(newRowData).some(val => val !== null && val !== undefined && val !== '');
-    if (!hasData) {
-      alert('Please fill in at least one field');
-      return;
-    }
-    onAddRow?.(newRowData);
+    // This is handled by the regular save flow now
     setIsAddingRow(false);
     setNewRowData({});
   };
@@ -1034,11 +1208,14 @@ export function EntityDataTable<T = any>({
       )}
 
       <div className="relative flex flex-col" style={{ maxHeight: 'calc(100vh - 400px)' }}>
-        <div className={`overflow-y-auto ${
-          columns.length > 7 
-            ? 'overflow-x-scroll scrollbar-always-visible' 
-            : 'overflow-x-auto scrollbar-elegant'
-        }`} style={{ maxHeight: 'calc(100% - 100px)' }}>
+        <div
+          ref={tableContainerRef}
+          className="overflow-y-auto overflow-x-auto hide-scrollbar-x"
+          style={{
+            maxHeight: 'calc(100% - 100px)',
+          }}
+          onScroll={handleTableScroll}
+        >
           <table 
             className="w-full" 
             style={{ 
@@ -1417,7 +1594,7 @@ export function EntityDataTable<T = any>({
                                 fontSize: '13px',
                                 color: '#333',
                                 userSelect: 'none',
-                                cursor: 'default'
+                                cursor: 'inherit'
                               } as React.CSSProperties}
                             >
                               {column.render
@@ -1444,104 +1621,36 @@ export function EntityDataTable<T = any>({
         )}
       </div>
 
-      {/* Add Row Button/Form - Match SettingsDataTable styling */}
+      {/* Bottom Scrollbar (monday.com style - fixed to viewport bottom) */}
+      {scrollbarStyles.visible && (
+        <div
+          ref={bottomScrollbarRef}
+          className="overflow-x-auto overflow-y-hidden scrollbar-elegant bg-white border-t border-gray-200 shadow-lg"
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: `${scrollbarStyles.left}px`,
+            width: `${scrollbarStyles.width}px`,
+            height: '17px',
+            zIndex: 1000,
+            boxShadow: '0 -2px 8px rgba(0, 0, 0, 0.1)',
+          }}
+          onScroll={handleBottomScroll}
+        >
+          <div className="scrollbar-content" style={{ height: '1px' }} />
+        </div>
+      )}
+
+      {/* Add Row Button - Adds inline editable row */}
       {allowAddRow && (
         <div className="border-t border-gray-200 bg-white">
-          {!isAddingRow ? (
-            <button
-              onClick={handleStartAddRow}
-              className="w-full px-6 py-3 text-left text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add new row</span>
-            </button>
-          ) : (
-            <div className="p-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {columns
-                  .filter(col => col.key !== '_selection' && col.key !== '_actions')
-                  .filter(col => visibleColumns.has(col.key))
-                  .map(column => {
-                    const capability = columnCapabilities.get(column.key);
-                    const editType = capability?.editType || 'text';
-                    const hasSettingOptions = settingOptions.has(column.key);
-                    const columnOptions = hasSettingOptions ? settingOptions.get(column.key)! : [];
-
-                    return (
-                      <div key={column.key}>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                          {column.title}
-                        </label>
-
-                        {/* Render appropriate input based on edit type */}
-                        {editType === 'select' && hasSettingOptions ? (
-                          <ColoredDropdown
-                            value={(newRowData as any)[column.key] ?? ''}
-                            options={columnOptions}
-                            onChange={(value) => setNewRowData({ ...newRowData, [column.key]: value } as Partial<T>)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        ) : editType === 'number' ? (
-                          <input
-                            type="number"
-                            value={(newRowData as any)[column.key] ?? ''}
-                            onChange={(e) => setNewRowData({ ...newRowData, [column.key]: e.target.value } as Partial<T>)}
-                            placeholder={`Enter ${column.title.toLowerCase()}`}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
-                          />
-                        ) : editType === 'date' ? (
-                          <input
-                            type="date"
-                            value={(newRowData as any)[column.key] ?? ''}
-                            onChange={(e) => setNewRowData({ ...newRowData, [column.key]: e.target.value } as Partial<T>)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
-                          />
-                        ) : column.key === 'color_code' && colorOptions ? (
-                          <select
-                            value={(newRowData as any)[column.key] ?? ''}
-                            onChange={(e) => setNewRowData({ ...newRowData, [column.key]: e.target.value } as Partial<T>)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
-                          >
-                            <option value="">Select color...</option>
-                            {colorOptions.map(opt => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type="text"
-                            value={(newRowData as any)[column.key] ?? ''}
-                            onChange={(e) => setNewRowData({ ...newRowData, [column.key]: e.target.value } as Partial<T>)}
-                            placeholder={`Enter ${column.title.toLowerCase()}`}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-              </div>
-
-              {/* Action Buttons - Match SettingsDataTable styling */}
-              <div className="flex items-center gap-2 mt-4">
-                <button
-                  onClick={handleSaveNewRow}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 bg-white rounded-md hover:bg-gray-50 hover:border-gray-400 transition-colors text-sm shadow-sm"
-                >
-                  <Check className="h-4 w-4" />
-                  Save
-                </button>
-                <button
-                  onClick={handleCancelAddRow}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-600 bg-white rounded-md hover:bg-gray-50 hover:border-gray-400 transition-colors text-sm"
-                >
-                  <X className="h-4 w-4" />
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
+          <button
+            onClick={handleStartAddRow}
+            className="w-full px-6 py-3 text-left text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add new row</span>
+          </button>
         </div>
       )}
 

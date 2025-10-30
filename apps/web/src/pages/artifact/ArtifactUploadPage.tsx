@@ -250,12 +250,10 @@ export function ArtifactUploadPage() {
               <ArrowLeft className="h-5 w-5 text-gray-600 stroke-[1.5]" />
             </button>
             <div>
-              <h1 className="text-sm font-normal text-gray-500">
-                Upload Artifacts
-                <span className="text-xs font-light text-gray-500 ml-3">
-                  Upload files to cloud storage with metadata
-                </span>
-              </h1>
+              <h1 className="text-sm font-normal text-gray-800">Upload Artifacts</h1>
+              <p className="mt-1 text-sm text-gray-500">
+                Upload files to cloud storage with metadata
+              </p>
             </div>
           </div>
 

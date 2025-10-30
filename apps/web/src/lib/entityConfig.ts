@@ -305,9 +305,14 @@ export const renderEmployeeNames = (names?: string[] | string, record?: any): Re
  */
 
 export enum FieldCategory {
+  // Standard entity fields (most common)
+  NAME = 'NAME',                     // name, title → 200px
+  CODE = 'CODE',                     // code → 120px
+  DESCR = 'DESCR',                   // descr, description → 250px
+
   // Text fields
-  TEXT_LONG = 'TEXT_LONG',           // name, title, descr, addr → 250px
-  TEXT_MEDIUM = 'TEXT_MEDIUM',       // code, email, phone → 140px
+  TEXT_LONG = 'TEXT_LONG',           // addr, summary → 250px
+  TEXT_MEDIUM = 'TEXT_MEDIUM',       // email, phone → 140px
   TEXT_SHORT = 'TEXT_SHORT',         // abbreviations → 100px (unused)
 
   // Numeric fields
@@ -317,10 +322,10 @@ export enum FieldCategory {
 
   // Temporal fields
   DATE = 'DATE',                     // contains _date → 110px
-  TIMESTAMP = 'TIMESTAMP',           // contains _ts → 100px
+  TIMESTAMP = 'TIMESTAMP',           // contains _ts → 150px (e.g., "3 minutes ago")
 
   // Label/Badge fields (settings-driven)
-  LABEL = 'LABEL',                   // _stage, _status, _priority, _level, _tier, _type → 120px
+  LABEL = 'LABEL',                   // _stage, _status, _priority, _level, _tier, _type → 130px
 
   // Boolean fields
   FLAG = 'FLAG',                     // _flag, is_ → 90px
@@ -347,23 +352,45 @@ export enum FieldCategory {
  * Maps field categories to their standard column widths
  */
 export const FIELD_WIDTHS: Record<FieldCategory, string | undefined> = {
+  // Standard entity fields
+  [FieldCategory.NAME]: '200px',
+  [FieldCategory.CODE]: '120px',
+  [FieldCategory.DESCR]: '250px',
+
+  // Text fields
   [FieldCategory.TEXT_LONG]: '250px',
   [FieldCategory.TEXT_MEDIUM]: '140px',
   [FieldCategory.TEXT_SHORT]: '100px',
+
+  // Numeric fields
   [FieldCategory.NUMBER_CURRENCY]: '120px',
   [FieldCategory.NUMBER_MEDIUM]: '100px',
   [FieldCategory.NUMBER_SHORT]: '80px',
+
+  // Temporal fields
   [FieldCategory.DATE]: '110px',
-  [FieldCategory.TIMESTAMP]: '100px',
-  [FieldCategory.LABEL]: '120px',
+  [FieldCategory.TIMESTAMP]: '150px',
+
+  // Label/Badge fields
+  [FieldCategory.LABEL]: '130px',
+
+  // Boolean fields
   [FieldCategory.FLAG]: '90px',
+
+  // Complex fields
   [FieldCategory.METADATA]: undefined, // Hidden by default
   [FieldCategory.TAGS]: '180px',
   [FieldCategory.ASSIGNEES]: '180px',
+
+  // File/Attachment fields
   [FieldCategory.ATTACHMENT]: '220px',
   [FieldCategory.ATTACHMENT_FORMAT]: '90px',
   [FieldCategory.ATTACHMENT_SIZE]: '90px',
+
+  // Relationship fields
   [FieldCategory.ENTITY_LINK]: '110px',
+
+  // Misc
   [FieldCategory.CATEGORY]: '140px',
   [FieldCategory.DEFAULT]: undefined // Auto width
 };
@@ -438,6 +465,19 @@ export function detectFieldCategory(fieldKey: string): FieldCategory {
 
   // ========== EXACT MATCHES ==========
 
+  // Standard entity fields (highest priority)
+  if (key === 'name' || key === 'title') {
+    return FieldCategory.NAME;
+  }
+
+  if (key === 'code') {
+    return FieldCategory.CODE;
+  }
+
+  if (key === 'descr' || key === 'description') {
+    return FieldCategory.DESCR;
+  }
+
   // Metadata (JSONB key-value)
   if (key === 'metadata' || key === 'attr') {
     return FieldCategory.METADATA;
@@ -454,12 +494,12 @@ export function detectFieldCategory(fieldKey: string): FieldCategory {
   }
 
   // Text fields - long content
-  if (key === 'name' || key === 'title' || key === 'descr' || key === 'addr' || key === 'summary') {
+  if (key === 'addr' || key === 'summary') {
     return FieldCategory.TEXT_LONG;
   }
 
   // Text fields - medium identifiers
-  if (key === 'code' || key === 'slug' || key === 'email' || key === 'phone') {
+  if (key === 'slug' || key === 'email' || key === 'phone') {
     return FieldCategory.TEXT_MEDIUM;
   }
 
@@ -532,15 +572,21 @@ export const entityConfigs: Record<string, EntityConfig> = {
     columns: [
       {
         key: 'name',
-        title: 'Project Name',
+        title: 'Name',
         sortable: true,
-        filterable: true,
-        render: (value, record) => React.createElement(
-          'div',
-          null,
-          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-          record.code && React.createElement('div', { className: 'text-sm text-gray-500' }, record.code)
-        )
+        filterable: true
+      },
+      {
+        key: 'code',
+        title: 'Code',
+        sortable: true,
+        filterable: true
+      },
+      {
+        key: 'descr',
+        title: 'Description',
+        sortable: true,
+        filterable: true
       },
       {
         key: 'project_stage',
@@ -567,6 +613,12 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'End Date',
         sortable: true,
         render: renderDate
+      },
+      {
+        key: 'created_ts',
+        title: 'Created',
+        sortable: true,
+        render: renderTimestamp
       }
     ],
 
@@ -600,15 +652,21 @@ export const entityConfigs: Record<string, EntityConfig> = {
     columns: [
       {
         key: 'name',
-        title: 'Task Name',
+        title: 'Name',
         sortable: true,
-        filterable: true,
-        render: (value, record) => React.createElement(
-          'div',
-          null,
-          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-          record.code && React.createElement('div', { className: 'text-sm text-gray-500' }, record.code)
-        )
+        filterable: true
+      },
+      {
+        key: 'code',
+        title: 'Code',
+        sortable: true,
+        filterable: true
+      },
+      {
+        key: 'descr',
+        title: 'Description',
+        sortable: true,
+        filterable: true
       },
       {
         key: 'stage',
@@ -644,6 +702,12 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: false,
         filterable: false,
         render: (value, record) => renderEmployeeNames(value, record)
+      },
+      {
+        key: 'created_ts',
+        title: 'Created',
+        sortable: true,
+        render: renderTimestamp
       }
     ],
 
@@ -1072,19 +1136,15 @@ export const entityConfigs: Record<string, EntityConfig> = {
     columns: [
       {
         key: 'name',
-        title: 'Business Unit',
+        title: 'Name',
         sortable: true,
-        filterable: true,
-        render: (value, record) => React.createElement(
-          'div',
-          null,
-          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-          React.createElement(
-            'div',
-            { className: 'flex items-center text-xs text-gray-500 gap-2 mt-0.5' },
-            record.code && React.createElement('span', null, record.code)
-          )
-        )
+        filterable: true
+      },
+      {
+        key: 'code',
+        title: 'Code',
+        sortable: true,
+        filterable: true
       },
       {
         key: 'business_level',
@@ -1110,8 +1170,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         key: 'descr',
         title: 'Description',
         sortable: true,
-        filterable: true,
-        render: (value) => value ? React.createElement('div', { className: 'max-w-xs truncate text-gray-600' }, value) : '-'
+        filterable: true
       },
       {
         key: 'active_flag',
@@ -1402,8 +1461,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         key: 'descr',
         title: 'Description',
         sortable: true,
-        filterable: true,
-        render: (value) => value ? React.createElement('div', { className: 'max-w-xs truncate text-gray-600' }, value) : '-'
+        filterable: true
       },
       {
         key: 'city',
@@ -1618,15 +1676,15 @@ export const entityConfigs: Record<string, EntityConfig> = {
     columns: [
       {
         key: 'name',
-        title: 'Product Name',
+        title: 'Name',
         sortable: true,
-        filterable: true,
-        render: (value, record) => React.createElement(
-          'div',
-          null,
-          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-          record.code && React.createElement('div', { className: 'text-sm text-gray-500' }, record.code)
-        )
+        filterable: true
+      },
+      {
+        key: 'code',
+        title: 'Code',
+        sortable: true,
+        filterable: true
       },
       {
         key: 'department',
@@ -2059,15 +2117,15 @@ export const entityConfigs: Record<string, EntityConfig> = {
     columns: [
       {
         key: 'name',
-        title: 'Template Name',
+        title: 'Name',
         sortable: true,
-        filterable: true,
-        render: (value, record) => React.createElement(
-          'div',
-          null,
-          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-          record.code && React.createElement('div', { className: 'text-sm text-gray-500' }, record.code)
-        )
+        filterable: true
+      },
+      {
+        key: 'code',
+        title: 'Code',
+        sortable: true,
+        filterable: true
       },
       {
         key: 'subject',

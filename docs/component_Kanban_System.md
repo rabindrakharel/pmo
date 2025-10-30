@@ -79,18 +79,18 @@ const { columns, loading, error } = useKanbanColumns(config, data);
 
 **API Flow:**
 ```typescript
-// 1. Extract category from entity config
+// 1. Extract datalabel from entity config
 config.kanban.metaTable = 'setting_datalabel_task_stage'
-→ category = 'task_stage'
+→ datalabel = 'task_stage'
 
 // 2. Fetch settings
-GET /api/v1/setting?category=task_stage
+GET /api/v1/setting?datalabel=task_stage
 
 // 3. API returns
 {
   data: [
-    { level_name: "Backlog", sort_order: 1, color_code: "#6B7280" },
-    { level_name: "To Do", sort_order: 2, color_code: "#3B82F6" },
+    { id: "0", name: "Backlog", position: 0, color_code: "gray" },
+    { id: "1", name: "To Do", position: 1, color_code: "blue" },
     ...
   ]
 }
@@ -254,36 +254,50 @@ entityConfigs.task.kanban = {
 
 ### Settings Table Structure
 
-**Example:** `setting_datalabel_task_stage`
+**Unified Settings Table:** `app.setting_datalabel`
+
+All settings are now stored in a unified JSONB-based table with the following structure:
 
 ```sql
-CREATE TABLE app.setting_datalabel_task_stage (
-    level_id integer PRIMARY KEY,
-    level_name varchar(100) NOT NULL,      -- Stage name
-    level_descr text,                      -- Stage description
-    sort_order integer NOT NULL,           -- Display order
-    color_code varchar(7),                 -- Hex color (optional)
-    parent_id integer,                     -- Hierarchy support
-    active_flag boolean DEFAULT true
+CREATE TABLE app.setting_datalabel (
+    datalabel_name varchar(100) PRIMARY KEY,  -- e.g., 'task__stage'
+    ui_label text,                           -- Human-readable label
+    ui_icon text,                            -- Icon name (optional)
+    metadata jsonb NOT NULL                  -- Array of setting items
 );
 ```
 
-**Sample Data:**
-```sql
-INSERT INTO app.setting_datalabel_task_stage VALUES
-(0, 'Backlog', 'Tasks awaiting prioritization', 1, '#6B7280', null, true),
-(1, 'To Do', 'Ready to start', 2, '#3B82F6', 0, true),
-(2, 'In Progress', 'Currently working', 3, '#F59E0B', 1, true),
-(3, 'In Review', 'Awaiting review', 4, '#8B5CF6', 2, true),
-(4, 'Blocked', 'Blocked by dependency', 5, '#EF4444', 2, true),
-(5, 'Done', 'Completed successfully', 6, '#10B981', 3, true),
-(6, 'Cancelled', 'Cancelled before completion', 7, '#9CA3AF', null, true);
+**JSONB Metadata Structure:**
+```json
+[
+  {
+    "id": "0",
+    "name": "Backlog",
+    "descr": "Tasks awaiting prioritization",
+    "position": 0,
+    "color_code": "gray",
+    "parent_id": null
+  },
+  {
+    "id": "1",
+    "name": "To Do",
+    "descr": "Ready to start",
+    "position": 1,
+    "color_code": "blue",
+    "parent_id": null
+  }
+]
 ```
+
+**API Endpoint Conversion:**
+- Frontend parameter: `datalabel=task_stage` (snake_case)
+- Database lookup: `datalabel_name='task__stage'` (double underscore)
+- API automatically converts first underscore to double underscore
 
 ### API Response Format
 
 ```bash
-GET /api/v1/setting?category=task_stage
+GET /api/v1/setting?datalabel=task_stage
 ```
 
 **Response:**
@@ -292,17 +306,22 @@ GET /api/v1/setting?category=task_stage
   "data": [
     {
       "id": "0",
-      "level_name": "Backlog",
-      "level_descr": "Tasks awaiting prioritization",
-      "level_id": 0,
-      "sort_order": 1,
-      "color_code": "#6B7280",
-      "parent_id": null,
-      "active_flag": true
+      "name": "Backlog",
+      "descr": "Tasks awaiting prioritization",
+      "position": 0,
+      "color_code": "gray",
+      "parent_id": null
     },
-    ...
+    {
+      "id": "1",
+      "name": "To Do",
+      "descr": "Ready to start",
+      "position": 1,
+      "color_code": "blue",
+      "parent_id": null
+    }
   ],
-  "category": "task_stage"
+  "datalabel": "task_stage"
 }
 ```
 

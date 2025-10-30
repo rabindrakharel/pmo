@@ -705,6 +705,14 @@ export async function projectRoutes(fastify: FastifyInstance) {
     if (!data.name) data.name = 'Untitled';
     if (!data.code) data.code = `PROJECT-${Date.now()}`;
 
+    // Move business_id and office_id into metadata if provided at top level
+    // (These don't exist as table columns - stored in metadata JSONB per DDL)
+    if (data.business_id || data.office_id) {
+      data.metadata = data.metadata || {};
+      if (data.business_id) data.metadata.business_id = data.business_id;
+      if (data.office_id) data.metadata.office_id = data.office_id;
+    }
+
     const userId = (request as any).user?.sub;
     if (!userId) {
       return reply.status(401).send({ error: 'User not authenticated' });
@@ -825,6 +833,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const data = request.body as any;
+
+    // Move business_id and office_id into metadata if provided at top level
+    // (These don't exist as table columns - stored in metadata JSONB per DDL)
+    if (data.business_id || data.office_id) {
+      // Get existing metadata first, then merge
+      const existing = await db.execute(sql`
+        SELECT metadata FROM app.d_project WHERE id = ${id}
+      `);
+      data.metadata = existing[0]?.metadata || {};
+      if (data.business_id) data.metadata.business_id = data.business_id;
+      if (data.office_id) data.metadata.office_id = data.office_id;
+    }
 
     const userId = (request as any).user?.sub;
     if (!userId) {
