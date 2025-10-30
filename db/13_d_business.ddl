@@ -16,7 +16,7 @@
 --    • Returns: {id: "new-uuid", version: 1, ...}
 --    • Database: INSERT with version=1, active_flag=true, created_ts=now()
 --    • RBAC: Requires permission 4 (create) on entity='biz', entity_id='all'
---    • Business Rule: level_name must match app.setting_datalabel (datalabel_name='business__level') entries ("Department", "Division", "Corporate")
+--    • Business Rule: dl__business_level must match app.setting_datalabel (datalabel_name='business__level') entries ("Department", "Division", "Corporate")
 --
 -- 2. UPDATE BUSINESS UNIT (Budget Changes, Manager Assignment, Office Reassignment)
 --    • Endpoint: PUT /api/v1/biz/{id}
@@ -49,7 +49,7 @@
 --            AND (rbac.entity_id=b.id::text OR rbac.entity_id='all')
 --            AND 0=ANY(rbac.permission)  -- View permission
 --        )
---      ORDER BY b.level_name DESC, b.name ASC
+--      ORDER BY b.dl__business_level DESC, b.name ASC
 --      LIMIT $1 OFFSET $2
 --    • RBAC: User sees ONLY business units they have view access to
 --    • Frontend: Renders in EntityMainPage with table view (tree structure optional)
@@ -106,8 +106,8 @@
 -- • updated_ts: Last modification time (refreshed on UPDATE)
 --
 -- KEY BUSINESS FIELDS:
--- • level_name: Hierarchy level ("Department", "Division", "Corporate")
---   - Loaded from app.setting_datalabel table (datalabel_name='business__level') via /api/v1/setting?datalabel=business_level
+-- • dl__business_level: Hierarchy level ("Department", "Division", "Corporate")
+--   - Loaded from app.setting_datalabel table (datalabel_name='business__level') via GET /api/v1/setting?category=business__level
 --   - Determines position in organizational tree
 --   - Department (level 0) owns projects directly
 -- • parent_id: Hierarchical relationship (NULL for Corporate, UUID for all others)
@@ -142,7 +142,7 @@ CREATE TABLE app.d_business (
 
     -- Hierarchy fields
     parent_id uuid ,
-    level_name text NOT NULL, -- Department, Division, Corporate
+    dl__business_level text NOT NULL, -- References app.setting_datalabel (datalabel_name='business__level')
 
     -- Office relationship
     office_id uuid ,
@@ -163,8 +163,8 @@ CREATE TABLE app.d_business (
 -- Sample business unit hierarchy data for PMO company
 -- Level 2: Corporate (Top level)
 INSERT INTO app.d_business (
-    id, code, name, descr,
-    parent_id, level_name, office_id, budget_allocated_amt, manager_employee_id
+    code, name, descr,
+    parent_id, dl__business_level, office_id, budget_allocated_amt, manager_employee_id
 ) VALUES (
     'HHS-CORP',
     'Huron Home Services Corporation',
@@ -176,8 +176,8 @@ INSERT INTO app.d_business (
 
 -- Level 1: Service Operations Division
 INSERT INTO app.d_business (
-    id, code, name, descr,
-    parent_id, level_name, office_id, budget_allocated_amt, manager_employee_id
+    code, name, descr,
+    parent_id, dl__business_level, office_id, budget_allocated_amt, manager_employee_id
 ) VALUES (
     'SOD-001',
     'Service Operations Division',
@@ -189,8 +189,8 @@ INSERT INTO app.d_business (
 
 -- Level 1: Corporate Services Division
 INSERT INTO app.d_business (
-    id, code, name, descr,
-    parent_id, level_name, office_id, budget_allocated_amt, manager_employee_id
+    code, name, descr,
+    parent_id, dl__business_level, office_id, budget_allocated_amt, manager_employee_id
 ) VALUES (
     'CSD-001',
     'Corporate Services Division',
@@ -202,8 +202,8 @@ INSERT INTO app.d_business (
 
 -- Level 0: Landscaping Department
 INSERT INTO app.d_business (
-    id, code, name, descr,
-    parent_id, level_name, office_id, budget_allocated_amt, manager_employee_id
+    code, name, descr,
+    parent_id, dl__business_level, office_id, budget_allocated_amt, manager_employee_id
 ) VALUES (
     'LAND-DEPT',
     'Landscaping Department',
@@ -215,8 +215,8 @@ INSERT INTO app.d_business (
 
 -- Level 0: HVAC Department
 INSERT INTO app.d_business (
-    id, code, name, descr,
-    parent_id, level_name, office_id, budget_allocated_amt, manager_employee_id
+    code, name, descr,
+    parent_id, dl__business_level, office_id, budget_allocated_amt, manager_employee_id
 ) VALUES (
     'HVAC-DEPT',
     'HVAC Department',
@@ -228,8 +228,8 @@ INSERT INTO app.d_business (
 
 -- Level 0: Property Maintenance Department
 INSERT INTO app.d_business (
-    id, code, name, descr,
-    parent_id, level_name, office_id, budget_allocated_amt, manager_employee_id
+    code, name, descr,
+    parent_id, dl__business_level, office_id, budget_allocated_amt, manager_employee_id
 ) VALUES (
     'PROP-DEPT',
     'Property Maintenance Department',
@@ -241,8 +241,8 @@ INSERT INTO app.d_business (
 
 -- Level 0: Human Resources Department
 INSERT INTO app.d_business (
-    id, code, name, descr,
-    parent_id, level_name, office_id, budget_allocated_amt, manager_employee_id
+    code, name, descr,
+    parent_id, dl__business_level, office_id, budget_allocated_amt, manager_employee_id
 ) VALUES (
     'HR-DEPT',
     'Human Resources Department',

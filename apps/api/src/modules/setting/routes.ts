@@ -18,7 +18,9 @@ export async function settingRoutes(fastify: FastifyInstance) {
   fastify.get('/api/v1/setting', {
     schema: {
       querystring: Type.Object({
-        datalabel: Type.String(),
+        // Support both 'category' (new standard) and 'datalabel' (legacy)
+        category: Type.Optional(Type.String()),
+        datalabel: Type.Optional(Type.String()),
       }),
       response: {
         200: Type.Object({
@@ -30,20 +32,37 @@ export async function settingRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { datalabel } = request.query as any;
+    const query = request.query as any;
+
+    // Support both ?category= (new standard with dl__ prefix) and ?datalabel= (legacy with single underscore)
+    const inputParam = query.category || query.datalabel;
+
+    if (!inputParam) {
+      return reply.status(400).send({ error: 'Missing required parameter: category or datalabel' });
+    }
 
     try {
-      // Convert snake_case to entity__attribute format
-      // Database pattern: {entity}__{attribute}
-      // - Entity is always a single word
-      // - Attribute can have underscores (e.g., funnel_stage, approval_status)
-      // Examples:
-      // - 'task_stage' -> 'task__stage'
-      // - 'opportunity_funnel_stage' -> 'opportunity__funnel_stage'
-      // - 'form_approval_status' -> 'form__approval_status'
-      //
-      // Strategy: Replace the FIRST underscore with double underscore
-      const datalabelName = datalabel.replace(/_/, '__');
+      // Convert to database format (entity__attribute with double underscore)
+      // Three supported formats:
+      // 1. ?category=dl__project__stage (new standard - matches database column name)
+      // 2. ?category=project__stage (intermediate - already double underscore)
+      // 3. ?datalabel=project_stage (legacy - single underscore, needs conversion)
+      let datalabelName: string;
+
+      if (query.category) {
+        // New standard: strip dl__ prefix if present, leaving double underscore format
+        // Examples: 'dl__project__stage' -> 'project__stage', 'dl__task__priority' -> 'task__priority'
+        if (inputParam.startsWith('dl__')) {
+          datalabelName = inputParam.substring(4); // Remove 'dl__' prefix
+        } else {
+          // Already in double underscore format without dl__ prefix
+          datalabelName = inputParam;
+        }
+      } else {
+        // Legacy: convert first underscore to double underscore
+        // Examples: 'task_stage' -> 'task__stage', 'opportunity_funnel_stage' -> 'opportunity__funnel_stage'
+        datalabelName = inputParam.replace(/_/, '__');
+      }
 
       // Query unified table and expand JSONB metadata array
       // IMPORTANT: Use WITH ORDINALITY to preserve array order (not ID order)
@@ -66,10 +85,15 @@ export async function settingRoutes(fastify: FastifyInstance) {
       `));
 
       if (results.length === 0) {
-        return reply.status(404).send({ error: `Datalabel '${datalabel}' not found` });
+        return reply.status(404).send({ error: `Datalabel '${inputParam}' not found` });
       }
 
-      return { data: results, datalabel };
+      // Return datalabel in database column name format (dl__entity__label)
+      // If input already has dl__ prefix, use as-is
+      // Otherwise add dl__ prefix to match database column names
+      const columnName = inputParam.startsWith('dl__') ? inputParam : `dl__${inputParam}`;
+
+      return { data: results, datalabel: columnName };
     } catch (error) {
       fastify.log.error('Error fetching settings:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

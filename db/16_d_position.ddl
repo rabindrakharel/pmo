@@ -42,7 +42,7 @@
 --   - Supports RBAC via entity_id_rbac_map table
 --   - Uses common field structure across all entities
 --   - Includes metadata jsonb field for extensibility
---   - References meta_position_level for hierarchy validation
+--   - dl__position_level references app.setting_datalabel (datalabel_name='position__level')
 --
 -- Legacy Design Elements Retained:
 --   - Hierarchical structure with level_id references
@@ -67,11 +67,9 @@ CREATE TABLE app.d_position (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Standard fields (common across all entities) - ALWAYS FIRST
-  slug varchar(255),
   code varchar(100),
   name text NOT NULL,
   descr text,
-  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
   from_ts timestamptz NOT NULL DEFAULT now(),
   to_ts timestamptz,
   active_flag boolean NOT NULL DEFAULT true,
@@ -82,26 +80,26 @@ CREATE TABLE app.d_position (
   -- Entity metadata (new standard)
   metadata jsonb DEFAULT '{}'::jsonb,
 
-  -- Hierarchical structure (references meta_position_level)
-  level_name text NOT NULL,
-  is_leaf_level boolean NOT NULL DEFAULT false,
-  is_root_level boolean NOT NULL DEFAULT false,
+  -- Hierarchical structure (datalabel for position level)
+  dl__position_level text NOT NULL, -- References app.setting_datalabel (datalabel_name='position__level')
+  leaf_level_flag boolean NOT NULL DEFAULT false,
+  root_level_flag boolean NOT NULL DEFAULT false,
   parent_id uuid, -- Self-referencing for position hierarchy (not via entity_id_hierarchy_mapping)
 
-  -- Position attributes
-  is_management boolean NOT NULL DEFAULT false,
-  is_executive boolean NOT NULL DEFAULT false,
+  -- Position attributes (renamed to *_flag pattern)
+  management_flag boolean NOT NULL DEFAULT false,
+  executive_flag boolean NOT NULL DEFAULT false,
 
   -- Compensation and authority
   salary_band_min_amt numeric(10,2),
   salary_band_max_amt numeric(10,2),
   bonus_target_pct numeric(5,2),
-  equity_eligible boolean DEFAULT false,
+  equity_eligible_flag boolean DEFAULT false,
   approval_limit_amt numeric(12,2),
 
   -- Organizational capacity
   direct_reports_max int,
-  remote_eligible boolean DEFAULT false
+  remote_eligible_flag boolean DEFAULT false
 );
 
 -- ============================================================================
@@ -112,153 +110,137 @@ CREATE TABLE app.d_position (
 -- Comprehensive position structure supporting career progression and authority delegation
 
 -- Level 0: CEO/President (Root Level)
-INSERT INTO app.d_position (slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
-  is_management, is_executive, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
-  equity_eligible, approval_limit_amt, direct_reports_max, remote_eligible, metadata
+INSERT INTO app.d_position (code, name, "descr", dl__position_level, parent_id, leaf_level_flag, root_level_flag,
+  management_flag, executive_flag, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
+  equity_eligible_flag, approval_limit_amt, direct_reports_max, remote_eligible_flag, metadata
 ) VALUES
-('chief-executive-officer-pos', 'CEO-POS', 'Chief Executive Officer',
+('CEO-POS', 'Chief Executive Officer',
  'Chief Executive Officer responsible for overall strategic direction, board reporting, and enterprise leadership',
  'CEO/President', NULL, false, true, true, true,
  300000.00, 600000.00, 50.00, true, NULL, 8, true,
- '["executive", "ceo", "board-reporting", "strategic"]',
  '{"board_reporting": true, "public_facing": true, "strategic_planning": true, "investor_relations": true, "ultimate_authority": true, "succession_planning": true}');
 
 -- Level 1: C-Level Executives
-INSERT INTO app.d_position (slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
-  is_management, is_executive, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
-  equity_eligible, approval_limit_amt, direct_reports_max, remote_eligible, metadata
+INSERT INTO app.d_position (code, name, "descr", dl__position_level, parent_id, leaf_level_flag, root_level_flag,
+  management_flag, executive_flag, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
+  equity_eligible_flag, approval_limit_amt, direct_reports_max, remote_eligible_flag, metadata
 ) VALUES
-('chief-financial-officer-pos', 'CFO-POS', 'Chief Financial Officer',
+('CFO-POS', 'Chief Financial Officer',
  'Senior executive responsible for financial strategy, reporting, compliance, and treasury management',
  'C-Level', (SELECT id FROM app.d_position WHERE code = 'CEO-POS'), false, false, true, true,
  250000.00, 450000.00, 40.00, true, 5000000.00, 6, true,
- '["executive", "c-level", "financial", "compliance"]',
  '{"financial_oversight": true, "regulatory_compliance": true, "investor_relations": true, "risk_management": true}'),
 
-('chief-technology-officer-pos', 'CTO-POS', 'Chief Technology Officer',
+('CTO-POS', 'Chief Technology Officer',
  'Senior executive responsible for technology strategy, digital transformation, and innovation leadership',
  'C-Level', (SELECT id FROM app.d_position WHERE code = 'CEO-POS'), false, false, true, true,
  250000.00, 450000.00, 40.00, true, 3000000.00, 5, true,
- '["executive", "c-level", "technology", "innovation"]',
  '{"technology_strategy": true, "digital_transformation": true, "innovation_leadership": true, "vendor_management": true}'),
 
-('chief-operating-officer-pos', 'COO-POS', 'Chief Operating Officer',
+('COO-POS', 'Chief Operating Officer',
  'Senior executive responsible for daily operations, service delivery, and operational excellence',
  'C-Level', (SELECT id FROM app.d_position WHERE code = 'CEO-POS'), false, false, true, true,
  250000.00, 450000.00, 40.00, true, 8000000.00, 8, true,
- '["executive", "c-level", "operations", "service-delivery"]',
  '{"operational_excellence": true, "service_quality": true, "safety_oversight": true, "performance_management": true}');
 
 -- Level 2: SVP/EVP Positions
-INSERT INTO app.d_position (slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
-  is_management, is_executive, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
-  equity_eligible, approval_limit_amt, direct_reports_max, remote_eligible, metadata
+INSERT INTO app.d_position (code, name, "descr", dl__position_level, parent_id, leaf_level_flag, root_level_flag,
+  management_flag, executive_flag, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
+  equity_eligible_flag, approval_limit_amt, direct_reports_max, remote_eligible_flag, metadata
 ) VALUES
-('senior-vice-president-ops', 'SVP-OPS', 'Senior Vice President - Operations',
+('SVP-OPS', 'Senior Vice President - Operations',
  'Senior executive responsible for multiple operational divisions and strategic business unit management',
  'SVP/EVP', (SELECT id FROM app.d_position WHERE code = 'COO-POS'), false, false, true, true,
  200000.00, 350000.00, 35.00, true, 5000000.00, 10, true,
- '["senior-executive", "svp", "operations", "multi-division"]',
  '{"multi_division_oversight": true, "p_and_l_responsibility": true, "strategic_planning": true, "operational_leadership": true}');
 
 -- Level 3: VP Positions
-INSERT INTO app.d_position (slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
-  is_management, is_executive, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
-  equity_eligible, approval_limit_amt, direct_reports_max, remote_eligible, metadata
+INSERT INTO app.d_position (code, name, "descr", dl__position_level, parent_id, leaf_level_flag, root_level_flag,
+  management_flag, executive_flag, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
+  equity_eligible_flag, approval_limit_amt, direct_reports_max, remote_eligible_flag, metadata
 ) VALUES
-('vice-president-hr-pos', 'VP-HR-POS', 'Vice President - Human Resources',
+('VP-HR-POS', 'Vice President - Human Resources',
  'Executive responsible for talent management, organizational development, and employee relations',
  'VP', (SELECT id FROM app.d_position WHERE code = 'CEO-POS'), false, false, true, true,
  180000.00, 320000.00, 30.00, true, 2000000.00, 8, true,
- '["vp", "human-resources", "talent-management", "organizational-development"]',
  '{"talent_strategy": true, "organizational_development": true, "employee_relations": true, "compensation_planning": true}'),
 
-('vice-president-technology', 'VP-TECH', 'Vice President - Technology',
+('VP-TECH', 'Vice President - Technology',
  'Executive responsible for technology operations, systems management, and digital initiatives',
  'VP', (SELECT id FROM app.d_position WHERE code = 'CTO-POS'), false, false, true, true,
  180000.00, 320000.00, 30.00, true, 1500000.00, 6, true,
- '["vp", "technology", "systems", "digital-initiatives"]',
  '{"technology_operations": true, "systems_management": true, "digital_projects": true, "vendor_relations": true}');
 
 -- Level 4: AVP Positions
-INSERT INTO app.d_position (slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
-  is_management, is_executive, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
-  equity_eligible, approval_limit_amt, direct_reports_max, remote_eligible, metadata
+INSERT INTO app.d_position (code, name, "descr", dl__position_level, parent_id, leaf_level_flag, root_level_flag,
+  management_flag, executive_flag, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
+  equity_eligible_flag, approval_limit_amt, direct_reports_max, remote_eligible_flag, metadata
 ) VALUES
-('assistant-vp-operations', 'AVP-OPS', 'Assistant Vice President - Operations',
+('AVP-OPS', 'Assistant Vice President - Operations',
  'Senior management role responsible for operational coordination and performance management',
  'AVP', (SELECT id FROM app.d_position WHERE code = 'SVP-OPS'), false, false, true, false,
  150000.00, 280000.00, 25.00, false, 1000000.00, 8, true,
- '["avp", "operations", "coordination", "performance-management"]',
  '{"operational_coordination": true, "performance_oversight": true, "process_improvement": true, "team_development": true}');
 
 -- Level 5: Senior Director Positions
-INSERT INTO app.d_position (slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
-  is_management, is_executive, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
-  equity_eligible, approval_limit_amt, direct_reports_max, remote_eligible, metadata
+INSERT INTO app.d_position (code, name, "descr", dl__position_level, parent_id, leaf_level_flag, root_level_flag,
+  management_flag, executive_flag, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
+  equity_eligible_flag, approval_limit_amt, direct_reports_max, remote_eligible_flag, metadata
 ) VALUES
-('senior-director-finance', 'SR-DIR-FIN', 'Senior Director - Finance',
+('SR-DIR-FIN', 'Senior Director - Finance',
  'Senior management role responsible for financial planning, analysis, and strategic financial initiatives',
  'Senior Director', (SELECT id FROM app.d_position WHERE code = 'CFO-POS'), false, false, true, false,
  130000.00, 250000.00, 20.00, false, 750000.00, 6, true,
- '["senior-director", "finance", "planning", "analysis"]',
  '{"financial_planning": true, "strategic_analysis": true, "budget_oversight": true, "financial_reporting": true}'),
 
-('senior-director-operations', 'SR-DIR-OPS', 'Senior Director - Operations',
+('SR-DIR-OPS', 'Senior Director - Operations',
  'Senior management role responsible for operational excellence and service delivery management',
  'Senior Director', (SELECT id FROM app.d_position WHERE code = 'AVP-OPS'), false, false, true, false,
  130000.00, 250000.00, 20.00, false, 500000.00, 8, false,
- '["senior-director", "operations", "service-delivery", "excellence"]',
  '{"service_excellence": true, "operational_oversight": true, "quality_management": true, "customer_satisfaction": true}');
 
 -- Level 6: Director Positions
-INSERT INTO app.d_position (slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
-  is_management, is_executive, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
-  equity_eligible, approval_limit_amt, direct_reports_max, remote_eligible, metadata
+INSERT INTO app.d_position (code, name, "descr", dl__position_level, parent_id, leaf_level_flag, root_level_flag,
+  management_flag, executive_flag, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
+  equity_eligible_flag, approval_limit_amt, direct_reports_max, remote_eligible_flag, metadata
 ) VALUES
-('director-finance-pos', 'DIR-FIN-POS', 'Director - Finance',
+('DIR-FIN-POS', 'Director - Finance',
  'Management role responsible for financial operations, reporting, and departmental management',
  'Director', (SELECT id FROM app.d_position WHERE code = 'SR-DIR-FIN'), false, false, true, false,
  110000.00, 200000.00, 15.00, false, 250000.00, 5, true,
- '["director", "finance", "operations", "reporting"]',
  '{"financial_operations": true, "team_management": true, "reporting_oversight": true, "process_management": true}'),
 
-('director-it-pos', 'DIR-IT-POS', 'Director - Information Technology',
+('DIR-IT-POS', 'Director - Information Technology',
  'Management role responsible for IT operations, system administration, and technology team leadership',
  'Director', (SELECT id FROM app.d_position WHERE code = 'VP-TECH'), false, false, true, false,
  110000.00, 200000.00, 15.00, false, 200000.00, 6, true,
- '["director", "it", "systems", "technology"]',
  '{"it_operations": true, "system_administration": true, "technology_leadership": true, "infrastructure_management": true}'),
 
-('director-landscaping', 'DIR-LAND', 'Director - Landscaping Services',
+('DIR-LAND', 'Director - Landscaping Services',
  'Management role responsible for landscaping operations, project management, and service delivery',
  'Director', (SELECT id FROM app.d_position WHERE code = 'SR-DIR-OPS'), false, false, true, false,
  110000.00, 200000.00, 15.00, false, 300000.00, 8, false,
- '["director", "landscaping", "services", "operations"]',
  '{"landscaping_operations": true, "project_oversight": true, "service_quality": true, "team_leadership": true}');
 
 -- Level 7: Associate Director Positions (Leaf Level)
-INSERT INTO app.d_position (slug, code, name, "descr", level_name, parent_id, is_leaf_level, is_root_level,
-  is_management, is_executive, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
-  equity_eligible, approval_limit_amt, direct_reports_max, remote_eligible, metadata
+INSERT INTO app.d_position (code, name, "descr", dl__position_level, parent_id, leaf_level_flag, root_level_flag,
+  management_flag, executive_flag, salary_band_min_amt, salary_band_max_amt, bonus_target_pct,
+  equity_eligible_flag, approval_limit_amt, direct_reports_max, remote_eligible_flag, metadata
 ) VALUES
-('associate-director-finance', 'ASSOC-DIR-FIN', 'Associate Director - Finance',
+('ASSOC-DIR-FIN', 'Associate Director - Finance',
  'Management role responsible for financial analysis, reporting support, and specialized financial functions',
  'Associate Director', (SELECT id FROM app.d_position WHERE code = 'DIR-FIN-POS'), true, false, true, false,
  90000.00, 160000.00, 10.00, false, 100000.00, 4, true,
- '["associate-director", "finance", "analysis", "support"]',
  '{"financial_analysis": true, "reporting_support": true, "specialized_functions": true, "process_improvement": true}'),
 
-('associate-director-it', 'ASSOC-DIR-IT', 'Associate Director - Information Technology',
+('ASSOC-DIR-IT', 'Associate Director - Information Technology',
  'Management role responsible for specialized IT functions, project coordination, and technical leadership',
  'Associate Director', (SELECT id FROM app.d_position WHERE code = 'DIR-IT-POS'), true, false, true, false,
  90000.00, 160000.00, 10.00, false, 75000.00, 4, true,
- '["associate-director", "it", "projects", "technical"]',
  '{"technical_leadership": true, "project_coordination": true, "specialized_systems": true, "innovation_support": true}'),
 
-('associate-director-operations', 'ASSOC-DIR-OPS', 'Associate Director - Operations',
+('ASSOC-DIR-OPS', 'Associate Director - Operations',
  'Management role responsible for operational support, process improvement, and team coordination',
  'Associate Director', (SELECT id FROM app.d_position WHERE code = 'DIR-LAND'), true, false, true, false,
  90000.00, 160000.00, 10.00, false, 50000.00, 6, false,
- '["associate-director", "operations", "support", "coordination"]',
  '{"operational_support": true, "process_improvement": true, "team_coordination": true, "quality_assurance": true}');

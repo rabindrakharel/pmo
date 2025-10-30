@@ -19,7 +19,7 @@ const ProjectSchema = Type.Object({
   descr: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Any()),
   // Project fields
-  project_stage: Type.Optional(Type.String()),
+  dl__project_stage: Type.Optional(Type.String()),
   budget_allocated_amt: Type.Optional(Type.Number()),
   budget_spent_amt: Type.Optional(Type.Number()),
   planned_start_date: Type.Optional(Type.String()),
@@ -46,7 +46,7 @@ const CreateProjectSchema = Type.Object({
   metadata: Type.Optional(Type.Any()),
   business_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
   office_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
-  project_stage: Type.Optional(Type.String()),
+  dl__project_stage: Type.Optional(Type.String()),
   budget_allocated: Type.Optional(Type.Number()),
   budget_spent: Type.Optional(Type.Number()),
   planned_start_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
@@ -69,7 +69,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       querystring: Type.Object({
         active: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
-        project_stage: Type.Optional(Type.String()),
+        dl__project_stage: Type.Optional(Type.String()),
         business_id: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
@@ -87,7 +87,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      active, search, project_stage, business_id, limit = 50, offset = 0
+      active, search, dl__project_stage, business_id, limit = 50, offset = 0
     } = request.query as any;
 
     const userId = (request as any).user?.sub;
@@ -117,8 +117,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
         conditions.push(sql`p.active_flag = ${active}`);
       }
 
-      if (project_stage) {
-        conditions.push(sql`p.project_stage = ${project_stage}`);
+      if (dl__project_stage) {
+        conditions.push(sql`p.dl__project_stage = ${dl__project_stage}`);
       }
 
       if (search) {
@@ -139,7 +139,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const projects = await db.execute(sql`
         SELECT
           p.id, p.code, p.name, p.descr, p.metadata,
-          p.project_stage,
+          p.dl__project_stage,
           p.budget_allocated_amt, p.budget_spent_amt,
           p.planned_start_date, p.planned_end_date, p.actual_start_date, p.actual_end_date,
           p.manager_employee_id, p.sponsor_employee_id, p.stakeholder_employee_ids,
@@ -224,7 +224,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           th.assignee_id, th.reporter_id, th.project_id,
           th.estimated_hours, th.story_points,
           th.planned_start_date, th.planned_end_date,
-          th.name, th.descr, th.tags, th.created, th.updated,
+          th.name, th.descr, th.th.created, th.updated,
           -- Task records data
           tr.status_name, tr.stage_name, tr.completion_percentage,
           tr.actual_start_date, tr.actual_end_date, tr.actual_hours,
@@ -440,7 +440,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       const offset = (page - 1) * limit;
       const wiki = await db.execute(sql`
-        SELECT w.id, w.name, w.summary as descr, w.tags, w.created_ts as created, w.updated_ts as updated
+        SELECT w.id, w.name, w.summary as descr, w.w.created_ts as created, w.updated_ts as updated
         FROM app.d_wiki w
         INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = w.id::text
         WHERE eim.parent_entity_id = ${projectId}
@@ -515,7 +515,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       const offset = (page - 1) * limit;
       const forms = await db.execute(sql`
-        SELECT f.id, f.name, f.descr, f.tags, f.created, f.updated, eim.relationship_type
+        SELECT f.id, f.name, f.descr, f.f.created, f.updated, eim.relationship_type
         FROM app.d_entity_id_map eim
         INNER JOIN app.d_form_head f ON f.id::text = eim.child_entity_id
         WHERE eim.parent_entity_type = 'project'
@@ -590,7 +590,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       const offset = (page - 1) * limit;
       const artifacts = await db.execute(sql`
-        SELECT a.id, a.name, a.descr, a.tags, a.created, a.updated
+        SELECT a.id, a.name, a.descr, a.a.created, a.updated
         FROM app.d_artifact a
         INNER JOIN app.entity_id_map eh ON eh.child_entity_id = a.id
         WHERE eh.parent_entity_id = ${projectId}
@@ -666,7 +666,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const project = await db.execute(sql`
         SELECT
           id, code, name, descr, metadata,
-          project_stage,
+          dl__project_stage,
           budget_allocated_amt, budget_spent_amt,
           planned_start_date, planned_end_date, actual_start_date, actual_end_date,
           manager_employee_id, sponsor_employee_id, stakeholder_employee_ids,
@@ -759,7 +759,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const result = await db.execute(sql`
         INSERT INTO app.d_project (
           code, name, descr, metadata,
-          project_stage,
+          dl__project_stage,
           budget_allocated_amt, budget_spent_amt,
           planned_start_date, planned_end_date, actual_start_date, actual_end_date,
           manager_employee_id, sponsor_employee_id, stakeholder_employee_ids,
@@ -770,7 +770,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           ${data.name || 'Untitled Project'},
           ${data.descr || null},
           ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
-          ${data.project_stage || null},
+          ${data.dl__project_stage || null},
           ${data.budget_allocated || data.budget_allocated_amt || null},
           ${data.budget_spent || data.budget_spent_amt || 0},
           ${data.planned_start_date || null},
@@ -884,7 +884,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
 
       // Project fields
-      if (data.project_stage !== undefined) updateFields.push(sql`project_stage = ${data.project_stage}`);
+      if (data.dl__project_stage !== undefined) updateFields.push(sql`dl__project_stage = ${data.dl__project_stage}`);
       if (data.budget_allocated !== undefined || data.budget_allocated_amt !== undefined) {
         updateFields.push(sql`budget_allocated_amt = ${data.budget_allocated_amt || data.budget_allocated}`);
       }
@@ -1019,7 +1019,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       const tasks = await db.execute(sql`
         SELECT
-          t.id, t.slug, t.code, t.name, t.descr, t.tags, t.metadata,
+          t.id, t.t.code, t.name, t.descr, t.t.metadata,
           t.assignee_employee_ids, t.stage, t.priority_level,
           t.estimated_hours, t.actual_hours, t.story_points,
           t.parent_task_id, t.dependency_task_ids,

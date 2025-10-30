@@ -11,11 +11,9 @@ import {
 // Schema based on d_reports table structure
 const ReportSchema = Type.Object({
   id: Type.String(),
-  slug: Type.String(),
   code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  tags: Type.Array(Type.String()),
   metadata: Type.Optional(Type.Object({})),
 
   // Report definition
@@ -55,11 +53,9 @@ const ReportSchema = Type.Object({
 });
 
 const CreateReportSchema = Type.Object({
-  slug: Type.String({ minLength: 1 }),
   code: Type.String({ minLength: 1 }),
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Array(Type.String())),
   metadata: Type.Optional(Type.Object({})),
   report_type: Type.String(),
   report_category: Type.Optional(Type.String()),
@@ -172,7 +168,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
 
       const reports = await db.execute(sql`
         SELECT
-          id, slug, code, name, "descr", tags, metadata, report_type,
+          id, code, name, "descr", metadata, report_type,
           report_category, data_source_config, query_definition,
           refresh_frequency, chart_type, visualization_config,
           is_public, auto_refresh_enabled, email_subscribers,
@@ -217,7 +213,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
     try {
       const report = await db.execute(sql`
         SELECT
-          id, slug, code, name, "descr", tags, metadata, report_type,
+          id, code, name, "descr", metadata, report_type,
           report_category, data_source_config, query_definition,
           refresh_frequency, chart_type, visualization_config,
           is_public, auto_refresh_enabled, email_subscribers,
@@ -257,7 +253,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
     try {
       const result = await db.execute(sql`
         INSERT INTO app.d_reports (
-          slug, code, name, "descr", tags, metadata, report_type,
+          code, name, "descr", metadata, report_type,
           report_category, data_source_config, query_definition,
           refresh_frequency, chart_type, visualization_config,
           is_public, auto_refresh_enabled, email_subscribers,

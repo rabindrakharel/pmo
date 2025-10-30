@@ -21,8 +21,8 @@ const TaskSchema = Type.Object({
   metadata: Type.Optional(Type.Any()),
 
   // Status and priority
-  stage: Type.Optional(Type.String()),
-  priority_level: Type.Optional(Type.String()),
+  dl__task_stage: Type.Optional(Type.String()),
+  dl__task_priority: Type.Optional(Type.String()),
 
   // Effort tracking
   estimated_hours: Type.Optional(Type.Number()),
@@ -49,8 +49,8 @@ const CreateTaskSchema = Type.Object({
   metadata: Type.Optional(Type.Any()),
 
   // Status and priority
-  stage: Type.Optional(Type.String()),
-  priority_level: Type.Optional(Type.String()),
+  dl__task_stage: Type.Optional(Type.String()),
+  dl__task_priority: Type.Optional(Type.String()),
 
   // Effort tracking
   estimated_hours: Type.Optional(Type.Number()),
@@ -68,7 +68,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       querystring: Type.Object({
         project_id: Type.Optional(Type.String()),
         assigned_to_employee_id: Type.Optional(Type.String()),
-        stage: Type.Optional(Type.String()),  // DDL column name (not task_status)
+        dl__task_stage: Type.Optional(Type.String()),  // DDL column name (not task_status)
         task_type: Type.Optional(Type.String()),
         task_category: Type.Optional(Type.String()),
         worksite_id: Type.Optional(Type.String()),
@@ -91,7 +91,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      project_id, assigned_to_employee_id, stage, task_type, task_category,
+      project_id, assigned_to_employee_id, dl__task_stage, task_type, task_category,
       worksite_id, client_id, active, search, limit = 50, offset = 0
     } = request.query as any;
 
@@ -139,9 +139,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
         )`);
       }
 
-      // Task status is stored as 'stage' column (DDL name)
-      if (stage !== undefined) {
-        conditions.push(sql`t.stage = ${stage}`);
+      // Task status is stored as 'dl__task_stage' column (DDL name)
+      if (dl__task_stage !== undefined) {
+        conditions.push(sql`t.dl__task_stage = ${dl__task_stage}`);
       }
 
       // Task type stored in metadata JSONB
@@ -220,8 +220,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
             ),
             '[]'::json
           ) as assignee_employee_names,
-          t.stage,
-          t.priority_level,
+          t.dl__task_stage,
+          t.dl__task_priority,
           t.estimated_hours, t.actual_hours,
           t.story_points,
           -- Extract IDs from metadata JSONB
@@ -333,7 +333,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
             ),
             '[]'::json
           ) as assignee_employee_names,
-          t.stage, t.priority_level,
+          t.dl__task_stage, t.dl__task_priority,
           t.estimated_hours, t.actual_hours, t.story_points,
           -- Extract IDs from metadata JSONB
           (t.metadata->>'project_id')::text as project_id,
@@ -407,7 +407,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const result = await db.execute(sql`
         INSERT INTO app.d_task (
           code, name, descr, metadata,
-          stage, priority_level,
+          dl__task_stage, dl__task_priority,
           estimated_hours, actual_hours, story_points,
           active_flag
         )
@@ -416,8 +416,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
           ${data.name || 'Untitled Task'},
           ${data.descr || null},
           ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
-          ${data.stage || null},
-          ${data.priority_level || 'medium'},
+          ${data.dl__task_stage || null},
+          ${data.dl__task_priority || 'medium'},
           ${data.estimated_hours || null},
           ${data.actual_hours || 0},
           ${data.story_points || null},
@@ -517,8 +517,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
       if (data.internal_url !== undefined) updateFields.push(sql`internal_url = ${data.internal_url}`);
       if (data.shared_url !== undefined) updateFields.push(sql`shared_url = ${data.shared_url}`);
       if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
-      if (data.stage !== undefined) updateFields.push(sql`stage = ${data.stage}`);
-      if (data.priority_level !== undefined) updateFields.push(sql`priority_level = ${data.priority_level}`);
+      if (data.dl__task_stage !== undefined) updateFields.push(sql`dl__task_stage = ${data.dl__task_stage}`);
+      if (data.dl__task_priority !== undefined) updateFields.push(sql`dl__task_priority = ${data.dl__task_priority}`);
       if (data.estimated_hours !== undefined) updateFields.push(sql`estimated_hours = ${data.estimated_hours}`);
       if (data.actual_hours !== undefined) updateFields.push(sql`actual_hours = ${data.actual_hours}`);
       if (data.story_points !== undefined) updateFields.push(sql`story_points = ${data.story_points}`);
@@ -663,7 +663,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Validate task exists and user has permission
       const existingTask = await db.execute(sql`
-        SELECT id, name, stage FROM app.d_task
+        SELECT id, name, dl__task_stage FROM app.d_task
         WHERE id = ${id} AND active_flag = true
       `);
       
@@ -675,7 +675,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const updateResult = await db.execute(sql`
         UPDATE app.d_task
         SET
-          stage = ${task_status},
+          dl__task_stage = ${task_status},
           updated_ts = NOW(),
           metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
             'kanban_moved_at', NOW()::text,
@@ -683,7 +683,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
             'kanban_position', ${position || 0}
           )
         WHERE id = ${id}
-        RETURNING id, stage as task_status, updated_ts as updated
+        RETURNING id, dl__task_stage as task_status, updated_ts as updated
       `);
 
       if (updateResult.length === 0) {
@@ -772,7 +772,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         )`);
       }
 
-      if (priority) filters.push(sql`t.priority_level = ${priority}`);
+      if (priority) filters.push(sql`t.dl__task_priority = ${priority}`);
 
       // Get all tasks for the project
       const tasks = await db.execute(sql`
@@ -792,10 +792,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Group tasks by status
       const columns = {
-        backlog: tasks.filter(t => t.stage === 'backlog'),
-        in_progress: tasks.filter(t => t.stage === 'in_progress'),
-        blocked: tasks.filter(t => t.stage === 'blocked'),
-        done: tasks.filter(t => ['done', 'completed'].includes(String(t.stage))),
+        backlog: tasks.filter(t => t.dl__task_stage === 'backlog'),
+        in_progress: tasks.filter(t => t.dl__task_stage === 'in_progress'),
+        blocked: tasks.filter(t => t.dl__task_stage === 'blocked'),
+        done: tasks.filter(t => ['done', 'completed'].includes(String(t.dl__task_stage))),
       };
 
       // Calculate stats

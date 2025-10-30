@@ -163,8 +163,6 @@ validate_all_ddls() {
         "27_d_reports.ddl"
         "28_d_report_data.ddl"
         "d_workflow_automation.ddl"
-        "36_d_cost.ddl"
-        "37_d_revenue.ddl"
         "29_d_entity_map.ddl"
         "30_d_entity.ddl"
         "31_d_entity_instance_id.ddl"
@@ -246,11 +244,8 @@ import_ddls() {
     # Workflow automation - Business process automation
     execute_sql "$DB_PATH/d_workflow_automation.ddl" "Workflow automation entities"
 
-    # Financial entities - Cost and revenue tracking
-    execute_sql "$DB_PATH/36_d_cost.ddl" "Cost center entities"
-    execute_sql "$DB_PATH/37_d_revenue.ddl" "Revenue center entities"
-
     # Fact tables - Transaction-level analytics (after all dimensions loaded)
+    # Note: Cost and revenue are transactional data (fact tables), not dimensions
     execute_sql "$DB_PATH/f_inventory.ddl" "Inventory fact table (stock levels by location)"
     execute_sql "$DB_PATH/f_order.ddl" "Order fact table (customer orders)"
     execute_sql "$DB_PATH/f_shipment.ddl" "Shipment fact table (deliveries/logistics)"

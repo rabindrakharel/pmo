@@ -12,7 +12,7 @@
 --
 -- 1. CREATE TASK
 --    • Endpoint: POST /api/v1/task
---    • Body: {name, code, project_id, stage, priority_level, assignee_employee_ids, ...}
+--    • Body: {name, code, project_id, dl__task_stage, priority_level, assignee_employee_ids, ...}
 --    • Returns: {id: "new-uuid", version: 1, ...}
 --
 -- =====================================================
@@ -33,8 +33,8 @@ CREATE TABLE app.d_task (
     -- Task-specific fields
     internal_url text,
     shared_url text,
-    stage text,
-    priority_level text,
+    dl__task_stage text, -- References app.setting_datalabel (datalabel_name='task__stage')
+    dl__task_priority text, -- References app.setting_datalabel (datalabel_name='task__priority')
     estimated_hours numeric(10,2),
     actual_hours numeric(10,2),
     story_points integer
@@ -45,7 +45,7 @@ COMMENT ON TABLE app.d_task IS 'Task head table with core task information';
 -- Sample task data
 INSERT INTO app.d_task (
     id, code, name, descr, internal_url, shared_url, metadata,
-    stage, priority_level, estimated_hours, actual_hours, story_points
+    dl__task_stage, dl__task_priority, estimated_hours, actual_hours, story_points
 ) VALUES (
     'a2222222-2222-2222-2222-222222222222',
     'DT-TASK-002',
@@ -60,7 +60,7 @@ INSERT INTO app.d_task (
 -- Fall Landscaping Campaign Tasks
 INSERT INTO app.d_task (
     id, code, name, descr, internal_url, shared_url, metadata,
-    stage, priority_level, estimated_hours, actual_hours, story_points
+    dl__task_stage, dl__task_priority, estimated_hours, actual_hours, story_points
 ) VALUES (
     'b1111111-1111-1111-1111-111111111111',
     'FLC-TASK-001',
@@ -74,7 +74,7 @@ INSERT INTO app.d_task (
 
 INSERT INTO app.d_task (
     id, code, name, descr, internal_url, shared_url, metadata,
-    stage, priority_level, estimated_hours, actual_hours, story_points
+    dl__task_stage, dl__task_priority, estimated_hours, actual_hours, story_points
 ) VALUES (
     'b2222222-2222-2222-2222-222222222222',
     'FLC-TASK-002',
@@ -89,7 +89,7 @@ INSERT INTO app.d_task (
 -- HVAC Modernization Tasks
 INSERT INTO app.d_task (
     id, code, name, descr, internal_url, shared_url, metadata,
-    stage, priority_level, estimated_hours, actual_hours, story_points
+    dl__task_stage, dl__task_priority, estimated_hours, actual_hours, story_points
 ) VALUES (
     'c1111111-1111-1111-1111-111111111111',
     'HVAC-TASK-001',
@@ -104,7 +104,7 @@ INSERT INTO app.d_task (
 -- Corporate Office Expansion Tasks
 INSERT INTO app.d_task (
     id, code, name, descr, internal_url, shared_url, metadata,
-    stage, priority_level, estimated_hours, actual_hours, story_points
+    dl__task_stage, dl__task_priority, estimated_hours, actual_hours, story_points
 ) VALUES (
     'd1111111-1111-1111-1111-111111111111',
     'COE-TASK-001',
@@ -119,7 +119,7 @@ INSERT INTO app.d_task (
 -- Customer Service Excellence Tasks
 INSERT INTO app.d_task (
     id, code, name, descr, internal_url, shared_url, metadata,
-    stage, priority_level, estimated_hours, actual_hours, story_points
+    dl__task_stage, dl__task_priority, estimated_hours, actual_hours, story_points
 ) VALUES (
     'e1111111-1111-1111-1111-111111111111',
     'CSE-TASK-001',
@@ -134,7 +134,7 @@ INSERT INTO app.d_task (
 -- Strategic CEO oversight tasks
 INSERT INTO app.d_task (
     id, code, name, descr, internal_url, shared_url, metadata,
-    stage, priority_level, estimated_hours, actual_hours, story_points
+    dl__task_stage, dl__task_priority, estimated_hours, actual_hours, story_points
 ) VALUES (
     'f1111111-1111-1111-1111-111111111111',
     'CEO-TASK-001',

@@ -7,6 +7,7 @@ import {
   applySettingsBadgeRenderers
 } from './settingsConfig';
 import type { SettingOption } from './settingsLoader';
+import { generateColumns, generateStandardColumns } from './columnGenerator';
 
 /**
  * ============================================================================
@@ -284,276 +285,16 @@ export const renderEmployeeNames = (names?: string[] | string, record?: any): Re
 // CENTRALIZED FIELD TYPE DETECTION & FORMATTING (DRY SYSTEM)
 // ============================================================================
 /**
- * Auto-detects field types from STRICT naming patterns and applies consistent widths.
- * The data model uses strict, predictable naming conventions.
+ * Field categorization, width assignment, sortable/filterable/searchable config,
+ * and rendering logic have been moved to fieldCategoryRegistry.ts
  *
- * STRICT PATTERN RULES:
- * - Currency ALWAYS contains _amt (budget_allocated_amt, unit_price_amt)
- * - Dates ALWAYS contain _date (start_date, end_date, planned_start_date)
- * - Timestamps ALWAYS contain _ts (created_ts, updated_ts)
- * - Stages ALWAYS contain _stage (project_stage, task_stage)
- * - Status ALWAYS contains _status (publication_status, client_status)
- * - Priority ALWAYS contains _priority (priority_level, task_priority)
- * - Levels ALWAYS contain _level (office_level, business_level)
- * - Tiers ALWAYS contain _tier (customer_tier, service_tier)
- * - Types ALWAYS contain _type (wiki_type, artifact_type)
- * - Flags ALWAYS contain _flag or start with is_ (active_flag, is_active)
- * - Metadata is exactly "metadata" or "attr"
- * - Attachments are exactly "attachment", "object_key", or "file_path"
+ * This provides a SINGLE SOURCE OF TRUTH where:
+ * - Each field category is defined ONCE with all its properties
+ * - Changes to a category automatically apply to ALL fields of that category
+ * - Zero duplication across the codebase
  *
- * NO fuzzy matching, NO guessing. The database IS strict, so detection IS strict.
+ * See: apps/web/src/lib/fieldCategoryRegistry.ts
  */
-
-export enum FieldCategory {
-  // Standard entity fields (most common)
-  NAME = 'NAME',                     // name, title → 200px
-  CODE = 'CODE',                     // code → 120px
-  DESCR = 'DESCR',                   // descr, description → 250px
-
-  // Text fields
-  TEXT_LONG = 'TEXT_LONG',           // addr, summary → 250px
-  TEXT_MEDIUM = 'TEXT_MEDIUM',       // email, phone → 140px
-  TEXT_SHORT = 'TEXT_SHORT',         // abbreviations → 100px (unused)
-
-  // Numeric fields
-  NUMBER_CURRENCY = 'NUMBER_CURRENCY', // contains _amt → 120px
-  NUMBER_MEDIUM = 'NUMBER_MEDIUM',     // _hours, _qty, _count → 100px
-  NUMBER_SHORT = 'NUMBER_SHORT',       // id, sort_order → 80px (unused)
-
-  // Temporal fields
-  DATE = 'DATE',                     // contains _date → 110px
-  TIMESTAMP = 'TIMESTAMP',           // contains _ts → 150px (e.g., "3 minutes ago")
-
-  // Label/Badge fields (settings-driven)
-  LABEL = 'LABEL',                   // _stage, _status, _priority, _level, _tier, _type → 130px
-
-  // Boolean fields
-  FLAG = 'FLAG',                     // _flag, is_ → 90px
-
-  // Complex fields
-  METADATA = 'METADATA',             // metadata, attr → hidden (JSONB)
-  TAGS = 'TAGS',                     // tags, keywords → 180px
-  ASSIGNEES = 'ASSIGNEES',           // employee, assignee → 180px
-
-  // File/Attachment fields
-  ATTACHMENT = 'ATTACHMENT',         // attachment, object_key → 220px
-  ATTACHMENT_FORMAT = 'ATTACHMENT_FORMAT',  // attachment_format, file_format → 90px
-  ATTACHMENT_SIZE = 'ATTACHMENT_SIZE',      // attachment_size_bytes → 90px
-
-  // Relationship fields
-  ENTITY_LINK = 'ENTITY_LINK',       // ends with _id (not 'id' itself) → 110px
-
-  // Misc
-  CATEGORY = 'CATEGORY',             // category, department, class → 140px
-  DEFAULT = 'DEFAULT'                // Fallback → auto width
-}
-
-/**
- * Maps field categories to their standard column widths
- */
-export const FIELD_WIDTHS: Record<FieldCategory, string | undefined> = {
-  // Standard entity fields
-  [FieldCategory.NAME]: '200px',
-  [FieldCategory.CODE]: '120px',
-  [FieldCategory.DESCR]: '250px',
-
-  // Text fields
-  [FieldCategory.TEXT_LONG]: '250px',
-  [FieldCategory.TEXT_MEDIUM]: '140px',
-  [FieldCategory.TEXT_SHORT]: '100px',
-
-  // Numeric fields
-  [FieldCategory.NUMBER_CURRENCY]: '120px',
-  [FieldCategory.NUMBER_MEDIUM]: '100px',
-  [FieldCategory.NUMBER_SHORT]: '80px',
-
-  // Temporal fields
-  [FieldCategory.DATE]: '110px',
-  [FieldCategory.TIMESTAMP]: '150px',
-
-  // Label/Badge fields
-  [FieldCategory.LABEL]: '130px',
-
-  // Boolean fields
-  [FieldCategory.FLAG]: '90px',
-
-  // Complex fields
-  [FieldCategory.METADATA]: undefined, // Hidden by default
-  [FieldCategory.TAGS]: '180px',
-  [FieldCategory.ASSIGNEES]: '180px',
-
-  // File/Attachment fields
-  [FieldCategory.ATTACHMENT]: '220px',
-  [FieldCategory.ATTACHMENT_FORMAT]: '90px',
-  [FieldCategory.ATTACHMENT_SIZE]: '90px',
-
-  // Relationship fields
-  [FieldCategory.ENTITY_LINK]: '110px',
-
-  // Misc
-  [FieldCategory.CATEGORY]: '140px',
-  [FieldCategory.DEFAULT]: undefined // Auto width
-};
-
-/**
- * Detects field category from field name using STRICT data model conventions
- *
- * The database follows strict naming patterns:
- * - Currency ALWAYS contains _amt
- * - Dates ALWAYS contain _date
- * - Timestamps ALWAYS contain _ts
- * - Stages ALWAYS contain _stage
- * - Priority ALWAYS contains _priority
- * - etc.
- *
- * This function uses STRICT pattern matching because the data model IS strict.
- */
-export function detectFieldCategory(fieldKey: string): FieldCategory {
-  const key = fieldKey.toLowerCase();
-
-  // ========== STRICT PATTERNS FROM DATA MODEL ==========
-
-  // Currency: ALWAYS contains _amt (budget_allocated_amt, unit_price_amt, etc.)
-  if (key.includes('_amt')) {
-    return FieldCategory.NUMBER_CURRENCY;
-  }
-
-  // Date: ALWAYS contains _date (start_date, end_date, planned_start_date, etc.)
-  if (key.includes('_date')) {
-    return FieldCategory.DATE;
-  }
-
-  // Timestamp: ALWAYS contains _ts (created_ts, updated_ts, etc.)
-  if (key.includes('_ts')) {
-    return FieldCategory.TIMESTAMP;
-  }
-
-  // Stage: ALWAYS contains _stage (project_stage, task_stage, etc.)
-  if (key.includes('_stage')) {
-    return FieldCategory.LABEL;
-  }
-
-  // Status: ALWAYS contains _status (publication_status, client_status, etc.)
-  if (key.includes('_status')) {
-    return FieldCategory.LABEL;
-  }
-
-  // Priority: ALWAYS contains _priority (priority_level, task_priority, etc.)
-  if (key.includes('_priority')) {
-    return FieldCategory.LABEL;
-  }
-
-  // Level: ALWAYS contains _level (office_level, business_level, position_level, etc.)
-  if (key.includes('_level')) {
-    return FieldCategory.LABEL;
-  }
-
-  // Tier: ALWAYS contains _tier (customer_tier, service_tier, etc.)
-  if (key.includes('_tier')) {
-    return FieldCategory.LABEL;
-  }
-
-  // Type: ALWAYS contains _type (wiki_type, artifact_type, etc.)
-  if (key.includes('_type')) {
-    return FieldCategory.LABEL;
-  }
-
-  // Flag: ALWAYS contains _flag (active_flag, is_active, etc.)
-  if (key.includes('_flag') || key.startsWith('is_')) {
-    return FieldCategory.FLAG;
-  }
-
-  // ========== EXACT MATCHES ==========
-
-  // Standard entity fields (highest priority)
-  if (key === 'name' || key === 'title') {
-    return FieldCategory.NAME;
-  }
-
-  if (key === 'code') {
-    return FieldCategory.CODE;
-  }
-
-  if (key === 'descr' || key === 'description') {
-    return FieldCategory.DESCR;
-  }
-
-  // Metadata (JSONB key-value)
-  if (key === 'metadata' || key === 'attr') {
-    return FieldCategory.METADATA;
-  }
-
-  // Tags/Keywords (arrays)
-  if (key === 'tags' || key === 'keywords') {
-    return FieldCategory.TAGS;
-  }
-
-  // Category fields
-  if (key === 'category' || key === 'department' || key === 'class' || key === 'subclass') {
-    return FieldCategory.CATEGORY;
-  }
-
-  // Text fields - long content
-  if (key === 'addr' || key === 'summary') {
-    return FieldCategory.TEXT_LONG;
-  }
-
-  // Text fields - medium identifiers
-  if (key === 'slug' || key === 'email' || key === 'phone') {
-    return FieldCategory.TEXT_MEDIUM;
-  }
-
-  // Attachment fields
-  if (key === 'attachment' || key === 'object_key' || key === 'file_path') {
-    return FieldCategory.ATTACHMENT;
-  }
-  if (key === 'attachment_format' || key === 'file_format') {
-    return FieldCategory.ATTACHMENT_FORMAT;
-  }
-  if (key === 'attachment_size_bytes' || key === 'file_size_bytes') {
-    return FieldCategory.ATTACHMENT_SIZE;
-  }
-
-  // ========== PATTERN MATCHES (Secondary) ==========
-
-  // Assignees: contains employee or assignee
-  if (key.includes('employee') || key.includes('assignee')) {
-    return FieldCategory.ASSIGNEES;
-  }
-
-  // Security/visibility classifications
-  if (key.includes('visibility') || key.includes('security') || key.includes('classification')) {
-    return FieldCategory.LABEL;
-  }
-
-  // Numeric fields: hours, qty, count, version
-  if (key.includes('_hours') || key.includes('_qty') || key.includes('_count') || key === 'version') {
-    return FieldCategory.NUMBER_MEDIUM;
-  }
-
-  // Entity references: ends with _id (but not 'id' itself)
-  if (key.endsWith('_id') && key !== 'id') {
-    return FieldCategory.ENTITY_LINK;
-  }
-
-  // Default: let browser auto-size
-  return FieldCategory.DEFAULT;
-}
-
-/**
- * Automatically applies width to column based on field naming pattern
- * Use this in DataTable to auto-set widths for any entity
- */
-export function getColumnWidth(columnKey: string, explicitWidth?: string): string | undefined {
-  // Explicit width takes precedence
-  if (explicitWidth) {
-    return explicitWidth;
-  }
-
-  // Auto-detect from field name pattern
-  const category = detectFieldCategory(columnKey);
-  return FIELD_WIDTHS[category];
-}
 
 // ============================================================================
 // Entity Configurations
@@ -569,64 +310,32 @@ export const entityConfigs: Record<string, EntityConfig> = {
     pluralName: 'Projects',
     apiEndpoint: '/api/v1/project',
 
-    columns: [
+    columns: generateStandardColumns(
+      ['name', 'code', 'descr', 'dl__project_stage', 'budget_allocated_amt', 'planned_start_date', 'planned_end_date', 'created_ts'],
       {
-        key: 'name',
-        title: 'Name',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'code',
-        title: 'Code',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'descr',
-        title: 'Description',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'project_stage',
-        title: 'Stage',
-        sortable: true,
-        filterable: true,
-        loadOptionsFromSettings: true
-      },
-      {
-        key: 'budget_allocated_amt',
-        title: 'Budget',
-        sortable: true,
-        align: 'right',
-        render: (value, record) => formatCurrency(value, record.budget_currency)
-      },
-      {
-        key: 'planned_start_date',
-        title: 'Start Date',
-        sortable: true,
-        render: renderDate
-      },
-      {
-        key: 'planned_end_date',
-        title: 'End Date',
-        sortable: true,
-        render: renderDate
-      },
-      {
-        key: 'created_ts',
-        title: 'Created',
-        sortable: true,
-        render: renderTimestamp
+        overrides: {
+          dl__project_stage: {
+            title: 'Stage'
+          },
+          budget_allocated_amt: {
+            title: 'Budget',
+            render: (value, record) => formatCurrency(value, record.budget_currency)
+          },
+          planned_start_date: {
+            title: 'Start Date'
+          },
+          planned_end_date: {
+            title: 'End Date'
+          }
+        }
       }
-    ],
+    ),
 
     fields: [
       { key: 'name', label: 'Project Name', type: 'text', required: true },
       { key: 'code', label: 'Project Code', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'richtext' },
-      { key: 'project_stage', label: 'Stage', type: 'select', loadOptionsFromSettings: true },
+      { key: 'dl__project_stage', label: 'Stage', type: 'select', loadOptionsFromSettings: true },
       { key: 'budget_allocated_amt', label: 'Budget', type: 'number' },
       { key: 'planned_start_date', label: 'Start Date', type: 'date' },
       { key: 'planned_end_date', label: 'End Date', type: 'date' },
@@ -649,74 +358,40 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/task',
     shareable: true,
 
-    columns: [
+    columns: generateStandardColumns(
+      ['name', 'code', 'descr', 'dl__task_stage', 'dl__task_priority', 'estimated_hours', 'actual_hours', 'assignee_employee_ids', 'created_ts'],
       {
-        key: 'name',
-        title: 'Name',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'code',
-        title: 'Code',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'descr',
-        title: 'Description',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'stage',
-        title: 'Stage',
-        sortable: true,
-        filterable: true,
-        loadOptionsFromSettings: true
-      },
-      {
-        key: 'priority_level',
-        title: 'Priority',
-        sortable: true,
-        filterable: true,
-        loadOptionsFromSettings: true
-      },
-      {
-        key: 'estimated_hours',
-        title: 'Est. Hours',
-        sortable: true,
-        align: 'right',
-        render: (value) => value ? `${value}h` : '-'
-      },
-      {
-        key: 'actual_hours',
-        title: 'Actual Hours',
-        sortable: true,
-        align: 'right',
-        render: (value) => value ? `${value}h` : '-'
-      },
-      {
-        key: 'assignee_employee_ids',
-        title: 'Assignees',
-        sortable: false,
-        filterable: false,
-        render: (value, record) => renderEmployeeNames(value, record)
-      },
-      {
-        key: 'created_ts',
-        title: 'Created',
-        sortable: true,
-        render: renderTimestamp
+        overrides: {
+          dl__task_stage: {
+            title: 'Stage'
+          },
+          dl__task_priority: {
+            title: 'Priority'
+          },
+          estimated_hours: {
+            title: 'Est. Hours',
+            render: (value) => value ? `${value}h` : '-'
+          },
+          actual_hours: {
+            title: 'Actual Hours',
+            render: (value) => value ? `${value}h` : '-'
+          },
+          assignee_employee_ids: {
+            title: 'Assignees',
+            sortable: false,
+            filterable: false,
+            render: (value, record) => renderEmployeeNames(value, record)
+          }
+        }
       }
-    ],
+    ),
 
     fields: [
       { key: 'name', label: 'Task Name', type: 'text', required: true },
       { key: 'code', label: 'Task Code', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'richtext' },
-      { key: 'stage', label: 'Stage', type: 'select', loadOptionsFromSettings: true },
-      { key: 'priority_level', label: 'Priority', type: 'select', loadOptionsFromSettings: true },
+      { key: 'dl__task_stage', label: 'Stage', type: 'select', loadOptionsFromSettings: true },
+      { key: 'dl__task_priority', label: 'Priority', type: 'select', loadOptionsFromSettings: true },
       { key: 'estimated_hours', label: 'Estimated Hours', type: 'number' },
       { key: 'assignee_employee_ids', label: 'Assignees', type: 'multiselect', loadOptionsFromEntity: 'employee' },
       { key: 'metadata', label: 'Metadata', type: 'jsonb' },
@@ -728,9 +403,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
     defaultView: 'table',
 
     kanban: {
-      groupByField: 'stage',
-      metaTable: 'setting_task_stage',
-      cardFields: ['name', 'priority_level', 'estimated_hours', 'assignee_employee_ids']
+      groupByField: 'dl__task_stage',
+      metaTable: 'task_stage',
+      cardFields: ['name', 'dl__task_priority', 'estimated_hours', 'assignee_employee_ids']
     }
   },
 
@@ -744,69 +419,51 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/wiki',
     shareable: true,
 
-    columns: [
-      {
-        key: 'title',
-        title: 'Title',
-        sortable: true,
-        filterable: true,
-        render: (value, record) => React.createElement(
-          'div',
-          null,
-          React.createElement(
+    columns: generateColumns(['title', 'wiki_type', 'publication_status', 'category', 'updated_ts'], {
+      overrides: {
+        title: {
+          render: (value, record) => React.createElement(
             'div',
-            { className: 'flex items-center gap-2' },
-            record.attr?.icon && React.createElement('span', { className: 'text-lg' }, record.attr.icon),
-            React.createElement('span', { className: 'font-medium text-gray-900' }, value)
+            null,
+            React.createElement(
+              'div',
+              { className: 'flex items-center gap-2' },
+              record.attr?.icon && React.createElement('span', { className: 'text-lg' }, record.attr.icon),
+              React.createElement('span', { className: 'font-medium text-gray-900' }, value)
+            )
           )
-        )
-      },
-      {
-        key: 'wiki_type',
-        title: 'Type',
-        sortable: true,
-        filterable: true,
-        render: (value) => renderBadge(value || 'page', {
-          'page': 'bg-blue-100 text-blue-800',
-          'template': 'bg-purple-100 text-purple-800',
-          'workflow': 'bg-green-100 text-green-800',
-          'guide': 'bg-yellow-100 text-yellow-800',
-          'policy': 'bg-red-100 text-red-800',
-          'checklist': 'bg-indigo-100 text-indigo-800'
-        })
-      },
-      {
-        key: 'publication_status',
-        title: 'Status',
-        sortable: true,
-        filterable: true,
-        loadOptionsFromSettings: true,
-        render: (value) => {
-          const status = value || 'draft';
-          return renderBadge(status, {
-            'published': 'bg-green-100 text-green-800',
-            'draft': 'bg-yellow-100 text-yellow-800',
-            'review': 'bg-blue-100 text-blue-800',
-            'archived': 'bg-gray-100 text-gray-800',
-            'deprecated': 'bg-red-100 text-red-800',
-            'private': 'bg-purple-100 text-purple-800'
-          });
+        },
+        wiki_type: {
+          title: 'Type',
+          render: (value) => renderBadge(value || 'page', {
+            'page': 'bg-blue-100 text-blue-800',
+            'template': 'bg-purple-100 text-purple-800',
+            'workflow': 'bg-green-100 text-green-800',
+            'guide': 'bg-yellow-100 text-yellow-800',
+            'policy': 'bg-red-100 text-red-800',
+            'checklist': 'bg-indigo-100 text-indigo-800'
+          })
+        },
+        publication_status: {
+          title: 'Status',
+          loadOptionsFromSettings: true,
+          render: (value) => {
+            const status = value || 'draft';
+            return renderBadge(status, {
+              'published': 'bg-green-100 text-green-800',
+              'draft': 'bg-yellow-100 text-yellow-800',
+              'review': 'bg-blue-100 text-blue-800',
+              'archived': 'bg-gray-100 text-gray-800',
+              'deprecated': 'bg-red-100 text-red-800',
+              'private': 'bg-purple-100 text-purple-800'
+            });
+          }
+        },
+        updated_ts: {
+          title: 'Last Updated'
         }
-      },
-      {
-        key: 'category',
-        title: 'Category',
-        sortable: true,
-        filterable: true,
-        render: (value) => value || '-'
-      },
-      {
-        key: 'updated_ts',
-        title: 'Last Updated',
-        sortable: true,
-        render: renderTimestamp
       }
-    ],
+    }),
 
     fields: [
       { key: 'name', label: 'Name', type: 'text', required: true },
@@ -849,139 +506,115 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/artifact',
     shareable: true,
 
-    columns: [
+    columns: generateColumns(
+      ['name', 'artifact_type', 'visibility', 'security_classification', 'attachment', 'attachment_format', 'attachment_size_bytes', 'entity_type', 'created_ts'],
       {
-        key: 'name',
-        title: 'Name',
-        sortable: true,
-        filterable: true,
-        width: '300px',
-        render: (value, record) => React.createElement(
-          'div',
-          { className: 'py-1' },
-          React.createElement(
-            'div',
-            { className: 'flex items-center gap-2 mb-0.5' },
-            React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-            record.object_key && React.createElement(
+        overrides: {
+          name: {
+            width: '300px',
+            render: (value, record) => React.createElement(
               'div',
-              { className: 'flex-shrink-0 w-2 h-2 rounded-full bg-green-500', title: 'File uploaded' },
-              null
+              { className: 'py-1' },
+              React.createElement(
+                'div',
+                { className: 'flex items-center gap-2 mb-0.5' },
+                React.createElement('div', { className: 'font-medium text-gray-900' }, value),
+                record.object_key && React.createElement(
+                  'div',
+                  { className: 'flex-shrink-0 w-2 h-2 rounded-full bg-green-500', title: 'File uploaded' },
+                  null
+                )
+              ),
+              record.descr && React.createElement('div', { className: 'text-xs text-gray-500 line-clamp-1 mb-1' }, record.descr),
+              React.createElement(
+                'div',
+                { className: 'flex items-center gap-1.5' },
+                record.version > 1 && React.createElement(
+                  'span',
+                  { className: 'inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded border border-blue-200' },
+                  `v${record.version}`
+                ),
+                !record.object_key && React.createElement(
+                  'span',
+                  { className: 'inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 rounded border border-amber-200' },
+                  'No file'
+                )
+              )
             )
-          ),
-          record.descr && React.createElement('div', { className: 'text-xs text-gray-500 line-clamp-1 mb-1' }, record.descr),
-          React.createElement(
-            'div',
-            { className: 'flex items-center gap-1.5' },
-            record.version > 1 && React.createElement(
+          },
+          artifact_type: {
+            title: 'Type',
+            width: '120px',
+            render: (value) => renderBadge(value, {
+              'document': 'bg-blue-100 text-blue-800',
+              'template': 'bg-purple-100 text-purple-800',
+              'image': 'bg-green-100 text-green-800',
+              'video': 'bg-rose-100 text-rose-800',
+              'spreadsheet': 'bg-emerald-100 text-emerald-800',
+              'presentation': 'bg-orange-100 text-orange-800'
+            })
+          },
+          visibility: {
+            width: '110px',
+            render: (value) => renderBadge(value, {
+              'public': 'bg-green-100 text-green-800',
+              'internal': 'bg-blue-100 text-blue-800',
+              'restricted': 'bg-amber-100 text-amber-800',
+              'private': 'bg-gray-100 text-gray-800'
+            })
+          },
+          security_classification: {
+            title: 'Security',
+            width: '120px',
+            render: (value) => renderBadge(value, {
+              'general': 'bg-gray-100 text-gray-700',
+              'confidential': 'bg-orange-100 text-orange-800',
+              'restricted': 'bg-red-100 text-red-800'
+            })
+          },
+          attachment: {
+            width: '220px'
+            // InlineFileUploadCell handles display and inline upload
+          },
+          attachment_format: {
+            title: 'Format',
+            width: '90px',
+            render: (value) => value ? React.createElement(
               'span',
-              { className: 'inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded border border-blue-200' },
-              `v${record.version}`
-            ),
-            !record.object_key && React.createElement(
-              'span',
-              { className: 'inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 rounded border border-amber-200' },
-              'No file'
-            )
-          )
-        )
-      },
-      {
-        key: 'artifact_type',
-        title: 'Type',
-        sortable: true,
-        filterable: true,
-        width: '120px',
-        render: (value) => renderBadge(value, {
-          'document': 'bg-blue-100 text-blue-800',
-          'template': 'bg-purple-100 text-purple-800',
-          'image': 'bg-green-100 text-green-800',
-          'video': 'bg-rose-100 text-rose-800',
-          'spreadsheet': 'bg-emerald-100 text-emerald-800',
-          'presentation': 'bg-orange-100 text-orange-800'
-        })
-      },
-      {
-        key: 'visibility',
-        title: 'Visibility',
-        sortable: true,
-        filterable: true,
-        width: '110px',
-        render: (value) => renderBadge(value, {
-          'public': 'bg-green-100 text-green-800',
-          'internal': 'bg-blue-100 text-blue-800',
-          'restricted': 'bg-amber-100 text-amber-800',
-          'private': 'bg-gray-100 text-gray-800'
-        })
-      },
-      {
-        key: 'security_classification',
-        title: 'Security',
-        sortable: true,
-        filterable: true,
-        width: '120px',
-        render: (value) => renderBadge(value, {
-          'general': 'bg-gray-100 text-gray-700',
-          'confidential': 'bg-orange-100 text-orange-800',
-          'restricted': 'bg-red-100 text-red-800'
-        })
-      },
-      {
-        key: 'attachment',
-        title: 'Attachment',
-        width: '220px',
-        // Standardized attachment field - auto-detected by fieldCapabilities
-        // InlineFileUploadCell handles display and inline upload
-      },
-      {
-        key: 'attachment_format',
-        title: 'Format',
-        sortable: true,
-        filterable: true,
-        width: '90px',
-        render: (value) => value ? React.createElement(
-          'span',
-          { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-gray-100 text-gray-800 rounded border border-gray-200' },
-          value.toUpperCase()
-        ) : '-'
-      },
-      {
-        key: 'attachment_size_bytes',
-        title: 'Size',
-        sortable: true,
-        width: '90px',
-        align: 'right' as const,
-        render: (value) => {
-          if (!value) return '-';
-          const kb = value / 1024;
-          const mb = kb / 1024;
-          if (mb >= 1) {
-            return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${mb.toFixed(1)} MB`);
+              { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-gray-100 text-gray-800 rounded border border-gray-200' },
+              value.toUpperCase()
+            ) : '-'
+          },
+          attachment_size_bytes: {
+            title: 'Size',
+            width: '90px',
+            align: 'right' as const,
+            render: (value) => {
+              if (!value) return '-';
+              const kb = value / 1024;
+              const mb = kb / 1024;
+              if (mb >= 1) {
+                return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${mb.toFixed(1)} MB`);
+              }
+              return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${kb.toFixed(0)} KB`);
+            }
+          },
+          entity_type: {
+            title: 'Linked To',
+            width: '110px',
+            render: (value) => value ? renderBadge(value, {
+              'project': 'bg-indigo-100 text-indigo-800',
+              'task': 'bg-cyan-100 text-cyan-800',
+              'office': 'bg-violet-100 text-violet-800',
+              'business': 'bg-fuchsia-100 text-fuchsia-800'
+            }) : '-'
+          },
+          created_ts: {
+            width: '100px'
           }
-          return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${kb.toFixed(0)} KB`);
         }
-      },
-      {
-        key: 'entity_type',
-        title: 'Linked To',
-        sortable: true,
-        filterable: true,
-        width: '110px',
-        render: (value) => value ? renderBadge(value, {
-          'project': 'bg-indigo-100 text-indigo-800',
-          'task': 'bg-cyan-100 text-cyan-800',
-          'office': 'bg-violet-100 text-violet-800',
-          'business': 'bg-fuchsia-100 text-fuchsia-800'
-        }) : '-'
-      },
-      {
-        key: 'created_ts',
-        title: 'Created',
-        sortable: true,
-        width: '100px',
-        render: renderTimestamp
       }
-    ],
+    ),
 
     fields: [
       // ========== ATTACHMENT ==========
@@ -1076,35 +709,22 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/form',
     shareable: true,
 
-    columns: [
-      {
-        key: 'name',
-        title: 'Form Name',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        filterable: true,
-        render: (value) => value
-          ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
-          : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800' }, 'Inactive')
-      },
-      {
-        key: 'version',
-        title: 'Version',
-        sortable: true,
-        align: 'center'
-      },
-      {
-        key: 'updated_ts',
-        title: 'Updated',
-        sortable: true,
-        render: renderTimestamp
+    columns: generateColumns(['name', 'active_flag', 'version', 'updated_ts'], {
+      overrides: {
+        name: {
+          title: 'Form Name'
+        },
+        active_flag: {
+          title: 'Status',
+          render: (value) => value
+            ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
+            : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800' }, 'Inactive')
+        },
+        version: {
+          align: 'center' as const
+        }
       }
-    ],
+    }),
 
     fields: [
       { key: 'name', label: 'Form Name', type: 'text', required: true },
@@ -1133,55 +753,25 @@ export const entityConfigs: Record<string, EntityConfig> = {
     pluralName: 'Business Units',
     apiEndpoint: '/api/v1/biz',
 
-    columns: [
+    columns: generateStandardColumns(
+      ['name', 'code', 'dl__business_level', 'budget_allocated_amt', 'descr', 'active_flag', 'created_ts'],
       {
-        key: 'name',
-        title: 'Name',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'code',
-        title: 'Code',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'business_level',
-        title: 'Level',
-        sortable: true,
-        filterable: true,
-        loadOptionsFromSettings: true,
-        render: (value, record) => value ? renderBadge(value, {
-          'Department': 'bg-blue-100 text-blue-800',
-          'Division': 'bg-purple-100 text-purple-800',
-          'Corporate': 'bg-green-100 text-green-800',
-          'Business Unit': 'bg-indigo-100 text-indigo-800'
-        }) : '-'
-      },
-      {
-        key: 'budget_allocated_amt',
-        title: 'Budget',
-        sortable: true,
-        align: 'right',
-        render: (value) => value ? formatCurrency(value, 'CAD') : '-'
-      },
-      {
-        key: 'descr',
-        title: 'Description',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        filterable: true,
-        render: (value) => value !== false
-          ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
-          : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800' }, 'Inactive')
+        overrides: {
+          dl__business_level: {
+            title: 'Level'
+          },
+          budget_allocated_amt: {
+            title: 'Budget'
+          },
+          active_flag: {
+            title: 'Status',
+            render: (value) => value !== false
+              ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
+              : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800' }, 'Inactive')
+          }
+        }
       }
-    ],
+    ),
 
     fields: [
       { key: 'name', label: 'Business Unit Name', type: 'text', required: true },
@@ -1221,47 +811,34 @@ export const entityConfigs: Record<string, EntityConfig> = {
     pluralName: 'Offices',
     apiEndpoint: '/api/v1/office',
 
-    columns: [
-      {
-        key: 'name',
-        title: 'Office Name',
-        sortable: true,
-        filterable: true,
-        render: (value, record) => React.createElement(
-          'div',
-          null,
-          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-          record.addr && React.createElement('div', { className: 'text-sm text-gray-500 truncate max-w-xs' }, record.addr)
-        )
-      },
-      {
-        key: 'office_level_id',
-        title: 'Level',
-        sortable: true,
-        filterable: true,
-        loadOptionsFromSettings: true,
-        render: (value, record) => record.level_name ? renderBadge(record.level_name, {
-          'Office': 'bg-blue-100 text-blue-800',
-          'District': 'bg-purple-100 text-purple-800',
-          'Region': 'bg-green-100 text-green-800',
-          'Corporate': 'bg-yellow-100 text-yellow-800'
-        }) : '-'
-      },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        render: (value) => value !== false
-          ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
-          : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800' }, 'Inactive')
+    columns: generateColumns(['name', 'dl__office_level', 'active_flag'], {
+      overrides: {
+        name: {
+          title: 'Office Name',
+          render: (value, record) => React.createElement(
+            'div',
+            null,
+            React.createElement('div', { className: 'font-medium text-gray-900' }, value),
+            record.addr && React.createElement('div', { className: 'text-sm text-gray-500 truncate max-w-xs' }, record.addr)
+          )
+        },
+        dl__office_level: {
+          title: 'Level'
+        },
+        active_flag: {
+          title: 'Status',
+          render: (value) => value !== false
+            ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
+            : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800' }, 'Inactive')
+        }
       }
-    ],
+    }),
 
     fields: [
       { key: 'name', label: 'Name', type: 'text', required: true },
       { key: 'addr', label: 'Address', type: 'textarea' },
       { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'office_level_id', label: 'Level', type: 'select', loadOptionsFromSettings: true },
+      { key: 'dl__office_level', label: 'Level', type: 'select', loadOptionsFromSettings: true },
       { key: 'parent_id', label: 'Parent Office', type: 'select', options: [] },
       { key: 'metadata', label: 'Metadata', type: 'jsonb' },
       { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
@@ -1288,34 +865,28 @@ export const entityConfigs: Record<string, EntityConfig> = {
     pluralName: 'Employees',
     apiEndpoint: '/api/v1/employee',
 
-    columns: [
-      {
-        key: 'name',
-        title: 'Employee Name',
-        sortable: true,
-        filterable: true,
-        render: (value, record) => React.createElement(
-          'div',
-          null,
-          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-          record.email && React.createElement('div', { className: 'text-sm text-gray-500' }, record.email)
-        )
-      },
-      {
-        key: 'employee_number',
-        title: 'Employee #',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        render: (value) => value !== false
-          ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
-          : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800' }, 'Inactive')
+    columns: generateColumns(['name', 'employee_number', 'active_flag'], {
+      overrides: {
+        name: {
+          title: 'Employee Name',
+          render: (value, record) => React.createElement(
+            'div',
+            null,
+            React.createElement('div', { className: 'font-medium text-gray-900' }, value),
+            record.email && React.createElement('div', { className: 'text-sm text-gray-500' }, record.email)
+          )
+        },
+        employee_number: {
+          title: 'Employee #'
+        },
+        active_flag: {
+          title: 'Status',
+          render: (value) => value !== false
+            ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
+            : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800' }, 'Inactive')
+        }
       }
-    ],
+    }),
 
     fields: [
       { key: 'employee_number', label: 'Employee Number', type: 'text', required: true },
@@ -1360,28 +931,16 @@ export const entityConfigs: Record<string, EntityConfig> = {
     pluralName: 'Roles',
     apiEndpoint: '/api/v1/role',
 
-    columns: [
-      {
-        key: 'name',
-        title: 'Role Name',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'descr',
-        title: 'Description',
-        sortable: true,
-        render: (value) => value || '-'
-      },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        render: (value) => value !== false
-          ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
-          : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800' }, 'Inactive')
+    columns: generateColumns(['name', 'descr', 'active_flag', 'created_ts'], {
+      overrides: {
+        active_flag: {
+          title: 'Status',
+          render: (value) => value !== false
+            ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
+            : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800' }, 'Inactive')
+        }
       }
-    ],
+    }),
 
     fields: [
       { key: 'name', label: 'Role Name', type: 'text', required: true },
@@ -1404,20 +963,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     pluralName: 'Worksites',
     apiEndpoint: '/api/v1/worksite',
 
-    columns: [
-      {
-        key: 'name',
-        title: 'Worksite Name',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'descr',
-        title: 'Description',
-        sortable: true,
-        render: (value) => value || '-'
-      }
-    ],
+    columns: generateColumns(['name', 'descr', 'created_ts']),
 
     fields: [
       { key: 'name', label: 'Worksite Name', type: 'text', required: true },
@@ -1444,61 +990,31 @@ export const entityConfigs: Record<string, EntityConfig> = {
     pluralName: 'Customers',
     apiEndpoint: '/api/v1/cust',
 
-    columns: [
+    columns: generateStandardColumns(
+      ['name', 'code', 'descr', 'dl__opportunity_funnel_stage', 'dl__industry_sector', 'dl__acquisition_channel', 'dl__customer_tier'],
       {
-        key: 'name',
-        title: 'Customer Name',
-        sortable: true,
-        filterable: true,
-        render: (value, record) => React.createElement(
-          'div',
-          null,
-          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-          record.cust_number && React.createElement('div', { className: 'text-sm text-gray-500' }, record.cust_number)
-        )
-      },
-      {
-        key: 'descr',
-        title: 'Description',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'city',
-        title: 'City',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'opportunity_funnel_stage_name',
-        title: 'Opportunity Funnel',
-        sortable: true,
-        filterable: true,
-        loadOptionsFromSettings: true
-      },
-      {
-        key: 'industry_sector_name',
-        title: 'Industry Sector',
-        sortable: true,
-        filterable: true,
-        loadOptionsFromSettings: true
-      },
-      {
-        key: 'acquisition_channel_name',
-        title: 'Acquisition Channel',
-        sortable: true,
-        filterable: true,
-        loadOptionsFromSettings: true,
-        render: (value) => value || '-'
-      },
-      {
-        key: 'customer_tier_name',
-        title: 'Customer Tier',
-        sortable: true,
-        filterable: true,
-        loadOptionsFromSettings: true
+        overrides: {
+          name: {
+            title: 'Customer Name'
+          },
+          code: {
+            title: 'Customer Code'
+          },
+          dl__opportunity_funnel_stage: {
+            title: 'Opportunity Funnel'
+          },
+          dl__industry_sector: {
+            title: 'Industry Sector'
+          },
+          dl__acquisition_channel: {
+            title: 'Acquisition Channel'
+          },
+          dl__customer_tier: {
+            title: 'Customer Tier'
+          }
+        }
       }
-    ],
+    ),
 
     fields: [
       { key: 'name', label: 'Customer Name', type: 'text', required: true },
@@ -1517,10 +1033,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'city', label: 'City', type: 'text' },
       { key: 'province', label: 'Province', type: 'text' },
       { key: 'postal_code', label: 'Postal Code', type: 'text' },
-      { key: 'opportunity_funnel_stage_name', label: 'Opportunity Funnel', type: 'select', loadOptionsFromSettings: true },
-      { key: 'industry_sector_name', label: 'Industry Sector', type: 'select', loadOptionsFromSettings: true },
-      { key: 'acquisition_channel_name', label: 'Acquisition Channel', type: 'select', loadOptionsFromSettings: true },
-      { key: 'customer_tier_name', label: 'Customer Tier', type: 'select', loadOptionsFromSettings: true },
+      { key: 'dl__opportunity_funnel_stage', label: 'Opportunity Funnel', type: 'select', loadOptionsFromSettings: true },
+      { key: 'dl__industry_sector', label: 'Industry Sector', type: 'select', loadOptionsFromSettings: true },
+      { key: 'dl__acquisition_channel', label: 'Acquisition Channel', type: 'select', loadOptionsFromSettings: true },
+      { key: 'dl__customer_tier', label: 'Customer Tier', type: 'select', loadOptionsFromSettings: true },
       { key: 'metadata', label: 'Metadata', type: 'jsonb' },
       { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
       { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
@@ -1539,20 +1055,13 @@ export const entityConfigs: Record<string, EntityConfig> = {
     pluralName: 'Positions',
     apiEndpoint: '/api/v1/position',
 
-    columns: [
-      {
-        key: 'name',
-        title: 'Position Name',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'descr',
-        title: 'Description',
-        sortable: true,
-        render: (value) => value || '-'
+    columns: generateColumns(['name', 'descr'], {
+      overrides: {
+        name: {
+          title: 'Position Name'
+        }
       }
-    ],
+    }),
 
     fields: [
       { key: 'name', label: 'Position Name', type: 'text', required: true },

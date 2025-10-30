@@ -141,8 +141,8 @@ CREATE TABLE app.d_reports (
     visualization_config jsonb DEFAULT '{}'::jsonb,
 
     -- Access and scheduling
-    is_public boolean DEFAULT false,
-    auto_refresh_enabled boolean DEFAULT true,
+    public_flag boolean DEFAULT false,
+    auto_refresh_enabled_flag boolean DEFAULT true,
     email_subscribers uuid[] DEFAULT '{}',
 
     -- Performance tracking

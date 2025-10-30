@@ -20,7 +20,7 @@ const OfficeSchema = Type.Object({
   metadata: Type.Optional(Type.Any()),
   parent_id: Type.Optional(Type.String()),
   parent_name: Type.Optional(Type.String()),
-  level_name: Type.String(),
+  dl__office_level: Type.String(),
   address_line1: Type.Optional(Type.String()),
   address_line2: Type.Optional(Type.String()),
   city: Type.Optional(Type.String()),
@@ -41,7 +41,7 @@ const CreateOfficeSchema = Type.Object({
   descr: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Any()),
   parent_id: Type.Optional(Type.String({ format: 'uuid' })),
-  level_name: Type.String(),
+  dl__office_level: Type.String(),
   address_line1: Type.Optional(Type.String()),
   address_line2: Type.Optional(Type.String()),
   city: Type.Optional(Type.String()),
@@ -135,7 +135,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       const orgs = await db.execute(sql`
         SELECT
           o.id, o.code, o.name, o."descr", o.metadata,
-          o.parent_id, o.level_name,
+          o.parent_id, o.dl__office_level,
           o.address_line1, o.address_line2, o.city, o.province, o.postal_code, o.country,
           o.from_ts, o.to_ts, o.active_flag, o.created_ts, o.updated_ts, o.version,
           -- Include parent org name for display
@@ -210,7 +210,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       const org = await db.execute(sql`
         SELECT
           id, code, name, "descr", metadata,
-          parent_id, level_name,
+          parent_id, dl__office_level,
           address_line1, address_line2, city, province, postal_code, country,
           from_ts, to_ts, active_flag, created_ts, updated_ts, version,
           -- Include parent org name for display
@@ -387,7 +387,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
 
       const result = await db.execute(sql`
         INSERT INTO app.d_office (
-          code, name, "descr", metadata, parent_id, level_name,
+          code, name, "descr", metadata, parent_id, dl__office_level,
           address_line1, address_line2, city, province, postal_code, country, active_flag
         )
         VALUES (
@@ -396,7 +396,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
           ${data.descr || null},
           ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
           ${data.parent_id || null},
-          ${data.level_name},
+          ${data.dl__office_level},
           ${data.address_line1 || null},
           ${data.address_line2 || null},
           ${data.city || null},
@@ -481,7 +481,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
       if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
       if (data.parent_id !== undefined) updateFields.push(sql`parent_id = ${data.parent_id}`);
-      if (data.level_name !== undefined) updateFields.push(sql`level_name = ${data.level_name}`);
+      if (data.dl__office_level !== undefined) updateFields.push(sql`dl__office_level = ${data.dl__office_level}`);
       if (data.address_line1 !== undefined) updateFields.push(sql`address_line1 = ${data.address_line1}`);
       if (data.address_line2 !== undefined) updateFields.push(sql`address_line2 = ${data.address_line2}`);
       if (data.city !== undefined) updateFields.push(sql`city = ${data.city}`);

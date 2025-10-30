@@ -17,7 +17,6 @@ const RoleSchema = Type.Object({
   toTs: Type.Optional(Type.String()),
   created: Type.String(),
   updated: Type.String(),
-  tags: Type.Optional(Type.Array(Type.String())),
   attr: Type.Optional(Type.Any()),
 });
 
@@ -31,7 +30,6 @@ const CreateRoleSchema = Type.Object({
   delegationAllowed: Type.Optional(Type.Boolean()),
   active: Type.Optional(Type.Boolean()),
   fromTs: Type.Optional(Type.String({ format: 'date-time' })),
-  tags: Type.Optional(Type.Array(Type.String())),
   attr: Type.Optional(Type.Any()),
 });
 
@@ -87,13 +85,12 @@ export async function roleRoutes(fastify: FastifyInstance) {
           role_category,
           reporting_level,
           required_experience_years,
-          is_management_role,
+          management_role_flag,
           active_flag,
           from_ts,
           to_ts,
           created_ts,
           updated_ts,
-          tags,
           metadata
         FROM app.d_role
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
@@ -110,13 +107,13 @@ export async function roleRoutes(fastify: FastifyInstance) {
         roleCategory: role.role_category,
         authorityLevel: role.reporting_level,
         approvalLimit: role.required_experience_years,
-        delegationAllowed: role.is_management_role,
+        delegationAllowed: role.management_role_flag,
         active: role.active_flag,
         fromTs: role.from_ts,
         toTs: role.to_ts,
         created: role.created_ts,
         updated: role.updated_ts,
-        tags: role.tags,
+        
         attr: role.metadata
       }));
 
@@ -160,13 +157,12 @@ export async function roleRoutes(fastify: FastifyInstance) {
           role_category,
           reporting_level,
           required_experience_years,
-          is_management_role,
+          management_role_flag,
           active_flag,
           from_ts,
           to_ts,
           created_ts,
           updated_ts,
-          tags,
           metadata
         FROM app.d_role
         WHERE id = ${id} AND active_flag = true
@@ -185,13 +181,12 @@ export async function roleRoutes(fastify: FastifyInstance) {
         roleCategory: role[0].role_category,
         authorityLevel: role[0].reporting_level,
         approvalLimit: role[0].required_experience_years,
-        delegationAllowed: role[0].is_management_role,
+        delegationAllowed: role[0].management_role_flag,
         active: role[0].active_flag,
         fromTs: role[0].from_ts,
         toTs: role[0].to_ts,
         created: role[0].created_ts,
         updated: role[0].updated_ts,
-        tags: role[0].tags,
         attr: role[0].metadata
       };
 
@@ -229,7 +224,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       const fromTs = data.fromTs || new Date().toISOString();
       
       const result = await db.execute(sql`
-        INSERT INTO app.d_role (name, "descr", role_code, role_category, reporting_level, required_experience_years, is_management_role, active_flag, from_ts, tags, metadata)
+        INSERT INTO app.d_role (name, "descr", role_code, role_category, reporting_level, required_experience_years, management_role_flag, active_flag, from_ts, metadata)
         VALUES (${data.name}, ${data.descr || null}, ${data.roleType || 'functional'}, ${data.roleCategory || 'operational'}, ${data.authorityLevel || 0}, ${data.approvalLimit || 0}, ${data.delegationAllowed !== undefined ? data.delegationAllowed : false}, ${data.active !== false}, ${fromTs}, ${JSON.stringify(data.tags || [])}, ${JSON.stringify(data.attr || {})})
         RETURNING
           id,
@@ -239,13 +234,12 @@ export async function roleRoutes(fastify: FastifyInstance) {
           role_category,
           reporting_level,
           required_experience_years,
-          is_management_role,
+          management_role_flag,
           active_flag,
           from_ts,
           to_ts,
           created_ts,
           updated_ts,
-          tags,
           metadata
       `);
 
@@ -262,13 +256,12 @@ export async function roleRoutes(fastify: FastifyInstance) {
         roleCategory: result[0].role_category,
         authorityLevel: result[0].reporting_level,
         approvalLimit: result[0].required_experience_years,
-        delegationAllowed: result[0].is_management_role,
+        delegationAllowed: result[0].management_role_flag,
         active: result[0].active_flag,
         fromTs: result[0].from_ts,
         toTs: result[0].to_ts,
         created: result[0].created_ts,
         updated: result[0].updated_ts,
-        tags: result[0].tags,
         attr: result[0].metadata
       };
 
@@ -347,7 +340,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       }
       
       if (data.delegationAllowed !== undefined) {
-        updateFields.push(sql`is_management_role = ${data.delegationAllowed}`);
+        updateFields.push(sql`management_role_flag = ${data.delegationAllowed}`);
       }
       
       if (data.tags !== undefined) {
@@ -380,13 +373,12 @@ export async function roleRoutes(fastify: FastifyInstance) {
           role_category,
           reporting_level,
           required_experience_years,
-          is_management_role,
+          management_role_flag,
           active_flag,
           from_ts,
           to_ts,
           created_ts,
           updated_ts,
-          tags,
           metadata
       `);
 
@@ -403,13 +395,12 @@ export async function roleRoutes(fastify: FastifyInstance) {
         roleCategory: result[0].role_category,
         authorityLevel: result[0].reporting_level,
         approvalLimit: result[0].required_experience_years,
-        delegationAllowed: result[0].is_management_role,
+        delegationAllowed: result[0].management_role_flag,
         active: result[0].active_flag,
         fromTs: result[0].from_ts,
         toTs: result[0].to_ts,
         created: result[0].created_ts,
         updated: result[0].updated_ts,
-        tags: result[0].tags,
         attr: result[0].metadata
       };
 
@@ -721,13 +712,12 @@ export async function roleRoutes(fastify: FastifyInstance) {
           role_category,
           reporting_level,
           required_experience_years,
-          is_management_role,
+          management_role_flag,
           active_flag,
           from_ts,
           to_ts,
           created_ts,
           updated_ts,
-          tags,
           metadata
         FROM app.d_role
         WHERE id = ${id} AND active_flag = true
@@ -746,13 +736,12 @@ export async function roleRoutes(fastify: FastifyInstance) {
         roleCategory: role[0].role_category,
         authorityLevel: role[0].reporting_level,
         approvalLimit: role[0].required_experience_years,
-        delegationAllowed: role[0].is_management_role,
+        delegationAllowed: role[0].management_role_flag,
         active: role[0].active_flag,
         fromTs: role[0].from_ts,
         toTs: role[0].to_ts,
         created: role[0].created_ts,
         updated: role[0].updated_ts,
-        tags: role[0].tags,
         attr: role[0].metadata
       };
 

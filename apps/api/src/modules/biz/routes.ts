@@ -21,7 +21,7 @@ const BizSchema = Type.Object({
   descr: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Any()),
   parent_id: Type.Optional(Type.String()),
-  level_name: Type.String(),
+  dl__business_level: Type.String(),
   office_id: Type.Optional(Type.String()),
   budget_allocated_amt: Type.Optional(Type.Number()),
   manager_employee_id: Type.Optional(Type.String()),
@@ -39,7 +39,7 @@ const CreateBizSchema = Type.Object({
   descr: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Any()),
   parent_id: Type.Optional(Type.String({ format: 'uuid' })),
-  level_name: Type.Optional(Type.String({ minLength: 1 })),
+  dl__business_level: Type.Optional(Type.String({ minLength: 1 })),
   office_id: Type.Optional(Type.String({ format: 'uuid' })),
   budget_allocated: Type.Optional(Type.Number()),
   manager_employee_id: Type.Optional(Type.String({ format: 'uuid' })),
@@ -56,7 +56,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       querystring: Type.Object({
         active_flag: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
-        level_name: Type.Optional(Type.String()),
+        dl__business_level: Type.Optional(Type.String()),
         parent_id: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
@@ -74,7 +74,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      active_flag, search, level_name, parent_id,
+      active_flag, search, dl__business_level, parent_id,
       limit = 50, offset = 0
     } = request.query as any;
     const userId = (request as any).user?.sub;
@@ -102,8 +102,8 @@ export async function bizRoutes(fastify: FastifyInstance) {
         baseConditions.push(sql`b.active_flag = ${active_flag}`);
       }
 
-      if (level_name !== undefined) {
-        baseConditions.push(sql`b.level_name = ${level_name}`);
+      if (dl__business_level !== undefined) {
+        baseConditions.push(sql`b.dl__business_level = ${dl__business_level}`);
       }
 
       if (parent_id) {
@@ -129,11 +129,11 @@ export async function bizRoutes(fastify: FastifyInstance) {
       const bizUnits = await db.execute(sql`
         SELECT
           b.id, b.code, b.name, b.descr, b.metadata, b.parent_id,
-          b.level_name, b.office_id, b.budget_allocated_amt, b.manager_employee_id,
+          b.dl__business_level, b.office_id, b.budget_allocated_amt, b.manager_employee_id,
           b.from_ts, b.to_ts, b.active_flag, b.created_ts, b.updated_ts, b.version
         FROM app.d_business b
         WHERE ${sql.join(baseConditions, sql` AND `)}
-        ORDER BY b.level_name ASC, b.name ASC
+        ORDER BY b.dl__business_level ASC, b.name ASC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -197,12 +197,12 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       const children = await db.execute(sql`
         SELECT
-          id, name, descr, level_name, parent_id, metadata,
+          id, name, descr, dl__business_level, parent_id, metadata,
           budget_allocated_amt, manager_employee_id, office_id,
           from_ts, to_ts, active_flag, created_ts, updated_ts, version
         FROM app.d_business
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY level_name ASC, name ASC
+        ORDER BY dl__business_level ASC, name ASC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -513,7 +513,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
     try {
       const bizUnit = await db.execute(sql`
         SELECT
-          id, name, descr, metadata, parent_id, level_name,
+          id, name, descr, metadata, parent_id, dl__business_level,
           code, from_ts, to_ts, active_flag, created_ts, updated_ts, version,
           office_id, budget_allocated_amt, manager_employee_id
         FROM app.d_business
@@ -561,7 +561,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
     // Auto-generate required fields if missing
     if (!data.name) data.name = 'Untitled';
     if (!data.code) data.code = `BIZ-${Date.now()}`;
-    if (!data.level_name) data.level_name = 'Department'; // Default to Department level
+    if (!data.dl__business_level) data.dl__business_level = 'Department'; // Default to Department level
 
     try {
       // If creating under a parent, check create permissions
@@ -598,14 +598,14 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       const result = await db.execute(sql`
         INSERT INTO app.d_business (
-          name, descr, code, level_name, parent_id,
+          name, descr, code, dl__business_level, parent_id,
           office_id, budget_allocated_amt, manager_employee_id, metadata, active_flag
         )
         VALUES (
           ${data.name},
           ${data.descr || null},
           ${data.code || null},
-          ${data.level_name},
+          ${data.dl__business_level},
           ${data.parent_id || null},
           ${data.office_id || null},
           ${data.budget_allocated || data.budget_allocated_amt || null},
@@ -678,7 +678,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
       if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
       if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
-      if (data.level_name !== undefined) updateFields.push(sql`level_name = ${data.level_name}`);
+      if (data.dl__business_level !== undefined) updateFields.push(sql`dl__business_level = ${data.dl__business_level}`);
       if (data.parent_id !== undefined) updateFields.push(sql`parent_id = ${data.parent_id}`);
       if (data.office_id !== undefined) updateFields.push(sql`office_id = ${data.office_id}`);
       if (data.budget_allocated !== undefined || data.budget_allocated_amt !== undefined) {

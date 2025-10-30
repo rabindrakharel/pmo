@@ -74,8 +74,8 @@ CREATE TABLE app.fact_order (
     office_name VARCHAR(255),                           -- Denormalized office
 
     -- Quantity Metrics
-    quantity_ordered DECIMAL(12,3) NOT NULL,            -- Quantity on this line
-    quantity_shipped DECIMAL(12,3) DEFAULT 0,           -- Quantity shipped so far
+    qty_ordered DECIMAL(12,3) NOT NULL,            -- Quantity on this line
+    qty_shipped DECIMAL(12,3) DEFAULT 0,           -- Quantity shipped so far
     quantity_backordered DECIMAL(12,3) DEFAULT 0,       -- Quantity on backorder
     quantity_cancelled DECIMAL(12,3) DEFAULT 0,         -- Quantity cancelled
     unit_of_measure VARCHAR(20) DEFAULT 'each',         -- 'each', 'ft', 'sqft', 'lb', 'gal'
@@ -164,9 +164,9 @@ CREATE INDEX idx_order_delivery_date ON app.fact_order(requested_delivery_date, 
 -- Trigger to calculate extended values
 CREATE OR REPLACE FUNCTION app.calculate_order_extended() RETURNS TRIGGER AS $$
 BEGIN
-    NEW.extended_list_price_cad := NEW.quantity_ordered * NEW.unit_list_price_cad;
-    NEW.extended_sale_price_cad := NEW.quantity_ordered * NEW.unit_sale_price_cad;
-    NEW.extended_cost_cad := NEW.quantity_ordered * COALESCE(NEW.unit_cost_cad, 0);
+    NEW.extended_list_price_cad := NEW.qty_ordered * NEW.unit_list_price_cad;
+    NEW.extended_sale_price_cad := NEW.qty_ordered * NEW.unit_sale_price_cad;
+    NEW.extended_cost_cad := NEW.qty_ordered * COALESCE(NEW.unit_cost_cad, 0);
     NEW.extended_margin_cad := NEW.extended_sale_price_cad - NEW.extended_cost_cad;
 
     IF NEW.extended_sale_price_cad > 0 THEN

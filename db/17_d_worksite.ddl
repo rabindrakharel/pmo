@@ -62,11 +62,9 @@ CREATE TABLE app.d_worksite (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Standard fields (common across all entities) - ALWAYS FIRST
-  slug varchar(255),
   code varchar(100),
   name text NOT NULL,
   descr text,
-  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
   from_ts timestamptz NOT NULL DEFAULT now(),
   to_ts timestamptz,
   active_flag boolean NOT NULL DEFAULT true,
@@ -89,17 +87,17 @@ CREATE TABLE app.d_worksite (
 
   -- Operational attributes
   capacity_workers int,
-  equipment_storage boolean DEFAULT false,
+  equipment_storage_flag boolean DEFAULT false,
   vehicle_parking int,
-  security_required boolean DEFAULT false,
+  security_required_flag boolean DEFAULT false,
 
   -- Facility specifications
   indoor_space_sqft numeric(10,2),
   outdoor_space_sqft numeric(10,2),
-  office_space boolean DEFAULT false,
-  washroom_facilities boolean DEFAULT false,
-  power_available boolean DEFAULT false,
-  water_available boolean DEFAULT false,
+  office_space_flag boolean DEFAULT false,
+  washroom_facilities_flag boolean DEFAULT false,
+  power_available_flag boolean DEFAULT false,
+  water_available_flag boolean DEFAULT false,
 
   -- Safety and compliance
   safety_rating text,
@@ -107,7 +105,7 @@ CREATE TABLE app.d_worksite (
   environmental_permits jsonb DEFAULT '[]'::jsonb,
 
   -- Seasonal operations
-  seasonal_use boolean DEFAULT false,
+  seasonal_use_flag boolean DEFAULT false,
   seasonal_period text,
 
   -- Management and emergency (no direct FK - use entity_id_hierarchy_mapping)
@@ -122,13 +120,13 @@ CREATE TABLE app.d_worksite (
 -- Comprehensive worksite data covering all operational facility types
 
 -- Corporate Headquarters
-INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, postal_code,
-  latitude, longitude, capacity_workers, equipment_storage, vehicle_parking,
-  security_required, indoor_space_sqft, outdoor_space_sqft, office_space,
-  washroom_facilities, power_available, water_available, safety_rating,
-  safety_last_inspection, seasonal_use, metadata
+INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
+  latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
+  security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
+  washroom_facilities_flag, power_available_flag, water_available_flag, safety_rating,
+  safety_last_inspection_date, seasonal_use_flag, metadata
 ) VALUES
-('huron-home-hq', 'HHS-HQ', 'Huron Home Services HQ',
+('HHS-HQ', 'Huron Home Services HQ',
  'Corporate headquarters and primary operational facility with administrative offices, equipment storage, vehicle maintenance, and dispatch coordination',
  'headquarters',
  '1250 South Service Rd, Mississauga, ON',
@@ -155,13 +153,13 @@ INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, post
  }'::jsonb);
 
 -- Branch Office - Toronto Service Center
-INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, postal_code,
-  latitude, longitude, capacity_workers, equipment_storage, vehicle_parking,
-  security_required, indoor_space_sqft, outdoor_space_sqft, office_space,
-  washroom_facilities, power_available, water_available, safety_rating,
-  safety_last_inspection, seasonal_use, metadata
+INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
+  latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
+  security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
+  washroom_facilities_flag, power_available_flag, water_available_flag, safety_rating,
+  safety_last_inspection_date, seasonal_use_flag, metadata
 ) VALUES
-('toronto-service-center', 'HHS-TOR-SC', 'Toronto Service Center',
+('HHS-TOR-SC', 'Toronto Service Center',
  'Regional service center providing equipment storage, crew coordination, and client support for Toronto market operations',
  'branch',
  '2500 Dundas St W, Toronto, ON',
@@ -187,13 +185,13 @@ INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, post
  }'::jsonb);
 
 -- Seasonal Winter Operations Center
-INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, postal_code,
+INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage, vehicle_parking,
   security_required, indoor_space_sqft, outdoor_space_sqft, office_space,
   washroom_facilities, power_available, water_available, safety_rating,
   safety_last_inspection, seasonal_use, seasonal_period, metadata
 ) VALUES
-('winter-ops-staging', 'HHS-WINTER-STG', 'Winter Ops - Equipment Staging',
+('HHS-WINTER-STG', 'Winter Ops - Equipment Staging',
  'Seasonal winter operations facility for snow removal equipment staging, salt storage, and emergency response coordination',
  'seasonal',
  '1500 Industrial Dr, Hamilton, ON',
@@ -221,13 +219,13 @@ INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, post
  }'::jsonb);
 
 -- Project-Specific Worksite - Solar Installation
-INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, postal_code,
-  latitude, longitude, capacity_workers, equipment_storage, vehicle_parking,
-  security_required, indoor_space_sqft, outdoor_space_sqft, office_space,
-  washroom_facilities, power_available, water_available, safety_rating,
-  safety_last_inspection, seasonal_use, metadata
+INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
+  latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
+  security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
+  washroom_facilities_flag, power_available_flag, water_available_flag, safety_rating,
+  safety_last_inspection_date, seasonal_use_flag, metadata
 ) VALUES
-('solar-install-1847-sheridan', 'HHS-SOL-1847', 'Solar Install - 1847 Sheridan Park Dr',
+('HHS-SOL-1847', 'Solar Install - 1847 Sheridan Park Dr',
  'Temporary project worksite for residential solar panel installation with equipment staging and crew coordination',
  'project',
  '1847 Sheridan Park Dr, Oakville, ON',
@@ -253,13 +251,13 @@ INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, post
  }'::jsonb);
 
 -- Commercial Landscaping Project Worksite
-INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, postal_code,
-  latitude, longitude, capacity_workers, equipment_storage, vehicle_parking,
-  security_required, indoor_space_sqft, outdoor_space_sqft, office_space,
-  washroom_facilities, power_available, water_available, safety_rating,
-  safety_last_inspection, seasonal_use, metadata
+INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
+  latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
+  security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
+  washroom_facilities_flag, power_available_flag, water_available_flag, safety_rating,
+  safety_last_inspection_date, seasonal_use_flag, metadata
 ) VALUES
-('landscaping-square-one', 'HHS-LAND-SQ1', 'Landscaping - Square One Plaza',
+('HHS-LAND-SQ1', 'Landscaping - Square One Plaza',
  'Commercial landscaping project worksite for Square One Shopping Centre plaza renovation and maintenance',
  'project',
  '100 City Centre Dr, Mississauga, ON',
@@ -285,13 +283,13 @@ INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, post
  }'::jsonb);
 
 -- Equipment Storage and Maintenance Facility
-INSERT INTO app.d_worksite (slug, code, name, "descr", worksite_type, addr, postal_code,
-  latitude, longitude, capacity_workers, equipment_storage, vehicle_parking,
-  security_required, indoor_space_sqft, outdoor_space_sqft, office_space,
-  washroom_facilities, power_available, water_available, safety_rating,
-  safety_last_inspection, seasonal_use, metadata
+INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
+  latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
+  security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
+  washroom_facilities_flag, power_available_flag, water_available_flag, safety_rating,
+  safety_last_inspection_date, seasonal_use_flag, metadata
 ) VALUES
-('equipment-storage-meadowvale', 'HHS-EQUIP-MV', 'Equipment Storage - Meadowvale',
+('HHS-EQUIP-MV', 'Equipment Storage - Meadowvale',
  'Dedicated equipment storage and maintenance facility for landscaping and technical service equipment',
  'storage',
  '3850 Ridgeway Dr, Mississauga, ON',

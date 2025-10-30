@@ -12,11 +12,9 @@ import {
 const PositionSchema = Type.Object({
   id: Type.String(),
   // Standard fields
-  slug: Type.Optional(Type.String()),
   code: Type.Optional(Type.String()),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  tags: Type.Array(Type.String()),
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
   active_flag: Type.Boolean(),
@@ -29,48 +27,46 @@ const PositionSchema = Type.Object({
 
   // Hierarchical structure
   level_id: Type.Number(),
-  level_name: Type.String(),
-  is_leaf_level: Type.Boolean(),
-  is_root_level: Type.Boolean(),
+  dl__position_level: Type.String(),
+  leaf_level_flag: Type.Boolean(),
+  root_level_flag: Type.Boolean(),
   parent_id: Type.Optional(Type.String()),
 
   // Position attributes
-  is_management: Type.Boolean(),
-  is_executive: Type.Boolean(),
+  management_flag: Type.Boolean(),
+  executive_flag: Type.Boolean(),
 
   // Compensation and authority
   salary_band_min: Type.Optional(Type.Number()),
   salary_band_max: Type.Optional(Type.Number()),
   bonus_target_pct: Type.Optional(Type.Number()),
-  equity_eligible: Type.Optional(Type.Boolean()),
+  equity_eligible_flag: Type.Optional(Type.Boolean()),
   approval_limit: Type.Optional(Type.Number()),
 
   // Organizational capacity
   direct_reports_max: Type.Optional(Type.Number()),
-  remote_eligible: Type.Optional(Type.Boolean()),
+  remote_eligible_flag: Type.Optional(Type.Boolean()),
 });
 
 const CreatePositionSchema = Type.Object({
-  slug: Type.Optional(Type.String()),
   code: Type.Optional(Type.String()),
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Array(Type.String())),
   metadata: Type.Optional(Type.Object({})),
   level_id: Type.Number(),
-  level_name: Type.String(),
-  is_leaf_level: Type.Optional(Type.Boolean()),
-  is_root_level: Type.Optional(Type.Boolean()),
+  dl__position_level: Type.String(),
+  leaf_level_flag: Type.Optional(Type.Boolean()),
+  root_level_flag: Type.Optional(Type.Boolean()),
   parent_id: Type.Optional(Type.String()),
-  is_management: Type.Optional(Type.Boolean()),
-  is_executive: Type.Optional(Type.Boolean()),
+  management_flag: Type.Optional(Type.Boolean()),
+  executive_flag: Type.Optional(Type.Boolean()),
   salary_band_min: Type.Optional(Type.Number()),
   salary_band_max: Type.Optional(Type.Number()),
   bonus_target_pct: Type.Optional(Type.Number()),
-  equity_eligible: Type.Optional(Type.Boolean()),
+  equity_eligible_flag: Type.Optional(Type.Boolean()),
   approval_limit: Type.Optional(Type.Number()),
   direct_reports_max: Type.Optional(Type.Number()),
-  remote_eligible: Type.Optional(Type.Boolean()),
+  remote_eligible_flag: Type.Optional(Type.Boolean()),
 });
 
 const UpdatePositionSchema = Type.Partial(CreatePositionSchema);
@@ -83,8 +79,8 @@ export async function positionRoutes(fastify: FastifyInstance) {
       querystring: Type.Object({
         active: Type.Optional(Type.Boolean()),
         level_id: Type.Optional(Type.Number()),
-        is_management: Type.Optional(Type.Boolean()),
-        is_executive: Type.Optional(Type.Boolean()),
+        management_flag: Type.Optional(Type.Boolean()),
+        executive_flag: Type.Optional(Type.Boolean()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         search: Type.Optional(Type.String()),
@@ -105,8 +101,8 @@ export async function positionRoutes(fastify: FastifyInstance) {
       const {
         active = true,
         level_id,
-        is_management,
-        is_executive,
+        management_flag,
+        executive_flag,
         limit = 20,
         offset = 0,
         search
@@ -120,11 +116,11 @@ export async function positionRoutes(fastify: FastifyInstance) {
       if (level_id !== undefined) {
         conditions.push(sql`level_id = ${level_id}`);
       }
-      if (is_management !== undefined) {
-        conditions.push(sql`is_management = ${is_management}`);
+      if (management_flag !== undefined) {
+        conditions.push(sql`management_flag = ${management_flag}`);
       }
-      if (is_executive !== undefined) {
-        conditions.push(sql`is_executive = ${is_executive}`);
+      if (executive_flag !== undefined) {
+        conditions.push(sql`executive_flag = ${executive_flag}`);
       }
       if (search) {
         conditions.push(sql`(name ILIKE ${'%' + search + '%'} OR descr ILIKE ${'%' + search + '%'})`);
@@ -140,11 +136,11 @@ export async function positionRoutes(fastify: FastifyInstance) {
 
       const positions = await db.execute(sql`
         SELECT
-          id, slug, code, name, "descr", tags, from_ts, to_ts, active_flag,
-          created_ts, updated_ts, version, metadata, level_id, level_name,
-          is_leaf_level, is_root_level, parent_id, is_management, is_executive,
-          salary_band_min, salary_band_max, bonus_target_pct, equity_eligible,
-          approval_limit, direct_reports_max, remote_eligible,
+          id, code, name, "descr", from_ts, to_ts, active_flag,
+          created_ts, updated_ts, version, metadata, level_id, dl__position_level,
+          leaf_level_flag, root_level_flag, parent_id, management_flag, executive_flag,
+          salary_band_min, salary_band_max, bonus_target_pct, equity_eligible_flag,
+          approval_limit, direct_reports_max, remote_eligible_flag,
           -- Include parent position name for display
           (SELECT name FROM app.d_position parent WHERE parent.id = d_position.parent_id) as parent_position_name
         FROM app.d_position
@@ -185,11 +181,11 @@ export async function positionRoutes(fastify: FastifyInstance) {
     try {
       const position = await db.execute(sql`
         SELECT
-          id, slug, code, name, "descr", tags, from_ts, to_ts, active_flag,
-          created_ts, updated_ts, version, metadata, level_id, level_name,
-          is_leaf_level, is_root_level, parent_id, is_management, is_executive,
-          salary_band_min, salary_band_max, bonus_target_pct, equity_eligible,
-          approval_limit, direct_reports_max, remote_eligible,
+          id, code, name, "descr", from_ts, to_ts, active_flag,
+          created_ts, updated_ts, version, metadata, level_id, dl__position_level,
+          leaf_level_flag, root_level_flag, parent_id, management_flag, executive_flag,
+          salary_band_min, salary_band_max, bonus_target_pct, equity_eligible_flag,
+          approval_limit, direct_reports_max, remote_eligible_flag,
           -- Include parent position name for display
           (SELECT name FROM app.d_position parent WHERE parent.id = d_position.parent_id) as parent_position_name
         FROM app.d_position
@@ -234,15 +230,15 @@ export async function positionRoutes(fastify: FastifyInstance) {
       }
 
       // Determine hierarchy flags
-      const is_root_level = !data.parent_id;
-      const is_leaf_level = false; // Will be updated based on actual hierarchy rules
+      const root_level_flag = !data.parent_id;
+      const leaf_level_flag = false; // Will be updated based on actual hierarchy rules
 
       const result = await db.execute(sql`
         INSERT INTO app.d_position (
-          slug, code, name, "descr", tags, metadata, level_id, level_name,
-          is_leaf_level, is_root_level, parent_id, is_management, is_executive,
-          salary_band_min, salary_band_max, bonus_target_pct, equity_eligible,
-          approval_limit, direct_reports_max, remote_eligible
+          code, name, "descr", metadata, level_id, dl__position_level,
+          leaf_level_flag, root_level_flag, parent_id, management_flag, executive_flag,
+          salary_band_min, salary_band_max, bonus_target_pct, equity_eligible_flag,
+          approval_limit, direct_reports_max, remote_eligible_flag
         )
         VALUES (
           ${data.slug || null},
@@ -252,19 +248,19 @@ export async function positionRoutes(fastify: FastifyInstance) {
           ${JSON.stringify(data.tags || [])},
           ${JSON.stringify(data.metadata || {})},
           ${data.level_id},
-          ${data.level_name},
-          ${data.is_leaf_level || is_leaf_level},
-          ${data.is_root_level || is_root_level},
+          ${data.dl__position_level},
+          ${data.leaf_level_flag || leaf_level_flag},
+          ${data.root_level_flag || root_level_flag},
           ${data.parent_id || null},
-          ${data.is_management || false},
-          ${data.is_executive || false},
+          ${data.management_flag || false},
+          ${data.executive_flag || false},
           ${data.salary_band_min || null},
           ${data.salary_band_max || null},
           ${data.bonus_target_pct || null},
-          ${data.equity_eligible || false},
+          ${data.equity_eligible_flag || false},
           ${data.approval_limit || null},
           ${data.direct_reports_max || null},
-          ${data.remote_eligible || false}
+          ${data.remote_eligible_flag || false}
         )
         RETURNING *
       `);
@@ -330,19 +326,19 @@ export async function positionRoutes(fastify: FastifyInstance) {
       if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}`);
       if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}`);
       if (data.level_id !== undefined) updateFields.push(sql`level_id = ${data.level_id}`);
-      if (data.level_name !== undefined) updateFields.push(sql`level_name = ${data.level_name}`);
-      if (data.is_leaf_level !== undefined) updateFields.push(sql`is_leaf_level = ${data.is_leaf_level}`);
-      if (data.is_root_level !== undefined) updateFields.push(sql`is_root_level = ${data.is_root_level}`);
+      if (data.dl__position_level !== undefined) updateFields.push(sql`dl__position_level = ${data.dl__position_level}`);
+      if (data.leaf_level_flag !== undefined) updateFields.push(sql`leaf_level_flag = ${data.leaf_level_flag}`);
+      if (data.root_level_flag !== undefined) updateFields.push(sql`root_level_flag = ${data.root_level_flag}`);
       if (data.parent_id !== undefined) updateFields.push(sql`parent_id = ${data.parent_id}`);
-      if (data.is_management !== undefined) updateFields.push(sql`is_management = ${data.is_management}`);
-      if (data.is_executive !== undefined) updateFields.push(sql`is_executive = ${data.is_executive}`);
+      if (data.management_flag !== undefined) updateFields.push(sql`management_flag = ${data.management_flag}`);
+      if (data.executive_flag !== undefined) updateFields.push(sql`executive_flag = ${data.executive_flag}`);
       if (data.salary_band_min !== undefined) updateFields.push(sql`salary_band_min = ${data.salary_band_min}`);
       if (data.salary_band_max !== undefined) updateFields.push(sql`salary_band_max = ${data.salary_band_max}`);
       if (data.bonus_target_pct !== undefined) updateFields.push(sql`bonus_target_pct = ${data.bonus_target_pct}`);
-      if (data.equity_eligible !== undefined) updateFields.push(sql`equity_eligible = ${data.equity_eligible}`);
+      if (data.equity_eligible_flag !== undefined) updateFields.push(sql`equity_eligible_flag = ${data.equity_eligible_flag}`);
       if (data.approval_limit !== undefined) updateFields.push(sql`approval_limit = ${data.approval_limit}`);
       if (data.direct_reports_max !== undefined) updateFields.push(sql`direct_reports_max = ${data.direct_reports_max}`);
-      if (data.remote_eligible !== undefined) updateFields.push(sql`remote_eligible = ${data.remote_eligible}`);
+      if (data.remote_eligible_flag !== undefined) updateFields.push(sql`remote_eligible_flag = ${data.remote_eligible_flag}`);
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });

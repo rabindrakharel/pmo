@@ -30,6 +30,7 @@ import { ChevronDown, ChevronUp, Search, Filter, Columns, ChevronLeft, ChevronRi
 import {
   isSettingField,
   loadFieldOptions,
+  getSettingDatalabel,
   type SettingOption
 } from '../../../lib/settingsLoader';
 import {
@@ -43,7 +44,6 @@ import {
   loadSettingsColors
 } from '../../../lib/data_transform_render';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
-import { getColumnWidth } from '../../../lib/entityConfig';
 
 /**
  * Helper function to render cell value with automatic currency formatting
@@ -52,6 +52,13 @@ function renderCellValue(column: Column, value: any): React.ReactNode {
   // Return empty state if no value
   if (value === null || value === undefined || value === '') {
     return <span className="text-gray-400 italic">—</span>;
+  }
+
+  // Settings fields with colored badges (loadOptionsFromSettings: true)
+  if (column.loadOptionsFromSettings && typeof value === 'string') {
+    const datalabel = extractSettingsDatalabel(column.key);
+    const colorCode = getSettingColor(datalabel, value);
+    return renderSettingBadge(colorCode, value);
   }
 
   // Auto-format currency fields
@@ -65,9 +72,21 @@ function renderCellValue(column: Column, value: any): React.ReactNode {
 
 /**
  * Extract settings datalabel from column key
- * Examples: 'project_stage' -> 'project_stage', 'opportunity_funnel_stage_name' -> 'opportunity_funnel_stage'
+ * Uses centralized mapping from settingsLoader for proper datalabel resolution
+ * Examples:
+ *   'project_stage' -> 'project_stage'
+ *   'opportunity_funnel_stage_name' -> 'opportunity_funnel_stage'
+ *   'dl__opportunity_funnel_stage' -> 'opportunity_funnel_stage' (via FIELD_TO_SETTING_MAP)
  */
 function extractSettingsDatalabel(columnKey: string): string {
+  // First try centralized mapping from settingsLoader
+  // This handles fields like dl__opportunity_funnel_stage -> opportunity_funnel_stage
+  const mapped = getSettingDatalabel(columnKey);
+  if (mapped) {
+    return mapped;
+  }
+
+  // Fallback: strip common suffixes for backwards compatibility
   return columnKey
     .replace(/_name$/, '')
     .replace(/_id$/, '')
@@ -1234,7 +1253,7 @@ export function EntityDataTable<T = any>({
                       index === 0 ? 'sticky left-0 z-40 bg-gray-50 shadow-r' : ''
                     }`}
                     style={{
-                      width: columns.length > 7 ? '200px' : (getColumnWidth(column.key, column.width) || 'auto'),
+                      width: columns.length > 7 ? '200px' : (column.width || 'auto'),
                       textAlign: column.align || 'left',
                       color: '#6b6d70',
                       font: "400 12px / 16px 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",

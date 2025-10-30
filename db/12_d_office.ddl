@@ -16,7 +16,7 @@
 --    • Returns: {id: "new-uuid", version: 1, ...}
 --    • Database: INSERT with version=1, active_flag=true, created_ts=now()
 --    • RBAC: Requires permission 4 (create) on entity='office', entity_id='all'
---    • Business Rule: level_name must match app.setting_datalabel (datalabel_name='office__level') entries ("Office", "District", "Region", "Corporate")
+--    • Business Rule: dl__office_level must match app.setting_datalabel (datalabel_name='office__level') entries ("Office", "District", "Region", "Corporate")
 --
 -- 2. UPDATE OFFICE (Address Changes, Reassignment to Parent)
 --    • Endpoint: PUT /api/v1/office/{id}
@@ -49,7 +49,7 @@
 --            AND (rbac.entity_id=o.id::text OR rbac.entity_id='all')
 --            AND 0=ANY(rbac.permission)  -- View permission
 --        )
---      ORDER BY o.level_name DESC, o.name ASC
+--      ORDER BY o.dl__office_level DESC, o.name ASC
 --      LIMIT $1 OFFSET $2
 --    • RBAC: User sees ONLY offices they have view access to
 --    • Frontend: Renders in EntityMainPage with table view (tree structure optional)
@@ -89,8 +89,8 @@
 -- • updated_ts: Last modification time (refreshed on UPDATE)
 --
 -- KEY BUSINESS FIELDS:
--- • level_name: Hierarchy level ("Office", "District", "Region", "Corporate")
---   - Loaded from app.setting_datalabel table (datalabel_name='office__level') via /api/v1/setting?datalabel=office_level
+-- • dl__office_level: Hierarchy level ("Office", "District", "Region", "Corporate")
+--   - Loaded from app.setting_datalabel table (datalabel_name='office__level') via GET /api/v1/setting?category=office__level
 --   - Determines position in organizational tree
 --   - Only level 0 (Office) has full address details
 -- • parent_id: Hierarchical relationship (NULL for Corporate, UUID for all others)
@@ -119,7 +119,7 @@ CREATE TABLE app.d_office (
 
     -- Hierarchy fields
     parent_id uuid ,
-    level_name text NOT NULL, -- Office, District, Region, Corporate
+    dl__office_level text NOT NULL, -- References app.setting_datalabel (datalabel_name='office__level')
 
     -- Address fields (for level 0 - Office)
     address_line1 varchar(200),
@@ -141,8 +141,8 @@ CREATE TABLE app.d_office (
 -- Sample office hierarchy data for Canadian PMO company
 -- Level 3: Corporate Headquarters
 INSERT INTO app.d_office (
-    id, code, name, descr,
-    parent_id, level_name,
+    code, name, descr,
+    parent_id, dl__office_level,
     address_line1, city, province, postal_code, country
 ) VALUES (
     'CORP-HQ-001',
@@ -158,8 +158,8 @@ INSERT INTO app.d_office (
 
 -- Level 2: Ontario Region
 INSERT INTO app.d_office (
-    id, code, name, descr,
-    parent_id, level_name,
+    code, name, descr,
+    parent_id, dl__office_level,
     address_line1, city, province, postal_code, country
 ) VALUES (
     'ON-REG-001',
@@ -175,8 +175,8 @@ INSERT INTO app.d_office (
 
 -- Level 1: Southwestern Ontario District
 INSERT INTO app.d_office (
-    id, code, name, descr,
-    parent_id, level_name,
+    code, name, descr,
+    parent_id, dl__office_level,
     address_line1, city, province, postal_code, country
 ) VALUES (
     'SWO-DIST-001',
@@ -192,8 +192,8 @@ INSERT INTO app.d_office (
 
 -- Level 0: London Service Office
 INSERT INTO app.d_office (
-    id, code, name, descr,
-    parent_id, level_name,
+    code, name, descr,
+    parent_id, dl__office_level,
     address_line1, city, province, postal_code, country
 ) VALUES (
     'LON-OFF-001',
@@ -209,8 +209,8 @@ INSERT INTO app.d_office (
 
 -- Additional offices for broader coverage
 INSERT INTO app.d_office (
-    id, code, name, descr,
-    parent_id, level_name,
+    code, name, descr,
+    parent_id, dl__office_level,
     address_line1, city, province, postal_code, country
 ) VALUES (
     'KIT-OFF-001',

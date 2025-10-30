@@ -50,7 +50,7 @@ CREATE TABLE app.d_artifact (
     entity_id uuid,
     visibility text,
     security_classification text,
-    is_latest_version boolean DEFAULT true
+    latest_version_flag boolean DEFAULT true
 );
 
 COMMENT ON TABLE app.d_artifact IS 'Artifact table for document and file management';
@@ -73,7 +73,7 @@ INSERT INTO app.d_artifact (
     entity_id,
     visibility,
     security_classification,
-    is_latest_version
+    latest_version_flag
 ) VALUES (
     '33a33333-3333-3333-3333-333333333333',
     'ART-FLC-003',
@@ -110,7 +110,7 @@ INSERT INTO app.d_artifact (
     entity_id,
     visibility,
     security_classification,
-    is_latest_version
+    latest_version_flag
 ) VALUES (
     '44a44444-4444-4444-4444-444444444444',
     'ART-FLC-004',
@@ -149,7 +149,7 @@ INSERT INTO app.d_artifact (
     entity_id,
     visibility,
     security_classification,
-    is_latest_version
+    latest_version_flag
 ) VALUES (
     '77a77777-7777-7777-7777-777777777777',
     'ART-FLC-007',

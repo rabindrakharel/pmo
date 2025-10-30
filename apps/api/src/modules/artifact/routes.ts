@@ -35,11 +35,9 @@ const CreateArtifactSchema = Type.Object({
   // Required fields (will be auto-generated if not provided)
   name: Type.String({ minLength: 1 }),
   code: Type.String({ minLength: 1 }),
-  slug: Type.String({ minLength: 1 }),
 
   // Optional metadata
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String(), Type.Any()])),
   metadata: Type.Optional(Type.Union([Type.Object({}), Type.String(), Type.Any()])),
   attr: Type.Optional(Type.Union([Type.Object({}), Type.String(), Type.Any()])),
 
@@ -199,7 +197,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     try {
       const result = await db.execute(sql`
         INSERT INTO app.d_artifact (
-          slug, code, name, descr, tags, metadata, artifact_type,
+          code, name, descr, metadata, artifact_type,
           attachment_format, attachment_size_bytes,
           attachment_object_bucket, attachment_object_key,
           entity_type, entity_id,
@@ -359,7 +357,6 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         fileName: Type.String({ description: 'File name with extension' }),
         contentType: Type.Optional(Type.String({ description: 'MIME type' })),
         fileSize: Type.Optional(Type.Number({ description: 'File size in bytes' })),
-        tags: Type.Optional(Type.Array(Type.String())),
         visibility: Type.Optional(Type.String({ enum: ['public', 'internal', 'restricted', 'private'] })),
         securityClassification: Type.Optional(Type.String({ enum: ['general', 'confidential', 'restricted'] })),
       }),
@@ -395,7 +392,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       // Create artifact metadata record
       const result = await db.execute(sql`
         INSERT INTO app.d_artifact (
-          slug, code, name, descr, tags, metadata,
+          code, name, descr, metadata,
           artifact_type, attachment_format, attachment_size_bytes,
           entity_type, entity_id,
           attachment_object_bucket, attachment_object_key,
@@ -630,7 +627,6 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         visibility: Type.Optional(Type.String()),
         security_classification: Type.Optional(Type.String()),
         artifact_type: Type.Optional(Type.String()),
-        tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.Any()])),
       }),
       response: {
         200: Type.Object({
@@ -689,7 +685,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
       const newResult = await db.execute(sql`
         INSERT INTO app.d_artifact (
-          slug, code, name, descr, tags, metadata, artifact_type, attachment_format, attachment_size_bytes,
+          code, name, descr, metadata, artifact_type, attachment_format, attachment_size_bytes,
           entity_type, entity_id, attachment_object_bucket, attachment_object_key, visibility, security_classification,
           parent_artifact_id, is_latest_version, from_ts, to_ts, active_flag, version
         ) VALUES (

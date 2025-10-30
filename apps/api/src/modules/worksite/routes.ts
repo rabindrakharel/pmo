@@ -12,11 +12,9 @@ import {
 const WorksiteSchema = Type.Object({
   id: Type.String(),
   // Standard fields
-  slug: Type.Optional(Type.String()),
   code: Type.Optional(Type.String()),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  tags: Type.Array(Type.String()),
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
   active_flag: Type.Boolean(),
@@ -65,11 +63,9 @@ const WorksiteSchema = Type.Object({
 });
 
 const CreateWorksiteSchema = Type.Object({
-  slug: Type.Optional(Type.String()),
   code: Type.Optional(Type.String()),
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Array(Type.String())),
   metadata: Type.Optional(Type.Object({})),
   worksite_type: Type.String(),
   addr: Type.Optional(Type.String()),
@@ -162,7 +158,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
 
       const worksites = await db.execute(sql`
         SELECT
-          id, slug, code, name, "descr", tags, from_ts, to_ts, active_flag,
+          id, code, name, "descr", from_ts, to_ts, active_flag,
           created_ts, updated_ts, version, metadata, worksite_type, addr,
           postal_code, latitude, longitude, time_zone, capacity_workers,
           equipment_storage, vehicle_parking, security_required,
@@ -208,7 +204,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
     try {
       const worksite = await db.execute(sql`
         SELECT
-          id, slug, code, name, "descr", tags, from_ts, to_ts, active_flag,
+          id, code, name, "descr", from_ts, to_ts, active_flag,
           created_ts, updated_ts, version, metadata, worksite_type, addr,
           postal_code, latitude, longitude, time_zone, capacity_workers,
           equipment_storage, vehicle_parking, security_required,
@@ -249,7 +245,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
     try {
       const result = await db.execute(sql`
         INSERT INTO app.d_worksite (
-          slug, code, name, "descr", tags, metadata, worksite_type, addr,
+          code, name, "descr", metadata, worksite_type, addr,
           postal_code, latitude, longitude, time_zone, capacity_workers,
           equipment_storage, vehicle_parking, security_required,
           indoor_space_sqft, outdoor_space_sqft, office_space,

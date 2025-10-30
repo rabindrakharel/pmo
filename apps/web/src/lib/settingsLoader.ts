@@ -52,73 +52,83 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 /**
  * Mapping of field names to their corresponding setting datalabels
  * This defines which fields should load from which settings tables
+ * Format: field_name -> datalabel_name (using entity__label format with double underscore)
  */
 export const FIELD_TO_SETTING_MAP: Record<string, string> = {
-  // Project fields
-  'project_stage': 'project_stage',
-  'project_status': 'project_status',
+  // Project fields (dl__ prefix columns from database)
+  'dl__project_stage': 'project__stage',
+  'project_stage': 'project__stage',
 
-  // Task fields
-  'stage': 'task_stage',
-  'task_stage': 'task_stage',
-  'status': 'task_stage',
-  'priority_level': 'task_priority',
+  // Task fields (dl__ prefix columns from database)
+  'dl__task_stage': 'task__stage',
+  'dl__task_priority': 'task__priority',
+  'stage': 'task__stage',
+  'task_stage': 'task__stage',
+  'status': 'task__stage',
+  'priority_level': 'task__priority',
 
-  // Client fields
-  'opportunity_funnel_stage_name': 'opportunity_funnel_stage',
-  'industry_sector_name': 'industry_sector',
-  'acquisition_channel_name': 'acquisition_channel',
-  'customer_tier_name': 'customer_tier',
-  'client_status': 'client_status',
+  // Client/Customer fields (dl__ prefix columns from database)
+  'dl__opportunity_funnel_stage': 'opportunity__funnel_stage',
+  'dl__industry_sector': 'industry__sector',
+  'dl__acquisition_channel': 'acquisition__channel',
+  'dl__customer_tier': 'customer__tier',
+  'dl__client_status': 'client__status',
+  'opportunity_funnel_stage_name': 'opportunity__funnel_stage',
+  'industry_sector_name': 'industry__sector',
+  'acquisition_channel_name': 'acquisition__channel',
+  'customer_tier_name': 'customer__tier',
+  'client_status': 'client__status',
 
-  // Business fields
-  'level_id': 'business_level', // Context-dependent
-  'name': 'business_level',
-  'business_level_id': 'business_level',
+  // Business fields (dl__ prefix columns from database)
+  'dl__business_level': 'business__level',
+  'level_id': 'business__level', // Context-dependent
+  'name': 'business__level',
+  'business_level_id': 'business__level',
 
-  // Office fields
-  'office_level_id': 'office_level',
+  // Office fields (dl__ prefix columns from database)
+  'dl__office_level': 'office__level',
+  'office_level_id': 'office__level',
 
-  // HR/Position fields
-  'position_level_id': 'position_level',
-  'hr_level_id': 'hr_level',
+  // Position fields (dl__ prefix columns from database)
+  'dl__position_level': 'position__level',
+  'position_level_id': 'position__level',
 
-  // Client level
-  'client_level_id': 'client_level',
+  // Form fields (dl__ prefix columns from database)
+  'dl__form_submission_status': 'form__submission_status',
+  'dl__form_approval_status': 'form__approval_status',
+  'submission_status': 'form__submission_status',
+  'approval_status': 'form__approval_status',
 
-  // Form fields
-  'submission_status': 'form_submission_status',
-  'approval_status': 'form_approval_status',
-
-  // Wiki fields
-  'publication_status': 'wiki_publication_status',
+  // Wiki fields (dl__ prefix columns from database)
+  'dl__wiki_publication_status': 'wiki__publication_status',
+  'publication_status': 'wiki__publication_status',
 
   // Task activity fields
-  'update_type': 'task_update_type',
+  'update_type': 'task__update_type',
 };
 
 /**
  * Mapping of setting datalabels to their API endpoints
+ * Format: datalabel_name -> API endpoint using ?category= parameter
+ * All datalabel names use dl__entity__label format (matching database column names)
  */
 export const SETTING_DATALABEL_TO_ENDPOINT: Record<string, string> = {
-  'project_stage': '/api/v1/setting?datalabel=project_stage',
-  'project_status': '/api/v1/setting?datalabel=project_status',
-  'task_stage': '/api/v1/setting?datalabel=task_stage',
-  'task_priority': '/api/v1/setting?datalabel=task_priority',
-  'opportunity_funnel_stage': '/api/v1/setting?datalabel=opportunity_funnel_stage',
-  'industry_sector': '/api/v1/setting?datalabel=industry_sector',
-  'acquisition_channel': '/api/v1/setting?datalabel=acquisition_channel',
-  'customer_tier': '/api/v1/setting?datalabel=customer_tier',
-  'client_status': '/api/v1/setting?datalabel=client_status',
-  'business_level': '/api/v1/setting?datalabel=business_level',
-  'office_level': '/api/v1/setting?datalabel=office_level',
-  'position_level': '/api/v1/setting?datalabel=position_level',
-  'hr_level': '/api/v1/setting?datalabel=hr_level',
-  'client_level': '/api/v1/setting?datalabel=client_level',
-  'form_submission_status': '/api/v1/setting?datalabel=form_submission_status',
-  'form_approval_status': '/api/v1/setting?datalabel=form_approval_status',
-  'wiki_publication_status': '/api/v1/setting?datalabel=wiki_publication_status',
-  'task_update_type': '/api/v1/setting?datalabel=task_update_type',
+  'project__stage': '/api/v1/setting?category=dl__project__stage',
+  'task__stage': '/api/v1/setting?category=dl__task__stage',
+  'task__priority': '/api/v1/setting?category=dl__task__priority',
+  'task__update_type': '/api/v1/setting?category=dl__task__update_type',
+  'opportunity__funnel_stage': '/api/v1/setting?category=dl__opportunity__funnel_stage',
+  'industry__sector': '/api/v1/setting?category=dl__industry__sector',
+  'acquisition__channel': '/api/v1/setting?category=dl__acquisition__channel',
+  'customer__tier': '/api/v1/setting?category=dl__customer__tier',
+  'client__status': '/api/v1/setting?category=dl__client__status',
+  'client__service': '/api/v1/setting?category=dl__client__service',
+  'business__level': '/api/v1/setting?category=dl__business__level',
+  'office__level': '/api/v1/setting?category=dl__office__level',
+  'position__level': '/api/v1/setting?category=dl__position__level',
+  'form__submission_status': '/api/v1/setting?category=dl__form__submission_status',
+  'form__approval_status': '/api/v1/setting?category=dl__form__approval_status',
+  'wiki__publication_status': '/api/v1/setting?category=dl__wiki__publication_status',
 };
 
 /**

@@ -27,7 +27,7 @@
 --      - Same ID (preserves all child entity relationships)
 --      - version increments (audit trail)
 --      - updated_ts refreshed
---      - NO archival (project_stage can change: Planning → Execution → Closure)
+--      - NO archival (dl__project_stage can change: Planning → Execution → Closure)
 --    • RBAC: Requires permission 1 (edit) on entity='project', entity_id={id} OR 'all'
 --    • Business Rule: Stage changes trigger frontend Kanban column moves
 --
@@ -88,8 +88,8 @@
 -- • updated_ts: Last modification time (refreshed on UPDATE)
 --
 -- KEY BUSINESS FIELDS:
--- • project_stage: Workflow state (Initiation, Planning, Execution, Monitoring, Closure, On Hold, Cancelled)
---   - Loaded from app.setting_datalabel table (datalabel_name='project__stage') via /api/v1/setting?datalabel=project_stage
+-- • dl__project_stage: Workflow state (Initiation, Planning, Execution, Monitoring, Closure, On Hold, Cancelled)
+--   - Loaded from app.setting_datalabel table (datalabel_name='project__stage') via GET /api/v1/setting?category=project__stage
 --   - Drives Kanban column placement in frontend
 --   - Updated via inline editing or drag-drop in UI
 -- • budget_allocated vs budget_spent: Financial tracking
@@ -114,7 +114,7 @@ CREATE TABLE app.d_project (
     -- Project relationships to parent entity are managed via entity_id_map so no FK needed
 
     -- Project fields
-    project_stage text, -- Project stage name (denormalized from meta_project_stage)
+    dl__project_stage text, -- References app.setting_datalabel (datalabel_name='project__stage')
     budget_allocated_amt decimal(15,2),
     budget_spent_amt decimal(15,2) DEFAULT 0,
     planned_start_date date,
@@ -142,7 +142,7 @@ CREATE TABLE app.d_project (
 -- Strategic Corporate Project
 INSERT INTO app.d_project (
     id, code, name, descr, metadata,
-    project_stage,
+    dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
     planned_start_date, planned_end_date, actual_start_date,
     manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
@@ -163,7 +163,7 @@ INSERT INTO app.d_project (
 -- Landscaping Service Project
 INSERT INTO app.d_project (
     id, code, name, descr, metadata,
-    project_stage,
+    dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
     planned_start_date, planned_end_date, actual_start_date,
     manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
@@ -184,7 +184,7 @@ INSERT INTO app.d_project (
 -- HVAC Modernization Project
 INSERT INTO app.d_project (
     id, code, name, descr, metadata,
-    project_stage,
+    dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
     planned_start_date, planned_end_date, actual_start_date,
     manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
@@ -205,7 +205,7 @@ INSERT INTO app.d_project (
 -- Corporate Office Expansion
 INSERT INTO app.d_project (
     id, code, name, descr, metadata,
-    project_stage,
+    dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
     planned_start_date, planned_end_date, actual_start_date,
     manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
@@ -226,7 +226,7 @@ INSERT INTO app.d_project (
 -- Customer Service Excellence Initiative
 INSERT INTO app.d_project (
     id, code, name, descr, metadata,
-    project_stage,
+    dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
     planned_start_date, planned_end_date, actual_start_date,
     manager_employee_id, sponsor_employee_id, stakeholder_employee_ids

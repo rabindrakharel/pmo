@@ -17,7 +17,7 @@ const EmployeeSchema = Type.Object({
   code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  metadata: Type.Any(),  // JSONB - contains tags, skills, certifications, etc.
+  metadata: Type.Any(),  // JSONB - contains skills, certifications, etc.
   active_flag: Type.Boolean(),
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
@@ -75,7 +75,7 @@ const CreateEmployeeSchema = Type.Object({
   name: Type.Optional(Type.String({ minLength: 1 })),
   code: Type.Optional(Type.String({ minLength: 1 })),
   descr: Type.Optional(Type.String()),
-  metadata: Type.Optional(Type.Any()),  // Flexible JSONB for tags, skills, certifications, etc.
+  metadata: Type.Optional(Type.Any()),  // Flexible JSONB for skills, certifications, etc.
   active_flag: Type.Optional(Type.Boolean()),
 
   // Employee identification (DDL columns)
@@ -468,7 +468,7 @@ export async function empRoutes(fastify: FastifyInstance) {
           first_name, last_name, title, department,
           hire_date, termination_date, employee_type,
           manager_employee_id,
-          tags, metadata, active_flag
+          metadata, active_flag
         )
         VALUES (
           ${data.name},

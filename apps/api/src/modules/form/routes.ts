@@ -6,7 +6,6 @@ import { sql } from 'drizzle-orm';
 // Response schema matching minimalistic database structure
 const FormSchema = Type.Object({
   id: Type.String(),
-  slug: Type.String(),
   code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
@@ -150,7 +149,7 @@ export async function formRoutes(fastify: FastifyInstance) {
             SELECT DISTINCT ON (f.slug) f.id
             FROM app.d_form_head f
             ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-            ORDER BY f.slug, f.version DESC
+            ORDER BY f.f.version DESC
           ) subq
         `);
         const total = Number(countResult[0]?.total || 0);
@@ -174,7 +173,7 @@ export async function formRoutes(fastify: FastifyInstance) {
             f.version
           FROM app.d_form_head f
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-          ORDER BY f.slug, f.version DESC, f.name ASC
+          ORDER BY f.f.version DESC, f.name ASC
           LIMIT ${limit} OFFSET ${offset}
         `);
 
@@ -191,7 +190,6 @@ export async function formRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        slug: Type.String(),
       }),
       response: {
         200: Type.Object({
@@ -382,7 +380,6 @@ export async function formRoutes(fastify: FastifyInstance) {
           descr,
           internal_url,
           shared_url,
-          tags,
           form_type,
           form_schema,
           active_flag,
@@ -409,7 +406,6 @@ export async function formRoutes(fastify: FastifyInstance) {
           descr,
           internal_url,
           shared_url,
-          tags,
           form_type,
           form_schema,
           from_ts,
@@ -424,7 +420,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Register in d_entity_instance_id for global entity operations
       await db.execute(sql`
-        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
+        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_entity_code)
         VALUES ('form', ${created.id}::uuid, ${created.name}, ${created.slug}, ${created.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name,
@@ -502,7 +498,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Get current form data
       const currentForm = await db.execute(sql`
-        SELECT id, slug, code, name, descr, tags, form_type, form_schema, internal_url, shared_url, active_flag, version
+        SELECT id, code, name, descr, form_type, form_schema, internal_url, shared_url, active_flag, version
         FROM app.d_form_head
         WHERE id = ${id}
       `);

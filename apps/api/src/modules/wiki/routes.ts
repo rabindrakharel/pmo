@@ -7,18 +7,16 @@ const WikiSchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
   code: Type.String(),
-  slug: Type.String(),
   descr: Type.Optional(Type.String()),
   internal_url: Type.Optional(Type.String()),
   shared_url: Type.Optional(Type.String()),
   summary: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Array(Type.String())),
   content: Type.Optional(Type.Any()),
   content_markdown: Type.Optional(Type.String()),
   content_html: Type.Optional(Type.String()),
   wiki_type: Type.Optional(Type.String()),
   category: Type.Optional(Type.String()),
-  publication_status: Type.Optional(Type.String()),
+  dl__wiki_publication_status: Type.Optional(Type.String()),
   visibility: Type.Optional(Type.String()),
   active_flag: Type.Boolean(),
   from_ts: Type.String(),
@@ -31,17 +29,15 @@ const WikiSchema = Type.Object({
 
 const CreateWikiSchema = Type.Object({
   name: Type.Optional(Type.String({ minLength: 1 })),
-  slug: Type.Optional(Type.String({ minLength: 1 })),
   code: Type.Optional(Type.String()),
   descr: Type.Optional(Type.String()),
   summary: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String(), Type.Any()])),
   content: Type.Optional(Type.Any()),
   content_markdown: Type.Optional(Type.String()),
   content_html: Type.Optional(Type.String()),
   wiki_type: Type.Optional(Type.String()),
   category: Type.Optional(Type.String()),
-  publication_status: Type.Optional(Type.String()),
+  dl__wiki_publication_status: Type.Optional(Type.String()),
   visibility: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Union([Type.Object({}), Type.String(), Type.Any()])),
 });
@@ -124,7 +120,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           w.metadata,
           w.wiki_type,
           w.category,
-          w.publication_status,
+          w.dl__wiki_publication_status,
           w.visibility,
           w.keywords,
           w.summary,
@@ -203,7 +199,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           w.code,
           w.slug,
           w.descr,
-          COALESCE(w.tags, '[]'::jsonb) as tags,
+          COALESCE(w.'[]'::jsonb) as tags,
           COALESCE(w.metadata, '{}'::jsonb) as metadata,
           w.content,
           w.wiki_type,
@@ -211,7 +207,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           w.page_path,
           w.parent_wiki_id,
           w.sort_order,
-          w.publication_status,
+          w.dl__wiki_publication_status,
           w.published_at,
           w.published_by_empid,
           w.visibility,
@@ -311,8 +307,8 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       // Insert into d_wiki (head table)
       const wikiResult = await db.execute(sql`
         INSERT INTO app.d_wiki (
-          slug, code, name, descr, tags, metadata, wiki_type, category,
-          publication_status, visibility, summary, content, active_flag, version
+          code, name, descr, metadata, wiki_type, category,
+          dl__wiki_publication_status, visibility, summary, content, active_flag, version
         ) VALUES (
           ${data.slug},
           ${code},
@@ -322,15 +318,15 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           ${JSON.stringify(data.metadata || {})}::jsonb,
           ${data.wiki_type || 'page'},
           ${data.category || null},
-          ${data.publication_status || 'draft'},
+          ${data.dl__wiki_publication_status || 'draft'},
           ${data.visibility || 'internal'},
           ${data.summary || null},
           ${data.content ? JSON.stringify(data.content) : null}::jsonb,
           true,
           1
         )
-        RETURNING id, slug, code, name, descr, tags, metadata, wiki_type,
-                  category, publication_status, visibility, summary, content,
+        RETURNING id, code, name, descr, metadata, wiki_type,
+                  category, dl__wiki_publication_status, visibility, summary, content,
                   active_flag, from_ts, to_ts,
                   created_ts, updated_ts, version
       `);
@@ -339,7 +335,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
       // Register the wiki in d_entity_instance_id for global entity operations
       await db.execute(sql`
-        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_slug, entity_code)
+        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_entity_code)
         VALUES ('wiki', ${wiki.id}::uuid, ${wiki.name}, ${wiki.slug}, ${wiki.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name,
@@ -445,8 +441,8 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       if (data.category !== undefined) {
         updateParts.push(sql`category = ${data.category}`);
       }
-      if (data.publication_status !== undefined) {
-        updateParts.push(sql`publication_status = ${data.publication_status}`);
+      if (data.dl__wiki_publication_status !== undefined) {
+        updateParts.push(sql`dl__wiki_publication_status = ${data.dl__wiki_publication_status}`);
       }
       if (data.visibility !== undefined) {
         updateParts.push(sql`visibility = ${data.visibility}`);
@@ -467,8 +463,8 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         UPDATE app.d_wiki
         SET ${sql.join(updateParts, sql`, `)}
         WHERE id = ${id} AND active_flag = true
-        RETURNING id, slug, code, name, descr, tags, metadata, content, wiki_type,
-                  category, publication_status, visibility, summary,
+        RETURNING id, code, name, descr, metadata, content, wiki_type,
+                  category, dl__wiki_publication_status, visibility, summary,
                   active_flag, from_ts, to_ts,
                   created_ts, updated_ts, version
       `);

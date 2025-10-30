@@ -81,7 +81,7 @@ CREATE TABLE app.fact_invoice (
     office_name VARCHAR(255),                           -- Denormalized office
 
     -- Quantity Metrics
-    quantity_billed DECIMAL(12,3) NOT NULL,             -- Quantity on this line
+    qty_billed DECIMAL(12,3) NOT NULL,             -- Quantity on this line
     unit_of_measure VARCHAR(20) DEFAULT 'each',         -- 'each', 'hour', 'ft', 'sqft', 'lb'
 
     -- Pricing Metrics (Canadian Dollars)
@@ -176,8 +176,8 @@ CREATE INDEX idx_invoice_accounting_period ON app.fact_invoice(accounting_period
 CREATE OR REPLACE FUNCTION app.calculate_invoice_extended() RETURNS TRIGGER AS $$
 BEGIN
     -- Calculate extended amounts
-    NEW.extended_price_cad := NEW.quantity_billed * NEW.unit_price_cad;
-    NEW.extended_cost_cad := NEW.quantity_billed * COALESCE(NEW.unit_cost_cad, 0);
+    NEW.extended_price_cad := NEW.qty_billed * NEW.unit_price_cad;
+    NEW.extended_cost_cad := NEW.qty_billed * COALESCE(NEW.unit_cost_cad, 0);
     NEW.extended_margin_cad := NEW.extended_price_cad - NEW.extended_cost_cad;
 
     IF NEW.extended_price_cad > 0 THEN

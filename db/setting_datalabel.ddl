@@ -81,19 +81,19 @@ CREATE TRIGGER trg_setting_datalabel_updated_ts
 INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) VALUES
 ('task__stage', 'Task Stages', 'Target', '[
   {"id": 0, "name": "Backlog", "descr": "Tasks in backlog, not yet started", "parent_id": null, "color_code": "gray"},
-  {"id": 1, "name": "To Do", "descr": "Tasks ready to start", "parent_id": null, "color_code": "blue"},
-  {"id": 2, "name": "In Progress", "descr": "Tasks actively being worked on", "parent_id": 1, "color_code": "yellow"},
-  {"id": 3, "name": "In Review", "descr": "Tasks under review", "parent_id": 2, "color_code": "purple"},
-  {"id": 4, "name": "Done", "descr": "Tasks completed", "parent_id": 3, "color_code": "green"},
-  {"id": 5, "name": "Blocked", "descr": "Tasks blocked by dependencies", "parent_id": 2, "color_code": "red"}
+  {"id": 1, "name": "Planning", "descr": "Tasks in planning phase", "parent_id": null, "color_code": "purple"},
+  {"id": 2, "name": "To Do", "descr": "Tasks ready to start", "parent_id": null, "color_code": "blue"},
+  {"id": 3, "name": "In Progress", "descr": "Tasks actively being worked on", "parent_id": 2, "color_code": "yellow"},
+  {"id": 4, "name": "In Review", "descr": "Tasks under review", "parent_id": 3, "color_code": "cyan"},
+  {"id": 5, "name": "Completed", "descr": "Tasks completed successfully", "parent_id": 4, "color_code": "green"},
+  {"id": 6, "name": "Blocked", "descr": "Tasks blocked by dependencies", "parent_id": 3, "color_code": "red"}
 ]'::jsonb),
 
 ('task__priority', 'Task Priorities', 'TrendingUp', '[
-  {"id": 0, "name": "Low", "descr": "Low priority - can be scheduled flexibly", "parent_id": null, "color_code": "green"},
-  {"id": 1, "name": "Medium", "descr": "Medium priority - normal scheduling", "parent_id": null, "color_code": "yellow"},
-  {"id": 2, "name": "High", "descr": "High priority - requires prompt attention", "parent_id": null, "color_code": "red"},
-  {"id": 3, "name": "Critical", "descr": "Critical priority - urgent and blocking", "parent_id": null, "color_code": "red"},
-  {"id": 4, "name": "Urgent", "descr": "Urgent - immediate action required", "parent_id": null, "color_code": "red"}
+  {"id": 0, "name": "low", "descr": "Low priority - can be scheduled flexibly", "parent_id": null, "color_code": "green"},
+  {"id": 1, "name": "medium", "descr": "Medium priority - normal scheduling", "parent_id": null, "color_code": "yellow"},
+  {"id": 2, "name": "high", "descr": "High priority - requires prompt attention", "parent_id": null, "color_code": "orange"},
+  {"id": 3, "name": "critical", "descr": "Critical priority - urgent and blocking", "parent_id": null, "color_code": "red"}
 ]'::jsonb),
 
 ('task__update_type', 'Task Update Types', 'Bell', '[
@@ -160,23 +160,27 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
 
 -- Organizational Labels
 ('business__level', 'Business Levels', 'Building2', '[
-  {"id": 0, "name": "Division", "descr": "Top-level business division", "parent_id": null, "color_code": "purple"},
-  {"id": 1, "name": "Department", "descr": "Department within division", "parent_id": 0, "color_code": "blue"},
-  {"id": 2, "name": "Team", "descr": "Team within department", "parent_id": 1, "color_code": "green"}
+  {"id": 0, "name": "Corporate", "descr": "Corporate headquarters level", "parent_id": null, "color_code": "purple"},
+  {"id": 1, "name": "Division", "descr": "Business division level", "parent_id": 0, "color_code": "blue"},
+  {"id": 2, "name": "Department", "descr": "Department level within division", "parent_id": 1, "color_code": "green"}
 ]'::jsonb),
 
 ('office__level', 'Office Levels', 'MapPin', '[
-  {"id": 0, "name": "Corporate", "descr": "Corporate headquarters", "parent_id": null, "color_code": "purple"},
-  {"id": 1, "name": "Regional", "descr": "Regional office", "parent_id": 0, "color_code": "blue"},
+  {"id": 0, "name": "Corporate", "descr": "Corporate headquarters office", "parent_id": null, "color_code": "purple"},
+  {"id": 1, "name": "Region", "descr": "Regional office", "parent_id": 0, "color_code": "blue"},
   {"id": 2, "name": "District", "descr": "District office", "parent_id": 1, "color_code": "green"},
-  {"id": 3, "name": "Branch", "descr": "Branch office", "parent_id": 2, "color_code": "gray"}
+  {"id": 3, "name": "Office", "descr": "Local office or branch", "parent_id": 2, "color_code": "gray"}
 ]'::jsonb),
 
 ('position__level', 'Position Levels', 'Briefcase', '[
-  {"id": 0, "name": "Executive", "descr": "Executive level position", "parent_id": null, "color_code": "purple"},
-  {"id": 1, "name": "Management", "descr": "Management level", "parent_id": 0, "color_code": "blue"},
-  {"id": 2, "name": "Staff", "descr": "Staff level", "parent_id": 1, "color_code": "green"},
-  {"id": 3, "name": "Entry", "descr": "Entry level", "parent_id": 2, "color_code": "gray"}
+  {"id": 0, "name": "CEO/President", "descr": "Chief Executive Officer or President level", "parent_id": null, "color_code": "purple"},
+  {"id": 1, "name": "C-Level", "descr": "C-Level executives (CFO, CTO, COO, etc.)", "parent_id": 0, "color_code": "indigo"},
+  {"id": 2, "name": "SVP/EVP", "descr": "Senior/Executive Vice President level", "parent_id": 1, "color_code": "blue"},
+  {"id": 3, "name": "VP", "descr": "Vice President level", "parent_id": 2, "color_code": "cyan"},
+  {"id": 4, "name": "AVP", "descr": "Assistant Vice President level", "parent_id": 3, "color_code": "green"},
+  {"id": 5, "name": "Senior Director", "descr": "Senior Director level", "parent_id": 4, "color_code": "yellow"},
+  {"id": 6, "name": "Director", "descr": "Director level", "parent_id": 5, "color_code": "orange"},
+  {"id": 7, "name": "Associate Director", "descr": "Associate Director level (leaf)", "parent_id": 6, "color_code": "gray"}
 ]'::jsonb),
 
 -- Customer Labels

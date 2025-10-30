@@ -715,10 +715,13 @@ export async function loadSettingsColors(datalabel: string): Promise<void> {
 
   try {
     // Import dynamically to avoid circular dependency
-    const { loadSettingOptions } = await import('./settingsLoader');
+    const { getSettingDatalabel, loadSettingOptions } = await import('./settingsLoader');
+
+    // Map field key to actual datalabel if needed (e.g., 'dl__opportunity_funnel_stage' -> 'opportunity_funnel_stage')
+    const mappedDatalabel = getSettingDatalabel(datalabel) || datalabel;
 
     // Load settings from API (includes color_code in metadata)
-    const options = await loadSettingOptions(datalabel);
+    const options = await loadSettingOptions(mappedDatalabel);
 
     // Build color map for this datalabel
     const colorMap = new Map<string, string>();

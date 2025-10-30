@@ -70,10 +70,10 @@ CREATE TABLE app.fact_inventory (
     transaction_quantity DECIMAL(12,3) NOT NULL,        -- Qty moved (positive = in, negative = out)
     unit_of_measure VARCHAR(20) DEFAULT 'each',         -- 'each', 'ft', 'sqft', 'lb', 'gal'
     quantity_before DECIMAL(12,3),                      -- On-hand qty before transaction
-    quantity_after DECIMAL(12,3),                       -- On-hand qty after transaction
+    qty_after DECIMAL(12,3),                       -- On-hand qty after transaction
 
     -- Stock Level Snapshot (After Transaction)
-    on_hand_quantity DECIMAL(12,3),                     -- Physical quantity in warehouse
+    on_hand_qty DECIMAL(12,3),                     -- Physical quantity in warehouse
     allocated_quantity DECIMAL(12,3) DEFAULT 0,         -- Qty allocated to orders/projects
     available_quantity DECIMAL(12,3),                   -- On-hand minus allocated
     in_transit_quantity DECIMAL(12,3) DEFAULT 0,        -- Qty in transit from supplier
@@ -118,7 +118,7 @@ CREATE TABLE app.fact_inventory (
 
     -- Reorder Status
     reorder_point DECIMAL(12,3),                        -- Reorder point at time of transaction
-    reorder_quantity DECIMAL(12,3),                     -- Standard reorder qty
+    reorder_qty DECIMAL(12,3),                     -- Standard reorder qty
     below_reorder_point BOOLEAN DEFAULT false,          -- Flag if qty fell below reorder point
     reorder_triggered BOOLEAN DEFAULT false,            -- Flag if reorder was triggered
 
@@ -151,7 +151,7 @@ BEGIN
     NEW.extended_cost_cad := NEW.transaction_quantity * COALESCE(NEW.unit_cost_cad, 0);
 
     -- Calculate quantity after
-    NEW.quantity_after := COALESCE(NEW.quantity_before, 0) + NEW.transaction_quantity;
+    NEW.qty_after := COALESCE(NEW.quantity_before, 0) + NEW.transaction_quantity;
 
     -- Calculate available quantity
     NEW.available_quantity := COALESCE(NEW.on_hand_quantity, 0) - COALESCE(NEW.allocated_quantity, 0);
@@ -163,7 +163,7 @@ BEGIN
     END IF;
 
     -- Check reorder status
-    IF NEW.quantity_after <= NEW.reorder_point THEN
+    IF NEW.qty_after <= NEW.reorder_point THEN
         NEW.below_reorder_point := true;
     ELSE
         NEW.below_reorder_point := false;

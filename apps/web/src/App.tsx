@@ -281,8 +281,8 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <SidebarProvider>
-        <Router>
+      <Router>
+        <SidebarProvider>
           <SettingsProvider>
             <NavigationHistoryProvider>
               <EntityPreviewProvider>
@@ -291,8 +291,8 @@ function App() {
               </EntityPreviewProvider>
             </NavigationHistoryProvider>
           </SettingsProvider>
-        </Router>
-      </SidebarProvider>
+        </SidebarProvider>
+      </Router>
     </AuthProvider>
   );
 }

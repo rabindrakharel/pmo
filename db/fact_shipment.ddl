@@ -81,8 +81,8 @@ CREATE TABLE app.fact_shipment (
     warehouse_location VARCHAR(50),                     -- Bin location where picked from
 
     -- Quantity Metrics
-    quantity_ordered DECIMAL(12,3),                     -- Original qty ordered
-    quantity_shipped DECIMAL(12,3) NOT NULL,            -- Qty on this shipment line
+    qty_ordered DECIMAL(12,3),                     -- Original qty ordered
+    qty_shipped DECIMAL(12,3) NOT NULL,            -- Qty on this shipment line
     quantity_received DECIMAL(12,3),                    -- Qty confirmed received by customer
     quantity_damaged DECIMAL(12,3) DEFAULT 0,           -- Qty received damaged
     quantity_short DECIMAL(12,3) DEFAULT 0,             -- Qty short shipped

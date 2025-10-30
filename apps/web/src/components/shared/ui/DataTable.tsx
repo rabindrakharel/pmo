@@ -16,7 +16,6 @@ import {
   loadSettingsColors
 } from '../../../lib/data_transform_render';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
-import { getColumnWidth } from '../../../lib/entityConfig';
 
 /**
  * Helper function to render cell value with automatic currency formatting
@@ -1010,7 +1009,7 @@ export function DataTable<T = any>({
                       index === 0 ? 'sticky left-0 z-40 bg-gray-50 shadow-r' : ''
                     }`}
                     style={{
-                      width: columns.length > 7 ? '200px' : (getColumnWidth(column.key, column.width) || 'auto'),
+                      width: columns.length > 7 ? '200px' : (column.width || 'auto'),
                       textAlign: column.align || 'left',
                       color: '#6b6d70',
                       font: "400 12px / 16px 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",

@@ -20,7 +20,7 @@
 --
 -- 2. CREATE EMPLOYEE (HR Onboarding)
 --    • Endpoint: POST /api/v1/employee
---    • Body: {name, email, employee_number, employee_type, title, manager_employee_id}
+--    • Body: {name, code, email, employee_type, title, manager_employee_id}
 --    • Database: INSERT with version=1, active_flag=true, password_hash=bcrypt.hash(temp_password)
 --    • RBAC: Requires permission 4 (create) on entity='employee', entity_id='all'
 --    • Business Rule: Auto-sends welcome email with password reset link
@@ -70,7 +70,7 @@
 -- KEY BUSINESS FIELDS:
 -- • email: Unique login identifier (username)
 -- • password_hash: bcrypt hashed password (never returned by API)
--- • employee_number: HR system identifier
+-- • code: HR system identifier (unique employee code)
 -- • employee_type: full-time, part-time, contract, temporary, intern
 -- • manager_employee_id: Reporting structure (self-referencing FK)
 -- • last_login_ts: Session tracking
@@ -110,7 +110,6 @@ CREATE TABLE app.d_employee (
   version integer DEFAULT 1,
 
   -- Employee-specific fields
-  employee_number varchar(50) UNIQUE,
   email varchar(255) UNIQUE NOT NULL,
   password_hash varchar(255),
   first_name varchar(100),
@@ -156,7 +155,7 @@ CREATE TABLE app.d_employee (
   security_clearance varchar(50),
 
   -- Work preferences and attributes
-  remote_work_eligible boolean DEFAULT false,
+  remote_work_eligible_flag boolean DEFAULT false,
   time_zone varchar(50) DEFAULT 'America/Toronto',
   preferred_language varchar(10) DEFAULT 'en'
 );
@@ -169,7 +168,6 @@ INSERT INTO app.d_employee (
     code,
     name,
     descr,
-    employee_number,
     email,
     password_hash,
     first_name,
@@ -190,7 +188,7 @@ INSERT INTO app.d_employee (
     sin,
     citizenship,
     security_clearance,
-    remote_work_eligible,
+    remote_work_eligible_flag,
     time_zone,
     preferred_language,
     metadata
@@ -199,7 +197,6 @@ INSERT INTO app.d_employee (
     'EMP-001',
     'James Miller',
     'Chief Executive Officer and Founder of Huron Home Services. Responsible for overall strategic direction, business development, and organizational leadership.',
-    'EMP-001',
     'james.miller@huronhome.ca',
     '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', -- hashed: password123
     'James',
@@ -242,7 +239,6 @@ INSERT INTO app.d_employee (
     code,
     name,
     descr,
-    employee_number,
     email,
     password_hash,
     first_name,
@@ -254,10 +250,10 @@ INSERT INTO app.d_employee (
     hire_date,
     manager_employee_id
 ) VALUES
-('EMP-002', 'Sarah Johnson', 'Chief Operating Officer responsible for day-to-day operations', 'EMP-002', 'sarah.johnson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Sarah', 'Johnson', '+1-519-555-0002', 'full-time', 'Operations', 'Chief Operating Officer', '2020-02-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'),
-('EMP-003', 'Michael Chen', 'Chief Technology Officer overseeing IT infrastructure and development', 'EMP-003', 'michael.chen@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Michael', 'Chen', '+1-519-555-0003', 'full-time', 'Technology', 'Chief Technology Officer', '2020-03-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'),
-('EMP-004', 'Lisa Rodriguez', 'Vice President of Sales managing client relationships and revenue_amt', 'EMP-004', 'lisa.rodriguez@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Lisa', 'Rodriguez', '+1-519-555-0004', 'full-time', 'Sales', 'Vice President of Sales', '2020-04-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'),
-('EMP-005', 'David Thompson', 'Senior Project Manager for landscaping and maintenance projects', 'EMP-005', 'david.thompson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'David', 'Thompson', '+1-519-555-0005', 'full-time', 'Operations', 'Senior Project Manager', '2020-05-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13');
+('EMP-002', 'Sarah Johnson', 'Chief Operating Officer responsible for day-to-day operations', 'sarah.johnson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Sarah', 'Johnson', '+1-519-555-0002', 'full-time', 'Operations', 'Chief Operating Officer', '2020-02-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'),
+('EMP-003', 'Michael Chen', 'Chief Technology Officer overseeing IT infrastructure and development', 'michael.chen@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Michael', 'Chen', '+1-519-555-0003', 'full-time', 'Technology', 'Chief Technology Officer', '2020-03-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'),
+('EMP-004', 'Lisa Rodriguez', 'Vice President of Sales managing client relationships and revenue_amt', 'lisa.rodriguez@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Lisa', 'Rodriguez', '+1-519-555-0004', 'full-time', 'Sales', 'Vice President of Sales', '2020-04-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'),
+('EMP-005', 'David Thompson', 'Senior Project Manager for landscaping and maintenance projects', 'david.thompson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'David', 'Thompson', '+1-519-555-0005', 'full-time', 'Operations', 'Senior Project Manager', '2020-05-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13');
 
 COMMENT ON TABLE app.d_employee IS 'Employee entities with authentication, contact info, and organizational assignments';-- =====================================================
 -- COMPREHENSIVE EMPLOYEE DATA GENERATION (500+ Employees)
@@ -447,7 +443,7 @@ BEGIN
 
         -- Insert employee
         INSERT INTO app.d_employee (
-            code, name, descr, employee_number, email, password_hash,
+            code, name, descr, email, password_hash,
             first_name, last_name, phone, mobile,
             address_line1, city, province, postal_code, country,
             employee_type, department, title, hire_date, manager_employee_id
@@ -455,7 +451,6 @@ BEGIN
             v_code,
             v_full_name,
             v_title || ' in ' || v_department || ' department',
-            v_code,
             v_email,
             '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', -- password123
             v_first_name,
