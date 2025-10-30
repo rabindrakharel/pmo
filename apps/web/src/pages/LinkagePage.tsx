@@ -72,6 +72,18 @@ export function LinkagePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // State for entity type child management (tabs configuration)
+  const [currentEntityTypeChildren, setCurrentEntityTypeChildren] = useState<Array<{entity: string; ui_label: string; ui_icon: string; order: number}>>([]);
+  const [availableChildTypes, setAvailableChildTypes] = useState<string[]>([]);
+
+  // State for inline child entity addition
+  const [showInlineAddInput, setShowInlineAddInput] = useState(false);
+  const [inlineSearchQuery, setInlineSearchQuery] = useState('');
+  const [allEntityTypes, setAllEntityTypes] = useState<Array<{code: string; name: string; ui_label: string; ui_icon: string}>>([]);
+
+  // State for remove mode
+  const [isRemoveMode, setIsRemoveMode] = useState(false);
+
   // Entity types configuration - using Lucide React icons from entityConfig.ts
   const entityTypes = [
     { value: 'office', label: 'Office', IconComponent: MapPin },
@@ -140,17 +152,200 @@ export function LinkagePage() {
     }
   }, [selectedParentTypes, selectedChildType, selectedParentId]);
 
-  const loadValidChildTypes = async (parentType: string) => {
+  // Load entity type metadata when parent type is selected
+  useEffect(() => {
+    if (selectedParentTypes.length > 0) {
+      loadEntityTypeMetadata(selectedParentTypes[0]);
+    }
+  }, [selectedParentTypes]);
+
+  // Load all entity types on mount for autocomplete
+  useEffect(() => {
+    loadAllEntityTypes();
+  }, []);
+
+  const loadAllEntityTypes = async () => {
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE_URL}/api/v1/linkage/children/${parentType}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/entity/types`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      if (!response.ok) throw new Error('Failed to load valid child types');
+      if (!response.ok) throw new Error('Failed to load all entity types');
 
       const data = await response.json();
-      setValidChildTypes(data.data || []);
+      setAllEntityTypes(data);
+    } catch (err: any) {
+      console.error('Error loading all entity types:', err);
+    }
+  };
+
+  const loadEntityTypeMetadata = async (entityType: string) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${API_BASE_URL}/api/v1/entity/type/${entityType}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load entity type metadata');
+
+      const data = await response.json();
+
+      // Sort child entities by order field
+      const sortedChildren = (data.child_entities || []).sort((a: any, b: any) =>
+        (a.order || 999) - (b.order || 999)
+      );
+      setCurrentEntityTypeChildren(sortedChildren);
+
+      const childEntityCodes = sortedChildren.map((child: any) => child.entity);
+
+      // Calculate available child types (all types except self and current children)
+      const allTypes = entityTypes.map(t => t.value);
+      const available = allTypes.filter(t =>
+        t !== entityType && !childEntityCodes.includes(t)
+      );
+      setAvailableChildTypes(available);
+    } catch (err: any) {
+      console.error('Error loading entity type metadata:', err);
+    }
+  };
+
+  const handleAddChildEntityType = async (childType: string) => {
+    if (!selectedParentTypes.length) return;
+
+    const parentType = selectedParentTypes[0];
+    setLoading(true);
+    setError(null);
+
+    try {
+      const token = localStorage.getItem('auth_token');
+
+      // Fetch current entity type data to get existing children
+      const getResponse = await fetch(`${API_BASE_URL}/api/v1/entity/type/${parentType}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!getResponse.ok) throw new Error('Failed to fetch current entity type');
+
+      const currentData = await getResponse.json();
+      const existingChildren = currentData.child_entities || [];
+
+      // Find the child entity metadata
+      const childEntityMeta = entityTypes.find(e => e.value === childType);
+      if (!childEntityMeta) throw new Error('Child entity type not found');
+
+      // Add new child with proper metadata
+      const newChild = {
+        entity: childType,
+        ui_icon: childEntityMeta.IconComponent.name || 'Circle',
+        ui_label: childEntityMeta.label + 's', // Pluralize
+        order: existingChildren.length + 1
+      };
+
+      const updatedChildren = [...existingChildren, newChild];
+
+      // Update the entity type
+      const updateResponse = await fetch(`${API_BASE_URL}/api/v1/entity/${parentType}/children`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ child_entities: updatedChildren })
+      });
+
+      if (!updateResponse.ok) throw new Error('Failed to update entity children');
+
+      setSuccess(`Added ${childEntityMeta.label} as child tab to ${getEntityLabel(parentType)}`);
+      setTimeout(() => setSuccess(null), 3000);
+
+      // Reload metadata
+      await loadEntityTypeMetadata(parentType);
+      await loadValidChildTypes(parentType);
+    } catch (err: any) {
+      setError(err instanceof Error ? err.message : 'Failed to add child entity type');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveChildEntityType = async (childType: string) => {
+    if (!selectedParentTypes.length) return;
+    if (!confirm(`Remove ${getEntityLabel(childType)} tab from ${getEntityLabel(selectedParentTypes[0])}?`)) return;
+
+    const parentType = selectedParentTypes[0];
+    setLoading(true);
+    setError(null);
+
+    try {
+      const token = localStorage.getItem('auth_token');
+
+      // Fetch current entity type data
+      const getResponse = await fetch(`${API_BASE_URL}/api/v1/entity/type/${parentType}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!getResponse.ok) throw new Error('Failed to fetch current entity type');
+
+      const currentData = await getResponse.json();
+      const existingChildren = currentData.child_entities || [];
+
+      // Remove the child and reorder
+      const updatedChildren = existingChildren
+        .filter((child: any) => child.entity !== childType)
+        .map((child: any, index: number) => ({ ...child, order: index + 1 }));
+
+      // Update the entity type
+      const updateResponse = await fetch(`${API_BASE_URL}/api/v1/entity/${parentType}/children`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ child_entities: updatedChildren })
+      });
+
+      if (!updateResponse.ok) throw new Error('Failed to update entity children');
+
+      setSuccess(`Removed ${getEntityLabel(childType)} tab from ${getEntityLabel(parentType)}`);
+      setTimeout(() => setSuccess(null), 3000);
+
+      // Reload metadata
+      await loadEntityTypeMetadata(parentType);
+      await loadValidChildTypes(parentType);
+
+      // Exit remove mode if no more children
+      const remainingChildren = updatedChildren.length;
+      if (remainingChildren === 0) {
+        setIsRemoveMode(false);
+      }
+    } catch (err: any) {
+      setError(err instanceof Error ? err.message : 'Failed to remove child entity type');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadValidChildTypes = async (parentType: string) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+
+      // Use the same entity type API to get child entities for consistency
+      const response = await fetch(`${API_BASE_URL}/api/v1/entity/type/${parentType}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load entity type metadata');
+
+      const data = await response.json();
+
+      // Extract child entity codes from child_entities array and sort by order
+      const sortedChildren = (data.child_entities || []).sort((a: any, b: any) =>
+        (a.order || 999) - (b.order || 999)
+      );
+      const childTypes = sortedChildren.map((child: any) => child.entity);
+
+      setValidChildTypes(childTypes);
     } catch (err: any) {
       console.error('Error loading valid child types:', err);
       setValidChildTypes([]);
@@ -529,31 +724,164 @@ export function LinkagePage() {
 
             {/* Right Panel: Child Entity Selection */}
             <div className="bg-white rounded border border-gray-300 flex flex-col overflow-hidden shadow-sm">
-              {/* Child Entity Type Selection - Header */}
+              {/* Tab Management Controls - Top of Pane */}
+              <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
+                {selectedParentTypes.length > 0 && (
+                  <div className="flex items-center justify-between">
+                    <div className="text-[10px] font-medium text-gray-600 uppercase tracking-wider">
+                      Manage Child Tabs
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setShowInlineAddInput(!showInlineAddInput);
+                          setInlineSearchQuery('');
+                          setIsRemoveMode(false);
+                        }}
+                        className="flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-gray-300 text-[10px] font-normal text-gray-600 hover:bg-green-50 hover:border-green-400 hover:text-green-700 transition-all"
+                        title="Add new child entity type"
+                      >
+                        <Plus className="h-2.5 w-2.5" />
+                        Add+
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsRemoveMode(!isRemoveMode);
+                          setShowInlineAddInput(false);
+                        }}
+                        className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[10px] font-normal transition-all ${
+                          isRemoveMode
+                            ? 'bg-red-50 border-red-400 text-red-700'
+                            : 'border-gray-300 text-gray-600 hover:bg-red-50 hover:border-red-400 hover:text-red-700'
+                        }`}
+                        title={isRemoveMode ? "Exit remove mode" : "Remove child entity types"}
+                      >
+                        <X className="h-2.5 w-2.5" />
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Inline Add Input with Autocomplete */}
+              {showInlineAddInput && selectedParentTypes.length > 0 && (
+                <div className="px-3 py-2 bg-blue-50 border-b border-blue-200">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={inlineSearchQuery}
+                      onChange={(e) => setInlineSearchQuery(e.target.value)}
+                      placeholder="Type to search entities..."
+                      className="w-full px-2 py-1 text-[10px] border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      autoFocus
+                    />
+
+                    {/* Autocomplete Dropdown */}
+                    {inlineSearchQuery && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-40 overflow-y-auto">
+                        {allEntityTypes
+                          .filter(entity => {
+                            // Filter out parent entity and current children
+                            const parentType = selectedParentTypes[0];
+                            const currentChildCodes = currentEntityTypeChildren.map(c => c.entity);
+
+                            if (entity.code === parentType) return false;
+                            if (currentChildCodes.includes(entity.code)) return false;
+
+                            // Filter by search query
+                            const query = inlineSearchQuery.toLowerCase();
+                            return (
+                              entity.name.toLowerCase().includes(query) ||
+                              entity.code.toLowerCase().includes(query) ||
+                              entity.ui_label.toLowerCase().includes(query)
+                            );
+                          })
+                          .slice(0, 10)
+                          .map(entity => {
+                            const IconComponent = getEntityIconComponent(entity.code);
+                            return (
+                              <button
+                                key={entity.code}
+                                onClick={() => {
+                                  handleAddChildEntityType(entity.code);
+                                  setInlineSearchQuery('');
+                                  setShowInlineAddInput(false);
+                                }}
+                                className="w-full flex items-center gap-2 px-2 py-1.5 text-left hover:bg-blue-50 transition-colors text-[11px]"
+                              >
+                                <IconComponent className="h-3 w-3 text-gray-600" />
+                                <div>
+                                  <div className="font-medium text-gray-900">{entity.name}</div>
+                                  <div className="text-[9px] text-gray-500">{entity.ui_label}</div>
+                                </div>
+                              </button>
+                            );
+                          })
+                        }
+                        {allEntityTypes.filter(entity => {
+                          const parentType = selectedParentTypes[0];
+                          const currentChildCodes = currentEntityTypeChildren.map(c => c.entity);
+                          if (entity.code === parentType) return false;
+                          if (currentChildCodes.includes(entity.code)) return false;
+                          const query = inlineSearchQuery.toLowerCase();
+                          return (
+                            entity.name.toLowerCase().includes(query) ||
+                            entity.code.toLowerCase().includes(query) ||
+                            entity.ui_label.toLowerCase().includes(query)
+                          );
+                        }).length === 0 && (
+                          <div className="px-2 py-2 text-[10px] text-gray-500 text-center">
+                            No entities found
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Child Entity Type Selection - Morphing Tabs */}
               <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
                 {selectedParentTypes.length > 0 && (
                   <>
                     {validChildTypes.length === 0 ? (
                       <div className="text-xs text-gray-400 py-1 text-center">
-                        No valid child types for {getEntityLabel(selectedParentTypes[0])}
+                        No child entity types configured for {getEntityLabel(selectedParentTypes[0])}
                       </div>
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
                         {validChildTypes.map(type => {
                           const IconComponent = getEntityIconComponent(type);
                           return (
-                            <button
-                              key={type}
-                              onClick={() => setSelectedChildType(type)}
-                              className={`flex items-center gap-1 px-2 py-1 rounded border text-xs font-normal transition-all ${
-                                selectedChildType === type
-                                  ? 'bg-green-50 border-green-400 text-green-700 shadow-sm'
-                                  : 'bg-white border-gray-300 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-                              }`}
-                            >
-                              <IconComponent className="h-3 w-3 stroke-[1.5]" />
-                              <span>{getEntityLabel(type)}</span>
-                            </button>
+                            <div key={type} className="relative group">
+                              <button
+                                onClick={() => {
+                                  if (!isRemoveMode) {
+                                    setSelectedChildType(type);
+                                  }
+                                }}
+                                className={`flex items-center gap-1 px-2 py-1 rounded border text-xs font-normal transition-all ${
+                                  isRemoveMode
+                                    ? 'bg-red-50 border-red-300 text-red-700 cursor-default'
+                                    : selectedChildType === type
+                                      ? 'bg-green-50 border-green-400 text-green-700 shadow-sm'
+                                      : 'bg-white border-gray-300 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                                }`}
+                              >
+                                <IconComponent className="h-3 w-3 stroke-[1.5]" />
+                                <span>{getEntityLabel(type)}</span>
+                              </button>
+                              {isRemoveMode && (
+                                <button
+                                  onClick={() => handleRemoveChildEntityType(type)}
+                                  className="absolute -top-1 -right-1 bg-red-600 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                  title="Remove this tab"
+                                >
+                                  <X className="h-2.5 w-2.5 text-white stroke-[2.5]" />
+                                </button>
+                              )}
+                            </div>
                           );
                         })}
                       </div>
@@ -680,6 +1008,7 @@ export function LinkagePage() {
             </div>
           </div>
         </div>
+
       </div>
     </Layout>
   );

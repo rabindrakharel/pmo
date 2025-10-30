@@ -8,13 +8,9 @@ import { config } from '@/lib/config.js';
 // Artifact schemas aligned with actual app.d_artifact columns
 const ArtifactSchema = Type.Object({
   id: Type.String(),
-  slug: Type.String(),
   code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  internal_url: Type.Optional(Type.String()),
-  shared_url: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Any()),
   metadata: Type.Optional(Type.Any()),
   artifact_type: Type.Optional(Type.String()),
   attachment: Type.Optional(Type.String()),
@@ -23,10 +19,9 @@ const ArtifactSchema = Type.Object({
   entity_type: Type.Optional(Type.String()),
   entity_id: Type.Optional(Type.String()),
   attachment_object_bucket: Type.Optional(Type.String()),
-  attachment_attachment_object_key: Type.Optional(Type.String()),
+  attachment_object_key: Type.Optional(Type.String()),
   visibility: Type.Optional(Type.String()),
   security_classification: Type.Optional(Type.String()),
-  parent_artifact_id: Type.Optional(Type.String()),
   is_latest_version: Type.Optional(Type.Boolean()),
   active_flag: Type.Boolean(),
   from_ts: Type.String(),
@@ -124,10 +119,10 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       // Get paginated results
       const rows = await db.execute(sql`
         SELECT
-          id, slug, code, name, descr, internal_url, shared_url, tags, metadata,
-          artifact_type, attachment_format, attachment_size_bytes, entity_type, entity_id,
+          id, code, name, descr, metadata,
+          artifact_type, attachment_format, attachment_size_bytes, attachment, entity_type, entity_id,
           attachment_object_bucket, attachment_object_key, visibility, security_classification,
-          parent_artifact_id, is_latest_version, version, active_flag,
+          is_latest_version, version, active_flag,
           from_ts, to_ts, created_ts, updated_ts
         FROM app.d_artifact a
         WHERE ${sql.raw(whereClause)}

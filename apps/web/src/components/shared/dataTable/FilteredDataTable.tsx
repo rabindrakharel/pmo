@@ -28,6 +28,9 @@ export interface FilteredDataTableProps {
   showEditIcon?: boolean;
   showDeleteIcon?: boolean;
   showActionIcons?: boolean;
+
+  // Inline row addition support
+  allowAddRow?: boolean;
 }
 
 export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
@@ -44,7 +47,8 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   inlineEditable = false,
   showEditIcon = true,
   showDeleteIcon = true,
-  showActionIcons = true
+  showActionIcons = true,
+  allowAddRow = true
 }) => {
   const navigate = useNavigate();
   const config = getEntityConfig(entityType);
@@ -383,6 +387,31 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     setIsAddingRow(true);
   };
 
+  // Handle add row for entity tables - adds empty row and enters edit mode
+  const handleAddEntityRow = () => {
+    if (isSettingsEntity) return; // Settings use different handler
+
+    // Generate temporary ID for the new row
+    const tempId = `temp_${Date.now()}`;
+
+    // Create empty row with default values
+    const newRow: any = {
+      id: tempId,
+      code: '',
+      name: '',
+      descr: '',
+      // Add other common fields with empty/default values
+    };
+
+    // Add to data array
+    setData([...data, newRow]);
+
+    // Enter edit mode for this row
+    setEditingRow(tempId);
+    setEditedData(newRow);
+    setIsAddingRow(true);
+  };
+
   // Handle row reordering for settings entities
   const handleReorder = async (newData: any[]) => {
     if (!isSettingsEntity || !config) return;
@@ -585,6 +614,8 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           colorOptions={isSettingsEntity ? COLOR_OPTIONS : undefined}
           allowReordering={isSettingsEntity}
           onReorder={handleReorder}
+          allowAddRow={allowAddRow && !isSettingsEntity}
+          onAddRow={handleAddEntityRow}
         />
       </div>
     </div>

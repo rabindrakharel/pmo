@@ -210,8 +210,7 @@ export interface EntityDataTableProps<T = any> {
   className?: string;
   rowActions?: RowAction<T>[];
   showDefaultActions?: boolean;
-  /** @deprecated View action removed - row clicks navigate to detail view */
-  onView?: (record: T) => void;
+  // NOTE: onView prop removed - row clicks already navigate to detail view
   onEdit?: (record: T) => void;
   onShare?: (record: T) => void;
   onDelete?: (record: T) => void;
@@ -249,7 +248,6 @@ export function EntityDataTable<T = any>({
   className = '',
   rowActions = [],
   showDefaultActions = true,
-  onView,
   onEdit,
   onShare,
   onDelete,
@@ -1096,7 +1094,7 @@ export function EntityDataTable<T = any>({
                 const isDragOver = dragOverIndex === index;
 
                 return (
-                  <>
+                  <React.Fragment key={recordId}>
                     {/* Drop indicator line */}
                     {isDragOver && draggedIndex !== null && (
                       <tr className="relative pointer-events-none">
@@ -1111,7 +1109,6 @@ export function EntityDataTable<T = any>({
                       </tr>
                     )}
                     <tr
-                      key={recordId}
                       draggable={allowReordering && !isEditing}
                       onDragStart={(e) => handleDragStart(e, index)}
                       onDragOver={(e) => handleDragOver(e, index)}
@@ -1433,7 +1430,7 @@ export function EntityDataTable<T = any>({
                       );
                     })}
                   </tr>
-                  </>
+                  </React.Fragment>
                 );
               })}
             </tbody>

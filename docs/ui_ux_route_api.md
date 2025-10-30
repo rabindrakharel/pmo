@@ -2,7 +2,17 @@
 
 > **Comprehensive mapping of the entire PMO platform architecture** - From database tables to frontend components, showing how all layers work together using DRY principles.
 >
-> **Last Updated:** 2025-10-29 | **Status:** Production v2.6 (Database-Driven Colors)
+> **Last Updated:** 2025-01-23 | **Status:** Production v2.7 (OOP-Style Data Tables)
+>
+> **v2.7 Updates (2025-01-23):**
+> - ✅ **OOP-STYLE DATA TABLE ARCHITECTURE**: Composition pattern for code reuse and maintainability
+> - ✅ Base components: `DataTableBase`, `useDataTableLogic` hook, `ColoredDropdown`
+> - ✅ Specialized components: `SettingsDataTable` (600 LOC), `EntityDataTable` (1540 LOC)
+> - ✅ Composition over inheritance: React's approach to OOP (hooks + components)
+> - ✅ Removed `onView` prop: Redundant with row click navigation (cleaner API)
+> - ✅ Inline editing pattern unified: Edit → Check/Cancel icons (consistent UX)
+> - ✅ Quick add row: + button at bottom of tables (fast data entry)
+> - ✅ See [Data Table Architecture](./datatable_architecture.md) for complete details
 >
 > **v2.6 Updates (2025-10-29):**
 > - ✅ **DATABASE-DRIVEN BADGE COLORS**: Automatic color rendering from database `color_code` field
@@ -539,6 +549,156 @@ apps/web/src/
         ├── EntityCreatePage.tsx        - Create form
         └── EntityChildListPage.tsx     - Filtered child list
 ```
+
+### OOP-Style Data Table Architecture (Composition Pattern)
+
+**Version:** 2.0 (January 2025) | **Pattern:** Composition over Inheritance
+
+The data table system follows **OOP principles using React composition** (React's approach to class inheritance). Instead of traditional class-based OOP, we use shared components and hooks to achieve code reuse and maintainability.
+
+#### Architecture Layers
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│           SHARED BASE LAYER (Common Code)                   │
+├─────────────────────────────────────────────────────────────┤
+│  DataTableBase.tsx       - Base table structure             │
+│  useDataTableLogic.ts    - Shared state management hook     │
+│  ColoredDropdown.tsx     - Shared dropdown component        │
+└─────────────────────────────────────────────────────────────┘
+                      ↑               ↑
+                      │               │
+         ┌────────────┘               └────────────┐
+         │                                         │
+┌──────────────────────┐              ┌──────────────────────┐
+│ SettingsDataTable    │              │ EntityDataTable      │
+│ (Specialized)        │              │ (Specialized)        │
+├──────────────────────┤              ├──────────────────────┤
+│ • Fixed 5-col schema │              │ • Dynamic columns    │
+│ • 600 LOC            │              │ • 1540 LOC           │
+│ • Array ordering     │              │ • Capability detect  │
+│ • Settings-only      │              │ • Complex filtering  │
+└──────────────────────┘              └──────────────────────┘
+```
+
+#### Base Components (Shared)
+
+**1. DataTableBase** (`/apps/web/src/components/shared/ui/DataTableBase.tsx`)
+- Common table structure (thead, tbody)
+- Inline editing pattern (Edit → Check/Cancel icons)
+- Add row UI (+ button at bottom)
+- Drag & drop visual feedback
+- Empty & loading states
+- ~320 LOC
+
+**2. useDataTableLogic** Hook (`/apps/web/src/hooks/useDataTableLogic.ts`)
+- Sorting state & handlers
+- Editing state & handlers
+- Add row state & handlers
+- Drag & drop state & handlers
+- Data sorting utility
+- ~200 LOC
+
+**3. ColoredDropdown** (`/apps/web/src/components/shared/ui/ColoredDropdown.tsx`)
+- Dropdown with colored badges
+- Settings integration
+- Click-outside handling
+- Used by both EntityDataTable and SettingsDataTable
+- ~100 LOC
+
+#### Specialized Components
+
+**SettingsDataTable** (`/apps/web/src/components/shared/ui/SettingsDataTable.tsx`)
+- **Purpose:** Fixed-schema table for settings/datalabel management
+- **Schema:** `id, name, descr, parent_id, color_code` (5 columns)
+- **Use Case:** Settings pages (/setting/projectStage, /setting/taskPriority, etc.)
+- **Features:**
+  - Array position-based ordering (no sort when reordering)
+  - Complete metadata recomposition pattern
+  - Drag & drop reordering with persistence
+  - Optimized for small datasets (no pagination)
+  - ~600 LOC
+
+**EntityDataTable** (`/apps/web/src/components/shared/ui/EntityDataTable.tsx`)
+- **Purpose:** Full-featured table for entity CRUD operations
+- **Schema:** Dynamic (any columns)
+- **Use Case:** Entity pages (/project, /task, /client, etc.)
+- **Features:**
+  - Auto-detect field capabilities (text, select, date, number, file, tags)
+  - Settings integration (auto-load dropdown options)
+  - Complex filtering (multi-column with chips)
+  - Pagination support
+  - Column visibility control
+  - Inline file uploads
+  - RBAC integration
+  - ~1540 LOC
+
+#### Key Design Decisions
+
+**1. Composition Over Inheritance**
+```typescript
+// ❌ Traditional OOP (not idiomatic in React)
+class DataTableBase extends Component { }
+class EntityDataTable extends DataTableBase { }
+
+// ✅ React Composition Pattern (what we use)
+function EntityDataTable() {
+  const tableLogic = useDataTableLogic();  // Share logic
+  return <DataTableBase {...props} />;     // Share UI
+}
+```
+
+**2. Why Two Separate Tables?**
+- **Different use cases:** Settings (fixed schema, small data) vs Entities (dynamic schema, large data)
+- **Performance:** SettingsDataTable is 73% smaller (600 vs 1540 LOC)
+- **Type safety:** Settings has strongly-typed 5-field schema
+- **Maintainability:** Single responsibility, easier to test
+
+**3. Removed onView Prop (January 2025)**
+- **Reason:** Redundant with row click navigation
+- **Before:** Both `onView` and `onRowClick` navigated to detail page
+- **After:** Only `onRowClick` used (single source of truth)
+
+#### Usage Examples
+
+**Settings Table:**
+```typescript
+<SettingsDataTable
+  data={projectStages}
+  onRowUpdate={handleRowUpdate}  // DRY pattern - all fields at once
+  onAddRow={handleAddRow}
+  onReorder={handleReorder}
+  allowAddRow={true}
+  allowEdit={true}
+  allowReorder={true}
+/>
+```
+
+**Entity Table:**
+```typescript
+<EntityDataTable
+  data={tasks}
+  columns={taskColumns}
+  pagination={{ current, pageSize, total, onChange }}
+  filterable={true}
+  inlineEditable={true}
+  onRowClick={handleRowClick}  // Navigate to detail
+  onEdit={handleStartEdit}     // Inline editing
+  allowAddRow={true}
+/>
+```
+
+#### Benefits of This Architecture
+
+1. ✅ **Code Reuse:** Common logic in shared hook, common UI in base component
+2. ✅ **Maintainability:** Single source of truth for table patterns
+3. ✅ **Type Safety:** Full TypeScript support with generics
+4. ✅ **Flexibility:** Can compose multiple hooks and components
+5. ✅ **React Best Practices:** Functional components, custom hooks, composition
+
+**See:** [`/docs/datatable_architecture.md`](./datatable_architecture.md) for complete architecture documentation.
+
+---
 
 ### 3 Universal Pages Handle All Entities
 

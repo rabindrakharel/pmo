@@ -961,3 +961,25 @@ APIFactory.register('revenue', revenueApi);
  * Export the APIFactory for use in components
  */
 export { APIFactory } from './api-factory';
+
+/**
+ * Universal entity data fetcher - fetches a single entity by type and ID
+ * Used by entity preview panel and other components that need to fetch entity data
+ *
+ * @param entityType - Entity type (e.g., 'project', 'task', 'client')
+ * @param entityId - Entity UUID
+ * @returns Promise<any> - Entity data object
+ *
+ * @example
+ * const projectData = await fetchEntityData('project', 'abc-123');
+ */
+export async function fetchEntityData(entityType: string, entityId: string): Promise<any> {
+  try {
+    const api = APIFactory.getAPI(entityType);
+    const data = await api.get(entityId);
+    return data;
+  } catch (error) {
+    console.error(`Error fetching ${entityType} data:`, error);
+    throw error;
+  }
+}

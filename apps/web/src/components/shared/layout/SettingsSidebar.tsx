@@ -1,19 +1,20 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Search,
-  Tag,
   Link as LinkIcon,
   Zap,
   Plug,
-  GitBranch,
-  Palette,
-  Target,
+  FolderOpen,
+  CheckSquare,
   Users,
   Building2,
   Briefcase,
-  TrendingUp
+  MapPin,
+  FileText,
+  BookOpen
 } from 'lucide-react';
+import { groupDatalabelsByEntity, ENTITY_METADATA, convertDatalabelToCamelCase } from '../../../lib/entityDatalabelMapping';
 
 interface SettingsItem {
   id: string;
@@ -21,32 +22,91 @@ interface SettingsItem {
   href: string;
   icon: React.ComponentType<any>;
   category?: string;
+  entityGroup?: string;
 }
+
+// Icon mapping for dynamic icons
+const ICON_MAP: Record<string, React.ComponentType<any>> = {
+  FolderOpen,
+  CheckSquare,
+  Users,
+  Building2,
+  Briefcase,
+  MapPin,
+  FileText,
+  BookOpen,
+  LinkIcon,
+  Zap,
+  Plug
+};
 
 export function SettingsSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
+  const [datalabelSettings, setDatalabelSettings] = useState<SettingsItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // All settings items with data labels expanded
-  const allSettingsItems: SettingsItem[] = [
-    // Data Labels Category
-    { id: 'project-stage', name: 'Project Stage', href: '/setting/projectStage', icon: GitBranch, category: 'Data Labels' },
-    { id: 'task-stage', name: 'Task Stage', href: '/setting/taskStage', icon: Target, category: 'Data Labels' },
-    { id: 'task-priority', name: 'Task Priority', href: '/setting/taskPriority', icon: TrendingUp, category: 'Data Labels' },
-    { id: 'business-level', name: 'Business Level', href: '/setting/businessLevel', icon: Building2, category: 'Data Labels' },
-    { id: 'office-level', name: 'Office Level', href: '/setting/orgLevel', icon: Building2, category: 'Data Labels' },
-    { id: 'position-level', name: 'Position Level', href: '/setting/positionLevel', icon: Users, category: 'Data Labels' },
-    { id: 'customer-tier', name: 'Customer Tier', href: '/setting/customerTier', icon: Users, category: 'Data Labels' },
-    { id: 'opportunity-funnel', name: 'Opportunity Funnel', href: '/setting/opportunityFunnelLevel', icon: TrendingUp, category: 'Data Labels' },
-    { id: 'industry-sector', name: 'Industry Sector', href: '/setting/industrySector', icon: Briefcase, category: 'Data Labels' },
-    { id: 'acquisition-channel', name: 'Acquisition Channel', href: '/setting/acquisitionChannel', icon: TrendingUp, category: 'Data Labels' },
+  // Fetch datalabel settings from API
+  useEffect(() => {
+    async function fetchDatalabels() {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch('http://localhost:4000/api/v1/setting/categories', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-    // Other Settings
-    { id: 'data-linkage', name: 'Data Linkage', href: '/linkage', icon: LinkIcon, category: 'Configuration' },
+        if (!response.ok) {
+          throw new Error('Failed to fetch settings categories');
+        }
+
+        const result = await response.json();
+        const grouped = groupDatalabelsByEntity(result.data);
+
+        // Convert grouped datalabels to settings items
+        const items: SettingsItem[] = [];
+
+        for (const [entityCode, datalabels] of Object.entries(grouped)) {
+          const entityMeta = ENTITY_METADATA[entityCode];
+          if (!entityMeta) continue;
+
+          for (const datalabel of datalabels) {
+            const iconComponent = ICON_MAP[datalabel.ui_icon] || FileText;
+
+            items.push({
+              id: datalabel.datalabel_name,
+              name: datalabel.ui_label,
+              href: `/setting/${datalabel.urlFormat}`,
+              icon: iconComponent,
+              category: 'Data Labels',
+              entityGroup: entityMeta.name
+            });
+          }
+        }
+
+        setDatalabelSettings(items);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching datalabels:', error);
+        setLoading(false);
+      }
+    }
+
+    fetchDatalabels();
+  }, []);
+
+  // Static configuration settings
+  const configurationSettings: SettingsItem[] = [
+    { id: 'entity-mapping', name: 'Entity Mapping', href: '/linkage', icon: LinkIcon, category: 'Configuration' },
     { id: 'workflow-automation', name: 'Workflow Automation', href: '/workflow-automation', icon: Zap, category: 'Configuration' },
     { id: 'integrations', name: 'Integrations', href: '/integrations', icon: Plug, category: 'Configuration' },
   ];
+
+  // Combine all settings items
+  const allSettingsItems: SettingsItem[] = [...datalabelSettings, ...configurationSettings];
 
   // Filter items based on search query
   const filteredItems = useMemo(() => {
@@ -55,21 +115,54 @@ export function SettingsSidebar() {
     const query = searchQuery.toLowerCase();
     return allSettingsItems.filter(item =>
       item.name.toLowerCase().includes(query) ||
-      item.category?.toLowerCase().includes(query)
+      item.category?.toLowerCase().includes(query) ||
+      item.entityGroup?.toLowerCase().includes(query)
     );
   }, [searchQuery, allSettingsItems]);
 
-  // Group items by category
+  // Group items by entity or category
   const groupedItems = useMemo(() => {
     const groups: Record<string, SettingsItem[]> = {};
+
     filteredItems.forEach(item => {
-      const category = item.category || 'Other';
-      if (!groups[category]) {
-        groups[category] = [];
+      // Group data labels by their entity
+      if (item.entityGroup) {
+        const groupKey = `${item.entityGroup} Labels`;
+        if (!groups[groupKey]) {
+          groups[groupKey] = [];
+        }
+        groups[groupKey].push(item);
+      } else {
+        // Group other items by category
+        const category = item.category || 'Other';
+        if (!groups[category]) {
+          groups[category] = [];
+        }
+        groups[category].push(item);
       }
-      groups[category].push(item);
     });
-    return groups;
+
+    // Sort groups by entity order
+    const sortedGroups: Record<string, SettingsItem[]> = {};
+    const entityOrder = Object.values(ENTITY_METADATA).sort((a, b) => a.order - b.order);
+
+    // Add entity groups first
+    for (const entity of entityOrder) {
+      const groupKey = `${entity.name} Labels`;
+      if (groups[groupKey]) {
+        sortedGroups[groupKey] = groups[groupKey];
+      }
+    }
+
+    // Add configuration and other groups
+    if (groups['Configuration']) {
+      sortedGroups['Configuration'] = groups['Configuration'];
+    }
+    if (groups['Other']) {
+      sortedGroups['Other'] = groups['Other'];
+    }
+
+    return sortedGroups;
   }, [filteredItems]);
 
   const handleItemClick = (href: string) => {

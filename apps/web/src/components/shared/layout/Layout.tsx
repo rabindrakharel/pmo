@@ -13,13 +13,15 @@ import {
   Link as LinkIcon,
   Mail,
   Zap,
-  Plug
+  Plug,
+  Eye
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useSidebar } from '../../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../../contexts/NavigationHistoryContext';
 import { useSettings } from '../../../contexts/SettingsContext';
+import { useEntityPreview } from '../../../contexts/EntityPreviewContext';
 import { CreateButton } from '../button/CreateButton';
 import { NavigationBreadcrumb } from '../navigation/NavigationBreadcrumb';
 import { getIconComponent } from '../../../lib/iconMapping';
@@ -48,6 +50,7 @@ export function Layout({ children, createButton }: LayoutProps) {
   const { user, logout } = useAuth();
   const { isVisible, isCollapsed, collapseSidebar, uncollapseSidebar } = useSidebar();
   const { isSettingsMode, enterSettingsMode, exitSettingsMode } = useSettings();
+  const { entityPreviewData, isEntityPreviewOpen, openEntityPreview } = useEntityPreview();
   const [currentPage, setCurrentPage] = useState(window.location.pathname);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [entityTypes, setEntityTypes] = useState<EntityType[]>([]);
@@ -332,6 +335,27 @@ export function Layout({ children, createButton }: LayoutProps) {
           <div className="flex items-center justify-between">
             {/* Navigation Breadcrumb */}
             <NavigationBreadcrumb />
+
+            {/* Entity Preview Button - Only active when entity is selected */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (entityPreviewData && !isEntityPreviewOpen) {
+                    openEntityPreview(entityPreviewData);
+                  }
+                }}
+                disabled={!entityPreviewData}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  entityPreviewData
+                    ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
+                    : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                }`}
+                title={entityPreviewData ? 'Quick preview (Show entity details)' : 'Select an entity to preview'}
+              >
+                <Eye className="h-4 w-4" />
+                <span>Preview</span>
+              </button>
+            </div>
           </div>
         </header>
 

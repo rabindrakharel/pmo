@@ -24,6 +24,7 @@ export interface HeaderTab {
   path: string;
   disabled?: boolean;
   tooltip?: string;
+  order?: number;
 }
 
 interface DynamicChildEntityTabsProps {
@@ -263,7 +264,8 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
             return;
           }
 
-          // Convert API data to tab format - tabs are already ordered from API
+          // Convert API data to tab format - tabs are already ordered from API by order field
+          // API sorts by order field, so we preserve that order here
           const generatedTabs: HeaderTab[] = data.tabs.map((tab: any) => ({
             id: tab.entity,
             label: tab.ui_label,
@@ -271,6 +273,7 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
             icon: getEntityIcon(tab.entity),
             path: `/${parentType}/${parentId}/${tab.entity}`,
             disabled: false,
+            order: tab.order || 999
           }));
 
           // Add overview tab at the beginning

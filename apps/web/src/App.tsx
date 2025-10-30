@@ -4,7 +4,9 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { NavigationHistoryProvider } from './contexts/NavigationHistoryContext';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { EntityPreviewProvider } from './contexts/EntityPreviewContext';
 import { LoginForm } from './components/shared';
+import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPanel';
 
 // Landing & Auth Pages
 import { LandingPage } from './pages/LandingPage';
@@ -26,7 +28,7 @@ import { EmailDesignerPage } from './pages/marketing/EmailDesignerPage';
 // Profile & Settings Pages
 import { ProfilePage } from './pages/profile';
 import { LabelsPage } from './pages/labels';
-import { SettingsPage, DataLabelPage, IntegrationsPage, SettingsOverviewPage, SettingDetailPage } from './pages/setting';
+import { SettingsPage, DataLabelPage, IntegrationsPage, SettingsOverviewPage, SettingDetailPage, EntityLinkagePage } from './pages/setting';
 import { SecurityPage } from './pages/security';
 import { BillingPage } from './pages/billing';
 import { LinkagePage } from './pages/LinkagePage';
@@ -205,6 +207,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/entity-mapping"
+        element={
+          <ProtectedRoute>
+            <EntityLinkagePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/workflow-automation"
         element={
           <ProtectedRoute>
@@ -275,7 +285,10 @@ function App() {
         <Router>
           <SettingsProvider>
             <NavigationHistoryProvider>
-              <AppRoutes />
+              <EntityPreviewProvider>
+                <AppRoutes />
+                <EntityPreviewPanel />
+              </EntityPreviewProvider>
             </NavigationHistoryProvider>
           </SettingsProvider>
         </Router>

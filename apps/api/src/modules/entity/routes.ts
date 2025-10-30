@@ -24,6 +24,7 @@ import { sql } from 'drizzle-orm';
  */
 const ENTITY_ALIAS_MAP: Record<string, string> = {
   'biz': 'business',
+  'client': 'cust',  // Map 'client' to 'cust' (customer)
   // Add more aliases as needed
 };
 
@@ -42,7 +43,8 @@ const EntityTypeMetadataSchema = Type.Object({
   child_entities: Type.Array(Type.Object({
     entity: Type.String(),
     ui_icon: Type.String(),
-    ui_label: Type.String()
+    ui_label: Type.String(),
+    order: Type.Optional(Type.Number())
   })),
   display_order: Type.Number(),
   active_flag: Type.Boolean()
@@ -97,7 +99,19 @@ export async function entityRoutes(fastify: FastifyInstance) {
         });
       }
 
-      return result[0];
+      const entity = result[0];
+
+      // Parse child_entities if it's a string (JSONB returned as string)
+      if (typeof entity.child_entities === 'string') {
+        entity.child_entities = JSON.parse(entity.child_entities);
+      }
+
+      // Ensure child_entities is always an array
+      if (!Array.isArray(entity.child_entities)) {
+        entity.child_entities = [];
+      }
+
+      return entity;
     } catch (error) {
       fastify.log.error('Error fetching entity type metadata:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -112,7 +126,14 @@ export async function entityRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       response: {
-        200: Type.Array(EntityTypeMetadataSchema),
+        200: Type.Array(Type.Object({
+          code: Type.String(),
+          name: Type.String(),
+          ui_label: Type.String(),
+          ui_icon: Type.Optional(Type.String()),
+          display_order: Type.Number(),
+          active_flag: Type.Boolean()
+        })),
         500: Type.Object({ error: Type.String() })
       }
     }
@@ -124,7 +145,6 @@ export async function entityRoutes(fastify: FastifyInstance) {
           name,
           ui_label,
           ui_icon,
-          child_entities,
           display_order,
           active_flag
         FROM app.d_entity
@@ -132,7 +152,17 @@ export async function entityRoutes(fastify: FastifyInstance) {
         ORDER BY display_order ASC
       `);
 
-      return result;
+      // Explicitly map to schema-defined fields only (exclude child_entities)
+      const filteredResult = result.map((row: any) => ({
+        code: row.code,
+        name: row.name,
+        ui_label: row.ui_label,
+        ui_icon: row.ui_icon,
+        display_order: row.display_order,
+        active_flag: row.active_flag
+      }));
+
+      return filteredResult;
     } catch (error) {
       fastify.log.error('Error fetching all entity types:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -163,7 +193,8 @@ export async function entityRoutes(fastify: FastifyInstance) {
             entity: Type.String(),
             ui_icon: Type.String(),
             ui_label: Type.String(),
-            count: Type.Number()
+            count: Type.Number(),
+            order: Type.Number()
           }))
         }),
         404: Type.Object({ error: Type.String() }),
@@ -202,7 +233,15 @@ export async function entityRoutes(fastify: FastifyInstance) {
       }
 
       const entityType = entityTypeResult[0];
-      const childEntitiesMetadata = entityType.child_entities || [];
+
+      // Parse child_entities if it's a string (JSONB returned as string)
+      let childEntitiesMetadata = entityType.child_entities || [];
+      if (typeof childEntitiesMetadata === 'string') {
+        childEntitiesMetadata = JSON.parse(childEntitiesMetadata);
+      }
+      if (!Array.isArray(childEntitiesMetadata)) {
+        childEntitiesMetadata = [];
+      }
 
       // Step 2: Get entity INSTANCE data from d_entity_instance_id and verify RBAC access
       const parentInstance = await db.execute(sql`
@@ -273,8 +312,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
           count: countMap[childMeta.entity] || 0,
           order: childMeta.order || 999
         }))
-        .sort((a: any, b: any) => a.order - b.order)
-        .map(({ order, ...rest }: any) => rest); // Remove order field from response
+        .sort((a: any, b: any) => a.order - b.order); // Keep order field for frontend
 
       return {
         parent_entity_type: entity_type,
@@ -286,6 +324,101 @@ export async function entityRoutes(fastify: FastifyInstance) {
       };
     } catch (error) {
       fastify.log.error('Error fetching child tabs:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * PUT /api/v1/entity/:code/children
+   * Update child entities for an entity type
+   * Modifies the child_entities JSONB array in d_entity table
+   */
+  fastify.put('/api/v1/entity/:code/children', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        code: Type.String()
+      }),
+      body: Type.Object({
+        child_entities: Type.Array(Type.Object({
+          entity: Type.String(),
+          ui_icon: Type.String(),
+          ui_label: Type.String(),
+          order: Type.Number()
+        }))
+      }),
+      response: {
+        200: Type.Object({
+          success: Type.Boolean(),
+          message: Type.String(),
+          data: EntityTypeMetadataSchema
+        }),
+        400: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async (request, reply) => {
+    const { code } = request.params as { code: string };
+    const { child_entities } = request.body as { child_entities: any[] };
+    const normalizedCode = normalizeEntityType(code);
+
+    try {
+      // Validate that the entity exists
+      const existingEntity = await db.execute(sql`
+        SELECT code FROM app.d_entity
+        WHERE code = ${normalizedCode}
+        LIMIT 1
+      `);
+
+      if (existingEntity.length === 0) {
+        return reply.status(404).send({
+          error: `Entity type not found: ${code}`
+        });
+      }
+
+      // Update the child_entities JSONB field
+      const result = await db.execute(sql`
+        UPDATE app.d_entity
+        SET
+          child_entities = ${JSON.stringify(child_entities)}::jsonb,
+          updated_ts = NOW()
+        WHERE code = ${normalizedCode}
+        RETURNING
+          code,
+          name,
+          ui_label,
+          ui_icon,
+          child_entities,
+          display_order,
+          active_flag
+      `);
+
+      if (result.length === 0) {
+        return reply.status(500).send({
+          error: 'Failed to update entity children'
+        });
+      }
+
+      const updatedEntity = result[0];
+
+      // Parse child_entities if it's a string (JSONB returned as string)
+      if (typeof updatedEntity.child_entities === 'string') {
+        updatedEntity.child_entities = JSON.parse(updatedEntity.child_entities);
+      }
+
+      // Ensure child_entities is always an array
+      if (!Array.isArray(updatedEntity.child_entities)) {
+        updatedEntity.child_entities = [];
+      }
+
+      return {
+        success: true,
+        message: `Updated child entities for ${code}`,
+        data: updatedEntity
+      };
+    } catch (error) {
+      fastify.log.error('Error updating entity children:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
