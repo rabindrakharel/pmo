@@ -1,139 +1,126 @@
-# DataTable System - Architecture Guide
+# DataTable System - Complete Architecture
 
-> **Database-driven data standardization with `dl__` naming convention**
-> All configuration flows from database: colors, widths, sorting, filtering, dropdowns
+> **Database-driven data standardization with perfect 1:1 `dl__` alignment**
+> Zero hardcoding - Database column names drive rendering, colors, widths, sorting, filtering
 
----
-
-## Core Concept
-
-**Single Source of Truth:** Database drives EVERYTHING - no hardcoding anywhere.
-
-```
-Database Column → API Parameter → Settings Lookup → UI Rendering
-dl__project_stage → dl__project__stage → project__stage → Yellow Badge
-```
+**Tags:** `#datatable` `#field-category` `#settings` `#auto-configuration` `#DRY`
 
 ---
 
-## Architecture Layers
+## 1. Semantics & Business Context
+
+### Purpose
+Provide a universal data table component that automatically configures itself based on database column naming conventions. All rendering behavior, colors, widths, alignment, and features are determined by the column name - no manual configuration needed.
+
+### Business Value
+- **Zero Configuration**: Add database columns → Automatically render correctly
+- **Perfect Consistency**: All tables across platform use identical patterns
+- **Database-Driven Colors**: All colors from `setting_datalabel` metadata - NO hardcoding
+- **Maintainable**: Change once in registry → affects all tables globally
+- **Type-Safe**: TypeScript ensures correctness at compile time
+
+---
+
+## 2. Architecture & DRY Design Patterns
+
+### Complete Data Flow
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ 1. DATABASE                                                 │
-│    • Column: dl__project_stage TEXT                         │
-│    • Settings: setting_datalabel (project__stage)           │
-│    • Metadata: [{name: "Execution", color_code: "yellow"}]  │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. DATABASE                                                     │
+│    • Entity Column: dl__project_stage TEXT                      │
+│    • Settings Row: datalabel_name = 'dl__project_stage'         │
+│    • Perfect 1:1 alignment (no transformation)                  │
+│    • Metadata: [{name: "Execution", color_code: "yellow"}]      │
+└─────────────────────────────────────────────────────────────────┘
                             ↓
-┌─────────────────────────────────────────────────────────────┐
-│ 2. API                                                      │
-│    • Request: GET /api/v1/setting?category=dl__project__stage │
-│    • Processing: Strip dl__ → lookup project__stage         │
-│    • Response: {datalabel: "dl__project__stage", data: [...]} │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. API                                                          │
+│    • Request: GET /api/v1/setting?category=dl__project_stage    │
+│    • Direct lookup: WHERE datalabel_name = 'dl__project_stage'  │
+│    • Response: {datalabel: "dl__project_stage", data: [...]}    │
+└─────────────────────────────────────────────────────────────────┘
                             ↓
-┌─────────────────────────────────────────────────────────────┐
-│ 3. FIELD CATEGORY AUTO-DETECTION                           │
-│    • detectFieldCategory('dl__project_stage') → LABEL       │
-│    • Auto-apply: width:130px, align:left, sortable:true    │
-│    • Features: colorBadge:true, dropdown:true               │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ 3. FIELD CATEGORY AUTO-DETECTION                               │
+│    • detectFieldCategory('dl__project_stage') → LABEL           │
+│    • Auto-apply: width:130px, align:left, sortable:true        │
+│    • Features: colorBadge:true, dropdown:true                   │
+└─────────────────────────────────────────────────────────────────┘
                             ↓
-┌─────────────────────────────────────────────────────────────┐
-│ 4. COLOR CACHE (O(1) lookup)                               │
-│    • Preload: loadSettingsColors('project__stage')          │
-│    • Cache: Map<'Execution', 'yellow'>                      │
-│    • Lookup: getSettingColor('project__stage', 'Execution') │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ 4. COLOR CACHE (O(1) lookup)                                   │
+│    • Preload: loadSettingsColors('dl__project_stage')           │
+│    • Cache: Map<'Execution', 'yellow'>                          │
+│    • Lookup: getSettingColor('dl__project_stage', 'Execution')  │
+└─────────────────────────────────────────────────────────────────┘
                             ↓
-┌─────────────────────────────────────────────────────────────┐
-│ 5. UI RENDERING                                             │
-│    • Badge: <span class="bg-yellow-100 text-yellow-800">   │
-│    • Dropdown: ColoredDropdown with badge options           │
-│    • Filter: Multi-select with colored checkboxes           │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ 5. UI RENDERING                                                 │
+│    • Badge: <span class="bg-yellow-100 text-yellow-800">        │
+│    • Dropdown: ColoredDropdown with badge options               │
+│    • Filter: Multi-select with colored checkboxes               │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
----
+### Field Category Detection Pattern
 
-## Field Category Patterns
+| Pattern | Category | Auto-Applied Properties |
+|---------|----------|------------------------|
+| `dl__*_stage`, `dl__*_status`, `dl__*_priority`, `dl__*_level` | **LABEL** | 130px, left, sortable, filterable, colored badge, settings dropdown |
+| `*_amt`, `*_amount` | **AMOUNT** | 120px, right, sortable, filterable, currency format |
+| `*_date` | **DATE** | 120px, left, sortable, filterable, friendly date |
+| `*_ts`, `*_timestamp` | **TIMESTAMP** | 150px, left, sortable, relative time |
+| `name`, `title` | **NAME** | 200px, left, sortable, filterable, searchable |
+| `code` | **CODE** | 120px, left, sortable, filterable, searchable |
+| `*_flag` | **BOOLEAN** | 80px, center, sortable, filterable, ✓/✗ icons |
 
-**Auto-detection by field name pattern:**
-
-| Pattern | Category | Width | Align | Sort | Filter | Search | Features |
-|---------|----------|-------|-------|------|--------|--------|----------|
-| `dl__*_stage` | LABEL | 130px | left | ✅ | ✅ | ❌ | Colored badge, dropdown, settings-driven |
-| `dl__*_status` | LABEL | 130px | left | ✅ | ✅ | ❌ | Colored badge, dropdown, settings-driven |
-| `dl__*_priority` | LABEL | 130px | left | ✅ | ✅ | ❌ | Colored badge, dropdown, settings-driven |
-| `dl__*_level` | LABEL | 130px | left | ✅ | ✅ | ❌ | Colored badge, dropdown, settings-driven |
-| `*_amt` | AMOUNT | 120px | right | ✅ | ✅ | ❌ | Currency format: `$75,000.00 CAD` |
-| `*_date` | DATE | 120px | left | ✅ | ✅ | ❌ | Friendly date: `Mar 15, 2025` |
-| `*_ts` | TIMESTAMP | 150px | left | ✅ | ❌ | ❌ | Relative time: `3 minutes ago` |
-| `name`, `title` | NAME | 200px | left | ✅ | ✅ | ✅ | Plain text, global search |
-| `code` | CODE | 120px | left | ✅ | ✅ | ✅ | Plain text, global search |
-| `*_flag` | BOOLEAN | 80px | center | ✅ | ✅ | ❌ | ✓ (green) or ✗ (gray) |
-| `*_pct` | PERCENTAGE | 100px | right | ✅ | ✅ | ❌ | `75%` |
-| `*_count` | NUMBER | 100px | right | ✅ | ✅ | ❌ | `1,234` |
-
-**Key:** `dl__` prefix = datalabel field (loads from settings API)
+**Key:** Column name determines EVERYTHING - width, alignment, rendering, features
 
 ---
 
-## Database Schema
+## 3. Database, API & UI/UX Mapping
 
-```sql
--- Entity table with dl__ columns
-CREATE TABLE app.d_project (
-    id uuid PRIMARY KEY,
-    name varchar(200) NOT NULL,
-    code varchar(50) UNIQUE NOT NULL,
-
-    -- DATALABEL COLUMNS (dl__ prefix)
-    dl__project_stage text,  -- References setting_datalabel (project__stage)
-
-    -- OTHER COLUMNS (auto-detected by suffix)
-    budget_allocated_amt decimal(15,2),
-    planned_start_date date,
-    created_ts timestamptz,
-    active_flag boolean
-);
-
--- Settings table (double underscore format)
-CREATE TABLE app.setting_datalabel (
-    datalabel_name VARCHAR(100) PRIMARY KEY,  -- Format: entity__label
-    ui_label VARCHAR(100) NOT NULL,
-    metadata JSONB NOT NULL  -- [{id, name, descr, color_code, parent_id}]
-);
-
--- Sample settings data
-INSERT INTO app.setting_datalabel VALUES
-('project__stage', 'Project Stages', 'GitBranch', '[
-  {"id": 0, "name": "Initiation", "color_code": "blue"},
-  {"id": 1, "name": "Planning", "color_code": "purple"},
-  {"id": 2, "name": "Execution", "color_code": "yellow"},
-  {"id": 3, "name": "Monitoring", "color_code": "orange"},
-  {"id": 4, "name": "Closure", "color_code": "green"}
-]'::jsonb);
-```
-
----
-
-## API Endpoints
+### Perfect 1:1 Alignment (Current State)
 
 ```typescript
-// Settings API: GET /api/v1/setting?category=dl__project__stage
-// Response: {datalabel: "dl__project__stage", data: [...]}
+// Database entity table
+CREATE TABLE app.d_project (
+    dl__project_stage text  -- Column name
+);
+
+// Settings table (SAME format - perfect alignment)
+INSERT INTO app.setting_datalabel (datalabel_name, ui_label, icon, metadata) VALUES
+('dl__project_stage', 'Project Stages', 'GitBranch', '[
+  {"id": 0, "name": "Initiation", "color_code": "blue"},
+  {"id": 1, "name": "Planning", "color_code": "purple"},
+  {"id": 2, "name": "Execution", "color_code": "yellow"}
+]'::jsonb);
+
+// API endpoint (SAME format)
+GET /api/v1/setting?category=dl__project_stage
+
+// Response (SAME format)
+{
+  "datalabel": "dl__project_stage",
+  "data": [...]
+}
+
+// Frontend mapping (SAME format - 1:1)
+FIELD_TO_SETTING_MAP = {
+  'dl__project_stage': 'dl__project_stage'  // Perfect alignment
+};
+```
+
+### API Implementation
+
+```typescript
+// /apps/api/src/modules/setting/routes.ts
 
 fastify.get('/api/v1/setting', async (request, reply) => {
   const { category } = request.query;
 
-  // Strip dl__ prefix for database lookup
-  const datalabelName = category.startsWith('dl__')
-    ? category.substring(4)  // 'dl__project__stage' → 'project__stage'
-    : category;
-
-  // Query database
+  // Direct lookup - no transformation needed
   const results = await db.execute(sql`
     SELECT
       (elem.value->>'id')::text as id,
@@ -142,93 +129,35 @@ fastify.get('/api/v1/setting', async (request, reply) => {
       elem.ordinality - 1 as position
     FROM app.setting_datalabel,
       jsonb_array_elements(metadata) WITH ORDINALITY as elem
-    WHERE datalabel_name = ${datalabelName}
+    WHERE datalabel_name = ${category}
     ORDER BY elem.ordinality
   `);
 
-  // Return with dl__ prefix
-  const columnName = category.startsWith('dl__') ? category : `dl__${category}`;
-  return { data: results, datalabel: columnName };
+  return { data: results, datalabel: category };
 });
-
-// Entity API: GET /api/v1/project
-// Response: [{id: "...", name: "...", dl__project_stage: "Execution", ...}]
 ```
 
----
-
-## Frontend Implementation
-
-### Field Category Detection
-
-```typescript
-// /apps/web/src/lib/fieldCategoryRegistry.ts
-
-export function detectFieldCategory(fieldKey: string): FieldCategory {
-  // LABEL category (settings-driven)
-  if (fieldKey.startsWith('dl__') &&
-      (fieldKey.includes('_stage') || fieldKey.includes('_priority') ||
-       fieldKey.includes('_status') || fieldKey.includes('_level'))) {
-    return FieldCategory.LABEL;
-  }
-
-  // AMOUNT category
-  if (fieldKey.endsWith('_amt') || fieldKey.endsWith('_amount')) {
-    return FieldCategory.AMOUNT;
-  }
-
-  // TIMESTAMP category
-  if (fieldKey.endsWith('_ts') || fieldKey.endsWith('_timestamp')) {
-    return FieldCategory.TIMESTAMP;
-  }
-
-  // ... pattern matching for all categories
-}
-
-export const FIELD_CATEGORY_CONFIGS = {
-  [FieldCategory.LABEL]: {
-    width: '130px',
-    align: 'left',
-    sortable: true,
-    filterable: true,
-    searchable: false,
-    loadOptionsFromSettings: true,  // Auto-load from API
-    features: {
-      colorBadge: true,  // Render as colored badge
-      dropdown: true     // Show dropdown in edit mode
-    }
-  },
-  // ... other categories
-};
-```
-
-### Settings Loader
+### Frontend Settings Loader
 
 ```typescript
 // /apps/web/src/lib/settingsLoader.ts
 
-// Endpoint mapping (dl__ prefix format)
-export const SETTING_DATALABEL_TO_ENDPOINT: Record<string, string> = {
-  'project__stage': '/api/v1/setting?category=dl__project__stage',
-  'task__stage': '/api/v1/setting?category=dl__task__stage',
-  'task__priority': '/api/v1/setting?category=dl__task__priority',
-  // ... all 16 settings categories
-};
+// Dynamic URL generation - no hardcoded mapping
+export function getSettingEndpoint(datalabel: string): string {
+  return `/api/v1/setting?category=${datalabel}`;
+}
 
 // Load options with 5-minute cache
 export async function loadSettingOptions(datalabel: string): Promise<SettingOption[]> {
-  // Check cache first
   const cached = settingsCache.get(datalabel);
   if (cached && Date.now() - cached.timestamp < 300000) {
     return cached.data;
   }
 
-  // Fetch from API
-  const endpoint = SETTING_DATALABEL_TO_ENDPOINT[datalabel];
+  const endpoint = getSettingEndpoint(datalabel);
   const response = await fetch(`${API_BASE_URL}${endpoint}`);
   const result = await response.json();
 
-  // Transform and cache
   const options = result.data.map(item => ({
     value: item.name,
     label: item.name,
@@ -241,7 +170,7 @@ export async function loadSettingOptions(datalabel: string): Promise<SettingOpti
 }
 ```
 
-### Color Cache
+### Color Cache & Rendering
 
 ```typescript
 // /apps/web/src/lib/data_transform_render.tsx
@@ -260,7 +189,7 @@ export const COLOR_MAP: Record<string, string> = {
 // In-memory color cache for O(1) lookups
 const settingsColorCache = new Map<string, Map<string, string>>();
 
-// Preload colors
+// Preload colors for a datalabel
 export async function loadSettingsColors(datalabel: string): Promise<void> {
   const options = await loadSettingOptions(datalabel);
   const colorMap = new Map();
@@ -288,7 +217,7 @@ export function renderSettingBadge(colorCode: string, label: string) {
 }
 ```
 
-### DataTable Component
+### DataTable Component Integration
 
 ```typescript
 // /apps/web/src/components/shared/ui/DataTable.tsx
@@ -310,9 +239,8 @@ useEffect(() => {
     // Load in parallel
     await Promise.all(
       settingsColumns.map(async (col) => {
-        const datalabel = extractSettingsDatalabel(col.key); // 'dl__project_stage' → 'project__stage'
-        await loadSettingsColors(datalabel);
-        const options = await loadSettingOptions(datalabel);
+        await loadSettingsColors(col.key);  // Uses dl__ format directly
+        const options = await loadSettingOptions(col.key);
         settingOptions.set(col.key, options);
       })
     );
@@ -335,7 +263,7 @@ useEffect(() => {
   ) : (
     // Display: Colored badge
     renderSettingBadge(
-      getSettingColor('project__stage', record.dl__project_stage),
+      getSettingColor('dl__project_stage', record.dl__project_stage),
       record.dl__project_stage
     )
   )}
@@ -344,81 +272,124 @@ useEffect(() => {
 
 ---
 
-## Critical Rules
+## 4. User Interaction Flow Examples
 
-### ✅ DO
+### Viewing Data in Table
+1. User navigates to `/project`
+2. EntityMainPage fetches: `GET /api/v1/project`
+3. Response includes: `{dl__project_stage: "Execution"}`
+4. DataTable detects `dl__project_stage` → LABEL category
+5. Preloads settings: `GET /api/v1/setting?category=dl__project_stage`
+6. Caches colors: `Map<'Execution', 'yellow'>`
+7. Renders: 🟡 Yellow badge "Execution"
+
+### Filtering by Stage
+1. User clicks filter icon on Stage column
+2. Dropdown shows options from cache
+3. Each option displays with colored badge
+4. User selects "Planning" + "Execution"
+5. Table filters to matching rows
+6. Applied filters shown as chips with colors
+
+### Inline Editing
+1. User clicks edit button on row
+2. Stage cell becomes dropdown with colored options
+3. User selects "Monitoring"
+4. PUT `/api/v1/project/{id}` with `{dl__project_stage: "Monitoring"}`
+5. Cell updates to 🟠 Orange badge "Monitoring"
+6. Settings cache remains valid (not cleared)
+
+### Sorting by Multiple Columns
+1. User clicks Stage column header (auto-detected as sortable)
+2. Sorts by stage name alphabetically
+3. User shift-clicks Budget column
+4. Multi-column sort: Stage (asc), Budget (desc)
+5. Sort indicators show on both headers
+
+---
+
+## 5. Critical Considerations When Building
+
+### ✅ DO - Current Correct Patterns
 
 ```sql
--- Database: Use dl__ prefix
+-- 1. Database: Use dl__ prefix
 CREATE TABLE app.d_project (
   dl__project_stage text  -- ✅ Correct
 );
 
--- Settings: Use double underscore
-INSERT INTO app.setting_datalabel (datalabel_name) VALUES
-('project__stage');  -- ✅ entity__label format
+-- 2. Settings: Use SAME dl__ prefix (perfect 1:1)
+INSERT INTO app.setting_datalabel (datalabel_name, ui_label, icon, metadata) VALUES
+('dl__project_stage', 'Project Stages', 'GitBranch', '[
+  {"id": 0, "name": "Planning", "color_code": "purple"}
+]'::jsonb);  -- ✅ Perfect alignment
 ```
 
 ```typescript
-// Frontend: Match database column names
-columns: [
-  { key: 'dl__project_stage', title: 'Stage' }  // ✅ Correct
-]
-
-// API: Use dl__ prefix
-GET /api/v1/setting?category=dl__project__stage  // ✅ Correct
-
-// Colors: Always from database
-const color = getSettingColor('project__stage', record.dl__project_stage);  // ✅ Correct
-```
-
-### ❌ DON'T
-
-```sql
--- ❌ Missing dl__ prefix
-CREATE TABLE app.d_project (
-  project_stage text  -- ❌ Wrong
-);
-
--- ❌ Wrong underscore format
-INSERT INTO app.setting_datalabel (datalabel_name) VALUES
-('project_stage');  -- ❌ Should be project__stage
-```
-
-```typescript
-// ❌ Hardcoded colors
-const getStageColor = (stage: string) => {
-  if (stage === 'Planning') return 'purple';  // ❌ Never hardcode!
+// 3. Frontend: Use SAME dl__ format (1:1 mapping)
+FIELD_TO_SETTING_MAP = {
+  'dl__project_stage': 'dl__project_stage'  // ✅ Exact match
 };
 
-// ❌ Hardcoded widths
-columns: [
-  { key: 'dl__project_stage', title: 'Stage', width: '150px' }  // ❌ Let category registry decide
-];
+// 4. Generate endpoints dynamically
+getSettingEndpoint('dl__project_stage');
+// Returns: '/api/v1/setting?category=dl__project_stage'
 
-// ❌ Missing dl__ prefix
-GET /api/v1/setting?category=project_stage  // ❌ Should be dl__project__stage
+// 5. Use colors from database ONLY
+const color = getSettingColor('dl__project_stage', record.dl__project_stage);
 ```
 
----
+### ❌ DON'T - Outdated/Wrong Patterns
 
-## Performance Optimization
+```sql
+-- ❌ DON'T use different formats
+CREATE TABLE app.d_project (
+  project_stage text  -- ❌ Missing dl__ prefix
+);
 
-1. **5-minute API cache** - Reduce redundant API calls
-2. **Parallel preloading** - Load all colors/options at once
-3. **O(1) color lookups** - In-memory cache for rendering
-4. **useMemo** - Memoize expensive computations
-5. **Conditional loading** - Only preload when needed (edit/filter mode)
+INSERT INTO app.setting_datalabel (datalabel_name) VALUES
+('project__stage');  -- ❌ Wrong: should be dl__project_stage
+```
 
----
+```typescript
+// ❌ DON'T add transformation logic
+const datalabelName = category.startsWith('dl__')
+  ? category.substring(4)  // ❌ No stripping needed!
+  : category;
 
-## Key Files
+// ❌ DON'T hardcode endpoint mappings
+SETTING_DATALABEL_TO_ENDPOINT = {
+  'project__stage': '/api/v1/setting?category=dl__project__stage'  // ❌ Generate dynamically!
+};
+
+// ❌ DON'T hardcode colors
+const getStageColor = (stage: string) => {
+  if (stage === 'Planning') return 'purple';  // ❌ Use database!
+};
+
+// ❌ DON'T manually configure what registry handles
+columns: [{
+  key: 'dl__project_stage',
+  width: '150px',              // ❌ Auto-detected
+  loadOptionsFromSettings: true // ❌ Auto-detected
+}];
+```
+
+### Performance Optimization
+
+1. **5-Minute API Cache** - `settingsCache` prevents redundant API calls
+2. **Parallel Preloading** - All settings load simultaneously on mount
+3. **O(1) Color Lookups** - `settingsColorCache` for instant rendering
+4. **useMemo** - Column capabilities computed once
+5. **Conditional Loading** - Only preload when needed (edit/filter mode)
+
+### Key Files
 
 | File | Purpose |
 |------|---------|
-| `/db/setting_datalabel.ddl` | Settings table schema |
+| `/db/setting_datalabel.ddl` | Settings table schema with dl__ prefix |
 | `/db/11-27_d_*.ddl` | Entity tables with dl__ columns |
-| `/apps/api/src/modules/setting/routes.ts` | Settings API |
+| `/apps/api/src/modules/setting/routes.ts` | Settings API (direct lookup) |
 | `/apps/web/src/lib/settingsLoader.ts` | Settings loader & caching |
 | `/apps/web/src/lib/fieldCategoryRegistry.ts` | Field category auto-detection |
 | `/apps/web/src/lib/data_transform_render.tsx` | Color cache & rendering |
@@ -428,14 +399,24 @@ GET /api/v1/setting?category=project_stage  // ❌ Should be dl__project__stage
 
 ## Summary
 
-**Zero hardcoding. Database drives everything.**
-
+**Current Architecture (Perfect 1:1 Alignment):**
 ```
-dl__ naming convention → Auto-detection → Settings API → Color cache → UI rendering
+Database:     dl__project_stage
+Settings:     dl__project_stage     ← SAME!
+API:          dl__project_stage     ← SAME!
+Frontend:     dl__project_stage     ← SAME!
 ```
 
-All configuration comes from database: colors, widths, sorting, filtering, dropdowns.
+**Zero Hardcoding - Database Drives Everything:**
+- Colors from `setting_datalabel.metadata[].color_code`
+- Widths from `fieldCategoryRegistry` based on column name
+- Endpoints generated dynamically: `/api/v1/setting?category={datalabel}`
+- Rendering behavior auto-detected from naming patterns
+
+**Key Principle:** Name the column correctly with `dl__` prefix → Everything works automatically
+
+---
 
 **Last Updated:** 2025-10-30
-**Architecture:** Database-Driven, Zero Hardcoding
+**Architecture:** Database-Driven, Zero Hardcoding, Perfect 1:1 Alignment
 **Status:** Production Ready

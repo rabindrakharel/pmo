@@ -1,4 +1,4 @@
-instruction :
+documentation: 
 Since you made a lot of structural design patterns, reusable patterns, and architectural changes, I want you to pinpoint existing documentation which are now updated because of your recent changes. Pinpoint the changes that you need to update and make sure you coherently and structurally update existing documentation to reflect the current state in accordance with the changes that you made.
 
 Only the current state needs to be documented. Old state doesn't have to be there. 
@@ -13,3 +13,29 @@ Document struction:
 
 Action: You must update all the other .md file that are referred here below:
 (donot update instruction file)
+
+
+critic: 
+be super smart, and next generation expert and compare this approach with other advanced implementations, and rate my code, design pattern; critic and suggest:
+1. Overall Rating & Executive Summary
+  2. Architecture Analysis
+    - Convention over Configuration
+    - DRY principles
+    - Type safety
+    - Performance optimization
+  3. Comparison with Industry Standards
+    - React Query / TanStack Table
+    - Headless UI patterns
+    - Modern state management
+    - Enterprise data grids (ag-Grid, MUI DataGrid)
+  4. Strengths (what's done well)
+  5. Weaknesses & Gaps (what's missing)
+  6. Critical Issues (what needs immediate attention)
+  7. Advanced Patterns Not Implemented
+  8. Recommendations (concrete improvements)
+
+  put the conent in featureadd/critic.md\
+  \
+  understand current state: \
+  /home/rabin/projects/pmo/docs/core_algorithm_design_pattern.md
+  /home/rabin/projects/pmo/docs/datatable.md 

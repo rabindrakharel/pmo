@@ -52,83 +52,59 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 /**
  * Mapping of field names to their corresponding setting datalabels
  * This defines which fields should load from which settings tables
- * Format: field_name -> datalabel_name (using entity__label format with double underscore)
+ * Format: field_name -> datalabel_name (using dl__entity_attribute format - matches database exactly)
  */
 export const FIELD_TO_SETTING_MAP: Record<string, string> = {
   // Project fields (dl__ prefix columns from database)
-  'dl__project_stage': 'project__stage',
-  'project_stage': 'project__stage',
+  'dl__project_stage': 'dl__project_stage',
+  'project_stage': 'dl__project_stage',
 
   // Task fields (dl__ prefix columns from database)
-  'dl__task_stage': 'task__stage',
-  'dl__task_priority': 'task__priority',
-  'stage': 'task__stage',
-  'task_stage': 'task__stage',
-  'status': 'task__stage',
-  'priority_level': 'task__priority',
+  'dl__task_stage': 'dl__task_stage',
+  'dl__task_priority': 'dl__task_priority',
+  'stage': 'dl__task_stage',
+  'task_stage': 'dl__task_stage',
+  'status': 'dl__task_stage',
+  'priority_level': 'dl__task_priority',
 
   // Client/Customer fields (dl__ prefix columns from database)
-  'dl__opportunity_funnel_stage': 'opportunity__funnel_stage',
-  'dl__industry_sector': 'industry__sector',
-  'dl__acquisition_channel': 'acquisition__channel',
-  'dl__customer_tier': 'customer__tier',
-  'dl__client_status': 'client__status',
-  'opportunity_funnel_stage_name': 'opportunity__funnel_stage',
-  'industry_sector_name': 'industry__sector',
-  'acquisition_channel_name': 'acquisition__channel',
-  'customer_tier_name': 'customer__tier',
-  'client_status': 'client__status',
+  'dl__opportunity_funnel_stage': 'dl__opportunity_funnel_stage',
+  'dl__industry_sector': 'dl__industry_sector',
+  'dl__acquisition_channel': 'dl__acquisition_channel',
+  'dl__customer_tier': 'dl__customer_tier',
+  'dl__client_status': 'dl__client_status',
+  'opportunity_funnel_stage_name': 'dl__opportunity_funnel_stage',
+  'industry_sector_name': 'dl__industry_sector',
+  'acquisition_channel_name': 'dl__acquisition_channel',
+  'customer_tier_name': 'dl__customer_tier',
+  'client_status': 'dl__client_status',
 
   // Business fields (dl__ prefix columns from database)
-  'dl__business_level': 'business__level',
-  'level_id': 'business__level', // Context-dependent
-  'name': 'business__level',
-  'business_level_id': 'business__level',
+  'dl__business_level': 'dl__business_level',
+  'level_id': 'dl__business_level', // Context-dependent
+  'name': 'dl__business_level',
+  'business_level_id': 'dl__business_level',
 
   // Office fields (dl__ prefix columns from database)
-  'dl__office_level': 'office__level',
-  'office_level_id': 'office__level',
+  'dl__office_level': 'dl__office_level',
+  'office_level_id': 'dl__office_level',
 
   // Position fields (dl__ prefix columns from database)
-  'dl__position_level': 'position__level',
-  'position_level_id': 'position__level',
+  'dl__position_level': 'dl__position_level',
+  'position_level_id': 'dl__position_level',
 
   // Form fields (dl__ prefix columns from database)
-  'dl__form_submission_status': 'form__submission_status',
-  'dl__form_approval_status': 'form__approval_status',
-  'submission_status': 'form__submission_status',
-  'approval_status': 'form__approval_status',
+  'dl__form_submission_status': 'dl__form_submission_status',
+  'dl__form_approval_status': 'dl__form_approval_status',
+  'submission_status': 'dl__form_submission_status',
+  'approval_status': 'dl__form_approval_status',
 
   // Wiki fields (dl__ prefix columns from database)
-  'dl__wiki_publication_status': 'wiki__publication_status',
-  'publication_status': 'wiki__publication_status',
+  'dl__wiki_publication_status': 'dl__wiki_publication_status',
+  'publication_status': 'dl__wiki_publication_status',
 
   // Task activity fields
-  'update_type': 'task__update_type',
-};
-
-/**
- * Mapping of setting datalabels to their API endpoints
- * Format: datalabel_name -> API endpoint using ?category= parameter
- * All datalabel names use dl__entity__label format (matching database column names)
- */
-export const SETTING_DATALABEL_TO_ENDPOINT: Record<string, string> = {
-  'project__stage': '/api/v1/setting?category=dl__project__stage',
-  'task__stage': '/api/v1/setting?category=dl__task__stage',
-  'task__priority': '/api/v1/setting?category=dl__task__priority',
-  'task__update_type': '/api/v1/setting?category=dl__task__update_type',
-  'opportunity__funnel_stage': '/api/v1/setting?category=dl__opportunity__funnel_stage',
-  'industry__sector': '/api/v1/setting?category=dl__industry__sector',
-  'acquisition__channel': '/api/v1/setting?category=dl__acquisition__channel',
-  'customer__tier': '/api/v1/setting?category=dl__customer__tier',
-  'client__status': '/api/v1/setting?category=dl__client__status',
-  'client__service': '/api/v1/setting?category=dl__client__service',
-  'business__level': '/api/v1/setting?category=dl__business__level',
-  'office__level': '/api/v1/setting?category=dl__office__level',
-  'position__level': '/api/v1/setting?category=dl__position__level',
-  'form__submission_status': '/api/v1/setting?category=dl__form__submission_status',
-  'form__approval_status': '/api/v1/setting?category=dl__form__approval_status',
-  'wiki__publication_status': '/api/v1/setting?category=dl__wiki__publication_status',
+  'update_type': 'dl__task_update_type',
 };
 
 /**
@@ -146,10 +122,12 @@ export function getSettingDatalabel(fieldKey: string): string | null {
 }
 
 /**
- * Get the API endpoint for a setting datalabel
+ * Generate API endpoint for a setting datalabel
+ * Format: /api/v1/setting?datalabel={datalabel}
+ * All datalabel names use dl__entity_attribute format (e.g., dl__task_stage)
  */
-export function getSettingEndpoint(datalabel: string): string | null {
-  return SETTING_DATALABEL_TO_ENDPOINT[datalabel] || null;
+export function getSettingEndpoint(datalabel: string): string {
+  return `/api/v1/setting?datalabel=${datalabel}`;
 }
 
 /**
@@ -167,12 +145,8 @@ export async function loadSettingOptions(
     }
   }
 
-  // Get API endpoint
+  // Generate API endpoint
   const endpoint = getSettingEndpoint(datalabel);
-  if (!endpoint) {
-    console.warn(`No endpoint found for setting datalabel: ${datalabel}`);
-    return [];
-  }
 
   try {
     const token = localStorage.getItem('auth_token');
@@ -273,9 +247,10 @@ export function clearSettingsCache(datalabel?: string): void {
 
 /**
  * Get all available setting datalabels
+ * Returns unique datalabel names from FIELD_TO_SETTING_MAP
  */
 export function getAllSettingDatalabels(): string[] {
-  return Object.keys(SETTING_DATALABEL_TO_ENDPOINT);
+  return Array.from(new Set(Object.values(FIELD_TO_SETTING_MAP)));
 }
 
 /**

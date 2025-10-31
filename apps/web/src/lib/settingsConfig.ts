@@ -89,13 +89,18 @@ export function createSettingBadgeRenderer(datalabel: string) {
  * Extract settings datalabel from field key
  *
  * Examples:
- * - project_stage → project_stage
- * - opportunity_funnel_stage_name → opportunity_funnel_stage
- * - customer_tier_name → customer_tier
- * - stage → task_stage (special case for task.stage)
- * - priority_level → task_priority (special case)
+ * - dl__project_stage → dl__project_stage
+ * - dl__opportunity_funnel_stage → dl__opportunity_funnel_stage
+ * - project_stage → dl__project_stage (legacy support)
+ * - stage → dl__task_stage (special case)
+ * - priority_level → dl__task_priority (special case)
  */
 function extractSettingsDatalabel(fieldKey: string): string {
+  // If already has dl__ prefix, return as-is
+  if (fieldKey.startsWith('dl__')) {
+    return fieldKey;
+  }
+
   // Remove common suffixes
   let datalabel = fieldKey
     .replace(/_name$/, '')
@@ -104,12 +109,13 @@ function extractSettingsDatalabel(fieldKey: string): string {
 
   // Special mappings for short field names
   const specialMappings: Record<string, string> = {
-    'stage': 'task_stage',
-    'priority_level': 'task_priority',
-    'status': 'task_stage'
+    'stage': 'dl__task_stage',
+    'priority_level': 'dl__task_priority',
+    'status': 'dl__task_stage'
   };
 
-  return specialMappings[datalabel] || datalabel;
+  // Return with dl__ prefix
+  return specialMappings[datalabel] || `dl__${datalabel}`;
 }
 
 /**
@@ -149,7 +155,7 @@ export function applySettingsBadgeRenderers<T extends { key: string; loadOptions
 
 export interface SettingDefinition {
   key: string;                    // e.g., 'projectStage'
-  datalabel: string;              // e.g., 'project_stage' (snake_case)
+  datalabel: string;              // e.g., 'dl__project_stage' (with dl__ prefix)
   displayName: string;            // e.g., 'Project Stage'
   pluralName: string;             // e.g., 'Project Stages'
   supportedViews?: ('table' | 'kanban' | 'grid' | 'graph')[];
@@ -159,21 +165,22 @@ export interface SettingDefinition {
 /**
  * Central registry of all settings entities
  * DRY: Define metadata once, generate everything else
+ * Note: datalabel uses dl__ prefix for consistency with database naming
  */
 export const SETTINGS_REGISTRY: SettingDefinition[] = [
-  { key: 'projectStage', datalabel: 'project_stage', displayName: 'Project Stage', pluralName: 'Project Stages', supportedViews: ['table', 'graph'], defaultView: 'table' },
-  { key: 'projectStatus', datalabel: 'project_status', displayName: 'Project Status', pluralName: 'Project Statuses' },
-  { key: 'taskStage', datalabel: 'task_stage', displayName: 'Task Stage', pluralName: 'Task Stages', supportedViews: ['table', 'graph'], defaultView: 'table' },
-  { key: 'taskPriority', datalabel: 'task_priority', displayName: 'Task Priority', pluralName: 'Task Priorities' },
-  { key: 'businessLevel', datalabel: 'business_level', displayName: 'Business Level', pluralName: 'Business Levels' },
-  { key: 'orgLevel', datalabel: 'office_level', displayName: 'Office Level', pluralName: 'Office Levels' },
-  { key: 'hrLevel', datalabel: 'hr_level', displayName: 'HR Level', pluralName: 'HR Levels' },
-  { key: 'clientLevel', datalabel: 'client_level', displayName: 'Client Level', pluralName: 'Client Levels' },
-  { key: 'positionLevel', datalabel: 'position_level', displayName: 'Position Level', pluralName: 'Position Levels' },
-  { key: 'opportunityFunnelLevel', datalabel: 'opportunity_funnel_stage', displayName: 'Opportunity Funnel Stage', pluralName: 'Opportunity Funnel Stages' },
-  { key: 'industrySector', datalabel: 'industry_sector', displayName: 'Industry Sector', pluralName: 'Industry Sectors' },
-  { key: 'acquisitionChannel', datalabel: 'acquisition_channel', displayName: 'Acquisition Channel', pluralName: 'Acquisition Channels' },
-  { key: 'customerTier', datalabel: 'customer_tier', displayName: 'Customer Tier', pluralName: 'Customer Tiers' },
+  { key: 'projectStage', datalabel: 'dl__project_stage', displayName: 'Project Stage', pluralName: 'Project Stages', supportedViews: ['table', 'graph'], defaultView: 'table' },
+  { key: 'projectStatus', datalabel: 'dl__project_status', displayName: 'Project Status', pluralName: 'Project Statuses' },
+  { key: 'taskStage', datalabel: 'dl__task_stage', displayName: 'Task Stage', pluralName: 'Task Stages', supportedViews: ['table', 'graph'], defaultView: 'table' },
+  { key: 'taskPriority', datalabel: 'dl__task_priority', displayName: 'Task Priority', pluralName: 'Task Priorities' },
+  { key: 'businessLevel', datalabel: 'dl__business_level', displayName: 'Business Level', pluralName: 'Business Levels' },
+  { key: 'orgLevel', datalabel: 'dl__office_level', displayName: 'Office Level', pluralName: 'Office Levels' },
+  { key: 'hrLevel', datalabel: 'dl__hr_level', displayName: 'HR Level', pluralName: 'HR Levels' },
+  { key: 'clientLevel', datalabel: 'dl__client_level', displayName: 'Client Level', pluralName: 'Client Levels' },
+  { key: 'positionLevel', datalabel: 'dl__position_level', displayName: 'Position Level', pluralName: 'Position Levels' },
+  { key: 'opportunityFunnelLevel', datalabel: 'dl__opportunity_funnel_stage', displayName: 'Opportunity Funnel Stage', pluralName: 'Opportunity Funnel Stages' },
+  { key: 'industrySector', datalabel: 'dl__industry_sector', displayName: 'Industry Sector', pluralName: 'Industry Sectors' },
+  { key: 'acquisitionChannel', datalabel: 'dl__acquisition_channel', displayName: 'Acquisition Channel', pluralName: 'Acquisition Channels' },
+  { key: 'customerTier', datalabel: 'dl__customer_tier', displayName: 'Customer Tier', pluralName: 'Customer Tiers' },
 ];
 
 // ============================================================================

@@ -1,240 +1,404 @@
 # Core Algorithm Design Pattern
 
-**Tags:** `#architecture` `#field-category-registry` `#centralized-rendering` `#DRY`
+> **Field Category Registry Pattern - Auto-configuration through naming conventions**
+> Database column names drive ALL rendering, width, alignment, colors, and behavior
+
+**Tags:** `#architecture` `#field-category-registry` `#DRY` `#auto-detection`
 
 ---
 
-## Pattern: Field Category Registry
+## 1. Semantics & Business Context
 
-**Purpose:** Auto-detect field type by naming convention → Apply consistent properties (colors, width, alignment, sorting) from centralized registry.
+### Purpose
+Eliminate manual configuration by auto-detecting field types from naming conventions. A single registry drives rendering behavior for ALL fields across ALL entities.
 
----
-
-## Data Flow (9 Steps)
-
-```
-1. DATABASE
-   └─ Column: dl__project_stage, Value: "Planning"
-
-2. API
-   └─ GET /api/v1/project returns: { dl__project_stage: "Planning" }
-
-3. ENTITY CONFIG (entityConfig.ts)
-   └─ generateStandardColumns(['name', 'code', 'dl__project_stage'])
-
-4. CATEGORY DETECTION (fieldCategoryRegistry.ts)
-   └─ detectFieldCategory('dl__project_stage') → FieldCategory.LABEL
-   └─ Pattern: key.startsWith('dl__') || key.endsWith('_stage|_status|_priority|_level|_tier|_sector|_channel')
-
-5. REGISTRY LOOKUP (fieldCategoryRegistry.ts)
-   └─ FIELD_CATEGORY_REGISTRY[LABEL] → {
-        width: '130px',
-        align: 'left',
-        sortable: true,
-        filterable: true,
-        loadOptionsFromSettings: true,
-        features: { colorBadge: true }
-      }
-
-6. COLUMN GENERATION (columnGenerator.ts)
-   └─ Auto-applies all registry properties to column
-
-7. DATA TABLE (EntityDataTable.tsx)
-   └─ renderCellValue() sees: column.loadOptionsFromSettings = true
-   └─ Calls: getSettingColor('project_stage', 'Planning') → 'purple'
-
-8. BADGE RENDER (data_transform_render.tsx)
-   └─ renderSettingBadge('purple', 'Planning')
-   └─ COLOR_MAP['purple'] → 'bg-purple-100 text-purple-800'
-
-9. BROWSER
-   └─ Displays: 🟣 Purple badge "Planning"
-```
+### Business Value
+- **Zero Configuration**: Add new fields without touching UI code
+- **Consistency**: All fields of same type render identically across platform
+- **Maintainability**: One registry change affects all entities globally
+- **Developer Experience**: Name it correctly → Everything works automatically
 
 ---
 
-## Naming Convention
+## 2. Architecture & DRY Design Patterns
 
-### Database Columns
+### Data Flow (Complete Pipeline)
+
 ```
-Format: dl__{entity}__{label_type}
-
-Examples:
-  dl__project_stage
-  dl__task_stage
-  dl__task_priority
-  dl__customer_tier
-  dl__office_level
-  dl__business_level
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. DATABASE                                                     │
+│    Column: dl__project_stage TEXT                               │
+│    Value: "Planning"                                            │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. API RESPONSE                                                 │
+│    GET /api/v1/project                                          │
+│    Response: { dl__project_stage: "Planning" }                  │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 3. ENTITY CONFIG (entityConfig.ts)                             │
+│    columns: generateStandardColumns([                           │
+│      'name', 'code', 'dl__project_stage'                        │
+│    ])                                                           │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 4. CATEGORY DETECTION (fieldCategoryRegistry.ts)               │
+│    detectFieldCategory('dl__project_stage')                     │
+│    Pattern: dl__*_stage → FieldCategory.LABEL                   │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 5. REGISTRY LOOKUP                                              │
+│    FIELD_CATEGORY_CONFIGS[LABEL] = {                            │
+│      width: '130px',                                            │
+│      align: 'left',                                             │
+│      sortable: true,                                            │
+│      filterable: true,                                          │
+│      loadOptionsFromSettings: true,                             │
+│      features: { colorBadge: true }                             │
+│    }                                                            │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 6. COLUMN GENERATION (columnGenerator.ts)                      │
+│    Auto-applies ALL registry properties                         │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 7. SETTINGS API CALL                                            │
+│    GET /api/v1/setting?category=dl__project_stage              │
+│    Returns: [                                                   │
+│      {name: "Planning", color_code: "purple"},                  │
+│      {name: "Execution", color_code: "yellow"}                  │
+│    ]                                                            │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 8. COLOR CACHE (data_transform_render.tsx)                     │
+│    getSettingColor('dl__project_stage', 'Planning')             │
+│    Returns: 'purple'                                            │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 9. BADGE RENDERING                                              │
+│    renderSettingBadge('purple', 'Planning')                     │
+│    COLOR_MAP['purple'] → 'bg-purple-100 text-purple-800'        │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 10. BROWSER                                                     │
+│     🟣 Purple badge "Planning"                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### Setting Datalabels (setting_datalabel.ddl)
-```
-Format: {entity}__{label_type}  (no dl__ prefix in datalabel_name)
+### Pattern Detection
 
-Examples:
-  project__stage
-  task__stage
-  task__priority
-  customer__tier
-```
-
-### Field Mapping (settingsLoader.ts)
 ```typescript
-FIELD_TO_SETTING_MAP = {
-  'dl__project_stage': 'project__stage',
-  'dl__task_stage': 'task__stage',
-  'dl__task_priority': 'task__priority',
-  // Only canonical dl__ mappings - NO fallbacks
+// /apps/web/src/lib/fieldCategoryRegistry.ts
+
+export function detectFieldCategory(fieldKey: string): FieldCategory {
+  // LABEL category (settings-driven fields with colored badges)
+  if (fieldKey.startsWith('dl__') &&
+      (fieldKey.includes('_stage') || fieldKey.includes('_priority') ||
+       fieldKey.includes('_status') || fieldKey.includes('_level') ||
+       fieldKey.includes('_tier') || fieldKey.includes('_sector') ||
+       fieldKey.includes('_channel'))) {
+    return FieldCategory.LABEL;
+  }
+
+  // AMOUNT category
+  if (fieldKey.endsWith('_amt') || fieldKey.endsWith('_amount')) {
+    return FieldCategory.AMOUNT;
+  }
+
+  // TIMESTAMP category
+  if (fieldKey.endsWith('_ts') || fieldKey.endsWith('_timestamp')) {
+    return FieldCategory.TIMESTAMP;
+  }
+
+  // ... other patterns
 }
 ```
 
 ---
 
-## Registry Categories
+## 3. Database, API & UI/UX Mapping
 
-### LABEL Category (Settings-Driven Fields)
-**Detection:** Starts with `dl__` OR ends with `_stage`, `_status`, `_priority`, `_level`, `_tier`, `_sector`, `_channel`
+### Perfect 1:1 Alignment
 
-**Auto-Applied Properties:**
-- Width: 130px
-- Alignment: left
-- Sortable: true
-- Filterable: true
-- Searchable: false
-- loadOptionsFromSettings: true
-- Colored badge rendering
+**Before (Old - REMOVED):**
+```
+Database:     dl__project_stage
+Settings DB:  project__stage        ← Mismatch!
+API param:    dl__project__stage    ← Different format!
+Mapping:      'dl__project_stage': 'project__stage'  ← Transformation needed
+```
 
-**Example Fields:** dl__project_stage, dl__task_priority, dl__customer_tier
+**Now (Current - PERFECT 1:1):**
+```
+Database Column:       dl__project_stage
+Settings datalabel:    dl__project_stage     ← SAME!
+API Parameter:         dl__project_stage     ← SAME!
+Frontend Mapping:      'dl__project_stage': 'dl__project_stage'  ← NO TRANSFORMATION!
+```
 
-### Other Categories
-- **NAME:** name, title → 200px, sortable, searchable
-- **CODE:** code → 120px, sortable
-- **DESCR:** descr, description → 250px, sortable, searchable
-- **DATE:** *_date → 120px, friendly format ("Mar 15, 2025")
-- **AMOUNT:** *_amt, *_amount → 120px, right-aligned, currency format
-- **BOOLEAN:** *_flag, is_*, has_* → 80px, center, ✓/✗ icons
+### Naming Conventions
 
----
+#### Database Columns
+```sql
+-- Format: dl__entity_attribute
+CREATE TABLE app.d_project (
+  dl__project_stage text  -- ✅ Correct format
+);
 
-## Rules
+CREATE TABLE app.d_task (
+  dl__task_stage text,
+  dl__task_priority text
+);
+```
 
-### ✅ DO
-1. Use `dl__` prefix for all label fields in database
-2. Use `generateStandardColumns(['name', 'code', ...])` in entityConfig
-3. Include both name and code as separate columns
-4. Let registry handle width, alignment, and rendering
-5. Only override `title` if needed (e.g., 'Stage' instead of 'Dl Project Stage')
-6. Ensure data values match `setting_datalabel.ddl` entries
+#### Settings Table
+```sql
+-- Format: dl__entity_attribute (SAME as database column)
+INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) VALUES
+('dl__project_stage', 'Project Stages', 'GitBranch', '[...]'::jsonb),
+('dl__task_stage', 'Task Stages', 'Target', '[...]'::jsonb),
+('dl__task_priority', 'Task Priorities', 'TrendingUp', '[...]'::jsonb);
+```
 
-### ❌ DON'T
-1. Add fallback mappings in FIELD_TO_SETTING_MAP (e.g., 'office_level': '...')
-2. Use custom `render` functions for label fields (auto-handled)
-3. Hardcode colors in entity config
-4. Combine name + code in one column
-5. Manually set `loadOptionsFromSettings` (auto-detected)
-6. Use field names that don't match database
-
----
-
-## Entity Config Pattern
-
-### ✅ Correct Pattern
+#### Frontend Mapping
 ```typescript
-cust: {
-  name: 'cust',
-  displayName: 'Customer',
-  apiEndpoint: '/api/v1/cust',
+// /apps/web/src/lib/settingsLoader.ts
 
-  // Use generateStandardColumns (puts name, code, descr first)
-  columns: generateStandardColumns(
-    ['name', 'code', 'descr', 'dl__customer_tier'],
-    {
-      overrides: {
-        dl__customer_tier: {
-          title: 'Tier'  // Only override title if needed
+// Perfect 1:1 mapping - NO transformation
+export const FIELD_TO_SETTING_MAP: Record<string, string> = {
+  'dl__project_stage': 'dl__project_stage',  // ✅ Exact match
+  'dl__task_stage': 'dl__task_stage',
+  'dl__task_priority': 'dl__task_priority',
+};
+
+// Dynamic URL generation - no hardcoded mapping needed
+export function getSettingEndpoint(datalabel: string): string {
+  return `/api/v1/setting?category=${datalabel}`;
+}
+```
+
+---
+
+## 4. Central Configuration & Middleware
+
+### Registry Categories
+
+| Category | Detection Pattern | Width | Align | Sort | Filter | Search | Features |
+|----------|------------------|-------|-------|------|--------|--------|----------|
+| **LABEL** | `dl__*_stage`, `dl__*_status`, `dl__*_priority`, `dl__*_level` | 130px | left | ✅ | ✅ | ❌ | Colored badge, dropdown, settings-driven |
+| **NAME** | `name`, `title` | 200px | left | ✅ | ✅ | ✅ | Plain text, global search |
+| **CODE** | `code` | 120px | left | ✅ | ✅ | ✅ | Plain text, global search |
+| **DESCR** | `descr`, `description` | 250px | left | ✅ | ✅ | ✅ | Plain text, truncated |
+| **AMOUNT** | `*_amt`, `*_amount` | 120px | right | ✅ | ✅ | ❌ | Currency format: `$250,000.00 CAD` |
+| **DATE** | `*_date` | 120px | left | ✅ | ✅ | ❌ | Friendly date: `Mar 15, 2025` |
+| **TIMESTAMP** | `*_ts`, `*_timestamp` | 150px | left | ✅ | ❌ | ❌ | Relative time: `3 minutes ago` |
+| **BOOLEAN** | `*_flag` | 80px | center | ✅ | ✅ | ❌ | ✓ (green) or ✗ (gray) |
+| **PERCENTAGE** | `*_pct` | 100px | right | ✅ | ✅ | ❌ | `75%` |
+| **NUMBER** | `*_count`, `*_qty` | 100px | right | ✅ | ✅ | ❌ | `1,234` |
+
+### Entity Config Pattern
+
+```typescript
+// /apps/web/src/lib/entityConfig.ts
+
+export const entityConfig: EntityConfigMap = {
+  project: {
+    name: 'project',
+    displayName: 'Project',
+    apiEndpoint: '/api/v1/project',
+
+    // Use generateStandardColumns - auto-detects everything
+    columns: generateStandardColumns(
+      ['name', 'code', 'descr', 'dl__project_stage'],
+      {
+        overrides: {
+          dl__project_stage: {
+            title: 'Stage'  // Only override title if needed
+          }
         }
       }
-    }
-  )
-}
-```
+    ),
 
-### ❌ Wrong Pattern
-```typescript
-// DON'T DO THIS:
-columns: generateColumns(
-  ['name', 'city'],  // ❌ Missing 'code'
-  {
-    overrides: {
-      name: {
-        render: (value, record) => (
-          <div>
-            <div>{value}</div>
-            <div>{record.code}</div>  // ❌ Stuffing code below name
-          </div>
-        )
-      },
-      dl__customer_tier: {
-        loadOptionsFromSettings: true  // ❌ Redundant (auto-detected)
-      }
-    }
+    childEntities: ['task', 'artifact', 'wiki']
   }
-)
+};
 ```
 
 ---
 
-## Adding New Label Field
+## 5. User Interaction Flow Examples
+
+### Viewing Data
+1. User navigates to `/project`
+2. EntityMainPage loads projects via API
+3. Each `dl__project_stage` column auto-detected as LABEL
+4. Settings API called: `/api/v1/setting?category=dl__project_stage`
+5. Colors cached in memory for O(1) lookup
+6. Each row renders colored badge automatically
+7. User sees: 🟣 Planning, 🟡 Execution, 🟢 Completed
+
+### Filtering Data
+1. User clicks filter icon on Stage column
+2. Auto-detected as filterable (from registry)
+3. Dropdown loads from cache (already fetched)
+4. Options show with colored badges
+5. User selects "Planning" + "Execution"
+6. Table filters to matching rows
+7. Applied filters shown as chips
+
+### Inline Editing
+1. User clicks edit button on row
+2. `dl__project_stage` cell becomes dropdown
+3. Options load from cache with colored badges
+4. User selects "Execution"
+5. PUT /api/v1/project/{id} with `{dl__project_stage: "Execution"}`
+6. Cell updates to 🟡 Execution badge
+7. Cache cleared for that entity
+
+---
+
+## 6. Critical Considerations When Building
+
+### ✅ DO
+
+```typescript
+// 1. Use dl__ prefix for ALL label fields in database
+CREATE TABLE app.d_entity (
+  dl__entity_stage text  // ✅ Correct
+);
+
+// 2. Use generateStandardColumns in entity config
+columns: generateStandardColumns(
+  ['name', 'code', 'dl__entity_stage']
+)
+
+// 3. Settings table uses SAME dl__ prefix
+INSERT INTO app.setting_datalabel (datalabel_name) VALUES
+('dl__entity_stage');  // ✅ Perfect 1:1 alignment
+
+// 4. Let registry auto-detect everything
+// NO manual: width, align, sortable, loadOptionsFromSettings
+```
+
+### ❌ DON'T
+
+```typescript
+// 1. DON'T use different formats
+CREATE TABLE app.d_entity (
+  entity_stage text  // ❌ Missing dl__ prefix
+);
+
+INSERT INTO app.setting_datalabel (datalabel_name) VALUES
+('entity__stage');  // ❌ Different format
+
+// 2. DON'T add fallback mappings
+FIELD_TO_SETTING_MAP = {
+  'office_level': 'dl__office_level',  // ❌ No fallbacks!
+  'stage': 'dl__task_stage'            // ❌ Use full name
+}
+
+// 3. DON'T manually configure what registry handles
+columns: [{
+  key: 'dl__project_stage',
+  width: '150px',              // ❌ Registry handles this
+  loadOptionsFromSettings: true // ❌ Auto-detected
+}]
+
+// 4. DON'T hardcode colors
+const getStageColor = (stage: string) => {
+  if (stage === 'Planning') return 'purple';  // ❌ Never!
+};
+```
+
+### Adding New Label Field (Complete Steps)
 
 ```sql
--- 1. Add to entity DDL
+-- 1. Database: Add column with dl__ prefix
 ALTER TABLE app.d_project ADD COLUMN dl__project_risk text;
 
--- 2. Add to setting_datalabel.ddl
-('project__risk', 'Project Risk', 'AlertTriangle', '[
+-- 2. Settings: Add with SAME dl__ prefix
+INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) VALUES
+('dl__project_risk', 'Project Risk', 'AlertTriangle', '[
   {"id": 0, "name": "Low", "color_code": "green"},
   {"id": 1, "name": "High", "color_code": "red"}
 ]'::jsonb);
 ```
 
 ```typescript
-// 3. Add to FIELD_TO_SETTING_MAP
-'dl__project_risk': 'project__risk',
+// 3. Frontend: Add to mapping (1:1 format)
+FIELD_TO_SETTING_MAP = {
+  'dl__project_risk': 'dl__project_risk',  // Perfect alignment
+};
 
-// 4. Add to entity config (that's it!)
+// 4. Entity Config: Add to columns (that's it!)
 columns: generateStandardColumns([
   'name', 'code', 'dl__project_stage', 'dl__project_risk'
 ])
 ```
 
-**Result:** Auto-configured with 130px width, colored badges, filtering, etc.
+**Result:** Automatically configured with:
+- ✅ 130px width
+- ✅ Left alignment
+- ✅ Colored badges
+- ✅ Filterable dropdown
+- ✅ Sortable
+- ✅ Settings-driven options
+
+### Quick Reference
+
+**Checklist when adding datalabel field:**
+- [ ] Database column: `dl__entity_attribute`
+- [ ] Settings row: `datalabel_name = 'dl__entity_attribute'`
+- [ ] FIELD_TO_SETTING_MAP: `'dl__entity_attribute': 'dl__entity_attribute'`
+- [ ] Entity config: Add to `generateStandardColumns([..., 'dl__entity_attribute'])`
+- [ ] Run: `./tools/db-import.sh`
+
+**That's it!** Everything else is automatic.
 
 ---
 
 ## Current Entities Using Pattern
 
-| Entity | Label Fields |
-|--------|-------------|
-| project | dl__project_stage |
-| task | dl__task_stage, dl__task_priority |
-| cust | dl__opportunity_funnel_stage, dl__industry_sector, dl__acquisition_channel, dl__customer_tier |
-| office | dl__office_level |
-| biz | dl__business_level |
-| wiki | publication_status (auto-detected by _status suffix) |
-| form | submission_status, approval_status (auto-detected) |
+| Entity | Datalabel Fields |
+|--------|------------------|
+| **project** | `dl__project_stage` |
+| **task** | `dl__task_stage`, `dl__task_priority` |
+| **cust** | `dl__opportunity_funnel_stage`, `dl__industry_sector`, `dl__acquisition_channel`, `dl__customer_tier`, `dl__client_status` |
+| **office** | `dl__office_level` |
+| **biz** | `dl__business_level` |
+| **position** | `dl__position_level` |
+| **form** | `dl__form_submission_status`, `dl__form_approval_status` |
+| **wiki** | `dl__wiki_publication_status` |
+
+**Total:** 16 datalabel categories across all entities
 
 ---
 
 ## Key Insight
 
-**Name field correctly (`dl__*`) → Everything else automatic.**
+> **Name the field correctly with `dl__` prefix → Everything else is automatic**
 
 No manual configuration of:
-- Column width
-- Text alignment
-- Sortable/filterable flags
-- Colored badge rendering
-- Settings dropdown loading
+- Column width ❌
+- Text alignment ❌
+- Sortable/filterable flags ❌
+- Colored badge rendering ❌
+- Settings dropdown loading ❌
+- API endpoint URLs ❌
 
-One registry change → affects all label fields globally.
+**One registry change → Affects all label fields globally across entire platform**
+
+---
+
+**Last Updated:** 2025-10-30
+**Architecture:** DRY-First, Convention-Over-Configuration
+**Status:** Production Ready

@@ -18,7 +18,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
   fastify.get('/api/v1/setting', {
     schema: {
       querystring: Type.Object({
-        // Support both 'category' (new standard) and 'datalabel' (legacy)
+        // Support both 'category' (standard with dl__ prefix) and 'datalabel' (legacy)
         category: Type.Optional(Type.String()),
         datalabel: Type.Optional(Type.String()),
       }),
@@ -34,7 +34,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const query = request.query as any;
 
-    // Support both ?category= (new standard with dl__ prefix) and ?datalabel= (legacy with single underscore)
+    // Support both ?category= (standard with dl__ prefix) and ?datalabel= (legacy)
     const inputParam = query.category || query.datalabel;
 
     if (!inputParam) {
@@ -42,26 +42,17 @@ export async function settingRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Convert to database format (entity__attribute with double underscore)
-      // Three supported formats:
-      // 1. ?category=dl__project__stage (new standard - matches database column name)
-      // 2. ?category=project__stage (intermediate - already double underscore)
-      // 3. ?datalabel=project_stage (legacy - single underscore, needs conversion)
+      // Database stores datalabel_name WITH dl__ prefix
+      // All inputs should now have dl__ prefix for consistency
       let datalabelName: string;
 
-      if (query.category) {
-        // New standard: strip dl__ prefix if present, leaving double underscore format
-        // Examples: 'dl__project__stage' -> 'project__stage', 'dl__task__priority' -> 'task__priority'
-        if (inputParam.startsWith('dl__')) {
-          datalabelName = inputParam.substring(4); // Remove 'dl__' prefix
-        } else {
-          // Already in double underscore format without dl__ prefix
-          datalabelName = inputParam;
-        }
+      // If input already has dl__ prefix, use it directly
+      if (inputParam.startsWith('dl__')) {
+        datalabelName = inputParam;
       } else {
-        // Legacy: convert first underscore to double underscore
-        // Examples: 'task_stage' -> 'task__stage', 'opportunity_funnel_stage' -> 'opportunity__funnel_stage'
-        datalabelName = inputParam.replace(/_/, '__');
+        // Legacy support: add dl__ prefix if missing
+        // This ensures backward compatibility during transition
+        datalabelName = `dl__${inputParam}`;
       }
 
       // Query unified table and expand JSONB metadata array
@@ -88,12 +79,8 @@ export async function settingRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: `Datalabel '${inputParam}' not found` });
       }
 
-      // Return datalabel in database column name format (dl__entity__label)
-      // If input already has dl__ prefix, use as-is
-      // Otherwise add dl__ prefix to match database column names
-      const columnName = inputParam.startsWith('dl__') ? inputParam : `dl__${inputParam}`;
-
-      return { data: results, datalabel: columnName };
+      // Return datalabel name exactly as stored in database (with dl__ prefix)
+      return { data: results, datalabel: datalabelName };
     } catch (error) {
       fastify.log.error('Error fetching settings:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -159,8 +146,9 @@ export async function settingRoutes(fastify: FastifyInstance) {
     const newItem = request.body as any;
 
     try {
-      // Convert snake_case to entity__attribute format
-      const datalabelName = datalabel.replace(/_/, '__');
+      // Database stores datalabel_name WITH dl__ prefix
+      // Ensure input has dl__ prefix for consistency
+      const datalabelName = datalabel.startsWith('dl__') ? datalabel : `dl__${datalabel}`;
 
       // Get current metadata
       const current = await db.execute(sql`
@@ -244,9 +232,9 @@ export async function settingRoutes(fastify: FastifyInstance) {
     const updates = request.body as any;
 
     try {
-      // Convert snake_case to entity__attribute format
-      // Replace the FIRST underscore with double underscore
-      const datalabelName = datalabel.replace(/_/, '__');
+      // Database stores datalabel_name WITH dl__ prefix
+      // Ensure input has dl__ prefix for consistency
+      const datalabelName = datalabel.startsWith('dl__') ? datalabel : `dl__${datalabel}`;
 
       // Get current metadata
       const current = await db.execute(sql`
@@ -317,8 +305,9 @@ export async function settingRoutes(fastify: FastifyInstance) {
     const { datalabel, id } = request.params as any;
 
     try {
-      // Convert snake_case to entity__attribute format
-      const datalabelName = datalabel.replace(/_/, '__');
+      // Database stores datalabel_name WITH dl__ prefix
+      // Ensure input has dl__ prefix for consistency
+      const datalabelName = datalabel.startsWith('dl__') ? datalabel : `dl__${datalabel}`;
 
       // Get current metadata
       const current = await db.execute(sql`
@@ -391,8 +380,9 @@ export async function settingRoutes(fastify: FastifyInstance) {
     const { order } = request.body as any;
 
     try {
-      // Convert snake_case to entity__attribute format
-      const datalabelName = datalabel.replace(/_/, '__');
+      // Database stores datalabel_name WITH dl__ prefix
+      // Ensure input has dl__ prefix for consistency
+      const datalabelName = datalabel.startsWith('dl__') ? datalabel : `dl__${datalabel}`;
 
       // Get current metadata
       const current = await db.execute(sql`

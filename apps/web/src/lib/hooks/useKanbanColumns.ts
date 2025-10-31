@@ -65,14 +65,15 @@ export function useKanbanColumns(
   const settingsCategory = useMemo(() => {
     if (!config?.kanban) return null;
 
-    // Extract category from metaTable (e.g., 'setting_task_stage' → 'task_stage')
+    // Use metaTable directly (should already have dl__ prefix)
+    // e.g., 'dl__task_stage'
     if (config.kanban.metaTable) {
-      return config.kanban.metaTable.replace('setting_datalabel_', '');
+      return config.kanban.metaTable;
     }
 
-    // Fallback: use groupByField to construct category name
-    // e.g., 'stage' → 'task_stage' for task entity
-    return `${config.name}_${config.kanban.groupByField}`;
+    // Fallback: use groupByField directly (should already have dl__ prefix)
+    // e.g., 'dl__task_stage'
+    return config.kanban.groupByField;
   }, [config]);
 
   // Load stage settings from API

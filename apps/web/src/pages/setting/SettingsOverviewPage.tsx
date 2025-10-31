@@ -22,7 +22,22 @@ import {
   FileText,
   BookOpen
 } from 'lucide-react';
-import { groupDatalabelsByEntity, ENTITY_METADATA } from '../../lib/entityDatalabelMapping';
+// Utility: Extract entity code from datalabel (dl__task_stage → task)
+function getEntityCode(datalabelName: string): string {
+  return datalabelName.replace(/^dl__/, '').split('_')[0];
+}
+
+// Utility: Convert to camelCase for URL (dl__task_stage → taskStage)
+function toCamelCase(datalabelName: string): string {
+  const withoutPrefix = datalabelName.replace(/^dl__/, '');
+  const parts = withoutPrefix.split('_');
+  return parts[0] + parts.slice(1).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('');
+}
+
+// Utility: Capitalize first letter
+function capitalize(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
 
 interface SettingCard {
   title: string;
@@ -99,28 +114,21 @@ export function SettingsOverviewPage() {
         }
 
         const result = await response.json();
-        const grouped = groupDatalabelsByEntity(result.data);
 
-        // Convert grouped datalabels to settings cards
-        const cards: SettingCard[] = [];
+        // Convert to settings cards with dynamic entity grouping
+        const cards: SettingCard[] = result.data.map((datalabel: any) => {
+          const entityCode = getEntityCode(datalabel.datalabel_name);
+          const iconComponent = ICON_MAP[datalabel.ui_icon] || Tag;
 
-        for (const [entityCode, datalabels] of Object.entries(grouped)) {
-          const entityMeta = ENTITY_METADATA[entityCode];
-          if (!entityMeta) continue;
-
-          for (const datalabel of datalabels) {
-            const iconComponent = ICON_MAP[datalabel.ui_icon] || Tag;
-
-            cards.push({
-              title: datalabel.ui_label,
-              description: `Manage ${datalabel.ui_label.toLowerCase()} settings`,
-              icon: iconComponent,
-              href: `/setting/${datalabel.urlFormat}`,
-              category: 'Data Labels',
-              entityGroup: entityMeta.name
-            });
-          }
-        }
+          return {
+            title: datalabel.ui_label,
+            description: `Manage ${datalabel.ui_label.toLowerCase()} settings`,
+            icon: iconComponent,
+            href: `/setting/${toCamelCase(datalabel.datalabel_name)}`,
+            category: 'Data Labels',
+            entityGroup: capitalize(entityCode)
+          };
+        });
 
         setDatalabelSettings(cards);
         setLoading(false);
@@ -170,15 +178,11 @@ export function SettingsOverviewPage() {
       }
     });
 
-    // Sort groups by entity order
+    // Sort groups alphabetically by entity name
     const sortedGroups: Record<string, SettingCard[]> = {};
-    const entityOrder = Object.values(ENTITY_METADATA).sort((a, b) => a.order - b.order);
-
-    for (const entity of entityOrder) {
-      if (groups[entity.name]) {
-        sortedGroups[entity.name] = groups[entity.name];
-      }
-    }
+    Object.keys(groups).sort().forEach(key => {
+      sortedGroups[key] = groups[key];
+    });
 
     return sortedGroups;
   }, [filteredDataLabels]);

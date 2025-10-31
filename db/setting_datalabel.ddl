@@ -12,7 +12,7 @@
 --   Uses JSONB metadata array to store normalized label data.
 --
 -- Structure:
---   - datalabel_name: {entity}__{labelname} format (e.g., 'task__status', 'project__stage')
+--   - datalabel_name: dl__{entity}_{labelname} format (e.g., 'dl__task_stage', 'dl__project_stage')
 --   - metadata: JSONB array of label definitions
 --   - updated_ts: Last modification timestamp
 --
@@ -30,22 +30,22 @@
 --   ]
 --
 -- Entity-Label Combinations:
---   - task__stage, task__priority, task__update_type
---   - project__stage
---   - form__submission_status, form__approval_status
---   - wiki__publication_status
---   - client__status, client__service
---   - business__level
---   - office__level
---   - position__level
---   - customer__tier
---   - opportunity__funnel_stage
---   - industry__sector
---   - acquisition__channel
+--   - dl__task_stage, dl__task_priority, dl__task_update_type
+--   - dl__project_stage
+--   - dl__form_submission_status, dl__form_approval_status
+--   - dl__wiki_publication_status
+--   - dl__client_status, dl__client_service
+--   - dl__business_level
+--   - dl__office_level
+--   - dl__position_level
+--   - dl__customer_tier
+--   - dl__opportunity_funnel_stage
+--   - dl__industry_sector
+--   - dl__acquisition_channel
 --
 -- Integration Points:
---   - API endpoint: GET /api/v1/setting?category=task__stage
---   - Frontend: loadOptionsFromSettings('task__stage')
+--   - API endpoint: GET /api/v1/setting?category=dl__task_stage
+--   - Frontend: loadOptionsFromSettings('dl__task_stage')
 --   - Forms: Auto-populated dropdowns
 --   - Tables: Badge rendering with color_code
 --
@@ -79,7 +79,7 @@ CREATE TRIGGER trg_setting_datalabel_updated_ts
 
 -- Task Labels
 INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) VALUES
-('task__stage', 'Task Stages', 'Target', '[
+('dl__task_stage', 'Task Stages', 'Target', '[
   {"id": 0, "name": "Backlog", "descr": "Tasks in backlog, not yet started", "parent_id": null, "color_code": "gray"},
   {"id": 1, "name": "Planning", "descr": "Tasks in planning phase", "parent_id": null, "color_code": "purple"},
   {"id": 2, "name": "To Do", "descr": "Tasks ready to start", "parent_id": null, "color_code": "blue"},
@@ -89,14 +89,14 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
   {"id": 6, "name": "Blocked", "descr": "Tasks blocked by dependencies", "parent_id": 3, "color_code": "red"}
 ]'::jsonb),
 
-('task__priority', 'Task Priorities', 'TrendingUp', '[
+('dl__task_priority', 'Task Priorities', 'TrendingUp', '[
   {"id": 0, "name": "low", "descr": "Low priority - can be scheduled flexibly", "parent_id": null, "color_code": "green"},
   {"id": 1, "name": "medium", "descr": "Medium priority - normal scheduling", "parent_id": null, "color_code": "yellow"},
   {"id": 2, "name": "high", "descr": "High priority - requires prompt attention", "parent_id": null, "color_code": "orange"},
   {"id": 3, "name": "critical", "descr": "Critical priority - urgent and blocking", "parent_id": null, "color_code": "red"}
 ]'::jsonb),
 
-('task__update_type', 'Task Update Types', 'Bell', '[
+('dl__task_update_type', 'Task Update Types', 'Bell', '[
   {"id": 0, "name": "Status Change", "descr": "Task status was changed", "parent_id": null, "color_code": "blue"},
   {"id": 1, "name": "Comment", "descr": "Comment added to task", "parent_id": null, "color_code": "gray"},
   {"id": 2, "name": "Assignment", "descr": "Task assigned to employee", "parent_id": null, "color_code": "purple"},
@@ -104,7 +104,7 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
 ]'::jsonb),
 
 -- Project Labels
-('project__stage', 'Project Stages', 'GitBranch', '[
+('dl__project_stage', 'Project Stages', 'GitBranch', '[
   {"id": 0, "name": "Initiation", "descr": "Project concept and initial planning. Starting point for all projects.", "parent_id": null, "color_code": "blue"},
   {"id": 1, "name": "Planning", "descr": "Detailed project planning and resource allocation. Follows project approval.", "parent_id": 0, "color_code": "purple"},
   {"id": 2, "name": "Execution", "descr": "Active project execution phase. Work is being performed by the project team.", "parent_id": 1, "color_code": "yellow"},
@@ -115,7 +115,7 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
 ]'::jsonb),
 
 -- Form Labels
-('form__submission_status', 'Form Submission Statuses', 'FileCheck', '[
+('dl__form_submission_status', 'Form Submission Statuses', 'FileCheck', '[
   {"id": 0, "name": "draft", "descr": "Form is in draft state", "parent_id": null, "color_code": "yellow"},
   {"id": 1, "name": "submitted", "descr": "Form has been submitted", "parent_id": 0, "color_code": "blue"},
   {"id": 2, "name": "under_review", "descr": "Form is under review", "parent_id": 1, "color_code": "purple"},
@@ -124,7 +124,7 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
   {"id": 5, "name": "withdrawn", "descr": "Form has been withdrawn", "parent_id": 1, "color_code": "gray"}
 ]'::jsonb),
 
-('form__approval_status', 'Form Approval Statuses', 'CheckCircle', '[
+('dl__form_approval_status', 'Form Approval Statuses', 'CheckCircle', '[
   {"id": 0, "name": "pending", "descr": "Awaiting approval", "parent_id": null, "color_code": "yellow"},
   {"id": 1, "name": "approved", "descr": "Approval granted", "parent_id": null, "color_code": "green"},
   {"id": 2, "name": "rejected", "descr": "Approval rejected", "parent_id": null, "color_code": "red"},
@@ -133,7 +133,7 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
 ]'::jsonb),
 
 -- Wiki Labels
-('wiki__publication_status', 'Wiki Publication Statuses', 'BookOpen', '[
+('dl__wiki_publication_status', 'Wiki Publication Statuses', 'BookOpen', '[
   {"id": 0, "name": "draft", "descr": "Wiki page in draft", "parent_id": null, "color_code": "yellow"},
   {"id": 1, "name": "review", "descr": "Under review", "parent_id": 0, "color_code": "blue"},
   {"id": 2, "name": "published", "descr": "Published and visible", "parent_id": 1, "color_code": "green"},
@@ -143,14 +143,14 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
 ]'::jsonb),
 
 -- Client Labels
-('client__status', 'Client Statuses', 'Users', '[
+('dl__client_status', 'Client Statuses', 'Users', '[
   {"id": 0, "name": "Lead", "descr": "Potential client, initial contact", "parent_id": null, "color_code": "blue"},
   {"id": 1, "name": "Active", "descr": "Active client with ongoing projects", "parent_id": null, "color_code": "green"},
   {"id": 2, "name": "Inactive", "descr": "No current projects", "parent_id": null, "color_code": "gray"},
   {"id": 3, "name": "Churned", "descr": "Lost client", "parent_id": null, "color_code": "red"}
 ]'::jsonb),
 
-('client__service', 'Client Services', 'Wrench', '[
+('dl__client_service', 'Client Services', 'Wrench', '[
   {"id": 0, "name": "HVAC", "descr": "Heating, ventilation, and air conditioning services", "parent_id": null, "color_code": "blue"},
   {"id": 1, "name": "Plumbing", "descr": "Plumbing installation and repair", "parent_id": null, "color_code": "cyan"},
   {"id": 2, "name": "Electrical", "descr": "Electrical services", "parent_id": null, "color_code": "yellow"},
@@ -159,20 +159,20 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
 ]'::jsonb),
 
 -- Organizational Labels
-('business__level', 'Business Levels', 'Building2', '[
+('dl__business_level', 'Business Levels', 'Building2', '[
   {"id": 0, "name": "Corporate", "descr": "Corporate headquarters level", "parent_id": null, "color_code": "purple"},
   {"id": 1, "name": "Division", "descr": "Business division level", "parent_id": 0, "color_code": "blue"},
   {"id": 2, "name": "Department", "descr": "Department level within division", "parent_id": 1, "color_code": "green"}
 ]'::jsonb),
 
-('office__level', 'Office Levels', 'MapPin', '[
+('dl__office_level', 'Office Levels', 'MapPin', '[
   {"id": 0, "name": "Corporate", "descr": "Corporate headquarters office", "parent_id": null, "color_code": "purple"},
   {"id": 1, "name": "Region", "descr": "Regional office", "parent_id": 0, "color_code": "blue"},
   {"id": 2, "name": "District", "descr": "District office", "parent_id": 1, "color_code": "green"},
   {"id": 3, "name": "Office", "descr": "Local office or branch", "parent_id": 2, "color_code": "gray"}
 ]'::jsonb),
 
-('position__level', 'Position Levels', 'Briefcase', '[
+('dl__position_level', 'Position Levels', 'Briefcase', '[
   {"id": 0, "name": "CEO/President", "descr": "Chief Executive Officer or President level", "parent_id": null, "color_code": "purple"},
   {"id": 1, "name": "C-Level", "descr": "C-Level executives (CFO, CTO, COO, etc.)", "parent_id": 0, "color_code": "indigo"},
   {"id": 2, "name": "SVP/EVP", "descr": "Senior/Executive Vice President level", "parent_id": 1, "color_code": "blue"},
@@ -184,7 +184,7 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
 ]'::jsonb),
 
 -- Customer Labels
-('customer__tier', 'Customer Tiers', 'Award', '[
+('dl__customer_tier', 'Customer Tiers', 'Award', '[
   {"id": 0, "name": "Bronze", "descr": "Bronze tier customer", "parent_id": null, "color_code": "amber"},
   {"id": 1, "name": "Silver", "descr": "Silver tier customer", "parent_id": null, "color_code": "gray"},
   {"id": 2, "name": "Gold", "descr": "Gold tier customer", "parent_id": null, "color_code": "yellow"},
@@ -192,7 +192,7 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
 ]'::jsonb),
 
 -- Sales/Marketing Labels
-('opportunity__funnel_stage', 'Opportunity Funnel Stages', 'TrendingUp', '[
+('dl__opportunity_funnel_stage', 'Opportunity Funnel Stages', 'TrendingUp', '[
   {"id": 0, "name": "Lead", "descr": "Initial lead", "parent_id": null, "color_code": "blue"},
   {"id": 1, "name": "Qualified", "descr": "Qualified lead", "parent_id": 0, "color_code": "cyan"},
   {"id": 2, "name": "Proposal", "descr": "Proposal sent", "parent_id": 1, "color_code": "yellow"},
@@ -201,14 +201,14 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
   {"id": 5, "name": "Closed Lost", "descr": "Deal lost", "parent_id": 3, "color_code": "red"}
 ]'::jsonb),
 
-('industry__sector', 'Industry Sectors', 'Building', '[
+('dl__industry_sector', 'Industry Sectors', 'Building', '[
   {"id": 0, "name": "Residential", "descr": "Residential sector", "parent_id": null, "color_code": "blue"},
   {"id": 1, "name": "Commercial", "descr": "Commercial sector", "parent_id": null, "color_code": "green"},
   {"id": 2, "name": "Industrial", "descr": "Industrial sector", "parent_id": null, "color_code": "orange"},
   {"id": 3, "name": "Government", "descr": "Government sector", "parent_id": null, "color_code": "purple"}
 ]'::jsonb),
 
-('acquisition__channel', 'Acquisition Channels', 'Megaphone', '[
+('dl__acquisition_channel', 'Acquisition Channels', 'Megaphone', '[
   {"id": 0, "name": "Organic Search", "descr": "Found via Google, Bing (SEO)", "parent_id": null, "color_code": "green"},
   {"id": 1, "name": "Paid Search", "descr": "Google Ads, Bing Ads (PPC)", "parent_id": null, "color_code": "red"},
   {"id": 2, "name": "Social Media", "descr": "Facebook, Instagram, LinkedIn organic", "parent_id": null, "color_code": "blue"},
@@ -218,7 +218,7 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
 ]'::jsonb);
 
 COMMENT ON TABLE app.setting_datalabel IS 'Unified data label table for all entity labels (stages, statuses, priorities, etc.)';
-COMMENT ON COLUMN app.setting_datalabel.datalabel_name IS 'Format: {entity}__{labelname} (e.g., task__stage, project__stage)';
+COMMENT ON COLUMN app.setting_datalabel.datalabel_name IS 'Format: dl__{entity}_{labelname} (e.g., dl__task_stage, dl__project_stage) - matches database column names exactly';
 COMMENT ON COLUMN app.setting_datalabel.ui_label IS 'UI display label for settings page (e.g., "Project Stages", "Task Priorities")';
 COMMENT ON COLUMN app.setting_datalabel.ui_icon IS 'Lucide icon name for UI display (e.g., "GitBranch", "Target", "TrendingUp")';
 COMMENT ON COLUMN app.setting_datalabel.metadata IS 'JSONB array of label definitions: [{id, name, descr, parent_id, color_code}, ...]';

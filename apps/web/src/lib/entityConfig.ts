@@ -404,7 +404,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     kanban: {
       groupByField: 'dl__task_stage',
-      metaTable: 'task_stage',
+      metaTable: 'dl__task_stage',
       cardFields: ['name', 'dl__task_priority', 'estimated_hours', 'assignee_employee_ids']
     }
   },
@@ -797,7 +797,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     hierarchical: {
       levels: 3,
       levelNames: ['Department', 'Division', 'Corporate'],
-      metaTable: 'setting_business_level',
+      metaTable: 'dl__business_level',
       levelField: 'name'
     }
   },
@@ -851,7 +851,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     hierarchical: {
       levels: 4,
       levelNames: ['Office', 'District', 'Region', 'Corporate'],
-      metaTable: 'setting_office_level',
+      metaTable: 'dl__office_level',
       levelField: 'level_id'
     }
   },

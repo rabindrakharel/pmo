@@ -15,8 +15,24 @@ import {
   BookOpen,
   ArrowLeft
 } from 'lucide-react';
-import { groupDatalabelsByEntity, ENTITY_METADATA, convertDatalabelToCamelCase } from '../../../lib/entityDatalabelMapping';
 import { useSettings } from '../../../contexts/SettingsContext';
+
+// Utility: Extract entity code from datalabel (dl__task_stage → task)
+function getEntityCode(datalabelName: string): string {
+  return datalabelName.replace(/^dl__/, '').split('_')[0];
+}
+
+// Utility: Convert to camelCase for URL (dl__task_stage → taskStage)
+function toCamelCase(datalabelName: string): string {
+  const withoutPrefix = datalabelName.replace(/^dl__/, '');
+  const parts = withoutPrefix.split('_');
+  return parts[0] + parts.slice(1).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('');
+}
+
+// Utility: Capitalize first letter
+function capitalize(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
 
 interface SettingsItem {
   id: string;
@@ -67,28 +83,21 @@ export function SettingsSidebar() {
         }
 
         const result = await response.json();
-        const grouped = groupDatalabelsByEntity(result.data);
 
-        // Convert grouped datalabels to settings items
-        const items: SettingsItem[] = [];
+        // Convert to settings items with dynamic entity grouping
+        const items: SettingsItem[] = result.data.map((datalabel: any) => {
+          const entityCode = getEntityCode(datalabel.datalabel_name);
+          const iconComponent = ICON_MAP[datalabel.ui_icon] || FileText;
 
-        for (const [entityCode, datalabels] of Object.entries(grouped)) {
-          const entityMeta = ENTITY_METADATA[entityCode];
-          if (!entityMeta) continue;
-
-          for (const datalabel of datalabels) {
-            const iconComponent = ICON_MAP[datalabel.ui_icon] || FileText;
-
-            items.push({
-              id: datalabel.datalabel_name,
-              name: datalabel.ui_label,
-              href: `/setting/${datalabel.urlFormat}`,
-              icon: iconComponent,
-              category: 'Data Labels',
-              entityGroup: entityMeta.name
-            });
-          }
-        }
+          return {
+            id: datalabel.datalabel_name,
+            name: datalabel.ui_label,
+            href: `/setting/${toCamelCase(datalabel.datalabel_name)}`,
+            icon: iconComponent,
+            category: 'Data Labels',
+            entityGroup: capitalize(entityCode)
+          };
+        });
 
         setDatalabelSettings(items);
         setLoading(false);

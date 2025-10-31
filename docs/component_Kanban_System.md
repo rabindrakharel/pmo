@@ -1,20 +1,21 @@
 # Standardized Kanban System - Settings-Driven, DRY Architecture
 
-> **Universal Kanban View** - No fallbacks, no hardcoded stages, single source of truth from settings API
+> **Universal Kanban View** - No fallbacks, no hardcoded stages, single source of truth from unified settings table
 
 ---
 
 ## Overview
 
-The PMO platform implements a **standardized, reusable Kanban system** that works for ANY entity with kanban configuration. All Kanban columns are loaded from the settings API - **no hardcoded fallbacks**.
+The PMO platform implements a **standardized, reusable Kanban system** that works for ANY entity with kanban configuration. All Kanban columns are loaded from the unified settings table (`setting_datalabel`) - **no hardcoded fallbacks**.
 
 ### Key Principles
 
 ✅ **DRY (Don't Repeat Yourself)** - Single implementation for all Kanban views
-✅ **Settings-Driven** - All stages loaded from `setting_datalabel_*` tables
+✅ **Settings-Driven** - All stages loaded from unified `setting_datalabel` table with JSONB metadata
 ✅ **No Fallbacks** - If settings fail, show error (prevents inconsistency)
 ✅ **Universal** - Works for tasks, projects, or any entity with Kanban config
 ✅ **Consistent** - Same columns across all views (main page, child lists)
+✅ **Modern Naming** - Uses `dl__` prefix convention (e.g., `dl__task_stage`)
 
 ---
 
@@ -80,25 +81,32 @@ const { columns, loading, error } = useKanbanColumns(config, data);
 **API Flow:**
 ```typescript
 // 1. Extract datalabel from entity config
-config.kanban.metaTable = 'setting_datalabel_task_stage'
-→ datalabel = 'task_stage'
+config.kanban.metaTable = 'dl__task_stage'        // Consistent dl__ prefix
+config.kanban.groupByField = 'dl__task_stage'     // Consistent dl__ prefix
 
-// 2. Fetch settings
-GET /api/v1/setting?datalabel=task_stage
+// 2. Fetch settings from unified table
+GET /api/v1/setting?datalabel=dl__task_stage
 
-// 3. API returns
+// 3. API queries setting_datalabel table
+// Looks for: datalabel_name = 'dl__task_stage'
+// Expands JSONB metadata array using WITH ORDINALITY to preserve order
+
+// 4. API returns
 {
   data: [
-    { id: "0", name: "Backlog", position: 0, color_code: "gray" },
-    { id: "1", name: "To Do", position: 1, color_code: "blue" },
+    { id: "0", name: "Backlog", descr: "", parent_id: null, color_code: "gray", position: 0 },
+    { id: "1", name: "To Do", descr: "", parent_id: null, color_code: "blue", position: 1 },
+    { id: "2", name: "In Progress", descr: "", parent_id: null, color_code: "orange", position: 2 },
     ...
-  ]
+  ],
+  datalabel: "dl__task_stage"
 }
 
-// 4. Create columns
+// 5. Create Kanban columns
 [
   { id: "Backlog", title: "Backlog", color: "#6B7280", items: [...] },
   { id: "To Do", title: "To Do", color: "#3B82F6", items: [...] },
+  { id: "In Progress", title: "In Progress", color: "#F59E0B", items: [...] },
   ...
 ]
 ```
@@ -241,15 +249,15 @@ const kanbanColumns = useMemo(() => {
 **How category is determined:**
 
 ```typescript
-// Option 1: Explicit metaTable in entity config
+// Entity config with consistent dl__ prefix convention
 entityConfigs.task.kanban = {
-  groupByField: 'stage',
-  metaTable: 'setting_datalabel_task_stage',  // → category: 'task_stage'
-  cardFields: ['name', 'priority_level']
+  groupByField: 'dl__task_stage',     // Field name in entity records (with dl__ prefix)
+  metaTable: 'dl__task_stage',        // Settings category (with dl__ prefix - CONSISTENT!)
+  cardFields: ['name', 'dl__task_priority']
 }
 
-// Option 2: Auto-derived from entity name + groupByField
-// entity: 'task' + groupByField: 'stage' → 'task_stage'
+// The hook extracts metaTable and uses it for API call:
+// metaTable: 'dl__task_stage' → GET /api/v1/setting?datalabel=dl__task_stage
 ```
 
 ### Settings Table Structure
@@ -260,8 +268,8 @@ All settings are now stored in a unified JSONB-based table with the following st
 
 ```sql
 CREATE TABLE app.setting_datalabel (
-    datalabel_name varchar(100) PRIMARY KEY,  -- e.g., 'task__stage'
-    ui_label text,                           -- Human-readable label
+    datalabel_name varchar(100) PRIMARY KEY,  -- e.g., 'dl__task_stage' (with dl__ prefix)
+    ui_label text,                           -- Human-readable label (e.g., 'Task Stage')
     ui_icon text,                            -- Icon name (optional)
     metadata jsonb NOT NULL                  -- Array of setting items
 );
@@ -271,33 +279,41 @@ CREATE TABLE app.setting_datalabel (
 ```json
 [
   {
-    "id": "0",
+    "id": 0,
     "name": "Backlog",
     "descr": "Tasks awaiting prioritization",
-    "position": 0,
-    "color_code": "gray",
-    "parent_id": null
+    "parent_id": null,
+    "color_code": "gray"
   },
   {
-    "id": "1",
+    "id": 1,
     "name": "To Do",
     "descr": "Ready to start",
-    "position": 1,
-    "color_code": "blue",
-    "parent_id": null
+    "parent_id": null,
+    "color_code": "blue"
+  },
+  {
+    "id": 2,
+    "name": "In Progress",
+    "descr": "Currently being worked on",
+    "parent_id": null,
+    "color_code": "orange"
   }
 ]
 ```
 
-**API Endpoint Conversion:**
-- Frontend parameter: `datalabel=task_stage` (snake_case)
-- Database lookup: `datalabel_name='task__stage'` (double underscore)
-- API automatically converts first underscore to double underscore
+**Key Points:**
+- **Consistent naming**: ALL references use `dl__` prefix (e.g., `dl__task_stage`)
+- **Database**: `datalabel_name = 'dl__task_stage'`
+- **API parameter**: `?datalabel=dl__task_stage`
+- **Entity config**: `metaTable: 'dl__task_stage'` and `groupByField: 'dl__task_stage'`
+- **Position tracking**: Array order defines display order; `position` field in response derived from array index
+- **ID system**: IDs are integers (0-based) matching array positions
 
 ### API Response Format
 
 ```bash
-GET /api/v1/setting?datalabel=task_stage
+GET /api/v1/setting?datalabel=dl__task_stage
 ```
 
 **Response:**
@@ -308,22 +324,68 @@ GET /api/v1/setting?datalabel=task_stage
       "id": "0",
       "name": "Backlog",
       "descr": "Tasks awaiting prioritization",
-      "position": 0,
+      "parent_id": null,
       "color_code": "gray",
-      "parent_id": null
+      "position": 0
     },
     {
       "id": "1",
       "name": "To Do",
       "descr": "Ready to start",
-      "position": 1,
+      "parent_id": null,
       "color_code": "blue",
-      "parent_id": null
+      "position": 1
+    },
+    {
+      "id": "2",
+      "name": "In Progress",
+      "descr": "Currently being worked on",
+      "parent_id": null,
+      "color_code": "orange",
+      "position": 2
+    },
+    {
+      "id": "3",
+      "name": "In Review",
+      "descr": "Awaiting review",
+      "parent_id": null,
+      "color_code": "purple",
+      "position": 3
+    },
+    {
+      "id": "4",
+      "name": "Blocked",
+      "descr": "Cannot proceed",
+      "parent_id": null,
+      "color_code": "red",
+      "position": 4
+    },
+    {
+      "id": "5",
+      "name": "Done",
+      "descr": "Completed",
+      "parent_id": null,
+      "color_code": "green",
+      "position": 5
+    },
+    {
+      "id": "6",
+      "name": "Cancelled",
+      "descr": "Cancelled or abandoned",
+      "parent_id": null,
+      "color_code": "gray",
+      "position": 6
     }
   ],
-  "datalabel": "task_stage"
+  "datalabel": "dl__task_stage"
 }
 ```
+
+**Notes:**
+- `position` is derived from array index (WITH ORDINALITY in SQL)
+- `id` is a string representation of the array position
+- `color_code` values are used to map to hex colors in the UI
+- Response includes actual `datalabel_name` from database (`dl__task_stage`)
 
 ---
 
@@ -394,14 +456,26 @@ Adding Kanban view to new entities:
 
 **After:**
 ```typescript
-// In entityConfig.ts
+// 1. Add settings entry to setting_datalabel table
+INSERT INTO app.setting_datalabel (datalabel_name, ui_label, metadata)
+VALUES (
+  'dl__new_entity_status',
+  'New Entity Status',
+  '[
+    {"id": 0, "name": "New", "descr": "", "parent_id": null, "color_code": "blue"},
+    {"id": 1, "name": "Active", "descr": "", "parent_id": null, "color_code": "green"},
+    {"id": 2, "name": "Complete", "descr": "", "parent_id": null, "color_code": "gray"}
+  ]'::jsonb
+);
+
+// 2. Update entityConfig.ts
 entityConfigs.newEntity.kanban = {
-  groupByField: 'status',
-  metaTable: 'setting_datalabel_new_entity_status',
+  groupByField: 'dl__new_entity_status',  // Consistent dl__ prefix
+  metaTable: 'dl__new_entity_status',     // Consistent dl__ prefix
   cardFields: ['name', 'priority']
 };
 
-// In page component
+// 3. Use in page component (no changes needed!)
 <KanbanView config={config} data={data} ... />
 ```
 
@@ -415,12 +489,20 @@ entityConfigs.newEntity.kanban = {
 // Route: /task
 <EntityMainPage entityType="task" />
 
+// Entity config:
+entityConfigs.task.kanban = {
+  groupByField: 'dl__task_stage',
+  metaTable: 'dl__task_stage',  // Consistent dl__ prefix
+  cardFields: ['name', 'dl__task_priority', 'estimated_hours', 'assignee_employee_ids']
+}
+
 // Automatically:
-// 1. Loads config.kanban.metaTable = 'setting_datalabel_task_stage'
-// 2. Fetches GET /api/v1/setting?category=task_stage
-// 3. Creates 7 columns (Backlog, To Do, In Progress, In Review, Blocked, Done, Cancelled)
-// 4. Groups tasks by 'stage' field
-// 5. Allows drag-drop to update task.stage
+// 1. Loads config.kanban.metaTable = 'dl__task_stage'
+// 2. Fetches GET /api/v1/setting?datalabel=dl__task_stage
+// 3. API queries WHERE datalabel_name = 'dl__task_stage'
+// 4. Creates 7 columns (Backlog, To Do, In Progress, In Review, Blocked, Done, Cancelled)
+// 5. Groups tasks by 'dl__task_stage' field
+// 6. Allows drag-drop to update task.dl__task_stage
 ```
 
 ### Example 2: Task Kanban Under Project
@@ -447,21 +529,41 @@ entityConfigs.newEntity.kanban = {
 ### Example 4: Custom Entity Kanban
 
 ```typescript
-// Add Kanban to a new entity
+// 1. Create settings in database
+INSERT INTO app.setting_datalabel (datalabel_name, ui_label, metadata)
+VALUES (
+  'dl__opportunity_funnel_stage',
+  'Opportunity Funnel Stage',
+  '[
+    {"id": 0, "name": "Lead", "descr": "Initial contact", "parent_id": null, "color_code": "gray"},
+    {"id": 1, "name": "Qualified", "descr": "Qualified prospect", "parent_id": null, "color_code": "blue"},
+    {"id": 2, "name": "Proposal", "descr": "Proposal sent", "parent_id": null, "color_code": "purple"},
+    {"id": 3, "name": "Negotiation", "descr": "In negotiation", "parent_id": null, "color_code": "orange"},
+    {"id": 4, "name": "Closed Won", "descr": "Deal won", "parent_id": null, "color_code": "green"},
+    {"id": 5, "name": "Closed Lost", "descr": "Deal lost", "parent_id": null, "color_code": "red"}
+  ]'::jsonb
+);
+
+// 2. Add Kanban to entity config
 entityConfigs.opportunity = {
   name: 'opportunity',
+  displayName: 'Opportunity',
+  pluralName: 'Opportunities',
+  apiEndpoint: '/api/v1/opportunity',
   // ... other config
+  supportedViews: ['table', 'kanban'],
+  defaultView: 'table',
   kanban: {
-    groupByField: 'funnel_stage',
-    metaTable: 'setting_datalabel_opportunity_funnel_stage',
+    groupByField: 'dl__opportunity_funnel_stage',  // Consistent dl__ prefix
+    metaTable: 'dl__opportunity_funnel_stage',     // Consistent dl__ prefix
     cardFields: ['name', 'value', 'probability']
   }
 };
 
-// Use in page
+// 3. Use in page (works automatically!)
 <KanbanView config={opportunityConfig} data={opportunities} ... />
 
-// Automatically loads from opportunity_funnel_stage settings
+// Automatically loads from dl__opportunity_funnel_stage settings
 ```
 
 ---
@@ -574,10 +676,21 @@ http://localhost:5173/project/93106ffb-402e-43a7-8b26-5287e37a1b0e/task
 ### Test 4: Settings Change Propagation
 
 ```bash
-# 1. Update settings table
-UPDATE app.setting_datalabel_task_stage
-SET level_name = 'Ready to Start'
-WHERE level_name = 'To Do';
+# 1. Update settings in unified table
+# Find and update the item in the JSONB array
+UPDATE app.setting_datalabel
+SET metadata = jsonb_set(
+  metadata,
+  '{1,name}',
+  '"Ready to Start"'
+)
+WHERE datalabel_name = 'dl__task_stage';
+
+# Or use the API:
+PUT /api/v1/setting/dl__task_stage/1
+{
+  "name": "Ready to Start"
+}
 
 # 2. Refresh any Kanban view
 http://localhost:5173/task
@@ -585,6 +698,7 @@ http://localhost:5173/task
 # Expected:
 ✅ Column renamed to "Ready to Start"
 ✅ Change appears in ALL Kanban views
+✅ Order preserved (still position 1)
 ```
 
 ### Test 5: Error Handling
@@ -696,15 +810,27 @@ Filter Kanban cards by criteria:
 ✅ **Single implementation** for all Kanban views
 ✅ **Settings-driven** columns with no hardcoded stages
 ✅ **Consistent UX** across all entity contexts
-✅ **Business user control** via settings tables
+✅ **Business user control** via unified settings table
 ✅ **Error transparency** instead of silent fallbacks
 ✅ **60 lines of duplicated code eliminated**
 ✅ **Future-proof** for new entities
+✅ **Consistent naming** - `dl__` prefix used everywhere
 
 **Key Files:**
 - `useKanbanColumns.ts` - Settings loader + column builder
 - `KanbanView.tsx` - Universal Kanban renderer
 - `EntityMainPage.tsx` - Uses KanbanView
 - `EntityChildListPage.tsx` - Uses KanbanView
+- `entityConfig.ts` - Entity configuration with `dl__` prefixed metaTable
+- `routes.ts` - Settings API with `dl__` prefix handling
 
-**Result:** One true Kanban implementation that adapts to any entity with kanban configuration.
+**Critical Naming Convention:**
+- ✅ **Entity config**: `metaTable: 'dl__task_stage'`
+- ✅ **Entity config**: `groupByField: 'dl__task_stage'`
+- ✅ **API call**: `GET /api/v1/setting?datalabel=dl__task_stage`
+- ✅ **Database**: `datalabel_name = 'dl__task_stage'`
+- ✅ **Entity record field**: `task.dl__task_stage`
+
+**Consistency Rule:** The `dl__` prefix is used in ALL locations - no exceptions, no variations. This ensures perfect alignment across the entire stack from database to UI.
+
+**Result:** One true Kanban implementation that adapts to any entity with kanban configuration, using consistent `dl__` prefixed naming throughout the entire system.
