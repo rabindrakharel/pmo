@@ -10,7 +10,8 @@
       "Bash(pkill:*)",
       "Bash(pgrep:*)",
       "Bash(docker exec:*)",
-      "Bash(docker ps:*)"
+      "Bash(docker ps:*)",
+      "Bash(awk:*)"
     ],
     "deny": [],
     "ask": [],

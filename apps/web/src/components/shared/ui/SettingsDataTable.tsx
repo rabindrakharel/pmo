@@ -86,6 +86,9 @@ export function SettingsDataTable({
     color_code: 'blue'
   });
 
+  // Track new unsaved row IDs (Set of IDs that are new and not yet saved)
+  const [newRowIds, setNewRowIds] = useState<Set<string | number>>(new Set());
+
   // Drag and drop state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -150,7 +153,18 @@ export function SettingsDataTable({
     }
 
     // Send all updates in ONE call
-    onRowUpdate?.(editingRowId, updates);
+    // Include isNew flag so parent knows if this is a CREATE or UPDATE
+    const isNew = newRowIds.has(editingRowId);
+    onRowUpdate?.(editingRowId, { ...updates, _isNew: isNew } as any);
+
+    // Remove from newRowIds after successful save
+    if (isNew) {
+      setNewRowIds(prev => {
+        const next = new Set(prev);
+        next.delete(editingRowId);
+        return next;
+      });
+    }
 
     setEditingRowId(null);
     setEditingData({});
@@ -162,9 +176,24 @@ export function SettingsDataTable({
   };
 
   const handleDeleteRow = (record: SettingsRecord) => {
-    if (confirm('Are you sure you want to delete this row?')) {
-      onDeleteRow?.(record.id);
+    if (!confirm('Are you sure you want to delete this row?')) {
+      return;
     }
+
+    // Check if this is a new unsaved row
+    const isNewRow = newRowIds.has(record.id);
+
+    if (isNewRow) {
+      // Just remove from newRowIds tracking - parent will handle data removal
+      setNewRowIds(prev => {
+        const next = new Set(prev);
+        next.delete(record.id);
+        return next;
+      });
+    }
+
+    // Call parent handler for both new and existing rows
+    onDeleteRow?.(record.id);
   };
 
   // Drag and drop handlers
@@ -305,22 +334,26 @@ export function SettingsDataTable({
       onCancelEdit={handleCancelEdit}
       allowAddRow={allowAddRow}
       onStartAddRow={() => {
-        // Generate temporary ID for the new row
-        const maxId = data.length > 0 ? Math.max(...data.map(d => parseInt(String(d.id)) || 0)) : -1;
-        const tempId = String(maxId + 1);
+        // Generate next sequential ID based on current data length
+        // This shows the actual ID number that will be assigned by backend
+        const nextId = data.length;
+        const nextIdStr = String(nextId);
 
         // Create empty row with default values
         const newRow: SettingsRecord = {
-          id: tempId,
+          id: nextIdStr,  // "0", "1", "2", etc. - actual ID numbers!
           name: '',
           descr: '',
           parent_id: null,
           color_code: 'blue'
         };
 
+        // IMPORTANT: Track this as a new unsaved row
+        setNewRowIds(prev => new Set([...prev, nextIdStr]));
+
         // Add to data and enter edit mode
         onAddRow?.(newRow);
-        setEditingRowId(tempId);
+        setEditingRowId(nextIdStr);
         setEditingData(newRow);
       }}
       allowReordering={allowReorder}

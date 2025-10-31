@@ -5,32 +5,6 @@ You are writing this to another staff software engineer or solutions architect,
 
 Only the current state needs to be documented. Old state doesn't have to be there.
 
-## Critical Technical Constraints & Gotchas
-
-### Icon Rendering in Vite/React (CRITICAL)
-
-**❌ DO NOT USE:**
-```typescript
-// This DOES NOT WORK in Vite - icons will be undefined
-import * as LucideIcons from 'lucide-react';
-const icon = (LucideIcons as any)['MapPin'];  // Returns undefined!
-```
-
-**✅ ALWAYS USE:**
-```typescript
-// Explicit named imports - ONLY way that works
-import { MapPin, Building2, FileText } from 'lucide-react';
-
-// Or use centralized iconMapping.ts
-import { getIconComponent } from '@/lib/iconMapping';
-const IconComponent = getIconComponent('MapPin');
-```
-
-**Why:** Vite's ES module bundling does not make individual exports enumerable via wildcard imports. Object.keys(LucideIcons) returns keys, but accessing them dynamically returns undefined.
-
-**Location:** `/apps/web/src/lib/iconMapping.ts` - Single source of truth for all icon imports.
-
-**To Add New Icons:**
 1. Add explicit import to iconMapping.ts
 2. Add to iconMap object
 3. Update AVAILABLE_ICON_NAMES in SettingsOverviewPage.tsx 

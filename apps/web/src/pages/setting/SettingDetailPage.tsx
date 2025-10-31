@@ -122,20 +122,23 @@ export function SettingDetailPage() {
 
   // Handle row update - DRY approach (all fields at once)
   // Backend recomposes entire metadata array
-  const handleRowUpdate = async (id: string | number, updates: Partial<SettingItem>) => {
+  const handleRowUpdate = async (id: string | number, updates: Partial<SettingItem> & { _isNew?: boolean }) => {
     if (!config) return;
 
     try {
-      // Check if this is a new row (temporary ID)
-      const isNewRow = id.toString().startsWith('temp_');
+      // Check if this is a new row using the _isNew flag from SettingsDataTable
+      const isNewRow = updates._isNew === true;
+
+      // Remove the _isNew flag before sending to API
+      const { _isNew, ...itemUpdates } = updates;
 
       if (isNewRow) {
         // Create new item via service
         const createdItem = await createSettingItem(config.datalabel, {
-          name: updates.name || '',
-          descr: updates.descr,
-          parent_id: updates.parent_id,
-          color_code: updates.color_code || 'blue',
+          name: itemUpdates.name || '',
+          descr: itemUpdates.descr,
+          parent_id: itemUpdates.parent_id,
+          color_code: itemUpdates.color_code || 'blue',
         });
 
         if (createdItem) {
@@ -146,7 +149,7 @@ export function SettingDetailPage() {
       } else {
         // Update existing item via service
         // Backend will fetch entire metadata, update this item, and save the whole array
-        const result = await updateSettingItemMultiple(config.datalabel, id, updates);
+        const result = await updateSettingItemMultiple(config.datalabel, id, itemUpdates);
 
         if (result) {
           // Update local state with fresh data from server
@@ -194,11 +197,12 @@ export function SettingDetailPage() {
   const handleDeleteRow = async (id: string | number) => {
     if (!config) return;
 
-    // Check if this is a new unsaved row (temporary ID)
-    const isNewRow = id.toString().startsWith('temp_');
+    // Check if this item exists in the data from server
+    // If it doesn't exist, it's a new unsaved row
+    const existsInData = data.some(item => item.id === id);
 
-    if (isNewRow) {
-      // Just remove from data array without calling API
+    if (!existsInData) {
+      // Just remove from local data array without calling API
       setData(data.filter(item => item.id !== id));
       return;
     }
