@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, ArrowLeft } from 'lucide-react';
 import { Layout, FilteredDataTable, ViewSwitcher } from '../../components/shared';
 import { KanbanView } from '../../components/shared/ui/KanbanView';
 import { GridView } from '../../components/shared/ui/GridView';
@@ -36,6 +36,11 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { collapseSidebar } = useSidebar();
+
+  // Check if this is a settings entity
+  const isSettingsEntity = useMemo(() => {
+    return config?.apiEndpoint?.includes('/api/v1/setting?datalabel=') || false;
+  }, [config]);
 
   // Collapse sidebar when entering entity main page
   useEffect(() => {
@@ -238,6 +243,16 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
         <div className="sticky top-0 z-10 bg-gray-50 pb-4 pt-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
+              {/* Back button for settings entities */}
+              {isSettingsEntity && (
+                <button
+                  onClick={() => navigate('/settings')}
+                  className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all"
+                  title="Back to Settings"
+                >
+                  <ArrowLeft className="h-4 w-4 stroke-[1.5]" />
+                </button>
+              )}
               <EntityIcon className="h-5 w-5 text-gray-600 stroke-[1.5]" />
               <div>
                 <h1 className="text-sm font-normal text-gray-800">{config.pluralName}</h1>

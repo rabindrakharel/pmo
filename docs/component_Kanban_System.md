@@ -66,8 +66,8 @@ apps/web/src/
 **Purpose:** Load stage configuration from settings API and build Kanban columns
 
 **Key Features:**
-- Extracts settings category from entity config
-- Fetches from `/api/v1/setting?category={category}`
+- Extracts settings datalabel from entity config
+- Fetches from `/api/v1/setting?datalabel={datalabel}`
 - Maps API response to Kanban column format
 - Sorts columns by `sort_order` from settings
 - Groups data items by stage value

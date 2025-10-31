@@ -1,36 +1,44 @@
 /**
  * ============================================================================
- * SETTINGS DATA TABLE - Simplified table for settings/datalabel pages
+ * SETTINGS DATA TABLE - Specialized table for settings/datalabel management
  * ============================================================================
  *
- * Purpose: Lightweight table component specifically for settings datalabel pages
+ * Purpose: Dedicated table component for managing settings datalabels
+ * Extends DataTableBase with settings-specific rendering and behavior
  * Optimized for the fixed schema: id, name, descr, parent_id, color_code
  *
- * Key Features:
- * - Inline editing for color_code with colored dropdown
- * - Inline row addition with "+" button at bottom
- * - Badge rendering for name (with color) and color_code
- * - Simple sorting (no filters - settings are small)
- * - Optimized for settings schema only
+ * Key Features (Settings-Specific):
+ * ✓ Visual color swatches in dropdown (shows actual colors)
+ * ✓ Inline editing for all fields
+ * ✓ Drag-and-drop reordering (changes database array order)
+ * ✓ Inline row addition with prominent "+" button below table
+ * ✓ Badge rendering with colors from database
+ * ✓ Scrollbar positioned at bottom of container
+ * ✓ Simple sorting (no complex filters - settings are small datasets)
  *
- * Used by: SettingDetailPage.tsx, datalabel pages
- * Different from: EntityDataTable (complex, full-featured for entities)
+ * Architecture:
+ * - Extends DataTableBase (React composition pattern)
+ * - Provides settings-specific cell rendering
+ * - Fixed schema (5 columns: id, name, descr, parent_id, color_code)
+ * - No dynamic column configuration needed
+ *
+ * Used by:
+ * - FilteredDataTable when entityType is a settings entity (e.g., "taskStage")
+ * - Routes: /setting/taskStage, /setting/acquisitionChannel, etc.
+ * - Entity configs using createSettingsEntityConfig()
+ *
+ * Different from EntityDataTable:
+ * - EntityDataTable: Dynamic columns, filters, pagination, complex entities
+ * - SettingsDataTable: Fixed columns, simple sorting, reordering, settings only
  */
 
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, Check, X, Edit, Trash2, GripVertical } from 'lucide-react';
+import { DataTableBase, ActionButtons, type BaseColumn } from './DataTableBase';
+import { ColoredDropdown, type ColoredDropdownOption } from './ColoredDropdown';
 import { renderColorBadge } from '../../../lib/settingsConfig';
 import { COLOR_OPTIONS } from '../../../lib/settingsConfig';
 
-interface SettingOption {
-  value: string | number;
-  label: string;
-  metadata?: {
-    color_code?: string;
-  };
-}
-
-interface SettingsRecord {
+export interface SettingsRecord {
   id: string | number;
   name: string;
   descr?: string;
@@ -39,9 +47,8 @@ interface SettingsRecord {
   position?: number;  // Array position from backend
 }
 
-interface SettingsDataTableProps {
+export interface SettingsDataTableProps {
   data: SettingsRecord[];
-  onInlineEdit?: (id: string | number, field: string, value: any) => void;
   onRowUpdate?: (id: string | number, updates: Partial<SettingsRecord>) => void;
   onAddRow?: (newRecord: Partial<SettingsRecord>) => void;
   onDeleteRow?: (id: string | number) => void;
@@ -53,86 +60,11 @@ interface SettingsDataTableProps {
 }
 
 /**
- * Colored Dropdown for inline editing color_code
- */
-function ColoredDropdown({
-  value,
-  options,
-  onChange
-}: {
-  value: string;
-  options: SettingOption[];
-  onChange: (value: string) => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = React.useRef<HTMLDivElement>(null);
-
-  // Close dropdown when clicking outside
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const selectedOption = options.find(opt => opt.value === value);
-  const selectedColor = selectedOption?.metadata?.color_code;
-
-  return (
-    <div className="relative w-full" ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsOpen(!isOpen);
-        }}
-        className="w-full px-2.5 py-1.5 pr-8 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400/30 focus:border-gray-300 bg-white shadow-sm hover:border-gray-300 transition-colors cursor-pointer text-left"
-      >
-        {selectedOption ? (
-          renderColorBadge(selectedColor, String(selectedOption.label))
-        ) : (
-          <span className="text-gray-400">Select...</span>
-        )}
-      </button>
-      <ChevronDown className="h-4 w-4 text-gray-500 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
-
-      {/* Dropdown menu */}
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
-          <div className="py-1">
-            {options.map(opt => {
-              const optionColor = opt.metadata?.color_code;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onChange(opt.value as string);
-                    setIsOpen(false);
-                  }}
-                  className="w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors flex items-center"
-                >
-                  {renderColorBadge(optionColor, String(opt.label))}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
  * Main Settings Data Table Component
+ * Uses DataTableBase with settings-specific rendering
  */
 export function SettingsDataTable({
   data,
-  onInlineEdit,
   onRowUpdate,
   onAddRow,
   onDeleteRow,
@@ -158,6 +90,16 @@ export function SettingsDataTable({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
+  // Column definitions (fixed for settings)
+  const columns: BaseColumn[] = [
+    { key: 'id', title: 'ID', sortable: true, width: '80px', align: 'center' },
+    { key: 'name', title: 'Name', sortable: true },
+    { key: 'descr', title: 'Description', sortable: true },
+    { key: 'parent_id', title: 'Parent ID', sortable: true, width: '100px', align: 'center' },
+    { key: 'color_code', title: 'Color', sortable: true, width: '120px', align: 'center' },
+    ...(allowEdit || allowDelete ? [{ key: '_actions', title: 'Actions', sortable: false, width: '100px', align: 'center' as const }] : []),
+  ];
+
   // Handle sort
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -170,7 +112,6 @@ export function SettingsDataTable({
 
   // Sort data
   // IMPORTANT: When allowReorder is true, display in array position order (no sorting)
-  // This ensures drag & drop reflects actual database array order
   const sortedData = allowReorder ? [...data] : [...data].sort((a, b) => {
     const aVal = a[sortField as keyof SettingsRecord];
     const bVal = b[sortField as keyof SettingsRecord];
@@ -188,7 +129,7 @@ export function SettingsDataTable({
     setEditingData({ ...record });
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = (record: SettingsRecord) => {
     if (!editingRowId) return;
 
     // Collect all changed fields (excluding id)
@@ -208,19 +149,8 @@ export function SettingsDataTable({
       return;
     }
 
-    // Use onRowUpdate if available (DRY approach - send all updates at once)
-    // Otherwise fall back to onInlineEdit (legacy - one field at a time)
-    if (onRowUpdate) {
-      // DRY: Send all updates in ONE call - backend recomposes entire metadata
-      onRowUpdate(editingRowId, updates);
-    } else if (onInlineEdit) {
-      // Legacy: Send each field separately
-      Object.keys(updates).forEach(field => {
-        if (field !== 'id') {
-          onInlineEdit(editingRowId, field, updates[field as keyof SettingsRecord]);
-        }
-      });
-    }
+    // Send all updates in ONE call
+    onRowUpdate?.(editingRowId, updates);
 
     setEditingRowId(null);
     setEditingData({});
@@ -231,51 +161,10 @@ export function SettingsDataTable({
     setEditingData({});
   };
 
-  const handleDeleteRow = (id: string | number) => {
+  const handleDeleteRow = (record: SettingsRecord) => {
     if (confirm('Are you sure you want to delete this row?')) {
-      onDeleteRow?.(id);
+      onDeleteRow?.(record.id);
     }
-  };
-
-  // Handle add row - adds empty row inline and enters edit mode
-  const handleStartAddRow = () => {
-    // Generate temporary ID for the new row
-    const tempId = `temp_${Date.now()}`;
-
-    // Create empty row with default values
-    const newRow: SettingsRecord = {
-      id: tempId,
-      name: '',
-      descr: '',
-      parent_id: null,
-      color_code: 'blue'
-    };
-
-    // Add to data and enter edit mode
-    onAddRow?.(newRow);
-
-    // Note: Parent should add this to data array and trigger edit mode
-  };
-
-  const handleSaveNewRow = () => {
-    // This is now handled by the regular save flow
-    setIsAddingRow(false);
-    setNewRowData({
-      name: '',
-      descr: '',
-      parent_id: null,
-      color_code: 'blue'
-    });
-  };
-
-  const handleCancelAddRow = () => {
-    setIsAddingRow(false);
-    setNewRowData({
-      name: '',
-      descr: '',
-      parent_id: null,
-      color_code: 'blue'
-    });
   };
 
   // Drag and drop handlers
@@ -321,228 +210,127 @@ export function SettingsDataTable({
     setDragOverIndex(null);
   };
 
-  // Column definitions
-  const columns = [
-    { key: 'id', title: 'ID', sortable: true, width: '80px', align: 'center' as const },
-    { key: 'name', title: 'Name', sortable: true, editable: true },
-    { key: 'descr', title: 'Description', sortable: true, editable: true },
-    { key: 'parent_id', title: 'Parent ID', sortable: true, width: '100px', align: 'center' as const, editable: true },
-    { key: 'color_code', title: 'Color', sortable: true, width: '120px', align: 'center' as const, editable: true },
-    ...((allowEdit || allowDelete) ? [{ key: 'actions', title: 'Actions', sortable: false, width: '100px', align: 'center' as const }] : []),
-  ];
+  // Cell renderer for settings-specific rendering
+  const renderCell = (column: BaseColumn, record: SettingsRecord, isEditing: boolean): React.ReactNode => {
+    const value = record[column.key as keyof SettingsRecord];
+    const editValue = editingData[column.key as keyof SettingsRecord] ?? value;
+
+    switch (column.key) {
+      case 'id':
+        return <span className="text-sm text-gray-900">{value}</span>;
+
+      case 'name':
+        return isEditing ? (
+          <input
+            type="text"
+            value={String(editValue || '')}
+            onChange={(e) => setEditingData({ ...editingData, name: e.target.value })}
+            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
+            placeholder="Enter name"
+          />
+        ) : (
+          renderColorBadge(record.color_code, String(value))
+        );
+
+      case 'descr':
+        return isEditing ? (
+          <input
+            type="text"
+            value={String(editValue || '')}
+            onChange={(e) => setEditingData({ ...editingData, descr: e.target.value })}
+            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
+            placeholder="Enter description"
+          />
+        ) : (
+          <span className="text-sm text-gray-700">{value || '-'}</span>
+        );
+
+      case 'parent_id':
+        return isEditing ? (
+          <input
+            type="number"
+            value={editValue ?? ''}
+            onChange={(e) => setEditingData({ ...editingData, parent_id: e.target.value ? Number(e.target.value) : null })}
+            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm text-center"
+            placeholder="Parent ID"
+          />
+        ) : (
+          <span className="text-sm text-gray-900">{value ?? '-'}</span>
+        );
+
+      case 'color_code':
+        return isEditing ? (
+          <ColoredDropdown
+            value={String(editValue)}
+            options={COLOR_OPTIONS as ColoredDropdownOption[]}
+            onChange={(newValue) => setEditingData({ ...editingData, color_code: newValue })}
+            placeholder="Select color..."
+          />
+        ) : (
+          renderColorBadge(String(value), String(value).charAt(0).toUpperCase() + String(value).slice(1))
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  // Render action buttons (Edit/Delete)
+  const renderActions = (record: SettingsRecord, isEditing: boolean): React.ReactNode => {
+    return (
+      <ActionButtons
+        record={record}
+        onEdit={allowEdit ? handleStartEdit : undefined}
+        onDelete={allowDelete ? handleDeleteRow : undefined}
+        allowEdit={allowEdit}
+        allowDelete={allowDelete}
+      />
+    );
+  };
 
   return (
-    <div className="overflow-x-auto border border-gray-200 rounded-lg">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            {columns.map((col) => (
-              <th
-                key={col.key}
-                className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                  col.sortable && !allowReorder ? 'cursor-pointer hover:bg-gray-100' : ''
-                } transition-colors`}
-                style={{ width: col.width, textAlign: col.align || 'left' }}
-                onClick={() => col.sortable && !allowReorder && handleSort(col.key)}
-              >
-                <div className="flex items-center gap-2">
-                  <span>{col.title}</span>
-                  {col.sortable && !allowReorder && sortField === col.key && (
-                    sortDirection === 'asc' ?
-                      <ChevronUp className="h-4 w-4" /> :
-                      <ChevronDown className="h-4 w-4" />
-                  )}
-                </div>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {sortedData.map((record, index) => {
-            const isEditing = editingRowId === record.id;
-            const isDragging = draggedIndex === index;
-            const isDragOver = dragOverIndex === index;
+    <DataTableBase<SettingsRecord>
+      data={sortedData}
+      columns={columns}
+      renderCell={renderCell}
+      renderActions={renderActions}
+      sortField={sortField}
+      sortDirection={sortDirection}
+      editingRowId={editingRowId}
+      isAddingRow={isAddingRow}
+      onSort={handleSort}
+      getRowKey={(record) => String(record.id)}
+      onStartEdit={handleStartEdit}
+      onSaveEdit={handleSaveEdit}
+      onCancelEdit={handleCancelEdit}
+      allowAddRow={allowAddRow}
+      onStartAddRow={() => {
+        // Generate temporary ID for the new row
+        const maxId = data.length > 0 ? Math.max(...data.map(d => parseInt(String(d.id)) || 0)) : -1;
+        const tempId = String(maxId + 1);
 
-            return (
-              <React.Fragment key={record.id}>
-                {/* Drop indicator line */}
-                {isDragOver && draggedIndex !== null && (
-                  <tr className="relative pointer-events-none">
-                    <td colSpan={columns.length} className="p-0 h-0">
-                      <div className="absolute left-0 right-0 h-1 bg-gray-500 shadow-lg z-50"
-                           style={{ top: '-2px' }}
-                      />
-                    </td>
-                  </tr>
-                )}
+        // Create empty row with default values
+        const newRow: SettingsRecord = {
+          id: tempId,
+          name: '',
+          descr: '',
+          parent_id: null,
+          color_code: 'blue'
+        };
 
-                <tr
-                  className={`transition-all ${
-                    isDragging ? 'opacity-40 bg-gray-100' :
-                    isEditing ? 'bg-gray-50' :
-                    'hover:bg-gray-50'
-                  } ${allowReorder && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                  draggable={allowReorder && !isEditing}
-                  onDragStart={(e) => handleDragStart(e, index)}
-                  onDragOver={(e) => handleDragOver(e, index)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, index)}
-                  onDragEnd={handleDragEnd}
-                >
-                  {columns.map((col) => {
-                    const value = record[col.key as keyof SettingsRecord];
-                    const editValue = editingData[col.key as keyof SettingsRecord] ?? value;
-
-                    return (
-                      <td
-                        key={col.key}
-                        className="px-6 py-2.5 whitespace-nowrap"
-                        style={{ textAlign: col.align || 'left' }}
-                      >
-                        {/* ID Column */}
-                        {col.key === 'id' && (
-                          <span className="text-sm text-gray-900">{value}</span>
-                        )}
-
-                        {/* Name Column */}
-                        {col.key === 'name' && (
-                          <>
-                            {isEditing ? (
-                              <input
-                                type="text"
-                                value={String(editValue || '')}
-                                onChange={(e) => setEditingData({ ...editingData, name: e.target.value })}
-                                className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
-                                placeholder="Enter name"
-                              />
-                            ) : (
-                              renderColorBadge(record.color_code, String(value))
-                            )}
-                          </>
-                        )}
-
-                        {/* Description Column */}
-                        {col.key === 'descr' && (
-                          <>
-                            {isEditing ? (
-                              <input
-                                type="text"
-                                value={String(editValue || '')}
-                                onChange={(e) => setEditingData({ ...editingData, descr: e.target.value })}
-                                className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
-                                placeholder="Enter description"
-                              />
-                            ) : (
-                              <span className="text-sm text-gray-700">{value || '-'}</span>
-                            )}
-                          </>
-                        )}
-
-                        {/* Parent ID Column */}
-                        {col.key === 'parent_id' && (
-                          <>
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                value={editValue ?? ''}
-                                onChange={(e) => setEditingData({ ...editingData, parent_id: e.target.value ? Number(e.target.value) : null })}
-                                className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm text-center"
-                                placeholder="Parent ID"
-                              />
-                            ) : (
-                              <span className="text-sm text-gray-900">{value ?? '-'}</span>
-                            )}
-                          </>
-                        )}
-
-                        {/* Color Code Column */}
-                        {col.key === 'color_code' && (
-                          <>
-                            {isEditing ? (
-                              <ColoredDropdown
-                                value={String(editValue)}
-                                options={COLOR_OPTIONS}
-                                onChange={(newValue) => setEditingData({ ...editingData, color_code: newValue })}
-                              />
-                            ) : (
-                              renderColorBadge(String(value), String(value).charAt(0).toUpperCase() + String(value).slice(1))
-                            )}
-                          </>
-                        )}
-
-                        {/* Actions Column */}
-                        {col.key === 'actions' && (
-                          <div className="flex items-center justify-center gap-1">
-                            {isEditing ? (
-                              <>
-                                <button
-                                  onClick={handleSaveEdit}
-                                  className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
-                                  title="Save"
-                                >
-                                  <Check className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={handleCancelEdit}
-                                  className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
-                                  title="Cancel"
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                {allowEdit && (
-                                  <button
-                                    onClick={() => handleStartEdit(record)}
-                                    className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
-                                    title="Edit"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </button>
-                                )}
-                                {allowDelete && (
-                                  <button
-                                    onClick={() => handleDeleteRow(record.id)}
-                                    className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              </React.Fragment>
-            );
-          })}
-        </tbody>
-      </table>
-
-      {/* Empty state */}
-      {sortedData.length === 0 && !allowAddRow && (
-        <div className="text-center py-12 text-gray-500">
-          No data available
-        </div>
-      )}
-
-      {/* Add Row Button - Adds inline editable row */}
-      {allowAddRow && (
-        <div className="border-t border-gray-200 bg-white">
-          <button
-            onClick={handleStartAddRow}
-            className="w-full px-6 py-3 text-left text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add new row</span>
-          </button>
-        </div>
-      )}
-    </div>
+        // Add to data and enter edit mode
+        onAddRow?.(newRow);
+        setEditingRowId(tempId);
+        setEditingData(newRow);
+      }}
+      allowReordering={allowReorder}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      onDragEnd={handleDragEnd}
+      draggedIndex={draggedIndex}
+      dragOverIndex={dragOverIndex}
+    />
   );
 }

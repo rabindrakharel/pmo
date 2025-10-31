@@ -138,8 +138,9 @@ export function DataTableBase<T = any>({
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden ${className}`}>
-      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+    <div className={`border border-gray-200 rounded-lg ${className}`}>
+      {/* Scrollable table container */}
+      <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           {/* Table Header */}
           <thead className="bg-gray-50">
@@ -264,15 +265,17 @@ export function DataTableBase<T = any>({
         )}
       </div>
 
-      {/* Add Row Button/Form */}
+      {/* Add Row Button/Form - Prominent styling */}
       {allowAddRow && (
-        <div className="border-t border-gray-200 bg-white">
+        <div className="border-t border-gray-200 bg-gray-50">
           {!isAddingRow ? (
             <button
               onClick={onStartAddRow}
-              className="w-full px-6 py-3 text-left text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-2"
+              className="w-full px-6 py-3.5 text-left text-sm font-medium text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors flex items-center gap-2 group"
             >
-              <Plus className="h-4 w-4" />
+              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 group-hover:bg-blue-200 transition-colors">
+                <Plus className="h-4 w-4" />
+              </div>
               <span>Add new row</span>
             </button>
           ) : (

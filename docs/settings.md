@@ -2,12 +2,26 @@
 
 > **Configuration Engine** - Dynamic dropdown system powering entity fields, sequential state visualization, and workflow management
 >
-> **Last Updated:** 2025-10-29 (v3.0 - Component Separation with SettingsDataTable)
+> **Last Updated:** 2025-10-31 (v3.2 - Entity Management System & Centralized Icon Registry)
 
 **Related Documentation:**
 - **[SettingsDataTable](./settings_datatable.md)** - Dedicated table component for settings pages
 - **[EntityDataTable](./entity_datatable.md)** - Full-featured table for entity pages
 - **[DataTable Overview](./data_table.md)** - Overview of both table components
+
+**New in v3.2:**
+- ✅ **Entity Registry Management** - CRUD interface for platform entities
+- ✅ **Centralized Icon System** - Explicit imports with iconMapping.ts for guaranteed compatibility
+- ✅ **Child Entity Relationships** - Parent-child mapping with visual modal
+- ✅ **Compact Table Styling** - Standardized design matching datalabel pages
+
+**Fixed in v3.2:**
+- 🔧 **Icon Rendering** - Replaced wildcard imports with explicit named imports (Vite compatibility)
+- 🔧 **Icon Registry** - Centralized icon management in `/lib/iconMapping.ts`
+
+**Quick Navigation:**
+- [Entity Management System](#entity-management-system-v31) - Entity CRUD, icons, child relationships
+- [Quick Start Guide](#entity-management-quick-start) - 5-minute developer guide
 
 ---
 
@@ -2664,6 +2678,7 @@ SELECT * FROM stage_tree ORDER BY depth, level_id;
 
 ## 📚 Related Documentation
 
+**Core Settings:**
 - **[Database Schema](../db/README.md)** - Complete DDL reference for all 17 settings tables
 - **[API Guide](../apps/api/README.md)** - Backend architecture and settings routes
 - **[Frontend Guide](../apps/web/README.md)** - UI/UX patterns and component usage
@@ -2671,20 +2686,37 @@ SELECT * FROM stage_tree ORDER BY depth, level_id;
 - **[Project & Task Guide](./Project_Task.md)** - Entity usage of settings
 - **[Form Guide](./form.md)** - Form-specific settings integration
 
+**Data Table Components:**
+- **[SettingsDataTable](./settings_datatable.md)** - Dedicated table component for settings pages
+- **[EntityDataTable](./entity_datatable.md)** - Full-featured table for entity pages
+- **[DataTable Overview](./data_table.md)** - Overview of both table components
+
 ---
 
 ## 🎯 Summary
 
 **Settings (Data Labels)** are the configuration backbone of the PMO platform:
 
-### v2.4 Architecture (Current)
+### v3.1 Architecture (Current)
 
+**Core Settings System:**
 - **Unified JSONB table** (`app.setting_datalabel`) storing all settings metadata
 - **13 settings entities** managed via DRY factory pattern
 - **3 core files** implementing SOLID principles:
   - `settingsConfig.ts` - Central registry and factory functions
   - `settingsLoader.v2.ts` - Refactored loader with caching
   - `settingsApi.ts` - Type-safe API client
+
+**New Entity Management (v3.2):**
+- **Entity Registry** (`d_entity`) - Platform entity type catalog with CRUD interface
+- **Centralized Icon System** - 17 curated Lucide icons with explicit imports (iconMapping.ts)
+- **Child Entity Mapping** - JSONB-based parent-child relationships with visual management
+- **Compact Table Design** - Standardized styling across all settings pages
+
+**Key Patterns:**
+- Pattern 8: Centralized Icon Registry (explicit imports with iconMapping.ts)
+- Pattern 9: Child Entity Relationship Mapping (JSONB + visual UI)
+- Pattern 10: Compact Table Styling System (standardized utilities)
 - **Datalabel-to-table mapping** enables dynamic API routing
 - **Factory pattern** reduces code by ~80% (~600 → ~150 lines)
 - **loadOptionsFromSettings** pattern eliminates hardcoded options
@@ -2708,8 +2740,355 @@ SELECT * FROM stage_tree ORDER BY depth, level_id;
 
 ---
 
-**Last Updated:** 2025-10-29
-**Version:** v2.4 (DRY Refactoring with Factory Pattern)
+## Entity Management System (v3.1)
+
+### Overview
+
+The **Entity Management System** provides a runtime configuration interface for managing platform entities, icons, and hierarchical relationships.
+
+**Location:** `/settings` → Entities section
+
+**Key Capabilities:**
+- ✅ **Entity CRUD** - Add, edit, delete entity types via UI
+- ✅ **Dynamic Icons** - Choose from 1000+ Lucide icons with search
+- ✅ **Child Relationships** - Map parent-child entities for navigation
+- ✅ **Display Configuration** - Control entity ordering and presentation
+
+### Entity Registry Database
+
+**Table:** `d_entity`
+
+```sql
+CREATE TABLE app.d_entity (
+  code VARCHAR(50) PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  ui_label VARCHAR(100) NOT NULL,
+  ui_icon VARCHAR(50),
+  display_order INTEGER NOT NULL DEFAULT 0,
+  active_flag BOOLEAN NOT NULL DEFAULT true,
+  child_entities JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**Sample Data:**
+```sql
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, display_order, child_entities) VALUES
+('project', 'project', 'Projects', 'FolderKanban', 1, '[
+  {"entity":"task","ui_icon":"CheckSquare","ui_label":"Tasks","order":1},
+  {"entity":"wiki","ui_icon":"BookOpen","ui_label":"Wiki","order":2}
+]'::jsonb);
+```
+
+### Entity Management API
+
+**Base:** `/api/v1/entity`
+
+**Endpoints:**
+
+```typescript
+// GET /api/v1/entity/types - Get all entities with children
+Response: {
+  code: "project",
+  name: "project",
+  ui_label: "Projects",
+  ui_icon: "FolderKanban",
+  display_order: 1,
+  child_entities: [
+    { entity: "task", ui_icon: "CheckSquare", ui_label: "Tasks", order: 1 }
+  ]
+}
+
+// PUT /api/v1/entity/:code - Update entity
+Body: { ui_label: "Projects", ui_icon: "FolderKanban" }
+
+// PUT /api/v1/entity/:code/children - Update child entities
+Body: {
+  child_entities: [
+    { entity: "task", ui_icon: "CheckSquare", ui_label: "Tasks", order: 1 }
+  ]
+}
+
+// DELETE /api/v1/entity/:code - Delete entity
+Response: { success: true, message: "Entity deleted" }
+```
+
+### Pattern 8: Centralized Icon Registry
+
+**Problem:** Wildcard imports (`import * as LucideIcons`) don't work in Vite/React - icons are undefined at runtime.
+
+**Solution:** Explicit named imports with centralized icon map.
+
+```typescript
+// apps/web/src/lib/iconMapping.ts
+
+import {
+  Building2,
+  MapPin,
+  FolderOpen,
+  UserCheck,
+  FileText,
+  BookOpen,
+  CheckSquare,
+  Users,
+  Package,
+  Warehouse,
+  ShoppingCart,
+  Truck,
+  Receipt,
+  Briefcase,
+  BarChart,
+  DollarSign,
+  TrendingUp,
+  type LucideIcon
+} from 'lucide-react';
+
+// Map icon names to components
+const iconMap: Record<string, LucideIcon> = {
+  'Building2': Building2,
+  'MapPin': MapPin,
+  'FolderOpen': FolderOpen,
+  'UserCheck': UserCheck,
+  'FileText': FileText,
+  'BookOpen': BookOpen,
+  'CheckSquare': CheckSquare,
+  'Users': Users,
+  'Package': Package,
+  'Warehouse': Warehouse,
+  'ShoppingCart': ShoppingCart,
+  'Truck': Truck,
+  'Receipt': Receipt,
+  'Briefcase': Briefcase,
+  'BarChart': BarChart,
+  'DollarSign': DollarSign,
+  'TrendingUp': TrendingUp,
+};
+
+export function getIconComponent(iconName?: string | null): LucideIcon {
+  if (!iconName) return FileText;
+  return iconMap[iconName] || FileText;
+}
+```
+
+**Usage in Components:**
+
+```typescript
+// Sidebar navigation (Layout.tsx)
+const mainNavigationItems = entityTypes.map((entity) => ({
+  name: entity.name,
+  href: `/${entity.code}`,
+  icon: getIconComponent(entity.ui_icon),  // Store component reference
+  code: entity.code
+}));
+
+// Render
+const IconComponent = item.icon;
+<IconComponent className="h-5 w-5" />
+```
+
+```typescript
+// Settings table (SettingsOverviewPage.tsx)
+{React.createElement(getIconComponent(entity.ui_icon), {
+  className: "h-4 w-4 text-gray-600"
+})}
+```
+
+**Benefits:**
+- ✅ **Guaranteed compatibility** - Works in all React/Vite environments
+- ✅ **Type-safe** - Full TypeScript support with LucideIcon type
+- ✅ **Centralized** - Single source of truth in `iconMapping.ts`
+- ✅ **Automatic fallback** - Defaults to FileText for missing icons
+- ✅ **Easy to extend** - Add new icons by importing and adding to map
+
+**How to Add New Icons:**
+
+1. Import the icon in `iconMapping.ts`:
+   ```typescript
+   import { Building2, NewIcon } from 'lucide-react';
+   ```
+
+2. Add to icon map:
+   ```typescript
+   const iconMap: Record<string, LucideIcon> = {
+     'Building2': Building2,
+     'NewIcon': NewIcon,
+     // ...
+   };
+   ```
+
+3. Update `AVAILABLE_ICON_NAMES` in SettingsOverviewPage.tsx:
+   ```typescript
+   const AVAILABLE_ICON_NAMES = [
+     'Building2', 'MapPin', 'NewIcon', // ...
+   ].sort();
+   ```
+
+**Critical Note:** Wildcard imports (`import * as LucideIcons`) **do not work** in Vite. Individual icon exports are not enumerable at runtime, causing icons to render as undefined. Always use explicit named imports.
+
+### Pattern 9: Child Entity Relationship Mapping
+
+**Problem:** Static entity relationships require code changes; navigation structures are hard-coded.
+
+**Solution:** JSONB child entities array with visual management interface.
+
+```typescript
+interface ChildEntity {
+  entity: string;        // Child entity code
+  ui_icon: string;       // Lucide icon name
+  ui_label: string;      // Display name
+  order: number;         // Display sequence
+}
+
+// Stored as JSONB in d_entity.child_entities
+child_entities: [
+  { entity: 'task', ui_icon: 'CheckSquare', ui_label: 'Tasks', order: 1 },
+  { entity: 'wiki', ui_icon: 'BookOpen', ui_label: 'Wiki', order: 2 }
+]
+```
+
+**Benefits:**
+- ✅ Runtime relationship configuration
+- ✅ Visual modal management
+- ✅ Icon customization per child
+- ✅ Automatic tab generation
+
+### Pattern 10: Compact Table Styling System
+
+**Problem:** Inconsistent table styling across settings pages.
+
+**Solution:** Standardized utility classes for compact design.
+
+```typescript
+// Table Header
+<thead className="bg-gray-50/80">
+  <tr className="border-b border-gray-200">
+    <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+      Code
+    </th>
+  </tr>
+</thead>
+
+// Table Body
+<tbody className="bg-white divide-y divide-gray-100">
+  <tr className="hover:bg-gray-50/50 transition-colors">
+    <td className="px-3 py-2.5">
+      <span className="text-[11px] font-medium text-gray-900">{entity.name}</span>
+    </td>
+  </tr>
+</tbody>
+```
+
+**Standards:**
+- Header: `text-[10px]`, `font-semibold`, `text-gray-600`
+- Data: `text-[11px]`, `font-medium`, `text-gray-900`
+- Padding: `px-3 py-2.5` (consistent)
+- Hover: `hover:bg-gray-50/50 transition-colors`
+
+---
+
+## Entity Management Quick Start
+
+### Common Tasks
+
+**Add Entity:**
+```
+1. Navigate to /settings → Entities section
+2. Click "Add Entity" button
+3. Fill: code, name, ui_label, icon (via picker), display_order
+4. Click Save → Entity available for routing
+```
+
+**Change Icon:**
+```
+1. Find entity → Click edit icon
+2. Click icon picker → Search (e.g., "todo")
+3. Click desired icon → Auto-updates
+4. Click save (green checkmark)
+```
+
+**Add Child Entities:**
+```
+1. Find parent entity → Click "0 children" badge
+2. Modal opens → Search for child (e.g., "task")
+3. Click child entity → Added to list
+4. Optional: Click child icon to change
+5. Click Done → Saved
+```
+
+### Icon System Usage
+
+```typescript
+// ✅ ALWAYS use LucideIcons namespace
+import * as LucideIcons from 'lucide-react';
+
+const EntityIcon = getIconComponent(entity.ui_icon);
+<EntityIcon className="h-4 w-4 text-gray-600" />
+
+// ❌ NEVER import directly (breaks with wildcard)
+import { Tag, Plus } from 'lucide-react';  // ERROR
+<Tag />  // ReferenceError: Tag is not defined
+```
+
+### Critical Gotchas
+
+**1. Icon References:**
+```typescript
+// ❌ Direct reference breaks
+<Tag />  // ReferenceError
+
+// ✅ Use namespace
+<LucideIcons.Tag />
+```
+
+**2. JSONB Parsing:**
+```typescript
+// ✅ Always parse from database
+let childEntities = row.child_entities || [];
+if (typeof childEntities === 'string') {
+  childEntities = JSON.parse(childEntities);
+}
+if (!Array.isArray(childEntities)) {
+  childEntities = [];
+}
+```
+
+**3. Prevent Circular Relationships:**
+```typescript
+// ✅ Filter out self and existing children
+const available = entities.filter(e =>
+  e.code !== selectedEntity.code &&
+  !(selectedEntity.child_entities || []).some(c => c.entity === e.code)
+);
+```
+
+### Testing Checklist
+
+**Entity Management:**
+- [ ] Add new entity via UI
+- [ ] Edit entity name, label, icon
+- [ ] Delete entity (soft delete)
+- [ ] Change display order
+- [ ] Verify entity in navigation
+
+**Icon System:**
+- [ ] Search icons by name
+- [ ] Select from picker
+- [ ] Icon renders in table
+- [ ] Icon persists after save
+- [ ] Fallback for invalid icon
+
+**Child Entities:**
+- [ ] Add child via modal
+- [ ] Remove child
+- [ ] Change child icon
+- [ ] Tooltip shows children
+- [ ] Children appear in tabs
+
+---
+
+**Last Updated:** 2025-10-31
+**Version:** v3.1 (Entity Management System & Dynamic Icon Registry)
 **Maintainer:** PMO Platform Team
-**Settings Count:** 13 entities, 100+ configuration values
+**Settings Count:** 13 datalabel entities, 1 entity registry
 **Code Reduction:** 80% (from ~700 to ~150 lines)

@@ -18,9 +18,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
   fastify.get('/api/v1/setting', {
     schema: {
       querystring: Type.Object({
-        // Support both 'category' (standard with dl__ prefix) and 'datalabel' (legacy)
-        category: Type.Optional(Type.String()),
-        datalabel: Type.Optional(Type.String()),
+        datalabel: Type.String(),
       }),
       response: {
         200: Type.Object({
@@ -34,11 +32,10 @@ export async function settingRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const query = request.query as any;
 
-    // Support both ?category= (standard with dl__ prefix) and ?datalabel= (legacy)
-    const inputParam = query.category || query.datalabel;
+    const inputParam = query.datalabel;
 
     if (!inputParam) {
-      return reply.status(400).send({ error: 'Missing required parameter: category or datalabel' });
+      return reply.status(400).send({ error: 'Missing required parameter: datalabel' });
     }
 
     try {
@@ -53,6 +50,16 @@ export async function settingRoutes(fastify: FastifyInstance) {
         // Legacy support: add dl__ prefix if missing
         // This ensures backward compatibility during transition
         datalabelName = `dl__${inputParam}`;
+      }
+
+      // First check if the datalabel exists in the table
+      const checkExists = await db.execute(sql`
+        SELECT datalabel_name FROM app.setting_datalabel
+        WHERE datalabel_name = ${datalabelName}
+      `);
+
+      if (checkExists.length === 0) {
+        return reply.status(404).send({ error: `Datalabel '${inputParam}' not found` });
       }
 
       // Query unified table and expand JSONB metadata array
@@ -75,11 +82,8 @@ export async function settingRoutes(fastify: FastifyInstance) {
         ORDER BY elem.ordinality
       `));
 
-      if (results.length === 0) {
-        return reply.status(404).send({ error: `Datalabel '${inputParam}' not found` });
-      }
-
       // Return datalabel name exactly as stored in database (with dl__ prefix)
+      // Even if results is empty (no metadata items), we return empty array
       return { data: results, datalabel: datalabelName };
     } catch (error) {
       fastify.log.error('Error fetching settings:', error as any);
@@ -116,6 +120,65 @@ export async function settingRoutes(fastify: FastifyInstance) {
       return { data: results };
     } catch (error) {
       fastify.log.error('Error fetching categories:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Create a new datalabel category
+  fastify.post('/api/v1/setting/category', {
+    schema: {
+      body: Type.Object({
+        entity_code: Type.String(),
+        label_name: Type.String(),
+        ui_label: Type.String(),
+        ui_icon: Type.Optional(Type.String()),
+      }),
+      response: {
+        200: Type.Object({
+          success: Type.Boolean(),
+          data: Type.Object({
+            datalabel_name: Type.String(),
+            ui_label: Type.String(),
+            ui_icon: Type.Union([Type.String(), Type.Null()]),
+          }),
+        }),
+        400: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { entity_code, label_name, ui_label, ui_icon } = request.body as any;
+
+    try {
+      // Construct datalabel_name: dl__{entity}_{label}
+      const datalabelName = `dl__${entity_code}_${label_name}`;
+
+      // Check if datalabel already exists
+      const existing = await db.execute(sql`
+        SELECT datalabel_name FROM app.setting_datalabel
+        WHERE datalabel_name = ${datalabelName}
+      `);
+
+      if (existing.length > 0) {
+        return reply.status(400).send({ error: `Datalabel '${datalabelName}' already exists` });
+      }
+
+      // Create new datalabel with empty metadata array
+      await db.execute(sql`
+        INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata)
+        VALUES (${datalabelName}, ${ui_label}, ${ui_icon || null}, '[]'::jsonb)
+      `);
+
+      return reply.status(200).send({
+        success: true,
+        data: {
+          datalabel_name: datalabelName,
+          ui_label: ui_label,
+          ui_icon: ui_icon || null,
+        },
+      });
+    } catch (error) {
+      fastify.log.error('Error creating category:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

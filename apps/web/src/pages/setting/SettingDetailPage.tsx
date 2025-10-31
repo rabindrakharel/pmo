@@ -18,19 +18,16 @@ import {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 /**
- * Convert datalabel_name from API to single-underscore format
- * Example: "project__stage" → "project_stage"
+ * Convert snake_case to camelCase (removes dl__ prefix first)
+ * Example: "dl__project_stage" → "projectStage"
+ * Example: "dl__product_product_category" → "productProductCategory"
  */
-function convertDatalabelFormat(datalabelName: string): string {
-  return datalabelName.replace(/__/, '_');
-}
-
-/**
- * Convert snake_case to camelCase for entity config lookup
- * Example: "project_stage" → "projectStage"
- */
-function snakeToCamelCase(str: string): string {
-  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+function datalabelToCamelCase(datalabelName: string): string {
+  // Remove dl__ prefix
+  const withoutPrefix = datalabelName.replace(/^dl__/, '');
+  // Convert to camelCase
+  const parts = withoutPrefix.split('_');
+  return parts[0] + parts.slice(1).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('');
 }
 
 interface SettingConfig {
@@ -70,10 +67,12 @@ export function SettingDetailPage() {
           .toLowerCase()
           .replace(/^_/, '');
 
-        // Find the datalabel that matches (either exact or after conversion)
+        // Find the datalabel that matches
+        // URL param is camelCase (e.g., "productProductCategory")
+        // We need to find the datalabel with matching structure (e.g., "dl__product_product_category")
         const found = categories.find((cat: any) => {
-          const convertedName = convertDatalabelFormat(cat.datalabel_name);
-          return convertedName === searchDatalabel;
+          const camelCaseName = datalabelToCamelCase(cat.datalabel_name);
+          return camelCaseName === category;
         });
 
         if (!found) {
@@ -82,10 +81,12 @@ export function SettingDetailPage() {
           return;
         }
 
-        const datalabel = convertDatalabelFormat(found.datalabel_name);
-        const entityConfigKey = snakeToCamelCase(datalabel);
+        // Keep the datalabel WITH the dl__ prefix for API calls
+        const datalabel = found.datalabel_name; // e.g., "dl__product_product_category"
+        const entityConfigKey = datalabelToCamelCase(datalabel); // e.g., "productProductCategory"
+
         setConfig({
-          datalabel,
+          datalabel, // Keep WITH dl__ prefix
           entityConfigKey,
           title: found.ui_label || datalabel,
           icon: found.ui_icon || 'Tag',

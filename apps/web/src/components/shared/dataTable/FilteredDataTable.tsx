@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { EntityDataTable } from '../ui/EntityDataTable';
+import { SettingsDataTable } from '../ui/SettingsDataTable';
 import type { Column, RowAction } from '../ui/EntityDataTable';
 import { useNavigate } from 'react-router-dom';
 import { ActionButtonsBar } from '../button/ActionButtonsBar';
@@ -440,6 +441,95 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     setIsAddingRow(true);
   };
 
+  // ========================================================================
+  // SETTINGS DATA TABLE HANDLERS
+  // ========================================================================
+
+  // Handle settings row update (bulk update for all fields)
+  const handleSettingsRowUpdate = async (id: string | number, updates: Partial<any>) => {
+    if (!config) return;
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      // Extract datalabel from endpoint
+      const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
+      const datalabel = datalabelMatch ? datalabelMatch[1] : entityType;
+
+      const updateEndpoint = `/api/v1/setting/${datalabel}/${id}`;
+
+      const response = await fetch(`${API_BASE_URL}${updateEndpoint}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updates)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to update setting:', errorText);
+        throw new Error(`Failed to update: ${errorText}`);
+      }
+
+      // Refresh data from server
+      await fetchData();
+    } catch (error) {
+      console.error('Error updating setting:', error);
+      alert('An error occurred while saving. Please try again.');
+    }
+  };
+
+  // Handle settings add row
+  const handleSettingsAddRow = (newRow: any) => {
+    // Add to data array immediately for optimistic UI
+    setData([...data, newRow]);
+  };
+
+  // Handle settings delete row
+  const handleSettingsDeleteRow = async (id: string | number) => {
+    if (!config) return;
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      // Extract datalabel from endpoint
+      const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
+      const datalabel = datalabelMatch ? datalabelMatch[1] : entityType;
+
+      const deleteEndpoint = `/api/v1/setting/${datalabel}/${id}`;
+
+      const response = await fetch(`${API_BASE_URL}${deleteEndpoint}`, {
+        method: 'DELETE',
+        headers
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to delete setting:', errorText);
+        throw new Error(`Failed to delete: ${errorText}`);
+      }
+
+      // Refresh data from server
+      await fetchData();
+    } catch (error) {
+      console.error('Error deleting setting:', error);
+      alert('An error occurred while deleting. Please try again.');
+    }
+  };
+
   // Handle row reordering for settings entities
   const handleReorder = async (newData: any[]) => {
     if (!isSettingsEntity || !config) return;
@@ -603,48 +693,45 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
       {/* Data table wrapper - provides padding and flex-1 to fill available space */}
       <div className="flex-1 p-6">
-        {/* Add Row button for settings entities */}
-        {isSettingsEntity && (
-          <div className="mb-4 flex justify-end">
-            <button
-              onClick={handleAddRow}
-              disabled={!!editingRow}
-              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-            >
-              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Row
-            </button>
-          </div>
+        {/* Render specialized SettingsDataTable for settings entities */}
+        {isSettingsEntity ? (
+          <SettingsDataTable
+            data={data}
+            onRowUpdate={handleSettingsRowUpdate}
+            onAddRow={handleSettingsAddRow}
+            onDeleteRow={handleSettingsDeleteRow}
+            onReorder={handleReorder}
+            allowAddRow={true}
+            allowEdit={true}
+            allowDelete={true}
+            allowReorder={true}
+          />
+        ) : (
+          /* Render regular EntityDataTable for regular entities */
+          <EntityDataTable
+            data={data}
+            columns={columns}
+            loading={loading}
+            pagination={pagination}
+            searchable={true}
+            filterable={true}
+            columnSelection={true}
+            rowActions={rowActions}
+            onRowClick={handleRowClick}
+            className=""
+            selectable={showActionButtons && (!!onBulkDelete || !!onBulkShare)}
+            selectedRows={selectedRows}
+            onSelectionChange={setSelectedRows}
+            inlineEditable={inlineEditable}
+            editingRow={editingRow}
+            editedData={editedData}
+            onInlineEdit={handleInlineEdit}
+            onSaveInlineEdit={handleSaveInlineEditWrapper}
+            onCancelInlineEdit={handleCancelInlineEditWrapper}
+            allowAddRow={allowAddRow}
+            onAddRow={handleAddEntityRow}
+          />
         )}
-
-        <EntityDataTable
-          data={data}
-          columns={columns}
-          loading={loading}
-          pagination={pagination}
-          searchable={true}
-          filterable={true}
-          columnSelection={true}
-          rowActions={rowActions}
-          onRowClick={handleRowClick}
-          className=""
-          selectable={showActionButtons && (!!onBulkDelete || !!onBulkShare)}
-          selectedRows={selectedRows}
-          onSelectionChange={setSelectedRows}
-          inlineEditable={inlineEditable}
-          editingRow={editingRow}
-          editedData={editedData}
-          onInlineEdit={handleInlineEdit}
-          onSaveInlineEdit={handleSaveInlineEditWrapper}
-          onCancelInlineEdit={handleCancelInlineEditWrapper}
-          colorOptions={isSettingsEntity ? COLOR_OPTIONS : undefined}
-          allowReordering={isSettingsEntity}
-          onReorder={handleReorder}
-          allowAddRow={allowAddRow && !isSettingsEntity}
-          onAddRow={handleAddEntityRow}
-        />
       </div>
     </div>
   );

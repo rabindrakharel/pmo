@@ -1,7 +1,39 @@
-documentation: 
-Since you made a lot of structural design patterns, reusable patterns, and architectural changes, I want you to pinpoint existing documentation which are now updated because of your recent changes. Pinpoint the changes that you need to update and make sure you coherently and structurally update existing documentation to reflect the current state in accordance with the changes that you made.
+documentation:
+Imagine you are a staff, advanced software engineer and solutions architect; Since you made a lot of structural design patterns, reusable patterns, and architectural changes, I want you to pinpoint existing documentation which are now updated because of your recent changes. Pinpoint the changes that you need to update and make sure you coherently and structurally update existing documentation to reflect the current state in accordance with the changes that you made.
 
-Only the current state needs to be documented. Old state doesn't have to be there. 
+You are writing this to another staff software engineer or solutions architect,
+
+Only the current state needs to be documented. Old state doesn't have to be there.
+
+## Critical Technical Constraints & Gotchas
+
+### Icon Rendering in Vite/React (CRITICAL)
+
+**❌ DO NOT USE:**
+```typescript
+// This DOES NOT WORK in Vite - icons will be undefined
+import * as LucideIcons from 'lucide-react';
+const icon = (LucideIcons as any)['MapPin'];  // Returns undefined!
+```
+
+**✅ ALWAYS USE:**
+```typescript
+// Explicit named imports - ONLY way that works
+import { MapPin, Building2, FileText } from 'lucide-react';
+
+// Or use centralized iconMapping.ts
+import { getIconComponent } from '@/lib/iconMapping';
+const IconComponent = getIconComponent('MapPin');
+```
+
+**Why:** Vite's ES module bundling does not make individual exports enumerable via wildcard imports. Object.keys(LucideIcons) returns keys, but accessing them dynamically returns undefined.
+
+**Location:** `/apps/web/src/lib/iconMapping.ts` - Single source of truth for all icon imports.
+
+**To Add New Icons:**
+1. Add explicit import to iconMapping.ts
+2. Add to iconMap object
+3. Update AVAILABLE_ICON_NAMES in SettingsOverviewPage.tsx 
 Document struction:
 1. [Semantics & Business Context](#semantics--business-context)
 2. [Architecture, Block diagrams & DRY Design Patterns](#architecture--design-patterns)
@@ -9,7 +41,7 @@ Document struction:
 4. [Entity Relationships](#dry-principles--entity-relationships) - only if .ddl has changed
 5. [Central Configuration & Middleware](#central-configuration--middleware) - if entity config, auth, or any middleware has changed. 
 6. [User Interaction Flow Examples](#user-interaction-flow-examples) - how it impacts end user's interaction!
-7. [Critical Considerations When building](#critical-considerations-when-editing) - Short crisp technical rundown for developers who build or extend this functionality, they need crisp knowled! 
+7. [Critical Considerations When building](#critical-considerations-when-editing) - Short crisp technical rundown for developers who build or extend this functionality, they need crisp knowledge! 
 
 Action: You must update all the other .md file that are referred here below:
 (donot update instruction file)

@@ -1,5 +1,5 @@
 import React, { Fragment } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { NavigationHistoryProvider } from './contexts/NavigationHistoryContext';
@@ -28,7 +28,7 @@ import { EmailDesignerPage } from './pages/marketing/EmailDesignerPage';
 // Profile & Settings Pages
 import { ProfilePage } from './pages/profile';
 import { LabelsPage } from './pages/labels';
-import { SettingsPage, DataLabelPage, IntegrationsPage, SettingsOverviewPage, SettingDetailPage, EntityLinkagePage } from './pages/setting';
+import { SettingsPage, DataLabelPage, IntegrationsPage, SettingsOverviewPage, EntityLinkagePage, SettingDetailPage } from './pages/setting';
 import { SecurityPage } from './pages/security';
 import { BillingPage } from './pages/billing';
 import { LinkagePage } from './pages/LinkagePage';
@@ -42,6 +42,15 @@ import { EntityMainPage, EntityDetailPage, EntityChildListPage, EntityCreatePage
 
 // Entity Configuration
 import { entityConfigs } from './lib/entityConfig';
+
+// Wrapper component to map :category param to EntityMainPage entityType
+function SettingDetailPageWrapper() {
+  const { category } = useParams<{ category: string }>();
+  if (!category) {
+    return <Navigate to="/settings/data-labels" replace />;
+  }
+  return <EntityMainPage entityType={category} />;
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();

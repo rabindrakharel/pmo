@@ -132,7 +132,13 @@ export async function entityRoutes(fastify: FastifyInstance) {
           ui_label: Type.String(),
           ui_icon: Type.Optional(Type.String()),
           display_order: Type.Number(),
-          active_flag: Type.Boolean()
+          active_flag: Type.Boolean(),
+          child_entities: Type.Optional(Type.Array(Type.Object({
+            entity: Type.String(),
+            ui_icon: Type.String(),
+            ui_label: Type.String(),
+            order: Type.Number()
+          })))
         })),
         500: Type.Object({ error: Type.String() })
       }
@@ -146,23 +152,35 @@ export async function entityRoutes(fastify: FastifyInstance) {
           ui_label,
           ui_icon,
           display_order,
-          active_flag
+          active_flag,
+          child_entities
         FROM app.d_entity
         WHERE active_flag = true
         ORDER BY display_order ASC
       `);
 
-      // Explicitly map to schema-defined fields only (exclude child_entities)
-      const filteredResult = result.map((row: any) => ({
-        code: row.code,
-        name: row.name,
-        ui_label: row.ui_label,
-        ui_icon: row.ui_icon,
-        display_order: row.display_order,
-        active_flag: row.active_flag
-      }));
+      // Parse child_entities JSONB and map results
+      const mappedResult = result.map((row: any) => {
+        let childEntities = row.child_entities || [];
+        if (typeof childEntities === 'string') {
+          childEntities = JSON.parse(childEntities);
+        }
+        if (!Array.isArray(childEntities)) {
+          childEntities = [];
+        }
 
-      return filteredResult;
+        return {
+          code: row.code,
+          name: row.name,
+          ui_label: row.ui_label,
+          ui_icon: row.ui_icon,
+          display_order: row.display_order,
+          active_flag: row.active_flag,
+          child_entities: childEntities
+        };
+      });
+
+      return mappedResult;
     } catch (error) {
       fastify.log.error('Error fetching all entity types:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -419,6 +437,242 @@ export async function entityRoutes(fastify: FastifyInstance) {
       };
     } catch (error) {
       fastify.log.error('Error updating entity children:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * POST /api/v1/entity
+   * Create a new entity type
+   */
+  fastify.post('/api/v1/entity', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: Type.Object({
+        code: Type.String(),
+        name: Type.String(),
+        ui_label: Type.String(),
+        ui_icon: Type.Optional(Type.String()),
+        display_order: Type.Optional(Type.Number()),
+      }),
+      response: {
+        200: Type.Object({
+          success: Type.Boolean(),
+          data: EntityTypeMetadataSchema
+        }),
+        400: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async (request, reply) => {
+    const { code, name, ui_label, ui_icon, display_order } = request.body as any;
+
+    try {
+      // Check if entity already exists
+      const existing = await db.execute(sql`
+        SELECT code FROM app.d_entity
+        WHERE code = ${code}
+      `);
+
+      if (existing.length > 0) {
+        return reply.status(400).send({ error: `Entity type '${code}' already exists` });
+      }
+
+      // Get max display_order if not provided
+      let finalDisplayOrder = display_order;
+      if (!finalDisplayOrder) {
+        const maxOrder = await db.execute(sql`
+          SELECT COALESCE(MAX(display_order), 0) + 10 as next_order
+          FROM app.d_entity
+        `);
+        finalDisplayOrder = maxOrder[0].next_order;
+      }
+
+      // Create new entity
+      const result = await db.execute(sql`
+        INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order, active_flag)
+        VALUES (${code}, ${name}, ${ui_label}, ${ui_icon || null}, '[]'::jsonb, ${finalDisplayOrder}, true)
+        RETURNING code, name, ui_label, ui_icon, child_entities, display_order, active_flag
+      `);
+
+      if (result.length === 0) {
+        return reply.status(500).send({ error: 'Failed to create entity' });
+      }
+
+      const newEntity = result[0];
+
+      // Parse child_entities
+      if (typeof newEntity.child_entities === 'string') {
+        newEntity.child_entities = JSON.parse(newEntity.child_entities);
+      }
+      if (!Array.isArray(newEntity.child_entities)) {
+        newEntity.child_entities = [];
+      }
+
+      return {
+        success: true,
+        data: newEntity
+      };
+    } catch (error) {
+      fastify.log.error('Error creating entity:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * PUT /api/v1/entity/:code
+   * Update an entity type
+   */
+  fastify.put('/api/v1/entity/:code', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        code: Type.String()
+      }),
+      body: Type.Object({
+        name: Type.Optional(Type.String()),
+        ui_label: Type.Optional(Type.String()),
+        ui_icon: Type.Optional(Type.String()),
+        display_order: Type.Optional(Type.Number()),
+        active_flag: Type.Optional(Type.Boolean())
+      }),
+      response: {
+        200: Type.Object({
+          success: Type.Boolean(),
+          data: EntityTypeMetadataSchema
+        }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async (request, reply) => {
+    const { code } = request.params as { code: string };
+    const updates = request.body as any;
+
+    try {
+      // Check if entity exists
+      const existing = await db.execute(sql`
+        SELECT code FROM app.d_entity WHERE code = ${code}
+      `);
+
+      if (existing.length === 0) {
+        return reply.status(404).send({ error: `Entity type '${code}' not found` });
+      }
+
+      // Build update query
+      const setClauses: string[] = ['updated_ts = NOW()'];
+      const values: any[] = [];
+
+      if (updates.name !== undefined) {
+        setClauses.push(`name = $${values.length + 1}`);
+        values.push(updates.name);
+      }
+      if (updates.ui_label !== undefined) {
+        setClauses.push(`ui_label = $${values.length + 1}`);
+        values.push(updates.ui_label);
+      }
+      if (updates.ui_icon !== undefined) {
+        setClauses.push(`ui_icon = $${values.length + 1}`);
+        values.push(updates.ui_icon);
+      }
+      if (updates.display_order !== undefined) {
+        setClauses.push(`display_order = $${values.length + 1}`);
+        values.push(updates.display_order);
+      }
+      if (updates.active_flag !== undefined) {
+        setClauses.push(`active_flag = $${values.length + 1}`);
+        values.push(updates.active_flag);
+      }
+
+      if (values.length === 0) {
+        // No updates provided
+        const result = await db.execute(sql`
+          SELECT code, name, ui_label, ui_icon, child_entities, display_order, active_flag
+          FROM app.d_entity WHERE code = ${code}
+        `);
+        return { success: true, data: result[0] };
+      }
+
+      // Update using dynamic SQL
+      const updateQuery = `
+        UPDATE app.d_entity
+        SET ${setClauses.join(', ')}
+        WHERE code = $${values.length + 1}
+        RETURNING code, name, ui_label, ui_icon, child_entities, display_order, active_flag
+      `;
+      values.push(code);
+
+      const result = await db.execute(sql.raw(updateQuery, values));
+
+      if (result.length === 0) {
+        return reply.status(500).send({ error: 'Failed to update entity' });
+      }
+
+      const updatedEntity = result[0];
+
+      // Parse child_entities
+      if (typeof updatedEntity.child_entities === 'string') {
+        updatedEntity.child_entities = JSON.parse(updatedEntity.child_entities);
+      }
+      if (!Array.isArray(updatedEntity.child_entities)) {
+        updatedEntity.child_entities = [];
+      }
+
+      return {
+        success: true,
+        data: updatedEntity
+      };
+    } catch (error) {
+      fastify.log.error('Error updating entity:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * DELETE /api/v1/entity/:code
+   * Delete (soft delete) an entity type by setting active_flag to false
+   */
+  fastify.delete('/api/v1/entity/:code', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        code: Type.String()
+      }),
+      response: {
+        200: Type.Object({
+          success: Type.Boolean(),
+          message: Type.String()
+        }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async (request, reply) => {
+    const { code } = request.params as { code: string };
+
+    try {
+      // Check if entity exists
+      const existing = await db.execute(sql`
+        SELECT code FROM app.d_entity WHERE code = ${code} AND active_flag = true
+      `);
+
+      if (existing.length === 0) {
+        return reply.status(404).send({ error: `Entity type '${code}' not found` });
+      }
+
+      // Soft delete by setting active_flag to false
+      await db.execute(sql`
+        UPDATE app.d_entity
+        SET active_flag = false, updated_ts = NOW()
+        WHERE code = ${code}
+      `);
+
+      return {
+        success: true,
+        message: `Entity type '${code}' deactivated successfully`
+      };
+    } catch (error) {
+      fastify.log.error('Error deleting entity:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

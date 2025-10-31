@@ -108,11 +108,11 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, icon, metadata) VAL
 ]'::jsonb);
 
 -- API endpoint
-GET /api/v1/setting?category=dl__project__stage
+GET /api/v1/setting?datalabel=dl__project_stage
 
 -- Response
 {
-  "datalabel": "dl__project__stage",  -- Matches database column exactly
+  "datalabel": "dl__project_stage",  -- Matches database column exactly
   "data": [...]
 }
 ```
@@ -322,7 +322,7 @@ WHERE from_ts <= '2024-06-01' AND (to_ts IS NULL OR to_ts > '2024-06-01');
 ┌──────────────────────────────────────────────────────────┐
 │ API (Fastify)                                            │
 │  • GET /api/v1/project → {dl__project_stage: "Planning"} │
-│  • GET /api/v1/setting?category=dl__project_stage        │
+│  • GET /api/v1/setting?datalabel=dl__project_stage       │
 │  • Direct lookup: WHERE datalabel_name = 'dl__project_stage' │
 └──────────────────────────────────────────────────────────┘
                             ↓

@@ -69,7 +69,7 @@ Eliminate manual configuration by auto-detecting field types from naming convent
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ 7. SETTINGS API CALL                                            │
-│    GET /api/v1/setting?category=dl__project_stage              │
+│    GET /api/v1/setting?datalabel=dl__project_stage             │
 │    Returns: [                                                   │
 │      {name: "Planning", color_code: "purple"},                  │
 │      {name: "Execution", color_code: "yellow"}                  │
@@ -132,9 +132,9 @@ export function detectFieldCategory(fieldKey: string): FieldCategory {
 **Before (Old - REMOVED):**
 ```
 Database:     dl__project_stage
-Settings DB:  project__stage        ← Mismatch!
-API param:    dl__project__stage    ← Different format!
-Mapping:      'dl__project_stage': 'project__stage'  ← Transformation needed
+Settings DB:  project_stage         ← Mismatch!
+API param:    project_stage         ← Different format!
+Mapping:      'dl__project_stage': 'project_stage'  ← Transformation needed
 ```
 
 **Now (Current - PERFECT 1:1):**
@@ -182,7 +182,7 @@ export const FIELD_TO_SETTING_MAP: Record<string, string> = {
 
 // Dynamic URL generation - no hardcoded mapping needed
 export function getSettingEndpoint(datalabel: string): string {
-  return `/api/v1/setting?category=${datalabel}`;
+  return `/api/v1/setting?datalabel=${datalabel}`;
 }
 ```
 
@@ -241,7 +241,7 @@ export const entityConfig: EntityConfigMap = {
 1. User navigates to `/project`
 2. EntityMainPage loads projects via API
 3. Each `dl__project_stage` column auto-detected as LABEL
-4. Settings API called: `/api/v1/setting?category=dl__project_stage`
+4. Settings API called: `/api/v1/setting?datalabel=dl__project_stage`
 5. Colors cached in memory for O(1) lookup
 6. Each row renders colored badge automatically
 7. User sees: 🟣 Planning, 🟡 Execution, 🟢 Completed

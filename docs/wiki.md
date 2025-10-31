@@ -115,7 +115,7 @@ Draft (v1) → Edit (v2) → Review (v3) → Published (v4) → Archived (v5)
 │  ├─ PUT    /api/v1/wiki/:id                → Update page    │
 │  ├─ DELETE /api/v1/wiki/:id                → Soft delete    │
 │  ├─ GET    /api/v1/wiki/:id/children       → Get hierarchy  │
-│  └─ GET    /api/v1/setting?category=wiki_publication_status │
+│  └─ GET    /api/v1/setting?datalabel=dl__wiki_publication_status │
 │                                                              │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
