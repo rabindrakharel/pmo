@@ -1,8 +1,8 @@
-# Product/Services/Quotes System - Documentation Index
+# Product/Services/Quotes/Work Orders System - Documentation Index
 
 **Module:** Quote-to-Cash Workflow
-**Status:** Production Ready (v1.0.0)
-**Last Updated:** 2025-11-02
+**Status:** ✅ Production Ready (v1.0.1)
+**Last Updated:** 2025-11-03
 
 ---
 
@@ -14,9 +14,11 @@ This directory contains complete technical documentation for the Product/Service
 
 | Document | Purpose | Audience | Read Time |
 |----------|---------|----------|-----------|
-| **[README.md](./README.md)** | Complete system architecture, all layers | Staff/Senior Engineers, Architects | 45 min |
+| **[TECHNICAL_REFERENCE.md](./TECHNICAL_REFERENCE.md)** ⭐ | Complete technical reference (all 4 entities) | Senior Engineers (20+ years) | 30 min |
+| **[README.md](./README.md)** | Detailed system architecture, all layers | Staff/Senior Engineers, Architects | 45 min |
 | **[FIELD_GENERATOR_GUIDE.md](./FIELD_GENERATOR_GUIDE.md)** | Deep dive into DRY field generation | Frontend/Fullstack Engineers | 20 min |
 | **[JSONB_QUOTE_ITEMS.md](./JSONB_QUOTE_ITEMS.md)** | JSONB architecture for quote line items | Backend/Database Engineers | 25 min |
+| **[ENTITY_ATTRIBUTE_INLINE_DATATABLE.md](./ENTITY_ATTRIBUTE_INLINE_DATATABLE.md)** | Generic JSONB table component | Frontend Engineers | 15 min |
 
 ---
 
@@ -25,7 +27,8 @@ This directory contains complete technical documentation for the Product/Service
 ### 🎯 By Use Case
 
 **"I need to understand the entire system"**
-→ Start with [README.md](./README.md) - Sections 1-3
+→ Start with [TECHNICAL_REFERENCE.md](./TECHNICAL_REFERENCE.md) - Complete overview ⭐
+→ Or read [README.md](./README.md) - Sections 1-3 for detailed explanations
 
 **"I'm adding a new entity to the frontend"**
 → Read [FIELD_GENERATOR_GUIDE.md](./FIELD_GENERATOR_GUIDE.md) - Usage Patterns section
@@ -276,6 +279,7 @@ cd apps/api && pnpm dev           # Start API dev server
 
 | Date | Version | Changes | Author |
 |------|---------|---------|--------|
+| 2025-11-03 | 1.0.1 | Added TECHNICAL_REFERENCE.md, fixed child-tabs 404, settings dropdown, entity backfill | System Team |
 | 2025-11-02 | 1.0.0 | Initial release - Full system implementation | System Team |
 
 ---
@@ -308,4 +312,4 @@ cd apps/api && pnpm dev           # Start API dev server
 
 **Documentation Maintained By:** System Architecture Team
 **Questions/Issues:** File issue in project repository
-**Last Review:** 2025-11-02
+**Last Review:** 2025-11-03

@@ -399,3 +399,14 @@ VALUES (
   '[]'::jsonb,
   200
 );
+
+-- Workflow entity type (leaf node - no children)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'workflow',
+  'Workflow',
+  'Workflows',
+  'GitBranch',
+  '[]'::jsonb,
+  205
+);

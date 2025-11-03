@@ -24,7 +24,9 @@
       "Bash(PGPASSWORD=app psql:*)",
       "Bash(timeout 10 pnpm run build:*)",
       "Bash(./tools/logs-web.sh:*)",
-      "Bash(timeout 3 tail:*)"
+      "Bash(timeout 3 tail:*)",
+      "Bash(grep:*)",
+      "Bash(paste:*)"
     ],
     "deny": [],
     "ask": [],

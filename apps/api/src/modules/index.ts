@@ -25,6 +25,7 @@ import { emailTemplateRoutes } from './email-template/routes.js';
 import { uploadRoutes } from './upload/routes.js';
 import s3BackendRoutes from './s3-backend/routes.js';
 import { workflowAutomationRoutes } from './workflow-automation/routes.js';
+import { workflowRoutes } from './workflow/routes.js';
 
 // Product & Operations API modules
 import { serviceRoutes } from './service/routes.js';
@@ -115,6 +116,7 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await taskDataRoutes(fastify);
   await emailTemplateRoutes(fastify);
   await workflowAutomationRoutes(fastify);
+  await workflowRoutes(fastify);
 
   // Product & Operations API routes
   await serviceRoutes(fastify);

@@ -1,7 +1,8 @@
-# Product/Service/Quote System - Technical Reference
+# Product/Service/Quote/Work Order System - Technical Reference
 
 **Audience:** Senior fullstack engineers maintaining or extending the feature
-**Last Updated:** 2025-11-02
+**Last Updated:** 2025-11-03
+**Status:** ✅ Production Ready
 
 ---
 
@@ -9,9 +10,9 @@
 
 ### Entity Hierarchy
 ```
-d_service (catalog) ──┐
-d_product (catalog) ──┼──> fact_quote.quote_items[] ──> fact_work_order
-                      │    (JSONB line items)
+d_service (15 records) ──┐
+d_product (15 records) ──┼──> fact_quote.quote_items[] (6 quotes) ──> fact_work_order (6 orders)
+                         │    (JSONB line items)
 ```
 
 **Key Design Decisions:**
@@ -19,26 +20,77 @@ d_product (catalog) ──┼──> fact_quote.quote_items[] ──> fact_work_
 - **JSONB for line items** - Per-line discounts/taxes stored in `quote_items[]` array
 - **DRY field generation** - Convention-based type detection (suffixes: `_amt`, `_pct`, `_date`, `dl__*`)
 - **Universal components** - 3 pages handle all entities: `EntityMainPage`, `EntityDetailPage`, `EntityCreatePage`
+- **Entity instance registry** - All instances registered in `d_entity_instance_id` for child-tabs and navigation
 
 ---
 
-## Database Schema
+## Four Core Entities
 
-### Core Tables
+### 1. Service Catalog (`d_service`)
+
+**Purpose:** Billable services offered (HVAC, Electrical, Plumbing, Landscaping, General Contracting)
+
+**Schema:**
 ```sql
--- Catalog (dimensions)
-d_service:   service_category, standard_rate_amt, is_taxable_flag
-d_product:   product_category, unit_price_amt, stock_qty
-
--- Transactions (facts)
-fact_quote:       quote_items JSONB, subtotal_amt, discount_amt, tax_amt, total_amt
-fact_work_order:  Execution of accepted quotes
+id, code, name, descr, metadata
+service_category              -- "HVAC", "Electrical", "Plumbing", etc.
+standard_rate_amt             -- Default rate per service
+estimated_hours               -- Time estimate
+minimum_charge_amt            -- Minimum charge
+taxable_flag, requires_certification_flag
+active_flag, created_ts, updated_ts, version
 ```
 
-### JSONB Structure: `quote_items`
+**API:** `GET/POST/PUT/DELETE /api/v1/service`
+**Frontend:** `/service` - List view with 15 services
+**Records:** 15 curated services across 5 categories
+
+---
+
+### 2. Product Catalog (`d_product`)
+
+**Purpose:** Materials and equipment for quotes/work orders
+
+**Schema:**
+```sql
+id, code, name, descr, metadata
+product_category              -- "HVAC Equipment", "Electrical", "Plumbing", etc.
+unit_price_amt, cost_amt      -- Pricing
+unit_of_measure               -- "each", "box", "gallon", etc.
+on_hand_qty, reorder_level_qty, reorder_qty  -- Inventory
+taxable_flag
+supplier_name, supplier_part_number, warranty_months
+active_flag, created_ts, updated_ts
+```
+
+**API:** `GET/POST/PUT/DELETE /api/v1/product`
+**Frontend:** `/product` - List view with 15 products
+**Records:** 15 curated products across 6 categories
+
+---
+
+### 3. Quote (`fact_quote`)
+
+**Purpose:** Customer quotes with line items (services + products)
+
+**Schema:**
+```sql
+id, code, name, descr, metadata
+dl__quote_stage               -- Dropdown: Draft, Sent, Under Review, Negotiating, Accepted, Rejected, Expired, Cancelled
+quote_items                   -- JSONB array (see structure below)
+subtotal_amt, discount_pct, discount_amt
+tax_pct, quote_tax_amt, quote_total_amt
+valid_until_date, sent_date
+customer_name, customer_email, customer_phone
+internal_notes, customer_notes
+active_flag, created_ts, updated_ts
+```
+
+**JSONB Structure:** `quote_items`
 ```typescript
 interface QuoteItem {
   item_type: 'service' | 'product';
+  item_id?: string;
   item_code: string;
   item_name: string;
   quantity: number;
@@ -61,6 +113,50 @@ tax_amt = subtotal × (tax_pct / 100)
 line_total = subtotal + tax_amt
 ```
 
+**API:** `GET/POST/PUT/DELETE /api/v1/quote`
+**API (shareable):** `GET /api/v1/quote/shared/:code` (no auth)
+**API (child entities):** `GET /api/v1/quote/:id/work_order`
+**Frontend:** `/quote` - List, detail, kanban views
+**Records:** 6 curated quotes with realistic London, Ontario pricing
+
+**Child Entities:** Work Orders (1:many relationship)
+
+**Settings Dropdown:** 8 stages with sequential state progression
+- Draft (gray) → Sent (blue) → Under Review (purple) → Negotiating (yellow)
+- → Accepted (green) | Rejected (red) | Expired (orange) | Cancelled (red)
+
+---
+
+### 4. Work Order (`fact_work_order`)
+
+**Purpose:** Execution tracking for accepted quotes
+
+**Schema:**
+```sql
+id, code, name, descr, metadata
+dl__work_order_status         -- Dropdown: Scheduled, Confirmed, In Progress, On Hold, Completed, Cancelled, Rescheduled
+scheduled_date, scheduled_start_time, scheduled_end_time
+assigned_technician_name, assigned_technician_ids  -- uuid[] array
+started_ts, completed_ts, labor_hours
+labor_cost_amt, materials_cost_amt, total_cost_amt
+customer_name, customer_email, customer_phone
+service_address_line1, service_city, service_province, service_postal_code
+customer_signature_flag, customer_satisfaction_rating (1-5)
+completion_notes, follow_up_required_flag
+internal_notes, special_instructions
+active_flag, created_ts, updated_ts
+```
+
+**API:** `GET/POST/PUT/DELETE /api/v1/work_order`
+**Frontend:** `/work_order` - List, detail, **kanban** views
+**Records:** 6 curated work orders (Completed, In Progress, Scheduled)
+
+**Settings Dropdown:** 7 statuses with workflow progression
+- Scheduled (blue) → Confirmed (green) → In Progress (yellow)
+- → On Hold (orange) → Completed (green) | Cancelled (red) | Rescheduled (purple)
+
+**Parent Entity:** Quote (many:1 relationship)
+
 ---
 
 ## Frontend Architecture
@@ -69,155 +165,285 @@ line_total = subtotal + tax_amt
 ```
 EntityDetailPage
   └── EntityFormContainer
-        └── QuoteItemsRenderer (for quote_items field)
+        ├── QuoteItemsRenderer (for quote_items field)
+        │     └── EntityAttributeInlineDataTable (generic JSONB table)
+        └── MetadataTable (for metadata field)
               └── EntityAttributeInlineDataTable (generic JSONB table)
 ```
 
 ### Key Files
 
 **Entity Configuration** (`/apps/web/src/lib/entityConfig.ts`)
+
+**Service Config (line 2118):**
 ```typescript
-quote: {
-  shareable: true,                           // Enable /quote/shared/:code
-  supportedViews: ['table', 'kanban'],
-  kanban: {
-    groupByField: 'dl__quote_stage',
-    metaTable: 'dl__quote_stage',            // Settings table
-    cardFields: ['name', 'quote_total_amt']
-  },
+service: {
+  name: 'service',
+  apiEndpoint: '/api/v1/service',
   fields: generateEntityFields([
-    'quote_items',  // Auto-detected as JSONB → routed to QuoteItemsRenderer
-    'subtotal_amt', // Auto-detected as number (suffix: _amt)
-    'discount_pct', // Auto-detected as number (suffix: _pct)
-    'dl__quote_stage' // Auto-detected as select (prefix: dl__)
+    'name', 'code', 'descr',
+    'service_category',
+    'standard_rate_amt',          // Auto: number
+    'estimated_hours',
+    'minimum_charge_amt',          // Auto: number
+    'taxable_flag',                // Auto: boolean select
+    'requires_certification_flag'  // Auto: boolean select
   ])
 }
 ```
 
-**Special Field Rendering** (`/apps/web/src/components/shared/entity/EntityFormContainer.tsx`)
+**Product Config (line 2181):**
 ```typescript
-// Lines 333-340 (View mode)
-if (field.type === 'jsonb') {
-  if (field.key === 'metadata') return <MetadataTable />;
-  if (field.key === 'quote_items') return <QuoteItemsRenderer />;
-  // Fallback: formatted JSON textarea
-}
-
-// Lines 478-497 (Edit mode)
-if (field.key === 'quote_items') {
-  return <QuoteItemsRenderer isEditing={true} onChange={...} />;
+product: {
+  name: 'product',
+  apiEndpoint: '/api/v1/product',
+  fields: generateEntityFields([
+    'name', 'code', 'descr',
+    'product_category',
+    'unit_price_amt', 'cost_amt',  // Auto: number
+    'unit_of_measure',
+    'on_hand_qty', 'reorder_level_qty', 'reorder_qty',
+    'taxable_flag',                 // Auto: boolean select
+    'supplier_name', 'supplier_part_number', 'warranty_months'
+  ])
 }
 ```
+
+**Quote Config (line 2251):**
+```typescript
+quote: {
+  name: 'quote',
+  apiEndpoint: '/api/v1/quote',
+  shareable: true,  // ← Enables /quote/shared/:code
+  fields: generateEntityFields([
+    'name', 'code', 'descr',
+    'dl__quote_stage',        // Auto: select + loadOptionsFromSettings
+    'customer_name', 'customer_email', 'customer_phone',
+    'quote_items',            // ← Special renderer: QuoteItemsRenderer
+    'subtotal_amt', 'discount_pct', 'discount_amt',
+    'tax_pct', 'quote_tax_amt', 'quote_total_amt',
+    'valid_until_date', 'sent_date',
+    'internal_notes', 'customer_notes'
+  ], {
+    overrides: {
+      quote_items: { type: 'jsonb' },
+      internal_notes: { type: 'textarea' },
+      customer_notes: { type: 'textarea' }
+    }
+  })
+}
+```
+
+**Work Order Config (line 2360):**
+```typescript
+work_order: {
+  name: 'work_order',
+  apiEndpoint: '/api/v1/work_order',
+  shareable: true,
+  supportedViews: ['table', 'kanban'],  // ← Kanban support!
+  kanban: {
+    groupByField: 'dl__work_order_status',
+    metaTable: 'dl__work_order_status',
+    cardFields: ['name', 'scheduled_date', 'assigned_technician_ids', 'total_cost_amt', 'customer_name']
+  },
+  fields: generateEntityFields([
+    'name', 'code', 'descr',
+    'dl__work_order_status',  // Auto: select + loadOptionsFromSettings
+    'scheduled_date', 'scheduled_start_time', 'scheduled_end_time',
+    'assigned_technician_ids',  // ← Multi-select: loadOptionsFromEntity: 'employee'
+    'started_ts', 'completed_ts', 'labor_hours',
+    'labor_cost_amt', 'materials_cost_amt', 'total_cost_amt',
+    'customer_name', 'customer_email', 'customer_phone',
+    'service_address_line1', 'service_city', 'service_province', 'service_postal_code',
+    'customer_signature_flag', 'customer_satisfaction_rating',
+    'completion_notes', 'follow_up_required_flag',
+    'internal_notes', 'special_instructions'
+  ])
+}
+```
+
+---
+
+**Settings Loader** (`/apps/web/src/lib/settingsLoader.ts`)
+
+**Critical Mappings (lines 109-115):**
+```typescript
+export const FIELD_TO_SETTING_MAP: Record<string, string> = {
+  // ... other mappings
+
+  // Quote fields
+  'dl__quote_stage': 'dl__quote_stage',
+  'quote_stage': 'dl__quote_stage',
+
+  // Work Order fields
+  'dl__work_order_status': 'dl__work_order_status',
+  'work_order_status': 'dl__work_order_status',
+};
+```
+
+**How It Works:**
+1. Field generator detects `dl__` prefix → sets `loadOptionsFromSettings: true`
+2. Settings loader maps field key → datalabel → API endpoint
+3. Calls: `GET /api/v1/setting?datalabel=dl__quote_stage`
+4. Returns options with colors for dropdown rendering
+
+---
 
 **Quote Items Renderer** (`/apps/web/src/components/shared/entity/QuoteItemsRenderer.tsx`)
-- Wraps `EntityAttributeInlineDataTable` with quote-specific logic
-- Loads services/products from API for dropdowns
-- Auto-calculates discount, subtotal, tax on change
-- Columns: Type | Code | Description | Qty | Rate | Disc% | Subtotal | Tax% | Total
+
+**Purpose:** Specialized renderer for `quote_items` JSONB field
+
+**Features:**
+- ✅ Service/product dropdown selection (loads from API)
+- ✅ Inline quantity editing
+- ✅ **Automatic discount, subtotal, tax calculation** (13% HST)
+- ✅ Type icons (Wrench for services, Package for products)
+- ✅ Subtotal row at bottom
+- ✅ Add/edit/delete line items
+- ✅ Currency formatting (CAD)
+
+**Columns:**
+```
+Type | Code | Description | Qty | Rate | Disc% | Subtotal | Tax% | Total
+```
+
+**Usage in EntityFormContainer:**
+```typescript
+// View mode (line 333-340)
+if (field.key === 'quote_items') {
+  return <QuoteItemsRenderer value={value || []} isEditing={false} />;
+}
+
+// Edit mode (line 478-497)
+if (field.key === 'quote_items') {
+  return <QuoteItemsRenderer value={value || []} onChange={onChange} isEditing={true} />;
+}
+```
+
+---
 
 **Generic JSONB Table** (`/apps/web/src/components/shared/ui/EntityAttributeInlineDataTable.tsx`)
-- Reusable for ANY JSONB attribute (not just quote_items)
-- Based on `SettingsDataTable` pattern
-- Props: `columns`, `renderCell`, `onRowUpdate`, `onAddRow`, `onDeleteRow`
+
+**Purpose:** Reusable for ANY JSONB attribute (not just quote_items)
+
+**Props:**
+```typescript
+interface EntityAttributeInlineDataTableProps {
+  data: AttributeRecord[];                    // Array of JSON objects
+  columns: BaseColumn[];                      // Column definitions
+  onRowUpdate?: (index: number, updates: Partial<AttributeRecord>) => void;
+  onAddRow?: (newRecord: Partial<AttributeRecord>) => void;
+  onDeleteRow?: (index: number) => void;
+  onReorder?: (reorderedData: AttributeRecord[]) => void;
+  renderCell?: (column: BaseColumn, record: AttributeRecord, isEditing: boolean, onUpdate: (field: string, value: any) => void) => React.ReactNode;
+  getDefaultNewRow?: () => Partial<AttributeRecord>;
+  allowAddRow?: boolean;
+  allowEdit?: boolean;
+  allowDelete?: boolean;
+  allowReorder?: boolean;
+  emptyMessage?: string;
+}
+```
+
+**Used By:**
+- QuoteItemsRenderer (quote_items field)
+- MetadataTable (metadata field)
+- Any future JSONB field renderers
 
 ---
 
-## Field Generation (DRY Pattern)
+## Database Schema Details
 
-### Convention-Based Detection
-```typescript
-generateEntityFields(['discount_pct', 'subtotal_amt', 'dl__quote_stage'])
-// Auto-generates:
-{
-  key: 'discount_pct',
-  label: 'Discount %',
-  type: 'number',           // ← suffix _pct
-},
-{
-  key: 'subtotal_amt',
-  label: 'Subtotal',
-  type: 'number',           // ← suffix _amt
-},
-{
-  key: 'dl__quote_stage',
-  label: 'Quote Stage',
-  type: 'select',           // ← prefix dl__
-  loadOptionsFromSettings: 'dl__quote_stage'  // ← auto-linked to settings
-}
+### Entity Instance Registry
+
+**Table:** `d_entity_instance_id`
+
+**Purpose:** Universal registry for all entity instances (enables child-tabs, global search, cross-entity references)
+
+**Schema:**
+```sql
+id (PK, auto-generated UUID)
+entity_type   -- 'service', 'product', 'quote', 'work_order', etc.
+entity_id     -- UUID of the entity instance
+entity_name   -- Display name (for search/navigation)
+entity_code   -- Business code (for search/references)
+created_ts, updated_ts
+UNIQUE (entity_type, entity_id)
 ```
 
-### Detection Rules (Priority Order)
-1. **Prefix `dl__`** → `select` + `loadOptionsFromSettings`
-2. **Suffix `_pct`** → `number` (percentage)
-3. **Suffix `_amt`** → `number` (currency)
-4. **Suffix `_date`** → `date`
-5. **Suffix `_flag`** → `boolean`
-6. **Default** → `text`
+**Records by Type:**
+```sql
+service:     15
+product:     15
+quote:        6
+work_order:   6
+-- Plus: project (5), task (7), employee (505), etc.
+```
 
-### Override Mechanism
-```typescript
-generateEntityFields(
-  ['quote_items', 'customer_notes'],
-  {
-    overrides: {
-      quote_items: { type: 'jsonb' },      // Override detection
-      customer_notes: { type: 'textarea' } // Override default text
-    }
-  }
-)
+**Backfill Script:** `/db/32_d_entity_instance_backfill.ddl`
+```sql
+-- This file runs AFTER d_entity_instance_id table is created
+-- It backfills all existing records from the 4 entity tables
+
+INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+SELECT 'quote', id, name, code FROM app.fact_quote
+ON CONFLICT (entity_type, entity_id) DO UPDATE
+SET entity_name = EXCLUDED.entity_name, entity_code = EXCLUDED.entity_code, updated_ts = NOW();
+
+-- Similar for service, product, work_order
+```
+
+**Import Order (critical!):**
+```bash
+# /tools/db-import.sh
+execute_sql "d_service.ddl"           # Line 227
+execute_sql "d_product.ddl"           # Line 228
+execute_sql "fact_quote.ddl"          # Line 254
+execute_sql "fact_work_order.ddl"     # Line 255
+# ...
+execute_sql "31_d_entity_instance_id.ddl"      # Line 264 - Creates table
+execute_sql "32_d_entity_instance_backfill.ddl" # Line 265 - Backfills data!
 ```
 
 ---
 
-## Design Patterns Applied
+### Entity Type Metadata
 
-### 1. Shareable URLs
-```typescript
-// entityConfig.ts
-quote: { shareable: true }
+**Table:** `d_entity`
 
-// App.tsx routes
-<Route path="/quote/shared/:code" element={<SharedURLEntityPage />} />
+**Purpose:** Defines entity types, icons, parent-child relationships
 
-// API: GET /api/v1/quote/shared/:code (no auth required)
+**Quote Entry:**
+```sql
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'quote', 'quote', 'Quotes', 'FileText',
+  '[
+    {"entity": "work_order", "ui_label": "Work Orders", "ui_icon": "ClipboardCheck", "order": 1}
+  ]'::jsonb,
+  120
+);
 ```
 
-### 2. Kanban Views
-```typescript
-kanban: {
-  groupByField: 'dl__quote_stage',        // Field to group by
-  metaTable: 'dl__quote_stage',           // Settings table for columns
-  cardFields: ['name', 'quote_total_amt'] // Fields on cards
-}
-```
-
-**Sequential State Enforcement:**
-- Frontend validates: Draft (0) → Sent (1) → Accepted (4) | Rejected (5)
-- Uses `setting_datalabel.data_label[].id` for ordering
-
-### 3. Multi-Select Employee Assignment
-```typescript
-{
-  key: 'assigned_technician_ids',
-  type: 'multiselect',
-  loadOptionsFromEntity: 'employee'  // Loads from /api/v1/employee
-}
-```
-
-**Database:** `uuid[]` array
-**Rendering:** `renderEmployeeNames()` joins names from IDs
+**This enables:**
+- Sidebar navigation: "Quotes" with FileText icon
+- Detail page child tabs: "Work Orders" tab on quote detail page
+- Child entity API: `/api/v1/entity/child-tabs/quote/:id`
 
 ---
 
 ## API Integration
 
 ### Entity API Client (`/apps/web/src/lib/api.ts`)
+
+**Quote API (lines 729-760):**
 ```typescript
-// Lines 729-760: Quote API
 export const quoteApi = {
   async list(params) { /* ... */ },
   async get(id) { /* ... */ },
-  async create(data) { /* ... */ },
+  async create(data) {
+    // Automatically registers in d_entity_instance_id on backend
+  },
   async update(id, data) { /* ... */ },
   async delete(id) { /* ... */ },
 
@@ -227,87 +453,86 @@ export const quoteApi = {
   }
 };
 
-// Lines 1037-1040: Factory registration
+// Factory registration (line 1039)
 APIFactory.register('quote', quoteApi);
 APIFactory.register('work_order', workOrderApi);
-```
-
-### Backend Routes (`/apps/api/src/modules/quote/routes.ts`)
-```typescript
-// Standard CRUD
-GET    /api/v1/quote
-POST   /api/v1/quote
-GET    /api/v1/quote/:id
-PATCH  /api/v1/quote/:id
-DELETE /api/v1/quote/:id
-
-// Public sharing
-GET    /api/v1/quote/shared/:code  // No auth
-
-// Child entities
-GET    /api/v1/quote/:id/work_order
+APIFactory.register('service', serviceApi);
+APIFactory.register('product', productApi);
 ```
 
 ---
 
-## Extension Patterns
+### Backend Routes
 
-### Adding a New JSONB Field Renderer
+**Quote Routes** (`/apps/api/src/modules/quote/routes.ts`)
 
-**Example:** Custom `task_updates` renderer
-
-1. **Create Renderer Component:**
+**Standard CRUD:**
 ```typescript
-// /apps/web/src/components/shared/entity/TaskUpdatesRenderer.tsx
-export function TaskUpdatesRenderer({ value, onChange, isEditing }) {
-  const columns = [
-    { key: 'timestamp', title: 'Time' },
-    { key: 'update_text', title: 'Update' }
-  ];
+GET    /api/v1/quote              // List with RBAC filtering
+POST   /api/v1/quote              // Create + auto-register in d_entity_instance_id
+GET    /api/v1/quote/:id          // Get single with RBAC
+PUT    /api/v1/quote/:id          // Update
+DELETE /api/v1/quote/:id          // Soft delete
+```
 
-  return (
-    <EntityAttributeInlineDataTable
-      data={value || []}
-      columns={columns}
-      onRowUpdate={...}
-      allowEdit={isEditing}
-    />
-  );
+**Public Sharing:**
+```typescript
+GET    /api/v1/quote/shared/:code  // No auth required
+```
+
+**Child Entities:**
+```typescript
+GET    /api/v1/quote/:id/work_order  // Get work orders for this quote
+```
+
+**Entity Registration (Create endpoint, lines 237-242):**
+```typescript
+// After creating quote in fact_quote table:
+await db.execute(sql`
+  INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+  VALUES ('quote', ${newQuote.id}::uuid, ${newQuote.name}, ${newQuote.code})
+  ON CONFLICT (entity_type, entity_id) DO UPDATE
+  SET entity_name = EXCLUDED.entity_name, entity_code = EXCLUDED.entity_code, updated_ts = NOW()
+`);
+```
+
+**Similar pattern for:** service, product, work_order routes
+
+---
+
+### Child Entity Endpoint
+
+**Universal Endpoint:** `/api/v1/entity/child-tabs/:entity_type/:entity_id`
+
+**Purpose:** Fetch child entity tabs for any parent entity
+
+**Example:** `GET /api/v1/entity/child-tabs/quote/341540d1-d150-463e-ac9e-30a995b93a8c`
+
+**Response:**
+```json
+{
+  "parent_entity_type": "quote",
+  "parent_entity_id": "341540d1-d150-463e-ac9e-30a995b93a8c",
+  "tabs": [
+    {
+      "entity": "work_order",
+      "ui_icon": "ClipboardCheck",
+      "ui_label": "Work Orders",
+      "count": 2,
+      "order": 1
+    }
+  ],
+  "parent_name": "Complete HVAC System Installation Quote",
+  "parent_ui_label": "Quotes",
+  "parent_ui_icon": "FileText"
 }
 ```
 
-2. **Register in EntityFormContainer:**
-```typescript
-// EntityFormContainer.tsx - View mode
-if (field.key === 'task_updates') {
-  return <TaskUpdatesRenderer value={value} isEditing={false} />;
-}
-
-// Edit mode
-if (field.key === 'task_updates') {
-  return <TaskUpdatesRenderer value={value} onChange={...} isEditing={true} />;
-}
-```
-
-3. **Entity Config:**
-```typescript
-task: {
-  fields: [
-    ...generateEntityFields(['task_updates'], {
-      overrides: { task_updates: { type: 'jsonb' } }
-    })
-  ]
-}
-```
-
-### Adding a New Entity
-
-1. **Database DDL** (`/db/new_entity.ddl`)
-2. **Insert into `d_entity`** table (sidebar navigation)
-3. **Entity Config** (`entityConfig.ts`)
-4. **API Module** (`/apps/api/src/modules/new_entity/`)
-5. **Frontend API Client** (`api.ts` + `APIFactory.register()`)
-6. **Update `coreEntities`** array in `App.tsx`
+**How It Works:**
+1. Checks `d_entity_instance_id` for parent entity existence
+2. Loads `child_entities` JSONB from `d_entity` table
+3. Counts child records from `d_entity_id_map` table
+4. Returns formatted tab metadata
 
 ---
 
@@ -318,6 +543,10 @@ task: {
 # Import schema
 ./tools/db-import.sh
 
+# Verify entity instance registry
+psql -c "SELECT entity_type, COUNT(*) FROM app.d_entity_instance_id GROUP BY entity_type;"
+# Expected: service (15), product (15), quote (6), work_order (6)
+
 # Verify quote structure
 psql -c "SELECT jsonb_pretty(quote_items) FROM app.fact_quote WHERE code='QT-2024-001';"
 
@@ -325,28 +554,66 @@ psql -c "SELECT jsonb_pretty(quote_items) FROM app.fact_quote WHERE code='QT-202
 psql -c "SELECT code, subtotal_amt, discount_amt, quote_tax_amt, quote_total_amt FROM app.fact_quote;"
 ```
 
+---
+
 ### API Testing
 ```bash
+# List services
+./tools/test-api.sh GET /api/v1/service
+
+# List products
+./tools/test-api.sh GET /api/v1/product
+
 # List quotes
 ./tools/test-api.sh GET /api/v1/quote
 
 # Get specific quote
-./tools/test-api.sh GET /api/v1/quote/{uuid}
+./tools/test-api.sh GET /api/v1/quote/341540d1-d150-463e-ac9e-30a995b93a8c
+
+# Get child tabs for quote
+./tools/test-api.sh GET /api/v1/entity/child-tabs/quote/341540d1-d150-463e-ac9e-30a995b93a8c
 
 # Update quote items
-./tools/test-api.sh PATCH /api/v1/quote/{uuid} '{"quote_items":[...]}'
+./tools/test-api.sh PUT /api/v1/quote/341540d1-d150-463e-ac9e-30a995b93a8c '{"quote_items":[...]}'
 ```
 
+---
+
 ### Frontend Testing
-1. Navigate to `/quote`
-2. Click row → Detail page
-3. Toggle Edit mode
-4. Modify `quote_items`:
+
+**Service:** http://localhost:5173/service
+1. ✅ List view with 15 services
+2. ✅ Click row → Detail page
+3. ✅ Toggle Edit mode
+4. ✅ Modify fields (auto-detected types work)
+5. ✅ Save changes
+
+**Product:** http://localhost:5173/product
+1. ✅ List view with 15 products
+2. ✅ Click row → Detail page
+3. ✅ Edit pricing, inventory fields
+4. ✅ Boolean flags render as Yes/No dropdowns
+5. ✅ Save changes
+
+**Quote:** http://localhost:5173/quote
+1. ✅ List view with 6 quotes
+2. ✅ Click row → Detail page with "Work Orders" tab
+3. ✅ Toggle Edit mode
+4. ✅ Modify `quote_items`:
    - Change quantity → verify recalculation
    - Edit discount % → verify subtotal/tax/total update
-   - Add new line item → verify dropdown population
-5. Switch to Kanban view
-6. Test shareable URL: `/quote/shared/{code}`
+   - Add new line item → verify dropdown population (services + products)
+5. ✅ Switch to Kanban view (8 columns by stage)
+6. ✅ Test shareable URL: `/quote/shared/{code}`
+
+**Work Order:** http://localhost:5173/work_order
+1. ✅ List view with 6 work orders
+2. ✅ Click row → Detail page
+3. ✅ Status dropdown shows 7 options with colors
+4. ✅ Multi-select technician assignment works
+5. ✅ Switch to Kanban view (7 columns by status)
+6. ✅ Drag-drop between status columns
+7. ✅ Save changes
 
 ---
 
@@ -356,6 +623,10 @@ psql -c "SELECT code, subtotal_amt, discount_amt, quote_tax_amt, quote_total_amt
 ```sql
 -- If querying within quote_items becomes slow:
 CREATE INDEX idx_quote_items_gin ON app.fact_quote USING gin(quote_items);
+
+-- Query examples that benefit:
+SELECT * FROM fact_quote WHERE quote_items @> '[{"item_type":"service"}]';
+SELECT * FROM fact_quote WHERE quote_items @> '[{"item_code":"SVC-HVAC-001"}]';
 ```
 
 **API Pagination:**
@@ -366,36 +637,102 @@ CREATE INDEX idx_quote_items_gin ON app.fact_quote USING gin(quote_items);
 **Frontend Optimization:**
 - `EntityAttributeInlineDataTable` renders all rows (no virtualization)
 - For >100 line items, consider virtualization (react-window)
+- Settings options cached for 5 minutes (settingsLoader.ts)
 
 ---
 
-## Common Pitfalls
+## Common Pitfalls & Solutions
 
-### 1. Invalid UUIDs in DDL
-❌ **Wrong:** `INSERT INTO fact_quote (id, ...) VALUES ('q1111111-...', ...)`
-✅ **Correct:** `INSERT INTO fact_quote (code, ...) VALUES (...)` (let DB generate UUID)
+### 1. ❌ Entity Not Showing in Child Tabs
 
-### 2. Field Type Detection Conflicts
-If `discount_amount` incorrectly detected as `text`:
-```typescript
-// Override in entity config
-overrides: {
-  discount_amount: { type: 'number' }
-}
+**Symptom:** 404 error on `/api/v1/entity/child-tabs/quote/:id`
+
+**Cause:** Quote not registered in `d_entity_instance_id`
+
+**Solution:** Run backfill or create via API (auto-registers)
+```bash
+./tools/db-import.sh  # Runs backfill script automatically
 ```
 
-### 3. Missing API Registration
+---
+
+### 2. ❌ Dropdown Not Showing for dl__ Field
+
+**Symptom:** Field renders as text input instead of dropdown
+
+**Cause:** Missing mapping in `FIELD_TO_SETTING_MAP`
+
+**Solution:** Add to `/apps/web/src/lib/settingsLoader.ts`
 ```typescript
-// Symptoms: "API not found for entity type: 'quote'"
-// Fix: Register in APIFactory
-APIFactory.register('quote', quoteApi);
+export const FIELD_TO_SETTING_MAP: Record<string, string> = {
+  'dl__quote_stage': 'dl__quote_stage',  // ← Add this
+  // ...
+};
 ```
 
-### 4. JSONB Field Not Rendering
-Check `EntityFormContainer.tsx` for special field handling:
+---
+
+### 3. ❌ Duplicate Entity Config Warning
+
+**Symptom:** Vite warns: `Duplicate key "product" in object literal`
+
+**Cause:** Two product configs in entityConfig.ts
+
+**Solution:** Remove old/duplicate config, keep only the DRY version
+
+---
+
+### 4. ❌ Invalid UUIDs in DDL
+
+**Symptom:** Database import fails with UUID constraint error
+
+**Solution:** Let database generate UUIDs
+```sql
+-- ❌ Wrong
+INSERT INTO fact_quote (id, ...) VALUES ('q1111111-...', ...);
+
+-- ✅ Correct
+INSERT INTO fact_quote (code, name, ...) VALUES ('QT-2024-001', ...);
+```
+
+---
+
+### 5. ❌ Field Type Detection Conflicts
+
+**Symptom:** `discount_amount` incorrectly detected as `text` instead of `number`
+
+**Solution:** Override in entity config
 ```typescript
-if (field.key === 'your_jsonb_field') {
-  return <YourCustomRenderer />;
+fields: generateEntityFields(['discount_amount'], {
+  overrides: {
+    discount_amount: { type: 'number' }
+  }
+})
+```
+
+---
+
+### 6. ❌ Missing API Registration
+
+**Symptom:** `API not found for entity type: 'quote'`
+
+**Solution:** Register in APIFactory
+```typescript
+// /apps/web/src/lib/api.ts
+APIFactory.register('quote', quoteApi);  // ← Add this
+```
+
+---
+
+### 7. ❌ JSONB Field Not Rendering
+
+**Symptom:** quote_items shows as raw JSON textarea
+
+**Solution:** Add special renderer in EntityFormContainer
+```typescript
+// EntityFormContainer.tsx
+if (field.key === 'quote_items') {
+  return <QuoteItemsRenderer value={value} onChange={...} isEditing={isEditing} />;
 }
 ```
 
@@ -405,20 +742,27 @@ if (field.key === 'your_jsonb_field') {
 
 ```
 Database:
-  /db/d_service.ddl                  ← Service catalog
-  /db/d_product.ddl                  ← Product catalog
-  /db/fact_quote.ddl                 ← Quotes with JSONB line items
-  /db/fact_work_order.ddl            ← Work order execution
+  /db/d_service.ddl                  ← Service catalog (15 records)
+  /db/d_product.ddl                  ← Product catalog (15 records)
+  /db/fact_quote.ddl                 ← Quotes with JSONB line items (6 records)
+  /db/fact_work_order.ddl            ← Work order execution (6 records)
+  /db/30_d_entity.ddl                ← Entity type metadata (parent-child relationships)
+  /db/31_d_entity_instance_id.ddl    ← Entity instance registry (table creation)
+  /db/32_d_entity_instance_backfill.ddl ← Backfill existing records ⚠️ NEW!
+  /db/33_d_entity_id_map.ddl         ← Instance relationships
+  /db/34_d_entity_id_rbac_map.ddl    ← RBAC permissions
 
 Frontend Config:
-  /apps/web/src/lib/entityConfig.ts  ← Entity definitions (shareable, kanban, fields)
+  /apps/web/src/lib/entityConfig.ts  ← Entity definitions (service, product, quote, work_order)
+  /apps/web/src/lib/fieldGenerator.ts ← DRY field generation
+  /apps/web/src/lib/settingsLoader.ts ← Settings mappings ⚠️ UPDATED!
   /apps/web/src/App.tsx              ← Routes (add new entities here)
 
 Frontend Components:
   /apps/web/src/pages/shared/EntityDetailPage.tsx
   /apps/web/src/components/shared/entity/EntityFormContainer.tsx  ← Field rendering logic
   /apps/web/src/components/shared/entity/QuoteItemsRenderer.tsx   ← Quote-specific table
-  /apps/web/src/components/shared/ui/EntityAttributeInlineDataTable.tsx  ← Generic JSONB table
+  /apps/web/src/components/shared/ui/EntityAttributeInlineDataTable.tsx ← Generic JSONB table
 
 Frontend API:
   /apps/web/src/lib/api.ts           ← API clients + APIFactory registration
@@ -427,7 +771,31 @@ Backend API:
   /apps/api/src/modules/quote/routes.ts
   /apps/api/src/modules/product/routes.ts
   /apps/api/src/modules/service/routes.ts
+  /apps/api/src/modules/work_order/routes.ts
+  /apps/api/src/modules/entity/routes.ts ← child-tabs endpoint
+  /apps/api/src/modules/index.ts     ← Route registration
+
+Tools:
+  /tools/db-import.sh                ← DDL import script ⚠️ UPDATED!
+  /tools/test-api.sh                 ← API testing utility
 ```
+
+---
+
+## Migration & Compatibility
+
+**Backward Compatibility:**
+- Old quotes without discount fields: Frontend defaults to 0% discount, 13% tax
+- JSONB structure validated on read; missing fields auto-filled
+- Entity instance registry backfilled on db-import.sh
+
+**Future Enhancements:**
+- Line-item notes modal (expand beyond `line_notes` text)
+- Bulk discount application across all items
+- Tax exemption flags per line
+- Multi-currency support (currently CAD only)
+- Work order → invoice flow
+- Inventory depletion on work order completion
 
 ---
 
@@ -462,20 +830,32 @@ const calculateLineItem = (quantity, rate, discountPct, taxPct) => {
 
 ---
 
-## Migration & Compatibility
+## Summary Statistics
 
-**Backward Compatibility:**
-- Old quotes without discount fields: Frontend defaults to 0% discount, 13% tax
-- JSONB structure validated on read; missing fields auto-filled
+**Database:**
+- 4 new tables: d_service, d_product, fact_quote, fact_work_order
+- 42 curated records: 15 services + 15 products + 6 quotes + 6 work orders
+- 1 backfill script: 32_d_entity_instance_backfill.ddl
+- 2 settings tables: dl__quote_stage (8 stages), dl__work_order_status (7 statuses)
 
-**Future Enhancements:**
-- Line-item notes modal (expand beyond `line_notes` text)
-- Bulk discount application across all items
-- Tax exemption flags per line
-- Multi-currency support (currently CAD only)
+**Frontend:**
+- 4 entity configs: service, product, quote, work_order
+- 2 new components: QuoteItemsRenderer, EntityAttributeInlineDataTable
+- 2 settings mappings: dl__quote_stage, dl__work_order_status
+- 1 shareable entity: quote (public URL support)
+- 1 kanban entity: work_order (7-column kanban board)
+
+**Backend:**
+- 4 API modules: service, product, quote, work_order
+- 1 universal endpoint: /api/v1/entity/child-tabs/:type/:id
+- 4 APIFactory registrations
+
+**Tools:**
+- 1 updated script: db-import.sh (added backfill step)
 
 ---
 
-**Status:** Production-ready
+**Status:** ✅ Production Ready
+**Last Updated:** 2025-11-03
 **Maintainer:** PMO Platform Team
 **Support:** See `/docs/` for detailed guides

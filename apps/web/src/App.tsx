@@ -22,6 +22,9 @@ import { WikiEditorPage } from './pages/wiki';
 // Artifact Pages
 import { ArtifactUploadPage } from './pages/artifact';
 
+// Workflow Pages
+import { WorkflowDetailPage } from './pages/workflow';
+
 // Marketing Pages
 import { EmailDesignerPage } from './pages/marketing/EmailDesignerPage';
 
@@ -170,6 +173,10 @@ function AppRoutes() {
       <Route path="/artifact" element={<ProtectedRoute><EntityMainPage entityType="artifact" /></ProtectedRoute>} />
       <Route path="/artifact/new" element={<ProtectedRoute><EntityCreatePage entityType="artifact" /></ProtectedRoute>} />
       <Route path="/artifact/:id" element={<ProtectedRoute><EntityDetailPage entityType="artifact" /></ProtectedRoute>} />
+
+      {/* Special Routes - Workflow (custom detail page with graph visualization) */}
+      <Route path="/workflow" element={<ProtectedRoute><EntityMainPage entityType="workflow" /></ProtectedRoute>} />
+      <Route path="/workflow/:instance_id" element={<ProtectedRoute><WorkflowDetailPage /></ProtectedRoute>} />
 
       {/* Special Routes - Marketing (email designer) */}
       <Route path="/marketing/:id/design" element={<ProtectedRoute><EmailDesignerPage /></ProtectedRoute>} />

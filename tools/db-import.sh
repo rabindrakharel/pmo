@@ -174,6 +174,9 @@ validate_all_ddls() {
         "f_order.ddl"
         "f_invoice.ddl"
         "f_shipment.ddl"
+        "38_d_industry_workflow_graph_head.ddl"
+        "39_d_industry_workflow_graph_data.ddl"
+        "40_f_industry_workflow_events.ddl"
     )
 
     for file in "${ddl_files[@]}"; do
@@ -246,6 +249,10 @@ import_ddls() {
     # Workflow automation - Business process automation
     execute_sql "$DB_PATH/d_workflow_automation.ddl" "Workflow automation entities"
 
+    # Industry workflow graph system - Workflow state graphs and lifecycle tracking
+    execute_sql "$DB_PATH/38_d_industry_workflow_graph_head.ddl" "Industry workflow template entities"
+    execute_sql "$DB_PATH/39_d_industry_workflow_graph_data.ddl" "Industry workflow instance data"
+
     # Fact tables - Transaction-level analytics (after all dimensions loaded)
     # Note: Cost and revenue are transactional data (fact tables), not dimensions
     execute_sql "$DB_PATH/f_inventory.ddl" "Inventory fact table (stock levels by location)"
@@ -254,6 +261,7 @@ import_ddls() {
     execute_sql "$DB_PATH/f_invoice.ddl" "Invoice fact table (billing/revenue)"
     execute_sql "$DB_PATH/fact_quote.ddl" "Quote fact table (customer quotes with line items)"
     execute_sql "$DB_PATH/fact_work_order.ddl" "Work order fact table (service delivery tracking)"
+    execute_sql "$DB_PATH/40_f_industry_workflow_events.ddl" "Workflow events fact table (process analytics)"
 
     # Marketing entities - Email templates
     execute_sql "$DB_PATH/35_d_email_template.ddl" "Email template entities"

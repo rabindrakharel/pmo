@@ -2432,6 +2432,52 @@ export const entityConfigs: Record<string, EntityConfig> = {
       metaTable: 'dl__work_order_status',
       cardFields: ['name', 'scheduled_date', 'assigned_technician_ids', 'total_cost_amt', 'customer_name']
     }
+  },
+
+  // --------------------------------------------------------------------------
+  // WORKFLOW
+  // --------------------------------------------------------------------------
+  workflow: {
+    name: 'workflow',
+    displayName: 'Workflow',
+    pluralName: 'Workflows',
+    apiEndpoint: '/api/v1/workflow',
+
+    columns: generateStandardColumns(
+      ['workflow_instance_id', 'workflow_template_name', 'industry_sector', 'current_state_name', 'customer_entity_id', 'created_ts'],
+      {
+        overrides: {
+          workflow_instance_id: {
+            title: 'Instance ID'
+          },
+          workflow_template_name: {
+            title: 'Template'
+          },
+          industry_sector: {
+            title: 'Industry'
+          },
+          current_state_name: {
+            title: 'Current State'
+          },
+          customer_entity_id: {
+            title: 'Customer'
+          }
+        }
+      }
+    ),
+
+    fields: [
+      { key: 'workflow_instance_id', label: 'Workflow Instance ID', type: 'text', readonly: true },
+      { key: 'workflow_template_id', label: 'Template ID', type: 'text', readonly: true },
+      { key: 'workflow_template_name', label: 'Template Name', type: 'text', readonly: true },
+      { key: 'industry_sector', label: 'Industry', type: 'text', readonly: true },
+      { key: 'customer_entity_id', label: 'Customer ID', type: 'text', readonly: true },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
   }
 };
 
