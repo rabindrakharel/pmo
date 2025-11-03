@@ -149,7 +149,7 @@ export async function formRoutes(fastify: FastifyInstance) {
             SELECT DISTINCT ON (f.slug) f.id
             FROM app.d_form_head f
             ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-            ORDER BY f.f.version DESC
+            ORDER BY f.slug, f.version DESC
           ) subq
         `);
         const total = Number(countResult[0]?.total || 0);
@@ -173,7 +173,7 @@ export async function formRoutes(fastify: FastifyInstance) {
             f.version
           FROM app.d_form_head f
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-          ORDER BY f.f.version DESC, f.name ASC
+          ORDER BY f.slug, f.version DESC
           LIMIT ${limit} OFFSET ${offset}
         `);
 
@@ -392,7 +392,6 @@ export async function formRoutes(fastify: FastifyInstance) {
           ${data.descr || null},
           ${internalUrl},
           ${sharedUrl},
-          ${JSON.stringify(data.tags || [])},
           ${data.form_type || 'multi_step'},
           ${JSON.stringify(data.form_schema || {steps: []})},
           ${data.active_flag !== false},
@@ -420,11 +419,10 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Register in d_entity_instance_id for global entity operations
       await db.execute(sql`
-        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_entity_code)
-        VALUES ('form', ${created.id}::uuid, ${created.name}, ${created.slug}, ${created.code})
+        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+        VALUES ('form', ${created.id}::uuid, ${created.name}, ${created.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name,
-            entity_slug = EXCLUDED.entity_slug,
             entity_code = EXCLUDED.entity_code,
             updated_ts = NOW()
       `);
@@ -524,7 +522,6 @@ export async function formRoutes(fastify: FastifyInstance) {
           SET
             name = ${data.name !== undefined ? data.name : current.name},
             descr = ${data.descr !== undefined ? data.descr : current.descr},
-            tags = ${data.tags !== undefined ? JSON.stringify(data.tags) : (typeof current.tags === 'string' ? current.tags : JSON.stringify(current.tags))},
             form_type = ${data.form_type !== undefined ? data.form_type : current.form_type},
             form_schema = ${JSON.stringify(data.form_schema)},
             version = ${newVersion},
@@ -538,7 +535,6 @@ export async function formRoutes(fastify: FastifyInstance) {
             descr,
             internal_url,
             shared_url,
-            tags,
             form_type,
             form_schema,
             from_ts,
@@ -558,7 +554,6 @@ export async function formRoutes(fastify: FastifyInstance) {
 
         if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
         if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
-        if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}`);
         if (data.form_type !== undefined) updateFields.push(sql`form_type = ${data.form_type}`);
         if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
 
@@ -581,7 +576,6 @@ export async function formRoutes(fastify: FastifyInstance) {
             descr,
             internal_url,
             shared_url,
-            tags,
             form_type,
             form_schema,
             from_ts,
@@ -1129,9 +1123,10 @@ export async function formRoutes(fastify: FastifyInstance) {
         UPDATE app.d_form_head
         SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
         WHERE id = ${id} AND active_flag = true
+        RETURNING id
       `);
 
-      if (result.rowCount === 0) {
+      if (result.length === 0) {
         return reply.status(404).send({ error: 'Form not found or already deleted' });
       }
 

@@ -1906,6 +1906,56 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
     boxShadow: isDragging ? '0 12px 24px rgba(16, 24, 40, 0.14)' : undefined,
   };
 
+  // Fetch datalabels dynamically from API
+  const [datalabels, setDatalabels] = useState<Array<{ datalabel_name: string; ui_label: string; ui_icon: string | null }>>([]);
+  const [loadingDatalabels, setLoadingDatalabels] = useState(false);
+
+  useEffect(() => {
+    async function fetchDatalabels() {
+      setLoadingDatalabels(true);
+      try {
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch('http://localhost:4000/api/v1/setting/categories', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (response.ok) {
+          const result = await response.json();
+          setDatalabels(result.data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching datalabels:', error);
+      } finally {
+        setLoadingDatalabels(false);
+      }
+    }
+    fetchDatalabels();
+  }, []);
+
+  // Group datalabels by entity for better UX
+  const datalabelsByEntity = useMemo(() => {
+    const groups: Record<string, Array<{ value: string; label: string }>> = {};
+    datalabels.forEach(dl => {
+      // Extract entity from datalabel_name: "dl__task_stage" → "task"
+      const match = dl.datalabel_name.match(/^dl__([^_]+)_/);
+      const entity = match ? match[1] : 'other';
+
+      if (!groups[entity]) {
+        groups[entity] = [];
+      }
+
+      // Remove dl__ prefix for value: "dl__task_stage" → "task_stage"
+      const value = dl.datalabel_name.replace(/^dl__/, '');
+      groups[entity].push({
+        value,
+        label: dl.ui_label
+      });
+    });
+    return groups;
+  }, [datalabels]);
+
   // Get list of numeric fields for calculation reference
   const numericFields = React.useMemo(() => {
     if (!allFields) return [];
@@ -2022,35 +2072,16 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                       value={field.datalabelTable || ''}
                       onChange={(e) => onChange({ datalabelTable: e.target.value })}
                       className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                      disabled={loadingDatalabels}
                     >
-                      <option value="">Choose table...</option>
-                      <optgroup label="Customer / Client">
-                        <option value="cust_service">Customer Services</option>
-                        <option value="cust_status">Customer Status</option>
-                        <option value="cust_level">Customer Level</option>
-                        <option value="customer_tier">Customer Tier</option>
-                      </optgroup>
-                      <optgroup label="Task Management">
-                        <option value="task_stage">Task Stage</option>
-                        <option value="task_priority">Task Priority</option>
-                        <option value="task_update_type">Task Update Type</option>
-                      </optgroup>
-                      <optgroup label="Project & Organization">
-                        <option value="project_stage">Project Stage</option>
-                        <option value="business_level">Business Level</option>
-                        <option value="office_level">Office Level</option>
-                        <option value="position_level">Position Level</option>
-                      </optgroup>
-                      <optgroup label="Sales & Marketing">
-                        <option value="opportunity_funnel_stage">Opportunity Funnel Stage</option>
-                        <option value="industry_sector">Industry Sector</option>
-                        <option value="acquisition_channel">Acquisition Channel</option>
-                      </optgroup>
-                      <optgroup label="Forms & Documentation">
-                        <option value="form_submission_status">Form Submission Status</option>
-                        <option value="form_approval_status">Form Approval Status</option>
-                        <option value="wiki_publication_status">Wiki Publication Status</option>
-                      </optgroup>
+                      <option value="">{loadingDatalabels ? 'Loading...' : 'Choose table...'}</option>
+                      {Object.keys(datalabelsByEntity).sort().map(entity => (
+                        <optgroup key={entity} label={entity.charAt(0).toUpperCase() + entity.slice(1)}>
+                          {datalabelsByEntity[entity].map(dl => (
+                            <option key={dl.value} value={dl.value}>{dl.label}</option>
+                          ))}
+                        </optgroup>
+                      ))}
                     </select>
                   </div>
 
@@ -2065,9 +2096,8 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                       <option value="">
                         {!field.datalabelTable ? 'Select a table first...' : 'Choose column...'}
                       </option>
-                      {field.datalabelTable && DATALABEL_TABLE_COLUMNS[field.datalabelTable]?.value.map(col => (
-                        <option key={col} value={col}>{col}</option>
-                      ))}
+                      <option value="id">id</option>
+                      <option value="name">name</option>
                     </select>
                   </div>
 
@@ -2082,9 +2112,9 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                       <option value="">
                         {!field.datalabelTable ? 'Select a table first...' : 'Choose column...'}
                       </option>
-                      {field.datalabelTable && DATALABEL_TABLE_COLUMNS[field.datalabelTable]?.display.map(col => (
-                        <option key={col} value={col}>{col}</option>
-                      ))}
+                      <option value="name">name</option>
+                      <option value="descr">descr</option>
+                      <option value="color_code">color_code</option>
                     </select>
                   </div>
                 </div>
@@ -2092,17 +2122,16 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                   <div className="text-xs text-blue-800 space-y-1">
                     <p>
                       <strong>Dynamic Options:</strong> Options will be loaded from the{' '}
-                      <code className="bg-blue-100 px-1 rounded">{field.datalabelTable || '(select table)'}</code> table.
+                      <code className="bg-blue-100 px-1 rounded">{field.datalabelTable || '(select table)'}</code> datalabel.
                     </p>
                     <p>
                       Values: <code className="bg-blue-100 px-1 rounded">{field.datalabelValueColumn || '(select column)'}</code>,
                       Display: <code className="bg-blue-100 px-1 rounded">{field.datalabelDisplayColumn || '(select column)'}</code>
                     </p>
-                    {field.datalabelTable && DATALABEL_TABLE_COLUMNS[field.datalabelTable] && (
+                    {field.datalabelTable && (
                       <p className="mt-2 pt-2 border-t border-blue-200">
-                        <strong>Available columns for {field.datalabelTable}:</strong><br/>
-                        Value columns: {DATALABEL_TABLE_COLUMNS[field.datalabelTable].value.join(', ')}<br/>
-                        Display columns: {DATALABEL_TABLE_COLUMNS[field.datalabelTable].display.join(', ')}
+                        <strong>Standard datalabel columns:</strong><br/>
+                        Available for all datalabels: id, name, descr, parent_id, color_code
                       </p>
                     )}
                   </div>

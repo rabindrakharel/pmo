@@ -49,16 +49,19 @@
 --   role               → employee
 --   form               → artifact
 --   order              → invoice, shipment
+--   quote              → work_order
 --   employee           → (no children - leaf node)
 --   wiki               → (no children - leaf node)
 --   artifact           → (no children - leaf node)
 --   worksite           → (no children - leaf node)
 --   position           → (no children - leaf node)
 --   reports            → (no children - leaf node)
+--   service            → (no children - leaf node)
 --   product            → (no children - leaf node)
 --   inventory          → (no children - leaf node)
 --   invoice            → (no children - leaf node)
 --   shipment           → (no children - leaf node)
+--   work_order         → (no children - leaf node)
 --
 -- KEY FIELDS:
 -- • code: Entity type identifier ('office', 'business', 'project', 'task', etc.)
@@ -282,6 +285,17 @@ VALUES (
   130
 );
 
+-- Service entity type (leaf node - no children)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'service',
+  'Service',
+  'Services',
+  'Wrench',
+  '[]'::jsonb,
+  135
+);
+
 -- Product entity type (leaf node - no children)
 INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
@@ -291,6 +305,30 @@ VALUES (
   'Package',
   '[]'::jsonb,
   140
+);
+
+-- Quote entity type (has 1 child type: work_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'quote',
+  'Quote',
+  'Quotes',
+  'FileText',
+  '[
+    {"entity": "work_order", "ui_icon": "ClipboardCheck", "ui_label": "Work Orders", "order": 1}
+  ]'::jsonb,
+  145
+);
+
+-- Work Order entity type (leaf node - no children)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'work_order',
+  'Work Order',
+  'Work Orders',
+  'ClipboardCheck',
+  '[]'::jsonb,
+  155
 );
 
 -- Inventory entity type (leaf node - no children)

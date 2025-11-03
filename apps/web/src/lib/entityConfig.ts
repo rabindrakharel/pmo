@@ -8,6 +8,13 @@ import {
 } from './settingsConfig';
 import type { SettingOption } from './settingsLoader';
 import { generateColumns, generateStandardColumns } from './columnGenerator';
+import {
+  generateEntityFields,
+  getStandardEntityFields,
+  getBooleanField,
+  getDatalabelField,
+  getAmountField
+} from './fieldGenerator';
 
 /**
  * ============================================================================
@@ -1172,79 +1179,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
     )
   },
 
-
-  // --------------------------------------------------------------------------
-  // PRODUCT
-  // --------------------------------------------------------------------------
-  product: {
-    name: 'product',
-    displayName: 'Product',
-    pluralName: 'Products',
-    apiEndpoint: '/api/v1/product',
-
-    columns: [
-      {
-        key: 'name',
-        title: 'Name',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'code',
-        title: 'Code',
-        sortable: true,
-        filterable: true
-      },
-      {
-        key: 'department',
-        title: 'Department',
-        sortable: true,
-        filterable: true,
-        render: (value) => value || '-'
-      },
-      {
-        key: 'class',
-        title: 'Class',
-        sortable: true,
-        filterable: true,
-        render: (value) => value || '-'
-      },
-      {
-        key: 'unit_of_measure',
-        title: 'Unit',
-        sortable: true,
-        align: 'center',
-        render: (value) => value || 'each'
-      },
-      {
-        key: 'active_flag',
-        title: 'Status',
-        sortable: true,
-        align: 'center',
-        render: (value) => renderBadge(value !== false ? 'Active' : 'Inactive', {
-          'Active': 'bg-green-100 text-green-800',
-          'Inactive': 'bg-red-100 text-red-800'
-        })
-      }
-    ],
-
-    fields: [
-      { key: 'name', label: 'Product Name', type: 'text', required: true },
-      { key: 'code', label: 'Product Code/SKU', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'richtext' },
-      { key: 'department', label: 'Department', type: 'text' },
-      { key: 'class', label: 'Class', type: 'text' },
-      { key: 'subclass', label: 'Subclass', type: 'text' },
-      { key: 'unit_of_measure', label: 'Unit of Measure', type: 'text', placeholder: 'each, ft, sqft, lb, gal' },
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
-      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
-      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
-    ],
-
-    supportedViews: ['table'],
-    defaultView: 'table'
-  },
-
   // --------------------------------------------------------------------------
   // INVENTORY
   // --------------------------------------------------------------------------
@@ -2176,6 +2110,328 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     supportedViews: ['table'],
     defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // SERVICE
+  // --------------------------------------------------------------------------
+  service: {
+    name: 'service',
+    displayName: 'Service',
+    pluralName: 'Services',
+    apiEndpoint: '/api/v1/service',
+
+    columns: generateStandardColumns(
+      ['name', 'code', 'service_category', 'standard_rate_amt', 'estimated_hours', 'minimum_charge_amt', 'taxable_flag', 'created_ts'],
+      {
+        overrides: {
+          service_category: {
+            title: 'Category'
+          },
+          standard_rate_amt: {
+            title: 'Rate',
+            render: (value) => formatCurrency(value)
+          },
+          estimated_hours: {
+            title: 'Est. Hours',
+            render: (value) => value ? `${value}h` : '-'
+          },
+          minimum_charge_amt: {
+            title: 'Min. Charge',
+            render: (value) => formatCurrency(value)
+          },
+          taxable_flag: {
+            title: 'Taxable',
+            render: (value) => value ? 'Yes' : 'No'
+          }
+        }
+      }
+    ),
+
+    // ✅ DRY Pattern: Using field generators for automatic field definitions
+    // Universal fields (metadata, created_ts, updated_ts) are auto-appended
+    fields: generateEntityFields(
+      [
+        'name',                        // Auto-detected: text, required
+        'code',                        // Auto-detected: text, required
+        'descr',                       // Auto-detected: richtext
+        'service_category',            // Auto-detected: text
+        'standard_rate_amt',           // Auto-detected: number (suffix: _amt)
+        'estimated_hours',             // Auto-detected: number
+        'minimum_charge_amt',          // Auto-detected: number (suffix: _amt)
+        'taxable_flag',                // Auto-detected: boolean select (suffix: _flag)
+        'requires_certification_flag'  // Auto-detected: boolean select (suffix: _flag)
+      ],
+      {
+        overrides: {
+          name: { label: 'Service Name' },
+          code: { label: 'Service Code' },
+          service_category: { label: 'Category' }
+        }
+      }
+    ),
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // PRODUCT
+  // --------------------------------------------------------------------------
+  product: {
+    name: 'product',
+    displayName: 'Product',
+    pluralName: 'Products',
+    apiEndpoint: '/api/v1/product',
+
+    columns: generateStandardColumns(
+      ['name', 'code', 'product_category', 'unit_price_amt', 'cost_amt', 'on_hand_qty', 'unit_of_measure', 'supplier_name', 'created_ts'],
+      {
+        overrides: {
+          product_category: {
+            title: 'Category'
+          },
+          unit_price_amt: {
+            title: 'Price',
+            render: (value) => formatCurrency(value)
+          },
+          cost_amt: {
+            title: 'Cost',
+            render: (value) => formatCurrency(value)
+          },
+          on_hand_qty: {
+            title: 'On Hand',
+            align: 'right' as const
+          },
+          unit_of_measure: {
+            title: 'UOM'
+          },
+          supplier_name: {
+            title: 'Supplier'
+          }
+        }
+      }
+    ),
+
+    // ✅ DRY Pattern: Using field generators for automatic field definitions
+    fields: generateEntityFields(
+      [
+        'name',
+        'code',
+        'descr',
+        'product_category',
+        'unit_price_amt',         // Auto-detected: number (suffix: _amt)
+        'cost_amt',               // Auto-detected: number (suffix: _amt)
+        'unit_of_measure',
+        'on_hand_qty',
+        'reorder_level_qty',
+        'reorder_qty',
+        'taxable_flag',           // Auto-detected: boolean select (suffix: _flag)
+        'supplier_name',          // Auto-detected: text (suffix: _name)
+        'supplier_part_number',
+        'warranty_months'
+      ],
+      {
+        overrides: {
+          name: { label: 'Product Name' },
+          code: { label: 'Product Code (SKU)' },
+          product_category: { label: 'Category' },
+          unit_of_measure: { label: 'Unit of Measure', placeholder: 'each, box, gallon, etc.' }
+        }
+      }
+    ),
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // QUOTE
+  // --------------------------------------------------------------------------
+  quote: {
+    name: 'quote',
+    displayName: 'Quote',
+    pluralName: 'Quotes',
+    apiEndpoint: '/api/v1/quote',
+    shareable: true,
+
+    columns: generateStandardColumns(
+      ['name', 'code', 'dl__quote_stage', 'quote_total_amt', 'customer_name', 'valid_until_date', 'sent_date', 'created_ts'],
+      {
+        overrides: {
+          dl__quote_stage: {
+            title: 'Stage'
+          },
+          quote_total_amt: {
+            title: 'Total',
+            render: (value) => formatCurrency(value)
+          },
+          customer_name: {
+            title: 'Customer'
+          },
+          valid_until_date: {
+            title: 'Valid Until',
+            render: renderDate
+          },
+          sent_date: {
+            title: 'Sent',
+            render: renderDate
+          }
+        }
+      }
+    ),
+
+    // ✅ DRY Pattern: Using field generators for automatic field definitions
+    fields: generateEntityFields(
+      [
+        'name',
+        'code',
+        'descr',
+        'dl__quote_stage',        // Auto-detected: select + loadOptionsFromSettings (prefix: dl__)
+        'customer_name',          // Auto-detected: text (suffix: _name)
+        'customer_email',         // Auto-detected: text (suffix: _email)
+        'customer_phone',         // Auto-detected: text (suffix: _phone)
+        'quote_items',
+        'subtotal_amt',           // Auto-detected: number (suffix: _amt)
+        'discount_pct',           // Auto-detected: number (suffix: _pct)
+        'discount_amt',           // Auto-detected: number (suffix: _amt)
+        'tax_pct',                // Auto-detected: number (suffix: _pct)
+        'quote_tax_amt',          // Auto-detected: number (suffix: _amt)
+        'quote_total_amt',        // Auto-detected: number (suffix: _amt)
+        'valid_until_date',       // Auto-detected: date (suffix: _date)
+        'sent_date',              // Auto-detected: date (suffix: _date)
+        'accepted_date',          // Auto-detected: date (suffix: _date)
+        'rejected_date',          // Auto-detected: date (suffix: _date)
+        'internal_notes',
+        'customer_notes'
+      ],
+      {
+        overrides: {
+          name: { label: 'Quote Name' },
+          code: { label: 'Quote Code' },
+          quote_items: { label: 'Quote Items', type: 'jsonb' },
+          internal_notes: { type: 'textarea' },
+          customer_notes: { type: 'textarea' },
+          discount_pct: { label: 'Discount %' },
+          tax_pct: { label: 'Tax %' }
+        }
+      }
+    ),
+
+    supportedViews: ['table', 'kanban'],
+    defaultView: 'table',
+
+    kanban: {
+      groupByField: 'dl__quote_stage',
+      metaTable: 'dl__quote_stage',
+      cardFields: ['name', 'quote_total_amt', 'customer_name', 'valid_until_date']
+    }
+  },
+
+  // --------------------------------------------------------------------------
+  // WORK ORDER
+  // --------------------------------------------------------------------------
+  work_order: {
+    name: 'work_order',
+    displayName: 'Work Order',
+    pluralName: 'Work Orders',
+    apiEndpoint: '/api/v1/work_order',
+    shareable: true,
+
+    columns: generateStandardColumns(
+      ['name', 'code', 'dl__work_order_status', 'scheduled_date', 'assigned_technician_ids', 'total_cost_amt', 'customer_name', 'customer_signature_flag', 'created_ts'],
+      {
+        overrides: {
+          dl__work_order_status: {
+            title: 'Status'
+          },
+          scheduled_date: {
+            title: 'Scheduled',
+            render: renderDate
+          },
+          assigned_technician_ids: {
+            title: 'Technicians',
+            sortable: false,
+            filterable: false,
+            render: (value, record) => renderEmployeeNames(value, record)
+          },
+          total_cost_amt: {
+            title: 'Total Cost',
+            render: (value) => formatCurrency(value)
+          },
+          customer_name: {
+            title: 'Customer'
+          },
+          customer_signature_flag: {
+            title: 'Signed',
+            render: (value) => value ? '✓' : '-'
+          }
+        }
+      }
+    ),
+
+    // ✅ DRY Pattern: Using field generators for automatic field definitions
+    fields: [
+      ...generateEntityFields(
+        [
+          'name',
+          'code',
+          'descr',
+          'dl__work_order_status',     // Auto-detected: select + loadOptionsFromSettings (prefix: dl__)
+          'scheduled_date',             // Auto-detected: date (suffix: _date)
+          'scheduled_start_time',
+          'scheduled_end_time',
+          'labor_hours',
+          'labor_cost_amt',             // Auto-detected: number (suffix: _amt)
+          'materials_cost_amt',         // Auto-detected: number (suffix: _amt)
+          'total_cost_amt',             // Auto-detected: number (suffix: _amt)
+          'customer_name',              // Auto-detected: text (suffix: _name)
+          'customer_email',             // Auto-detected: text (suffix: _email)
+          'customer_phone',             // Auto-detected: text (suffix: _phone)
+          'service_address_line1',
+          'service_city',
+          'service_postal_code',
+          'customer_signature_flag',    // Auto-detected: boolean select (suffix: _flag)
+          'customer_satisfaction_rating',
+          'completion_notes',
+          'internal_notes'
+        ],
+        {
+          overrides: {
+            name: { label: 'Work Order Name' },
+            code: { label: 'Work Order Code' },
+            dl__work_order_status: { label: 'Status' },
+            service_city: { label: 'City' },
+            service_postal_code: { label: 'Postal Code' },
+            customer_signature_flag: {
+              label: 'Customer Signature',
+              options: [
+                { value: 'true', label: 'Signed' },
+                { value: 'false', label: 'Not Signed' }
+              ]
+            },
+            customer_satisfaction_rating: { label: 'Satisfaction Rating (1-5)' },
+            completion_notes: { type: 'textarea' },
+            internal_notes: { type: 'textarea' }
+          }
+        }
+      ).filter(f => !['metadata', 'created_ts', 'updated_ts'].includes(f.key)),
+      // Add multi-select for technician assignment (similar to task assignees)
+      { key: 'assigned_technician_ids', label: 'Assigned Technicians', type: 'multiselect', loadOptionsFromEntity: 'employee' },
+      // Add back universal fields
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
+    ],
+
+    supportedViews: ['table', 'kanban'],
+    defaultView: 'table',
+
+    kanban: {
+      groupByField: 'dl__work_order_status',
+      metaTable: 'dl__work_order_status',
+      cardFields: ['name', 'scheduled_date', 'assigned_technician_ids', 'total_cost_amt', 'customer_name']
+    }
   }
 };
 

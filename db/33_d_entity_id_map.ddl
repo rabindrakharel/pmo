@@ -3,149 +3,67 @@
 -- Parent-child relationships between specific entity instances (NO FOREIGN KEYS)
 -- =====================================================
 --
--- BUSINESS PURPOSE: LINKAGE TABLE 
--- Maps parent-child relationships between specific entity instances WITHOUT using foreign keys.
--- Enables flexible hierarchies and prevents cascade issues during soft deletes.
--- Powers dynamic tab navigation, filtered child entity queries, and the Linkage Management UI.
--- This table stores ACTUAL instance-to-instance links (e.g., Project A → Task B).
--- For valid TYPE-to-TYPE rules, see d_entity_map (e.g., "project" can contain "task").
---
--- API SEMANTICS & LIFECYCLE:
---
--- 1. CREATE RELATIONSHIP (Link Child to Parent)
---    • Endpoint: POST /api/v1/linkage
---    • Body: {parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type}
---    • Returns: {id: "new-uuid", created_ts: "timestamp"}
---    • Database:
---      INSERT INTO d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
---      VALUES ($1, $2, $3, $4)
---    • Business Rule: Validates against d_entity_map for allowed type combinations
---    • RBAC: Requires edit permission on parent entity AND create permission on child entity type
---
--- 2. CREATE RELATIONSHIP (Implicit on Child Entity Creation)
---    • When: POST /api/v1/task with {project_id: "uuid"}
---    • Database: After task INSERT, auto-creates mapping:
---      INSERT INTO d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
---      VALUES ('project', $project_id, 'task', $new_task_id)
---    • Business Rule: Establishes parent-child link for tab navigation
---
--- 3. QUERY CHILD ENTITIES (Filtered by Parent)
---    • Endpoint: GET /api/v1/project/{id}/task
---    • Database:
---      SELECT t.* FROM d_task t
---      INNER JOIN d_entity_id_map eim ON eim.child_entity_id = t.id::text
---      WHERE eim.parent_entity_id = $1
---        AND eim.parent_entity_type = 'project'
---        AND eim.child_entity_type = 'task'
---        AND eim.active_flag = true
---        AND t.active_flag = true
---      ORDER BY t.created_ts DESC
---    • Frontend: Powers EntityChildListPage filtered views and dynamic tabs
---
--- 4. COUNT CHILD ENTITIES (Tab Badges)
---    • Endpoint: GET /api/v1/project/{id}/child-counts
---    • Database:
---      SELECT
---        eim.child_entity_type,
---        COUNT(*) as count
---      FROM d_entity_id_map eim
---      WHERE eim.parent_entity_id = $1
---        AND eim.parent_entity_type = 'project'
---        AND eim.active_flag = true
---      GROUP BY eim.child_entity_type
---    • Frontend: Renders tab badges like "Tasks (8)", "Wiki (3)", "Forms (2)"
---
--- 5. UPDATE RELATIONSHIP (Change Parent)
---    • Endpoint: PUT /api/v1/linkage/{id}
---    • Body: {parent_entity_id: "new-parent-uuid"}
---    • Returns: {id: "same-uuid", updated_ts: "new-timestamp"}
---    • Database: UPDATE d_entity_id_map SET parent_entity_id=$1, updated_ts=now() WHERE id=$2
---    • SCD Behavior: IN-PLACE UPDATE (same mapping ID)
---    • Business Rule: Moves child to new parent (e.g., reassign task to different project)
---
--- 6. REMOVE RELATIONSHIP (Unlink)
---    • Endpoint: DELETE /api/v1/linkage/{id}
---    • Database: UPDATE d_entity_id_map SET active_flag=false, to_ts=now() WHERE id=$1
---    • Business Rule: Child entity still exists but is no longer linked to parent
---    • Frontend: Child disappears from parent's tab but remains in global entity list
---
--- 7. LIST ALL LINKAGES (Linkage Management Page)
---    • Endpoint: GET /api/v1/linkage?parent_entity_type=project&limit=50
---    • Database:
---      SELECT
---        eim.*,
---        pe.entity_name as parent_name,
---        ce.entity_name as child_name
---      FROM d_entity_id_map eim
---      LEFT JOIN d_entity pe ON pe.entity_id = eim.parent_entity_id::uuid AND pe.entity_type = eim.parent_entity_type
---      LEFT JOIN d_entity ce ON ce.entity_id = eim.child_entity_id::uuid AND ce.entity_type = eim.child_entity_type
---      WHERE eim.active_flag = true
---      ORDER BY eim.created_ts DESC
---      LIMIT $1 OFFSET $2
---    • Frontend: LinkagePage displays all relationships with parent/child names
---
--- 8. GET AVAILABLE CHILDREN (For Linking UI)
---    • Endpoint: GET /api/v1/linkage/available-children?parent_entity_type=project&parent_entity_id={uuid}&child_entity_type=task
---    • Database:
---      SELECT t.* FROM d_task t
---      WHERE t.active_flag = true
---        AND NOT EXISTS (
---          SELECT 1 FROM d_entity_id_map eim
---          WHERE eim.child_entity_id = t.id::text
---            AND eim.child_entity_type = 'task'
---            AND eim.parent_entity_type = 'project'
---            AND eim.parent_entity_id = $1
---            AND eim.active_flag = true
---        )
---    • Business Rule: Shows only unlinked entities that can be added
---    • Frontend: Dropdown of available children in LinkagePage
---
--- 9. SOFT DELETE HANDLING (Parent Entity Deletion)
---    • When: DELETE /api/v1/project/{id}
---    • Database: Parent soft delete optionally deactivates mappings:
---      UPDATE d_entity_id_map SET active_flag = false, to_ts=now() WHERE parent_entity_id = $1
---    • Business Rule: Child entities remain accessible; can be reassigned to new parent
---    • Alternative: Keep mappings active to preserve relationship history
---
--- KEY FIELDS:
--- • parent_entity_type: 'project', 'biz', 'office', 'client', 'task', 'form', 'role'
--- • parent_entity_id: TEXT (UUID as string) of parent entity instance
--- • child_entity_type: 'task', 'wiki', 'artifact', 'form', 'employee', etc.
--- • child_entity_id: TEXT (UUID as string) of child entity instance
--- • relationship_type: Descriptive label ('owns', 'contains', 'hosts', 'documents')
--- • from_ts: Relationship creation timestamp (never modified)
--- • to_ts: Relationship end timestamp (NULL=active, timestamptz=deleted)
--- • active_flag: Soft delete flag (true=active, false=deleted)
--- • created_ts: Original creation time (never modified)
--- • updated_ts: Last modification time (refreshed on UPDATE)
---
--- VALID PARENT-CHILD RELATIONSHIPS:
--- (Enforced by d_entity_map validation)
---   PARENT ENTITY     → CHILD ENTITIES
---   =====================================
---   business (biz)    → project
---   project           → task, artifact, wiki, form
---   office            → task, artifact, wiki, form, business
---   client            → project, artifact, form
---   role              → employee
---   task              → form, artifact, employee (assignees)
---   form              → artifact
+-- SEMANTICS:
+-- Maps parent-child relationships between entity INSTANCES without foreign keys.
+-- Enables flexible hierarchies, prevents cascade deletes, powers dynamic tabs and filtered queries.
+-- Example: Project A (parent) → Task B (child), Business C → Project A
 --
 -- WHY NO FOREIGN KEYS?
--- • Flexibility: Can link entities across schemas/databases
--- • Soft Deletes: Parent deletion doesn't cascade to children
--- • Versioning: Supports temporal relationships with from_ts/to_ts
--- • Multi-tenancy: Can partition by tenant without FK constraints
+-- • Flexibility: Link entities across schemas/databases without constraints
+-- • Soft Deletes: Parent deletion doesn't cascade-delete children
+-- • Temporal: Supports relationship versioning with from_ts/to_ts
 -- • Performance: Avoids FK validation overhead on high-volume inserts
 --
--- LINKAGE PAGE UI WORKFLOW:
--- 1. User selects parent entity type(s) (multi-select: project, office, client)
--- 2. System shows valid child types based on d_entity_map rules
--- 3. User selects specific parent entity instance from dropdown
--- 4. User selects child entity type (task, artifact, wiki, form)
--- 5. System shows available unlinked children of that type
--- 6. User selects children to link and submits
--- 7. System creates d_entity_id_map entries for each link
+-- DATABASE BEHAVIOR:
+-- • CREATE LINK: INSERT relationship when child entity is created or explicitly linked
+--   Example: INSERT INTO d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
+--            VALUES ('project', '93106ffb-...', 'task', 'a2222222-...')
+--
+-- • QUERY CHILDREN: JOIN to filter child entities by parent
+--   Example: SELECT t.* FROM d_task t
+--            INNER JOIN d_entity_id_map eim ON eim.child_entity_id = t.id::text
+--            WHERE eim.parent_entity_id = '93106ffb-...' AND eim.parent_entity_type = 'project'
+--              AND eim.child_entity_type = 'task' AND eim.active_flag = true
+--
+-- • COUNT CHILDREN: Aggregate for tab badges
+--   Example: SELECT child_entity_type, COUNT(*) FROM d_entity_id_map
+--            WHERE parent_entity_id = '93106ffb-...' AND active_flag = true
+--            GROUP BY child_entity_type
+--            → Results: task: 8, wiki: 3, form: 2
+--
+-- • UNLINK: Soft delete relationship (child entity remains accessible)
+--   Example: UPDATE d_entity_id_map SET active_flag = false, to_ts = now()
+--            WHERE parent_entity_id = '93106ffb-...' AND child_entity_id = 'a2222222-...'
+--
+-- • REASSIGN: Update parent_entity_id to move child to new parent
+--   Example: UPDATE d_entity_id_map SET parent_entity_id = 'new-project-uuid', updated_ts = now()
+--            WHERE child_entity_id = 'a2222222-...'
+--
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY
+-- • parent_entity_type: varchar(20) NOT NULL ('project', 'business', 'office', 'client', ...)
+-- • parent_entity_id: text NOT NULL (UUID as text: '93106ffb-402e-...')
+-- • child_entity_type: varchar(20) NOT NULL ('task', 'wiki', 'artifact', 'form', 'employee', ...)
+-- • child_entity_id: text NOT NULL (UUID as text: 'a2222222-2222-...')
+-- • relationship_type: varchar(50) ('contains', 'owns', 'hosts', 'documents', 'assigned_to')
+-- • active_flag: boolean DEFAULT true (soft delete control)
+-- • UNIQUE(parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
+--
+-- VALID PARENT-CHILD RELATIONSHIPS:
+--   PARENT         → CHILDREN
+--   ==================================
+--   business       → project
+--   project        → task, artifact, wiki, form
+--   office         → business, task, artifact, wiki, form
+--   client         → project, artifact, form
+--   role           → employee
+--   task           → form, artifact, employee (assignees)
+--   form           → artifact
+--
+-- FRONTEND INTEGRATION:
+-- • EntityDetailPage: Dynamic tabs with child counts (Tasks (8), Wiki (3), Forms (2))
+-- • EntityChildListPage: Filtered child list views
+-- • LinkagePage: UI for creating/removing relationships
 --
 -- =====================================================
 
@@ -230,3 +148,25 @@ VALUES
     ('task', 'd1111111-1111-1111-1111-111111111111', 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 'assigned_to'),
     ('task', 'e1111111-1111-1111-1111-111111111111', 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 'assigned_to'),
     ('task', 'f1111111-1111-1111-1111-111111111111', 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 'assigned_to');
+
+-- Task → Quote relationships
+-- Quotes are children of tasks
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+VALUES
+    ('task', 'a2222222-2222-2222-2222-222222222222', 'quote', 'q1111111-1111-1111-1111-111111111111', 'contains'),
+    ('task', 'b1111111-1111-1111-1111-111111111111', 'quote', 'q1111112-1111-1111-1111-111111111112', 'contains'),
+    ('task', 'c1111111-1111-1111-1111-111111111111', 'quote', 'q2222221-2222-2222-2222-222222222221', 'contains'),
+    ('task', 'd1111111-1111-1111-1111-111111111111', 'quote', 'q3333331-3333-3333-3333-333333333331', 'contains'),
+    ('task', 'b2222222-2222-2222-2222-222222222222', 'quote', 'q4444441-4444-4444-4444-444444444441', 'contains'),
+    ('task', 'e1111111-1111-1111-1111-111111111111', 'quote', 'q5555551-5555-5555-5555-555555555551', 'contains');
+
+-- Task → Work Order relationships
+-- Work orders are children of tasks
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+VALUES
+    ('task', 'a2222222-2222-2222-2222-222222222222', 'work_order', 'w1111111-1111-1111-1111-111111111111', 'contains'),
+    ('task', 'b1111111-1111-1111-1111-111111111111', 'work_order', 'w1111112-1111-1111-1111-111111111112', 'contains'),
+    ('task', 'c1111111-1111-1111-1111-111111111111', 'work_order', 'w2222221-2222-2222-2222-222222222221', 'contains'),
+    ('task', 'd1111111-1111-1111-1111-111111111111', 'work_order', 'w3333331-3333-3333-3333-333333333331', 'contains'),
+    ('task', 'e1111111-1111-1111-1111-111111111111', 'work_order', 'w4444441-4444-4444-4444-444444444441', 'contains'),
+    ('task', 'b2222222-2222-2222-2222-222222222222', 'work_order', 'w5555551-5555-5555-5555-555555555551', 'contains');

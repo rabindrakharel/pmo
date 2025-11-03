@@ -3,17 +3,40 @@
 -- Task management with Kanban workflow, assignments, and estimation
 -- =====================================================
 --
--- BUSINESS PURPOSE:
--- Tracks individual work items within projects. Supports Kanban workflow (stages),
--- priority levels, time estimation, team assignments, and task dependencies.
--- Primary child entity of projects; displayed in table and Kanban board views.
+-- SEMANTICS:
+-- Tasks are individual work items with workflow stages, priorities, and time tracking.
+-- Displayed in Kanban boards with drag-drop stage transitions.
+-- Each task has stable UUID, in-place updates (no archival), supports child entities.
 --
--- API SEMANTICS & LIFECYCLE:
+-- DATABASE BEHAVIOR:
+-- • CREATE: INSERT with version=1, active_flag=true
+--   Example: INSERT INTO d_task (id, code, name, dl__task_stage, dl__task_priority, estimated_hours)
+--            VALUES ('a2222222-...', 'DT-TASK-002', 'Vendor Evaluation', 'Planning', 'critical', 60.0)
 --
--- 1. CREATE TASK
---    • Endpoint: POST /api/v1/task
---    • Body: {name, code, project_id, dl__task_stage, priority_level, assignee_employee_ids, ...}
---    • Returns: {id: "new-uuid", version: 1, ...}
+-- • UPDATE: Same ID, version++, updated_ts refreshes
+--   Example: UPDATE d_task SET dl__task_stage='In Progress', actual_hours=15.0, version=version+1
+--            WHERE id='a2222222-...'
+--
+-- • SOFT DELETE: active_flag=false, to_ts=now()
+--   Example: UPDATE d_task SET active_flag=false, to_ts=now() WHERE id='a2222222-...'
+--
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY (stable, never changes)
+-- • code: varchar(50) UNIQUE NOT NULL ('DT-TASK-002')
+-- • dl__task_stage: text (setting_datalabel: 'Backlog', 'Planning', 'In Progress', 'Completed', ...)
+-- • dl__task_priority: text (setting_datalabel: 'low', 'medium', 'high', 'critical')
+-- • estimated_hours, actual_hours: numeric(10,2) (time tracking)
+-- • story_points: integer (agile estimation)
+-- • internal_url, shared_url: text (navigation and sharing)
+--
+-- RELATIONSHIPS (NO FOREIGN KEYS):
+-- • Parent: project (via metadata.project_id or d_entity_id_map)
+-- • Children: artifact, form, employee (assignees via d_entity_id_map)
+--
+-- DATALABEL INTEGRATION:
+-- • dl__task_stage: setting_datalabel WHERE datalabel_name='dl__task_stage'
+-- • dl__task_priority: setting_datalabel WHERE datalabel_name='dl__task_priority'
+-- • Frontend renders: Kanban columns by stage, colored priority badges
 --
 -- =====================================================
 

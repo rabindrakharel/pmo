@@ -1,78 +1,56 @@
 -- =====================================================
 -- FORM ENTITY (d_form_head) - HEAD TABLE
--- Advanced multi-step form definitions with in-place versioning
+-- Multi-step form definitions with JSONB schemas and public/internal URLs
 -- =====================================================
 --
--- BUSINESS PURPOSE:
--- Stores form templates (schemas) that define multi-step data collection workflows.
--- Each form has a stable ID that never changes, enabling public URLs and stable references.
--- Forms can be edited/published multiple times; version tracks schema iterations.
+-- SEMANTICS:
+-- Forms are dynamic data collection templates with multi-step JSONB schemas.
+-- Each form has stable UUID and TWO URLs: internal (auth required) and shared (public, 8-char code).
+-- Updates are in-place (same ID, version++), enabling stable URLs while tracking schema evolution.
+-- Submissions (d_form_data) reference form_id; old submissions preserve original schema structure.
 --
--- API SEMANTICS & LIFECYCLE:
+-- DATABASE BEHAVIOR:
+-- • CREATE: INSERT with version=1, generates internal + shared URLs
+--   Example: INSERT INTO d_form_head (id, name, internal_url, shared_url, form_schema)
+--            VALUES ('ee8a6cfd-...', 'Landscapingform', '/form/ee8a6cfd-...', '/form/aB3xK9mZ',
+--                    '{"steps": [{"id": "step-1", "fields": [...]}]}'::jsonb)
 --
--- 1. CREATE NEW FORM
---    • Endpoint: POST /api/v1/form
---    • Body: {name, form_schema: {steps: [...]}}
---    • Returns: {id: "new-uuid", version: 1, internal_url: "/form/{id}", shared_url: "/form/{8-char-random}"}
---    • Database: INSERT with version=1, active_flag=true, created_ts=now()
---    • Business Rule: ID and URLs are permanent; form_schema defines structure
---    • Shared URL: 8-character alphanumeric (mixed case) code for public sharing without authentication.
---                 Works as a presigned URL that allows anyone to fill the form directly.
---                 Internal URL requires authentication for editing/management.
+-- • UPDATE: Same ID, version++, form_schema overwritten (NO archival)
+--   Example: UPDATE d_form_head SET form_schema='{"steps": [...]}'::jsonb, version=version+1
+--            WHERE id='ee8a6cfd-...'
 --
--- 2. UPDATE FORM SCHEMA (Draft Auto-Save OR Schema Change)
---    • Endpoint: PUT /api/v1/form/{id}
---    • Body: {form_schema: {steps: [...]}, name, descr}
---    • Returns: {id: "same-uuid", version: 2}
---    • Database: UPDATE SET form_schema=$1, version=version+1, updated_ts=now() WHERE id=$2
---    • SCD Behavior: IN-PLACE UPDATE (NOT Type 2)
---      - Same ID (critical for stable public URLs)
---      - version increments (1 → 2 → 3...)
---      - updated_ts refreshed
---      - Old schema OVERWRITTEN (no archival)
---    • Business Rule: Both URLs (internal and shared) remain valid; submissions use latest schema
+-- • SOFT DELETE: active_flag=false, to_ts=now(), disables both URLs
+--   Example: UPDATE d_form_head SET active_flag=false, to_ts=now() WHERE id='ee8a6cfd-...'
 --
--- 3. SOFT DELETE FORM
---    • Endpoint: DELETE /api/v1/form/{id}
---    • Database: UPDATE SET active_flag=false, to_ts=now() WHERE id=$1
---    • Business Rule: Form hidden from lists; both internal and shared URLs disabled; existing submissions preserved
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY (stable, never changes - critical for URL permanence)
+-- • slug, code: varchar(50/100) (NO unique constraint - reusable identifiers)
+-- • internal_url: varchar(500) (/form/{uuid} - auth required for editing)
+-- • shared_url: varchar(500) (/form/{8-char-random} - public presigned URL, no auth)
+-- • form_schema: jsonb (multi-step structure: {"steps": [{"id", "name", "fields": [...]}]})
+-- • form_type: varchar(50) DEFAULT 'multi_step'
+-- • version: integer DEFAULT 1 (increments on schema updates)
 --
--- 4. LIST FORMS
---    • Endpoint: GET /api/v1/form
---    • Query: ?active=true (default), ?project_id={uuid}
---    • Database: SELECT * FROM d_form_head WHERE active_flag=true ORDER BY updated_ts DESC
---    • RBAC: Filtered by entity_id_rbac_map (permission 0=view required)
+-- FORM SCHEMA STRUCTURE:
+-- {
+--   "steps": [
+--     {
+--       "id": "step-1", "name": "step_1", "title": "General Information",
+--       "fields": [
+--         {"name": "text_1760648879230", "label": "Text Input", "type": "text", "required": false},
+--         {"name": "datatable_1760648887217", "type": "datatable", "dataTableColumns": [...]}
+--       ]
+--     }
+--   ]
+-- }
 --
--- 5. GET SINGLE FORM
---    • Endpoint: GET /api/v1/form/{id}
---    • Database: SELECT * FROM d_form_head WHERE id=$1 AND active_flag=true
---    • RBAC: Checks entity_id_rbac_map for view permission
---    • Frontend Usage: FormBuilder component renders form_schema as editable steps
+-- RELATIONSHIPS (NO FOREIGN KEYS):
+-- • Parent: project (via metadata.primary_entity_id or d_entity_id_map)
+-- • Children: d_form_data (submissions), artifact (attachments)
 --
--- 6. PUBLIC FORM ACCESS (SHARED URL)
---    • Endpoint: GET /form/{8-char-code} (NO AUTH REQUIRED)
---    • Database: SELECT id, name, form_schema, shared_url FROM d_form_head WHERE shared_url LIKE '%{code}' AND active_flag=true
---    • Returns: Public-facing form for submissions (InteractiveForm component)
---    • Shared URL Behavior: Presigned URL for internet sharing. Anyone with the link can access and fill
---                           the form without authentication. Internal URL requires login for form management.
---
--- KEY SCD FIELDS:
--- • id: NEVER changes (stable public URL reference)
--- • version: Increments on schema updates (audit trail of changes)
--- • from_ts: Original creation timestamp (never modified)
--- • updated_ts: Last modification timestamp (refreshed on every UPDATE)
--- • to_ts: Soft delete timestamp (NULL = active, timestamptz = deleted)
--- • active_flag: Soft delete flag (true = active, false = deleted)
---
--- RELATIONSHIP TO d_form_data:
--- • Form submissions (d_form_data) reference form_id via FK
--- • When form schema changes (version++), NEW submissions use new schema
--- • OLD submissions retain their original submission_data structure
--- • No cascade updates to existing submissions
---
--- NO UNIQUE CONSTRAINTS:
--- • slug/code are NOT unique (allows reuse across forms without conflicts)
--- • Only id is guaranteed unique (primary key)
+-- URL ACCESS MODES:
+-- • Internal URL (/form/{uuid}): Requires authentication, enables editing/management
+-- • Shared URL (/form/{8-char-code}): Public presigned URL, anyone can submit, no auth
 --
 -- =====================================================
 

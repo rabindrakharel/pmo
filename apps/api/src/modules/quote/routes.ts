@@ -4,59 +4,69 @@ import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import { filterUniversalColumns } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
 
-const ProductSchema = Type.Object({
+const QuoteSchema = Type.Object({
   id: Type.String(),
   code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Any()),
-  product_category: Type.Optional(Type.String()),
-  unit_price_amt: Type.Optional(Type.Number()),
-  cost_amt: Type.Optional(Type.Number()),
-  unit_of_measure: Type.Optional(Type.String()),
-  on_hand_qty: Type.Optional(Type.Number()),
-  reorder_level_qty: Type.Optional(Type.Number()),
-  taxable_flag: Type.Optional(Type.Boolean()),
-  supplier_name: Type.Optional(Type.String()),
+  dl__quote_stage: Type.Optional(Type.String()),
+  quote_items: Type.Optional(Type.Any()),
+  subtotal_amt: Type.Optional(Type.Number()),
+  discount_pct: Type.Optional(Type.Number()),
+  discount_amt: Type.Optional(Type.Number()),
+  tax_pct: Type.Optional(Type.Number()),
+  quote_tax_amt: Type.Optional(Type.Number()),
+  quote_total_amt: Type.Optional(Type.Number()),
+  valid_until_date: Type.Optional(Type.String()),
+  customer_name: Type.Optional(Type.String()),
+  customer_email: Type.Optional(Type.String()),
+  customer_phone: Type.Optional(Type.String()),
   active_flag: Type.Optional(Type.Boolean()),
   created_ts: Type.Optional(Type.String()),
   updated_ts: Type.Optional(Type.String()),
 });
 
-const CreateProductSchema = Type.Object({
-  code: Type.Optional(Type.String({ minLength: 1 })),
-  name: Type.Optional(Type.String({ minLength: 1 })),
-  descr: Type.Optional(Type.String()),
-  metadata: Type.Optional(Type.Any()),
-  product_category: Type.Optional(Type.String()),
-  unit_price_amt: Type.Optional(Type.Number()),
-  cost_amt: Type.Optional(Type.Number()),
-  unit_of_measure: Type.Optional(Type.String()),
-  on_hand_qty: Type.Optional(Type.Number()),
-  reorder_level_qty: Type.Optional(Type.Number()),
-  taxable_flag: Type.Optional(Type.Boolean()),
-  supplier_name: Type.Optional(Type.String()),
-  active_flag: Type.Optional(Type.Boolean()),
-});
+const CreateQuoteSchema = Type.Partial(Type.Object({
+  code: Type.String({ minLength: 1 }),
+  name: Type.String({ minLength: 1 }),
+  descr: Type.String(),
+  metadata: Type.Any(),
+  dl__quote_stage: Type.String(),
+  quote_items: Type.Any(),
+  subtotal_amt: Type.Number(),
+  discount_pct: Type.Number(),
+  discount_amt: Type.Number(),
+  tax_pct: Type.Number(),
+  quote_tax_amt: Type.Number(),
+  quote_total_amt: Type.Number(),
+  valid_until_date: Type.String({ format: 'date' }),
+  customer_name: Type.String(),
+  customer_email: Type.String(),
+  customer_phone: Type.String(),
+  internal_notes: Type.String(),
+  customer_notes: Type.String(),
+}));
 
-const UpdateProductSchema = Type.Partial(CreateProductSchema);
+const UpdateQuoteSchema = Type.Partial(CreateQuoteSchema);
 
-export async function productRoutes(fastify: FastifyInstance) {
-  // List products
-  fastify.get('/api/v1/product', {
+export async function quoteRoutes(fastify: FastifyInstance) {
+  // List quotes
+  fastify.get('/api/v1/quote', {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         active: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
-        product_category: Type.Optional(Type.String()),
+        dl__quote_stage: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
       response: {
         200: Type.Object({
-          data: Type.Array(ProductSchema),
+          data: Type.Array(QuoteSchema),
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),
@@ -64,7 +74,7 @@ export async function productRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { active, search, product_category, limit = 50, offset = 0 } = request.query as any;
+    const { active, search, dl__quote_stage, limit = 50, offset = 0 } = request.query as any;
     const userId = (request as any).user?.sub;
 
     if (!userId) {
@@ -76,8 +86,8 @@ export async function productRoutes(fastify: FastifyInstance) {
         sql`EXISTS (
           SELECT 1 FROM app.entity_id_rbac_map rbac
           WHERE rbac.empid = ${userId}
-            AND rbac.entity = 'product'
-            AND (rbac.entity_id = p.id::text OR rbac.entity_id = 'all')
+            AND rbac.entity = 'quote'
+            AND (rbac.entity_id = q.id::text OR rbac.entity_id = 'all')
             AND rbac.active_flag = true
             AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
             AND 0 = ANY(rbac.permission)
@@ -87,45 +97,46 @@ export async function productRoutes(fastify: FastifyInstance) {
       const conditions = [...baseConditions];
 
       if (active !== undefined) {
-        conditions.push(sql`p.active_flag = ${active}`);
+        conditions.push(sql`q.active_flag = ${active}`);
       }
 
-      if (product_category) {
-        conditions.push(sql`p.product_category = ${product_category}`);
+      if (dl__quote_stage) {
+        conditions.push(sql`q.dl__quote_stage = ${dl__quote_stage}`);
       }
 
       if (search) {
         conditions.push(sql`(
-          p.name ILIKE ${`%${search}%`} OR
-          p.descr ILIKE ${`%${search}%`} OR
-          p.code ILIKE ${`%${search}%`}
+          q.name ILIKE ${`%${search}%`} OR
+          q.descr ILIKE ${`%${search}%`} OR
+          q.code ILIKE ${`%${search}%`} OR
+          q.customer_name ILIKE ${`%${search}%`}
         )`);
       }
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.d_product p
+        FROM app.fact_quote q
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
 
-      const products = await db.execute(sql`
+      const quotes = await db.execute(sql`
         SELECT *
-        FROM app.d_product p
+        FROM app.fact_quote q
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY p.name ASC NULLS LAST
+        ORDER BY q.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return { data: products, total, limit, offset };
+      return { data: quotes, total, limit, offset };
     } catch (error) {
-      fastify.log.error('Error fetching products:', error);
+      fastify.log.error('Error fetching quotes:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Get single product
-  fastify.get('/api/v1/product/:id', {
+  // Get single quote
+  fastify.get('/api/v1/quote/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
@@ -141,7 +152,7 @@ export async function productRoutes(fastify: FastifyInstance) {
     const access = await db.execute(sql`
       SELECT 1 FROM app.entity_id_rbac_map rbac
       WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'product'
+        AND rbac.entity = 'quote'
         AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
@@ -153,25 +164,25 @@ export async function productRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const product = await db.execute(sql`
-        SELECT * FROM app.d_product WHERE id = ${id}
+      const quote = await db.execute(sql`
+        SELECT * FROM app.fact_quote WHERE id = ${id}
       `);
 
-      if (product.length === 0) {
-        return reply.status(404).send({ error: 'Product not found' });
+      if (quote.length === 0) {
+        return reply.status(404).send({ error: 'Quote not found' });
       }
 
-      return product[0];
+      return quote[0];
     } catch (error) {
-      fastify.log.error('Error fetching product:', error);
+      fastify.log.error('Error fetching quote:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Create product
-  fastify.post('/api/v1/product', {
+  // Create quote
+  fastify.post('/api/v1/quote', {
     preHandler: [fastify.authenticate],
-    schema: { body: CreateProductSchema },
+    schema: { body: CreateQuoteSchema },
   }, async (request, reply) => {
     const data = request.body as any;
     const userId = (request as any).user?.sub;
@@ -181,12 +192,12 @@ export async function productRoutes(fastify: FastifyInstance) {
     }
 
     if (!data.name) data.name = 'Untitled';
-    if (!data.code) data.code = `PRD-${Date.now()}`;
+    if (!data.code) data.code = `QT-${Date.now()}`;
 
     const access = await db.execute(sql`
       SELECT 1 FROM app.entity_id_rbac_map rbac
       WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'product'
+        AND rbac.entity = 'quote'
         AND rbac.entity_id = 'all'
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
@@ -199,48 +210,52 @@ export async function productRoutes(fastify: FastifyInstance) {
 
     try {
       const result = await db.execute(sql`
-        INSERT INTO app.d_product (
+        INSERT INTO app.fact_quote (
           code, name, descr, metadata,
-          product_category, unit_price_amt, cost_amt, unit_of_measure,
-          on_hand_qty, reorder_level_qty, taxable_flag, supplier_name,
-          active_flag
+          dl__quote_stage, quote_items,
+          subtotal_amt, discount_pct, discount_amt, tax_pct, quote_tax_amt, quote_total_amt,
+          valid_until_date, customer_name, customer_email, customer_phone,
+          internal_notes, customer_notes, active_flag
         )
         VALUES (
           ${data.code}, ${data.name}, ${data.descr || null},
           ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
-          ${data.product_category || null}, ${data.unit_price_amt || null},
-          ${data.cost_amt || null}, ${data.unit_of_measure || 'each'},
-          ${data.on_hand_qty || 0}, ${data.reorder_level_qty || 0},
-          ${data.taxable_flag !== false}, ${data.supplier_name || null},
+          ${data.dl__quote_stage || 'Draft'},
+          ${data.quote_items ? JSON.stringify(data.quote_items) : '[]'}::jsonb,
+          ${data.subtotal_amt || 0}, ${data.discount_pct || 0}, ${data.discount_amt || 0},
+          ${data.tax_pct || 13.00}, ${data.quote_tax_amt || 0}, ${data.quote_total_amt || 0},
+          ${data.valid_until_date || null}, ${data.customer_name || null},
+          ${data.customer_email || null}, ${data.customer_phone || null},
+          ${data.internal_notes || null}, ${data.customer_notes || null},
           true
         )
         RETURNING *
       `);
 
-      const newProduct = result[0] as any;
+      const newQuote = result[0] as any;
 
       await db.execute(sql`
         INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
-        VALUES ('product', ${newProduct.id}::uuid, ${newProduct.name}, ${newProduct.code})
+        VALUES ('quote', ${newQuote.id}::uuid, ${newQuote.name}, ${newQuote.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name, entity_code = EXCLUDED.entity_code, updated_ts = NOW()
       `);
 
-      return reply.status(201).send(filterUniversalColumns(newProduct, {
+      return reply.status(201).send(filterUniversalColumns(newQuote, {
         canSeePII: true, canSeeFinancial: true, canSeeSystemFields: true, canSeeSafetyInfo: true
       }));
     } catch (error) {
-      fastify.log.error('Error creating product:', error);
+      fastify.log.error('Error creating quote:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Update product
-  fastify.put('/api/v1/product/:id', {
+  // Update quote
+  fastify.put('/api/v1/quote/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-      body: UpdateProductSchema,
+      body: UpdateQuoteSchema,
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
@@ -254,7 +269,7 @@ export async function productRoutes(fastify: FastifyInstance) {
     const access = await db.execute(sql`
       SELECT 1 FROM app.entity_id_rbac_map rbac
       WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'product'
+        AND rbac.entity = 'quote'
         AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
@@ -266,9 +281,9 @@ export async function productRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const existing = await db.execute(sql`SELECT id FROM app.d_product WHERE id = ${id}`);
+      const existing = await db.execute(sql`SELECT id FROM app.fact_quote WHERE id = ${id}`);
       if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Product not found' });
+        return reply.status(404).send({ error: 'Quote not found' });
       }
 
       const updateFields = [];
@@ -276,15 +291,20 @@ export async function productRoutes(fastify: FastifyInstance) {
       if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
       if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
       if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
-      if (data.product_category !== undefined) updateFields.push(sql`product_category = ${data.product_category}`);
-      if (data.unit_price_amt !== undefined) updateFields.push(sql`unit_price_amt = ${data.unit_price_amt}`);
-      if (data.cost_amt !== undefined) updateFields.push(sql`cost_amt = ${data.cost_amt}`);
-      if (data.unit_of_measure !== undefined) updateFields.push(sql`unit_of_measure = ${data.unit_of_measure}`);
-      if (data.on_hand_qty !== undefined) updateFields.push(sql`on_hand_qty = ${data.on_hand_qty}`);
-      if (data.reorder_level_qty !== undefined) updateFields.push(sql`reorder_level_qty = ${data.reorder_level_qty}`);
-      if (data.taxable_flag !== undefined) updateFields.push(sql`taxable_flag = ${data.taxable_flag}`);
-      if (data.supplier_name !== undefined) updateFields.push(sql`supplier_name = ${data.supplier_name}`);
-      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
+      if (data.dl__quote_stage !== undefined) updateFields.push(sql`dl__quote_stage = ${data.dl__quote_stage}`);
+      if (data.quote_items !== undefined) updateFields.push(sql`quote_items = ${JSON.stringify(data.quote_items)}::jsonb`);
+      if (data.subtotal_amt !== undefined) updateFields.push(sql`subtotal_amt = ${data.subtotal_amt}`);
+      if (data.discount_pct !== undefined) updateFields.push(sql`discount_pct = ${data.discount_pct}`);
+      if (data.discount_amt !== undefined) updateFields.push(sql`discount_amt = ${data.discount_amt}`);
+      if (data.tax_pct !== undefined) updateFields.push(sql`tax_pct = ${data.tax_pct}`);
+      if (data.quote_tax_amt !== undefined) updateFields.push(sql`quote_tax_amt = ${data.quote_tax_amt}`);
+      if (data.quote_total_amt !== undefined) updateFields.push(sql`quote_total_amt = ${data.quote_total_amt}`);
+      if (data.valid_until_date !== undefined) updateFields.push(sql`valid_until_date = ${data.valid_until_date}`);
+      if (data.customer_name !== undefined) updateFields.push(sql`customer_name = ${data.customer_name}`);
+      if (data.customer_email !== undefined) updateFields.push(sql`customer_email = ${data.customer_email}`);
+      if (data.customer_phone !== undefined) updateFields.push(sql`customer_phone = ${data.customer_phone}`);
+      if (data.internal_notes !== undefined) updateFields.push(sql`internal_notes = ${data.internal_notes}`);
+      if (data.customer_notes !== undefined) updateFields.push(sql`customer_notes = ${data.customer_notes}`);
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
@@ -293,7 +313,7 @@ export async function productRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_product
+        UPDATE app.fact_quote
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -303,11 +323,14 @@ export async function productRoutes(fastify: FastifyInstance) {
         canSeePII: true, canSeeFinancial: true, canSeeSystemFields: true, canSeeSafetyInfo: true
       });
     } catch (error) {
-      fastify.log.error('Error updating product:', error);
+      fastify.log.error('Error updating quote:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Delete product
-  createEntityDeleteEndpoint(fastify, 'product');
+  // Delete quote
+  createEntityDeleteEndpoint(fastify, 'quote');
+
+  // Child entities - quotes can have associated work orders
+  createChildEntityEndpoint(fastify, 'quote', 'work_order', 'fact_work_order');
 }

@@ -672,6 +672,33 @@ export const marketingApi = {
 };
 
 // Product & Operations APIs
+export const serviceApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; service_category?: string }) {
+    const response = await apiClient.get('/api/v1/service', { params });
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/service/${id}`);
+    return response.data;
+  },
+
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/service', data);
+    return response.data;
+  },
+
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/service/${id}`, data);
+    return response.data;
+  },
+
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/service/${id}`);
+    return response.data;
+  },
+};
+
 export const productApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; department?: string }) {
     const response = await apiClient.get('/api/v1/product', { params });
@@ -695,6 +722,66 @@ export const productApi = {
 
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/product/${id}`);
+    return response.data;
+  },
+};
+
+export const quoteApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; dl__quote_stage?: string }) {
+    const response = await apiClient.get('/api/v1/quote', { params });
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/quote/${id}`);
+    return response.data;
+  },
+
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/quote', data);
+    return response.data;
+  },
+
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/quote/${id}`, data);
+    return response.data;
+  },
+
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/quote/${id}`);
+    return response.data;
+  },
+
+  // Child entity: work orders
+  async getWorkOrders(quoteId: string, params?: { page?: number; pageSize?: number }) {
+    const response = await apiClient.get(`/api/v1/quote/${quoteId}/work_order`, { params });
+    return response.data;
+  },
+};
+
+export const workOrderApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; dl__work_order_status?: string }) {
+    const response = await apiClient.get('/api/v1/work_order', { params });
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/work_order/${id}`);
+    return response.data;
+  },
+
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/work_order', data);
+    return response.data;
+  },
+
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/work_order/${id}`, data);
+    return response.data;
+  },
+
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/work_order/${id}`);
     return response.data;
   },
 };
@@ -947,7 +1034,10 @@ APIFactory.register('worksite', worksiteApi);
 APIFactory.register('marketing', marketingApi);
 
 // Product & Operations
+APIFactory.register('service', serviceApi);
 APIFactory.register('product', productApi);
+APIFactory.register('quote', quoteApi);
+APIFactory.register('work_order', workOrderApi);
 APIFactory.register('inventory', inventoryApi);
 APIFactory.register('order', orderApi);
 APIFactory.register('invoice', invoiceApi);

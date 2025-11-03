@@ -27,7 +27,10 @@ import s3BackendRoutes from './s3-backend/routes.js';
 import { workflowAutomationRoutes } from './workflow-automation/routes.js';
 
 // Product & Operations API modules
+import { serviceRoutes } from './service/routes.js';
 import { productRoutes } from './product/routes.js';
+import { quoteRoutes } from './quote/routes.js';
+import { workOrderRoutes } from './work_order/routes.js';
 import { inventoryRoutes } from './inventory/routes.js';
 import { orderRoutes } from './order/routes.js';
 import { shipmentRoutes } from './shipment/routes.js';
@@ -114,7 +117,10 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await workflowAutomationRoutes(fastify);
 
   // Product & Operations API routes
+  await serviceRoutes(fastify);
   await productRoutes(fastify);
+  await quoteRoutes(fastify);
+  await workOrderRoutes(fastify);
   await inventoryRoutes(fastify);
   await orderRoutes(fastify);
   await shipmentRoutes(fastify);

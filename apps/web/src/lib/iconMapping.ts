@@ -21,6 +21,8 @@ import {
   BarChart,
   DollarSign,
   TrendingUp,
+  Wrench,
+  ClipboardCheck,
   type LucideIcon
 } from 'lucide-react';
 
@@ -44,6 +46,8 @@ const iconMap: Record<string, LucideIcon> = {
   'BarChart': BarChart,
   'DollarSign': DollarSign,
   'TrendingUp': TrendingUp,
+  'Wrench': Wrench,
+  'ClipboardCheck': ClipboardCheck,
 };
 
 /**

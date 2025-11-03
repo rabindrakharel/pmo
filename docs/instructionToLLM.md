@@ -1,13 +1,10 @@
 documentation:
 Imagine you are a staff, advanced software engineer and solutions architect; Since you made a lot of structural design patterns, reusable patterns, and architectural changes, I want you to pinpoint existing documentation which are now updated because of your recent changes. Pinpoint the changes that you need to update and make sure you coherently and structurally update existing documentation to reflect the current state in accordance with the changes that you made.
 
-You are writing this to another staff software engineer or solutions architect,
+You are writing this to another LLM agent who is  highly technical staff architect and engineer
 
-Only the current state needs to be documented. Old state doesn't have to be there.
+Access how current state of things work, understand the current state of truth, and document coherent system architecture and flow.  the current state needs to be documented. Old state doesn't have to be there.
 
-1. Add explicit import to iconMapping.ts
-2. Add to iconMap object
-3. Update AVAILABLE_ICON_NAMES in SettingsOverviewPage.tsx 
 Document struction:
 1. [Semantics & Business Context](#semantics--business-context)
 2. [Architecture, Block diagrams & DRY Design Patterns](#architecture--design-patterns)
@@ -45,3 +42,16 @@ be super smart, and next generation expert and compare this approach with other 
   understand current state: \
   /home/rabin/projects/pmo/docs/core_algorithm_design_pattern.md
   /home/rabin/projects/pmo/docs/datatable.md 
+
+
+
+  Now go on to reate api, and ui details for quote, product and service. Goal is to have same components reused, dry princple adhered, no much extra coding, but using existing
+  template, You can refer to project/task and how it's done. \
+  Design patterns strictly followed. \\
+  don't read all of the docs below but grep search the content below and link the knowledge.
+  /home/rabin/projects/pmo/docs/datatable/datatable.md\
+  /home/rabin/projects/pmo/docs/s3_service\
+  /home/rabin/projects/pmo/docs/styling_patterns.md\
+  /home/rabin/projects/pmo/docs/datamodel/datamodel.md\
+  /home/rabin/projects/pmo/docs/settings/settings.md 
+────────────────────────────────────────────────────────

@@ -166,6 +166,7 @@ validate_all_ddls() {
         "29_d_entity_map.ddl"
         "30_d_entity.ddl"
         "31_d_entity_instance_id.ddl"
+        "32_d_entity_instance_backfill.ddl"
         "33_d_entity_id_map.ddl"
         "34_d_entity_id_rbac_map.ddl"
         "35_d_email_template.ddl"
@@ -223,8 +224,9 @@ import_ddls() {
     execute_sql "$DB_PATH/16_d_position.ddl" "Position entities"
     execute_sql "$DB_PATH/17_d_worksite.ddl" "Worksite entities"
 
-    # Product dimension - Products catalog for materials, equipment, services
-    execute_sql "$DB_PATH/d_product.ddl" "Product dimension table"
+    # Product & Operations dimension tables - Products and services catalog
+    execute_sql "$DB_PATH/d_service.ddl" "Service dimension table (service catalog)"
+    execute_sql "$DB_PATH/d_product.ddl" "Product dimension table (materials, equipment)"
 
     # Core project entities - Projects before tasks
     execute_sql "$DB_PATH/18_d_project.ddl" "Project entities"
@@ -250,6 +252,8 @@ import_ddls() {
     execute_sql "$DB_PATH/f_order.ddl" "Order fact table (customer orders)"
     execute_sql "$DB_PATH/f_shipment.ddl" "Shipment fact table (deliveries/logistics)"
     execute_sql "$DB_PATH/f_invoice.ddl" "Invoice fact table (billing/revenue)"
+    execute_sql "$DB_PATH/fact_quote.ddl" "Quote fact table (customer quotes with line items)"
+    execute_sql "$DB_PATH/fact_work_order.ddl" "Work order fact table (service delivery tracking)"
 
     # Marketing entities - Email templates
     execute_sql "$DB_PATH/35_d_email_template.ddl" "Email template entities"
@@ -258,6 +262,7 @@ import_ddls() {
     execute_sql "$DB_PATH/29_d_entity_map.ddl" "Entity type linkage rules (valid parent-child types)"
     execute_sql "$DB_PATH/30_d_entity.ddl" "Entity TYPE metadata (parent-child relationships, icons)"
     execute_sql "$DB_PATH/31_d_entity_instance_id.ddl" "Entity INSTANCE registry (all entity instances with UUIDs)"
+    execute_sql "$DB_PATH/32_d_entity_instance_backfill.ddl" "Backfill entity instances (quote, work_order, service, product)"
     execute_sql "$DB_PATH/33_d_entity_id_map.ddl" "Entity instance relationships (parent-child linkages)"
     execute_sql "$DB_PATH/34_d_entity_id_rbac_map.ddl" "RBAC permission mapping"
 

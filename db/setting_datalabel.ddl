@@ -215,6 +215,29 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
   {"id": 3, "name": "Referral", "descr": "Word-of-mouth from existing clients", "parent_id": null, "color_code": "purple"},
   {"id": 4, "name": "Direct", "descr": "Typed URL directly, bookmarked site", "parent_id": null, "color_code": "gray"},
   {"id": 5, "name": "Email Marketing", "descr": "Newsletter, promotional campaigns", "parent_id": null, "color_code": "cyan"}
+]'::jsonb),
+
+-- Quote Labels
+('dl__quote_stage', 'Quote Stages', 'FileText', '[
+  {"id": 0, "name": "Draft", "descr": "Quote is being prepared", "parent_id": null, "color_code": "gray"},
+  {"id": 1, "name": "Sent", "descr": "Quote has been sent to customer", "parent_id": 0, "color_code": "blue"},
+  {"id": 2, "name": "Under Review", "descr": "Customer is reviewing the quote", "parent_id": 1, "color_code": "purple"},
+  {"id": 3, "name": "Negotiating", "descr": "Quote is under negotiation", "parent_id": 2, "color_code": "yellow"},
+  {"id": 4, "name": "Accepted", "descr": "Quote has been accepted by customer", "parent_id": 3, "color_code": "green"},
+  {"id": 5, "name": "Rejected", "descr": "Quote was rejected by customer", "parent_id": 3, "color_code": "red"},
+  {"id": 6, "name": "Expired", "descr": "Quote validity period has expired", "parent_id": 1, "color_code": "orange"},
+  {"id": 7, "name": "Cancelled", "descr": "Quote was cancelled before completion", "parent_id": null, "color_code": "red"}
+]'::jsonb),
+
+-- Work Order Labels
+('dl__work_order_status', 'Work Order Statuses', 'Wrench', '[
+  {"id": 0, "name": "Scheduled", "descr": "Work order is scheduled", "parent_id": null, "color_code": "blue"},
+  {"id": 1, "name": "Confirmed", "descr": "Work order confirmed with customer", "parent_id": 0, "color_code": "cyan"},
+  {"id": 2, "name": "In Progress", "descr": "Work is actively in progress", "parent_id": 1, "color_code": "yellow"},
+  {"id": 3, "name": "On Hold", "descr": "Work temporarily on hold", "parent_id": 2, "color_code": "orange"},
+  {"id": 4, "name": "Completed", "descr": "Work has been completed", "parent_id": 2, "color_code": "green"},
+  {"id": 5, "name": "Cancelled", "descr": "Work order was cancelled", "parent_id": null, "color_code": "red"},
+  {"id": 6, "name": "Rescheduled", "descr": "Work order has been rescheduled", "parent_id": 0, "color_code": "purple"}
 ]'::jsonb);
 
 COMMENT ON TABLE app.setting_datalabel IS 'Unified data label table for all entity labels (stages, statuses, priorities, etc.)';

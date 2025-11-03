@@ -1,98 +1,71 @@
 -- ============================================================================
--- XX. ENTITY ID RBAC MAP - SIMPLIFIED RBAC SYSTEM
+-- ENTITY ID RBAC MAP - PERMISSION CONTROL SYSTEM
 -- ============================================================================
-
--- ============================================================================
+--
 -- SEMANTICS:
--- ============================================================================
+-- Row-level RBAC system controlling employee access to entity instances using permission arrays.
+-- Supports type-level ('all') and instance-level (specific UUID) permissions with temporal expiration.
+-- Foundation for API authorization: every request checks empid permissions against entity/entity_id.
 --
--- Purpose:
---   Simplified Role-Based Access Control (RBAC) system using permission arrays
---   to manage user access to specific entity instances. Provides granular
---   permission control at the individual entity level with support for
---   hierarchical permission inheritance and delegation.
+-- PERMISSION ARRAY MODEL:
+--   [0] = View:   Read access to entity data
+--   [1] = Edit:   Modify existing entity
+--   [2] = Share:  Share entity with others
+--   [3] = Delete: Soft delete entity
+--   [4] = Create: Create new entities (requires entity_id='all')
 --
--- Entity Type: entity_id_rbac_map
--- Entity Classification: Permission Control Table (RBAC system core)
+-- DATABASE BEHAVIOR:
+-- • GRANT TYPE-LEVEL PERMISSION: entity_id='all' grants access to ALL instances
+--   Example: INSERT INTO entity_id_rbac_map (empid, entity, entity_id, permission)
+--            VALUES ('8260b1b0-...', 'project', 'all', ARRAY[0,1,2,3,4])
+--            → James Miller can view/edit/share/delete/create ALL projects
 --
--- Permission Model:
---   Array-based permissions for flexibility and performance
---   Each employee can have different permission levels for different entities
---   Supports temporal permissions with expiration dates
---   Enables delegation and permission granting workflows
+-- • GRANT INSTANCE-LEVEL PERMISSION: entity_id={uuid} grants access to specific instance
+--   Example: INSERT INTO entity_id_rbac_map (empid, entity, entity_id, permission)
+--            VALUES ('john-uuid', 'project', '93106ffb-...', ARRAY[0,1])
+--            → John can view/edit ONLY project 93106ffb-...
 --
--- Permission Levels:
---   0 → View: Read access to entity data and details
---   1 → Edit: Modify existing entity data and properties
---   2 → Share: Share entity with other users and grant view permissions
---   3 → Delete: Remove or deactivate entity (soft delete)
---   4 → Create: Create new entities of this type
+-- • CHECK PERMISSION: Query for empid + entity, matching 'all' OR specific entity_id
+--   Example: SELECT * FROM entity_id_rbac_map
+--            WHERE empid = '8260b1b0-...' AND entity = 'project'
+--              AND (entity_id = 'all' OR entity_id = '93106ffb-...')
+--              AND 0 = ANY(permission)  -- Check View permission
 --
--- Special Permission Behaviors:
---   - entity_id = 'all' grants permissions to all instances of that entity type
---   - Create permission (4) with entity_id = 'all' allows creating new entities
---   - Hierarchical permissions: parent entity permissions may cascade to children
---   - Expiration support: permissions can have time limits for temporary access
+-- • REVOKE PERMISSION: Soft delete or UPDATE active_flag=false
+--   Example: UPDATE entity_id_rbac_map SET active_flag = false
+--            WHERE empid = 'john-uuid' AND entity_id = '93106ffb-...'
 --
--- Key Permission Patterns:
---   Create Project:
---     - Requires: entity = 'project', entity_id = 'all', permission array contains 4
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY
+-- • empid: uuid NOT NULL (references d_employee.id - RBAC identity)
+-- • entity: varchar(50) NOT NULL ('project', 'task', 'employee', 'biz', 'office', ...)
+-- • entity_id: text NOT NULL ('all' for type-level OR specific UUID for instance-level)
+-- • permission: integer[] NOT NULL (array: [0,1,2,3,4] or subset like [0,1])
+-- • granted_by_empid: uuid (delegation tracking)
+-- • expires_ts: timestamptz (optional expiration for temporary permissions)
+-- • active_flag: boolean DEFAULT true
 --
---   Assign Project to Business:
---     - Requires: entity = 'project', entity_id = 'all', permission array contains 4
---     - AND: entity = 'biz', entity_id = <specific_business_id>, permission array contains 1
+-- PERMISSION PATTERNS:
+-- • Create Project: entity='project', entity_id='all', permission contains 4
+-- • Edit Specific Task: entity='task', entity_id={task_uuid}, permission contains 1
+-- • Assign Task to Project: entity='project', entity_id={project_uuid}, permission contains 1
+--                            AND entity='task', entity_id='all', permission contains 4
 --
---   Delete Specific Task:
---     - Requires: entity = 'task', entity_id = <specific_task_id>, permission array contains 3
+-- AUTHORIZATION FLOW:
+-- 1. User requests API operation (e.g., PUT /api/v1/project/{id})
+-- 2. Middleware extracts empid from JWT (sub claim)
+-- 3. API checks entity_id_rbac_map:
+--    WHERE empid={JWT.sub} AND entity='project' AND (entity_id='all' OR entity_id={id})
+-- 4. Verify required permission (1=Edit) exists in permission array
+-- 5. Allow/deny based on result
 --
--- Integration with Entity System:
---   - Links to all entity types via entity field (office, biz, project, task, etc.)
---   - Supports both specific entity instances and 'all' permissions
---   - Works with entity_id_hierarchy_mapping for relationship-based permissions
---   - Integrates with role-based assignments via rel_emp_role
+-- PARENT-CHILD PERMISSION NOTES:
+-- • Creating child requires: parent edit (1) + child create (4)
+-- • Example: Create task under project needs:
+--   - entity='project', entity_id={project_uuid}, permission contains 1
+--   - entity='task', entity_id='all', permission contains 4
+-- • Permissions do NOT cascade automatically
 --
--- Parent-Child Entity Relationships:
---   This RBAC system enforces permissions across the following parent-child
---   entity relationships managed by entity_id_map. Child entities may inherit
---   view permissions from parent entities in some workflows.
---
---   PARENT ENTITY     → CHILD ENTITIES
---   =====================================
---   business (biz)    → project
---   project           → task, artifact, wiki, form
---   office            → task, artifact, wiki, form
---   client            → project, artifact, form
---   role              → employee
---   task              → form, artifact
---   form              → artifact
---   employee          → (no children)
---   wiki              → (no children)
---   artifact          → (no children)
---   worksite          → (no children, standalone)
---   position          → (no children, standalone)
---   reports           → (no children, standalone)
---
---   Permission Inheritance Notes:
---   - Editing a parent entity does NOT automatically grant edit access to children
---   - Creating a child entity requires BOTH parent edit permission AND child create permission
---   - Example: Creating a task under a project requires:
---     * entity='project', entity_id=<uuid>, permission contains 1 (edit parent)
---     * entity='task', entity_id='all', permission contains 4 (create child)
---   - Deleting a parent does NOT cascade delete children; children remain accessible
---   - RBAC checks are performed at the child entity level for all operations
---
--- Audit and Compliance:
---   - Complete audit trail with granted_by_empid tracking
---   - Temporal tracking with granted_ts and expires_ts
---   - Permission history preservation for compliance requirements
---   - Delegation chain tracking for authorization reviews
---
--- UI Integration:
---   - Controls visibility of UI elements and actions
---   - Enables dynamic menu generation based on permissions
---   - Supports context-sensitive action buttons
---   - Provides authorization for API endpoints
-
 -- ============================================================================
 -- DDL:
 -- ============================================================================
@@ -137,7 +110,8 @@ FROM app.d_employee e
 CROSS JOIN (VALUES
   ('office'), ('biz'), ('business'), ('project'), ('task'), ('worksite'), ('cust'),
   ('role'), ('position'), ('artifact'), ('wiki'), ('form'), ('report'), ('employee'),
-  ('org'), ('hr'), ('linkage'), ('marketing'), ('cost'), ('revenue')
+  ('org'), ('hr'), ('linkage'), ('marketing'), ('cost'), ('revenue'),
+  ('service'), ('product'), ('quote'), ('work_order')
 ) AS entities(entity_type)
 WHERE e.email = 'james.miller@huronhome.ca';
 

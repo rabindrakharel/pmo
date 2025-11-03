@@ -5,58 +5,55 @@ import { sql } from 'drizzle-orm';
 import { filterUniversalColumns } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 
-const ProductSchema = Type.Object({
+const ServiceSchema = Type.Object({
   id: Type.String(),
   code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Any()),
-  product_category: Type.Optional(Type.String()),
-  unit_price_amt: Type.Optional(Type.Number()),
-  cost_amt: Type.Optional(Type.Number()),
-  unit_of_measure: Type.Optional(Type.String()),
-  on_hand_qty: Type.Optional(Type.Number()),
-  reorder_level_qty: Type.Optional(Type.Number()),
+  service_category: Type.Optional(Type.String()),
+  standard_rate_amt: Type.Optional(Type.Number()),
+  estimated_hours: Type.Optional(Type.Number()),
+  minimum_charge_amt: Type.Optional(Type.Number()),
   taxable_flag: Type.Optional(Type.Boolean()),
-  supplier_name: Type.Optional(Type.String()),
+  requires_certification_flag: Type.Optional(Type.Boolean()),
   active_flag: Type.Optional(Type.Boolean()),
   created_ts: Type.Optional(Type.String()),
   updated_ts: Type.Optional(Type.String()),
+  version: Type.Optional(Type.Number()),
 });
 
-const CreateProductSchema = Type.Object({
+const CreateServiceSchema = Type.Object({
   code: Type.Optional(Type.String({ minLength: 1 })),
   name: Type.Optional(Type.String({ minLength: 1 })),
   descr: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Any()),
-  product_category: Type.Optional(Type.String()),
-  unit_price_amt: Type.Optional(Type.Number()),
-  cost_amt: Type.Optional(Type.Number()),
-  unit_of_measure: Type.Optional(Type.String()),
-  on_hand_qty: Type.Optional(Type.Number()),
-  reorder_level_qty: Type.Optional(Type.Number()),
+  service_category: Type.Optional(Type.String()),
+  standard_rate_amt: Type.Optional(Type.Number()),
+  estimated_hours: Type.Optional(Type.Number()),
+  minimum_charge_amt: Type.Optional(Type.Number()),
   taxable_flag: Type.Optional(Type.Boolean()),
-  supplier_name: Type.Optional(Type.String()),
+  requires_certification_flag: Type.Optional(Type.Boolean()),
   active_flag: Type.Optional(Type.Boolean()),
 });
 
-const UpdateProductSchema = Type.Partial(CreateProductSchema);
+const UpdateServiceSchema = Type.Partial(CreateServiceSchema);
 
-export async function productRoutes(fastify: FastifyInstance) {
-  // List products
-  fastify.get('/api/v1/product', {
+export async function serviceRoutes(fastify: FastifyInstance) {
+  // List services
+  fastify.get('/api/v1/service', {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         active: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
-        product_category: Type.Optional(Type.String()),
+        service_category: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
       }),
       response: {
         200: Type.Object({
-          data: Type.Array(ProductSchema),
+          data: Type.Array(ServiceSchema),
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),
@@ -64,7 +61,7 @@ export async function productRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { active, search, product_category, limit = 50, offset = 0 } = request.query as any;
+    const { active, search, service_category, limit = 50, offset = 0 } = request.query as any;
     const userId = (request as any).user?.sub;
 
     if (!userId) {
@@ -76,8 +73,8 @@ export async function productRoutes(fastify: FastifyInstance) {
         sql`EXISTS (
           SELECT 1 FROM app.entity_id_rbac_map rbac
           WHERE rbac.empid = ${userId}
-            AND rbac.entity = 'product'
-            AND (rbac.entity_id = p.id::text OR rbac.entity_id = 'all')
+            AND rbac.entity = 'service'
+            AND (rbac.entity_id = s.id::text OR rbac.entity_id = 'all')
             AND rbac.active_flag = true
             AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
             AND 0 = ANY(rbac.permission)
@@ -87,45 +84,45 @@ export async function productRoutes(fastify: FastifyInstance) {
       const conditions = [...baseConditions];
 
       if (active !== undefined) {
-        conditions.push(sql`p.active_flag = ${active}`);
+        conditions.push(sql`s.active_flag = ${active}`);
       }
 
-      if (product_category) {
-        conditions.push(sql`p.product_category = ${product_category}`);
+      if (service_category) {
+        conditions.push(sql`s.service_category = ${service_category}`);
       }
 
       if (search) {
         conditions.push(sql`(
-          p.name ILIKE ${`%${search}%`} OR
-          p.descr ILIKE ${`%${search}%`} OR
-          p.code ILIKE ${`%${search}%`}
+          s.name ILIKE ${`%${search}%`} OR
+          s.descr ILIKE ${`%${search}%`} OR
+          s.code ILIKE ${`%${search}%`}
         )`);
       }
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.d_product p
+        FROM app.d_service s
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
 
-      const products = await db.execute(sql`
+      const services = await db.execute(sql`
         SELECT *
-        FROM app.d_product p
+        FROM app.d_service s
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY p.name ASC NULLS LAST
+        ORDER BY s.name ASC NULLS LAST
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return { data: products, total, limit, offset };
+      return { data: services, total, limit, offset };
     } catch (error) {
-      fastify.log.error('Error fetching products:', error);
+      fastify.log.error('Error fetching services:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Get single product
-  fastify.get('/api/v1/product/:id', {
+  // Get single service
+  fastify.get('/api/v1/service/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
@@ -141,7 +138,7 @@ export async function productRoutes(fastify: FastifyInstance) {
     const access = await db.execute(sql`
       SELECT 1 FROM app.entity_id_rbac_map rbac
       WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'product'
+        AND rbac.entity = 'service'
         AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
@@ -153,25 +150,25 @@ export async function productRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const product = await db.execute(sql`
-        SELECT * FROM app.d_product WHERE id = ${id}
+      const service = await db.execute(sql`
+        SELECT * FROM app.d_service WHERE id = ${id}
       `);
 
-      if (product.length === 0) {
-        return reply.status(404).send({ error: 'Product not found' });
+      if (service.length === 0) {
+        return reply.status(404).send({ error: 'Service not found' });
       }
 
-      return product[0];
+      return service[0];
     } catch (error) {
-      fastify.log.error('Error fetching product:', error);
+      fastify.log.error('Error fetching service:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Create product
-  fastify.post('/api/v1/product', {
+  // Create service
+  fastify.post('/api/v1/service', {
     preHandler: [fastify.authenticate],
-    schema: { body: CreateProductSchema },
+    schema: { body: CreateServiceSchema },
   }, async (request, reply) => {
     const data = request.body as any;
     const userId = (request as any).user?.sub;
@@ -181,12 +178,12 @@ export async function productRoutes(fastify: FastifyInstance) {
     }
 
     if (!data.name) data.name = 'Untitled';
-    if (!data.code) data.code = `PRD-${Date.now()}`;
+    if (!data.code) data.code = `SVC-${Date.now()}`;
 
     const access = await db.execute(sql`
       SELECT 1 FROM app.entity_id_rbac_map rbac
       WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'product'
+        AND rbac.entity = 'service'
         AND rbac.entity_id = 'all'
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
@@ -199,48 +196,47 @@ export async function productRoutes(fastify: FastifyInstance) {
 
     try {
       const result = await db.execute(sql`
-        INSERT INTO app.d_product (
+        INSERT INTO app.d_service (
           code, name, descr, metadata,
-          product_category, unit_price_amt, cost_amt, unit_of_measure,
-          on_hand_qty, reorder_level_qty, taxable_flag, supplier_name,
+          service_category, standard_rate_amt, estimated_hours,
+          minimum_charge_amt, taxable_flag, requires_certification_flag,
           active_flag
         )
         VALUES (
           ${data.code}, ${data.name}, ${data.descr || null},
           ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
-          ${data.product_category || null}, ${data.unit_price_amt || null},
-          ${data.cost_amt || null}, ${data.unit_of_measure || 'each'},
-          ${data.on_hand_qty || 0}, ${data.reorder_level_qty || 0},
-          ${data.taxable_flag !== false}, ${data.supplier_name || null},
+          ${data.service_category || null}, ${data.standard_rate_amt || null},
+          ${data.estimated_hours || null}, ${data.minimum_charge_amt || null},
+          ${data.taxable_flag !== false}, ${data.requires_certification_flag || false},
           true
         )
         RETURNING *
       `);
 
-      const newProduct = result[0] as any;
+      const newService = result[0] as any;
 
       await db.execute(sql`
         INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
-        VALUES ('product', ${newProduct.id}::uuid, ${newProduct.name}, ${newProduct.code})
+        VALUES ('service', ${newService.id}::uuid, ${newService.name}, ${newService.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name, entity_code = EXCLUDED.entity_code, updated_ts = NOW()
       `);
 
-      return reply.status(201).send(filterUniversalColumns(newProduct, {
+      return reply.status(201).send(filterUniversalColumns(newService, {
         canSeePII: true, canSeeFinancial: true, canSeeSystemFields: true, canSeeSafetyInfo: true
       }));
     } catch (error) {
-      fastify.log.error('Error creating product:', error);
+      fastify.log.error('Error creating service:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Update product
-  fastify.put('/api/v1/product/:id', {
+  // Update service
+  fastify.put('/api/v1/service/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-      body: UpdateProductSchema,
+      body: UpdateServiceSchema,
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
@@ -254,7 +250,7 @@ export async function productRoutes(fastify: FastifyInstance) {
     const access = await db.execute(sql`
       SELECT 1 FROM app.entity_id_rbac_map rbac
       WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'product'
+        AND rbac.entity = 'service'
         AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
@@ -266,9 +262,9 @@ export async function productRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const existing = await db.execute(sql`SELECT id FROM app.d_product WHERE id = ${id}`);
+      const existing = await db.execute(sql`SELECT id FROM app.d_service WHERE id = ${id}`);
       if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Product not found' });
+        return reply.status(404).send({ error: 'Service not found' });
       }
 
       const updateFields = [];
@@ -276,14 +272,12 @@ export async function productRoutes(fastify: FastifyInstance) {
       if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
       if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
       if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
-      if (data.product_category !== undefined) updateFields.push(sql`product_category = ${data.product_category}`);
-      if (data.unit_price_amt !== undefined) updateFields.push(sql`unit_price_amt = ${data.unit_price_amt}`);
-      if (data.cost_amt !== undefined) updateFields.push(sql`cost_amt = ${data.cost_amt}`);
-      if (data.unit_of_measure !== undefined) updateFields.push(sql`unit_of_measure = ${data.unit_of_measure}`);
-      if (data.on_hand_qty !== undefined) updateFields.push(sql`on_hand_qty = ${data.on_hand_qty}`);
-      if (data.reorder_level_qty !== undefined) updateFields.push(sql`reorder_level_qty = ${data.reorder_level_qty}`);
+      if (data.service_category !== undefined) updateFields.push(sql`service_category = ${data.service_category}`);
+      if (data.standard_rate_amt !== undefined) updateFields.push(sql`standard_rate_amt = ${data.standard_rate_amt}`);
+      if (data.estimated_hours !== undefined) updateFields.push(sql`estimated_hours = ${data.estimated_hours}`);
+      if (data.minimum_charge_amt !== undefined) updateFields.push(sql`minimum_charge_amt = ${data.minimum_charge_amt}`);
       if (data.taxable_flag !== undefined) updateFields.push(sql`taxable_flag = ${data.taxable_flag}`);
-      if (data.supplier_name !== undefined) updateFields.push(sql`supplier_name = ${data.supplier_name}`);
+      if (data.requires_certification_flag !== undefined) updateFields.push(sql`requires_certification_flag = ${data.requires_certification_flag}`);
       if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
 
       if (updateFields.length === 0) {
@@ -293,7 +287,7 @@ export async function productRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_product
+        UPDATE app.d_service
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -303,11 +297,11 @@ export async function productRoutes(fastify: FastifyInstance) {
         canSeePII: true, canSeeFinancial: true, canSeeSystemFields: true, canSeeSafetyInfo: true
       });
     } catch (error) {
-      fastify.log.error('Error updating product:', error);
+      fastify.log.error('Error updating service:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Delete product
-  createEntityDeleteEndpoint(fastify, 'product');
+  // Delete service
+  createEntityDeleteEndpoint(fastify, 'service');
 }

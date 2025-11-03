@@ -12,6 +12,7 @@ import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
 import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField } from '../../../lib/data_transform_render';
 import { MetadataTable } from './MetadataTable';
+import { QuoteItemsRenderer } from './QuoteItemsRenderer';
 
 /**
  * Helper function to render badge with color based on field type and value
@@ -330,9 +331,12 @@ export function EntityFormContainer({
         );
       }
       if (field.type === 'jsonb') {
-        // Use MetadataTable for metadata field, raw JSON for others
+        // Special renderers for specific JSONB fields
         if (field.key === 'metadata') {
           return <MetadataTable value={value || {}} isEditing={false} />;
+        }
+        if (field.key === 'quote_items') {
+          return <QuoteItemsRenderer value={value || []} isEditing={false} />;
         }
         // Other JSONB fields show as formatted JSON
         if (value) {
@@ -472,11 +476,20 @@ export function EntityFormContainer({
           />
         );
       case 'jsonb':
-        // Use MetadataTable for metadata field in edit mode
+        // Special renderers for specific JSONB fields in edit mode
         if (field.key === 'metadata') {
           return (
             <MetadataTable
               value={value || {}}
+              onChange={(newValue) => onChange(field.key, newValue)}
+              isEditing={true}
+            />
+          );
+        }
+        if (field.key === 'quote_items') {
+          return (
+            <QuoteItemsRenderer
+              value={value || []}
               onChange={(newValue) => onChange(field.key, newValue)}
               isEditing={true}
             />

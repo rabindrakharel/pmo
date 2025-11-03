@@ -105,6 +105,14 @@ export const FIELD_TO_SETTING_MAP: Record<string, string> = {
 
   // Task activity fields
   'update_type': 'dl__task_update_type',
+
+  // Quote fields (dl__ prefix columns from database)
+  'dl__quote_stage': 'dl__quote_stage',
+  'quote_stage': 'dl__quote_stage',
+
+  // Work Order fields (dl__ prefix columns from database)
+  'dl__work_order_status': 'dl__work_order_status',
+  'work_order_status': 'dl__work_order_status',
 };
 
 /**
