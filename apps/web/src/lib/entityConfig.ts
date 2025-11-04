@@ -1439,13 +1439,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         render: (value) => formatCurrency(value, 'CAD')
       },
       {
-        key: 'attachment',
-        title: 'Invoice PDF',
-        width: '220px',
-        // Standardized attachment field - auto-detected by fieldCapabilities
-        // InlineFileUploadCell handles display and inline upload
-      },
-      {
         key: 'attachment_format',
         title: 'Format',
         sortable: true,
@@ -1849,13 +1842,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         render: (value) => formatCurrency(value, 'CAD')
       },
       {
-        key: 'attachment',
-        title: 'Invoice',
-        width: '220px',
-        // Standardized attachment field - auto-detected by fieldCapabilities
-        // InlineFileUploadCell handles display and inline upload
-      },
-      {
         key: 'attachment_format',
         title: 'Format',
         sortable: true,
@@ -1991,13 +1977,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Currency',
         sortable: true,
         filterable: true
-      },
-      {
-        key: 'attachment',
-        title: 'Receipt',
-        width: '220px',
-        // Standardized attachment field - auto-detected by fieldCapabilities
-        // InlineFileUploadCell handles display and inline upload
       },
       {
         key: 'attachment_format',

@@ -68,36 +68,15 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     return config?.apiEndpoint?.includes('/api/v1/setting?datalabel=') || false;
   }, [config]);
 
-  // Use columns directly from config, and add parent ID column if applicable
+  // Use columns directly from config
   const columns: Column[] = useMemo(() => {
     if (!config) return [];
 
-    const baseColumns = config.columns as Column[];
-
-    // Add parent ID column when viewing child entities
-    if (parentType && parentId) {
-      const parentDisplayName = parentType.charAt(0).toUpperCase() + parentType.slice(1);
-
-      const parentIdColumn: Column = {
-        key: 'parent_id',
-        title: `Parent (${parentDisplayName})`,
-        sortable: false,
-        filterable: false,
-        align: 'left',
-        width: '200px',
-        render: () => (
-          <span className="text-xs font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded">
-            {parentId.substring(0, 8)}...
-          </span>
-        )
-      };
-
-      // Add parent ID column as the first column
-      return [parentIdColumn, ...baseColumns];
-    }
-
-    return baseColumns;
-  }, [config, parentType, parentId]);
+    // Return columns from entity config without modification
+    // When viewing child entities (e.g., /project/{id}/task), we don't need
+    // to show parent ID since it's already in the URL context
+    return config.columns as Column[];
+  }, [config]);
 
   // Define row actions based on props
   const rowActions: RowAction[] = useMemo(() => {
@@ -236,11 +215,10 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       // Transform edited data for API (tags string → array, etc.)
       const transformedData = transformForApi(editedData, record);
 
-      // Add parent entity relationship if viewing child entities
-      if (parentType && parentId && isNewRow) {
-        transformedData.parent_type = parentType;
-        transformedData.parent_id = parentId;
-      }
+      // Don't send parent fields in entity creation payload
+      // We'll create linkage separately for proper architecture
+      delete transformedData.parent_type;
+      delete transformedData.parent_id;
 
       // Remove temporary fields
       delete transformedData._isNew;
@@ -269,6 +247,58 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           headers,
           body: JSON.stringify(transformedData)
         });
+
+        if (response.ok) {
+          const result = await response.json();
+          const newEntityId = result.id;
+          console.log(`✅ Created ${entityType}:`, result);
+
+          // STEP 2: Create parent-child linkage if in child context
+          if (parentType && parentId && newEntityId) {
+            console.log(`🔗 Creating linkage: ${parentType}/${parentId} → ${entityType}/${newEntityId}`);
+
+            const linkageResponse = await fetch(`${API_BASE_URL}/api/v1/linkage`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                parent_entity_type: parentType,
+                parent_entity_id: parentId,
+                child_entity_type: entityType,
+                child_entity_id: newEntityId,
+                relationship_type: 'contains'
+              })
+            });
+
+            if (linkageResponse.ok) {
+              const linkageResult = await linkageResponse.json();
+              console.log(`✅ Created linkage in d_entity_id_map:`, linkageResult.data);
+
+              // Verify linkage was created
+              if (!linkageResult.data || !linkageResult.data.id) {
+                console.error('⚠️ Linkage response missing data!');
+                alert(`Warning: ${entityType} created but linkage may have failed. Please check the relationship manually.`);
+              }
+            } else {
+              const errorText = await linkageResponse.text();
+              console.error('❌ Failed to create linkage:', linkageResponse.statusText, errorText);
+
+              // Alert user but don't fail - entity is created
+              alert(`Warning: ${entityType} created successfully, but failed to link to ${parentType}.\n\nYou may need to manually link this ${entityType} or contact support.\n\nError: ${linkageResponse.statusText}`);
+            }
+          }
+
+          // Reload data to show the newly created entity
+          await fetchData();
+
+          // Clear edit state
+          setEditingRow(null);
+          setEditedData({});
+          setIsAddingRow(false);
+        } else {
+          const errorText = await response.text();
+          console.error(`❌ Failed to create ${entityType}:`, response.statusText, errorText);
+          alert(`Failed to create ${entityType}: ${response.statusText}`);
+        }
       } else {
         // PUT - Update existing entity
         console.log(`Updating ${entityType}:`, transformedData);
@@ -287,23 +317,23 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           headers,
           body: JSON.stringify(transformedData)
         });
-      }
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log(`✅ ${isNewRow ? 'Created' : 'Updated'} ${entityType}:`, result);
+        if (response.ok) {
+          const result = await response.json();
+          console.log(`✅ Updated ${entityType}:`, result);
 
-        // Reload data
-        await fetchData();
+          // Reload data
+          await fetchData();
 
-        // Clear edit state
-        setEditingRow(null);
-        setEditedData({});
-        setIsAddingRow(false);
-      } else {
-        const errorText = await response.text();
-        console.error(`Failed to ${isNewRow ? 'create' : 'update'} record:`, response.statusText, errorText);
-        alert(`Failed to ${isNewRow ? 'create' : 'update'} record: ${response.statusText}`);
+          // Clear edit state
+          setEditingRow(null);
+          setEditedData({});
+          setIsAddingRow(false);
+        } else {
+          const errorText = await response.text();
+          console.error(`Failed to update record:`, response.statusText, errorText);
+          alert(`Failed to update record: ${response.statusText}`);
+        }
       }
     } catch (error) {
       console.error('Error saving record:', error);
@@ -630,11 +660,9 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
   // Override save handler for new rows
   const handleSaveInlineEditWrapper = async (record: any) => {
-    if (isAddingRow) {
-      await handleSaveNewRow();
-    } else {
-      await handleSaveInlineEdit(record);
-    }
+    // handleSaveInlineEdit already handles both new and existing rows
+    // It detects new rows via isAddingRow, temp_ prefix, or _isNew flag
+    await handleSaveInlineEdit(record);
   };
 
   // Override cancel handler for new rows

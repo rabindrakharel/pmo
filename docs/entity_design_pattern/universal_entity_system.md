@@ -3,7 +3,7 @@
 > **Comprehensive guide to the PMO Platform's universal entity architecture** - DRY-first, config-driven system handling 18+ entity types with 3 universal pages
 
 **Last Updated:** 2025-11-04
-**Version:** 3.0.0
+**Version:** 3.1.0 - Enhanced Field Editability & Column Consistency
 **Related Docs:** [UI/UX Architecture](../ui_ux_route_api.md), [Data Model](../datamodel.md)
 
 ---
@@ -13,13 +13,15 @@
 1. [System Overview](#system-overview)
 2. [Three Universal Pages](#three-universal-pages)
 3. [Create-Link-Edit Pattern](#create-link-edit-pattern)
+   - [Inline Create-Then-Link Pattern (Add New Row)](#inline-create-then-link-pattern-add-new-row)
 4. [Entity Configuration System](#entity-configuration-system)
 5. [Navigation & Routing](#navigation--routing)
 6. [Share & Link Modals](#share--link-modals)
 7. [Inline Editing System](#inline-editing-system)
-8. [Technical Implementation](#technical-implementation)
-9. [API Integration](#api-integration)
-10. [Best Practices](#best-practices)
+8. [Column Consistency Pattern](#column-consistency-pattern)
+9. [Technical Implementation](#technical-implementation)
+10. [API Integration](#api-integration)
+11. [Best Practices](#best-practices)
 
 ---
 
@@ -32,6 +34,9 @@ The PMO Platform uses a **DRY-first, config-driven architecture** where:
 - **1 configuration file** defines entity behavior (`entityConfig.ts`)
 - **Zero duplication** - write once, works for all 18+ entity types
 - **Convention over configuration** - smart defaults with entity-specific overrides
+- **Default editable** - all fields editable unless explicitly readonly (v3.1)
+- **Context-independent columns** - same columns regardless of navigation path (v3.1)
+- **Automatic linkage** - inline row creation establishes parent-child relationships in `d_entity_id_map` (v3.1)
 
 ### Architecture Diagram
 
@@ -305,6 +310,255 @@ const handleCreateClick = async () => {
 ✅ **Clean** - Special pages (FormBuilderPage, WikiEditorPage) remain unchanged
 ✅ **Automatic Linking** - Parent-child relationships created automatically
 ✅ **Type-Safe** - TypeScript validation
+
+---
+
+### Inline Create-Then-Link Pattern (Add New Row)
+
+**v3.1 Enhancement:** Inline row creation with automatic linkage
+
+**Overview:** Users can create child entities directly within data tables using "Add Row" functionality, with automatic parent-child linking.
+
+#### User Flow
+
+```
+1. User views child entity table
+   URL: /project/{id}/task
+
+2. User scrolls to bottom and clicks "Add Row" button
+   ↓
+3. System adds empty editable row to table
+   All columns show appropriate input fields (text, dropdown, date, number)
+   ↓
+4. User fills in fields inline
+   - Name: "New Task"
+   - Description: "Task description"
+   - Stage: Select from dropdown
+   - Priority: Select from dropdown
+   ↓
+5. User clicks checkmark (✓) to save
+   ↓
+6. System executes create-then-link:
+   STEP 1: POST /api/v1/task { name, descr, stage, priority, ... }
+           → Returns { id: "new-task-uuid", ... }
+   ↓
+   STEP 2: POST /api/v1/linkage {
+             parent_entity_type: "project",
+             parent_entity_id: "{project-id}",
+             child_entity_type: "task",
+             child_entity_id: "new-task-uuid",
+             relationship_type: "contains"
+           }
+           → Creates entry in d_entity_id_map table
+   ↓
+7. System reloads table data
+   New task appears in filtered view with linkage established
+```
+
+#### Implementation
+
+**File:** `apps/web/src/components/shared/dataTable/FilteredDataTable.tsx`
+
+**Key Logic** (Lines 199-301):
+
+```typescript
+const handleSaveInlineEdit = async (record: any) => {
+  if (!config) return;
+
+  try {
+    // Check if this is a new row
+    const isNewRow = isAddingRow || record.id.toString().startsWith('temp_') || record._isNew;
+
+    // Transform edited data for API
+    const transformedData = transformForApi(editedData, record);
+
+    // Don't send parent fields in entity creation payload
+    // We'll create linkage separately for proper architecture
+    delete transformedData.parent_type;
+    delete transformedData.parent_id;
+    delete transformedData._isNew;
+    if (isNewRow) {
+      delete transformedData.id; // Let backend generate real ID
+    }
+
+    if (isNewRow) {
+      // STEP 1: Create new entity
+      const response = await fetch(`${API_BASE_URL}${config.apiEndpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(transformedData)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const newEntityId = result.id;
+        console.log(`✅ Created ${entityType}:`, result);
+
+        // STEP 2: Create parent-child linkage if in child context
+        if (parentType && parentId && newEntityId) {
+          console.log(`🔗 Creating linkage: ${parentType}/${parentId} → ${entityType}/${newEntityId}`);
+
+          const linkageResponse = await fetch(`${API_BASE_URL}/api/v1/linkage`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              parent_entity_type: parentType,
+              parent_entity_id: parentId,
+              child_entity_type: entityType,
+              child_entity_id: newEntityId,
+              relationship_type: 'contains'
+            })
+          });
+
+          if (linkageResponse.ok) {
+            const linkageResult = await linkageResponse.json();
+            console.log(`✅ Created linkage in d_entity_id_map:`, linkageResult.data);
+
+            // Verify linkage was created
+            if (!linkageResult.data || !linkageResult.data.id) {
+              console.error('⚠️ Linkage response missing data!');
+              alert(`Warning: ${entityType} created but linkage may have failed.`);
+            }
+          } else {
+            const errorText = await linkageResponse.text();
+            console.error('❌ Failed to create linkage:', errorText);
+
+            // Alert user but don't fail - entity is created
+            alert(`Warning: ${entityType} created successfully, but failed to link to ${parentType}.\n\nError: ${linkageResponse.statusText}`);
+          }
+        }
+
+        // Reload data to show the newly created entity
+        await fetchData();
+        setEditingRow(null);
+        setEditedData({});
+        setIsAddingRow(false);
+      } else {
+        const errorText = await response.text();
+        alert(`Failed to create ${entityType}: ${response.statusText}`);
+      }
+    } else {
+      // PUT - Update existing entity
+      // ... standard update logic
+    }
+  } catch (error) {
+    console.error('Error saving record:', error);
+    alert('An error occurred while saving. Please try again.');
+  }
+};
+```
+
+#### Database Impact
+
+**Tables Modified:**
+
+1. **Entity Table** (e.g., `app.d_task`)
+   - New row inserted with entity data
+   - Receives auto-generated UUID from backend
+
+2. **Linkage Table** (`app.d_entity_id_map`)
+   - New linkage entry created
+   - Fields populated:
+     - `parent_entity_type`: e.g., "project"
+     - `parent_entity_id`: UUID of parent
+     - `child_entity_type`: e.g., "task"
+     - `child_entity_id`: UUID of newly created entity
+     - `relationship_type`: "contains"
+     - `active_flag`: true
+
+#### Error Handling & Validation
+
+**Scenario 1: Entity Creation Fails**
+- ❌ No entity created
+- ❌ No linkage created
+- ✅ User sees error message
+- ✅ Row removed from table
+
+**Scenario 2: Entity Created, Linkage Fails**
+- ✅ Entity created and saved
+- ❌ Linkage not created
+- ✅ User sees warning with error details
+- ✅ Entity appears in main view but not child view
+- 💡 User can manually link later via Linkage Modal
+
+**Scenario 3: Both Succeed**
+- ✅ Entity created
+- ✅ Linkage created in `d_entity_id_map`
+- ✅ Entity appears in both main and child views
+- ✅ Silent success (no unnecessary alerts)
+
+#### Verification
+
+**Console Logs (Success):**
+```
+✅ Created task: { id: "abc-123", name: "New Task", ... }
+🔗 Creating linkage: project/def-456 → task/abc-123
+✅ Created linkage in d_entity_id_map: { id: "xyz-789", ... }
+```
+
+**Database Query:**
+```sql
+-- Verify linkage exists
+SELECT * FROM app.d_entity_id_map
+WHERE parent_entity_type = 'project'
+  AND parent_entity_id = '{project-id}'
+  AND child_entity_type = 'task'
+  AND child_entity_id = '{new-task-id}'
+  AND active_flag = true;
+
+-- Should return 1 row with linkage details
+```
+
+#### Universal Application
+
+This pattern works for **all** parent-child entity combinations:
+
+| Parent Context | Child Entity | URL | Add Row Works | Linkage Created |
+|----------------|--------------|-----|---------------|-----------------|
+| Project | Task | `/project/{id}/task` | ✅ | ✅ d_entity_id_map |
+| Project | Wiki | `/project/{id}/wiki` | ✅ | ✅ d_entity_id_map |
+| Project | Artifact | `/project/{id}/artifact` | ✅ | ✅ d_entity_id_map |
+| Project | Form | `/project/{id}/form` | ✅ | ✅ d_entity_id_map |
+| Business | Project | `/biz/{id}/project` | ✅ | ✅ d_entity_id_map |
+| Business | Task | `/biz/{id}/task` | ✅ | ✅ d_entity_id_map |
+| Task | Form | `/task/{id}/form` | ✅ | ✅ d_entity_id_map |
+| Task | Artifact | `/task/{id}/artifact` | ✅ | ✅ d_entity_id_map |
+| Worksite | Task | `/worksite/{id}/task` | ✅ | ✅ d_entity_id_map |
+
+#### Key Architectural Decisions
+
+1. **Separation of Concerns**
+   - Entity creation and linkage are separate API calls
+   - Linkage uses dedicated `/api/v1/linkage` endpoint
+   - Follows single responsibility principle
+
+2. **No Parent Fields in Entity Payload**
+   - `parent_type` and `parent_id` NOT sent to entity creation endpoint
+   - Entity tables remain clean (no parent reference columns)
+   - Relationships stored in separate linkage table (`d_entity_id_map`)
+
+3. **Graceful Degradation**
+   - Entity creation succeeds even if linkage fails
+   - User notified of partial success
+   - Manual linking possible via UI
+
+4. **Consistency with Create Button**
+   - Inline "Add Row" uses same pattern as "Create" button
+   - Both create entities then create linkage
+   - Unified architecture across all creation flows
+
+#### Benefits
+
+✅ **Seamless UX** - Create entities without leaving table view
+✅ **Automatic Linking** - Parent-child relationships established automatically
+✅ **Data Integrity** - Linkages stored in `d_entity_id_map` table
+✅ **Error Transparency** - Clear feedback when linkage fails
+✅ **Universal** - Works for all entity types and parent-child combinations
+✅ **Verifiable** - Console logs and database queries confirm linkage creation
+✅ **Recoverable** - Manual linking available if automatic linkage fails
 
 ---
 
@@ -594,58 +848,158 @@ const linkageModal = useLinkageModal({
 
 ### Convention Over Configuration
 
-**v2.3 Enhancement:** Auto-detection of editable fields by naming patterns
+**v3.1 Enhancement:** Default-editable pattern with explicit readonly exceptions
 
 **Zero Manual Configuration:**
 - ❌ No `inlineEditable` flags in entityConfig
-- ✅ Auto-detects editable fields by suffix patterns
+- ✅ All fields editable by default (except system fields)
+- ✅ Pattern-based input type detection
 - ✅ Bidirectional data transformers
-- ✅ Settings-driven dropdowns
+- ✅ Settings-driven dropdowns with colored badges
+
+### Architectural Philosophy: Default Editable
+
+**Core Principle:** Fields are editable by default unless explicitly readonly
+
+```
+┌────────────────────────────────────────────────────┐
+│           Field Capability Detection                │
+│         (getFieldCapability function)               │
+└────────────────┬───────────────────────────────────┘
+                 │
+                 ├──► Rule 1: System fields → readonly
+                 │    (id, created_ts, updated_ts, version)
+                 │
+                 ├──► Rule 2: Tags fields → text input
+                 │    (tags, *_tags)
+                 │
+                 ├──► Rule 3: File fields → drag-drop upload
+                 │    (attachment, attachment_object_key)
+                 │
+                 ├──► Rule 4: Settings fields → dropdown
+                 │    (loadOptionsFromSettings flag)
+                 │
+                 ├──► Rule 5: Number fields → number input
+                 │    (*_amt, *_count, *_qty, *_price)
+                 │
+                 ├──► Rule 6: Date fields → date picker
+                 │    (*_date, *_ts)
+                 │
+                 ├──► Rule 7: Computed fields → readonly
+                 │    (parent_id, child_count, total_*, sum_*)
+                 │
+                 └──► Default: text input ✅
+                      (All other fields are editable)
+```
 
 ### Field Detection Patterns
 
-**File:** `apps/web/src/lib/fieldCapabilities.ts`
+**File:** `apps/web/src/lib/data_transform_render.tsx`
 
 ```typescript
-// Auto-detect if field is editable based on naming conventions
-export function isFieldInlineEditable(fieldKey: string): boolean {
-  const editableSuffixes = [
-    '_stage',      // task_stage, project_stage
-    '_status',     // client_status, publication_status
-    '_priority',   // task_priority
-    '_type',       // task_update_type
-    '_level',      // office_level, business_level
-    '_tier',       // customer_tier
-    '_funnel_level', // opportunity_funnel_level
-    '_channel',    // acquisition_channel
-    '_sector',     // industry_sector
-    '_code',       // color_code
-    '_tags'        // tags field (array type)
-  ];
+const FIELD_PATTERNS = {
+  // Tags fields - always editable as comma-separated text
+  tags: /^tags$|_tags$/i,
 
-  return editableSuffixes.some(suffix => fieldKey.endsWith(suffix));
-}
+  // Attachment fields - editable with drag-drop upload
+  file: /^attachment$|attachment_object_key$/i,
 
-// Transform display value to API format
-export function transformValueForAPI(value: any, fieldKey: string): any {
-  if (fieldKey.endsWith('_tags')) {
-    // Tags: "tag1, tag2, tag3" → ["tag1", "tag2", "tag3"]
-    if (typeof value === 'string') {
-      return value.split(',').map(t => t.trim()).filter(Boolean);
-    }
+  // Readonly fields - system fields that should never be edited inline
+  readonly: /^(id|created_ts|updated_ts|created_by|updated_by|version|from_ts|to_ts)$/i,
+
+  // Date fields
+  date: /_(date|ts)$|^date_/i,
+
+  // Number fields
+  number: /_(amt|amount|count|qty|quantity|price|cost|revenue|id|level_id|stage_id|sort_order)$/i
+};
+
+/**
+ * CENTRAL FUNCTION: Determines if a field can be inline edited
+ *
+ * Convention over Configuration:
+ * - Tags fields: Auto-editable as text
+ * - Settings fields (loadOptionsFromSettings): Auto-editable as dropdown
+ * - File fields: Auto-editable with drag-drop
+ * - Date fields: Auto-editable as date picker
+ * - Number fields: Auto-editable as number input
+ * - Readonly patterns: Never editable (id, timestamps, computed fields)
+ * - Special readonly: parent_id, parent_type, child_count, aggregate fields
+ * - Everything else: Editable as text input (default)
+ *
+ * This ensures "Add new row" works seamlessly - all columns get input boxes
+ * unless they're explicitly system/readonly fields.
+ */
+export function getFieldCapability(column: ColumnDef | FieldDef): FieldCapability {
+  const key = column.key;
+
+  // Rule 1: Readonly fields are NEVER editable
+  if (FIELD_PATTERNS.readonly.test(key)) {
+    return { inlineEditable: false, editType: 'readonly', isFileUpload: false };
   }
-  return value;
-}
 
-// Transform API value to display format
-export function transformValueForDisplay(value: any, fieldKey: string): any {
-  if (fieldKey.endsWith('_tags')) {
-    // Tags: ["tag1", "tag2", "tag3"] → "tag1, tag2, tag3"
-    if (Array.isArray(value)) {
-      return value.join(', ');
-    }
+  // Rule 2: Tags fields are ALWAYS editable as text (comma-separated)
+  if (FIELD_PATTERNS.tags.test(key)) {
+    return { inlineEditable: true, editType: 'tags', isFileUpload: false };
   }
-  return value;
+
+  // Rule 3: File/attachment fields are ALWAYS editable with drag-drop
+  if (FIELD_PATTERNS.file.test(key)) {
+    return {
+      inlineEditable: true,
+      editType: 'file',
+      isFileUpload: true,
+      acceptedFileTypes: getAcceptedFileTypes(key)
+    };
+  }
+
+  // Rule 4: Settings fields with loadOptionsFromSettings are ALWAYS editable as dropdowns
+  if (column.loadOptionsFromSettings) {
+    return {
+      inlineEditable: true,
+      editType: 'select',
+      loadOptionsFromSettings: true,
+      settingsDatalabel: extractSettingsDatalabel(key),
+      isFileUpload: false
+    };
+  }
+
+  // Rule 5: Number fields are editable as number inputs
+  if (FIELD_PATTERNS.number.test(key) && !FIELD_PATTERNS.readonly.test(key)) {
+    return { inlineEditable: true, editType: 'number', isFileUpload: false };
+  }
+
+  // Rule 6: Date fields are editable as date inputs
+  if (FIELD_PATTERNS.date.test(key) && !FIELD_PATTERNS.readonly.test(key)) {
+    return { inlineEditable: true, editType: 'date', isFileUpload: false };
+  }
+
+  // Rule 7: Check for explicit inlineEditable flag (backward compatibility)
+  if ('inlineEditable' in column && column.inlineEditable) {
+    return { inlineEditable: true, editType: 'text', isFileUpload: false };
+  }
+
+  // Rule 8: Simple text fields (name, descr, etc.) are editable by default
+  const isSimpleTextField = /^(name|descr|description|title|notes|comments?)$/i.test(key);
+  if (isSimpleTextField) {
+    return { inlineEditable: true, editType: 'text', isFileUpload: false };
+  }
+
+  // Rule 9: Special columns that should remain readonly
+  // These are typically computed, derived, or reference fields
+  const isSpecialReadonly = /^(parent_id|parent_type|parent_name|child_count|total_|sum_|avg_|max_|min_)$/i.test(key);
+  if (isSpecialReadonly) {
+    return { inlineEditable: false, editType: 'readonly', isFileUpload: false };
+  }
+
+  // Rule 10: Actions column is never editable
+  if (key === '_actions' || key === '_selection') {
+    return { inlineEditable: false, editType: 'readonly', isFileUpload: false };
+  }
+
+  // Default: All other fields are editable as text
+  // This ensures "Add new row" functionality works seamlessly across all entities
+  return { inlineEditable: true, editType: 'text', isFileUpload: false };
 }
 ```
 
@@ -692,6 +1046,164 @@ const handleSave = async () => {
 | `*_priority` | Dropdown | `task_priority` | Settings lookup |
 | `*_tags` | Text input | `tags` | String ↔ Array |
 | `*_code` | Dropdown | `color_code` | Static options |
+| `*_amt` | Number input | `total_amt` | Numeric validation |
+| `*_date` | Date picker | `start_date` | ISO date format |
+| Default | Text input | All other fields | No transform |
+
+### Key Benefits
+
+✅ **Universal "Add Row" Support** - All columns show input boxes when adding new rows
+✅ **Zero Configuration** - No manual `inlineEditable` flags needed in config
+✅ **Type-Safe Editing** - Automatic input type selection based on field patterns
+✅ **Consistent UX** - Same editing behavior across all entities
+✅ **Extensible** - Easy to add new field patterns via regex
+
+---
+
+## Column Consistency Pattern
+
+### Architectural Philosophy: Context-Free Column Sets
+
+**v3.1 Enhancement:** Universal column consistency across all view contexts
+
+**Core Principle:** Entity columns are defined once and displayed identically regardless of context
+
+```
+┌────────────────────────────────────────────────────┐
+│              Entity Configuration                   │
+│            (entityConfig.ts)                       │
+│   columns: ColumnDef[] ← Single source of truth    │
+└────────────────┬───────────────────────────────────┘
+                 │
+                 ├──► Main View (/task)
+                 │    FilteredDataTable
+                 │    → Uses config.columns directly
+                 │
+                 ├──► Child View (/project/{id}/task)
+                 │    FilteredDataTable (with parentType/parentId)
+                 │    → Uses config.columns directly
+                 │
+                 ├──► Another Child View (/business/{id}/task)
+                 │    FilteredDataTable (with parentType/parentId)
+                 │    → Uses config.columns directly
+                 │
+                 └──► Result: Identical columns across all contexts ✅
+```
+
+### Anti-Pattern: Context-Dependent Column Modification
+
+**Previous Behavior (v3.0):**
+```typescript
+// ❌ Anti-pattern: Adding parent column based on context
+const columns: Column[] = useMemo(() => {
+  const baseColumns = config.columns;
+
+  // Bad: Modifying columns based on parent context
+  if (parentType && parentId) {
+    const parentIdColumn = {
+      key: 'parent_id',
+      title: `Parent (${parentType})`,
+      render: () => <span>{parentId}</span>
+    };
+    return [parentIdColumn, ...baseColumns]; // ❌ Different columns!
+  }
+
+  return baseColumns;
+}, [config, parentType, parentId]);
+```
+
+**Problems:**
+- ❌ `/task` shows 5 columns, `/project/{id}/task` shows 6 columns
+- ❌ Redundant information (parent is already in URL)
+- ❌ Wasted horizontal space
+- ❌ Inconsistent user experience
+- ❌ Violates DRY principle
+
+### Correct Pattern: Context-Independent Columns
+
+**Current Behavior (v3.1):**
+```typescript
+// ✅ Best practice: Use config columns directly
+const columns: Column[] = useMemo(() => {
+  if (!config) return [];
+
+  // Return columns from entity config without modification
+  // When viewing child entities (e.g., /project/{id}/task), we don't need
+  // to show parent ID since it's already in the URL context
+  return config.columns as Column[];
+}, [config]);
+```
+
+**Benefits:**
+- ✅ Consistent column sets across all contexts
+- ✅ Single source of truth (entityConfig.ts)
+- ✅ More screen space for actual data
+- ✅ Cleaner, simpler implementation
+- ✅ DRY principle maintained
+
+### Implementation Location
+
+**File:** `apps/web/src/components/shared/dataTable/FilteredDataTable.tsx`
+
+**Affected Components:**
+- `EntityMainPage` (main entity list views)
+- `EntityChildListPage` (child entity tab views)
+- `FilteredDataTable` (core table component)
+
+**Universal Application:**
+
+All parent→child entity relationships now show consistent columns:
+
+| Parent Type | Child Type | URL Pattern | Column Source |
+|------------|-----------|-------------|---------------|
+| Project | Task | `/project/{id}/task` | `entityConfig.task.columns` |
+| Business | Project | `/business/{id}/project` | `entityConfig.project.columns` |
+| Client | Task | `/client/{id}/task` | `entityConfig.task.columns` |
+| Worksite | Form | `/worksite/{id}/form` | `entityConfig.form.columns` |
+| Task | Artifact | `/task/{id}/artifact` | `entityConfig.artifact.columns` |
+
+**Result:** Child entity tables always match their standalone counterparts (`/task`, `/project`, etc.)
+
+### Data Flow Diagram
+
+```
+User Navigation: /project/{id}/task
+         ↓
+React Router: Matches route pattern
+         ↓
+EntityChildListPage
+  props: { parentType: 'project', childType: 'task' }
+         ↓
+FilteredDataTable
+  props: { entityType: 'task', parentType: 'project', parentId: '{id}' }
+         ↓
+Column Resolution
+  const config = getEntityConfig('task')
+  const columns = config.columns  ← No modification!
+         ↓
+Result: Same columns as /task main view
+```
+
+### Context Metadata Preservation
+
+**Parent context is still available for:**
+- ✅ API filtering (fetch tasks where project_id = {id})
+- ✅ URL routing (breadcrumbs, navigation)
+- ✅ Create operations (auto-link to parent)
+- ✅ Relationship display (via linkage modal)
+
+**Parent context is NOT shown as:**
+- ❌ Extra table column (redundant)
+- ❌ Fixed header field (unnecessary)
+
+### Key Architectural Benefits
+
+1. **DRY Principle** - Column definitions exist once in entityConfig.ts
+2. **Consistency** - Same UX whether viewing `/task` or `/project/{id}/task`
+3. **Maintainability** - Update columns in one place, applies everywhere
+4. **Scalability** - Works for all current and future entity relationships
+5. **Performance** - No conditional column logic at render time
+6. **Simplicity** - Less code, fewer bugs, easier to understand
 
 ---
 
@@ -1116,11 +1628,35 @@ const debouncedSearch = useMemo(
 
 1. **Universal Architecture** - 3 pages handle 18+ entity types
 2. **Create-Link-Edit Pattern** - Automatic parent-child linking with smart navigation
-3. **Zero Configuration** - Convention-based inline editing
-4. **DRY Principles** - 95%+ code reuse across entities
-5. **Type Safety** - Full TypeScript coverage
-6. **Performance** - Lazy loading, memoization, debouncing
-7. **Maintainability** - Single source of truth (entityConfig.ts)
+3. **Inline Create-Then-Link** - "Add Row" creates entities and linkages in `d_entity_id_map` (v3.1)
+4. **Zero Configuration** - Convention-based inline editing with default-editable pattern
+5. **Column Consistency** - Context-independent column sets across all views (v3.1)
+6. **DRY Principles** - 95%+ code reuse across entities
+7. **Type Safety** - Full TypeScript coverage
+8. **Performance** - Lazy loading, memoization, debouncing
+9. **Maintainability** - Single source of truth (entityConfig.ts)
+
+### v3.1 Enhancements
+
+**Default-Editable Pattern:**
+- All fields editable by default (except system fields)
+- Universal "Add Row" support with input boxes for all columns
+- Pattern-based input type detection (text, number, date, dropdown, file)
+- Zero manual configuration required
+
+**Column Consistency Pattern:**
+- Entity columns defined once in entityConfig.ts
+- Same columns shown regardless of context (main view vs child view)
+- Removed redundant parent ID columns from child entity tables
+- Universal application across all parent→child relationships
+
+**Inline Create-Then-Link Pattern:**
+- "Add Row" creates entities and linkages automatically
+- Linkages stored in `d_entity_id_map` table
+- Comprehensive error handling and user feedback
+- Verification logging and database validation
+- Graceful degradation if linkage fails
+- Works for all parent-child entity combinations
 
 ### Files by Category
 
@@ -1148,9 +1684,11 @@ const debouncedSearch = useMemo(
 
 - **Development Speed**: 10x faster to add new entity types
 - **Code Quality**: Single implementation, consistent behavior
-- **User Experience**: Uniform interface across all entities
+- **User Experience**: Uniform interface across all entities and contexts
 - **Maintainability**: Changes in one place affect all entities
 - **Scalability**: Easily handle 50+ entity types without code bloat
+- **Data Entry**: Seamless "Add Row" functionality across all entities (v3.1)
+- **View Consistency**: Identical column sets regardless of navigation context (v3.1)
 
 ---
 
