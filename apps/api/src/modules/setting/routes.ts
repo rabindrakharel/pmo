@@ -19,10 +19,14 @@ export async function settingRoutes(fastify: FastifyInstance) {
     schema: {
       querystring: Type.Object({
         datalabel: Type.String(),
+        raw: Type.Optional(Type.Boolean()), // Return raw metadata for DAG viz
       }),
       response: {
         200: Type.Object({
-          data: Type.Array(SettingItemSchema),
+          data: Type.Union([
+            Type.Array(SettingItemSchema),
+            Type.Array(Type.Any()), // Raw metadata
+          ]),
           datalabel: Type.String(),
         }),
         400: Type.Object({ error: Type.String() }),
@@ -33,6 +37,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
     const query = request.query as any;
 
     const inputParam = query.datalabel;
+    const raw = query.raw === true || query.raw === 'true'; // Support ?raw=true for DAG viz
 
     if (!inputParam) {
       return reply.status(400).send({ error: 'Missing required parameter: datalabel' });
@@ -60,6 +65,17 @@ export async function settingRoutes(fastify: FastifyInstance) {
 
       if (checkExists.length === 0) {
         return reply.status(404).send({ error: `Datalabel '${inputParam}' not found` });
+      }
+
+      // If raw=true, return the metadata array as-is (for DAG visualization)
+      if (raw) {
+        const rawResults = await db.execute(sql`
+          SELECT metadata FROM app.setting_datalabel
+          WHERE datalabel_name = ${datalabelName}
+        `);
+
+        const metadata = rawResults[0]?.metadata || [];
+        return { data: metadata, datalabel: datalabelName };
       }
 
       // Query unified table and expand JSONB metadata array

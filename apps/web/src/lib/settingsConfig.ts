@@ -90,7 +90,7 @@ export function createSettingBadgeRenderer(datalabel: string) {
  *
  * Examples:
  * - dl__project_stage → dl__project_stage
- * - dl__opportunity_funnel_stage → dl__opportunity_funnel_stage
+ * - dl__customer_opportunity_funnel → dl__customer_opportunity_funnel
  * - project_stage → dl__project_stage (legacy support)
  * - stage → dl__task_stage (special case)
  * - priority_level → dl__task_priority (special case)
@@ -177,7 +177,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
   { key: 'hrLevel', datalabel: 'dl__hr_level', displayName: 'HR Level', pluralName: 'HR Levels' },
   { key: 'clientLevel', datalabel: 'dl__client_level', displayName: 'Client Level', pluralName: 'Client Levels' },
   { key: 'positionLevel', datalabel: 'dl__position_level', displayName: 'Position Level', pluralName: 'Position Levels' },
-  { key: 'opportunityFunnelLevel', datalabel: 'dl__opportunity_funnel_stage', displayName: 'Opportunity Funnel Stage', pluralName: 'Opportunity Funnel Stages' },
+  { key: 'opportunityFunnelLevel', datalabel: 'dl__customer_opportunity_funnel', displayName: 'Customer Opportunity Funnel', pluralName: 'Customer Opportunity Funnels' },
   { key: 'industrySector', datalabel: 'dl__industry_sector', displayName: 'Industry Sector', pluralName: 'Industry Sectors' },
   { key: 'acquisitionChannel', datalabel: 'dl__acquisition_channel', displayName: 'Acquisition Channel', pluralName: 'Acquisition Channels' },
   { key: 'customerTier', datalabel: 'dl__customer_tier', displayName: 'Customer Tier', pluralName: 'Customer Tiers' },

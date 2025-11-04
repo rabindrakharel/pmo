@@ -435,8 +435,14 @@ const FIELD_PATTERNS = {
  * - Tags fields: Auto-editable as text
  * - Settings fields (loadOptionsFromSettings): Auto-editable as dropdown
  * - File fields: Auto-editable with drag-drop
- * - Readonly patterns: Never editable
- * - Everything else: Check explicit configuration
+ * - Date fields: Auto-editable as date picker
+ * - Number fields: Auto-editable as number input
+ * - Readonly patterns: Never editable (id, timestamps, computed fields)
+ * - Special readonly: parent_id, parent_type, child_count, aggregate fields
+ * - Everything else: Editable as text input (default)
+ *
+ * This ensures "Add new row" works seamlessly - all columns get input boxes
+ * unless they're explicitly system/readonly fields.
  */
 export function getFieldCapability(column: ColumnDef | FieldDef): FieldCapability {
   const key = column.key;
@@ -518,10 +524,32 @@ export function getFieldCapability(column: ColumnDef | FieldDef): FieldCapabilit
     };
   }
 
-  // Default: Not editable
+  // Rule 9: Special columns that should remain readonly
+  // These are typically computed, derived, or reference fields that shouldn't be edited directly
+  const isSpecialReadonly = /^(parent_id|parent_type|parent_name|child_count|total_|sum_|avg_|max_|min_)$/i.test(key);
+  if (isSpecialReadonly) {
+    return {
+      inlineEditable: false,
+      editType: 'readonly',
+      isFileUpload: false
+    };
+  }
+
+  // Rule 10: Actions column is never editable
+  if (key === '_actions' || key === '_selection') {
+    return {
+      inlineEditable: false,
+      editType: 'readonly',
+      isFileUpload: false
+    };
+  }
+
+  // Default: All other fields are editable as text
+  // This ensures "Add new row" functionality works seamlessly across all entities
+  // Any field not matching the above patterns can be edited as text input
   return {
-    inlineEditable: false,
-    editType: 'readonly',
+    inlineEditable: true,
+    editType: 'text',
     isFileUpload: false
   };
 }

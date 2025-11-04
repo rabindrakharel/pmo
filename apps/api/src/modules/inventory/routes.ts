@@ -110,20 +110,23 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
     const data = request.body as any;
 
     try {
-      const setClauses = [];
-      if (data.qty !== undefined) setClauses.push(`qty = ${data.qty}`);
-      if (data.notes !== undefined) setClauses.push(`notes = '${data.notes}'`);
+      const updateFields = [];
+      if (data.qty !== undefined) {
+        updateFields.push(sql`qty = ${data.qty}`);
+      }
+      if (data.notes !== undefined) {
+        updateFields.push(sql`notes = ${data.notes}`);
+      }
 
-      if (setClauses.length === 0) {
+      if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      setClauses.push('updated_at = NOW()');
-      const setClause = setClauses.join(', ');
+      updateFields.push(sql`updated_at = NOW()`);
 
       const result = await db.execute(sql`
         UPDATE app.f_inventory
-        SET ${sql.raw(setClause)}
+        SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id} AND active_flag = true
         RETURNING *
       `);

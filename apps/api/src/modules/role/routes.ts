@@ -225,7 +225,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       
       const result = await db.execute(sql`
         INSERT INTO app.d_role (name, "descr", role_code, role_category, reporting_level, required_experience_years, management_role_flag, active_flag, from_ts, metadata)
-        VALUES (${data.name}, ${data.descr || null}, ${data.roleType || 'functional'}, ${data.roleCategory || 'operational'}, ${data.authorityLevel || 0}, ${data.approvalLimit || 0}, ${data.delegationAllowed !== undefined ? data.delegationAllowed : false}, ${data.active !== false}, ${fromTs}, ${JSON.stringify(data.tags || [])}, ${JSON.stringify(data.attr || {})})
+        VALUES (${data.name}, ${data.descr || null}, ${data.roleType || 'functional'}, ${data.roleCategory || 'operational'}, ${data.authorityLevel || 0}, ${data.approvalLimit || 0}, ${data.delegationAllowed !== undefined ? data.delegationAllowed : false}, ${data.active !== false}, ${fromTs}, ${JSON.stringify(data.attr || {})})
         RETURNING
           id,
           name,
@@ -342,15 +342,11 @@ export async function roleRoutes(fastify: FastifyInstance) {
       if (data.delegationAllowed !== undefined) {
         updateFields.push(sql`management_role_flag = ${data.delegationAllowed}`);
       }
-      
-      if (data.tags !== undefined) {
-        updateFields.push(sql`tags = ${JSON.stringify(data.tags)}`);
-      }
-      
+
       if (data.attr !== undefined) {
-        updateFields.push(sql`attr = ${JSON.stringify(data.attr)}`);
+        updateFields.push(sql`metadata = ${JSON.stringify(data.attr)}::jsonb`);
       }
-      
+
       if (data.active !== undefined) {
         updateFields.push(sql`active_flag = ${data.active}`);
       }
@@ -455,8 +451,8 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
       // Soft delete
       await db.execute(sql`
-        UPDATE app.d_role 
-        SET active_flag = false, to_ts = NOW(), updated = NOW()
+        UPDATE app.d_role
+        SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
         WHERE id = ${id}
       `);
 

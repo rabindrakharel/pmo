@@ -29,7 +29,7 @@
 --      - updated_ts refreshed
 --      - NO archival (customer tier can change: Lead → Prospect → Active Customer)
 --    • RBAC: Requires permission 1 (edit) on entity='cust', entity_id={id} OR 'all'
---    • Business Rule: Changing dl__opportunity_funnel_stage reflects sales pipeline progress
+--    • Business Rule: Changing dl__customer_opportunity_funnel reflects sales pipeline progress
 --
 -- 3. SOFT DELETE CUSTOMER (Account Closure)
 --    • Endpoint: DELETE /api/v1/cust/{id}
@@ -93,7 +93,7 @@
 --    • Endpoint: PUT /api/v1/cust/{id}
 --    • Body: {opportunity_funnel_stage_name: "Qualified"}
 --    • Database: UPDATE SET opportunity_funnel_stage_name=$1, updated_ts=now(), version=version+1 WHERE id=$2
---    • Business Rule: dl__opportunity_funnel_stage loads from app.setting_datalabel (datalabel_name='opportunity__funnel_stage')
+--    • Business Rule: dl__customer_opportunity_funnel loads from app.setting_datalabel (datalabel_name='opportunity__funnel_stage')
 --
 -- 9. APP USER SIGNUP (New User Registration)
 --    • Endpoint: POST /api/v1/auth/customer/signup
@@ -130,7 +130,7 @@
 -- • cust_number: Unique customer identifier (e.g., CL-RES-001, CL-COM-002)
 -- • cust_type: Sector classification ('residential', 'commercial', 'municipal', 'industrial')
 -- • cust_status: Account status ('active', 'inactive', 'prospect', 'former')
--- • dl__opportunity_funnel_stage: Sales pipeline stage (Lead, Qualified, Proposal, Closed Won)
+-- • dl__customer_opportunity_funnel: Sales pipeline stage (Lead, Qualified, Proposal, Closed Won)
 --   - Loaded from app.setting_datalabel table (datalabel_name='opportunity__funnel_stage') via GET /api/v1/setting?category=opportunity__funnel_stage
 -- • dl__customer_tier: Service tier ('Bronze', 'Silver', 'Gold', 'Platinum')
 --   - Loaded from app.setting_datalabel table (datalabel_name='customer__tier') via GET /api/v1/setting?category=customer__tier
@@ -192,7 +192,7 @@ CREATE TABLE app.d_cust (
   business_number text,
 
   -- Sales and Marketing
-  dl__opportunity_funnel_stage text,  -- References app.setting_datalabel (datalabel_name='opportunity__funnel_stage')
+  dl__customer_opportunity_funnel text,  -- References app.setting_datalabel (datalabel_name='customer_opportunity_funnel')
   dl__industry_sector text,           -- References app.setting_datalabel (datalabel_name='industry__sector')
   dl__acquisition_channel text,       -- References app.setting_datalabel (datalabel_name='acquisition__channel')
   dl__customer_tier text,             -- References app.setting_datalabel (datalabel_name='customer__tier')
@@ -231,7 +231,7 @@ INSERT INTO app.d_cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  dl__opportunity_funnel_stage, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
+  dl__customer_opportunity_funnel, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
   metadata
 ) VALUES
 ('CL-RES-001', 'Thompson Family Residence', 'CL-RES-001', 'residential', 'active',
@@ -251,7 +251,7 @@ INSERT INTO app.d_cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  dl__opportunity_funnel_stage, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
+  dl__customer_opportunity_funnel, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
   metadata
 ) VALUES
 ('CL-RES-002', 'Martinez Family Home', 'CL-RES-002', 'residential', 'active',
@@ -271,7 +271,7 @@ INSERT INTO app.d_cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  dl__opportunity_funnel_stage, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
+  dl__customer_opportunity_funnel, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
   metadata
 ) VALUES
 ('CL-COM-001', 'Square One Shopping Centre', 'CL-COM-001', 'commercial', 'active',
@@ -297,7 +297,7 @@ INSERT INTO app.d_cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  dl__opportunity_funnel_stage, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
+  dl__customer_opportunity_funnel, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
   metadata
 ) VALUES
 ('CL-MUN-001', 'City of Mississauga', 'CL-MUN-001', 'municipal', 'active',
@@ -311,7 +311,7 @@ INSERT INTO app.d_cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  dl__opportunity_funnel_stage, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
+  dl__customer_opportunity_funnel, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
   metadata
 ) VALUES
 ('CL-COM-006', 'Trillium Health Partners', 'CL-COM-006', 'commercial', 'active',
@@ -331,7 +331,7 @@ INSERT INTO app.d_cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  dl__opportunity_funnel_stage, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
+  dl__customer_opportunity_funnel, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
   metadata
 ) VALUES
 ('CL-COM-008', 'Magna International', 'CL-COM-008', 'commercial', 'active',

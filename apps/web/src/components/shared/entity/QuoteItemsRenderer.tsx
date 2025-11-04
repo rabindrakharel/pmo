@@ -61,14 +61,14 @@ interface QuoteItemsRendererProps {
 }
 
 export function QuoteItemsRenderer({ value, onChange, isEditing = false }: QuoteItemsRendererProps) {
-  const [items, setItems] = useState<QuoteItem[]>(value || []);
+  const [items, setItems] = useState<QuoteItem[]>(Array.isArray(value) ? value : []);
 
   // Service/product options for dropdowns
   const [serviceOptions, setServiceOptions] = useState<Array<{ id: string; code: string; name: string; rate: number }>>([]);
   const [productOptions, setProductOptions] = useState<Array<{ id: string; code: string; name: string; price: number }>>([]);
 
   useEffect(() => {
-    setItems(value || []);
+    setItems(Array.isArray(value) ? value : []);
   }, [value]);
 
   // Load services and products for dropdown
@@ -128,6 +128,9 @@ export function QuoteItemsRenderer({ value, onChange, isEditing = false }: Quote
   };
 
   const getTotalAmount = () => {
+    if (!Array.isArray(items)) {
+      return 0;
+    }
     return items.reduce((sum, item) => sum + item.line_total, 0);
   };
 

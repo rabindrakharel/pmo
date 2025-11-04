@@ -37,9 +37,6 @@ import { BillingPage } from './pages/billing';
 import { LinkagePage } from './pages/LinkagePage';
 import { WorkflowAutomationPage } from './pages/WorkflowAutomationPage';
 
-// Demo Pages
-import { SequentialStateDemo } from './pages/demo/SequentialStateDemo';
-
 // Shared/Universal Components
 import { EntityMainPage, EntityDetailPage, EntityChildListPage, EntityCreatePage, SharedURLEntityPage } from './pages/shared';
 
@@ -275,16 +272,6 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <BillingPage />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Demo Pages */}
-      <Route
-        path="/demo/sequential-state"
-        element={
-          <ProtectedRoute>
-            <SequentialStateDemo />
           </ProtectedRoute>
         }
       />

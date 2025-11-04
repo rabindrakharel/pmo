@@ -48,7 +48,7 @@
 --   "id": 0,                          // Unique state ID within workflow
 --   "name": "customer_onboard",       // Descriptive state name
 --   "descr": "Customer onboarding",   // Human-readable description
---   "parent_ids": null,               // Previous state IDs (null for start state, single ID or array)
+--   "parent_ids": [],               // Previous state IDs (null for start state, single ID or array)
 --   "child_ids": [1, 2],              // Next possible state IDs
 --   "entity_name": "cust",             // Which entity gets created at this state
 --   "terminal_flag": false            // Is this an end state?
@@ -126,78 +126,11 @@ INSERT INTO app.d_industry_workflow_graph_head (
     14,
     87.50,
     '[
-        {
-            "id": 0,
-            "name": "cust",
-            "descr": "Customer entity - tracks customer lifecycle stage",
-            "parent_ids": null,
-            "child_ids": [1, 99],
-            "entity_name": "cust",
-            "terminal_flag": false
-        },
-        {
-            "id": 1,
-            "name": "quote",
-            "descr": "Quote entity - tracks quote approval stage",
-            "parent_ids": 0,
-            "child_ids": [2, 98],
-            "entity_name": "quote",
-            "terminal_flag": false
-        },
-        {
-            "id": 2,
-            "name": "work_order",
-            "descr": "Work order entity - tracks work execution stage",
-            "parent_ids": 1,
-            "child_ids": [3],
-            "entity_name": "work_order",
-            "terminal_flag": false
-        },
-        {
-            "id": 3,
-            "name": "task",
-            "descr": "Task entity - tracks task completion stage",
-            "parent_ids": 2,
-            "child_ids": [4],
-            "entity_name": "task",
-            "terminal_flag": false
-        },
-        {
-            "id": 4,
-            "name": "invoice",
-            "descr": "Invoice entity - tracks payment stage",
-            "parent_ids": 3,
-            "child_ids": [5],
-            "entity_name": "invoice",
-            "terminal_flag": false
-        },
-        {
-            "id": 5,
-            "name": "completed",
-            "descr": "Workflow completed successfully",
-            "parent_ids": 4,
-            "child_ids": [],
-            "entity_name": "invoice",
-            "terminal_flag": true
-        },
-        {
-            "id": 98,
-            "name": "rejected",
-            "descr": "Quote rejected (Exception Path)",
-            "parent_ids": 1,
-            "child_ids": [],
-            "entity_name": "quote",
-            "terminal_flag": true
-        },
-        {
-            "id": 99,
-            "name": "disqualified",
-            "descr": "Lead disqualified (Exception Path)",
-            "parent_ids": 0,
-            "child_ids": [],
-            "entity_name": "cust",
-            "terminal_flag": true
-        }
+        {"id": 0, "entity_name": "cust", "parent_ids": []},
+        {"id": 1, "entity_name": "quote", "parent_ids": [0]},
+        {"id": 2, "entity_name": "work_order", "parent_ids": [1]},
+        {"id": 3, "entity_name": "task", "parent_ids": [2]},
+        {"id": 4, "entity_name": "invoice", "parent_ids": [3]}
     ]'::jsonb,
     '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
     '{"tags": ["standard", "residential", "commercial"], "industry_type": "multi_service"}'::jsonb
@@ -236,7 +169,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 0,
             "name": "emergency_call",
             "descr": "Emergency service call received",
-            "parent_ids": null,
+            "parent_ids": [],
             "child_ids": [1],
             "entity_name": "cust",
             "terminal_flag": false
@@ -245,7 +178,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 1,
             "name": "dispatch_immediate",
             "descr": "Technician dispatched immediately",
-            "parent_ids": 0,
+            "parent_ids": [0],
             "child_ids": [2],
             "entity_name": "work_order",
             "terminal_flag": false
@@ -254,7 +187,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 2,
             "name": "on_site_diagnosis",
             "descr": "Technician diagnoses issue on-site",
-            "parent_ids": 1,
+            "parent_ids": [1],
             "child_ids": [3, 98],
             "entity_name": "task",
             "terminal_flag": false
@@ -263,7 +196,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 3,
             "name": "verbal_approval",
             "descr": "Customer approves repair verbally",
-            "parent_ids": 2,
+            "parent_ids": [2],
             "child_ids": [4],
             "entity_name": "quote",
             "terminal_flag": false
@@ -272,7 +205,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 4,
             "name": "repair_in_progress",
             "descr": "Repair work in progress",
-            "parent_ids": 3,
+            "parent_ids": [3],
             "child_ids": [5],
             "entity_name": "task",
             "terminal_flag": false
@@ -281,7 +214,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 5,
             "name": "repair_completed",
             "descr": "Repair completed and verified",
-            "parent_ids": 4,
+            "parent_ids": [4],
             "child_ids": [6],
             "entity_name": "work_order",
             "terminal_flag": false
@@ -290,7 +223,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 6,
             "name": "invoice_on_site",
             "descr": "Invoice generated on-site",
-            "parent_ids": 5,
+            "parent_ids": [5],
             "child_ids": [7],
             "entity_name": "invoice",
             "terminal_flag": false
@@ -299,7 +232,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 7,
             "name": "payment_collected",
             "descr": "Payment collected, service complete",
-            "parent_ids": 6,
+            "parent_ids": [6],
             "child_ids": [],
             "entity_name": "invoice",
             "terminal_flag": true
@@ -308,7 +241,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 98,
             "name": "parts_required",
             "descr": "Parts must be ordered, escalate to standard workflow",
-            "parent_ids": 2,
+            "parent_ids": [2],
             "child_ids": [],
             "entity_name": "task",
             "terminal_flag": true
@@ -351,7 +284,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 0,
             "name": "client_contract",
             "descr": "Client signs construction contract",
-            "parent_ids": null,
+            "parent_ids": [],
             "child_ids": [1],
             "entity_name": "cust",
             "terminal_flag": false
@@ -360,7 +293,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 1,
             "name": "design_phase",
             "descr": "Architectural design and planning",
-            "parent_ids": 0,
+            "parent_ids": [0],
             "child_ids": [2],
             "entity_name": "project",
             "terminal_flag": false
@@ -369,7 +302,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 2,
             "name": "permit_application",
             "descr": "Building permits submitted",
-            "parent_ids": 1,
+            "parent_ids": [1],
             "child_ids": [3],
             "entity_name": "task",
             "terminal_flag": false
@@ -378,7 +311,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 3,
             "name": "permits_approved",
             "descr": "All permits received and approved",
-            "parent_ids": 2,
+            "parent_ids": [2],
             "child_ids": [4],
             "entity_name": "task",
             "terminal_flag": false
@@ -387,7 +320,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 4,
             "name": "foundation_work",
             "descr": "Foundation and site work",
-            "parent_ids": 3,
+            "parent_ids": [3],
             "child_ids": [5],
             "entity_name": "work_order",
             "terminal_flag": false
@@ -396,7 +329,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 5,
             "name": "framing_complete",
             "descr": "Structural framing completed",
-            "parent_ids": 4,
+            "parent_ids": [4],
             "child_ids": [6],
             "entity_name": "work_order",
             "terminal_flag": false
@@ -405,7 +338,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 6,
             "name": "mep_installation",
             "descr": "Mechanical, electrical, plumbing installation",
-            "parent_ids": 5,
+            "parent_ids": [5],
             "child_ids": [7],
             "entity_name": "work_order",
             "terminal_flag": false
@@ -414,7 +347,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 7,
             "name": "interior_finishing",
             "descr": "Drywall, flooring, painting, fixtures",
-            "parent_ids": 6,
+            "parent_ids": [6],
             "child_ids": [8],
             "entity_name": "work_order",
             "terminal_flag": false
@@ -423,7 +356,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 8,
             "name": "final_inspection",
             "descr": "Municipal final inspection",
-            "parent_ids": 7,
+            "parent_ids": [7],
             "child_ids": [9, 98],
             "entity_name": "task",
             "terminal_flag": false
@@ -432,7 +365,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 9,
             "name": "occupancy_permit",
             "descr": "Certificate of occupancy received",
-            "parent_ids": 8,
+            "parent_ids": [8],
             "child_ids": [10],
             "entity_name": "task",
             "terminal_flag": false
@@ -441,7 +374,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 10,
             "name": "handover_complete",
             "descr": "Keys handed to homeowner",
-            "parent_ids": 9,
+            "parent_ids": [9],
             "child_ids": [11],
             "entity_name": "project",
             "terminal_flag": false
@@ -450,7 +383,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 11,
             "name": "final_payment",
             "descr": "Final payment received, project complete",
-            "parent_ids": 10,
+            "parent_ids": [10],
             "child_ids": [],
             "entity_name": "invoice",
             "terminal_flag": true
@@ -459,7 +392,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 98,
             "name": "deficiency_repairs",
             "descr": "Inspection failed, repairs required, loop back",
-            "parent_ids": 8,
+            "parent_ids": [8],
             "child_ids": [8],
             "entity_name": "task",
             "terminal_flag": false
@@ -502,7 +435,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 0,
             "name": "service_call",
             "descr": "Customer calls for plumbing service",
-            "parent_ids": null,
+            "parent_ids": [],
             "child_ids": [1],
             "entity_name": "cust",
             "terminal_flag": false
@@ -511,7 +444,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 1,
             "name": "appointment_scheduled",
             "descr": "Service appointment scheduled",
-            "parent_ids": 0,
+            "parent_ids": [0],
             "child_ids": [2],
             "entity_name": "work_order",
             "terminal_flag": false
@@ -520,7 +453,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 2,
             "name": "assessment_complete",
             "descr": "Plumber assesses issue on-site",
-            "parent_ids": 1,
+            "parent_ids": [1],
             "child_ids": [3],
             "entity_name": "task",
             "terminal_flag": false
@@ -529,7 +462,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 3,
             "name": "quote_provided",
             "descr": "Quote provided to customer",
-            "parent_ids": 2,
+            "parent_ids": [2],
             "child_ids": [4, 98],
             "entity_name": "quote",
             "terminal_flag": false
@@ -538,7 +471,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 4,
             "name": "quote_accepted",
             "descr": "Customer accepts quote",
-            "parent_ids": 3,
+            "parent_ids": [3],
             "child_ids": [5],
             "entity_name": "quote",
             "terminal_flag": false
@@ -547,7 +480,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 5,
             "name": "repair_complete",
             "descr": "Repair work completed",
-            "parent_ids": 4,
+            "parent_ids": [4],
             "child_ids": [6],
             "entity_name": "task",
             "terminal_flag": false
@@ -556,7 +489,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 6,
             "name": "invoice_sent",
             "descr": "Invoice sent to customer",
-            "parent_ids": 5,
+            "parent_ids": [5],
             "child_ids": [7],
             "entity_name": "invoice",
             "terminal_flag": false
@@ -565,7 +498,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 7,
             "name": "payment_complete",
             "descr": "Payment received, service complete",
-            "parent_ids": 6,
+            "parent_ids": [6],
             "child_ids": [],
             "entity_name": "invoice",
             "terminal_flag": true
@@ -574,7 +507,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
             "id": 98,
             "name": "quote_declined",
             "descr": "Customer declined quote, no repair",
-            "parent_ids": 3,
+            "parent_ids": [3],
             "child_ids": [],
             "entity_name": "quote",
             "terminal_flag": true

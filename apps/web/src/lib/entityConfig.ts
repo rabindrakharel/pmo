@@ -112,9 +112,8 @@ export interface FieldDef {
    * The field key will be mapped to the appropriate settings category.
    * Example: project_stage → loads from setting_project_stage table
    *
-   * NOTE: Fields with loadOptionsFromSettings may automatically use
-   * SequentialStateVisualizer if they match patterns defined in
-   * lib/sequentialStateConfig.ts (e.g., stage, funnel, status, level)
+   * NOTE: Fields with loadOptionsFromSettings that contain 'stage' or 'funnel'
+   * in their name will automatically use DAGVisualizer for workflow visualization.
    */
   loadOptionsFromSettings?: boolean;
   /**
@@ -164,6 +163,9 @@ export interface EntityConfig {
     cardFields: string[]; // fields to show on grid cards
     imageField?: string; // field for card image/thumbnail
   };
+
+  // Detail page navigation configuration
+  detailPageIdField?: string; // Field to use for detail page URL (default: 'id')
 }
 
 // ============================================================================
@@ -514,7 +516,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     shareable: true,
 
     columns: generateColumns(
-      ['name', 'artifact_type', 'visibility', 'security_classification', 'attachment', 'attachment_format', 'attachment_size_bytes', 'entity_type', 'created_ts'],
+      ['name', 'artifact_type', 'visibility', 'security_classification', 'attachment_format', 'attachment_size_bytes', 'entity_type', 'created_ts'],
       {
         overrides: {
           name: {
@@ -526,7 +528,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
                 'div',
                 { className: 'flex items-center gap-2 mb-0.5' },
                 React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-                record.object_key && React.createElement(
+                record.attachment_object_key && React.createElement(
                   'div',
                   { className: 'flex-shrink-0 w-2 h-2 rounded-full bg-green-500', title: 'File uploaded' },
                   null
@@ -541,7 +543,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
                   { className: 'inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded border border-blue-200' },
                   `v${record.version}`
                 ),
-                !record.object_key && React.createElement(
+                !record.attachment_object_key && React.createElement(
                   'span',
                   { className: 'inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 rounded border border-amber-200' },
                   'No file'
@@ -578,10 +580,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
               'confidential': 'bg-orange-100 text-orange-800',
               'restricted': 'bg-red-100 text-red-800'
             })
-          },
-          attachment: {
-            width: '220px'
-            // InlineFileUploadCell handles display and inline upload
           },
           attachment_format: {
             title: 'Format',
@@ -624,31 +622,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
     ),
 
     fields: [
-      // ========== ATTACHMENT ==========
-      {
-        key: 'attachment',
-        label: 'File Attachment',
-        type: 'text',
-        readonly: true,
-        placeholder: 'S3 URI - Auto-populated from uploaded file'
-      },
-      {
-        key: 'attachment_format',
-        label: 'File Format',
-        type: 'text',
-        readonly: true,
-        placeholder: 'Auto-populated from uploaded file (e.g., pdf, docx, png)'
-      },
-      {
-        key: 'attachment_size_bytes',
-        label: 'File Size (bytes)',
-        type: 'number',
-        readonly: true,
-        placeholder: 'Auto-populated from uploaded file'
-      },
-
       // ========== BASIC INFORMATION ==========
-      { key: 'name', label: 'Artifact Name', type: 'text', required: true, placeholder: 'e.g., Project Blueprint Q1 2025' },
+      { key: 'name', label: 'Artifact Name', type: 'text', required: true, placeholder: 'Auto-populated from uploaded filename' },
       { key: 'code', label: 'Code', type: 'text', required: true, placeholder: 'e.g., ART-2025-001' },
       { key: 'descr', label: 'Description', type: 'richtext', placeholder: 'Describe the purpose and contents of this artifact...' },
 
@@ -998,7 +973,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/cust',
 
     columns: generateStandardColumns(
-      ['name', 'code', 'descr', 'dl__opportunity_funnel_stage', 'dl__industry_sector', 'dl__acquisition_channel', 'dl__customer_tier'],
+      ['name', 'code', 'descr', 'dl__customer_opportunity_funnel', 'dl__industry_sector', 'dl__acquisition_channel', 'dl__customer_tier'],
       {
         overrides: {
           name: {
@@ -1007,7 +982,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
           code: {
             title: 'Customer Code'
           },
-          dl__opportunity_funnel_stage: {
+          dl__customer_opportunity_funnel: {
             title: 'Opportunity Funnel'
           },
           dl__industry_sector: {
@@ -1040,7 +1015,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'city', label: 'City', type: 'text' },
       { key: 'province', label: 'Province', type: 'text' },
       { key: 'postal_code', label: 'Postal Code', type: 'text' },
-      { key: 'dl__opportunity_funnel_stage', label: 'Opportunity Funnel', type: 'select', loadOptionsFromSettings: true },
+      { key: 'dl__customer_opportunity_funnel', label: 'Opportunity Funnel', type: 'select', loadOptionsFromSettings: true },
       { key: 'dl__industry_sector', label: 'Industry Sector', type: 'select', loadOptionsFromSettings: true },
       { key: 'dl__acquisition_channel', label: 'Acquisition Channel', type: 'select', loadOptionsFromSettings: true },
       { key: 'dl__customer_tier', label: 'Customer Tier', type: 'select', loadOptionsFromSettings: true },
@@ -2477,7 +2452,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
     ],
 
     supportedViews: ['table'],
-    defaultView: 'table'
+    defaultView: 'table',
+
+    // Use workflow_instance_id for detail page navigation instead of id
+    detailPageIdField: 'workflow_instance_id'
   }
 };
 

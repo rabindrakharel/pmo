@@ -235,19 +235,16 @@ export async function positionRoutes(fastify: FastifyInstance) {
 
       const result = await db.execute(sql`
         INSERT INTO app.d_position (
-          code, name, "descr", metadata, level_id, dl__position_level,
+          code, name, "descr", metadata, dl__position_level,
           leaf_level_flag, root_level_flag, parent_id, management_flag, executive_flag,
-          salary_band_min, salary_band_max, bonus_target_pct, equity_eligible_flag,
-          approval_limit, direct_reports_max, remote_eligible_flag
+          salary_band_min_amt, salary_band_max_amt, bonus_target_pct, equity_eligible_flag,
+          approval_limit_amt, direct_reports_max, remote_eligible_flag
         )
         VALUES (
-          ${data.slug || null},
           ${data.code || null},
           ${data.name},
           ${data.descr || null},
-          ${JSON.stringify(data.tags || [])},
-          ${JSON.stringify(data.metadata || {})},
-          ${data.level_id},
+          ${JSON.stringify(data.metadata || {})}::jsonb,
           ${data.dl__position_level},
           ${data.leaf_level_flag || leaf_level_flag},
           ${data.root_level_flag || root_level_flag},
@@ -319,13 +316,10 @@ export async function positionRoutes(fastify: FastifyInstance) {
 
       // Build update fields
       const updateFields = [];
-      if (data.slug !== undefined) updateFields.push(sql`slug = ${data.slug}`);
       if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
       if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
       if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
-      if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}`);
-      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}`);
-      if (data.level_id !== undefined) updateFields.push(sql`level_id = ${data.level_id}`);
+      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
       if (data.dl__position_level !== undefined) updateFields.push(sql`dl__position_level = ${data.dl__position_level}`);
       if (data.leaf_level_flag !== undefined) updateFields.push(sql`leaf_level_flag = ${data.leaf_level_flag}`);
       if (data.root_level_flag !== undefined) updateFields.push(sql`root_level_flag = ${data.root_level_flag}`);

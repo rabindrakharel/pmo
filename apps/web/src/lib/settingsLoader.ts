@@ -68,12 +68,12 @@ export const FIELD_TO_SETTING_MAP: Record<string, string> = {
   'priority_level': 'dl__task_priority',
 
   // Client/Customer fields (dl__ prefix columns from database)
-  'dl__opportunity_funnel_stage': 'dl__opportunity_funnel_stage',
+  'dl__customer_opportunity_funnel': 'dl__customer_opportunity_funnel',
   'dl__industry_sector': 'dl__industry_sector',
   'dl__acquisition_channel': 'dl__acquisition_channel',
   'dl__customer_tier': 'dl__customer_tier',
   'dl__client_status': 'dl__client_status',
-  'opportunity_funnel_stage_name': 'dl__opportunity_funnel_stage',
+  'opportunity_funnel_stage_name': 'dl__customer_opportunity_funnel',
   'industry_sector_name': 'dl__industry_sector',
   'acquisition_channel_name': 'dl__acquisition_channel',
   'customer_tier_name': 'dl__customer_tier',
@@ -99,8 +99,7 @@ export const FIELD_TO_SETTING_MAP: Record<string, string> = {
   'submission_status': 'dl__form_submission_status',
   'approval_status': 'dl__form_approval_status',
 
-  // Wiki fields (dl__ prefix columns from database)
-  'dl__wiki_publication_status': 'dl__wiki_publication_status',
+  // Wiki fields
   'publication_status': 'dl__wiki_publication_status',
 
   // Task activity fields

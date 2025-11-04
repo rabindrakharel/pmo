@@ -256,25 +256,23 @@ export async function reportsRoutes(fastify: FastifyInstance) {
           code, name, "descr", metadata, report_type,
           report_category, data_source_config, query_definition,
           refresh_frequency, chart_type, visualization_config,
-          is_public, auto_refresh_enabled, email_subscribers,
+          public_flag, auto_refresh_enabled_flag, email_subscribers,
           primary_entity_type, primary_entity_id
         )
         VALUES (
-          ${data.slug},
           ${data.code},
           ${data.name},
           ${data.descr || null},
-          ${JSON.stringify(data.tags || [])},
-          ${JSON.stringify(data.metadata || {})},
+          ${JSON.stringify(data.metadata || {})}::jsonb,
           ${data.report_type || 'dashboard'},
           ${data.report_category || null},
-          ${JSON.stringify(data.data_source_config || {})},
-          ${JSON.stringify(data.query_definition || {})},
+          ${JSON.stringify(data.data_source_config || {})}::jsonb,
+          ${JSON.stringify(data.query_definition || {})}::jsonb,
           ${data.refresh_frequency || 'daily'},
           ${data.chart_type || null},
-          ${JSON.stringify(data.visualization_config || {})},
+          ${JSON.stringify(data.visualization_config || {})}::jsonb,
           ${data.is_public || false},
-          ${data.auto_refresh_enabled || true},
+          ${data.auto_refresh_enabled !== false},
           ${data.email_subscribers ? `{${data.email_subscribers.join(',')}}` : '{}'},
           ${data.primary_entity_type || null},
           ${data.primary_entity_id || null}
@@ -326,16 +324,14 @@ export async function reportsRoutes(fastify: FastifyInstance) {
 
       // Build update fields
       const updateFields = [];
-      if (data.slug !== undefined) updateFields.push(sql`slug = ${data.slug}`);
       if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
       if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
       if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
-      if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}`);
-      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}`);
+      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
       if (data.report_type !== undefined) updateFields.push(sql`report_type = ${data.report_type}`);
       if (data.report_category !== undefined) updateFields.push(sql`report_category = ${data.report_category}`);
-      if (data.data_source_config !== undefined) updateFields.push(sql`data_source_config = ${JSON.stringify(data.data_source_config)}`);
-      if (data.query_definition !== undefined) updateFields.push(sql`query_definition = ${JSON.stringify(data.query_definition)}`);
+      if (data.data_source_config !== undefined) updateFields.push(sql`data_source_config = ${JSON.stringify(data.data_source_config)}::jsonb`);
+      if (data.query_definition !== undefined) updateFields.push(sql`query_definition = ${JSON.stringify(data.query_definition)}::jsonb`);
       if (data.refresh_frequency !== undefined) updateFields.push(sql`refresh_frequency = ${data.refresh_frequency}`);
       if (data.chart_type !== undefined) updateFields.push(sql`chart_type = ${data.chart_type}`);
       if (data.visualization_config !== undefined) updateFields.push(sql`visualization_config = ${JSON.stringify(data.visualization_config)}`);

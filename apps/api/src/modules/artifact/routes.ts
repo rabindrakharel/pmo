@@ -49,7 +49,7 @@ const CreateArtifactSchema = Type.Object({
 
   // S3/Storage
   attachment_object_bucket: Type.Optional(Type.String()),
-  attachment_attachment_object_key: Type.Optional(Type.String()),
+  attachment_object_key: Type.Optional(Type.String()),
 
   // Access control
   visibility: Type.Optional(Type.String()), // public, internal, restricted, private
@@ -120,7 +120,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           id, code, name, descr, metadata,
           artifact_type, attachment_format, attachment_size_bytes, attachment, entity_type, entity_id,
           attachment_object_bucket, attachment_object_key, visibility, security_classification,
-          is_latest_version, version, active_flag,
+          latest_version_flag, version, active_flag,
           from_ts, to_ts, created_ts, updated_ts
         FROM app.d_artifact a
         WHERE ${sql.raw(whereClause)}
@@ -155,7 +155,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           entity_type, entity_id,
           attachment_object_bucket, attachment_object_key,
           visibility, security_classification,
-          is_latest_version, version, active_flag,
+          latest_version_flag, version, active_flag,
           from_ts, to_ts, created_ts, updated_ts
         FROM app.d_artifact
         WHERE id = ${id} AND active_flag = true
@@ -190,8 +190,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     if (!data.name) data.name = 'Untitled';
     if (!data.artifact_type) data.artifact_type = 'document'; // Default to document type
 
-    // Auto-generate slug and code (required NOT NULL fields)
-    const slug = data.slug || `artifact-${Date.now()}`;
+    // Auto-generate code if not provided (required NOT NULL field)
     const code = data.code || `ART-${Date.now()}`;
 
     try {
@@ -202,15 +201,12 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           attachment_object_bucket, attachment_object_key,
           entity_type, entity_id,
           visibility, security_classification,
-          parent_artifact_id, is_latest_version,
           active_flag
         ) VALUES (
-          ${slug},
           ${code},
           ${data.name},
           ${data.descr || null},
-          ${JSON.stringify(data.tags || [])}::jsonb,
-          ${JSON.stringify(data.attr || data.metadata || {})}::jsonb,
+          ${JSON.stringify(data.metadata || {})}::jsonb,
           ${data.artifact_type},
           ${data.attachment_format || null},
           ${data.attachment_size_bytes || null},
@@ -220,8 +216,6 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           ${data.entity_id || data.primary_entity_id || null},
           ${data.visibility || 'internal'},
           ${data.security_classification || 'general'},
-          ${data.parent_artifact_id || null},
-          ${data.is_latest_version !== false},
           ${data.active_flag !== false && data.active !== false}
         ) RETURNING *
       `);
@@ -254,11 +248,9 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       // Basic fields
       if (data.name !== undefined) updates.name = data.name;
       if (data.code !== undefined) updates.code = data.code;
-      if (data.slug !== undefined) updates.slug = data.slug;
       if (data.descr !== undefined) updates.descr = data.descr;
 
       // JSONB fields
-      if (data.tags !== undefined) updates.tags = data.tags;
       if (data.metadata !== undefined) updates.metadata = data.metadata;
       if (data.attr !== undefined) updates.metadata = data.attr;
 
@@ -385,8 +377,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       // Extract file extension from filename
       const fileExtension = data.fileName.split('.').pop() || '';
 
-      // Generate unique slug and code
-      const slug = `${data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`;
+      // Generate unique code
       const code = `ART-${Date.now()}`;
 
       // Create artifact metadata record
@@ -397,13 +388,11 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           entity_type, entity_id,
           attachment_object_bucket, attachment_object_key,
           visibility, security_classification,
-          is_latest_version, active_flag
+          latest_version_flag, active_flag
         ) VALUES (
-          ${slug},
           ${code},
           ${data.name},
           ${data.descr || null},
-          ${JSON.stringify(data.tags || [])}::jsonb,
           ${JSON.stringify({ uploadedBy: userId, uploadedAt: new Date().toISOString() })}::jsonb,
           ${data.contentType?.startsWith('image/') ? 'image' : data.contentType?.startsWith('video/') ? 'video' : 'document'},
           ${fileExtension},
@@ -648,10 +637,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       if (!currentResult.length) return reply.status(404).send({ error: 'Not found' });
 
       const current = currentResult[0] as any;
-      const rootId = current.parent_artifact_id || current.id;
-
-      const maxV = await db.execute(sql`SELECT COALESCE(MAX(version), 0) as max_version FROM app.d_artifact WHERE (id = ${rootId} OR parent_artifact_id = ${rootId})`);
-      const nextVersion = (maxV[0] as any).max_version + 1;
+      const nextVersion = current.version + 1;
 
       // Use provided attachment_object_key if frontend already uploaded, otherwise generate presigned URL
       let finalObjectKey: string;
@@ -677,34 +663,37 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       }
 
       const ext = data.fileName.split('.').pop() || '';
-      const timestamp = Date.now();
-      const slug = current.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-v' + nextVersion + '-' + timestamp;
-      const code = current.code + '-V' + nextVersion;
 
-      await db.execute(sql`UPDATE app.d_artifact SET active_flag = false, is_latest_version = false, to_ts = NOW(), updated_ts = NOW() WHERE id = ${id}`);
-
-      const newResult = await db.execute(sql`
-        INSERT INTO app.d_artifact (
-          code, name, descr, metadata, artifact_type, attachment_format, attachment_size_bytes,
-          entity_type, entity_id, attachment_object_bucket, attachment_object_key, visibility, security_classification,
-          parent_artifact_id, is_latest_version, from_ts, to_ts, active_flag, version
-        ) VALUES (
-          ${slug}, ${code}, ${current.name}, ${data.descr || current.descr},
-          ${data.tags ? JSON.stringify(data.tags) : current.tags}::jsonb,
-          ${JSON.stringify({ uploadedBy: userId, uploadedAt: new Date().toISOString(), previousVersion: current.id })}::jsonb,
-          ${data.artifact_type || current.artifact_type},
-          ${data.attachment_format || ext},
-          ${data.attachment_size_bytes || data.fileSize || current.attachment_size_bytes},
-          ${current.entity_type}, ${current.entity_id}, ${config.S3_ATTACHMENTS_BUCKET}, ${finalObjectKey},
-          ${data.visibility || current.visibility},
-          ${data.security_classification || current.security_classification},
-          ${rootId}, true, NOW(), NULL, true, ${nextVersion}
-        ) RETURNING *
+      // In-place update: same ID, version++, new file (like form_head pattern)
+      const updatedResult = await db.execute(sql`
+        UPDATE app.d_artifact SET
+          attachment_object_key = ${finalObjectKey},
+          attachment_object_bucket = ${config.S3_ATTACHMENTS_BUCKET},
+          attachment_format = ${data.attachment_format || ext},
+          attachment_size_bytes = ${data.attachment_size_bytes || data.fileSize || null},
+          descr = ${data.descr || current.descr},
+          artifact_type = ${data.artifact_type || current.artifact_type},
+          visibility = ${data.visibility || current.visibility},
+          security_classification = ${data.security_classification || current.security_classification},
+          metadata = ${JSON.stringify({
+            ...current.metadata,
+            uploadedBy: userId,
+            uploadedAt: new Date().toISOString(),
+            versionHistory: [...(current.metadata?.versionHistory || []), {
+              version: current.version,
+              uploadedAt: current.updated_ts,
+              objectKey: current.attachment_object_key
+            }]
+          })}::jsonb,
+          version = ${nextVersion},
+          updated_ts = NOW()
+        WHERE id = ${id}
+        RETURNING *
       `);
 
       return {
         oldArtifact: current,
-        newArtifact: newResult[0],
+        newArtifact: updatedResult[0],
         uploadUrl: uploadUrl,
         expiresIn: expiresIn,
         objectKey: finalObjectKey
@@ -734,21 +723,37 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     const { id } = request.params as any;
 
     try {
-      const result = await db.execute(sql`SELECT id, parent_artifact_id FROM app.d_artifact WHERE id = ${id}`);
+      const result = await db.execute(sql`SELECT * FROM app.d_artifact WHERE id = ${id}`);
       if (!result.length) return reply.status(404).send({ error: 'Not found' });
 
       const artifact = result[0] as any;
-      const rootId = artifact.parent_artifact_id || artifact.id;
 
-      const versions = await db.execute(sql`
-        SELECT * FROM app.d_artifact
-        WHERE id = ${rootId} OR parent_artifact_id = ${rootId}
-        ORDER BY version DESC, created_ts DESC
-      `);
+      // Version history is stored in metadata.versionHistory (in-place versioning pattern)
+      const versionHistory = artifact.metadata?.versionHistory || [];
 
-      const currentVer = versions.find((v: any) => v.active_flag === true);
+      // Build complete version list: historical versions + current version
+      const allVersions = [
+        ...versionHistory.map((v: any) => ({
+          version: v.version,
+          uploadedAt: v.uploadedAt,
+          objectKey: v.objectKey,
+          isCurrent: false
+        })),
+        {
+          version: artifact.version,
+          uploadedAt: artifact.updated_ts,
+          objectKey: artifact.attachment_object_key,
+          attachment_format: artifact.attachment_format,
+          attachment_size_bytes: artifact.attachment_size_bytes,
+          isCurrent: true
+        }
+      ].sort((a, b) => b.version - a.version);
 
-      return { data: versions, rootArtifactId: rootId, currentVersion: currentVer?.version || 1 };
+      return {
+        data: allVersions,
+        rootArtifactId: id,
+        currentVersion: artifact.version
+      };
     } catch (error) {
       fastify.log.error('Error fetching versions:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

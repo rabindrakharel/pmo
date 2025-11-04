@@ -16,7 +16,7 @@ const WikiSchema = Type.Object({
   content_html: Type.Optional(Type.String()),
   wiki_type: Type.Optional(Type.String()),
   category: Type.Optional(Type.String()),
-  dl__wiki_publication_status: Type.Optional(Type.String()),
+  publication_status: Type.Optional(Type.String()),
   visibility: Type.Optional(Type.String()),
   active_flag: Type.Boolean(),
   from_ts: Type.String(),
@@ -37,7 +37,7 @@ const CreateWikiSchema = Type.Object({
   content_html: Type.Optional(Type.String()),
   wiki_type: Type.Optional(Type.String()),
   category: Type.Optional(Type.String()),
-  dl__wiki_publication_status: Type.Optional(Type.String()),
+  publication_status: Type.Optional(Type.String()),
   visibility: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Union([Type.Object({}), Type.String(), Type.Any()])),
 });
@@ -97,10 +97,10 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       const conditions = [...baseConditions];
 
       if (search) {
-        conditions.push(sql`(w.name ILIKE ${`%${search}%`} OR w.slug ILIKE ${`%${search}%`})`);
+        conditions.push(sql`(w.name ILIKE ${`%${search}%`} OR w.code ILIKE ${`%${search}%`})`);
       }
       if (tag) {
-        conditions.push(sql`${tag} = ANY(w.tags)`);
+        conditions.push(sql`${tag} = ANY(w.keywords)`);
       }
 
       const countResult = await db.execute(sql`
@@ -114,13 +114,11 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           w.id,
           w.name,
           w.code,
-          w.slug,
           w.descr,
-          w.tags,
           w.metadata,
           w.wiki_type,
           w.category,
-          w.dl__wiki_publication_status,
+          w.publication_status,
           w.visibility,
           w.keywords,
           w.summary,
@@ -139,7 +137,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       // Parse JSON fields properly for schema validation
       const parsedRows = rows.map((row: any) => ({
         ...row,
-        tags: Array.isArray(row.tags) ? row.tags : (row.tags ? JSON.parse(row.tags) : []),
+        keywords: Array.isArray(row.keywords) ? row.keywords : [],
         metadata: row.metadata || {}
       }));
 
@@ -197,9 +195,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           w.id,
           w.name,
           w.code,
-          w.slug,
           w.descr,
-          COALESCE(w.'[]'::jsonb) as tags,
           COALESCE(w.metadata, '{}'::jsonb) as metadata,
           w.content,
           w.wiki_type,
@@ -207,8 +203,8 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           w.page_path,
           w.parent_wiki_id,
           w.sort_order,
-          w.dl__wiki_publication_status,
-          w.published_at,
+          w.publication_status,
+          w.published_ts,
           w.published_by_empid,
           w.visibility,
           w.read_access_groups,
@@ -248,7 +244,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       // Parse JSON fields properly like task module
       const parsedWiki = {
         ...wiki,
-        tags: Array.isArray(wiki.tags) ? wiki.tags : (wiki.tags ? JSON.parse(wiki.tags) : []),
+        keywords: Array.isArray(wiki.keywords) ? wiki.keywords : [],
         metadata: wiki.metadata || {},
         content: wiki.content || null
       };
@@ -297,7 +293,6 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
     // Auto-generate required fields if missing
     if (!data.name) data.name = 'Untitled';
-    if (!data.slug) data.slug = `wiki-${Date.now()}`;
     if (!data.code) data.code = `WIKI-${Date.now().toString(36).toUpperCase()}`;
 
     try {
@@ -308,17 +303,15 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       const wikiResult = await db.execute(sql`
         INSERT INTO app.d_wiki (
           code, name, descr, metadata, wiki_type, category,
-          dl__wiki_publication_status, visibility, summary, content, active_flag, version
+          publication_status, visibility, summary, content, active_flag, version
         ) VALUES (
-          ${data.slug},
           ${code},
           ${data.name},
           ${data.descr || null},
-          ${JSON.stringify(data.tags || [])}::jsonb,
           ${JSON.stringify(data.metadata || {})}::jsonb,
           ${data.wiki_type || 'page'},
           ${data.category || null},
-          ${data.dl__wiki_publication_status || 'draft'},
+          ${data.publication_status || 'draft'},
           ${data.visibility || 'internal'},
           ${data.summary || null},
           ${data.content ? JSON.stringify(data.content) : null}::jsonb,
@@ -326,7 +319,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           1
         )
         RETURNING id, code, name, descr, metadata, wiki_type,
-                  category, dl__wiki_publication_status, visibility, summary, content,
+                  category, publication_status, visibility, summary, content,
                   active_flag, from_ts, to_ts,
                   created_ts, updated_ts, version
       `);
@@ -335,11 +328,10 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
       // Register the wiki in d_entity_instance_id for global entity operations
       await db.execute(sql`
-        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_entity_code)
-        VALUES ('wiki', ${wiki.id}::uuid, ${wiki.name}, ${wiki.slug}, ${wiki.code})
+        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+        VALUES ('wiki', ${wiki.id}::uuid, ${wiki.name}, ${wiki.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name,
-            entity_slug = EXCLUDED.entity_slug,
             entity_code = EXCLUDED.entity_code,
             updated_ts = NOW()
       `);
@@ -420,17 +412,11 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       if (data.name !== undefined) {
         updateParts.push(sql`name = ${data.name}`);
       }
-      if (data.slug !== undefined) {
-        updateParts.push(sql`slug = ${data.slug}`);
-      }
       if (data.descr !== undefined) {
         updateParts.push(sql`descr = ${data.descr}`);
       }
       if (data.summary !== undefined) {
         updateParts.push(sql`summary = ${data.summary}`);
-      }
-      if (data.tags !== undefined) {
-        updateParts.push(sql`tags = ${JSON.stringify(data.tags)}::jsonb`);
       }
       if (data.metadata !== undefined) {
         updateParts.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
@@ -441,8 +427,8 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       if (data.category !== undefined) {
         updateParts.push(sql`category = ${data.category}`);
       }
-      if (data.dl__wiki_publication_status !== undefined) {
-        updateParts.push(sql`dl__wiki_publication_status = ${data.dl__wiki_publication_status}`);
+      if (data.publication_status !== undefined) {
+        updateParts.push(sql`publication_status = ${data.publication_status}`);
       }
       if (data.visibility !== undefined) {
         updateParts.push(sql`visibility = ${data.visibility}`);
@@ -464,7 +450,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         SET ${sql.join(updateParts, sql`, `)}
         WHERE id = ${id} AND active_flag = true
         RETURNING id, code, name, descr, metadata, content, wiki_type,
-                  category, dl__wiki_publication_status, visibility, summary,
+                  category, publication_status, visibility, summary,
                   active_flag, from_ts, to_ts,
                   created_ts, updated_ts, version
       `);
@@ -473,12 +459,11 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
       const updatedWiki = updated[0] as any;
 
-      // Sync with d_entity_instance_id registry when name/slug/code changes
-      if (data.name !== undefined || data.slug !== undefined || data.code !== undefined) {
+      // Sync with d_entity_instance_id registry when name/code changes
+      if (data.name !== undefined || data.code !== undefined) {
         await db.execute(sql`
           UPDATE app.d_entity_instance_id
           SET entity_name = ${updatedWiki.name},
-              entity_slug = ${updatedWiki.slug},
               entity_code = ${updatedWiki.code},
               updated_ts = NOW()
           WHERE entity_type = 'wiki' AND entity_id = ${id}::uuid

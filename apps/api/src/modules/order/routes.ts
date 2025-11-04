@@ -20,22 +20,22 @@ export async function orderRoutes(fastify: FastifyInstance) {
     const { limit = 20, offset = 0, order_status } = request.query as any;
 
     try {
-      const conditions = ['1=1'];
-      if (order_status) conditions.push(`order_status = '${order_status}'`);
-
-      const whereClause = conditions.join(' AND ');
+      const conditions = [];
+      if (order_status) {
+        conditions.push(sql`order_status = ${order_status}`);
+      }
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.f_order
-        WHERE ${sql.raw(whereClause)}
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.count || 0);
 
       const rows = await db.execute(sql`
         SELECT *
         FROM app.f_order
-        WHERE ${sql.raw(whereClause)}
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY order_date DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
@@ -125,21 +125,26 @@ export async function orderRoutes(fastify: FastifyInstance) {
     const data = request.body as any;
 
     try {
-      const setClauses = [];
-      if (data.order_status !== undefined) setClauses.push(`order_status = '${data.order_status}'`);
-      if (data.quantity_ordered !== undefined) setClauses.push(`quantity_ordered = ${data.quantity_ordered}`);
-      if (data.notes !== undefined) setClauses.push(`notes = '${data.notes}'`);
+      const updateFields = [];
+      if (data.order_status !== undefined) {
+        updateFields.push(sql`order_status = ${data.order_status}`);
+      }
+      if (data.quantity_ordered !== undefined) {
+        updateFields.push(sql`qty_ordered = ${data.quantity_ordered}`);
+      }
+      if (data.notes !== undefined) {
+        updateFields.push(sql`notes = ${data.notes}`);
+      }
 
-      if (setClauses.length === 0) {
+      if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      setClauses.push('updated_at = NOW()');
-      const setClause = setClauses.join(', ');
+      updateFields.push(sql`updated_at = NOW()`);
 
       const result = await db.execute(sql`
         UPDATE app.f_order
-        SET ${sql.raw(setClause)}
+        SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
       `);

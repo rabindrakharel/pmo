@@ -4,7 +4,7 @@ import { Plus, ArrowLeft } from 'lucide-react';
 import { Layout, FilteredDataTable, ViewSwitcher } from '../../components/shared';
 import { KanbanView } from '../../components/shared/ui/KanbanView';
 import { GridView } from '../../components/shared/ui/GridView';
-import { SequentialStateVisualizer } from '../../components/shared/entity/SequentialStateVisualizer';
+import { DAGVisualizer } from '../../components/workflow/DAGVisualizer';
 import { useViewMode } from '../../lib/hooks/useViewMode';
 import { getEntityConfig, ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
@@ -73,7 +73,10 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
   };
 
   const handleRowClick = (item: any) => {
-    navigate(`/${entityType}/${item.id}`);
+    // Use custom detail page ID field if specified, otherwise default to 'id'
+    const idField = config.detailPageIdField || 'id';
+    const id = item[idField];
+    navigate(`/${entityType}/${id}`);
   };
 
   const handleCreateClick = () => {
@@ -200,31 +203,22 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
       );
     }
 
-    // GRAPH VIEW (RAG timeline visualization)
+    // GRAPH VIEW (DAG visualization for stages/workflows)
     if (view === 'graph') {
-      // Transform data to StateOption format for SequentialStateVisualizer
-      const states = data.map((item: any) => ({
-        value: item.stage_name || item.level_name || item.name || String(item.stage_id || item.level_id || item.id),
-        label: item.stage_name || item.level_name || item.name || String(item.stage_id || item.level_id || item.id),
-        sort_order: item.sort_order,
-        metadata: {
-          level_id: item.stage_id ?? item.level_id ?? item.id,
-          descr: item.stage_descr || item.level_descr || item.descr,
-          sort_order: item.sort_order,
-          color_code: item.color_code,
-          active_flag: item.active_flag,
-          parent_id: item.parent_id
-        }
+      // Transform data to DAGNode format for DAGVisualizer
+      const dagNodes = data.map((item: any) => ({
+        id: item.stage_id ?? item.level_id ?? item.id ?? 0,
+        name: item.stage_name || item.level_name || item.name || String(item.id),
+        descr: item.stage_descr || item.level_descr || item.descr,
+        entity_name: entityType,
+        parent_ids: item.parent_ids ? (Array.isArray(item.parent_ids) ? item.parent_ids : [item.parent_id].filter(Boolean)) : [],
+        terminal_flag: item.terminal_flag ?? false
       }));
 
       return (
         <div className="bg-white rounded-lg shadow p-6">
-          <SequentialStateVisualizer
-            states={states}
-            currentState={null}
-            mode="horizontal"
-            editable={false}
-            className="w-full"
+          <DAGVisualizer
+            nodes={dagNodes}
           />
         </div>
       );

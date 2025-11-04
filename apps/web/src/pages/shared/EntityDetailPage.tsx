@@ -62,7 +62,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   const linkageModal = useLinkageModal({
     onLinkageChange: () => {
       // Refetch entity data and child tabs when linkage changes
-      fetchData();
+      loadData();
     }
   });
 
@@ -244,9 +244,9 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             fileName: selectedFile.name,
             contentType: selectedFile.type || 'application/octet-stream',
             fileSize: selectedFile.size,
-            file_format: fileExtension,
-            file_size_bytes: selectedFile.size,
-            object_key: uploadedObjectKey, // Send the already-uploaded object key
+            attachment_format: fileExtension,
+            attachment_size_bytes: selectedFile.size,
+            attachment_object_key: uploadedObjectKey, // Send the already-uploaded object key
             descr: editedData.descr || data.descr,
             // Include any updated metadata fields from editedData
             visibility: editedData.visibility,
@@ -426,7 +426,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   };
 
   const handleDownload = async () => {
-    if (entityType !== 'artifact' || !data?.object_key) {
+    if (entityType !== 'artifact' || !data?.attachment_object_key) {
       alert('No file available for download');
       return;
     }
@@ -485,8 +485,8 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
         const fileExtension = selectedFile.name.split('.').pop() || 'unknown';
         setEditedData(prev => ({
           ...prev,
-          file_format: fileExtension,
-          file_size_bytes: selectedFile.size
+          attachment_format: fileExtension,
+          attachment_size_bytes: selectedFile.size
         }));
       }
     } catch (error) {
@@ -503,8 +503,8 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
     // Restore original file metadata from current version
     setEditedData(prev => ({
       ...prev,
-      file_format: data.file_format || '',
-      file_size_bytes: data.file_size_bytes || 0
+      attachment_format: data.attachment_format || '',
+      attachment_size_bytes: data.attachment_size_bytes || 0
     }));
   };
 
@@ -747,8 +747,8 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                     Design Email
                   </Button>
                 )}
-                {/* Download button for artifact entity with object_key */}
-                {entityType === 'artifact' && data?.object_key && (
+                {/* Download button for artifact entity with attachment_object_key */}
+                {entityType === 'artifact' && data?.attachment_object_key && (
                   <button
                     onClick={handleDownload}
                     className="p-2 hover:bg-gray-100 rounded-lg transition-colors"

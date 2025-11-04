@@ -247,19 +247,17 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
         INSERT INTO app.d_worksite (
           code, name, "descr", metadata, worksite_type, addr,
           postal_code, latitude, longitude, time_zone, capacity_workers,
-          equipment_storage, vehicle_parking, security_required,
-          indoor_space_sqft, outdoor_space_sqft, office_space,
-          washroom_facilities, power_available, water_available,
-          safety_rating, safety_last_inspection, environmental_permits,
-          seasonal_use, seasonal_period, emergency_contact
+          equipment_storage_flag, vehicle_parking, security_required_flag,
+          indoor_space_sqft, outdoor_space_sqft, office_space_flag,
+          washroom_facilities_flag, power_available_flag, water_available_flag,
+          safety_rating, safety_last_inspection_date, environmental_permits,
+          seasonal_use_flag, seasonal_period, emergency_contact
         )
         VALUES (
-          ${data.slug || null},
           ${data.code || null},
           ${data.name},
           ${data.descr || null},
-          ${JSON.stringify(data.tags || [])},
-          ${JSON.stringify(data.metadata || {})},
+          ${JSON.stringify(data.metadata || {})}::jsonb,
           ${data.worksite_type || 'project'},
           ${data.addr || null},
           ${data.postal_code || null},
@@ -330,12 +328,10 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
 
       // Build update fields
       const updateFields = [];
-      if (data.slug !== undefined) updateFields.push(sql`slug = ${data.slug}`);
       if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
       if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
       if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
-      if (data.tags !== undefined) updateFields.push(sql`tags = ${JSON.stringify(data.tags)}`);
-      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}`);
+      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
       if (data.worksite_type !== undefined) updateFields.push(sql`worksite_type = ${data.worksite_type}`);
       if (data.addr !== undefined) updateFields.push(sql`addr = ${data.addr}`);
       if (data.postal_code !== undefined) updateFields.push(sql`postal_code = ${data.postal_code}`);

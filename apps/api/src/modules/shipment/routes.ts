@@ -20,22 +20,22 @@ export async function shipmentRoutes(fastify: FastifyInstance) {
     const { limit = 20, offset = 0, shipment_status } = request.query as any;
 
     try {
-      const conditions = ['1=1'];
-      if (shipment_status) conditions.push(`shipment_status = '${shipment_status}'`);
-
-      const whereClause = conditions.join(' AND ');
+      const conditions = [];
+      if (shipment_status) {
+        conditions.push(sql`shipment_status = ${shipment_status}`);
+      }
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.f_shipment
-        WHERE ${sql.raw(whereClause)}
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.count || 0);
 
       const rows = await db.execute(sql`
         SELECT *
         FROM app.f_shipment
-        WHERE ${sql.raw(whereClause)}
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY shipment_date DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
@@ -125,21 +125,26 @@ export async function shipmentRoutes(fastify: FastifyInstance) {
     const data = request.body as any;
 
     try {
-      const setClauses = [];
-      if (data.shipment_status !== undefined) setClauses.push(`shipment_status = '${data.shipment_status}'`);
-      if (data.tracking_number !== undefined) setClauses.push(`tracking_number = '${data.tracking_number}'`);
-      if (data.notes !== undefined) setClauses.push(`notes = '${data.notes}'`);
+      const updateFields = [];
+      if (data.shipment_status !== undefined) {
+        updateFields.push(sql`shipment_status = ${data.shipment_status}`);
+      }
+      if (data.tracking_number !== undefined) {
+        updateFields.push(sql`tracking_number = ${data.tracking_number}`);
+      }
+      if (data.notes !== undefined) {
+        updateFields.push(sql`notes = ${data.notes}`);
+      }
 
-      if (setClauses.length === 0) {
+      if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      setClauses.push('updated_at = NOW()');
-      const setClause = setClauses.join(', ');
+      updateFields.push(sql`updated_at = NOW()`);
 
       const result = await db.execute(sql`
         UPDATE app.f_shipment
-        SET ${sql.raw(setClause)}
+        SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
       `);

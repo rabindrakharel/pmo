@@ -117,8 +117,8 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
    * Step 3: Redirect to entity edit page (special edit pages for form/wiki, detail page for others)
    */
   const handleCreateClick = async () => {
-    // Entities that require file uploads or complex forms should go to dedicated create page
-    const requiresFullCreatePage = ['artifact', 'cost', 'revenue', 'form', 'wiki'];
+    // Entities that require file uploads should go to dedicated create page
+    const requiresFullCreatePage = ['artifact', 'cost', 'revenue'];
 
     if (requiresFullCreatePage.includes(childType)) {
       // Navigate to full create page with parent context in state
@@ -139,6 +139,35 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
       // STEP 1: Create child entity with minimal/empty data
       // User will fill in all fields on the edit page
       const timestamp = Date.now();
+
+      let createPayload: any;
+
+      // Entity-specific minimal payloads
+      if (childType === 'form') {
+        createPayload = {
+          name: 'Untitled Form',
+          descr: '',
+          form_type: 'multi_step',
+          form_schema: { steps: [] },
+          approval_status: 'draft'
+        };
+      } else if (childType === 'wiki') {
+        createPayload = {
+          name: 'Untitled Wiki Page',
+          descr: '',
+          content_md: '',
+          publication_status: 'draft'
+        };
+      } else {
+        // Standard entities
+        createPayload = {
+          name: 'Untitled',  // Minimal placeholder - user will replace on edit page
+          code: `${childType.toUpperCase()}-${timestamp}`,  // Auto-generated unique code
+          descr: '',  // Empty - user will provide
+          metadata: {}
+        };
+      }
+
       const createResponse = await fetch(
         `${API_BASE_URL}/api/v1/${childType}`,
         {
@@ -147,12 +176,7 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({
-            name: 'Untitled',  // Minimal placeholder - user will replace on edit page
-            code: `${childType.toUpperCase()}-${timestamp}`,  // Auto-generated unique code
-            descr: '',  // Empty - user will provide
-            metadata: {}
-          })
+          body: JSON.stringify(createPayload)
         }
       );
 
@@ -186,10 +210,21 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
       if (!linkageResponse.ok) {
         console.error('Linkage creation failed, but entity created');
         // Don't throw - entity is created, linkage can be fixed later
+      } else {
+        console.log(`✅ Created and linked ${childType} to ${parentType}`);
       }
 
-      // STEP 3: Redirect to detail page with auto-edit mode enabled
-      navigate(`/${childType}/${newEntityId}`, { state: { autoEdit: true } });
+      // STEP 3: Redirect to appropriate edit/detail page
+      if (childType === 'form') {
+        // Form: Navigate to form edit page (FormEditPage)
+        navigate(`/form/${newEntityId}/edit`);
+      } else if (childType === 'wiki') {
+        // Wiki: Navigate to wiki edit page (WikiEditorPage)
+        navigate(`/wiki/${newEntityId}/edit`);
+      } else {
+        // Standard entities: Navigate to detail page with auto-edit mode enabled
+        navigate(`/${childType}/${newEntityId}`, { state: { autoEdit: true } });
+      }
 
     } catch (err) {
       console.error(`Failed to create ${childType}:`, err);

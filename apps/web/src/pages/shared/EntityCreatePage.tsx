@@ -136,9 +136,9 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
         if (entityType === 'artifact') {
           setFormData(prev => ({
             ...prev,
-            name: !prev.name ? selectedFile.name.replace(/\.[^/.]+$/, '') : prev.name,
-            file_format: fileExtension,
-            file_size_bytes: selectedFile.size
+            name: selectedFile.name, // Always auto-populate name from filename
+            attachment_format: fileExtension,
+            attachment_size_bytes: selectedFile.size
           }));
         } else if (entityType === 'cost') {
           setFormData(prev => ({
@@ -164,11 +164,14 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
     setSelectedFile(null);
     setUploadedObjectKey(null);
     // Clear auto-populated file fields
-    setFormData(prev => ({
-      ...prev,
-      file_format: '',
-      file_size_bytes: 0
-    }));
+    if (entityType === 'artifact') {
+      setFormData(prev => ({
+        ...prev,
+        name: '',
+        attachment_format: '',
+        attachment_size_bytes: 0
+      }));
+    }
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -194,9 +197,9 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
       // Add attachment fields based on entity type
       if (uploadedObjectKey) {
         if (entityType === 'artifact') {
-          dataToCreate.object_key = uploadedObjectKey;
-          dataToCreate.bucket_name = 'cohuron-attachments-prod-957207443425';
-          // file_format and file_size_bytes are already in formData from handleFileUpload
+          dataToCreate.attachment_object_key = uploadedObjectKey;
+          dataToCreate.attachment_object_bucket = 'cohuron-attachments-prod-957207443425';
+          // attachment_format and attachment_size_bytes are already in formData from handleFileUpload
         } else if (entityType === 'cost') {
           // Store full S3 URI for cost invoice attachment
           dataToCreate.invoice_attachment = `s3://cohuron-attachments-prod-957207443425/${uploadedObjectKey}`;

@@ -4,8 +4,7 @@ import {
   loadFieldOptions,
   type SettingOption
 } from '../../../lib/settingsLoader';
-import { SequentialStateVisualizer } from './SequentialStateVisualizer';
-import { isSequentialStateField } from '../../../lib/sequentialStateConfig';
+import { DAGVisualizer, type DAGNode } from '../../workflow/DAGVisualizer';
 import { renderEmployeeNames } from '../../../lib/entityConfig';
 import { entityOptionsApi } from '../../../lib/api';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
@@ -112,6 +111,73 @@ export function EntityFormContainer({
 }: EntityFormContainerProps) {
   const [settingOptions, setSettingOptions] = useState<Map<string, SettingOption[]>>(new Map());
   const [entityOptions, setEntityOptions] = useState<Map<string, SettingOption[]>>(new Map());
+  const [dagNodes, setDagNodes] = useState<Map<string, DAGNode[]>>(new Map());
+
+  // Helper to determine if a field should use DAG visualization
+  // All dl__% fields that are stage or funnel fields use DAG visualization
+  const isStageField = (fieldKey: string): boolean => {
+    const lowerKey = fieldKey.toLowerCase();
+    // Check if field starts with dl__ (datalabel prefix) and contains stage or funnel
+    const result = lowerKey.startsWith('dl__') && (lowerKey.includes('stage') || lowerKey.includes('funnel'));
+    console.log(`[EntityFormContainer] isStageField(${fieldKey}):`, result);
+    return result;
+  };
+
+  // Helper function to load DAG structure from setting_datalabel table
+  // Note: This loads the DAG STRUCTURE ONLY (nodes, parent_ids, relationships)
+  // The actual current value comes from the entity table (e.g., project.dl__project_stage)
+  const loadDagNodes = async (fieldKey: string): Promise<DAGNode[]> => {
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      // Consistent structure: field keys already use dl__ prefix (e.g., dl__project_stage, dl__task_stage)
+      // If field doesn't have dl__ prefix, add it (legacy support)
+      const datalabel = fieldKey.startsWith('dl__') ? fieldKey : `dl__${fieldKey}`;
+
+      // Fetch DAG structure from setting_datalabel table via settings API
+      // raw=true returns full metadata array with parent_ids, entity_name, terminal_flag, etc.
+      // Source: /home/rabin/projects/pmo/db/setting_datalabel.ddl
+      const response = await fetch(`${API_BASE_URL}/api/v1/setting?datalabel=${datalabel}&raw=true`, { headers });
+      if (!response.ok) return [];
+
+      const result = await response.json();
+
+      // Backend returns: {id, name, descr, parent_ids, entity_name, terminal_flag, color_code}
+      // Transform to DAGNode format: {id, node_name, parent_ids} only
+      // Note: API should return parent_ids as array already from settings table
+      if (result.data && Array.isArray(result.data)) {
+        return result.data.map((item: any) => {
+          // Handle both parent_ids (array) and parent_id (singular) for backward compatibility
+          let parentIds: number[] = [];
+          if (Array.isArray(item.parent_ids)) {
+            parentIds = item.parent_ids;
+          } else if (item.parent_id !== null && item.parent_id !== undefined) {
+            parentIds = [item.parent_id];
+          }
+
+          console.log(`[loadDagNodes] Transforming node ${item.id} (${item.name}):`, {
+            raw_parent_ids: item.parent_ids,
+            raw_parent_id: item.parent_id,
+            transformed_parent_ids: parentIds
+          });
+
+          return {
+            id: item.id,              // Stage ID (e.g., 0, 1, 2)
+            node_name: item.name,     // Stage name (e.g., "Initiation", "Planning")
+            parent_ids: parentIds     // Parent IDs array
+          };
+        }) as DAGNode[];
+      }
+
+      return [];
+    } catch (error) {
+      console.error(`Failed to load DAG nodes for ${fieldKey}:`, error);
+      return [];
+    }
+  };
 
   // Load setting options on mount
   useEffect(() => {
@@ -120,6 +186,7 @@ export function EntityFormContainer({
 
       const settingsMap = new Map<string, SettingOption[]>();
       const entitiesMap = new Map<string, SettingOption[]>();
+      const dagNodesMap = new Map<string, DAGNode[]>();
 
       // Find all fields that need dynamic settings
       const fieldsNeedingSettings = config.fields.filter(
@@ -138,6 +205,17 @@ export function EntityFormContainer({
             const options = await loadFieldOptions(field.key);
             if (options.length > 0) {
               settingsMap.set(field.key, options);
+            }
+
+            // Load DAG nodes for stage/funnel fields
+            if (isStageField(field.key)) {
+              const nodes = await loadDagNodes(field.key);
+              console.log(`[EntityFormContainer] Loaded DAG nodes for ${field.key}:`, nodes);
+              if (nodes.length > 0) {
+                dagNodesMap.set(field.key, nodes);
+              } else {
+                console.warn(`[EntityFormContainer] No DAG nodes loaded for ${field.key}`);
+              }
             }
           } catch (error) {
             console.error(`Failed to load settings options for ${field.key}:`, error);
@@ -165,6 +243,7 @@ export function EntityFormContainer({
 
       setSettingOptions(settingsMap);
       setEntityOptions(entitiesMap);
+      setDagNodes(dagNodesMap);
     };
 
     loadAllOptions();
@@ -183,8 +262,22 @@ export function EntityFormContainer({
       ? settingOptions.get(field.key)!
       : field.options || [];
     const isSequentialField = field.type === 'select'
-      && isSequentialStateField(field.key, hasSettingOptions)
+      && hasSettingOptions
+      && isStageField(field.key)
       && options.length > 0;
+
+    // Debug logging for funnel fields
+    if (field.key.includes('funnel')) {
+      console.log(`[EntityFormContainer] Field ${field.key}:`, {
+        type: field.type,
+        hasSettingOptions,
+        isStageField: isStageField(field.key),
+        optionsLength: options.length,
+        isSequentialField,
+        hasDagNodes: dagNodes.has(field.key),
+        dagNodesCount: dagNodes.get(field.key)?.length || 0
+      });
+    }
 
     if (!isEditing) {
       // Display mode
@@ -257,14 +350,29 @@ export function EntityFormContainer({
         );
       }
       if (field.type === 'select') {
-        // Use sequential state visualizer for workflow stages/funnels
-        if (isSequentialField) {
+        // Use DAG visualizer for workflow stages/funnels
+        if (isSequentialField && dagNodes.has(field.key)) {
+          // TWO DATA SOURCES for DAG visualization:
+          // 1. DAG structure (nodes, parent_ids, relationships) from setting_datalabel table
+          const nodes = dagNodes.get(field.key)!; // {id, node_name, parent_ids}[]
+
+          // 2. Current value (actual stage name) from entity table (e.g., project.dl__project_stage = "Execution")
+          // Find the matching node ID by stage name
+          const currentNode = nodes.find(n => n.node_name === value);
+
           return (
-            <SequentialStateVisualizer
-              states={options}
-              currentState={value}
-              editable={false}
-            />
+            <div className="space-y-3">
+              {/* Display actual stage value from entity table */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-700">Current Stage:</span>
+                {renderFieldBadge(field.key, value || 'Not Set')}
+              </div>
+              {/* DAG visualization overlay from setting_datalabel */}
+              <DAGVisualizer
+                nodes={nodes}                      // DAG structure: {id, node_name, parent_ids}[]
+                currentNodeId={currentNode?.id}    // Current node ID matched from stage name
+              />
+            </div>
           );
         }
 
@@ -518,15 +626,40 @@ export function EntityFormContainer({
           />
         );
       case 'select': {
-        // Use sequential state visualizer for workflow stages/funnels in edit mode
-        if (isSequentialField) {
+        // Use DAG visualizer for workflow stages/funnels in edit mode
+        if (isSequentialField && dagNodes.has(field.key)) {
+          // TWO DATA SOURCES for interactive DAG visualization:
+          // 1. DAG structure (nodes, parent_ids, relationships) from setting_datalabel table
+          const nodes = dagNodes.get(field.key)!; // {id, node_name, parent_ids}[]
+
+          // 2. Current value (actual stage name) from entity table (e.g., project.dl__project_stage = "Execution")
+          // Find the matching node ID by stage name
+          const currentNode = nodes.find(n => n.node_name === value);
+
           return (
-            <SequentialStateVisualizer
-              states={options}
-              currentState={value}
-              editable={true}
-              onStateChange={(newValue) => onChange(field.key, newValue)}
-            />
+            <div className="space-y-3">
+              {/* Display actual stage value from entity table */}
+              <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                <span className="text-sm font-semibold text-blue-900">Current Stage:</span>
+                {renderFieldBadge(field.key, value || 'Not Set')}
+              </div>
+              <div className="text-xs text-gray-600 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
+                <strong>Click a node below</strong> to change the stage
+              </div>
+              {/* Interactive DAG visualization overlay from setting_datalabel */}
+              <DAGVisualizer
+                nodes={nodes}                      // DAG structure: {id, node_name, parent_ids}[]
+                currentNodeId={currentNode?.id}    // Current node ID matched from stage name
+                onNodeClick={(nodeId) => {
+                  // Update entity table with new stage name
+                  // Backend stores stage name (not ID) in entity.dl__xxx_stage
+                  const selectedNode = nodes.find(n => n.id === nodeId);
+                  if (selectedNode) {
+                    onChange(field.key, selectedNode.node_name); // Saves stage name to entity table
+                  }
+                }}
+              />
+            </div>
           );
         }
 
@@ -608,9 +741,13 @@ export function EntityFormContainer({
     }
   };
 
-  // Exclude name, code, slug, id, tags, created_ts, updated_ts from form (they're in the page header now)
-  // But keep description/descr field
-  const excludedFields = ['name', 'title', 'code', 'slug', 'id', 'tags', 'created_ts', 'updated_ts'];
+  // Exclude fields from form based on mode
+  // In edit mode: name, code are in the page header, so exclude them
+  // In create mode: include name and code so users can see auto-populated values and edit them
+  // Always exclude: slug, id, tags, created_ts, updated_ts
+  const excludedFields = mode === 'create'
+    ? ['title', 'slug', 'id', 'tags', 'created_ts', 'updated_ts']
+    : ['name', 'title', 'code', 'slug', 'id', 'tags', 'created_ts', 'updated_ts'];
   const visibleFields = config.fields.filter(f => !excludedFields.includes(f.key));
 
   return (

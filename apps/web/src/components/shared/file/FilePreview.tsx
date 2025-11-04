@@ -28,7 +28,7 @@ export function FilePreview({ entityType, entityId, data, isEditing }: FilePrevi
   // Determine which field contains the file reference
   const getFileReference = () => {
     if (entityType === 'artifact') {
-      return data?.object_key;
+      return data?.attachment_object_key;
     } else if (entityType === 'cost') {
       return data?.invoice_attachment;
     } else if (entityType === 'revenue') {
@@ -40,7 +40,7 @@ export function FilePreview({ entityType, entityId, data, isEditing }: FilePrevi
   // Extract file format from different sources
   const getFileFormat = () => {
     if (entityType === 'artifact') {
-      return data?.file_format?.toLowerCase();
+      return data?.attachment_format?.toLowerCase();
     }
 
     // For cost/revenue, extract from S3 URI
@@ -54,8 +54,8 @@ export function FilePreview({ entityType, entityId, data, isEditing }: FilePrevi
 
   // Get file size
   const getFileSize = () => {
-    if (entityType === 'artifact' && data?.file_size_bytes) {
-      return (data.file_size_bytes / 1024).toFixed(2);
+    if (entityType === 'artifact' && data?.attachment_size_bytes) {
+      return (data.attachment_size_bytes / 1024).toFixed(2);
     }
     return null;
   };

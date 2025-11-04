@@ -31,7 +31,7 @@ const CustSchema = Type.Object({
   primary_phone: Type.Optional(Type.String()),
   city: Type.Optional(Type.String()),
   // Sales and marketing fields - _name columns only
-  dl__opportunity_funnel_stage: Type.Optional(Type.String()),
+  dl__customer_opportunity_funnel: Type.Optional(Type.String()),
   dl__industry_sector: Type.Optional(Type.String()),
   dl__acquisition_channel: Type.Optional(Type.String()),
   dl__customer_tier: Type.Optional(Type.String()),
@@ -113,7 +113,7 @@ export async function custRoutes(fastify: FastifyInstance) {
           c.id, c.code, c.name, c."descr", c.metadata, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts, c.version,
           c.cust_number, c.cust_type, c.cust_status, c.primary_contact_name,
           c.primary_email, c.primary_phone, c.city,
-          c.dl__opportunity_funnel_stage,
+          c.dl__customer_opportunity_funnel,
           c.dl__industry_sector,
           c.dl__acquisition_channel,
           c.dl__customer_tier
@@ -161,7 +161,7 @@ export async function custRoutes(fastify: FastifyInstance) {
           c.id, c.code, c.name, c."descr", c.metadata, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts, c.version,
           c.cust_number, c.cust_type, c.cust_status, c.primary_contact_name,
           c.primary_email, c.primary_phone, c.city,
-          c.dl__opportunity_funnel_stage,
+          c.dl__customer_opportunity_funnel,
           c.dl__industry_sector,
           c.dl__acquisition_channel,
           c.dl__customer_tier
@@ -215,7 +215,7 @@ export async function custRoutes(fastify: FastifyInstance) {
           c.id, c.code, c.name, c."descr", c.metadata, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts, c.version,
           c.cust_number, c.cust_type, c.cust_status, c.primary_contact_name,
           c.primary_email, c.primary_phone, c.city,
-          c.dl__opportunity_funnel_stage,
+          c.dl__customer_opportunity_funnel,
           c.dl__industry_sector,
           c.dl__acquisition_channel,
           c.dl__customer_tier

@@ -1,93 +1,92 @@
 -- =====================================================
--- WORKFLOW INSTANCE ENTITY (d_industry_workflow_graph_data) - DIMENSION TABLE
--- Flattened dimension tracking workflow instances and their entity records
+-- WORKFLOW INSTANCE DATA (d_industry_workflow_graph_data) - CORE ENTITY
+-- Stores workflow instances with entity graph in JSONB format
 -- =====================================================
 --
 -- SEMANTICS:
--- Tracks individual workflow instances as they progress through business process stages.
--- Each row represents ONE entity created/updated as part of a workflow instance.
--- This is a flattened dimension table enabling easy querying of workflow progress and entity lifecycle.
--- Links workflow templates to actual business entity records (customer, quote, work_order, task, invoice).
+-- Each row represents ONE workflow instance containing all participating entities in JSONB.
+-- Follows the same structure as workflow_graph_head but with actual entity IDs and stages.
+-- Links workflow templates (graph structure) to actual business entity records.
 --
 -- DATABASE BEHAVIOR:
--- • CREATE: INSERT when entity is created as part of workflow
+-- • CREATE: INSERT new workflow instance with initial entities
 --   Example: INSERT INTO d_industry_workflow_graph_data
---            (workflow_instance_id, workflow_template_id, state_id, entity_name, entity_id, entity_created_ts)
---            VALUES ('wf-inst-001', '550e8400-...', 0, 'customer', 'cust-uuid-123', now())
+--            (workflow_instance_id, code, name, workflow_head_id, workflow_graph_data)
+--            VALUES ('WFI-2024-001', 'WF-001', 'Landscaping Project', '550e8400-...',
+--                    '[{"id": 0, "entity_name": "cust", "entity_id": "cust-uuid", "parent_ids": []}]'::jsonb)
 --
--- • UPDATE: Add new rows as workflow progresses through states (append-only pattern)
---   Example: INSERT INTO d_industry_workflow_graph_data
---            (workflow_instance_id, workflow_template_id, state_id, entity_name, entity_id, entity_created_ts)
---            VALUES ('wf-inst-001', '550e8400-...', 1, 'quote', 'quote-uuid-456', now())
+-- • UPDATE: Update workflow_graph_data as entities are added or stages change
+--   Example: UPDATE d_industry_workflow_graph_data
+--            SET workflow_graph_data = '[...]'::jsonb, updated_ts=now()
+--            WHERE workflow_instance_id='WFI-2024-001'
 --
--- • SOFT DELETE: Mark entire workflow instance as inactive
+-- • SOFT DELETE: Mark workflow instance as inactive
 --   Example: UPDATE d_industry_workflow_graph_data SET active_flag=false, to_ts=now()
---            WHERE workflow_instance_id='wf-inst-001'
+--            WHERE workflow_instance_id='WFI-2024-001'
 --
--- • QUERY: Track workflow progress for a customer/project
+-- • QUERY: Get workflow instance with all entities
 --   Example: SELECT * FROM d_industry_workflow_graph_data
---            WHERE workflow_instance_id='wf-inst-001' AND active_flag=true
---            ORDER BY entity_created_ts ASC
+--            WHERE workflow_instance_id='WFI-2024-001' AND active_flag=true
 --
 -- KEY FIELDS:
--- • id: uuid PRIMARY KEY (stable, never changes)
--- • workflow_instance_id: text NOT NULL (groups all entities in one workflow run)
--- • workflow_template_id: uuid NOT NULL (links to d_industry_workflow_graph_head)
--- • workflow_parent_id: text (parent workflow if this is a sub-workflow)
--- • state_id: integer NOT NULL (current state in workflow graph)
--- • state_name: text (denormalized for quick queries)
--- • entity_name: text NOT NULL (which entity: customer, quote, work_order, task, invoice)
--- • entity_id: text NOT NULL (UUID of the actual entity record)
--- • entity_created_ts: timestamptz (created timestamp from actual entity record)
--- • entity_updated_ts: timestamptz (updated timestamp from actual entity record)
+-- • id: uuid PRIMARY KEY (unique identifier for workflow instance)
+-- • workflow_instance_id: text UNIQUE NOT NULL (human-readable workflow ID, e.g., "WFI-2024-001")
+-- • code: varchar(50) UNIQUE NOT NULL (short code for workflow instance)
+-- • name: text NOT NULL (e.g., "Landscaping end to end entity states")
+-- • descr: text (description of workflow instance)
+-- • workflow_head_id: uuid NOT NULL (links to d_industry_workflow_graph_head template)
+-- • workflow_graph_data: jsonb NOT NULL (array of entity nodes with actual entity IDs)
+-- • current_state_id: integer (current node ID in the graph)
+-- • terminal_state_flag: boolean (is workflow in terminal state?)
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Links to: d_industry_workflow_graph_head (workflow_template_id)
--- • Links to: actual entity tables via entity_name + entity_id
--- • Referenced by: f_industry_workflow_events (workflow_instance_id)
+-- • Links to: d_industry_workflow_graph_head (workflow_head_id)
+-- • Links to: actual entity tables via entities in workflow_graph_data
+-- • Referenced by: f_industry_workflow_events (workflow instance tracking)
+--
+-- WORKFLOW_GRAPH_DATA STRUCTURE (JSONB):
+-- Array of entity nodes following template structure but with actual entity IDs:
+-- [{
+--   "id": 0,                                    // Node ID matching template
+--   "entity_name": "cust",                      // Entity type (from template)
+--   "entity_id": "aaaaaaaa-0000-...",          // Actual entity UUID
+--   "entity_label": "John Smith",              // Display name from entity
+--   "entity_stage": "qualified_lead",          // Current stage from entity's dl__%stage
+--   "parent_ids": [],                          // Parent node IDs (from template)
+--   "entity_created_ts": "2024-11-01T09:15:00Z",
+--   "entity_updated_ts": "2024-11-01T10:30:00Z",
+--   "current_flag": false,                     // Is this the current node?
+--   "terminal_flag": false                     // Is this a terminal node?
+-- }]
 --
 -- USAGE PATTERN:
--- Each workflow instance creates multiple rows as it progresses:
---   Row 1: workflow_instance_id='WF-001', state_id=0, entity_name='customer', entity_id='cust-123'
---   Row 2: workflow_instance_id='WF-001', state_id=1, entity_name='quote', entity_id='quote-456'
---   Row 3: workflow_instance_id='WF-001', state_id=2, entity_name='work_order', entity_id='wo-789'
---   ...and so on through the entire workflow
+-- One row per workflow instance with all entities in JSONB array:
+--   workflow_instance_id='WFI-2024-001',
+--   workflow_graph_data=[
+--     {"id": 0, "entity_name": "cust", "entity_id": "cust-123", "parent_ids": []},
+--     {"id": 1, "entity_name": "quote", "entity_id": "quote-456", "parent_ids": [0]},
+--     {"id": 2, "entity_name": "work_order", "entity_id": "wo-789", "parent_ids": [1]}
+--   ]
 --
 -- =====================================================
 
 CREATE TABLE app.d_industry_workflow_graph_data (
     -- Standard identity fields
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    workflow_instance_id text UNIQUE NOT NULL,
     code varchar(50) UNIQUE NOT NULL,
     name text NOT NULL,
     descr text,
-    metadata jsonb DEFAULT '{}'::jsonb,
 
-    -- Workflow identification
-    workflow_instance_id text NOT NULL,
-    workflow_template_id uuid NOT NULL,
-    workflow_parent_id text,
+    -- Workflow template reference
+    workflow_head_id uuid NOT NULL,
 
-    -- State tracking
-    state_id integer NOT NULL,
-    state_name text NOT NULL,
+    -- Entity graph data (JSONB array following template structure with actual entity IDs)
+    workflow_graph_data jsonb NOT NULL,
 
-    -- Entity tracking
-    entity_name text NOT NULL,
-    entity_id text NOT NULL,
-    entity_created_ts timestamptz,
-    entity_updated_ts timestamptz,
-
-    -- Workflow progress flags
-    current_state_flag boolean DEFAULT true,
+    -- Current state tracking
+    current_state_id integer,
     terminal_state_flag boolean DEFAULT false,
-
-    -- Duration tracking
-    state_duration_days integer,
-
-    -- Business context
-    customer_entity_id text,
-    project_entity_id text,
 
     -- Audit fields
     created_by_employee_id uuid,
@@ -107,330 +106,97 @@ CREATE TABLE app.d_industry_workflow_graph_data (
 -- =====================================================
 
 -- Home Services Workflow Instance 1: Complete residential service cycle
--- Customer: John Smith Residential Service (Nov 2024)
--- SIMPLIFIED: One state per entity type, entity tracks its own stage
-
--- State 0: Customer (tracks stage internally)
+-- Uses actual customer and task from database
 INSERT INTO app.d_industry_workflow_graph_data (
     id,
+    workflow_instance_id,
     code,
     name,
     descr,
-    workflow_instance_id,
-    workflow_template_id,
-    state_id,
-    state_name,
-    entity_name,
-    entity_id,
-    entity_created_ts,
-    entity_updated_ts,
-    current_state_flag,
+    workflow_head_id,
+    workflow_graph_data,
+    current_state_id,
     terminal_state_flag,
-    state_duration_days,
-    customer_entity_id,
-    created_by_employee_id,
-    metadata
-) VALUES (
+    created_by_employee_id
+)
+SELECT
     '660e8400-e29b-41d4-a716-446655440001',
-    'WFI-2024-001-S0',
-    'WF Instance: John Smith Service - Customer',
-    'Customer entity with stage: qualified_lead',
     'WFI-2024-001',
-    '550e8400-e29b-41d4-a716-446655440001',
-    0,
-    'cust',
-    'cust',
-    'aaaaaaaa-0000-0000-0001-111111111111',
-    '2024-11-01 09:15:00',
-    '2024-11-01 10:30:00',
-    false,
-    false,
-    1,
-    'aaaaaaaa-0000-0000-0001-111111111111',
-    '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
-    '{"lead_source": "phone_call", "service_type": "hvac_repair", "urgency": "standard"}'::jsonb
-);
-
--- State 1: Quote
-INSERT INTO app.d_industry_workflow_graph_data (
-    id,
-    code,
-    name,
-    descr,
-    workflow_instance_id,
-    workflow_template_id,
-    state_id,
-    state_name,
-    entity_name,
-    entity_id,
-    entity_created_ts,
-    entity_updated_ts,
-    current_state_flag,
-    terminal_state_flag,
-    state_duration_days,
-    customer_entity_id,
-    created_by_employee_id,
-    metadata
-) VALUES (
-    '660e8400-e29b-41d4-a716-446655440002',
-    'WFI-2024-001-S1',
-    'WF Instance: John Smith Service - Quote',
-    'Quote entity with stage: approved',
     'WFI-2024-001',
+    'Home Services - Standard Project - ' || c.name,
+    'Complete workflow: Customer → Task',
     '550e8400-e29b-41d4-a716-446655440001',
-    1,
-    'quote',
-    'quote',
-    'bbbbbbbb-0000-0000-0002-222222222222',
-    '2024-11-01 10:30:00',
-    '2024-11-02 14:15:00',
-    false,
-    false,
-    1,
-    'aaaaaaaa-0000-0000-0001-111111111111',
-    '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
-    '{"quote_amount": 5000.00, "approval_method": "email"}'::jsonb
-);
-
--- State 2: Work Order
-INSERT INTO app.d_industry_workflow_graph_data (
-    id,
-    code,
-    name,
-    descr,
-    workflow_instance_id,
-    workflow_template_id,
-    state_id,
-    state_name,
-    entity_name,
-    entity_id,
-    entity_created_ts,
-    entity_updated_ts,
-    current_state_flag,
-    terminal_state_flag,
-    state_duration_days,
-    customer_entity_id,
-    created_by_employee_id,
-    metadata
-) VALUES (
-    '660e8400-e29b-41d4-a716-446655440003',
-    'WFI-2024-001-S2',
-    'WF Instance: John Smith Service - Work Order',
-    'Work order entity with status: completed',
-    'WFI-2024-001',
-    '550e8400-e29b-41d4-a716-446655440001',
-    2,
-    'work_order',
-    'work_order',
-    'cccccccc-0000-0000-0002-222222222222',
-    '2024-11-02 14:15:00',
-    '2024-11-03 12:30:00',
-    false,
-    false,
-    1,
-    'aaaaaaaa-0000-0000-0001-111111111111',
-    '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
-    '{"scheduled_date": "2024-11-03", "actual_hours": 8.0}'::jsonb
-);
-
--- State 3: Task
-INSERT INTO app.d_industry_workflow_graph_data (
-    id,
-    code,
-    name,
-    descr,
-    workflow_instance_id,
-    workflow_template_id,
-    state_id,
-    state_name,
-    entity_name,
-    entity_id,
-    entity_created_ts,
-    entity_updated_ts,
-    current_state_flag,
-    terminal_state_flag,
-    state_duration_days,
-    customer_entity_id,
-    created_by_employee_id,
-    metadata
-) VALUES (
-    '660e8400-e29b-41d4-a716-446655440004',
-    'WFI-2024-001-S3',
-    'WF Instance: John Smith Service - Task',
-    'Task entity with stage: in_progress',
-    'WFI-2024-001',
-    '550e8400-e29b-41d4-a716-446655440001',
+    jsonb_build_array(
+        jsonb_build_object(
+            'id', 0,
+            'entity_name', 'cust',
+            'entity_id', c.id::text,
+            'parent_ids', '[]'::jsonb,
+            'current_flag', false,
+            'terminal_flag', false
+        ),
+        jsonb_build_object(
+            'id', 3,
+            'entity_name', 'task',
+            'entity_id', t.id::text,
+            'parent_ids', '[0]'::jsonb,
+            'current_flag', true,
+            'terminal_flag', true
+        )
+    ),
     3,
-    'task',
-    'task',
-    'aaaaaaaa-1111-1111-1111-111111111112',
-    '2024-11-03 08:00:00',
-    '2024-11-03 12:00:00',
-    false,
-    false,
-    0,
-    'aaaaaaaa-0000-0000-0001-111111111111',
-    '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
-    '{"task_type": "hvac_installation", "actual_hours": 4.5, "priority": "high"}'::jsonb
-);
-
--- State 4: Invoice
-INSERT INTO app.d_industry_workflow_graph_data (
-    id,
-    code,
-    name,
-    descr,
-    workflow_instance_id,
-    workflow_template_id,
-    state_id,
-    state_name,
-    entity_name,
-    entity_id,
-    entity_created_ts,
-    entity_updated_ts,
-    current_state_flag,
-    terminal_state_flag,
-    state_duration_days,
-    customer_entity_id,
-    created_by_employee_id,
-    metadata
-) VALUES (
-    '660e8400-e29b-41d4-a716-446655440005',
-    'WFI-2024-001-S4',
-    'WF Instance: John Smith Service - Invoice',
-    'Invoice entity with status: paid',
-    'WFI-2024-001',
-    '550e8400-e29b-41d4-a716-446655440001',
-    4,
-    'invoice',
-    'invoice',
-    'dddddddd-0000-0000-0002-222222222222',
-    '2024-11-03 12:30:00',
-    '2024-11-05 10:00:00',
-    false,
-    false,
-    2,
-    'aaaaaaaa-0000-0000-0001-111111111111',
-    '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
-    '{"invoice_amount": 5650.00, "payment_date": "2024-11-05"}'::jsonb
-);
-
--- State 5: Completed (Terminal)
-INSERT INTO app.d_industry_workflow_graph_data (
-    id,
-    code,
-    name,
-    descr,
-    workflow_instance_id,
-    workflow_template_id,
-    state_id,
-    state_name,
-    entity_name,
-    entity_id,
-    entity_created_ts,
-    entity_updated_ts,
-    current_state_flag,
-    terminal_state_flag,
-    state_duration_days,
-    customer_entity_id,
-    created_by_employee_id,
-    metadata
-) VALUES (
-    '660e8400-e29b-41d4-a716-446655440006',
-    'WFI-2024-001-S5',
-    'WF Instance: John Smith Service - Completed',
-    'Workflow completed successfully',
-    'WFI-2024-001',
-    '550e8400-e29b-41d4-a716-446655440001',
-    5,
-    'completed',
-    'invoice',
-    'dddddddd-0000-0000-0002-222222222222',
-    '2024-11-05 10:00:00',
-    NULL,
     true,
-    true,
-    NULL,
-    'aaaaaaaa-0000-0000-0001-111111111111',
-    '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
-    '{"payment_method": "credit_card", "transaction_id": "TXN-20241105-001"}'::jsonb
-);
+    '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
+FROM app.d_cust c
+CROSS JOIN app.d_task t
+WHERE c.code = 'CL-RES-002'  -- Martinez Family Home
+  AND t.code = 'CEO-TASK-001'  -- Quarterly Business Performance Review
+LIMIT 1;
 
--- Second Workflow Instance: HVAC Emergency Service (using HVAC_EMERG template)
--- Customer: Emergency Commercial HVAC Repair (Nov 2024)
-
--- State 0: Emergency Call
+-- Home Services Workflow Instance 2: Commercial Service
+-- Uses actual customer and task from database
 INSERT INTO app.d_industry_workflow_graph_data (
     id,
+    workflow_instance_id,
     code,
     name,
     descr,
-    workflow_instance_id,
-    workflow_template_id,
-    state_id,
-    state_name,
-    entity_name,
-    entity_id,
-    entity_created_ts,
-    entity_updated_ts,
-    current_state_flag,
+    workflow_head_id,
+    workflow_graph_data,
+    current_state_id,
     terminal_state_flag,
-    customer_entity_id,
-    created_by_employee_id,
-    metadata
-) VALUES (
-    '660e8400-e29b-41d4-a716-446655440010',
-    'WFI-2024-002-S0',
-    'WF Instance: Emergency HVAC - Emergency Call',
-    'Emergency HVAC call from commercial client',
+    created_by_employee_id
+)
+SELECT
+    '660e8400-e29b-41d4-a716-446655440002',
     'WFI-2024-002',
-    '550e8400-e29b-41d4-a716-446655440002',
-    0,
-    'emergency_call',
-    'cust',
-    'aaaaaaaa-0000-0000-0002-222222222222',
-    '2024-11-10 14:30:00',
-    '2024-11-10 14:35:00',
-    false,
-    false,
-    'aaaaaaaa-0000-0000-0002-222222222222',
-    '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
-    '{"emergency_type": "no_heat", "building_type": "commercial_office", "priority": "critical"}'::jsonb
-);
-
--- State 7: Payment Collected (Current State - Terminal)
-INSERT INTO app.d_industry_workflow_graph_data (
-    id,
-    code,
-    name,
-    descr,
-    workflow_instance_id,
-    workflow_template_id,
-    state_id,
-    state_name,
-    entity_name,
-    entity_id,
-    entity_created_ts,
-    current_state_flag,
-    terminal_state_flag,
-    customer_entity_id,
-    created_by_employee_id,
-    metadata
-) VALUES (
-    '660e8400-e29b-41d4-a716-446655440011',
-    'WFI-2024-002-S7',
-    'WF Instance: Emergency HVAC - Payment Collected',
-    'Emergency service completed and paid on-site',
     'WFI-2024-002',
+    'Commercial Service - ' || c.name,
+    'Workflow: Customer → Task',
     '550e8400-e29b-41d4-a716-446655440002',
-    7,
-    'payment_collected',
-    'invoice',
-    'dddddddd-0000-0000-0002-222222222222',
-    '2024-11-10 18:00:00',
+    jsonb_build_array(
+        jsonb_build_object(
+            'id', 0,
+            'entity_name', 'cust',
+            'entity_id', c.id::text,
+            'parent_ids', '[]'::jsonb,
+            'current_flag', false,
+            'terminal_flag', false
+        ),
+        jsonb_build_object(
+            'id', 1,
+            'entity_name', 'task',
+            'entity_id', t.id::text,
+            'parent_ids', '[0]'::jsonb,
+            'current_flag', true,
+            'terminal_flag', true
+        )
+    ),
+    1,
     true,
-    true,
-    'aaaaaaaa-0000-0000-0002-222222222222',
-    '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
-    '{"service_duration_hours": 3.5, "payment_method": "company_check", "amount": 1250.00, "same_day_completion": true}'::jsonb
-);
+    '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
+FROM app.d_cust c
+CROSS JOIN app.d_task t
+WHERE c.code = 'CL-COM-007'  -- Amica Senior Living
+  AND t.code = 'CSE-TASK-001'  -- Customer Service Process Optimization
+LIMIT 1;
