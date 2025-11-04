@@ -462,7 +462,7 @@ CREATE TABLE app.d_form_data (
     approval_status varchar(50),                     -- pending | approved | rejected
     approved_by_empid uuid,                          -- Approver employee ID
     approval_notes text,                             -- Approval/rejection reason
-    approved_at timestamptz,                         -- Approval timestamp
+    approved_ts timestamptz,                         -- Approval timestamp
 
     -- Audit
     created_ts timestamptz DEFAULT NOW(),

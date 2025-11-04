@@ -26,7 +26,6 @@ const EmployeeSchema = Type.Object({
   version: Type.Number(),
 
   // Employee identification (DDL columns)
-  employee_number: Type.String(),
   email: Type.String(),
   first_name: Type.String(),
   last_name: Type.String(),
@@ -79,7 +78,6 @@ const CreateEmployeeSchema = Type.Object({
   active_flag: Type.Optional(Type.Boolean()),
 
   // Employee identification (DDL columns)
-  employee_number: Type.Optional(Type.String({ minLength: 1 })),
   email: Type.Optional(Type.String({ format: 'email' })),
   first_name: Type.Optional(Type.String({ minLength: 1 })),
   last_name: Type.Optional(Type.String({ minLength: 1 })),
@@ -131,7 +129,6 @@ const UpdateEmployeeSchema = Type.Object({
   active_flag: Type.Optional(Type.Boolean()),
 
   // Employee identification (DDL columns)
-  employee_number: Type.Optional(Type.String({ minLength: 1 })),
   email: Type.Optional(Type.String({ format: 'email' })),
   first_name: Type.Optional(Type.String({ minLength: 1 })),
   last_name: Type.Optional(Type.String({ minLength: 1 })),
@@ -246,7 +243,6 @@ export async function empRoutes(fastify: FastifyInstance) {
           sql`COALESCE(e.name, '') ILIKE ${`%${search}%`}`,
           sql`COALESCE(e."descr", '') ILIKE ${`%${search}%`}`,
           sql`COALESCE(e.email, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(e.employee_number, '') ILIKE ${`%${search}%`}`,
           sql`COALESCE(e.first_name, '') ILIKE ${`%${search}%`}`,
           sql`COALESCE(e.last_name, '') ILIKE ${`%${search}%`}`
         ];
@@ -266,7 +262,7 @@ export async function empRoutes(fastify: FastifyInstance) {
           e.id, e.code, e.name, e."descr",
           COALESCE(e.metadata->'tags', '[]'::jsonb) as tags,
           e.from_ts, e.to_ts, e.active_flag, e.created_ts, e.updated_ts, e.version,
-          e.employee_number, e.email, e.phone, e.mobile, e.first_name, e.last_name,
+          e.email, e.phone, e.mobile, e.first_name, e.last_name,
           e.address_line1, e.address_line2, e.city, e.province, e.postal_code, e.country,
           e.employee_type, e.department, e.title, e.hire_date, e.termination_date,
           e.salary_band, e.pay_grade, e.manager_employee_id,
@@ -351,7 +347,7 @@ export async function empRoutes(fastify: FastifyInstance) {
           id, code, name, "descr",
           COALESCE(metadata->'tags', '[]'::jsonb) as tags,
           from_ts, to_ts, active_flag, created_ts, updated_ts, version,
-          employee_number, email, phone, mobile, first_name, last_name,
+          email, phone, mobile, first_name, last_name,
           address_line1, address_line2, city, province, postal_code, country,
           employee_type, department, title, hire_date, termination_date,
           salary_band, pay_grade, manager_employee_id,
@@ -414,14 +410,9 @@ export async function empRoutes(fastify: FastifyInstance) {
       data.code = `EMP-${nextNumber}`;
     }
 
-    if (!data.employee_number) {
-      // Use code as employee_number if not provided
-      data.employee_number = data.code;
-    }
-
     if (!data.email) {
-      // Generate temporary email
-      data.email = `employee-${data.employee_number}@temp.huronhome.ca`;
+      // Generate temporary email using code
+      data.email = `employee-${data.code}@temp.huronhome.ca`;
     }
 
     if (!data.hire_date) {
@@ -447,16 +438,6 @@ export async function empRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Check for unique employee number if provided
-      if (data.employee_number) {
-        const existingEmpNumber = await db.execute(sql`
-          SELECT id FROM app.d_employee WHERE employee_number = ${data.employee_number} AND active_flag = true
-        `);
-        if (existingEmpNumber.length > 0) {
-          return reply.status(400).send({ error: 'Employee with this employee number already exists' });
-        }
-      }
-      
       // Check for unique email if provided
       if (data.email) {
         const existingEmail = await db.execute(sql`
@@ -469,7 +450,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       
       const result = await db.execute(sql`
         INSERT INTO app.d_employee (
-          code, name, "descr", employee_number, email, phone,
+          code, name, "descr", email, phone,
           first_name, last_name, title, department,
           hire_date, termination_date, employee_type,
           manager_employee_id,
@@ -479,7 +460,6 @@ export async function empRoutes(fastify: FastifyInstance) {
           ${data.code},
           ${data.name},
           ${data.descr || null},
-          ${data.employee_number},
           ${data.email},
           ${data.phone || null},
           ${data.first_name},
@@ -550,7 +530,6 @@ export async function empRoutes(fastify: FastifyInstance) {
       if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
 
       // Employee identification
-      if (data.employee_number !== undefined) updateFields.push(sql`employee_number = ${data.employee_number}`);
       if (data.email !== undefined) updateFields.push(sql`email = ${data.email}`);
       if (data.first_name !== undefined) updateFields.push(sql`first_name = ${data.first_name}`);
       if (data.last_name !== undefined) updateFields.push(sql`last_name = ${data.last_name}`);

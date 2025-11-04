@@ -34,6 +34,7 @@ The **PMO Platform** is an enterprise-grade project management and operations sy
 
 | Document | Purpose | When to Use | Key Topics |
 |----------|---------|-------------|------------|
+| **[Universal Entity System](./docs/entity_design_pattern/universal_entity_system.md)** | **⭐ Complete DRY entity architecture guide** | Understanding universal pages, inline editing, create-then-link patterns | 3 universal pages, Default-editable pattern, Column consistency, Inline create-then-link, Entity configuration (v3.1) |
 | **[UI/UX Architecture](./docs/ui_ux_route_api.md)** | Complete system architecture from DB to frontend | Understanding the entire platform, data flows, routing | Database layer, API modules, Frontend components, Data flow examples, DRY principles |
 | **[Infrastructure Design](./docs/INFRASTRUCTURE_DESIGN.md)** | AWS cloud infrastructure and deployment | Setting up AWS resources, deployment pipeline | Terraform, EC2, S3, Lambda, EventBridge, Deployment automation |
 | **[Deployment Design](./docs/DEPLOYMENT_DESIGN.md)** | Deployment strategies and procedures | Deploying to production, CI/CD setup | Deployment flow, Environment configuration, Release management |
@@ -74,14 +75,17 @@ The **PMO Platform** is an enterprise-grade project management and operations sy
 
 **🔍 Understanding the Platform:**
 ```
-Start with: ui_ux_route_api.md → Complete overview of all layers
+Start with: entity_design_pattern/universal_entity_system.md → DRY entity architecture ⭐
+Then read: ui_ux_route_api.md → Complete overview of all layers
 Then read: datamodel.md → Understand entities and relationships
 Finally: INFRASTRUCTURE_DESIGN.md → Deployment architecture
 ```
 
 **🏗️ Adding New Features:**
 ```
-Entity-based feature: ui_ux_route_api.md → Entity Configuration System
+New entity type: entity_design_pattern/universal_entity_system.md → Universal pages, config, patterns
+Entity-based feature: entity_design_pattern/universal_entity_system.md → Inline editing, create-then-link
+Parent-child relationships: entity_design_pattern/universal_entity_system.md → Linkage patterns
 Form feature: form.md → Dynamic form schemas
 File upload: S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md → Attachment workflow
 Dropdown/select: ENTITY_OPTIONS_API.md → Universal options API

@@ -653,7 +653,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           fd.approval_status,
           fd.approved_by_empid::text,
           fd.approval_notes,
-          fd.approved_at,
+          fd.approved_ts,
           fd.created_ts,
           fd.updated_ts
         FROM app.d_form_data fd
@@ -774,7 +774,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           fd.approval_status,
           fd.approved_by_empid,
           fd.approval_notes,
-          fd.approved_at,
+          fd.approved_ts,
           fd.created_ts,
           fd.updated_ts
         FROM app.d_form_data fd

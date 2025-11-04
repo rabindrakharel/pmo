@@ -420,7 +420,7 @@ export const dWiki = pgTable('d_wiki', {
   publishStatus: text('publish_status').notNull().default('draft'), // draft, published, archived
   reviewRequired: boolean('review_required').default(false),
   approvedBy: uuid('approved_by'),
-  approvedAt: timestamp('approved_at', { withTimezone: true }),
+  approvedAt: timestamp('approved_ts', { withTimezone: true }),
   
   // Version control
   version: text('version').default('1.0'),
