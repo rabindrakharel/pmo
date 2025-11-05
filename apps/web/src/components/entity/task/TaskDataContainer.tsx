@@ -413,12 +413,12 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
         deltaObj = JSON.parse(richtext);
       } catch (e) {
         console.error('Failed to parse richtext:', e);
-        return <span className="text-gray-500">Invalid content format</span>;
+        return <span className="text-dark-700">Invalid content format</span>;
       }
     }
 
     if (!deltaObj || !deltaObj.ops) {
-      return <span className="text-gray-500">-</span>;
+      return <span className="text-dark-700">-</span>;
     }
 
     const { html, attachments: attachmentOps } = convertDeltaToHtml(deltaObj);
@@ -427,7 +427,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
       <div className="space-y-3">
         {html && (
           <div
-            className="prose prose-sm max-w-none text-gray-700"
+            className="prose prose-sm max-w-none text-dark-600"
             dangerouslySetInnerHTML={{ __html: html }}
           />
         )}
@@ -446,7 +446,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                       <img
                         src={att.dataUrl}
                         alt={displayName}
-                        className="max-w-[30vw] md:max-w-xs h-auto rounded-lg border border-gray-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                        className="max-w-[30vw] md:max-w-xs h-auto rounded-lg border border-dark-300 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
                         onClick={() => setImagePreview({ url: att.dataUrl!, name: displayName })}
                       />
                       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -455,9 +455,9 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                         </div>
                       </div>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-xs text-dark-700 mt-1">
                       {displayName}
-                      {sizeKb && <span className="ml-1 text-gray-400">({sizeKb})</span>}
+                      {sizeKb && <span className="ml-1 text-dark-600">({sizeKb})</span>}
                     </div>
                   </div>
                 );
@@ -469,11 +469,11 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                     key={key}
                     href={att.dataUrl}
                     download={displayName}
-                    className="inline-flex items-center px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors"
+                    className="inline-flex items-center px-3 py-2 bg-dark-100 border border-dark-400 rounded-lg text-sm text-dark-700 hover:bg-dark-100 hover:border-dark-500 transition-colors"
                   >
                     <Paperclip className="w-4 h-4 mr-2 stroke-[1.5]" />
                     <span className="font-normal truncate max-w-[12rem]">{displayName}</span>
-                    {sizeKb && <span className="ml-2 text-xs text-blue-500">({sizeKb})</span>}
+                    {sizeKb && <span className="ml-2 text-xs text-dark-6000">({sizeKb})</span>}
                   </a>
                 );
               }
@@ -481,11 +481,11 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
               return (
                 <div
                   key={key}
-                  className="inline-flex items-center px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-700"
+                  className="inline-flex items-center px-3 py-2 bg-dark-100 border border-dark-300 rounded-lg text-sm text-dark-600"
                 >
                   <Paperclip className="w-4 h-4 mr-2 stroke-[1.5]" />
                   <span className="font-normal truncate max-w-[12rem]">{displayName}</span>
-                  {sizeKb && <span className="ml-2 text-xs text-gray-500">({sizeKb})</span>}
+                  {sizeKb && <span className="ml-2 text-xs text-dark-700">({sizeKb})</span>}
                 </div>
               );
             })}
@@ -509,14 +509,14 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
         if (op.attributes.italic) text = `<em>${text}</em>`;
         if (op.attributes.underline) text = `<u>${text}</u>`;
         if (op.attributes.strike) text = `<s>${text}</s>`;
-        if (op.attributes.code) text = `<code class="bg-gray-100 px-1 py-0.5 rounded">${text}</code>`;
-        if (op.attributes.link) text = `<a href="${op.attributes.link}" class="text-blue-600 hover:underline" target="_blank">${text}</a>`;
+        if (op.attributes.code) text = `<code class="bg-dark-100 px-1 py-0.5 rounded">${text}</code>`;
+        if (op.attributes.link) text = `<a href="${op.attributes.link}" class="text-dark-700 hover:underline" target="_blank">${text}</a>`;
         if (op.attributes.header) text = `<h${op.attributes.header} class="font-normal mt-4 mb-2">${text}</h${op.attributes.header}>`;
-        if (op.attributes['code-block']) text = `<pre class="bg-gray-100 p-2 rounded overflow-x-auto"><code>${text}</code></pre>`;
+        if (op.attributes['code-block']) text = `<pre class="bg-dark-100 p-2 rounded overflow-x-auto"><code>${text}</code></pre>`;
         if (op.attributes.list === 'bullet') text = `<li class="ml-4">${text}</li>`;
         if (op.attributes.list === 'ordered') text = `<li class="ml-4 list-decimal">${text}</li>`;
         if (op.attributes.mention) {
-          text = `<span class="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">@${op.attributes.mention.name}</span>`;
+          text = `<span class="bg-dark-100 text-dark-600 px-1.5 py-0.5 rounded">@${op.attributes.mention.name}</span>`;
         }
         if (op.attributes.attachment) {
           attachments.push(op.attributes.attachment as AttachmentOp);
@@ -547,7 +547,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
             href={`/form/${metadata.form_id}/edit-submission?submissionId=${metadata.submission_id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors"
+            className="inline-flex items-center px-3 py-2 bg-dark-100 border border-dark-400 rounded-lg text-sm text-dark-700 hover:bg-dark-100 hover:border-dark-500 transition-colors"
           >
             <ExternalLink className="h-4 w-4 mr-2 stroke-[1.5]" />
             View/Edit Form Submission
@@ -555,32 +555,32 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
         )}
 
         {/* Submitted Data Table */}
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 flex items-center space-x-2">
-            <Table className="h-4 w-4 text-gray-600 stroke-[1.5]" />
-            <span className="text-sm font-normal text-gray-700">Submitted Data</span>
+        <div className="bg-dark-100 border border-dark-300 rounded-lg overflow-hidden">
+          <div className="bg-dark-100 border-b border-dark-300 px-4 py-2 flex items-center space-x-2">
+            <Table className="h-4 w-4 text-dark-700 stroke-[1.5]" />
+            <span className="text-sm font-normal text-dark-600">Submitted Data</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-dark-400">
+              <thead className="bg-dark-100">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-left text-xs font-normal text-dark-700 uppercase tracking-wider">
                     Field
                   </th>
-                  <th className="px-4 py-2 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-left text-xs font-normal text-dark-700 uppercase tracking-wider">
                     Value
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-dark-100 divide-y divide-dark-400">
                 {entries.map(([key, value]) => (
-                  <tr key={key} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 text-sm font-normal text-gray-900 whitespace-nowrap">
+                  <tr key={key} className="hover:bg-dark-100">
+                    <td className="px-4 py-2 text-sm font-normal text-dark-600 whitespace-nowrap">
                       {key}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-700">
+                    <td className="px-4 py-2 text-sm text-dark-600">
                       {typeof value === 'object' ? (
-                        <pre className="text-xs bg-gray-50 p-2 rounded overflow-x-auto">
+                        <pre className="text-xs bg-dark-100 p-2 rounded overflow-x-auto">
                           {JSON.stringify(value, null, 2)}
                         </pre>
                       ) : (
@@ -622,30 +622,30 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
         </div>
       )}
 
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+      <div className="bg-dark-100 rounded-lg border border-dark-300 shadow-sm">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-200">
+      <div className="px-6 py-4 border-b border-dark-300">
         <div className="flex items-center space-x-2">
-          <MessageSquare className="h-5 w-5 text-gray-600 stroke-[1.5]" />
-          <h2 className="text-sm font-normal text-gray-700">Task Updates & Activity</h2>
-          <span className="text-xs text-gray-500">({updates.length})</span>
+          <MessageSquare className="h-5 w-5 text-dark-700 stroke-[1.5]" />
+          <h2 className="text-sm font-normal text-dark-600">Task Updates & Activity</h2>
+          <span className="text-xs text-dark-700">({updates.length})</span>
         </div>
       </div>
 
       {/* New Update Form - Hidden in public view */}
       {!isPublicView && (
-      <div className="p-6 border-b border-gray-200 bg-gray-50">
+      <div className="p-6 border-b border-dark-300 bg-dark-100">
         <div className="space-y-4">
           {/* Update Type Tabs */}
           <div className="space-y-4">
             {/* Tab Buttons */}
-            <div className="flex items-center space-x-2 border-b border-gray-300">
+            <div className="flex items-center space-x-2 border-b border-dark-400">
               <button
                 onClick={() => setUpdateType('comment')}
                 className={`px-4 py-2 text-sm font-normal transition-colors border-b-2 ${
                   updateType === 'comment'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                    ? 'border-dark-700 text-dark-700'
+                    : 'border-transparent text-dark-700 hover:text-dark-600 hover:border-dark-400'
                 }`}
               >
                 Comment
@@ -654,8 +654,8 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                 onClick={() => setUpdateType('status_change')}
                 className={`px-4 py-2 text-sm font-normal transition-colors border-b-2 ${
                   updateType === 'status_change'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                    ? 'border-dark-700 text-dark-700'
+                    : 'border-transparent text-dark-700 hover:text-dark-600 hover:border-dark-400'
                 }`}
               >
                 Status Change
@@ -664,8 +664,8 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                 onClick={() => setUpdateType('assignment')}
                 className={`px-4 py-2 text-sm font-normal transition-colors border-b-2 ${
                   updateType === 'assignment'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                    ? 'border-dark-700 text-dark-700'
+                    : 'border-transparent text-dark-700 hover:text-dark-600 hover:border-dark-400'
                 }`}
               >
                 Assignment
@@ -674,8 +674,8 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                 onClick={() => setUpdateType('attachment')}
                 className={`px-4 py-2 text-sm font-normal transition-colors border-b-2 ${
                   updateType === 'attachment'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                    ? 'border-dark-700 text-dark-700'
+                    : 'border-transparent text-dark-700 hover:text-dark-600 hover:border-dark-400'
                 }`}
               >
                 Attachment
@@ -684,8 +684,8 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                 onClick={() => setUpdateType('form')}
                 className={`px-4 py-2 text-sm font-normal transition-colors border-b-2 ${
                   updateType === 'form'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                    ? 'border-dark-700 text-dark-700'
+                    : 'border-transparent text-dark-700 hover:text-dark-600 hover:border-dark-400'
                 }`}
               >
                 Form
@@ -694,7 +694,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
 
             {/* Hours Logged Input */}
             <div className="flex items-center space-x-2">
-              <label className="text-sm text-gray-600">Hours Logged:</label>
+              <label className="text-sm text-dark-700">Hours Logged:</label>
               <input
                 type="number"
                 step="0.5"
@@ -702,7 +702,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                 value={hoursLogged}
                 onChange={(e) => setHoursLogged(e.target.value)}
                 placeholder="0.0"
-                className="w-20 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-20 px-3 py-2 text-sm border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
               />
             </div>
           </div>
@@ -712,22 +712,22 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
             // Form Selection and Interactive Form
             <div className="space-y-4">
               {/* Form Selector */}
-              <div className="bg-white rounded-lg border border-blue-300 p-4">
+              <div className="bg-dark-100 rounded-lg border border-dark-500 p-4">
                 <div className="flex items-center space-x-2 mb-3">
-                  <FileText className="h-5 w-5 text-blue-600 stroke-[1.5]" />
-                  <label className="text-sm font-normal text-gray-700">Select Form:</label>
+                  <FileText className="h-5 w-5 text-dark-700 stroke-[1.5]" />
+                  <label className="text-sm font-normal text-dark-600">Select Form:</label>
                 </div>
                 {loadingForms ? (
-                  <div className="text-sm text-gray-500">Loading forms...</div>
+                  <div className="text-sm text-dark-700">Loading forms...</div>
                 ) : forms.length === 0 ? (
-                  <div className="text-sm text-gray-500 py-3">
+                  <div className="text-sm text-dark-700 py-3">
                     No forms are linked to this task. Please associate forms with this task first.
                   </div>
                 ) : (
                   <select
                     value={selectedFormId}
                     onChange={(e) => handleFormSelect(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 text-sm border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
                   >
                     <option value="">Choose a form...</option>
                     {forms.map((form) => (
@@ -741,8 +741,8 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
 
               {/* Interactive Form - Reusing existing component (DRY principle) */}
               {selectedForm && (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                  <div className="text-sm font-normal text-blue-800 mb-3 flex items-center space-x-2">
+                <div className="bg-dark-100 border border-dark-400 rounded-xl p-4">
+                  <div className="text-sm font-normal text-dark-600 mb-3 flex items-center space-x-2">
                     <FileText className="h-4 w-4 stroke-[1.5]" />
                     <span>Fill out: {selectedForm.name}</span>
                   </div>
@@ -768,7 +768,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
             </div>
           ) : (
             // Text Editor for other update types
-            <div className="bg-white rounded-lg border border-gray-300">
+            <div className="bg-dark-100 rounded-lg border border-dark-400">
               <textarea
                 value={editorContent}
                 onChange={(e) => setEditorContent(e.target.value)}
@@ -782,21 +782,21 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
           {/* Attachment Preview */}
           {attachments.length > 0 && (
             <div className="space-y-2">
-              <div className="text-xs font-normal text-gray-600">Attachments ({attachments.length})</div>
+              <div className="text-xs font-normal text-dark-700">Attachments ({attachments.length})</div>
               <div className="flex flex-wrap gap-2">
                 {attachments.map((file, index) => (
                   <div
                     key={index}
-                    className="inline-flex items-center px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 group"
+                    className="inline-flex items-center px-3 py-1.5 bg-dark-100 border border-dark-400 rounded-lg text-sm text-dark-700 group"
                   >
                     <Paperclip className="h-3.5 w-3.5 mr-1.5 stroke-[1.5]" />
                     <span className="max-w-[200px] truncate">{file.name}</span>
-                    <span className="ml-2 text-xs text-blue-500">
+                    <span className="ml-2 text-xs text-dark-6000">
                       ({(file.size / 1024).toFixed(1)} KB)
                     </span>
                     <button
                       onClick={() => handleRemoveAttachment(index)}
-                      className="ml-2 text-blue-400 hover:text-red-600 transition-colors"
+                      className="ml-2 text-dark-700 hover:text-red-600 transition-colors"
                       type="button"
                     >
                       ×
@@ -810,7 +810,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
           {/* Action Buttons */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <label className="inline-flex items-center px-3 py-1.5 text-sm font-normal text-gray-600 hover:text-blue-600 cursor-pointer border border-gray-300 rounded hover:border-blue-400 transition-colors">
+              <label className="inline-flex items-center px-3 py-1.5 text-sm font-normal text-dark-700 hover:text-dark-700 cursor-pointer border border-dark-400 rounded hover:border-dark-600 transition-colors">
                 <Paperclip className="h-4 w-4 mr-1.5 stroke-[1.5]" />
                 <span>Attach files</span>
                 <input
@@ -822,7 +822,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                 />
               </label>
               {uploading && (
-                <span className="text-xs text-blue-600 animate-pulse">Uploading...</span>
+                <span className="text-xs text-dark-700 animate-pulse">Uploading...</span>
               )}
             </div>
             <Button
@@ -841,10 +841,10 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
       {/* Updates List - JIRA-style Activity Feed */}
       <div className="p-6 space-y-3">
         {loading ? (
-          <div className="text-center py-8 text-gray-500">Loading updates...</div>
+          <div className="text-center py-8 text-dark-700">Loading updates...</div>
         ) : updates.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-400 stroke-[1.5]" />
+          <div className="text-center py-8 text-dark-700">
+            <MessageSquare className="h-12 w-12 mx-auto mb-3 text-dark-600 stroke-[1.5]" />
             <p className="text-sm">{isPublicView ? 'No updates available.' : 'No updates yet. Be the first to add one!'}</p>
           </div>
         ) : (
@@ -855,7 +855,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                 <div className="flex space-x-3">
                   {/* Avatar */}
                   <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-sm font-normal text-gray-600 shadow-sm">
+                    <div className="w-10 h-10 bg-dark-100 rounded-full flex items-center justify-center text-sm font-normal text-dark-700 shadow-sm">
                       {update.updated_by_name?.charAt(0).toUpperCase() || 'U'}
                     </div>
                   </div>
@@ -865,10 +865,10 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                     {/* Header: Name, Time, Type */}
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">
-                        <span className="text-sm font-normal text-gray-900">
+                        <span className="text-sm font-normal text-dark-600">
                           {update.updated_by_name || 'Unknown User'}
                         </span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-dark-700">
                           {formatRelativeTime(update.created_ts)}
                         </span>
                         {update.hours_logged && (
@@ -877,14 +877,14 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                           </span>
                         )}
                       </div>
-                      <span className="px-2.5 py-1 text-xs font-normal rounded bg-gray-100 text-gray-600 capitalize">
+                      <span className="px-2.5 py-1 text-xs font-normal rounded bg-dark-100 text-dark-700 capitalize">
                         {update.update_type.replace('_', ' ')}
                       </span>
                     </div>
 
                     {/* Comment Body - White background like JIRA */}
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 group-hover:border-gray-300 transition-colors">
-                      <div className="text-sm text-gray-800 leading-relaxed">
+                    <div className="bg-dark-100 border border-dark-300 rounded-lg p-4 group-hover:border-dark-400 transition-colors">
+                      <div className="text-sm text-dark-600 leading-relaxed">
                         {renderRichText(update.data_richtext)}
                       </div>
 
@@ -893,7 +893,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                     </div>
 
                     {/* Footer: Timestamp and actions */}
-                    <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                    <div className="mt-2 flex items-center space-x-4 text-xs text-dark-700">
                       <span>{new Date(update.created_ts).toLocaleString('en-CA', {
                         year: 'numeric',
                         month: 'short',
@@ -914,7 +914,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
 
                 {/* Separator line between comments (except last) */}
                 {index < updates.length - 1 && (
-                  <div className="mt-4 border-b border-gray-200"></div>
+                  <div className="mt-4 border-b border-dark-300"></div>
                 )}
               </div>
             ))}

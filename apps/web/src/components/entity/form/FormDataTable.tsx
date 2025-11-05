@@ -94,13 +94,13 @@ export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTa
 
   const getStatusBadge = (status: string) => {
     const statusColors: Record<string, string> = {
-      'draft': 'bg-gray-100 text-gray-800',
-      'submitted': 'bg-blue-100 text-blue-800',
+      'draft': 'bg-dark-100 text-dark-600',
+      'submitted': 'bg-dark-100 text-dark-600',
       'approved': 'bg-green-100 text-green-800',
       'rejected': 'bg-red-100 text-red-800',
     };
 
-    const colorClass = statusColors[status] || 'bg-gray-100 text-gray-800';
+    const colorClass = statusColors[status] || 'bg-dark-100 text-dark-600';
 
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal ${colorClass}`}>
@@ -121,7 +121,7 @@ export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTa
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700" />
       </div>
     );
   }
@@ -132,7 +132,7 @@ export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTa
         <p className="text-red-600">{error}</p>
         <button
           onClick={loadFormData}
-          className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="mt-4 inline-flex items-center px-4 py-2 bg-dark-700 text-white rounded-lg hover:bg-dark-800"
         >
           <RefreshCw className="h-4 w-4 mr-2" />
           Retry
@@ -144,54 +144,54 @@ export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTa
   if (data.length === 0) {
     return (
       <div className="text-center py-12">
-        <Database className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <p className="text-gray-500">No form submissions yet</p>
+        <Database className="h-12 w-12 text-dark-600 mx-auto mb-4" />
+        <p className="text-dark-700">No form submissions yet</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 bg-gray-50">
+    <div className="bg-dark-100 rounded-lg border border-dark-300 overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-dark-300 bg-dark-100">
         <div className="flex items-center space-x-2">
-          <Database className="h-5 w-5 text-gray-600" />
-          <h3 className="text-sm font-normal text-gray-700">Form Submissions</h3>
-          <span className="text-xs text-gray-500">({data.length} total)</span>
+          <Database className="h-5 w-5 text-dark-700" />
+          <h3 className="text-sm font-normal text-dark-600">Form Submissions</h3>
+          <span className="text-xs text-dark-700">({data.length} total)</span>
         </div>
         <button
           onClick={loadFormData}
-          className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
+          className="p-1.5 hover:bg-dark-200 rounded-lg transition-colors"
           title="Refresh"
         >
-          <RefreshCw className="h-4 w-4 text-gray-600" />
+          <RefreshCw className="h-4 w-4 text-dark-700" />
         </button>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full divide-y divide-dark-400">
+          <thead className="bg-dark-100">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-normal text-dark-700 uppercase tracking-wider">
                 Submission ID
               </th>
-              <th className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-normal text-dark-700 uppercase tracking-wider">
                 Status
               </th>
-              <th className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-normal text-dark-700 uppercase tracking-wider">
                 Approval
               </th>
-              <th className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-normal text-dark-700 uppercase tracking-wider">
                 Submitted By
               </th>
-              <th className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-normal text-dark-700 uppercase tracking-wider">
                 Submitted At
               </th>
-              <th className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-normal text-dark-700 uppercase tracking-wider">
                 Data
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-dark-100 divide-y divide-dark-400">
             {data.map((row) => (
               <tr
                 key={row.id}
@@ -201,11 +201,11 @@ export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTa
                     state: { submission: row },
                   });
                 }}
-                className="hover:bg-blue-50 cursor-pointer transition-colors"
+                className="hover:bg-dark-100 cursor-pointer transition-colors"
               >
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-700">
                   <div className="flex items-center space-x-2">
-                    <Eye className="h-4 w-4 text-blue-600" />
+                    <Eye className="h-4 w-4 text-dark-700" />
                     <span>{row.id.substring(0, 8)}...</span>
                   </div>
                 </td>
@@ -216,18 +216,18 @@ export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTa
                   {row.approval_status || row.approvalStatus ? (
                     <div className="flex items-center space-x-2">
                       {getApprovalStatusIcon(row.approval_status || row.approvalStatus)}
-                      <span className="text-gray-700 capitalize">
+                      <span className="text-dark-600 capitalize">
                         {row.approval_status || row.approvalStatus}
                       </span>
                     </div>
                   ) : (
-                    <span className="text-gray-400">-</span>
+                    <span className="text-dark-600">-</span>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-600">
                   {row.submitted_by_empid || row.submittedByEmpid ? (
                     <div className="flex items-center space-x-2">
-                      <User className="h-4 w-4 text-gray-400" />
+                      <User className="h-4 w-4 text-dark-600" />
                       <span>
                         {employeeNames[row.submitted_by_empid || row.submittedByEmpid] ||
                          `${(row.submitted_by_empid || row.submittedByEmpid).substring(0, 8)}...`}
@@ -235,16 +235,16 @@ export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTa
                     </div>
                   ) : '-'}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-700">
                   {row.created_ts || row.createdTs ? (
                     <div className="flex items-center space-x-2">
-                      <Calendar className="h-4 w-4 text-gray-400" />
+                      <Calendar className="h-4 w-4 text-dark-600" />
                       <span>{new Date(row.created_ts || row.createdTs).toLocaleString('en-CA')}</span>
                     </div>
                   ) : '-'}
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-700">
-                  <pre className="font-mono text-xs bg-gray-50 p-2 rounded max-w-md overflow-x-auto whitespace-pre-wrap break-words">
+                <td className="px-6 py-4 text-sm text-dark-600">
+                  <pre className="font-mono text-xs bg-dark-100 p-2 rounded max-w-md overflow-x-auto whitespace-pre-wrap break-words">
                     {renderDataAsNDJSON(row.submission_data || row.submissionData)}
                   </pre>
                 </td>

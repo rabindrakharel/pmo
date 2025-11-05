@@ -250,7 +250,7 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
 
   return (
     <div
-      className="fixed bg-white border border-gray-300 rounded-lg shadow-xl overflow-hidden z-50 w-80"
+      className="fixed bg-dark-100 border border-dark-400 rounded-lg shadow-xl overflow-hidden z-50 w-80"
       style={{
         top: `${position.top}px`,
         left: `${position.left}px`,
@@ -264,29 +264,29 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
             onMouseEnter={() => setSelectedIndex(index)}
             className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors ${
               index === selectedIndex
-                ? 'bg-blue-50 border-l-2 border-blue-500'
-                : 'hover:bg-gray-50'
+                ? 'bg-dark-100 border-l-2 border-dark-3000'
+                : 'hover:bg-dark-100'
             }`}
           >
             <div
               className={`p-2 rounded ${
                 index === selectedIndex
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'bg-gray-100 text-gray-600'
+                  ? 'bg-dark-100 text-dark-700'
+                  : 'bg-dark-100 text-dark-700'
               }`}
             >
               <command.icon className="h-4 w-4" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-900">
+              <div className="text-sm font-medium text-dark-600">
                 {command.title}
               </div>
-              <div className="text-xs text-gray-500">{command.description}</div>
+              <div className="text-xs text-dark-700">{command.description}</div>
             </div>
           </button>
         ))}
       </div>
-      <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-500">
+      <div className="px-4 py-2 bg-dark-100 border-t border-dark-300 text-xs text-dark-700">
         Use ↑↓ to navigate, Enter to select, Esc to dismiss
       </div>
     </div>

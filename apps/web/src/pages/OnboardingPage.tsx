@@ -247,7 +247,7 @@ export function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-dark-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
@@ -256,10 +256,10 @@ export function OnboardingPage() {
               <Building2 className="h-8 w-8 text-white" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          <h1 className="text-4xl font-bold text-dark-600 mb-4">
             Welcome to Huron PMO!
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <p className="text-xl text-dark-700 max-w-2xl mx-auto">
             Let's customize your workspace. Select the modules you need to get started.
           </p>
         </div>
@@ -268,19 +268,19 @@ export function OnboardingPage() {
         <div className="flex justify-center gap-4 mb-8">
           <button
             onClick={selectRecommended}
-            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-slate-700 bg-dark-100 border border-dark-400 rounded-lg hover:bg-dark-100 transition-colors"
           >
             Select Recommended
           </button>
           <button
             onClick={selectAll}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-dark-600 bg-dark-100 border border-dark-400 rounded-lg hover:bg-dark-100 transition-colors"
           >
             Select All
           </button>
           <button
             onClick={clearAll}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-dark-600 bg-dark-100 border border-dark-400 rounded-lg hover:bg-dark-100 transition-colors"
           >
             Clear All
           </button>
@@ -288,7 +288,7 @@ export function OnboardingPage() {
 
         {/* Selection Count */}
         <div className="text-center mb-8">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-dark-700">
             {selectedEntities.length} {selectedEntities.length === 1 ? 'module' : 'modules'} selected
           </p>
         </div>
@@ -296,8 +296,8 @@ export function OnboardingPage() {
         {/* Entity Selection by Category */}
         <div className="space-y-8">
           {categories.map(category => (
-            <div key={category} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">{category}</h2>
+            <div key={category} className="bg-dark-100 rounded-xl shadow-sm border border-dark-300 p-6">
+              <h2 className="text-lg font-semibold text-dark-600 mb-4">{category}</h2>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {entityOptions
                   .filter(entity => entity.category === category)
@@ -311,13 +311,13 @@ export function OnboardingPage() {
                         onClick={() => toggleEntity(entity.id)}
                         className={`relative p-6 rounded-lg border-2 text-left transition-all ${
                           isSelected
-                            ? 'border-gray-300 bg-slate-50 ring-2 ring-slate-100'
-                            : 'border-gray-200 hover:border-gray-300 bg-white'
+                            ? 'border-dark-400 bg-dark-100 ring-2 ring-slate-100'
+                            : 'border-dark-300 hover:border-dark-400 bg-dark-100'
                         }`}
                       >
                         {entity.recommended && (
                           <div className="absolute top-2 right-2">
-                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-700">
+                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-dark-100 text-dark-700">
                               Recommended
                             </span>
                           </div>
@@ -327,20 +327,20 @@ export function OnboardingPage() {
                           <div className={`flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center ${
                             isSelected
                               ? 'bg-gradient-to-r from-slate-600 to-slate-700'
-                              : 'bg-gray-100'
+                              : 'bg-dark-100'
                           }`}>
-                            <Icon className={`h-5 w-5 ${isSelected ? 'text-white' : 'text-gray-600'}`} />
+                            <Icon className={`h-5 w-5 ${isSelected ? 'text-white' : 'text-dark-700'}`} />
                           </div>
                           <div className="ml-4 flex-1">
                             <div className="flex items-center">
-                              <h3 className="text-base font-medium text-gray-900">
+                              <h3 className="text-base font-medium text-dark-600">
                                 {entity.name}
                               </h3>
                               {isSelected && (
                                 <CheckCircle className="ml-auto h-5 w-5 text-slate-600" />
                               )}
                             </div>
-                            <p className="mt-1 text-sm text-gray-600">
+                            <p className="mt-1 text-sm text-dark-700">
                               {entity.description}
                             </p>
                           </div>
@@ -385,23 +385,23 @@ export function OnboardingPage() {
         <div className="mt-6 text-center">
           <button
             onClick={() => navigate('/project')}
-            className="text-sm text-gray-600 hover:text-gray-900 underline"
+            className="text-sm text-dark-700 hover:text-dark-600 underline"
           >
             Skip for now and configure later
           </button>
         </div>
 
         {/* Info Box */}
-        <div className="mt-12 bg-blue-50 border border-blue-200 rounded-lg p-6 max-w-2xl mx-auto">
+        <div className="mt-12 bg-dark-100 border border-dark-400 rounded-lg p-6 max-w-2xl mx-auto">
           <div className="flex">
             <div className="flex-shrink-0">
-              <CheckCircle className="h-6 w-6 text-blue-600" />
+              <CheckCircle className="h-6 w-6 text-dark-700" />
             </div>
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-900">
+              <h3 className="text-sm font-medium text-dark-600">
                 You can always change this later
               </h3>
-              <p className="mt-2 text-sm text-blue-700">
+              <p className="mt-2 text-sm text-dark-700">
                 Don't worry! You can enable or disable modules at any time from your settings page.
                 Start with what you need now and expand as you grow.
               </p>

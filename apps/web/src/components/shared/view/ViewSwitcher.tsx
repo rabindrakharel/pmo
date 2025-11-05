@@ -35,7 +35,7 @@ export function ViewSwitcher({
   }
 
   return (
-    <div className={`inline-flex bg-white border border-gray-300 rounded-lg ${className}`}>
+    <div className={`inline-flex bg-dark-100 border border-dark-400 rounded-lg ${className}`}>
       {supportedViews.map((view) => {
         const Icon = viewIcons[view];
         const label = viewLabels[view];
@@ -48,8 +48,8 @@ export function ViewSwitcher({
             className={`
               flex items-center space-x-2 px-4 py-2 text-sm font-normal transition-colors
               ${isActive
-                ? 'bg-blue-50 text-blue-700 border-r border-gray-300 last:border-r-0'
-                : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900 border-r border-gray-300 last:border-r-0'
+                ? 'bg-dark-100 text-dark-700 border-r border-dark-400 last:border-r-0'
+                : 'text-dark-600 hover:bg-dark-100 hover:text-dark-600 border-r border-dark-400 last:border-r-0'
               }
               first:rounded-l-lg last:rounded-r-lg
             `}

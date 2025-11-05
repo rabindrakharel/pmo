@@ -21,20 +21,20 @@ import React from 'react';
  * Uses pattern matching to determine color based on status/stage type
  */
 export function getBadgeColorClass(value: string | null | undefined): string {
-  if (!value) return 'bg-gray-100 text-gray-800';
+  if (!value) return 'bg-dark-100 text-dark-600';
 
   const val = value.toLowerCase();
 
   // ========== PROJECT STAGES ==========
-  if (val === 'initiation') return 'bg-blue-100 text-blue-800';
+  if (val === 'initiation') return 'bg-dark-100 text-dark-600';
   if (val === 'planning') return 'bg-purple-100 text-purple-800';
   if (val === 'execution') return 'bg-yellow-100 text-yellow-800';
   if (val === 'monitoring') return 'bg-orange-100 text-orange-800';
   if (val === 'closure') return 'bg-green-100 text-green-800';
 
   // ========== TASK STAGES ==========
-  if (val === 'backlog') return 'bg-gray-100 text-gray-800';
-  if (val === 'to do') return 'bg-blue-100 text-blue-800';
+  if (val === 'backlog') return 'bg-dark-100 text-dark-600';
+  if (val === 'to do') return 'bg-dark-100 text-dark-600';
   if (val === 'in progress') return 'bg-yellow-100 text-yellow-800';
   if (val === 'in review') return 'bg-purple-100 text-purple-800';
   if (val === 'done') return 'bg-green-100 text-green-800';
@@ -49,13 +49,13 @@ export function getBadgeColorClass(value: string | null | undefined): string {
   // ========== PUBLICATION STATUS (Wiki) ==========
   if (val === 'published') return 'bg-green-100 text-green-800';
   if (val === 'draft') return 'bg-yellow-100 text-yellow-800';
-  if (val === 'review') return 'bg-blue-100 text-blue-800';
-  if (val === 'archived') return 'bg-gray-100 text-gray-800';
+  if (val === 'review') return 'bg-dark-100 text-dark-600';
+  if (val === 'archived') return 'bg-dark-100 text-dark-600';
   if (val === 'deprecated') return 'bg-red-100 text-red-800';
   if (val === 'private') return 'bg-purple-100 text-purple-800';
 
   // ========== WIKI TYPES ==========
-  if (val === 'page') return 'bg-blue-100 text-blue-800';
+  if (val === 'page') return 'bg-dark-100 text-dark-600';
   if (val === 'template') return 'bg-purple-100 text-purple-800';
   if (val === 'workflow') return 'bg-green-100 text-green-800';
   if (val === 'guide') return 'bg-yellow-100 text-yellow-800';
@@ -63,7 +63,7 @@ export function getBadgeColorClass(value: string | null | undefined): string {
   if (val === 'checklist') return 'bg-indigo-100 text-indigo-800';
 
   // ========== ARTIFACT TYPES ==========
-  if (val === 'document') return 'bg-blue-100 text-blue-800';
+  if (val === 'document') return 'bg-dark-100 text-dark-600';
   if (val === 'template') return 'bg-purple-100 text-purple-800';
   if (val === 'image') return 'bg-green-100 text-green-800';
   if (val === 'video') return 'bg-rose-100 text-rose-800';
@@ -72,12 +72,12 @@ export function getBadgeColorClass(value: string | null | undefined): string {
 
   // ========== VISIBILITY ==========
   if (val === 'public') return 'bg-green-100 text-green-800';
-  if (val === 'internal') return 'bg-blue-100 text-blue-800';
+  if (val === 'internal') return 'bg-dark-100 text-dark-600';
   if (val === 'restricted') return 'bg-amber-100 text-amber-800';
-  if (val === 'private') return 'bg-gray-100 text-gray-800';
+  if (val === 'private') return 'bg-dark-100 text-dark-600';
 
   // ========== SECURITY CLASSIFICATION ==========
-  if (val === 'general') return 'bg-gray-100 text-gray-700';
+  if (val === 'general') return 'bg-dark-100 text-dark-600';
   if (val === 'confidential') return 'bg-orange-100 text-orange-800';
   if (val === 'restricted') return 'bg-red-100 text-red-800';
 
@@ -95,7 +95,7 @@ export function getBadgeColorClass(value: string | null | undefined): string {
   if (val === 'business') return 'bg-fuchsia-100 text-fuchsia-800';
 
   // Default: gray
-  return 'bg-gray-100 text-gray-800';
+  return 'bg-dark-100 text-dark-600';
 }
 
 /**
@@ -106,7 +106,7 @@ export function renderBadgeAuto(value: string | null | undefined): React.ReactEl
   if (!value) {
     return React.createElement(
       'span',
-      { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400' },
+      { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dark-100 text-dark-600' },
       '-'
     );
   }

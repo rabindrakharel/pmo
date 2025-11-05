@@ -161,40 +161,40 @@ export function EmailTemplateRenderer({ template }: EmailTemplateRendererProps) 
   return (
     <div className="email-template-preview">
       {/* Email Metadata Header */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+      <div className="bg-dark-100 border border-dark-300 rounded-lg p-4 mb-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <div className="text-xs font-semibold text-gray-500 uppercase mb-1">From</div>
-            <div className="text-sm text-gray-900">
+            <div className="text-xs font-semibold text-dark-700 uppercase mb-1">From</div>
+            <div className="text-sm text-dark-600">
               {template.from_name || 'Sender Name'}
               {template.from_email && (
-                <span className="text-gray-600"> &lt;{template.from_email}&gt;</span>
+                <span className="text-dark-700"> &lt;{template.from_email}&gt;</span>
               )}
             </div>
           </div>
           <div>
-            <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Subject</div>
-            <div className="text-sm font-medium text-gray-900">{template.subject}</div>
+            <div className="text-xs font-semibold text-dark-700 uppercase mb-1">Subject</div>
+            <div className="text-sm font-medium text-dark-600">{template.subject}</div>
           </div>
         </div>
         {template.preview_text && (
-          <div className="mt-3 pt-3 border-t border-gray-200">
-            <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Preview Text</div>
-            <div className="text-sm text-gray-600">{template.preview_text}</div>
+          <div className="mt-3 pt-3 border-t border-dark-300">
+            <div className="text-xs font-semibold text-dark-700 uppercase mb-1">Preview Text</div>
+            <div className="text-sm text-dark-700">{template.preview_text}</div>
           </div>
         )}
       </div>
 
       {/* Email Preview Container */}
-      <div className="bg-white border border-gray-300 rounded-lg overflow-hidden shadow-sm">
+      <div className="bg-dark-100 border border-dark-400 rounded-lg overflow-hidden shadow-sm">
         {/* Email Client Toolbar (fake for realism) */}
-        <div className="bg-gray-100 border-b border-gray-300 px-4 py-2 flex items-center space-x-2">
+        <div className="bg-dark-100 border-b border-dark-400 px-4 py-2 flex items-center space-x-2">
           <div className="flex space-x-1">
             <div className="w-3 h-3 rounded-full bg-red-500"></div>
             <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
             <div className="w-3 h-3 rounded-full bg-green-500"></div>
           </div>
-          <div className="text-xs text-gray-600 ml-4">Email Preview</div>
+          <div className="text-xs text-dark-700 ml-4">Email Preview</div>
         </div>
 
         {/* Actual Email Content */}
@@ -222,7 +222,7 @@ export function EmailTemplateRenderer({ template }: EmailTemplateRendererProps) 
       </div>
 
       {/* Block Count Info */}
-      <div className="mt-4 text-sm text-gray-500">
+      <div className="mt-4 text-sm text-dark-700">
         <span className="font-medium">{template_schema.blocks.length}</span> content blocks
       </div>
     </div>

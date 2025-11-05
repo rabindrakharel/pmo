@@ -30,7 +30,7 @@ export function TextBlockEditor({ block, onUpdate }: TextBlockEditorProps) {
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
-          class: 'text-blue-600 underline',
+          class: 'text-dark-700 underline',
         },
       }),
       TextStyle,
@@ -67,53 +67,53 @@ export function TextBlockEditor({ block, onUpdate }: TextBlockEditorProps) {
   };
 
   return (
-    <div className="border-b border-gray-200">
+    <div className="border-b border-dark-300">
       {/* Formatting Toolbar */}
-      <div className="bg-gray-50 border-b border-gray-200 px-3 py-2 flex items-center space-x-1 flex-wrap">
+      <div className="bg-dark-100 border-b border-dark-300 px-3 py-2 flex items-center space-x-1 flex-wrap">
         <button
           onClick={() => editor.chain().focus().toggleBold().run()}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('bold') ? 'bg-gray-300' : ''}`}
+          className={`p-2 rounded hover:bg-dark-200 transition-colors ${editor.isActive('bold') ? 'bg-dark-300' : ''}`}
           title="Bold"
         >
           <Bold className="h-4 w-4" />
         </button>
         <button
           onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('italic') ? 'bg-gray-300' : ''}`}
+          className={`p-2 rounded hover:bg-dark-200 transition-colors ${editor.isActive('italic') ? 'bg-dark-300' : ''}`}
           title="Italic"
         >
           <Italic className="h-4 w-4" />
         </button>
 
-        <div className="w-px h-6 bg-gray-300 mx-2"></div>
+        <div className="w-px h-6 bg-dark-300 mx-2"></div>
 
         <button
           onClick={() => editor.chain().focus().setTextAlign('left').run()}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive({ textAlign: 'left' }) ? 'bg-gray-300' : ''}`}
+          className={`p-2 rounded hover:bg-dark-200 transition-colors ${editor.isActive({ textAlign: 'left' }) ? 'bg-dark-300' : ''}`}
           title="Align Left"
         >
           <AlignLeft className="h-4 w-4" />
         </button>
         <button
           onClick={() => editor.chain().focus().setTextAlign('center').run()}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive({ textAlign: 'center' }) ? 'bg-gray-300' : ''}`}
+          className={`p-2 rounded hover:bg-dark-200 transition-colors ${editor.isActive({ textAlign: 'center' }) ? 'bg-dark-300' : ''}`}
           title="Align Center"
         >
           <AlignCenter className="h-4 w-4" />
         </button>
         <button
           onClick={() => editor.chain().focus().setTextAlign('right').run()}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive({ textAlign: 'right' }) ? 'bg-gray-300' : ''}`}
+          className={`p-2 rounded hover:bg-dark-200 transition-colors ${editor.isActive({ textAlign: 'right' }) ? 'bg-dark-300' : ''}`}
           title="Align Right"
         >
           <AlignRight className="h-4 w-4" />
         </button>
 
-        <div className="w-px h-6 bg-gray-300 mx-2"></div>
+        <div className="w-px h-6 bg-dark-300 mx-2"></div>
 
         <button
           onClick={addLink}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('link') ? 'bg-gray-300' : ''}`}
+          className={`p-2 rounded hover:bg-dark-200 transition-colors ${editor.isActive('link') ? 'bg-dark-300' : ''}`}
           title="Add Link"
         >
           <LinkIcon className="h-4 w-4" />
@@ -121,13 +121,13 @@ export function TextBlockEditor({ block, onUpdate }: TextBlockEditorProps) {
 
         <button
           onClick={setColor}
-          className="p-2 rounded hover:bg-gray-200 transition-colors"
+          className="p-2 rounded hover:bg-dark-200 transition-colors"
           title="Text Color"
         >
           <Palette className="h-4 w-4" />
         </button>
 
-        <div className="w-px h-6 bg-gray-300 mx-2"></div>
+        <div className="w-px h-6 bg-dark-300 mx-2"></div>
 
         <select
           onChange={(e) => {
@@ -138,7 +138,7 @@ export function TextBlockEditor({ block, onUpdate }: TextBlockEditorProps) {
               editor.chain().focus().toggleHeading({ level: parseInt(value) as 1 | 2 | 3 }).run();
             }
           }}
-          className="text-sm border border-gray-300 rounded px-2 py-1"
+          className="text-sm border border-dark-400 rounded px-2 py-1"
           value={
             editor.isActive('heading', { level: 1 })
               ? '1'
@@ -198,32 +198,32 @@ export function TextBlockEditor({ block, onUpdate }: TextBlockEditorProps) {
       </div>
 
       {/* Styling Options */}
-      <div className="bg-gray-50 px-3 py-2 grid grid-cols-3 gap-2 text-xs">
+      <div className="bg-dark-100 px-3 py-2 grid grid-cols-3 gap-2 text-xs">
         <div>
-          <label className="text-gray-600 block mb-1">Padding</label>
+          <label className="text-dark-700 block mb-1">Padding</label>
           <input
             type="text"
             value={block.styles?.padding || '20px'}
             onChange={(e) => onUpdate({ styles: { ...block.styles, padding: e.target.value } })}
-            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+            className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
           />
         </div>
         <div>
-          <label className="text-gray-600 block mb-1">Font Size</label>
+          <label className="text-dark-700 block mb-1">Font Size</label>
           <input
             type="text"
             value={block.styles?.fontSize || '16px'}
             onChange={(e) => onUpdate({ styles: { ...block.styles, fontSize: e.target.value } })}
-            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+            className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
           />
         </div>
         <div>
-          <label className="text-gray-600 block mb-1">Background</label>
+          <label className="text-dark-700 block mb-1">Background</label>
           <input
             type="text"
             value={block.styles?.backgroundColor || 'transparent'}
             onChange={(e) => onUpdate({ styles: { ...block.styles, backgroundColor: e.target.value } })}
-            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+            className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
           />
         </div>
       </div>

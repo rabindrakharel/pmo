@@ -16,12 +16,12 @@ interface StatsGridProps {
 
 export function StatsGrid({ stats, className = '' }: StatsGridProps) {
   const colorClasses = {
-    blue: 'text-blue-600',
+    blue: 'text-dark-700',
     green: 'text-green-600',
     yellow: 'text-yellow-600',
     purple: 'text-purple-600',
     red: 'text-red-600',
-    gray: 'text-gray-600'
+    gray: 'text-dark-700'
   };
 
   const formatValue = (value: number | string, format?: string) => {
@@ -54,7 +54,7 @@ export function StatsGrid({ stats, className = '' }: StatsGridProps) {
         return (
           <div 
             key={index}
-            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center"
+            className="bg-dark-100 rounded-xl shadow-sm border border-dark-300 p-6 text-center"
           >
             <div className="flex items-center justify-center mb-2">
               {IconComponent && (
@@ -64,7 +64,7 @@ export function StatsGrid({ stats, className = '' }: StatsGridProps) {
                 {formatValue(stat.value, stat.format)}
               </div>
             </div>
-            <div className="text-sm text-gray-500">{stat.label}</div>
+            <div className="text-sm text-dark-700">{stat.label}</div>
           </div>
         );
       })}

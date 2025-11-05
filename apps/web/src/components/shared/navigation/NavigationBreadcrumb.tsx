@@ -52,7 +52,7 @@ export function NavigationBreadcrumb() {
           <React.Fragment key={`${node.entityType}-${node.entityId}-${index}`}>
             {/* Separator */}
             {index > 0 && (
-              <ChevronRight className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+              <ChevronRight className="h-3.5 w-3.5 text-dark-600 flex-shrink-0" />
             )}
 
             {/* Node */}
@@ -62,8 +62,8 @@ export function NavigationBreadcrumb() {
               className={`
                 flex items-center gap-1.5 px-2 py-1 rounded-md transition-all group flex-shrink-0
                 ${isCurrent
-                  ? 'bg-blue-50 cursor-default'
-                  : 'hover:bg-gray-100 cursor-pointer'
+                  ? 'bg-dark-100 cursor-default'
+                  : 'hover:bg-dark-100 cursor-pointer'
                 }
               `}
             >
@@ -71,17 +71,17 @@ export function NavigationBreadcrumb() {
               <div className={`
                 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center border transition-all
                 ${isCurrent
-                  ? 'bg-blue-500 border-blue-600'
-                  : 'bg-white border-gray-300 group-hover:border-blue-400'
+                  ? 'bg-dark-1000 border-dark-700'
+                  : 'bg-dark-100 border-dark-400 group-hover:border-dark-600'
                 }
               `}>
-                <EntityIcon className={`h-3 w-3 ${isCurrent ? 'text-white' : 'text-gray-600 group-hover:text-blue-600'}`} />
+                <EntityIcon className={`h-3 w-3 ${isCurrent ? 'text-white' : 'text-dark-700 group-hover:text-dark-700'}`} />
               </div>
 
               {/* Entity Type Only */}
               <span
                 className={`text-xs font-normal whitespace-nowrap ${
-                  isCurrent ? 'text-blue-600' : 'text-gray-700 group-hover:text-gray-900'
+                  isCurrent ? 'text-dark-700' : 'text-dark-600 group-hover:text-dark-600'
                 }`}
                 style={{
                   fontFamily: "Inter, 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",

@@ -31,8 +31,8 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
       
       <form className="space-y-3">
         {displayFields.length === 0 && (
-          <div className="text-gray-500 text-center py-8">
-            <Layers className="h-6 w-6 mx-auto mb-2 text-gray-400 stroke-[1.5]" />
+          <div className="text-dark-700 text-center py-8">
+            <Layers className="h-6 w-6 mx-auto mb-2 text-dark-600 stroke-[1.5]" />
             <p className="text-sm font-normal">No fields in this step.</p>
           </div>
         )}
@@ -42,10 +42,10 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
           return (
             <div key={f.id} className="flex flex-col">
               <div className="flex items-center space-x-2 mb-1.5">
-                <div className="flex-shrink-0 text-blue-600">
+                <div className="flex-shrink-0 text-dark-700">
                   {getFieldIcon(f.type)}
                 </div>
-                <label className="text-sm font-medium text-gray-700">{label}{f.required && ' *'}</label>
+                <label className="text-sm font-medium text-dark-600">{label}{f.required && ' *'}</label>
               </div>
               
               {/* Render actual field previews based on type */}
@@ -54,7 +54,7 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
                   disabled
                   type="text"
                   placeholder={f.placeholder || 'Text input'}
-                  className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 text-sm"
+                  className="px-3 py-2 border border-dark-400 rounded-lg bg-dark-100 text-dark-600 text-sm"
                 />
               )}
               
@@ -62,7 +62,7 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
                 <textarea
                   disabled
                   placeholder={f.placeholder || 'Multi-line text'}
-                  className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 text-sm h-20"
+                  className="px-3 py-2 border border-dark-400 rounded-lg bg-dark-100 text-dark-600 text-sm h-20"
                 />
               )}
               
@@ -71,7 +71,7 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
                   disabled
                   type="number"
                   placeholder={f.placeholder || 'Number input'}
-                  className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 text-sm"
+                  className="px-3 py-2 border border-dark-400 rounded-lg bg-dark-100 text-dark-600 text-sm"
                 />
               )}
               
@@ -80,7 +80,7 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
                   disabled
                   type="email"
                   placeholder={f.placeholder || 'email@example.com'}
-                  className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 text-sm"
+                  className="px-3 py-2 border border-dark-400 rounded-lg bg-dark-100 text-dark-600 text-sm"
                 />
               )}
               
@@ -89,7 +89,7 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
                   disabled
                   type="tel"
                   placeholder={f.placeholder || '(555) 123-4567'}
-                  className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 text-sm"
+                  className="px-3 py-2 border border-dark-400 rounded-lg bg-dark-100 text-dark-600 text-sm"
                 />
               )}
               
@@ -98,7 +98,7 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
                   disabled
                   type="url"
                   placeholder={f.placeholder || 'https://example.com'}
-                  className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 text-sm"
+                  className="px-3 py-2 border border-dark-400 rounded-lg bg-dark-100 text-dark-600 text-sm"
                 />
               )}
               
@@ -115,8 +115,8 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
                     className="w-full"
                   />
                   {f.useDynamicOptions && (
-                    <div className="mt-1 text-xs text-blue-600 flex items-center gap-1">
-                      <span className="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
+                    <div className="mt-1 text-xs text-dark-700 flex items-center gap-1">
+                      <span className="inline-block w-2 h-2 bg-dark-700 rounded-full"></span>
                       Dynamic options from <strong>{f.datalabelTable}</strong>
                       ({f.datalabelDisplayColumn}) - <em>Searchable</em>
                     </div>
@@ -137,8 +137,8 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
                     className="w-full"
                   />
                   {f.useDynamicOptions && (
-                    <div className="mt-1 text-xs text-blue-600 flex items-center gap-1">
-                      <span className="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
+                    <div className="mt-1 text-xs text-dark-700 flex items-center gap-1">
+                      <span className="inline-block w-2 h-2 bg-dark-700 rounded-full"></span>
                       Dynamic options from <strong>{f.datalabelTable}</strong>
                       ({f.datalabelDisplayColumn}) - <em>Searchable, Multiple Selection</em>
                     </div>
@@ -150,21 +150,21 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
                 <>
                   <div className="space-y-2">
                     {f.useDynamicOptions ? (
-                      <div className="text-sm text-gray-500 italic">
+                      <div className="text-sm text-dark-700 italic">
                         Radio options will be loaded from {f.datalabelTable}
                       </div>
                     ) : (
                       f.options?.map((opt, i) => (
                         <label key={i} className="flex items-center space-x-2">
-                          <input disabled type="radio" name={f.name} className="text-blue-600" />
-                          <span className="text-sm text-gray-700">{opt}</span>
+                          <input disabled type="radio" name={f.name} className="text-dark-700" />
+                          <span className="text-sm text-dark-600">{opt}</span>
                         </label>
                       ))
                     )}
                   </div>
                   {f.useDynamicOptions && (
-                    <div className="mt-1 text-xs text-blue-600 flex items-center gap-1">
-                      <span className="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
+                    <div className="mt-1 text-xs text-dark-700 flex items-center gap-1">
+                      <span className="inline-block w-2 h-2 bg-dark-700 rounded-full"></span>
                       Dynamic options from <strong>{f.datalabelTable}</strong>
                       ({f.datalabelDisplayColumn})
                     </div>
@@ -176,21 +176,21 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
                 <>
                   <div className="space-y-2">
                     {f.useDynamicOptions ? (
-                      <div className="text-sm text-gray-500 italic">
+                      <div className="text-sm text-dark-700 italic">
                         Checkbox options will be loaded from {f.datalabelTable}
                       </div>
                     ) : (
                       f.options?.map((opt, i) => (
                         <label key={i} className="flex items-center space-x-2">
-                          <input disabled type="checkbox" className="rounded text-blue-600" />
-                          <span className="text-sm text-gray-700">{opt}</span>
+                          <input disabled type="checkbox" className="rounded text-dark-700" />
+                          <span className="text-sm text-dark-600">{opt}</span>
                         </label>
                       ))
                     )}
                   </div>
                   {f.useDynamicOptions && (
-                    <div className="mt-1 text-xs text-blue-600 flex items-center gap-1">
-                      <span className="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
+                    <div className="mt-1 text-xs text-dark-700 flex items-center gap-1">
+                      <span className="inline-block w-2 h-2 bg-dark-700 rounded-full"></span>
                       Dynamic options from <strong>{f.datalabelTable}</strong>
                       ({f.datalabelDisplayColumn})
                     </div>
@@ -201,10 +201,10 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
               {f.type === 'taskcheck' && (
                 <div className="space-y-2">
                   <label className="flex items-start space-x-3">
-                    <input disabled type="checkbox" className="mt-0.5 rounded text-blue-600 h-4 w-4" />
+                    <input disabled type="checkbox" className="mt-0.5 rounded text-dark-700 h-4 w-4" />
                     <div className="flex-1">
-                      <span className="text-sm text-gray-700">{label}</span>
-                      <div className="text-xs text-gray-400 mt-1">
+                      <span className="text-sm text-dark-600">{label}</span>
+                      <div className="text-xs text-dark-600 mt-1">
                         Tracks completion with timestamp when checked
                       </div>
                     </div>
@@ -222,12 +222,12 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
               )}
               
               {f.type === 'file' && (
-                <div className="px-3 py-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 text-center">
-                  <Upload className="h-6 w-6 mx-auto text-gray-400 mb-2 stroke-[1.5]" />
-                  <p className="text-sm font-normal text-gray-600">
+                <div className="px-3 py-8 border-2 border-dashed border-dark-400 rounded-lg bg-dark-100 text-center">
+                  <Upload className="h-6 w-6 mx-auto text-dark-600 mb-2 stroke-[1.5]" />
+                  <p className="text-sm font-normal text-dark-700">
                     {f.multiple ? 'Choose files or drag and drop' : 'Choose file or drag and drop'}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-dark-700 mt-1">
                     {f.accept && f.accept !== '*' ? `Accepts: ${f.accept}` : 'Any file type'}
                   </p>
                 </div>
@@ -243,7 +243,7 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
                     step={f.step || 1}
                     className="w-full"
                   />
-                  <div className="flex justify-between text-xs text-gray-500">
+                  <div className="flex justify-between text-xs text-dark-700">
                     <span>{f.min || 0}</span>
                     <span>{f.max || 100}</span>
                   </div>
@@ -267,39 +267,39 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
               )}
               
               {f.type === 'image_capture' && (
-                <div className="px-4 py-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 text-center">
-                  <div className="h-8 w-8 mx-auto text-gray-400 mb-2">📷</div>
-                  <span className="text-sm text-gray-600">Image capture field (preview)</span>
+                <div className="px-4 py-8 border-2 border-dashed border-dark-400 rounded-lg bg-dark-100 text-center">
+                  <div className="h-8 w-8 mx-auto text-dark-600 mb-2">📷</div>
+                  <span className="text-sm text-dark-700">Image capture field (preview)</span>
                 </div>
               )}
               
               {f.type === 'video_capture' && (
-                <div className="px-4 py-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 text-center">
-                  <div className="h-8 w-8 mx-auto text-gray-400 mb-2">🎥</div>
-                  <span className="text-sm text-gray-600">Video capture field (preview)</span>
+                <div className="px-4 py-8 border-2 border-dashed border-dark-400 rounded-lg bg-dark-100 text-center">
+                  <div className="h-8 w-8 mx-auto text-dark-600 mb-2">🎥</div>
+                  <span className="text-sm text-dark-700">Video capture field (preview)</span>
                 </div>
               )}
               
               {f.type === 'qr_scanner' && (
-                <div className="px-4 py-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 text-center">
-                  <div className="h-8 w-8 mx-auto text-gray-400 mb-2">📱</div>
-                  <span className="text-sm text-gray-600">QR scanner field (preview)</span>
+                <div className="px-4 py-8 border-2 border-dashed border-dark-400 rounded-lg bg-dark-100 text-center">
+                  <div className="h-8 w-8 mx-auto text-dark-600 mb-2">📱</div>
+                  <span className="text-sm text-dark-700">QR scanner field (preview)</span>
                 </div>
               )}
               
               {f.type === 'barcode_scanner' && (
-                <div className="px-4 py-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 text-center">
-                  <div className="h-8 w-8 mx-auto text-gray-400 mb-2">▮▮▮</div>
-                  <span className="text-sm text-gray-600">Barcode scanner field (preview)</span>
+                <div className="px-4 py-8 border-2 border-dashed border-dark-400 rounded-lg bg-dark-100 text-center">
+                  <div className="h-8 w-8 mx-auto text-dark-600 mb-2">▮▮▮</div>
+                  <span className="text-sm text-dark-700">Barcode scanner field (preview)</span>
                 </div>
               )}
               
               {f.type === 'wiki' && (
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="bg-blue-50 border-b border-gray-200 px-4 py-2 flex items-center space-x-2">
-                    <BookOpen className="h-4 w-4 text-blue-600 stroke-[1.5]" />
-                    <span className="text-sm font-normal text-blue-800">{f.wikiTitle || 'Documentation'}</span>
-                    <span className="text-xs text-gray-500 ml-auto">Read-only preview</span>
+                <div className="border border-dark-300 rounded-lg overflow-hidden">
+                  <div className="bg-dark-100 border-b border-dark-300 px-4 py-2 flex items-center space-x-2">
+                    <BookOpen className="h-4 w-4 text-dark-700 stroke-[1.5]" />
+                    <span className="text-sm font-normal text-dark-600">{f.wikiTitle || 'Documentation'}</span>
+                    <span className="text-xs text-dark-700 ml-auto">Read-only preview</span>
                   </div>
                   <ModularEditor
                     value={f.wikiContent || ''}
@@ -386,9 +386,9 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
                       className={`
                         inline-flex items-center space-x-2 rounded-lg font-medium transition-colors
                         ${f.menuButtonSize === 'sm' ? 'px-3 py-1.5 text-xs' : f.menuButtonSize === 'lg' ? 'px-6 py-3 text-base' : 'px-4 py-2 text-sm'}
-                        ${f.menuButtonStyle === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700' :
-                          f.menuButtonStyle === 'secondary' ? 'bg-gray-600 text-white hover:bg-gray-700' :
-                          'border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}
+                        ${f.menuButtonStyle === 'primary' ? 'bg-dark-700 text-white hover:bg-dark-800' :
+                          f.menuButtonStyle === 'secondary' ? 'bg-dark-600 text-white hover:bg-dark-700' :
+                          'border-2 border-dark-400 bg-dark-100 text-dark-600 hover:bg-dark-100'}
                       `}
                     >
                       {f.menuButtonItems[0].icon && <span>{f.menuButtonItems[0].icon}</span>}
@@ -403,23 +403,23 @@ export function FormPreview({ fields, steps = [], currentStepIndex = 0, showStep
                         className={`
                           inline-flex items-center space-x-2 rounded-lg font-medium transition-colors
                           ${f.menuButtonSize === 'sm' ? 'px-3 py-1.5 text-xs' : f.menuButtonSize === 'lg' ? 'px-6 py-3 text-base' : 'px-4 py-2 text-sm'}
-                          ${f.menuButtonStyle === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700' :
-                            f.menuButtonStyle === 'secondary' ? 'bg-gray-600 text-white hover:bg-gray-700' :
-                            'border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}
+                          ${f.menuButtonStyle === 'primary' ? 'bg-dark-700 text-white hover:bg-dark-800' :
+                            f.menuButtonStyle === 'secondary' ? 'bg-dark-600 text-white hover:bg-dark-700' :
+                            'border-2 border-dark-400 bg-dark-100 text-dark-600 hover:bg-dark-100'}
                         `}
                       >
                         <span>{f.label || 'Menu'}</span>
                         <ChevronDown className="h-4 w-4" />
                       </button>
-                      <div className="mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-2 space-y-1 max-w-xs">
+                      <div className="mt-2 bg-dark-100 border border-dark-300 rounded-lg shadow-lg p-2 space-y-1 max-w-xs">
                         {f.menuButtonItems.map((item) => (
                           <div
                             key={item.id}
-                            className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded cursor-pointer"
+                            className="flex items-center space-x-2 px-3 py-2 text-sm text-dark-600 hover:bg-dark-100 rounded cursor-pointer"
                           >
                             {item.icon && <span>{item.icon}</span>}
                             <span className="flex-1">{item.label}</span>
-                            {item.openInNewTab && <ExternalLink className="h-3 w-3 text-gray-400" />}
+                            {item.openInNewTab && <ExternalLink className="h-3 w-3 text-dark-600" />}
                           </div>
                         ))}
                       </div>

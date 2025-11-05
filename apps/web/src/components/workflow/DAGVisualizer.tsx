@@ -215,7 +215,7 @@ export function DAGVisualizer({ nodes, currentNodeId, onNodeClick }: DAGVisualiz
           <path
             key={`edge-${node.id}-${childId}`}
             d={path}
-            stroke="#9ca3af"
+            stroke="#D0D0D0"
             strokeWidth={1}
             fill="none"
             markerEnd="url(#arrowhead)"
@@ -256,22 +256,22 @@ export function DAGVisualizer({ nodes, currentNodeId, onNodeClick }: DAGVisualiz
             height={37}
             rx={18.5}
             ry={18.5}
-            fill="#ffffff"
-            stroke="#6b7280"
+            fill="#FFFFFF"
+            stroke="#D0D0D0"
             strokeWidth={1}
             strokeLinejoin="round"
             shapeRendering="geometricPrecision"
-            className="cursor-pointer transition-all hover:shadow-sm hover:stroke-gray-500"
+            className="cursor-pointer transition-all hover:shadow-sm hover:stroke-dark-700"
             onClick={() => onNodeClick?.(node.id)}
           />
 
           {/* Checkmark for completed nodes */}
           {isCompleted && (
             <g transform="translate(115, 5)">
-              <circle cx="8" cy="8" r="8" fill="#9ca3af" />
+              <circle cx="8" cy="8" r="8" fill="#616161" />
               <path
                 d="M 5 8 L 7 10 L 11 6"
-                stroke="#ffffff"
+                stroke="#FFFFFF"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -307,8 +307,8 @@ export function DAGVisualizer({ nodes, currentNodeId, onNodeClick }: DAGVisualiz
                   repeatCount="indefinite"
                 />
               </circle>
-              {/* Center white dot */}
-              <circle cx="8" cy="8" r="3" fill="#ffffff" />
+              {/* Center dot */}
+              <circle cx="8" cy="8" r="3" fill="#FFFFFF" />
             </g>
           )}
 
@@ -319,7 +319,7 @@ export function DAGVisualizer({ nodes, currentNodeId, onNodeClick }: DAGVisualiz
             textAnchor="middle"
             fontSize={12}
             fontWeight="500"
-            fill={isCurrent ? '#1f2937' : '#6b7280'}
+            fill={isCurrent ? '#616161' : '#9E9E9E'}
           >
             {displayText}
           </text>
@@ -329,7 +329,7 @@ export function DAGVisualizer({ nodes, currentNodeId, onNodeClick }: DAGVisualiz
   };
 
   return (
-    <div className="w-full overflow-x-auto bg-white rounded-lg p-4">
+    <div className="w-full overflow-x-auto bg-dark-100 rounded-lg p-4">
       <svg width={maxX} height={maxY} className="min-w-full">
         {/* Define arrow marker */}
         <defs>
@@ -342,7 +342,7 @@ export function DAGVisualizer({ nodes, currentNodeId, onNodeClick }: DAGVisualiz
             orient="auto"
             markerUnits="strokeWidth"
           >
-            <path d="M0,0 L0,5 L7,2.5 z" fill="#9ca3af" />
+            <path d="M0,0 L0,5 L7,2.5 z" fill="#D0D0D0" />
           </marker>
         </defs>
 

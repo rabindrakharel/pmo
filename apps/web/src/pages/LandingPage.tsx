@@ -129,9 +129,9 @@ export function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-dark-100">
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-dark-100/90 backdrop-blur-md border-b border-dark-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
@@ -139,22 +139,22 @@ export function LandingPage() {
                 <div className="h-8 w-8 bg-gradient-to-r from-slate-600 to-slate-700 rounded-lg flex items-center justify-center">
                   <Building2 className="h-5 w-5 text-white" />
                 </div>
-                <span className="ml-2 text-xl font-bold text-gray-900">Huron PMO</span>
+                <span className="ml-2 text-xl font-bold text-dark-600">Huron PMO</span>
               </div>
             </div>
             <div className="hidden md:flex items-center space-x-8">
-              <a href="#features" className="text-gray-600 hover:text-gray-900 transition-colors">
+              <a href="#features" className="text-dark-700 hover:text-dark-600 transition-colors">
                 Features
               </a>
-              <a href="#pricing" className="text-gray-600 hover:text-gray-900 transition-colors">
+              <a href="#pricing" className="text-dark-700 hover:text-dark-600 transition-colors">
                 Pricing
               </a>
-              <a href="#testimonials" className="text-gray-600 hover:text-gray-900 transition-colors">
+              <a href="#testimonials" className="text-dark-700 hover:text-dark-600 transition-colors">
                 Testimonials
               </a>
               <Link
                 to="/login"
-                className="text-gray-600 hover:text-gray-900 transition-colors"
+                className="text-dark-700 hover:text-dark-600 transition-colors"
               >
                 Sign In
               </Link>
@@ -171,21 +171,21 @@ export function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 via-white to-blue-50">
+      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-dark-100 via-dark-100 to-dark-200">
         <div className="max-w-7xl mx-auto">
           <div className="text-center">
-            <div className="inline-flex items-center px-4 py-2 bg-blue-50 rounded-full text-blue-700 text-sm font-medium mb-6">
+            <div className="inline-flex items-center px-4 py-2 bg-dark-100 rounded-full text-dark-700 text-sm font-medium mb-6">
               <Zap className="h-4 w-4 mr-2" />
               Built for Canadian Home Services
             </div>
-            <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
+            <h1 className="text-5xl md:text-6xl font-bold text-dark-600 mb-6">
               Streamline Your PMO
               <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-600 to-blue-600">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-600 to-dark-700">
                 With Enterprise-Grade Tools
               </span>
             </h1>
-            <p className="text-xl text-gray-600 mb-10 max-w-3xl mx-auto">
+            <p className="text-xl text-dark-700 mb-10 max-w-3xl mx-auto">
               Complete project and operations management platform designed for home services companies.
               Track projects, manage teams, and deliver exceptional results.
             </p>
@@ -199,12 +199,12 @@ export function LandingPage() {
               </Link>
               <a
                 href="#features"
-                className="inline-flex items-center justify-center px-8 py-4 border border-gray-300 text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-all shadow-sm hover:shadow-md"
+                className="inline-flex items-center justify-center px-8 py-4 border border-dark-400 text-base font-medium rounded-lg text-dark-600 bg-dark-100 hover:bg-dark-100 transition-all shadow-sm hover:shadow-md"
               >
                 Learn More
               </a>
             </div>
-            <div className="mt-12 flex items-center justify-center gap-8 text-sm text-gray-600">
+            <div className="mt-12 flex items-center justify-center gap-8 text-sm text-dark-700">
               <div className="flex items-center">
                 <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
                 14-day free trial
@@ -223,37 +223,37 @@ export function LandingPage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-16 bg-white border-y border-gray-200">
+      <section className="py-16 bg-dark-100 border-y border-dark-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div className="text-center">
               <div className="text-4xl font-bold text-slate-700">98%</div>
-              <div className="text-gray-600 mt-2">Customer Satisfaction</div>
+              <div className="text-dark-700 mt-2">Customer Satisfaction</div>
             </div>
             <div className="text-center">
               <div className="text-4xl font-bold text-slate-700">50K+</div>
-              <div className="text-gray-600 mt-2">Projects Completed</div>
+              <div className="text-dark-700 mt-2">Projects Completed</div>
             </div>
             <div className="text-center">
               <div className="text-4xl font-bold text-slate-700">500+</div>
-              <div className="text-gray-600 mt-2">Organizations</div>
+              <div className="text-dark-700 mt-2">Organizations</div>
             </div>
             <div className="text-center">
               <div className="text-4xl font-bold text-slate-700">24/7</div>
-              <div className="text-gray-600 mt-2">Support Available</div>
+              <div className="text-dark-700 mt-2">Support Available</div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 bg-gray-50">
+      <section id="features" className="py-20 bg-dark-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-dark-600 mb-4">
               Everything You Need to Succeed
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-xl text-dark-700 max-w-2xl mx-auto">
               Comprehensive tools designed for Canadian home services operations and project management.
             </p>
           </div>
@@ -261,13 +261,13 @@ export function LandingPage() {
             {features.map((feature, index) => (
               <div
                 key={index}
-                className="bg-white p-8 rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-100"
+                className="bg-dark-100 p-8 rounded-xl shadow-sm hover:shadow-md transition-all border border-dark-300"
               >
-                <div className="h-12 w-12 bg-gradient-to-r from-slate-100 to-blue-100 rounded-lg flex items-center justify-center mb-4">
+                <div className="h-12 w-12 bg-gradient-to-r from-slate-300 to-dark-50 rounded-lg flex items-center justify-center mb-4">
                   <feature.icon className="h-6 w-6 text-slate-700" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">{feature.title}</h3>
-                <p className="text-gray-600">{feature.description}</p>
+                <h3 className="text-xl font-semibold text-dark-600 mb-2">{feature.title}</h3>
+                <p className="text-dark-700">{feature.description}</p>
               </div>
             ))}
           </div>
@@ -275,13 +275,13 @@ export function LandingPage() {
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-20 bg-white">
+      <section id="pricing" className="py-20 bg-dark-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-dark-600 mb-4">
               Simple, Transparent Pricing
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-xl text-dark-700 max-w-2xl mx-auto">
               Choose the plan that fits your organization's needs. All plans include a 14-day free trial.
             </p>
           </div>
@@ -289,10 +289,10 @@ export function LandingPage() {
             {plans.map((plan, index) => (
               <div
                 key={index}
-                className={`relative bg-white rounded-2xl shadow-lg border-2 p-8 ${
+                className={`relative bg-dark-100 rounded-2xl shadow-lg border-2 p-8 ${
                   plan.popular
-                    ? 'border-gray-300 ring-4 ring-slate-100'
-                    : 'border-gray-200'
+                    ? 'border-dark-400 ring-4 ring-slate-100'
+                    : 'border-dark-300'
                 }`}
               >
                 {plan.popular && (
@@ -303,18 +303,18 @@ export function LandingPage() {
                   </div>
                 )}
                 <div className="text-center mb-8">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
+                  <h3 className="text-2xl font-bold text-dark-600 mb-2">{plan.name}</h3>
                   <div className="mb-4">
-                    <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
-                    <span className="text-gray-600">{plan.period}</span>
+                    <span className="text-4xl font-bold text-dark-600">{plan.price}</span>
+                    <span className="text-dark-700">{plan.period}</span>
                   </div>
-                  <p className="text-gray-600">{plan.description}</p>
+                  <p className="text-dark-700">{plan.description}</p>
                 </div>
                 <ul className="space-y-4 mb-8">
                   {plan.features.map((feature, idx) => (
                     <li key={idx} className="flex items-start">
                       <CheckCircle className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                      <span className="text-gray-700">{feature}</span>
+                      <span className="text-dark-600">{feature}</span>
                     </li>
                   ))}
                 </ul>
@@ -323,7 +323,7 @@ export function LandingPage() {
                   className={`block w-full text-center px-6 py-3 rounded-lg font-medium transition-all ${
                     plan.popular
                       ? 'bg-gradient-to-r from-slate-600 to-slate-700 text-white hover:from-slate-700 hover:to-slate-800 shadow-md hover:shadow-lg'
-                      : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                      : 'bg-dark-100 text-dark-600 hover:bg-dark-200'
                   }`}
                 >
                   {plan.cta}
@@ -335,13 +335,13 @@ export function LandingPage() {
       </section>
 
       {/* Testimonials Section */}
-      <section id="testimonials" className="py-20 bg-gray-50">
+      <section id="testimonials" className="py-20 bg-dark-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-dark-600 mb-4">
               Trusted by Industry Leaders
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-xl text-dark-700 max-w-2xl mx-auto">
               See what our customers have to say about their experience with Huron PMO.
             </p>
           </div>
@@ -349,22 +349,22 @@ export function LandingPage() {
             {testimonials.map((testimonial, index) => (
               <div
                 key={index}
-                className="bg-white p-8 rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-100"
+                className="bg-dark-100 p-8 rounded-xl shadow-sm hover:shadow-md transition-all border border-dark-300"
               >
                 <div className="flex items-center mb-4">
                   {[...Array(testimonial.rating)].map((_, i) => (
                     <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
                   ))}
                 </div>
-                <p className="text-gray-700 mb-6 italic">"{testimonial.quote}"</p>
+                <p className="text-dark-600 mb-6 italic">"{testimonial.quote}"</p>
                 <div className="flex items-center">
-                  <div className="h-12 w-12 bg-gradient-to-r from-slate-200 to-blue-200 rounded-full flex items-center justify-center mr-4">
+                  <div className="h-12 w-12 bg-gradient-to-r from-slate-400 to-dark-100 rounded-full flex items-center justify-center mr-4">
                     <Users className="h-6 w-6 text-slate-700" />
                   </div>
                   <div>
-                    <div className="font-semibold text-gray-900">{testimonial.name}</div>
-                    <div className="text-sm text-gray-600">{testimonial.role}</div>
-                    <div className="text-sm text-gray-500">{testimonial.company}</div>
+                    <div className="font-semibold text-dark-600">{testimonial.name}</div>
+                    <div className="text-sm text-dark-700">{testimonial.role}</div>
+                    <div className="text-sm text-dark-700">{testimonial.company}</div>
                   </div>
                 </div>
               </div>
@@ -374,25 +374,25 @@ export function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-slate-700 to-blue-700">
+      <section className="py-20 bg-gradient-to-r from-slate-700 to-dark-900">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
             Ready to Transform Your Operations?
           </h2>
-          <p className="text-xl text-blue-100 mb-10">
+          <p className="text-xl text-dark-600 mb-10">
             Join hundreds of organizations already using Huron PMO to streamline their project management.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               to="/signup"
-              className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-medium rounded-lg text-slate-700 bg-white hover:bg-gray-50 transition-all shadow-lg hover:shadow-xl"
+              className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-medium rounded-lg text-slate-700 bg-dark-100 hover:bg-dark-100 transition-all shadow-lg hover:shadow-xl"
             >
               Start Free Trial
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
             <a
               href="#pricing"
-              className="inline-flex items-center justify-center px-8 py-4 border-2 border-white text-base font-medium rounded-lg text-white bg-transparent hover:bg-white/10 transition-all"
+              className="inline-flex items-center justify-center px-8 py-4 border-2 border-white text-base font-medium rounded-lg text-white bg-transparent hover:bg-dark-100/10 transition-all"
             >
               View Pricing
             </a>
@@ -401,7 +401,7 @@ export function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-12">
+      <footer className="bg-dark-900 text-dark-600 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
@@ -440,7 +440,7 @@ export function LandingPage() {
               </ul>
             </div>
           </div>
-          <div className="border-t border-gray-300 pt-8 text-center text-sm">
+          <div className="border-t border-dark-400 pt-8 text-center text-sm">
             <p>&copy; 2025 Huron Home Services. All rights reserved.</p>
           </div>
         </div>

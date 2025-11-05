@@ -53,7 +53,7 @@ export function BlockToolbar({ onAddBlock }: BlockToolbarProps) {
 
   return (
     <div className="p-4">
-      <h3 className="text-sm font-semibold text-gray-900 mb-4">Add Blocks</h3>
+      <h3 className="text-sm font-semibold text-dark-600 mb-4">Add Blocks</h3>
       <div className="space-y-2">
         {blockTypes.map((blockType) => {
           const Icon = blockType.icon;
@@ -61,23 +61,23 @@ export function BlockToolbar({ onAddBlock }: BlockToolbarProps) {
             <button
               key={blockType.type}
               onClick={() => onAddBlock(blockType.type)}
-              className="w-full flex items-start space-x-3 p-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all group"
+              className="w-full flex items-start space-x-3 p-3 rounded-lg border border-dark-300 hover:border-dark-3000 hover:bg-dark-100 transition-all group"
             >
               <div className={`p-2 rounded-md bg-${blockType.color}-100 group-hover:bg-${blockType.color}-200 transition-colors`}>
                 <Icon className={`h-5 w-5 text-${blockType.color}-600`} />
               </div>
               <div className="flex-1 text-left">
-                <div className="text-sm font-medium text-gray-900">{blockType.label}</div>
-                <div className="text-xs text-gray-500">{blockType.description}</div>
+                <div className="text-sm font-medium text-dark-600">{blockType.label}</div>
+                <div className="text-xs text-dark-700">{blockType.description}</div>
               </div>
             </button>
           );
         })}
       </div>
 
-      <div className="mt-6 pt-6 border-t border-gray-200">
-        <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Tips</h4>
-        <ul className="space-y-2 text-xs text-gray-600">
+      <div className="mt-6 pt-6 border-t border-dark-300">
+        <h4 className="text-xs font-semibold text-dark-700 uppercase mb-3">Tips</h4>
+        <ul className="space-y-2 text-xs text-dark-700">
           <li className="flex items-start">
             <span className="mr-2">•</span>
             <span>Drag blocks to reorder them</span>

@@ -45,8 +45,8 @@ const getBadgeColor = (variant: string = 'default') => {
     case 'success': return 'bg-green-100 text-green-800';
     case 'warning': return 'bg-yellow-100 text-yellow-800';
     case 'danger': return 'bg-red-100 text-red-800';
-    case 'info': return 'bg-blue-100 text-blue-800';
-    default: return 'bg-gray-100 text-gray-800';
+    case 'info': return 'bg-dark-100 text-dark-600';
+    default: return 'bg-dark-100 text-dark-600';
   }
 };
 
@@ -173,8 +173,8 @@ export function GridView<T = any>({
     return (
       <div
         key={item.key}
-        className={`bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${
-          isSelected ? 'ring-2 ring-blue-500 border-blue-500' : ''
+        className={`bg-dark-100 rounded-lg border border-dark-300 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${
+          isSelected ? 'ring-2 ring-dark-7000 border-dark-3000' : ''
         } ${cardSizeClasses[cardSize]} ${item.className || ''}`}
         onClick={() => {
           // Pass the original data item for simplified API
@@ -208,7 +208,7 @@ export function GridView<T = any>({
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-2">
               <h3
-                className="text-gray-900 truncate"
+                className="text-dark-600 truncate"
                 style={{
                   fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                   fontSize: '13px',
@@ -224,14 +224,14 @@ export function GridView<T = any>({
                   checked={isSelected}
                   onChange={() => handleSelect(item)}
                   onClick={(e) => e.stopPropagation()}
-                  className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                  className="h-4 w-4 text-dark-700 rounded border-dark-400"
                 />
               )}
             </div>
 
             {item.subtitle && (
               <p
-                className="text-gray-600 mb-2"
+                className="text-dark-700 mb-2"
                 style={{
                   fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                   fontSize: '12px',
@@ -244,7 +244,7 @@ export function GridView<T = any>({
 
             {item.description && (
               <p
-                className="text-gray-500 mb-3 line-clamp-3"
+                className="text-dark-700 mb-3 line-clamp-3"
                 style={{
                   fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                   fontSize: '12px',
@@ -270,7 +270,7 @@ export function GridView<T = any>({
             )}
 
             {item.actions && (
-              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-gray-100">
+              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-dark-300">
                 {item.actions}
               </div>
             )}
@@ -282,11 +282,11 @@ export function GridView<T = any>({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-dark-100 rounded-lg shadow-sm border border-dark-300">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700"></div>
           <span
-            className="ml-3 text-gray-600"
+            className="ml-3 text-dark-700"
             style={{
               fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '13px',
@@ -301,19 +301,19 @@ export function GridView<T = any>({
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border border-gray-200 ${className}`}>
+    <div className={`bg-dark-100 rounded-lg shadow-sm border border-dark-300 ${className}`}>
       {(searchable || (filterable && filters.length > 0)) && (
-        <div className="p-4 border-b border-gray-200 bg-gray-50">
+        <div className="p-4 border-b border-dark-300 bg-dark-100">
           <div className="flex items-center justify-between space-x-4">
             {searchable && (
               <div className="flex-1 relative">
-                <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                <Search className="h-4 w-4 text-dark-600 absolute left-3 top-1/2 transform -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Search items..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-1.5 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                 />
               </div>
             )}
@@ -325,7 +325,7 @@ export function GridView<T = any>({
                     key={filter.key}
                     value={activeFilters[filter.key] || ''}
                     onChange={(e) => handleFilterChange(filter.key, e.target.value)}
-                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="px-3 py-1.5 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                   >
                     <option value="">{filter.label}</option>
                     {filter.options.map((option) => (
@@ -344,9 +344,9 @@ export function GridView<T = any>({
       <div className="p-6">
         {filteredData.length === 0 ? (
           <div className="text-center py-12">
-            <Grid className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <Grid className="h-12 w-12 text-dark-600 mx-auto mb-4" />
             <p
-              className="text-gray-500"
+              className="text-dark-700"
               style={{
                 fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                 fontSize: '13px',

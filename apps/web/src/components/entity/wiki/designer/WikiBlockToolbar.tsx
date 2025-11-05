@@ -66,7 +66,7 @@ export function WikiBlockToolbar({ onAddBlock }: WikiBlockToolbarProps) {
     <div className="space-y-6">
       {blockTypes.map((category) => (
         <div key={category.category}>
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+          <h4 className="text-xs font-semibold text-dark-700 uppercase tracking-wider mb-3">
             {category.category}
           </h4>
           <div className="space-y-1">
@@ -76,14 +76,14 @@ export function WikiBlockToolbar({ onAddBlock }: WikiBlockToolbarProps) {
                 <button
                   key={`${item.type}-${item.level || 0}`}
                   onClick={() => onAddBlock(item.type, item.level)}
-                  className="w-full flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-100 transition-colors text-left group"
+                  className="w-full flex items-start space-x-3 p-3 rounded-lg hover:bg-dark-100 transition-colors text-left group"
                 >
-                  <div className="flex-shrink-0 p-2 bg-white border border-gray-200 rounded-md group-hover:border-blue-300 group-hover:bg-blue-50 transition-colors">
-                    <Icon className="h-4 w-4 text-gray-600 group-hover:text-blue-600" />
+                  <div className="flex-shrink-0 p-2 bg-dark-100 border border-dark-300 rounded-md group-hover:border-dark-500 group-hover:bg-dark-100 transition-colors">
+                    <Icon className="h-4 w-4 text-dark-700 group-hover:text-dark-700" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-900">{item.label}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{item.description}</div>
+                    <div className="text-sm font-medium text-dark-600">{item.label}</div>
+                    <div className="text-xs text-dark-700 mt-0.5">{item.description}</div>
                   </div>
                 </button>
               );

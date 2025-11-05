@@ -77,11 +77,11 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
   };
 
   return (
-    <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto p-4">
+    <div className="w-80 bg-dark-100 border-l border-dark-300 overflow-y-auto p-4">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
-          <Settings className="h-5 w-5 text-gray-600" />
-          <h3 className="text-sm font-semibold text-gray-900">Properties</h3>
+          <Settings className="h-5 w-5 text-dark-700" />
+          <h3 className="text-sm font-semibold text-dark-600">Properties</h3>
         </div>
         <button
           onClick={onDelete}
@@ -94,24 +94,24 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
 
       <div className="space-y-4">
         {/* Element Type Badge */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-center">
-          <span className="text-xs font-semibold text-blue-700 uppercase">{element.type}</span>
+        <div className="bg-dark-100 border border-dark-400 rounded-lg p-2 text-center">
+          <span className="text-xs font-semibold text-dark-700 uppercase">{element.type}</span>
         </div>
 
         {/* Layer Controls */}
         <div>
-          <label className="text-xs font-semibold text-gray-700 uppercase mb-2 block">Layer</label>
+          <label className="text-xs font-semibold text-dark-600 uppercase mb-2 block">Layer</label>
           <div className="flex space-x-2">
             <button
               onClick={onBringToFront}
-              className="flex-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium flex items-center justify-center space-x-2 transition-colors"
+              className="flex-1 px-3 py-2 bg-dark-100 hover:bg-dark-200 rounded-lg text-sm font-medium flex items-center justify-center space-x-2 transition-colors"
             >
               <ArrowUp className="h-4 w-4" />
               <span>Front</span>
             </button>
             <button
               onClick={onSendToBack}
-              className="flex-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium flex items-center justify-center space-x-2 transition-colors"
+              className="flex-1 px-3 py-2 bg-dark-100 hover:bg-dark-200 rounded-lg text-sm font-medium flex items-center justify-center space-x-2 transition-colors"
             >
               <ArrowDown className="h-4 w-4" />
               <span>Back</span>
@@ -121,42 +121,42 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
 
         {/* Position & Size */}
         <div>
-          <label className="text-xs font-semibold text-gray-700 uppercase mb-2 block">Position & Size</label>
+          <label className="text-xs font-semibold text-dark-600 uppercase mb-2 block">Position & Size</label>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs text-gray-600 block mb-1">X</label>
+              <label className="text-xs text-dark-700 block mb-1">X</label>
               <input
                 type="number"
                 value={Math.round(element.x)}
                 onChange={(e) => onUpdate({ x: parseInt(e.target.value) || 0 })}
-                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                className="w-full px-2 py-1 border border-dark-400 rounded text-sm"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-600 block mb-1">Y</label>
+              <label className="text-xs text-dark-700 block mb-1">Y</label>
               <input
                 type="number"
                 value={Math.round(element.y)}
                 onChange={(e) => onUpdate({ y: parseInt(e.target.value) || 0 })}
-                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                className="w-full px-2 py-1 border border-dark-400 rounded text-sm"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-600 block mb-1">Width</label>
+              <label className="text-xs text-dark-700 block mb-1">Width</label>
               <input
                 type="number"
                 value={Math.round(element.width)}
                 onChange={(e) => onUpdate({ width: parseInt(e.target.value) || 0 })}
-                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                className="w-full px-2 py-1 border border-dark-400 rounded text-sm"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-600 block mb-1">Height</label>
+              <label className="text-xs text-dark-700 block mb-1">Height</label>
               <input
                 type="number"
                 value={Math.round(element.height)}
                 onChange={(e) => onUpdate({ height: parseInt(e.target.value) || 0 })}
-                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                className="w-full px-2 py-1 border border-dark-400 rounded text-sm"
               />
             </div>
           </div>
@@ -166,7 +166,7 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
         {(element.type === 'text' || element.type === 'heading' || element.type === 'button') && (
           <>
             <div>
-              <label className="text-xs font-semibold text-gray-700 uppercase mb-2 block">Text Alignment</label>
+              <label className="text-xs font-semibold text-dark-600 uppercase mb-2 block">Text Alignment</label>
               <div className="flex space-x-2">
                 {(['left', 'center', 'right'] as const).map((align) => (
                   <button
@@ -174,8 +174,8 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
                     onClick={() => onUpdate({ styles: { ...element.styles, textAlign: align } })}
                     className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       element.styles.textAlign === align
-                        ? 'bg-blue-100 text-blue-700 border-2 border-blue-300'
-                        : 'bg-gray-100 hover:bg-gray-200 border-2 border-transparent'
+                        ? 'bg-dark-100 text-dark-700 border-2 border-dark-500'
+                        : 'bg-dark-100 hover:bg-dark-200 border-2 border-transparent'
                     }`}
                   >
                     {align === 'left' && <AlignLeft className="h-4 w-4 mx-auto" />}
@@ -187,7 +187,7 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-gray-700 uppercase mb-2 block">Font Size</label>
+              <label className="text-xs font-semibold text-dark-600 uppercase mb-2 block">Font Size</label>
               <input
                 type="range"
                 min="12"
@@ -197,14 +197,14 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
                 className="w-full"
               />
               <div className="flex items-center justify-between mt-1">
-                <span className="text-xs text-gray-600">12px</span>
-                <span className="text-sm font-medium text-gray-900">{element.styles.fontSize}</span>
-                <span className="text-xs text-gray-600">72px</span>
+                <span className="text-xs text-dark-700">12px</span>
+                <span className="text-sm font-medium text-dark-600">{element.styles.fontSize}</span>
+                <span className="text-xs text-dark-700">72px</span>
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-gray-700 uppercase mb-2 block">Font Weight</label>
+              <label className="text-xs font-semibold text-dark-600 uppercase mb-2 block">Font Weight</label>
               <div className="flex space-x-2">
                 {(['400', '700'] as const).map((weight) => (
                   <button
@@ -212,8 +212,8 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
                     onClick={() => onUpdate({ styles: { ...element.styles, fontWeight: weight } })}
                     className={`flex-1 px-3 py-2 rounded-lg text-sm transition-colors ${
                       element.styles.fontWeight === weight
-                        ? 'bg-blue-100 text-blue-700 border-2 border-blue-300'
-                        : 'bg-gray-100 hover:bg-gray-200 border-2 border-transparent'
+                        ? 'bg-dark-100 text-dark-700 border-2 border-dark-500'
+                        : 'bg-dark-100 hover:bg-dark-200 border-2 border-transparent'
                     }`}
                   >
                     {weight === '400' ? 'Regular' : 'Bold'}
@@ -223,19 +223,19 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-gray-700 uppercase mb-2 block">Text Color</label>
+              <label className="text-xs font-semibold text-dark-600 uppercase mb-2 block">Text Color</label>
               <div className="flex items-center space-x-2">
                 <input
                   type="color"
                   value={element.styles.color || '#000000'}
                   onChange={(e) => onUpdate({ styles: { ...element.styles, color: e.target.value } })}
-                  className="w-12 h-12 border-2 border-gray-300 rounded cursor-pointer"
+                  className="w-12 h-12 border-2 border-dark-400 rounded cursor-pointer"
                 />
                 <input
                   type="text"
                   value={element.styles.color || '#000000'}
                   onChange={(e) => onUpdate({ styles: { ...element.styles, color: e.target.value } })}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
+                  className="flex-1 px-3 py-2 border border-dark-400 rounded text-sm"
                 />
               </div>
             </div>
@@ -245,19 +245,19 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
         {/* Background Color (for button and text) */}
         {(element.type === 'button' || element.type === 'text') && (
           <div>
-            <label className="text-xs font-semibold text-gray-700 uppercase mb-2 block">Background Color</label>
+            <label className="text-xs font-semibold text-dark-600 uppercase mb-2 block">Background Color</label>
             <div className="flex items-center space-x-2">
               <input
                 type="color"
                 value={element.styles.backgroundColor || '#ffffff'}
                 onChange={(e) => onUpdate({ styles: { ...element.styles, backgroundColor: e.target.value } })}
-                className="w-12 h-12 border-2 border-gray-300 rounded cursor-pointer"
+                className="w-12 h-12 border-2 border-dark-400 rounded cursor-pointer"
               />
               <input
                 type="text"
                 value={element.styles.backgroundColor || '#ffffff'}
                 onChange={(e) => onUpdate({ styles: { ...element.styles, backgroundColor: e.target.value } })}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
+                className="flex-1 px-3 py-2 border border-dark-400 rounded text-sm"
               />
             </div>
           </div>
@@ -266,7 +266,7 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
         {/* Border Radius (for button) */}
         {element.type === 'button' && (
           <div>
-            <label className="text-xs font-semibold text-gray-700 uppercase mb-2 block">Border Radius</label>
+            <label className="text-xs font-semibold text-dark-600 uppercase mb-2 block">Border Radius</label>
             <input
               type="range"
               min="0"
@@ -275,20 +275,20 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
               onChange={(e) => onUpdate({ styles: { ...element.styles, borderRadius: `${e.target.value}px` } })}
               className="w-full"
             />
-            <div className="text-center text-sm font-medium text-gray-900 mt-1">{element.styles.borderRadius}</div>
+            <div className="text-center text-sm font-medium text-dark-600 mt-1">{element.styles.borderRadius}</div>
           </div>
         )}
 
         {/* Button Link */}
         {element.type === 'button' && (
           <div>
-            <label className="text-xs font-semibold text-gray-700 uppercase mb-2 block">Link URL</label>
+            <label className="text-xs font-semibold text-dark-600 uppercase mb-2 block">Link URL</label>
             <input
               type="text"
               value={element.properties?.href || ''}
               onChange={(e) => onUpdate({ properties: { ...element.properties, href: e.target.value } })}
               placeholder="https://..."
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+              className="w-full px-3 py-2 border border-dark-400 rounded text-sm"
             />
           </div>
         )}
@@ -296,7 +296,7 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
         {/* Image Upload */}
         {element.type === 'image' && (
           <div>
-            <label className="text-xs font-semibold text-gray-700 uppercase mb-2 block">Upload Image</label>
+            <label className="text-xs font-semibold text-dark-600 uppercase mb-2 block">Upload Image</label>
             <input
               type="file"
               accept="image/*"
@@ -310,9 +310,9 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
         {element.type === 'form' && (
           <>
             <div>
-              <label className="text-xs font-semibold text-gray-700 uppercase mb-2 block">Select Form</label>
+              <label className="text-xs font-semibold text-dark-600 uppercase mb-2 block">Select Form</label>
               {loadingForms ? (
-                <div className="text-xs text-gray-500">Loading forms...</div>
+                <div className="text-xs text-dark-700">Loading forms...</div>
               ) : (
                 <select
                   value={element.properties?.formId || ''}
@@ -326,7 +326,7 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
                       },
                     });
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  className="w-full px-3 py-2 border border-dark-400 rounded text-sm"
                 >
                   <option value="">-- Select a form --</option>
                   {forms.map((form) => (
@@ -339,25 +339,25 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-gray-700 uppercase mb-2 block">Background Color</label>
+              <label className="text-xs font-semibold text-dark-600 uppercase mb-2 block">Background Color</label>
               <div className="flex items-center space-x-2">
                 <input
                   type="color"
                   value={element.styles.backgroundColor || '#f8f9fa'}
                   onChange={(e) => onUpdate({ styles: { ...element.styles, backgroundColor: e.target.value } })}
-                  className="w-12 h-12 border-2 border-gray-300 rounded cursor-pointer"
+                  className="w-12 h-12 border-2 border-dark-400 rounded cursor-pointer"
                 />
                 <input
                   type="text"
                   value={element.styles.backgroundColor || '#f8f9fa'}
                   onChange={(e) => onUpdate({ styles: { ...element.styles, backgroundColor: e.target.value } })}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
+                  className="flex-1 px-3 py-2 border border-dark-400 rounded text-sm"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-gray-700 uppercase mb-2 block">Border Radius</label>
+              <label className="text-xs font-semibold text-dark-600 uppercase mb-2 block">Border Radius</label>
               <input
                 type="range"
                 min="0"
@@ -366,7 +366,7 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
                 onChange={(e) => onUpdate({ styles: { ...element.styles, borderRadius: `${e.target.value}px` } })}
                 className="w-full"
               />
-              <div className="text-center text-sm font-medium text-gray-900 mt-1">{element.styles.borderRadius}</div>
+              <div className="text-center text-sm font-medium text-dark-600 mt-1">{element.styles.borderRadius}</div>
             </div>
           </>
         )}

@@ -197,7 +197,7 @@ export const formatCurrency = (amount?: number, currency: string = 'CAD') => {
 };
 
 export const renderBadge = (value: string, colorMap: Record<string, string>): React.ReactElement => {
-  const colorClass = colorMap[value] || 'bg-gray-100 text-gray-800';
+  const colorClass = colorMap[value] || 'bg-dark-100 text-dark-600';
   return React.createElement(
     'span',
     { className: `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}` },
@@ -232,13 +232,13 @@ export const renderTags = (tags?: string[] | string): React.ReactElement | null 
     ...tagsArray.slice(0, 2).map((tag, index) =>
       React.createElement(
         'span',
-        { key: index, className: 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800' },
+        { key: index, className: 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-dark-100 text-dark-600' },
         tag
       )
     ),
     tagsArray.length > 2 ? React.createElement(
       'span',
-      { className: 'text-xs text-gray-500' },
+      { className: 'text-xs text-dark-700' },
       `+${tagsArray.length - 2}`
     ) : null
   );
@@ -252,7 +252,7 @@ export const renderEmployeeNames = (names?: string[] | string, record?: any): Re
   // Try to use assignee_employee_names from the record first (populated by backend)
   const employeeNames = record?.assignee_employee_names || names;
 
-  if (!employeeNames) return React.createElement('span', { className: 'text-gray-400' }, '-');
+  if (!employeeNames) return React.createElement('span', { className: 'text-dark-600' }, '-');
 
   // Handle both array and JSON string formats
   let namesArray: string[] = [];
@@ -267,7 +267,7 @@ export const renderEmployeeNames = (names?: string[] | string, record?: any): Re
     namesArray = employeeNames;
   }
 
-  if (namesArray.length === 0) return React.createElement('span', { className: 'text-gray-400' }, '-');
+  if (namesArray.length === 0) return React.createElement('span', { className: 'text-dark-600' }, '-');
 
   return React.createElement(
     'div',
@@ -284,7 +284,7 @@ export const renderEmployeeNames = (names?: string[] | string, record?: any): Re
     ),
     namesArray.length > 2 ? React.createElement(
       'span',
-      { className: 'text-xs text-gray-500' },
+      { className: 'text-xs text-dark-700' },
       `+${namesArray.length - 2} more`
     ) : null
   );
@@ -438,14 +438,14 @@ export const entityConfigs: Record<string, EntityConfig> = {
               'div',
               { className: 'flex items-center gap-2' },
               record.attr?.icon && React.createElement('span', { className: 'text-lg' }, record.attr.icon),
-              React.createElement('span', { className: 'font-medium text-gray-900' }, value)
+              React.createElement('span', { className: 'font-medium text-dark-600' }, value)
             )
           )
         },
         wiki_type: {
           title: 'Type',
           render: (value) => renderBadge(value || 'page', {
-            'page': 'bg-blue-100 text-blue-800',
+            'page': 'bg-dark-100 text-dark-600',
             'template': 'bg-purple-100 text-purple-800',
             'workflow': 'bg-green-100 text-green-800',
             'guide': 'bg-yellow-100 text-yellow-800',
@@ -461,8 +461,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
             return renderBadge(status, {
               'published': 'bg-green-100 text-green-800',
               'draft': 'bg-yellow-100 text-yellow-800',
-              'review': 'bg-blue-100 text-blue-800',
-              'archived': 'bg-gray-100 text-gray-800',
+              'review': 'bg-dark-100 text-dark-600',
+              'archived': 'bg-dark-100 text-dark-600',
               'deprecated': 'bg-red-100 text-red-800',
               'private': 'bg-purple-100 text-purple-800'
             });
@@ -527,20 +527,20 @@ export const entityConfigs: Record<string, EntityConfig> = {
               React.createElement(
                 'div',
                 { className: 'flex items-center gap-2 mb-0.5' },
-                React.createElement('div', { className: 'font-medium text-gray-900' }, value),
+                React.createElement('div', { className: 'font-medium text-dark-600' }, value),
                 record.attachment_object_key && React.createElement(
                   'div',
                   { className: 'flex-shrink-0 w-2 h-2 rounded-full bg-green-500', title: 'File uploaded' },
                   null
                 )
               ),
-              record.descr && React.createElement('div', { className: 'text-xs text-gray-500 line-clamp-1 mb-1' }, record.descr),
+              record.descr && React.createElement('div', { className: 'text-xs text-dark-700 line-clamp-1 mb-1' }, record.descr),
               React.createElement(
                 'div',
                 { className: 'flex items-center gap-1.5' },
                 record.version > 1 && React.createElement(
                   'span',
-                  { className: 'inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded border border-blue-200' },
+                  { className: 'inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-dark-100 text-dark-700 rounded border border-dark-400' },
                   `v${record.version}`
                 ),
                 !record.attachment_object_key && React.createElement(
@@ -555,7 +555,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
             title: 'Type',
             width: '120px',
             render: (value) => renderBadge(value, {
-              'document': 'bg-blue-100 text-blue-800',
+              'document': 'bg-dark-100 text-dark-600',
               'template': 'bg-purple-100 text-purple-800',
               'image': 'bg-green-100 text-green-800',
               'video': 'bg-rose-100 text-rose-800',
@@ -567,16 +567,16 @@ export const entityConfigs: Record<string, EntityConfig> = {
             width: '110px',
             render: (value) => renderBadge(value, {
               'public': 'bg-green-100 text-green-800',
-              'internal': 'bg-blue-100 text-blue-800',
+              'internal': 'bg-dark-100 text-dark-600',
               'restricted': 'bg-amber-100 text-amber-800',
-              'private': 'bg-gray-100 text-gray-800'
+              'private': 'bg-dark-100 text-dark-600'
             })
           },
           security_classification: {
             title: 'Security',
             width: '120px',
             render: (value) => renderBadge(value, {
-              'general': 'bg-gray-100 text-gray-700',
+              'general': 'bg-dark-100 text-dark-600',
               'confidential': 'bg-orange-100 text-orange-800',
               'restricted': 'bg-red-100 text-red-800'
             })
@@ -586,7 +586,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
             width: '90px',
             render: (value) => value ? React.createElement(
               'span',
-              { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-gray-100 text-gray-800 rounded border border-gray-200' },
+              { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-dark-100 text-dark-600 rounded border border-dark-300' },
               value.toUpperCase()
             ) : '-'
           },
@@ -599,9 +599,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
               const kb = value / 1024;
               const mb = kb / 1024;
               if (mb >= 1) {
-                return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${mb.toFixed(1)} MB`);
+                return React.createElement('span', { className: 'text-dark-600 font-medium' }, `${mb.toFixed(1)} MB`);
               }
-              return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${kb.toFixed(0)} KB`);
+              return React.createElement('span', { className: 'text-dark-600 font-medium' }, `${kb.toFixed(0)} KB`);
             }
           },
           entity_type: {
@@ -700,7 +700,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
           title: 'Status',
           render: (value) => value
             ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
-            : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800' }, 'Inactive')
+            : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dark-100 text-dark-600' }, 'Inactive')
         },
         version: {
           align: 'center' as const
@@ -800,8 +800,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
           render: (value, record) => React.createElement(
             'div',
             null,
-            React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-            record.addr && React.createElement('div', { className: 'text-sm text-gray-500 truncate max-w-xs' }, record.addr)
+            React.createElement('div', { className: 'font-medium text-dark-600' }, value),
+            record.addr && React.createElement('div', { className: 'text-sm text-dark-700 truncate max-w-xs' }, record.addr)
           )
         },
         dl__office_level: {
@@ -854,8 +854,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
           render: (value, record) => React.createElement(
             'div',
             null,
-            React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-            record.email && React.createElement('div', { className: 'text-sm text-gray-500' }, record.email)
+            React.createElement('div', { className: 'font-medium text-dark-600' }, value),
+            record.email && React.createElement('div', { className: 'text-sm text-dark-700' }, record.email)
           )
         },
         employee_number: {
@@ -1226,7 +1226,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Order Number',
         sortable: true,
         filterable: true,
-        render: (value) => React.createElement('div', { className: 'font-medium text-gray-900' }, value)
+        render: (value) => React.createElement('div', { className: 'font-medium text-dark-600' }, value)
       },
       {
         key: 'client_name',
@@ -1247,8 +1247,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: true,
         filterable: true,
         render: (value) => renderBadge(value || 'pending', {
-          'quote': 'bg-gray-100 text-gray-800',
-          'pending': 'bg-blue-100 text-blue-800',
+          'quote': 'bg-dark-100 text-dark-600',
+          'pending': 'bg-dark-100 text-dark-600',
           'confirmed': 'bg-purple-100 text-purple-800',
           'processing': 'bg-yellow-100 text-yellow-800',
           'shipped': 'bg-green-100 text-green-800',
@@ -1304,7 +1304,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Shipment Number',
         sortable: true,
         filterable: true,
-        render: (value) => React.createElement('div', { className: 'font-medium text-gray-900' }, value)
+        render: (value) => React.createElement('div', { className: 'font-medium text-dark-600' }, value)
       },
       {
         key: 'client_name',
@@ -1332,8 +1332,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: true,
         filterable: true,
         render: (value) => renderBadge(value || 'pending', {
-          'pending': 'bg-gray-100 text-gray-800',
-          'picked': 'bg-blue-100 text-blue-800',
+          'pending': 'bg-dark-100 text-dark-600',
+          'picked': 'bg-dark-100 text-dark-600',
           'packed': 'bg-purple-100 text-purple-800',
           'shipped': 'bg-yellow-100 text-yellow-800',
           'in_transit': 'bg-orange-100 text-orange-800',
@@ -1389,7 +1389,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Invoice Number',
         sortable: true,
         filterable: true,
-        render: (value) => React.createElement('div', { className: 'font-medium text-gray-900' }, value)
+        render: (value) => React.createElement('div', { className: 'font-medium text-dark-600' }, value)
       },
       {
         key: 'client_name',
@@ -1416,8 +1416,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: true,
         filterable: true,
         render: (value) => renderBadge(value || 'draft', {
-          'draft': 'bg-gray-100 text-gray-800',
-          'sent': 'bg-blue-100 text-blue-800',
+          'draft': 'bg-dark-100 text-dark-600',
+          'sent': 'bg-dark-100 text-dark-600',
           'viewed': 'bg-purple-100 text-purple-800',
           'partial': 'bg-yellow-100 text-yellow-800',
           'paid': 'bg-green-100 text-green-800',
@@ -1446,7 +1446,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         width: '90px',
         render: (value) => value ? React.createElement(
           'span',
-          { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-gray-100 text-gray-800 rounded border border-gray-200' },
+          { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-dark-100 text-dark-600 rounded border border-dark-300' },
           value.toUpperCase()
         ) : '-'
       },
@@ -1461,9 +1461,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
           const kb = value / 1024;
           const mb = kb / 1024;
           if (mb >= 1) {
-            return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${mb.toFixed(1)} MB`);
+            return React.createElement('span', { className: 'text-dark-600 font-medium' }, `${mb.toFixed(1)} MB`);
           }
-          return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${kb.toFixed(0)} KB`);
+          return React.createElement('span', { className: 'text-dark-600 font-medium' }, `${kb.toFixed(0)} KB`);
         }
       }
     ],
@@ -1543,7 +1543,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Subject Line',
         sortable: true,
         filterable: true,
-        render: (value) => React.createElement('div', { className: 'max-w-md truncate text-gray-700' }, value || '-')
+        render: (value) => React.createElement('div', { className: 'max-w-md truncate text-dark-600' }, value || '-')
       },
       {
         key: 'status',
@@ -1551,7 +1551,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         sortable: true,
         filterable: true,
         render: (value) => renderBadge(value, {
-          'draft': 'bg-gray-100 text-gray-800',
+          'draft': 'bg-dark-100 text-dark-600',
           'published': 'bg-green-100 text-green-800',
           'archived': 'bg-red-100 text-red-800'
         })
@@ -1563,8 +1563,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
         render: (value, record) => React.createElement(
           'div',
           null,
-          React.createElement('div', { className: 'text-sm text-gray-900' }, value || '-'),
-          record.from_email && React.createElement('div', { className: 'text-xs text-gray-500' }, record.from_email)
+          React.createElement('div', { className: 'text-sm text-dark-600' }, value || '-'),
+          record.from_email && React.createElement('div', { className: 'text-xs text-dark-700' }, record.from_email)
         )
       },
       {
@@ -1626,8 +1626,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
         render: (value, record) => React.createElement(
           'div',
           null,
-          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-          record.workflow_description && React.createElement('div', { className: 'text-sm text-gray-500 truncate max-w-md' }, record.workflow_description)
+          React.createElement('div', { className: 'font-medium text-dark-600' }, value),
+          record.workflow_description && React.createElement('div', { className: 'text-sm text-dark-700 truncate max-w-md' }, record.workflow_description)
         )
       },
       {
@@ -1638,7 +1638,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         align: 'center',
         render: (value) => renderBadge(value ? 'Active' : 'Inactive', {
           'Active': 'bg-green-100 text-green-800',
-          'Inactive': 'bg-gray-100 text-gray-800'
+          'Inactive': 'bg-dark-100 text-dark-600'
         })
       },
       {
@@ -1646,7 +1646,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         title: 'Trigger Entity',
         sortable: true,
         filterable: true,
-        render: (value) => React.createElement('span', { className: 'capitalize text-gray-700' }, value)
+        render: (value) => React.createElement('span', { className: 'capitalize text-dark-600' }, value)
       },
       {
         key: 'trigger_action_type',
@@ -1655,7 +1655,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         filterable: true,
         render: (value) => React.createElement(
           'span',
-          { className: 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800' },
+          { className: 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-dark-100 text-dark-600' },
           value.replace('_', ' ').toUpperCase()
         )
       },
@@ -1663,7 +1663,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         key: 'action_entity_type',
         title: 'Action Entity',
         sortable: true,
-        render: (value) => React.createElement('span', { className: 'capitalize text-gray-700' }, value)
+        render: (value) => React.createElement('span', { className: 'capitalize text-dark-600' }, value)
       },
       {
         key: 'execution_count',
@@ -1673,8 +1673,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
         render: (value, record) => React.createElement(
           'div',
           { className: 'text-sm' },
-          React.createElement('div', { className: 'font-medium text-gray-900' }, value || 0),
-          record.max_executions > 0 && React.createElement('div', { className: 'text-xs text-gray-500' }, `/ ${record.max_executions}`)
+          React.createElement('div', { className: 'font-medium text-dark-600' }, value || 0),
+          record.max_executions > 0 && React.createElement('div', { className: 'text-xs text-dark-700' }, `/ ${record.max_executions}`)
         )
       },
       {
@@ -1810,8 +1810,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
         render: (value, record) => React.createElement(
           'div',
           null,
-          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-          record.cost_code && React.createElement('div', { className: 'text-sm text-gray-500' }, record.cost_code)
+          React.createElement('div', { className: 'font-medium text-dark-600' }, value),
+          record.cost_code && React.createElement('div', { className: 'text-sm text-dark-700' }, record.cost_code)
         )
       },
       {
@@ -1849,7 +1849,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         width: '90px',
         render: (value) => value ? React.createElement(
           'span',
-          { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-gray-100 text-gray-800 rounded border border-gray-200' },
+          { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-dark-100 text-dark-600 rounded border border-dark-300' },
           value.toUpperCase()
         ) : '-'
       },
@@ -1864,9 +1864,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
           const kb = value / 1024;
           const mb = kb / 1024;
           if (mb >= 1) {
-            return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${mb.toFixed(1)} MB`);
+            return React.createElement('span', { className: 'text-dark-600 font-medium' }, `${mb.toFixed(1)} MB`);
           }
-          return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${kb.toFixed(0)} KB`);
+          return React.createElement('span', { className: 'text-dark-600 font-medium' }, `${kb.toFixed(0)} KB`);
         }
       }
     ],
@@ -1947,8 +1947,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
         render: (value, record) => React.createElement(
           'div',
           null,
-          React.createElement('div', { className: 'font-medium text-gray-900' }, value),
-          record.revenue_code && React.createElement('div', { className: 'text-sm text-gray-500' }, record.revenue_code)
+          React.createElement('div', { className: 'font-medium text-dark-600' }, value),
+          record.revenue_code && React.createElement('div', { className: 'text-sm text-dark-700' }, record.revenue_code)
         )
       },
       {
@@ -1986,7 +1986,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         width: '90px',
         render: (value) => value ? React.createElement(
           'span',
-          { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-gray-100 text-gray-800 rounded border border-gray-200' },
+          { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-dark-100 text-dark-600 rounded border border-dark-300' },
           value.toUpperCase()
         ) : '-'
       },
@@ -2001,9 +2001,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
           const kb = value / 1024;
           const mb = kb / 1024;
           if (mb >= 1) {
-            return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${mb.toFixed(1)} MB`);
+            return React.createElement('span', { className: 'text-dark-600 font-medium' }, `${mb.toFixed(1)} MB`);
           }
-          return React.createElement('span', { className: 'text-gray-700 font-medium' }, `${kb.toFixed(0)} KB`);
+          return React.createElement('span', { className: 'text-dark-600 font-medium' }, `${kb.toFixed(0)} KB`);
         }
       }
     ],

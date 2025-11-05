@@ -150,20 +150,20 @@ export function EntityEditModal({
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
         <div
-          className="relative bg-white rounded-lg shadow-xl w-full max-h-[90vh] overflow-hidden"
+          className="relative bg-dark-100 rounded-lg shadow-xl w-full max-h-[90vh] overflow-hidden"
           style={{ maxWidth: '1165px' }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header - Matches EntityDetailPage header styling */}
-          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <div className="sticky top-0 z-10 bg-dark-100 border-b border-dark-300 px-6 py-4 flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-normal text-gray-500">
+              <h2 className="text-sm font-normal text-dark-700">
                 {isCreateMode
                   ? `Create New ${config.displayName}`
                   : (editedData?.name || editedData?.title || `${config.displayName} Details`)
                 }
                 {!isCreateMode && (
-                  <span className="text-xs font-light text-gray-500 ml-3">
+                  <span className="text-xs font-light text-dark-700 ml-3">
                     {config.displayName} · {entityId?.slice(0, 8)}...
                   </span>
                 )}
@@ -175,7 +175,7 @@ export function EntityEditModal({
               <button
                 onClick={handleCancel}
                 disabled={saving}
-                className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <X className="h-4 w-4 mr-2 stroke-[1.5]" />
                 Cancel
@@ -183,7 +183,7 @@ export function EntityEditModal({
               <button
                 onClick={handleSave}
                 disabled={saving || loading}
-                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-dark-700 hover:bg-dark-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="h-4 w-4 mr-2 stroke-[1.5]" />
                 {saving ? 'Saving...' : 'Save'}
@@ -201,7 +201,7 @@ export function EntityEditModal({
 
             {loading ? (
               <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700" />
               </div>
             ) : (
               <div className="space-y-4">

@@ -121,7 +121,7 @@ function MetadataView(props: any) {
   return (
     <NodeViewWrapper>
       <div
-        className="metadata-block bg-gray-50 px-4 py-3 rounded-lg border border-gray-200 my-4"
+        className="metadata-block bg-dark-100 px-4 py-3 rounded-lg border border-dark-300 my-4"
         style={{
           fontSize: '14px',
           color: '#6b7280',
@@ -137,8 +137,8 @@ function MetadataView(props: any) {
           <span>Created: {createdDate ? new Date(createdDate).toLocaleDateString() : new Date().toLocaleDateString()}</span>
           <span>Updated: {updatedDate ? formatDate(updatedDate) : 'a few moments ago'}</span>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-gray-600">
-          <span className="font-semibold text-gray-500">Path:</span>
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-dark-700">
+          <span className="font-semibold text-dark-700">Path:</span>
           <input
             value={pathValue}
             onFocus={stopEvent}
@@ -159,9 +159,9 @@ function MetadataView(props: any) {
               } catch {}
             }}
             placeholder="/wiki"
-            className="border-b border-gray-300 bg-transparent pb-0.5 text-sm font-normal text-gray-700 focus:border-blue-400 focus:outline-none"
+            className="border-b border-dark-400 bg-transparent pb-0.5 text-sm font-normal text-dark-600 focus:border-dark-600 focus:outline-none"
           />
-          <span className="text-gray-400">/</span>
+          <span className="text-dark-600">/</span>
           <input
             value={slugValue}
             onFocus={stopEvent}
@@ -182,10 +182,10 @@ function MetadataView(props: any) {
               } catch {}
             }}
             placeholder="page-slug"
-            className="border-b border-gray-300 bg-transparent pb-0.5 text-sm font-normal text-gray-700 focus:border-blue-400 focus:outline-none"
+            className="border-b border-dark-400 bg-transparent pb-0.5 text-sm font-normal text-dark-600 focus:border-dark-600 focus:outline-none"
           />
-          <div className="inline-flex items-center gap-2 text-xs text-gray-500">
-            <span className="font-semibold uppercase tracking-[0.3em] text-gray-500">Theme</span>
+          <div className="inline-flex items-center gap-2 text-xs text-dark-700">
+            <span className="font-semibold uppercase tracking-[0.3em] text-dark-700">Theme</span>
             <select
               value={themeValue}
               onFocus={stopEvent}
@@ -205,7 +205,7 @@ function MetadataView(props: any) {
                   window.dispatchEvent(new CustomEvent('wiki:metadata:theme', { detail: next }));
                 } catch {}
               }}
-              className="h-8 rounded-md border border-gray-300 bg-white px-2 text-xs font-normal text-gray-700 focus:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-200"
+              className="h-8 rounded-md border border-dark-400 bg-dark-100 px-2 text-xs font-normal text-dark-600 focus:border-dark-500 focus:outline-none focus:ring-1 focus:ring-dark-700"
             >
               <option value="gradient-blue">🔵 Blue</option>
               <option value="gradient-purple">🟣 Purple</option>
@@ -219,10 +219,10 @@ function MetadataView(props: any) {
           <div className="flex items-center gap-2 flex-wrap">
             {Array.isArray(tags) && tags.length > 0 ? (
               tags.map((tag: string, i: number) => (
-                <span key={i} className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 border-0 rounded-full text-xs font-medium">
+                <span key={i} className="inline-flex items-center px-2 py-0.5 bg-dark-100 text-dark-700 border-0 rounded-full text-xs font-medium">
                   {tag}
                   <button
-                    className="ml-1 text-blue-400 hover:text-red-500"
+                    className="ml-1 text-dark-700 hover:text-red-500"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -238,7 +238,7 @@ function MetadataView(props: any) {
                 </span>
               ))
             ) : (
-              <span className="text-xs text-gray-400 italic">No tags yet</span>
+              <span className="text-xs text-dark-600 italic">No tags yet</span>
             )}
             <input
               type="text"
@@ -269,7 +269,7 @@ function MetadataView(props: any) {
               }}
               onKeyUp={stopEvent}
               placeholder="Add tag and press Enter"
-              className="px-2 py-1 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-2 py-1 text-xs border border-dark-400 rounded-md bg-dark-100 focus:outline-none focus:ring-2 focus:ring-dark-7000"
             />
           </div>
         </div>
@@ -1258,22 +1258,22 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
   return (
     <div className="w-full h-full flex">
       {/* Table of Contents Sidebar - exact same layout */}
-      <div className={`${tocOpen ? 'w-64' : 'w-12'} flex-shrink-0 bg-white transition-all duration-300 flex flex-col relative`}>
-        <div className="absolute right-0 top-0 bottom-0 w-px bg-gray-300"></div>
-        <div className="p-3 border-b border-gray-200 bg-white flex items-center justify-between">
+      <div className={`${tocOpen ? 'w-64' : 'w-12'} flex-shrink-0 bg-dark-100 transition-all duration-300 flex flex-col relative`}>
+        <div className="absolute right-0 top-0 bottom-0 w-px bg-dark-300"></div>
+        <div className="p-3 border-b border-dark-300 bg-dark-100 flex items-center justify-between">
           <button
             onClick={() => setTocOpen(!tocOpen)}
-            className="p-1 hover:bg-gray-100 rounded text-gray-600"
+            className="p-1 hover:bg-dark-100 rounded text-dark-700"
             title={tocOpen ? 'Collapse TOC' : 'Expand TOC'}
           >
             {tocOpen ? <ChevronDown className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
-          {tocOpen && <span className="text-sm font-normal text-gray-700">Table of Contents</span>}
+          {tocOpen && <span className="text-sm font-normal text-dark-600">Table of Contents</span>}
         </div>
         {tocOpen && (
           <div className="flex-1 overflow-y-auto p-3">
             {tableOfContents.length === 0 ? (
-              <div className="text-xs text-gray-500 text-center py-8">Add headings to see table of contents</div>
+              <div className="text-xs text-dark-700 text-center py-8">Add headings to see table of contents</div>
             ) : (
               <div className="space-y-1">
                 {tableOfContents.map((h) => (
@@ -1284,12 +1284,12 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
                       editor.chain().setTextSelection(h.pos).run();
                       editor.commands.scrollIntoView();
                     }}
-                    className={`w-full text-left text-xs p-2 rounded hover:bg-white transition-colors ${
+                    className={`w-full text-left text-xs p-2 rounded hover:bg-dark-100 transition-colors ${
                       h.level === 1
-                        ? 'font-normal text-gray-800'
+                        ? 'font-normal text-dark-600'
                         : h.level === 2
-                        ? 'font-normal text-gray-700 ml-2'
-                        : 'text-gray-600 ml-4'
+                        ? 'font-normal text-dark-600 ml-2'
+                        : 'text-dark-700 ml-4'
                     }`}
                     style={{ paddingLeft: `${(h.level - 1) * 0.5 + 0.5}rem` }}
                   >
@@ -1303,9 +1303,9 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
       </div>
 
       {/* Main Editor Area - Free-flow editing with integrated metadata node */}
-      <div className="flex-1 flex flex-col bg-white min-h-0">
+      <div className="flex-1 flex flex-col bg-dark-100 min-h-0">
         <div 
-          className="flex-1 w-full p-8 outline-none border-0 overflow-y-auto editor-content focus:bg-white transition-all duration-300"
+          className="flex-1 w-full p-8 outline-none border-0 overflow-y-auto editor-content focus:bg-dark-100 transition-all duration-300"
           onMouseDown={onBackgroundMouseDown}
         >
         <EditorContent
@@ -1321,14 +1321,14 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
         {mediaOpen && createPortal(
           <div role="dialog" aria-modal="true" className="fixed inset-0 z-[10000] flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40" onClick={() => setMediaOpen(false)} />
-            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md p-4 z-[10001]">
+            <div className="relative bg-dark-100 rounded-lg shadow-xl w-full max-w-md p-4 z-[10001]">
               <div className="mb-3">
-                <h3 className="text-sm font-normal text-gray-800">Insert {mediaType === 'image' ? 'Image' : 'Video'}</h3>
-                <p className="text-xs text-gray-500">Choose a file or paste a URL</p>
+                <h3 className="text-sm font-normal text-dark-600">Insert {mediaType === 'image' ? 'Image' : 'Video'}</h3>
+                <p className="text-xs text-dark-700">Choose a file or paste a URL</p>
               </div>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs font-normal text-gray-700">From device</label>
+                  <label className="text-xs font-normal text-dark-600">From device</label>
                   <input
                     type="file"
                     accept={mediaType === 'image' ? 'image/*' : 'video/*'}
@@ -1338,11 +1338,11 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
                       if (f) setMediaUrl('');
                       setMediaError('');
                     }}
-                    className="block w-full text-xs text-gray-700 mt-1"
+                    className="block w-full text-xs text-dark-600 mt-1"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-normal text-gray-700">From URL</label>
+                  <label className="text-xs font-normal text-dark-600">From URL</label>
                   <input
                     type="url"
                     placeholder={mediaType === 'image' ? 'https://example.com/image.png' : 'https://youtu.be/... or https://example.com/video.mp4'}
@@ -1352,16 +1352,16 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
                       if (e.target.value) setMediaFile(null);
                       setMediaError('');
                     }}
-                    className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="mt-1 w-full rounded-md border border-dark-400 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-dark-7000"
                   />
                 </div>
                 {mediaError && <div className="text-xs text-red-600">{mediaError}</div>}
                 <div className="flex items-center justify-end gap-2 pt-2">
-                  <button className="px-3 py-1 text-xs rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={() => setMediaOpen(false)}>
+                  <button className="px-3 py-1 text-xs rounded-md bg-dark-100 text-dark-600 hover:bg-dark-200" onClick={() => setMediaOpen(false)}>
                     Cancel
                   </button>
                   <button
-                    className="px-3 py-1 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                    className="px-3 py-1 text-xs rounded-md bg-dark-700 text-white hover:bg-dark-800"
                     onClick={() => {
                       if (!editor) return;
                       const getChainAtInsertPos = () => {
@@ -1454,15 +1454,15 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
         {imageEditorOpen && createPortal(
           <div role="dialog" aria-modal="true" className="fixed inset-0 z-[10000] flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40" onClick={() => setImageEditorOpen(false)} />
-            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-3xl p-4 z-[10001]">
+            <div className="relative bg-dark-100 rounded-lg shadow-xl w-full max-w-3xl p-4 z-[10001]">
               <div className="mb-3 flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-normal text-gray-800">Edit Image</h3>
-                  <p className="text-xs text-gray-500">Drag to select crop area. Adjust width if needed.</p>
+                  <h3 className="text-sm font-normal text-dark-600">Edit Image</h3>
+                  <p className="text-xs text-dark-700">Drag to select crop area. Adjust width if needed.</p>
                 </div>
               </div>
               <div
-                className="relative bg-gray-50 border rounded"
+                className="relative bg-dark-100 border rounded"
                 style={{ width: previewSize.w, height: previewSize.h, margin: '0 auto', userSelect: 'none' }}
                 onMouseDown={(e) => {
                   const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
@@ -1502,13 +1502,13 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
                 {/* Crop overlay */}
                 {crop && (
                   <div
-                    className="absolute border-2 border-blue-500 bg-blue-500/10"
+                    className="absolute border-2 border-dark-3000 bg-dark-1000/10"
                     style={{ left: crop.x, top: crop.y, width: crop.w, height: crop.h }}
                   />
                 )}
               </div>
               <div className="flex items-center justify-end gap-2 pt-3">
-                <button className="px-3 py-1 text-xs rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={() => setImageEditorOpen(false)}>
+                <button className="px-3 py-1 text-xs rounded-md bg-dark-100 text-dark-600 hover:bg-dark-200" onClick={() => setImageEditorOpen(false)}>
                   Cancel
                 </button>
                 <button
@@ -1540,7 +1540,7 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
                   Apply Crop
                 </button>
                 <button
-                  className="px-3 py-1 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                  className="px-3 py-1 text-xs rounded-md bg-dark-700 text-white hover:bg-dark-800"
                   onClick={() => {
                     if (!editor || !imageEditorPos) return;
                     // Simple resize to width via style (in px) based on preview width

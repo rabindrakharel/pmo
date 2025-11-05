@@ -141,6 +141,7 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
           showActionIcons={true}
           showEditIcon={true}
           inlineEditable={true}
+          allowAddRow={true}
           onBulkShare={handleBulkShare}
           onBulkDelete={handleBulkDelete}
           onRowClick={handleRowClick}
@@ -151,7 +152,7 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
     if (loading) {
       return (
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700" />
         </div>
       );
     }
@@ -162,7 +163,7 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
           <p className="text-red-600">{error}</p>
           <button
             onClick={loadData}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="mt-4 px-4 py-2 bg-dark-700 text-white rounded-lg hover:bg-dark-800"
           >
             Retry
           </button>
@@ -173,7 +174,7 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
     // KANBAN VIEW - Settings-driven, no fallbacks
     if (view === 'kanban' && config.kanban) {
       return (
-        <div className="bg-white rounded-lg shadow p-6 h-full overflow-x-auto">
+        <div className="bg-dark-100 rounded-lg shadow p-6 h-full overflow-x-auto">
           <KanbanView
             config={config}
             data={data}
@@ -188,7 +189,7 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
     // GRID VIEW
     if (view === 'grid' && config.grid) {
       return (
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-dark-100 rounded-lg shadow p-6">
           <GridView
             items={data}
             onItemClick={handleRowClick}
@@ -216,7 +217,7 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
       }));
 
       return (
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-dark-100 rounded-lg shadow p-6">
           <DAGVisualizer
             nodes={dagNodes}
           />
@@ -234,23 +235,23 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
     <Layout>
       <div className="h-full flex flex-col w-[97%] max-w-[1536px] mx-auto">
         {/* Sticky Header */}
-        <div className="sticky top-0 z-10 bg-gray-50 pb-4 pt-0">
+        <div className="sticky top-0 z-10 bg-dark-100 pb-4 pt-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               {/* Back button for settings entities */}
               {isSettingsEntity && (
                 <button
                   onClick={() => navigate('/settings')}
-                  className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all"
+                  className="p-2 rounded-lg text-dark-600 hover:text-dark-600 hover:bg-dark-100 transition-all"
                   title="Back to Settings"
                 >
                   <ArrowLeft className="h-4 w-4 stroke-[1.5]" />
                 </button>
               )}
-              <EntityIcon className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+              <EntityIcon className="h-5 w-5 text-dark-700 stroke-[1.5]" />
               <div>
-                <h1 className="text-sm font-normal text-gray-800">{config.pluralName}</h1>
-                <p className="mt-1 text-sm text-gray-500">
+                <h1 className="text-sm font-normal text-dark-600">{config.pluralName}</h1>
+                <p className="mt-1 text-sm text-dark-700">
                   Manage and track {config.pluralName.toLowerCase()}
                 </p>
               </div>
@@ -267,7 +268,7 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
               )}
               <button
                 onClick={handleCreateClick}
-                className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 transition-colors"
               >
                 <Plus className="h-4 w-4 mr-2 stroke-[1.5]" />
                 Create {config.displayName}

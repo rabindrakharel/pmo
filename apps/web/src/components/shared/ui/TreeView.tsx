@@ -149,8 +149,8 @@ export function TreeView<T = any>({
     return (
       <div key={node.key} className={node.className}>
         <div
-          className={`flex items-center py-1 px-2 hover:bg-gray-50 cursor-pointer relative ${
-            isSelected ? 'bg-blue-50 border-r-2 border-blue-500' : ''
+          className={`flex items-center py-1 px-2 hover:bg-dark-100 cursor-pointer relative ${
+            isSelected ? 'bg-dark-100 border-r-2 border-dark-3000' : ''
           } ${node.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
           style={{ paddingLeft }}
           onClick={() => {
@@ -164,13 +164,13 @@ export function TreeView<T = any>({
           }}
         >
           {showLine && level > 0 && (
-            <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-200" style={{ left: (level - 1) * 20 + 10 }} />
+            <div className="absolute left-0 top-0 bottom-0 w-px bg-dark-200" style={{ left: (level - 1) * 20 + 10 }} />
           )}
           
           <div className="flex items-center min-w-0 flex-1">
             {hasChildren ? (
               <button
-                className="flex items-center justify-center w-4 h-4 mr-2 hover:bg-gray-200 rounded"
+                className="flex items-center justify-center w-4 h-4 mr-2 hover:bg-dark-200 rounded"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleExpand(node);
@@ -187,12 +187,12 @@ export function TreeView<T = any>({
             )}
             
             {showIcon && (
-              <div className="flex items-center mr-2 text-gray-600">
+              <div className="flex items-center mr-2 text-dark-700">
                 {getDefaultIcon(node, isExpanded)}
               </div>
             )}
             
-            <span className="text-sm text-gray-900 truncate select-none">
+            <span className="text-sm text-dark-600 truncate select-none">
               {node.title}
             </span>
           </div>
@@ -209,27 +209,27 @@ export function TreeView<T = any>({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-dark-100 rounded-lg shadow-sm border border-dark-300">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-3 text-gray-600">Loading...</span>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700"></div>
+          <span className="ml-3 text-dark-700">Loading...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border border-gray-200 ${className}`}>
+    <div className={`bg-dark-100 rounded-lg shadow-sm border border-dark-300 ${className}`}>
       {searchable && (
-        <div className="p-4 border-b border-gray-200 bg-gray-50">
+        <div className="p-4 border-b border-dark-300 bg-dark-100">
           <div className="relative">
-            <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+            <Search className="h-4 w-4 text-dark-600 absolute left-3 top-1/2 transform -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search tree..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
             />
           </div>
         </div>
@@ -241,7 +241,7 @@ export function TreeView<T = any>({
       >
         {filteredData.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500">
+            <p className="text-dark-700">
               {searchTerm ? 'No matching nodes found' : 'No data available'}
             </p>
           </div>

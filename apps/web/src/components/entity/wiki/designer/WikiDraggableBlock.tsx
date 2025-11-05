@@ -71,7 +71,7 @@ export function WikiDraggableBlock({
             value={block.content || ''}
             onChange={(e) => handleContentChange(e.target.value)}
             onClick={onSelect}
-            className={`w-full bg-transparent border-none outline-none ${headingClasses} text-gray-900 placeholder-gray-400`}
+            className={`w-full bg-transparent border-none outline-none ${headingClasses} text-dark-600 placeholder-gray-400`}
             placeholder="Heading"
           />
         );
@@ -84,7 +84,7 @@ export function WikiDraggableBlock({
             value={block.content || ''}
             onChange={(e) => handleContentChange(e.target.value)}
             onClick={onSelect}
-            className="w-full bg-transparent border-none outline-none resize-none text-gray-700 placeholder-gray-400 leading-relaxed overflow-hidden"
+            className="w-full bg-transparent border-none outline-none resize-none text-dark-600 placeholder-gray-400 leading-relaxed overflow-hidden"
             placeholder="Start typing..."
             style={{ minHeight: '24px' }}
           />
@@ -94,13 +94,13 @@ export function WikiDraggableBlock({
       case 'quote': {
         const textareaRef = useAutoResizeTextarea(block.content || '');
         return (
-          <blockquote className="border-l-4 border-blue-500 pl-4 italic">
+          <blockquote className="border-l-4 border-dark-3000 pl-4 italic">
             <textarea
               ref={textareaRef}
               value={block.content || ''}
               onChange={(e) => handleContentChange(e.target.value)}
               onClick={onSelect}
-              className="w-full bg-transparent border-none outline-none resize-none text-gray-600 placeholder-gray-400 overflow-hidden"
+              className="w-full bg-transparent border-none outline-none resize-none text-dark-700 placeholder-gray-400 overflow-hidden"
               placeholder="Quote text..."
               style={{ minHeight: '24px' }}
             />
@@ -111,7 +111,7 @@ export function WikiDraggableBlock({
       case 'code': {
         const textareaRef = useAutoResizeTextarea(block.content || '');
         return (
-          <div className="bg-gray-900 text-gray-100 rounded-lg p-4 font-mono text-sm">
+          <div className="bg-dark-900 text-gray-100 rounded-lg p-4 font-mono text-sm">
             <textarea
               ref={textareaRef}
               value={block.content || ''}
@@ -189,7 +189,7 @@ export function WikiDraggableBlock({
                   onChange={(e) => handleListItemChange(index, e.target.value)}
                   onKeyDown={(e) => handleListItemKeyDown(index, e)}
                   onClick={onSelect}
-                  className="w-full bg-transparent border-none outline-none text-gray-700 placeholder-gray-400"
+                  className="w-full bg-transparent border-none outline-none text-dark-600 placeholder-gray-400"
                   placeholder="List item..."
                 />
               </li>
@@ -201,13 +201,13 @@ export function WikiDraggableBlock({
       case 'callout': {
         const textareaRef = useAutoResizeTextarea(block.content || '');
         return (
-          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+          <div className="bg-dark-100 border-l-4 border-dark-3000 p-4 rounded-r">
             <textarea
               ref={textareaRef}
               value={block.content || ''}
               onChange={(e) => handleContentChange(e.target.value)}
               onClick={onSelect}
-              className="w-full bg-transparent border-none outline-none resize-none text-blue-900 placeholder-blue-400 font-medium overflow-hidden"
+              className="w-full bg-transparent border-none outline-none resize-none text-dark-600 placeholder-blue-400 font-medium overflow-hidden"
               placeholder="Important note..."
               style={{ minHeight: '24px' }}
             />
@@ -217,7 +217,7 @@ export function WikiDraggableBlock({
 
       case 'image':
         return (
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center" onClick={onSelect}>
+          <div className="border-2 border-dashed border-dark-400 rounded-lg p-6 text-center" onClick={onSelect}>
             {block.properties?.src ? (
               <img
                 src={block.properties.src}
@@ -225,7 +225,7 @@ export function WikiDraggableBlock({
                 className="max-w-full h-auto mx-auto"
               />
             ) : (
-              <div className="text-gray-400">
+              <div className="text-dark-600">
                 <p className="mb-2">Click to add image URL in properties panel →</p>
                 <p className="text-sm">Or drag and drop (coming soon)</p>
               </div>
@@ -235,7 +235,7 @@ export function WikiDraggableBlock({
 
       case 'video':
         return (
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center" onClick={onSelect}>
+          <div className="border-2 border-dashed border-dark-400 rounded-lg p-6 text-center" onClick={onSelect}>
             {block.properties?.src ? (
               <div className="aspect-video">
                 <iframe
@@ -247,7 +247,7 @@ export function WikiDraggableBlock({
                 />
               </div>
             ) : (
-              <div className="text-gray-400">
+              <div className="text-dark-600">
                 <p>Click to add video URL in properties panel →</p>
                 <p className="text-sm mt-1">Supports YouTube, Vimeo, etc.</p>
               </div>
@@ -256,7 +256,7 @@ export function WikiDraggableBlock({
         );
 
       case 'divider':
-        return <hr className="border-t-2 border-gray-300 my-4" />;
+        return <hr className="border-t-2 border-dark-400 my-4" />;
 
       case 'table': {
         const rows = block.properties?.rows || 3;
@@ -284,12 +284,12 @@ export function WikiDraggableBlock({
 
         return (
           <div className="overflow-x-auto" onClick={onSelect}>
-            <table className="min-w-full border border-gray-300">
+            <table className="min-w-full border border-dark-400">
               <tbody>
                 {cells.map((row: string[], rowIndex: number) => (
                   <tr key={rowIndex}>
                     {row.map((cell: string, colIndex: number) => (
-                      <td key={colIndex} className="border border-gray-300 p-2">
+                      <td key={colIndex} className="border border-dark-400 p-2">
                         <input
                           type="text"
                           value={cell}
@@ -298,7 +298,7 @@ export function WikiDraggableBlock({
                             e.stopPropagation();
                             onSelect();
                           }}
-                          className="w-full bg-transparent border-none outline-none text-sm text-gray-700"
+                          className="w-full bg-transparent border-none outline-none text-sm text-dark-600"
                           placeholder="Cell"
                         />
                       </td>
@@ -313,7 +313,7 @@ export function WikiDraggableBlock({
 
       default:
         return (
-          <div className="text-gray-400">Unsupported block type: {block.type}</div>
+          <div className="text-dark-600">Unsupported block type: {block.type}</div>
         );
     }
   };
@@ -324,8 +324,8 @@ export function WikiDraggableBlock({
       style={style}
       className={`group relative border-2 transition-all ${
         isSelected
-          ? 'border-blue-500 bg-blue-50/50'
-          : 'border-transparent hover:border-gray-200'
+          ? 'border-dark-3000 bg-dark-100/50'
+          : 'border-transparent hover:border-dark-300'
       }`}
     >
       {/* Controls */}
@@ -337,10 +337,10 @@ export function WikiDraggableBlock({
         <button
           {...attributes}
           {...listeners}
-          className="p-1 bg-white border border-gray-200 rounded hover:bg-gray-50 cursor-grab active:cursor-grabbing"
+          className="p-1 bg-dark-100 border border-dark-300 rounded hover:bg-dark-100 cursor-grab active:cursor-grabbing"
           title="Drag to reorder"
         >
-          <GripVertical className="h-4 w-4 text-gray-400" />
+          <GripVertical className="h-4 w-4 text-dark-600" />
         </button>
       </div>
 
@@ -351,14 +351,14 @@ export function WikiDraggableBlock({
       >
         <button
           onClick={onDuplicate}
-          className="p-1.5 bg-white border border-gray-200 rounded hover:bg-gray-50"
+          className="p-1.5 bg-dark-100 border border-dark-300 rounded hover:bg-dark-100"
           title="Duplicate block"
         >
-          <Copy className="h-4 w-4 text-gray-600" />
+          <Copy className="h-4 w-4 text-dark-700" />
         </button>
         <button
           onClick={onDelete}
-          className="p-1.5 bg-white border border-red-200 rounded hover:bg-red-50"
+          className="p-1.5 bg-dark-100 border border-red-200 rounded hover:bg-red-50"
           title="Delete block"
         >
           <Trash2 className="h-4 w-4 text-red-600" />

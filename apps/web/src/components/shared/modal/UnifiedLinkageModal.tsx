@@ -442,11 +442,11 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
     >
       <div className="space-y-4">
         {/* Entity Info */}
-        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-          <p className="text-xs text-gray-600 mb-0.5">
+        <div className="bg-dark-100 rounded-lg p-3 border border-dark-300">
+          <p className="text-xs text-dark-700 mb-0.5">
             {getInfoText()}
           </p>
-          <p className="text-sm font-medium text-gray-900">
+          <p className="text-sm font-medium text-dark-600">
             {mode === 'assign-parent' ? childEntityName : parentEntityName}
           </p>
         </div>
@@ -474,8 +474,8 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
 
         {/* Entity Type Buttons - Match LinkagePage UI */}
         {validEntityTypes.length > 0 && (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-            <label className="text-xs font-medium text-gray-700 mb-2 block">
+          <div className="bg-dark-100 border border-dark-300 rounded-lg p-3">
+            <label className="text-xs font-medium text-dark-600 mb-2 block">
               {entityLabel}
             </label>
             <div className="flex flex-wrap gap-1.5">
@@ -490,8 +490,8 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
                     }}
                     className={`flex items-center gap-1 px-2 py-1 rounded border text-xs font-normal transition-all ${
                       selectedEntityType === type
-                        ? 'bg-blue-50 border-blue-400 text-blue-700 shadow-sm'
-                        : 'bg-white border-gray-300 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                        ? 'bg-dark-100 border-dark-600 text-dark-700 shadow-sm'
+                        : 'bg-dark-100 border-dark-400 text-dark-700 hover:border-dark-400 hover:bg-dark-100'
                     }`}
                   >
                     <IconComponent className="h-3 w-3 stroke-[1.5]" />
@@ -517,75 +517,75 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
         {/* Search - Match LinkagePage UI */}
         {selectedEntityType && (
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-dark-600" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={`Search ${selectedEntityType} by name...`}
-              className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-300 focus:ring-0"
+              className="w-full pl-7 pr-2 py-1.5 text-xs border border-dark-400 rounded bg-dark-100 focus:outline-none focus:border-dark-400 focus:ring-0"
             />
           </div>
         )}
 
         {/* Table of Available Entities */}
         {selectedEntityType && (
-          <div className="border border-gray-300 rounded-lg overflow-hidden">
+          <div className="border border-dark-400 rounded-lg overflow-hidden">
             {loading ? (
-              <div className="text-center py-12 text-gray-500">Loading...</div>
+              <div className="text-center py-12 text-dark-700">Loading...</div>
             ) : filteredEntities.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-12 text-dark-700">
                 {searchQuery ? `No results for "${searchQuery}"` : `No ${selectedEntityType} entities found`}
               </div>
             ) : (
               <div className="overflow-y-auto max-h-[400px]">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50 sticky top-0 z-10">
+                <table className="min-w-full divide-y divide-dark-400">
+                  <thead className="bg-dark-100 sticky top-0 z-10">
                     <tr>
-                      <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
+                      <th className="px-3 py-1.5 text-left text-[11px] font-normal text-dark-700 bg-dark-100">
                         Name
                       </th>
-                      <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
+                      <th className="px-3 py-1.5 text-left text-[11px] font-normal text-dark-700 bg-dark-100">
                         Code
                       </th>
-                      <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
+                      <th className="px-3 py-1.5 text-left text-[11px] font-normal text-dark-700 bg-dark-100">
                         Description
                       </th>
-                      <th className="px-3 py-1.5 text-center text-[11px] font-normal text-gray-600 bg-gray-50">
+                      <th className="px-3 py-1.5 text-center text-[11px] font-normal text-dark-700 bg-dark-100">
                         Status
                       </th>
-                      <th className="px-3 py-1.5 text-center text-[11px] font-normal text-gray-600 bg-gray-50">
+                      <th className="px-3 py-1.5 text-center text-[11px] font-normal text-dark-700 bg-dark-100">
                         Action
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-dark-100 divide-y divide-dark-400">
                     {filteredEntities.map((entity) => {
                       const linked = isLinked(entity.id);
                       return (
                         <tr
                           key={entity.id}
                           className={`transition-colors ${
-                            linked ? 'bg-blue-50' : 'hover:bg-gray-50'
+                            linked ? 'bg-dark-100' : 'hover:bg-dark-100'
                           }`}
                         >
-                          <td className="px-3 py-1.5 text-xs text-gray-900 font-normal">
+                          <td className="px-3 py-1.5 text-xs text-dark-600 font-normal">
                             {entity.name}
                           </td>
-                          <td className="px-3 py-1.5 text-xs text-gray-500">
+                          <td className="px-3 py-1.5 text-xs text-dark-700">
                             {entity.code || '-'}
                           </td>
-                          <td className="px-3 py-1.5 text-xs text-gray-500 truncate max-w-xs">
+                          <td className="px-3 py-1.5 text-xs text-dark-700 truncate max-w-xs">
                             {entity.descr || '-'}
                           </td>
                           <td className="px-3 py-1.5 text-center">
                             {linked ? (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-normal bg-blue-100 text-blue-700">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-normal bg-dark-100 text-dark-700">
                                 <Check className="h-2.5 w-2.5 mr-0.5" />
                                 Linked
                               </span>
                             ) : (
-                              <span className="text-[10px] text-gray-400">-</span>
+                              <span className="text-[10px] text-dark-600">-</span>
                             )}
                           </td>
                           <td className="px-3 py-1.5 text-center">
@@ -619,7 +619,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
 
         {/* Summary */}
         {selectedEntityType && !loading && (
-          <div className="text-xs text-gray-500 text-center">
+          <div className="text-xs text-dark-700 text-center">
             Showing {filteredEntities.length} {selectedEntityType} entities
             {existingLinkages.length > 0 && ` • ${existingLinkages.length} linked`}
           </div>

@@ -31,18 +31,18 @@ interface EntityPreviewProps {
 function EntityPreviewModal({ entityType, onClose }: EntityPreviewProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
+      <div className="bg-dark-100 rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-dark-300">
           <div className="flex items-center gap-3">
-            <Eye className="h-5 w-5 text-gray-600" />
-            <h2 className="text-lg font-semibold text-gray-900">
+            <Eye className="h-5 w-5 text-dark-700" />
+            <h2 className="text-lg font-semibold text-dark-600">
               Entity Preview: {entityType.name}
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded-lg transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -51,24 +51,24 @@ function EntityPreviewModal({ entityType, onClose }: EntityPreviewProps) {
         {/* Preview Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
           {/* Entity Header Mockup */}
-          <div className="mb-6 p-6 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="mb-6 p-6 bg-dark-100 rounded-lg border border-dark-300">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-gray-900">{entityType.ui_label}</h3>
-              <span className="px-3 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+              <h3 className="text-xl font-semibold text-dark-600">{entityType.ui_label}</h3>
+              <span className="px-3 py-1 text-xs font-medium bg-dark-100 text-dark-600 rounded-full">
                 Sample Entity
               </span>
             </div>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-dark-700">
               This is a preview of how the entity detail page will appear with the configured child tabs.
             </div>
           </div>
 
           {/* Tabs Preview */}
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="border border-dark-300 rounded-lg overflow-hidden">
             {/* Tab Headers */}
-            <div className="flex items-center border-b border-gray-200 bg-white overflow-x-auto">
+            <div className="flex items-center border-b border-dark-300 bg-dark-100 overflow-x-auto">
               {/* Overview Tab */}
-              <button className="px-4 py-3 text-sm font-medium text-blue-600 border-b-2 border-blue-600 whitespace-nowrap">
+              <button className="px-4 py-3 text-sm font-medium text-dark-700 border-b-2 border-dark-700 whitespace-nowrap">
                 Overview
               </button>
 
@@ -77,28 +77,28 @@ function EntityPreviewModal({ entityType, onClose }: EntityPreviewProps) {
                 entityType.child_entities.map((child, index) => (
                   <button
                     key={child.entity}
-                    className="px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 whitespace-nowrap"
+                    className="px-4 py-3 text-sm font-medium text-dark-700 hover:text-dark-600 hover:bg-dark-100 whitespace-nowrap"
                   >
                     {child.ui_label}
                   </button>
                 ))
               ) : (
-                <div className="px-4 py-3 text-sm text-gray-500 italic">
+                <div className="px-4 py-3 text-sm text-dark-700 italic">
                   No child entities configured
                 </div>
               )}
             </div>
 
             {/* Tab Content Preview */}
-            <div className="p-6 bg-gray-50">
-              <div className="text-sm text-gray-600 mb-4">
+            <div className="p-6 bg-dark-100">
+              <div className="text-sm text-dark-700 mb-4">
                 <strong>Overview Tab Content:</strong> Entity fields will be displayed here in a Notion-style layout.
               </div>
 
               {entityType.child_entities.length > 0 && (
                 <div className="mt-4 space-y-2">
-                  <div className="text-sm font-medium text-gray-700">Child Entity Tabs:</div>
-                  <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
+                  <div className="text-sm font-medium text-dark-600">Child Entity Tabs:</div>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-dark-700">
                     {entityType.child_entities.map(child => (
                       <li key={child.entity}>
                         <strong>{child.ui_label}</strong> - Filtered list of {child.entity} entities related to this {entityType.name}
@@ -112,10 +112,10 @@ function EntityPreviewModal({ entityType, onClose }: EntityPreviewProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-dark-300 bg-dark-100">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-dark-600 bg-dark-100 border border-dark-400 rounded-lg hover:bg-dark-100 transition-colors"
           >
             Close Preview
           </button>
@@ -273,7 +273,7 @@ export function EntityLinkagePage() {
       <Layout>
         <div className="max-w-7xl mx-auto p-6">
           <div className="flex items-center justify-center h-64">
-            <div className="text-gray-500">Loading entity types...</div>
+            <div className="text-dark-700">Loading entity types...</div>
           </div>
         </div>
       </Layout>
@@ -286,18 +286,18 @@ export function EntityLinkagePage() {
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
-            <LinkIcon className="h-6 w-6 text-gray-600" />
-            <h1 className="text-2xl font-bold text-gray-900">Entity Mapping</h1>
+            <LinkIcon className="h-6 w-6 text-dark-700" />
+            <h1 className="text-2xl font-bold text-dark-600">Entity Mapping</h1>
           </div>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-dark-700">
             Configure parent-child relationships between entity types. Child entities will appear as tabs on the parent entity's detail page.
           </p>
         </div>
 
         {/* Info Banner */}
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-blue-900">
+        <div className="mb-6 p-4 bg-dark-100 border border-dark-400 rounded-lg flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-dark-700 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-dark-600">
             <strong>How it works:</strong> When you add a child entity to a parent (e.g., "Task" to "Project"),
             a new tab will appear on the project detail page showing all tasks related to that project.
             Changes are saved automatically.
@@ -314,13 +314,13 @@ export function EntityLinkagePage() {
             return (
               <div
                 key={entity.code}
-                className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+                className="bg-dark-100 border border-dark-300 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
               >
                 {/* Entity Header */}
-                <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-b border-gray-200">
+                <div className="flex items-center justify-between px-6 py-4 bg-dark-100 border-b border-dark-300">
                   <div className="flex items-center gap-3">
-                    <div className="text-lg font-semibold text-gray-900">{entity.name}</div>
-                    <span className="text-sm text-gray-500">({entity.code})</span>
+                    <div className="text-lg font-semibold text-dark-600">{entity.name}</div>
+                    <span className="text-sm text-dark-700">({entity.code})</span>
                     {status === 'saved' && (
                       <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full flex items-center gap-1">
                         <Save className="h-3 w-3" />
@@ -328,7 +328,7 @@ export function EntityLinkagePage() {
                       </span>
                     )}
                     {status === 'saving' && (
-                      <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                      <span className="px-2 py-1 text-xs font-medium bg-dark-100 text-dark-600 rounded-full">
                         Saving...
                       </span>
                     )}
@@ -340,7 +340,7 @@ export function EntityLinkagePage() {
                   </div>
                   <button
                     onClick={() => setPreviewEntity(entity)}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-dark-700 hover:bg-dark-100 rounded-lg transition-colors"
                   >
                     <Eye className="h-4 w-4" />
                     Preview
@@ -350,10 +350,10 @@ export function EntityLinkagePage() {
                 {/* Child Entities Section */}
                 <div className="p-6">
                   <div className="mb-4">
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">
+                    <h3 className="text-sm font-medium text-dark-600 mb-2">
                       Child Entities ({entity.child_entities.length})
                     </h3>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-dark-700">
                       These entities will appear as tabs on the {entity.name} detail page
                     </p>
                   </div>
@@ -364,12 +364,12 @@ export function EntityLinkagePage() {
                       entity.child_entities.map(child => (
                         <div
                           key={child.entity}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                          className="flex items-center justify-between p-3 bg-dark-100 rounded-lg border border-dark-300"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="text-sm font-medium text-gray-900">{child.ui_label}</div>
-                            <span className="text-xs text-gray-500">({child.entity})</span>
-                            <span className="px-2 py-0.5 text-xs bg-gray-200 text-gray-700 rounded">
+                            <div className="text-sm font-medium text-dark-600">{child.ui_label}</div>
+                            <span className="text-xs text-dark-700">({child.entity})</span>
+                            <span className="px-2 py-0.5 text-xs bg-dark-200 text-dark-600 rounded">
                               Order: {child.order}
                             </span>
                           </div>
@@ -383,7 +383,7 @@ export function EntityLinkagePage() {
                         </div>
                       ))
                     ) : (
-                      <div className="p-4 text-sm text-gray-500 text-center border border-dashed border-gray-300 rounded-lg">
+                      <div className="p-4 text-sm text-dark-700 text-center border border-dashed border-dark-400 rounded-lg">
                         No child entities configured
                       </div>
                     )}
@@ -394,15 +394,15 @@ export function EntityLinkagePage() {
                     <div>
                       <button
                         onClick={() => setEditingEntity(isEditing ? null : entity.code)}
-                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-dark-700 hover:bg-dark-100 rounded-lg border border-dark-400 transition-colors"
                       >
                         <Plus className="h-4 w-4" />
                         Add Child Entity
                       </button>
 
                       {isEditing && (
-                        <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                          <div className="text-sm font-medium text-gray-700 mb-2">
+                        <div className="mt-3 p-4 bg-dark-100 border border-dark-400 rounded-lg">
+                          <div className="text-sm font-medium text-dark-600 mb-2">
                             Select child entity to add:
                           </div>
                           <div className="grid grid-cols-2 gap-2">
@@ -418,16 +418,16 @@ export function EntityLinkagePage() {
                                   });
                                   setEditingEntity(null);
                                 }}
-                                className="p-3 text-sm text-left bg-white border border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                                className="p-3 text-sm text-left bg-dark-100 border border-dark-400 rounded-lg hover:border-dark-600 hover:bg-dark-100 transition-colors"
                               >
-                                <div className="font-medium text-gray-900">{childEntityType.name}</div>
-                                <div className="text-xs text-gray-500">{childEntityType.ui_label}</div>
+                                <div className="font-medium text-dark-600">{childEntityType.name}</div>
+                                <div className="text-xs text-dark-700">{childEntityType.ui_label}</div>
                               </button>
                             ))}
                           </div>
                           <button
                             onClick={() => setEditingEntity(null)}
-                            className="mt-3 text-sm text-gray-600 hover:text-gray-900"
+                            className="mt-3 text-sm text-dark-700 hover:text-dark-600"
                           >
                             Cancel
                           </button>

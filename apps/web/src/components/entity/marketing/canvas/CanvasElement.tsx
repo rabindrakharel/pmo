@@ -144,7 +144,7 @@ export function CanvasElement({
               style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+            <div className="w-full h-full flex items-center justify-center bg-dark-100 text-dark-600">
               No image
             </div>
           )}
@@ -237,28 +237,28 @@ export function CanvasElement({
 
       {/* Action Buttons (visible when selected) */}
       {isSelected && !isEditing && (
-        <div className="absolute -top-10 right-0 flex items-center space-x-1 bg-white rounded-lg shadow-lg p-1 border border-gray-200">
+        <div className="absolute -top-10 right-0 flex items-center space-x-1 bg-dark-100 rounded-lg shadow-lg p-1 border border-dark-300">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onBringToFront(element.id);
             }}
-            className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 hover:bg-dark-100 rounded transition-colors"
             title="Bring to front"
           >
-            <ArrowUp className="h-4 w-4 text-gray-600" />
+            <ArrowUp className="h-4 w-4 text-dark-700" />
           </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
               onSendToBack(element.id);
             }}
-            className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 hover:bg-dark-100 rounded transition-colors"
             title="Send to back"
           >
-            <ArrowDown className="h-4 w-4 text-gray-600" />
+            <ArrowDown className="h-4 w-4 text-dark-700" />
           </button>
-          <div className="w-px h-4 bg-gray-300" />
+          <div className="w-px h-4 bg-dark-300" />
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -274,7 +274,7 @@ export function CanvasElement({
 
       {/* Editing indicator */}
       {isEditing && (
-        <div className="absolute -top-8 left-0 bg-blue-600 text-white text-xs px-2 py-1 rounded shadow-lg">
+        <div className="absolute -top-8 left-0 bg-dark-700 text-white text-xs px-2 py-1 rounded shadow-lg">
           Press Enter or click outside to save
         </div>
       )}

@@ -65,21 +65,21 @@ export function SecurityPage() {
   return (
     <Layout>
       <div className="max-w-4xl mx-auto space-y-8">
-        <div className="bg-white shadow rounded-lg">
+        <div className="bg-dark-100 shadow rounded-lg">
           <div className="px-4 py-5 sm:p-6">
             <div className="flex items-center mb-6">
-              <Shield className="h-5 w-5 text-gray-600 stroke-[1.5] mr-3" />
+              <Shield className="h-5 w-5 text-dark-700 stroke-[1.5] mr-3" />
               <div className="flex-1">
-                <h1 className="text-sm font-normal text-gray-900">Security Settings</h1>
-                <p className="text-sm text-gray-600">Manage your account security and authentication</p>
+                <h1 className="text-sm font-normal text-dark-600">Security Settings</h1>
+                <p className="text-sm text-dark-700">Manage your account security and authentication</p>
               </div>
             </div>
 
             {/* Password Change */}
             <div className="mb-8">
               <div className="flex items-center mb-4">
-                <Key className="h-5 w-5 text-gray-400 stroke-[1.5] mr-2" />
-                <h3 className="text-sm font-normal text-gray-900">Change Password</h3>
+                <Key className="h-5 w-5 text-dark-600 stroke-[1.5] mr-2" />
+                <h3 className="text-sm font-normal text-dark-600">Change Password</h3>
               </div>
 
               {successMessage && (
@@ -90,12 +90,12 @@ export function SecurityPage() {
 
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-normal text-gray-700">Current Password</label>
+                  <label className="block text-sm font-normal text-dark-600">Current Password</label>
                   <div className="mt-1 relative">
                     <input
                       {...register('currentPassword')}
                       type={showPasswords.current ? 'text' : 'password'}
-                      className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                      className="block w-full px-3 py-2 pr-10 border border-dark-400 rounded-md shadow-sm focus:ring-dark-7000 focus:border-dark-3000"
                       placeholder="Enter current password"
                     />
                     <button
@@ -104,9 +104,9 @@ export function SecurityPage() {
                       onClick={() => togglePasswordVisibility('current')}
                     >
                       {showPasswords.current ? (
-                        <EyeOff className="h-4 w-4 text-gray-400 stroke-[1.5]" />
+                        <EyeOff className="h-4 w-4 text-dark-600 stroke-[1.5]" />
                       ) : (
-                        <Eye className="h-4 w-4 text-gray-400 stroke-[1.5]" />
+                        <Eye className="h-4 w-4 text-dark-600 stroke-[1.5]" />
                       )}
                     </button>
                   </div>
@@ -116,12 +116,12 @@ export function SecurityPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-normal text-gray-700">New Password</label>
+                  <label className="block text-sm font-normal text-dark-600">New Password</label>
                   <div className="mt-1 relative">
                     <input
                       {...register('newPassword')}
                       type={showPasswords.new ? 'text' : 'password'}
-                      className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                      className="block w-full px-3 py-2 pr-10 border border-dark-400 rounded-md shadow-sm focus:ring-dark-7000 focus:border-dark-3000"
                       placeholder="Enter new password"
                     />
                     <button
@@ -130,9 +130,9 @@ export function SecurityPage() {
                       onClick={() => togglePasswordVisibility('new')}
                     >
                       {showPasswords.new ? (
-                        <EyeOff className="h-4 w-4 text-gray-400 stroke-[1.5]" />
+                        <EyeOff className="h-4 w-4 text-dark-600 stroke-[1.5]" />
                       ) : (
-                        <Eye className="h-4 w-4 text-gray-400 stroke-[1.5]" />
+                        <Eye className="h-4 w-4 text-dark-600 stroke-[1.5]" />
                       )}
                     </button>
                   </div>
@@ -142,12 +142,12 @@ export function SecurityPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-normal text-gray-700">Confirm New Password</label>
+                  <label className="block text-sm font-normal text-dark-600">Confirm New Password</label>
                   <div className="mt-1 relative">
                     <input
                       {...register('confirmPassword')}
                       type={showPasswords.confirm ? 'text' : 'password'}
-                      className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                      className="block w-full px-3 py-2 pr-10 border border-dark-400 rounded-md shadow-sm focus:ring-dark-7000 focus:border-dark-3000"
                       placeholder="Confirm new password"
                     />
                     <button
@@ -156,9 +156,9 @@ export function SecurityPage() {
                       onClick={() => togglePasswordVisibility('confirm')}
                     >
                       {showPasswords.confirm ? (
-                        <EyeOff className="h-4 w-4 text-gray-400 stroke-[1.5]" />
+                        <EyeOff className="h-4 w-4 text-dark-600 stroke-[1.5]" />
                       ) : (
-                        <Eye className="h-4 w-4 text-gray-400 stroke-[1.5]" />
+                        <Eye className="h-4 w-4 text-dark-600 stroke-[1.5]" />
                       )}
                     </button>
                   </div>
@@ -171,7 +171,7 @@ export function SecurityPage() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-dark-700 hover:bg-dark-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isLoading ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -185,10 +185,10 @@ export function SecurityPage() {
             </div>
 
             {/* Two-Factor Authentication */}
-            <div className="border-t border-gray-200 pt-8">
+            <div className="border-t border-dark-300 pt-8">
               <div className="flex items-center mb-4">
-                <Smartphone className="h-5 w-5 text-gray-400 stroke-[1.5] mr-2" />
-                <h3 className="text-sm font-normal text-gray-900">Two-Factor Authentication</h3>
+                <Smartphone className="h-5 w-5 text-dark-600 stroke-[1.5] mr-2" />
+                <h3 className="text-sm font-normal text-dark-600">Two-Factor Authentication</h3>
               </div>
               <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
                 <div className="flex items-start">
@@ -201,17 +201,17 @@ export function SecurityPage() {
                   </div>
                 </div>
               </div>
-              <button className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors">
+              <button className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 transition-colors">
                 <Smartphone className="h-4 w-4 mr-2 stroke-[1.5]" />
                 Enable Two-Factor Authentication
               </button>
             </div>
 
             {/* Active Sessions */}
-            <div className="border-t border-gray-200 pt-8">
-              <h3 className="text-sm font-normal text-gray-900 mb-4">Active Sessions</h3>
-              <div className="bg-white shadow overflow-hidden sm:rounded-md">
-                <ul className="divide-y divide-gray-200">
+            <div className="border-t border-dark-300 pt-8">
+              <h3 className="text-sm font-normal text-dark-600 mb-4">Active Sessions</h3>
+              <div className="bg-dark-100 shadow overflow-hidden sm:rounded-md">
+                <ul className="divide-y divide-dark-400">
                   <li className="px-4 py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">
@@ -219,9 +219,9 @@ export function SecurityPage() {
                           <div className="h-3 w-3 bg-green-400 rounded-full"></div>
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-normal text-gray-900">Current Session</div>
-                          <div className="text-sm text-gray-500">Chrome on MacOS • Toronto, ON</div>
-                          <div className="text-xs text-gray-400">Last active: Now</div>
+                          <div className="text-sm font-normal text-dark-600">Current Session</div>
+                          <div className="text-sm text-dark-700">Chrome on MacOS • Toronto, ON</div>
+                          <div className="text-xs text-dark-600">Last active: Now</div>
                         </div>
                       </div>
                       <div className="text-sm text-green-600 font-normal">Active</div>

@@ -33,8 +33,8 @@ export function FloatingMenu({ editor }: FloatingMenuProps) {
       onClick={onClick}
       className={`p-2 rounded transition-colors ${
         isActive
-          ? 'bg-blue-600 text-white'
-          : 'bg-white text-gray-700 hover:bg-gray-100'
+          ? 'bg-dark-700 text-white'
+          : 'bg-dark-100 text-dark-600 hover:bg-dark-100'
       }`}
       title={label}
     >
@@ -50,7 +50,7 @@ export function FloatingMenu({ editor }: FloatingMenuProps) {
         placement: 'top',
         maxWidth: 'none',
       }}
-      className="flex items-center gap-1 bg-white border border-gray-300 rounded-lg shadow-lg p-1"
+      className="flex items-center gap-1 bg-dark-100 border border-dark-400 rounded-lg shadow-lg p-1"
     >
       <MenuButton
         onClick={() => editor.chain().focus().toggleBold().run()}
@@ -77,7 +77,7 @@ export function FloatingMenu({ editor }: FloatingMenuProps) {
         label="Strikethrough"
       />
 
-      <div className="w-px h-6 bg-gray-300 mx-1" />
+      <div className="w-px h-6 bg-dark-300 mx-1" />
 
       <MenuButton
         onClick={() => editor.chain().focus().toggleCode().run()}
@@ -97,37 +97,37 @@ export function FloatingMenu({ editor }: FloatingMenuProps) {
         label="Add Link"
       />
 
-      <div className="w-px h-6 bg-gray-300 mx-1" />
+      <div className="w-px h-6 bg-dark-300 mx-1" />
 
       <div className="relative group">
         <button
-          className="p-2 rounded bg-white text-gray-700 hover:bg-gray-100 transition-colors"
+          className="p-2 rounded bg-dark-100 text-dark-600 hover:bg-dark-100 transition-colors"
           title="Text Style"
         >
           <Type className="h-4 w-4" />
         </button>
-        <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-white border border-gray-300 rounded-lg shadow-lg p-1 min-w-[120px] z-50">
+        <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-dark-100 border border-dark-400 rounded-lg shadow-lg p-1 min-w-[120px] z-50">
           <button
             onClick={() => editor.chain().focus().setParagraph().run()}
-            className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 rounded"
+            className="w-full text-left px-3 py-1.5 text-sm hover:bg-dark-100 rounded"
           >
             Paragraph
           </button>
           <button
             onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-            className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 rounded font-bold"
+            className="w-full text-left px-3 py-1.5 text-sm hover:bg-dark-100 rounded font-bold"
           >
             Heading 1
           </button>
           <button
             onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-            className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 rounded font-semibold"
+            className="w-full text-left px-3 py-1.5 text-sm hover:bg-dark-100 rounded font-semibold"
           >
             Heading 2
           </button>
           <button
             onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-            className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 rounded font-medium"
+            className="w-full text-left px-3 py-1.5 text-sm hover:bg-dark-100 rounded font-medium"
           >
             Heading 3
           </button>

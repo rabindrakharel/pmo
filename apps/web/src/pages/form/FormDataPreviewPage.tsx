@@ -95,7 +95,7 @@ export function FormDataPreviewPage() {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-dark-700" />
         </div>
       </Layout>
     );
@@ -113,7 +113,7 @@ export function FormDataPreviewPage() {
           </div>
           <button
             onClick={handleBack}
-            className="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-normal text-gray-700 bg-white hover:bg-gray-50"
+            className="mt-4 inline-flex items-center px-4 py-2 border border-dark-400 rounded-lg text-sm font-normal text-dark-600 bg-dark-100 hover:bg-dark-100"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Form Data
@@ -131,21 +131,21 @@ export function FormDataPreviewPage() {
           <div className="flex items-center space-x-4">
             <button
               onClick={handleBack}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-dark-100 rounded-lg transition-colors"
             >
-              <ArrowLeft className="h-5 w-5 text-gray-600" />
+              <ArrowLeft className="h-5 w-5 text-dark-700" />
             </button>
             <div>
-              <h1 className="text-sm font-normal text-gray-500">
+              <h1 className="text-sm font-normal text-dark-700">
                 Form Data Preview: {formData.name}
-                <span className="text-xs font-light text-gray-500 ml-3">
+                <span className="text-xs font-light text-dark-700 ml-3">
                   Submission · {submissionId?.substring(0, 8)}...
                 </span>
               </h1>
             </div>
           </div>
         </div>
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 shadow-sm">
+        <div className="bg-dark-100 border border-dark-300 rounded-xl p-6 shadow-sm">
           <FormSubmissionEditor
             form={formData}
             formId={formId!}

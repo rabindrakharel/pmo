@@ -35,7 +35,7 @@ export function FormBlockEditor({ block, onUpdate }: FormBlockEditorProps) {
   };
 
   return (
-    <div className="border-b border-gray-200">
+    <div className="border-b border-dark-300">
       {/* Form Embed Preview */}
       <div
         className="p-8"
@@ -70,11 +70,11 @@ export function FormBlockEditor({ block, onUpdate }: FormBlockEditorProps) {
       </div>
 
       {/* Form Selection */}
-      <div className="bg-gray-50 px-3 py-2 space-y-3 text-xs">
+      <div className="bg-dark-100 px-3 py-2 space-y-3 text-xs">
         <div>
-          <label className="text-gray-600 block mb-1">Select Form</label>
+          <label className="text-dark-700 block mb-1">Select Form</label>
           {loading ? (
-            <div className="text-gray-500">Loading forms...</div>
+            <div className="text-dark-700">Loading forms...</div>
           ) : (
             <select
               value={block.properties?.formId || ''}
@@ -88,7 +88,7 @@ export function FormBlockEditor({ block, onUpdate }: FormBlockEditorProps) {
                   },
                 });
               }}
-              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+              className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
             >
               <option value="">-- Select a form --</option>
               {forms.map((form) => (
@@ -102,29 +102,29 @@ export function FormBlockEditor({ block, onUpdate }: FormBlockEditorProps) {
 
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-gray-600 block mb-1">Background Color</label>
+            <label className="text-dark-700 block mb-1">Background Color</label>
             <div className="flex items-center space-x-2">
               <input
                 type="color"
                 value={block.styles?.backgroundColor || '#f8f9fa'}
                 onChange={(e) => onUpdate({ styles: { ...block.styles, backgroundColor: e.target.value } })}
-                className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
+                className="w-8 h-8 border border-dark-400 rounded cursor-pointer"
               />
               <input
                 type="text"
                 value={block.styles?.backgroundColor || '#f8f9fa'}
                 onChange={(e) => onUpdate({ styles: { ...block.styles, backgroundColor: e.target.value } })}
-                className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs"
+                className="flex-1 px-2 py-1 border border-dark-400 rounded text-xs"
               />
             </div>
           </div>
           <div>
-            <label className="text-gray-600 block mb-1">Border Radius</label>
+            <label className="text-dark-700 block mb-1">Border Radius</label>
             <input
               type="text"
               value={block.styles?.borderRadius || '8px'}
               onChange={(e) => onUpdate({ styles: { ...block.styles, borderRadius: e.target.value } })}
-              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+              className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
               placeholder="8px"
             />
           </div>

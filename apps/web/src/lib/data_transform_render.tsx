@@ -699,13 +699,13 @@ export function getEditableColumnKeys(columns: ColumnDef[]): string[] {
  * Frontend translates to: Tailwind utility classes
  */
 export const COLOR_MAP: Record<string, string> = {
-  'blue': 'bg-blue-100 text-blue-800 border border-blue-200',
+  'blue': 'bg-dark-100 text-dark-600 border border-dark-400',
   'purple': 'bg-purple-100 text-purple-800 border border-purple-200',
   'green': 'bg-green-100 text-green-800 border border-green-200',
   'red': 'bg-red-100 text-red-800 border border-red-200',
   'yellow': 'bg-yellow-100 text-yellow-800 border border-yellow-200',
   'orange': 'bg-orange-100 text-orange-800 border border-orange-200',
-  'gray': 'bg-gray-100 text-gray-800 border border-gray-200',
+  'gray': 'bg-dark-100 text-dark-600 border border-dark-300',
   'cyan': 'bg-cyan-100 text-cyan-800 border border-cyan-200',
   'pink': 'bg-pink-100 text-pink-800 border border-pink-200',
   'amber': 'bg-amber-100 text-amber-800 border border-amber-200',
@@ -861,7 +861,7 @@ export function renderSettingBadge(
   if (!label) {
     return React.createElement(
       'span',
-      { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400 border border-gray-200' },
+      { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dark-100 text-dark-600 border border-dark-300' },
       '—'
     );
   }
@@ -908,14 +908,14 @@ export function renderBadge(
   if (!label) {
     return React.createElement(
       'span',
-      { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400 border border-gray-200' },
+      { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dark-100 text-dark-600 border border-dark-300' },
       '—'
     );
   }
 
   const variantClasses = {
-    default: 'bg-gray-100 text-gray-800 border border-gray-200',
-    primary: 'bg-blue-100 text-blue-800 border border-blue-200',
+    default: 'bg-dark-100 text-dark-600 border border-dark-300',
+    primary: 'bg-dark-100 text-dark-600 border border-dark-400',
     success: 'bg-green-100 text-green-800 border border-green-200',
     warning: 'bg-yellow-100 text-yellow-800 border border-yellow-200',
     danger: 'bg-red-100 text-red-800 border border-red-200',
@@ -955,7 +955,7 @@ export function renderTags(
   maxVisible: number = 3
 ): React.ReactElement {
   if (!tags || tags.length === 0) {
-    return React.createElement('span', { className: 'text-gray-400 text-xs italic' }, 'No tags');
+    return React.createElement('span', { className: 'text-dark-600 text-xs italic' }, 'No tags');
   }
 
   const visibleTags = tags.slice(0, maxVisible);
@@ -969,7 +969,7 @@ export function renderTags(
         'span',
         {
           key: `${tag}-${idx}`,
-          className: 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200'
+          className: 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-dark-100 text-dark-600 border border-dark-300'
         },
         tag
       )
@@ -978,7 +978,7 @@ export function renderTags(
       'span',
       {
         key: 'more',
-        className: 'text-xs text-gray-500 font-medium',
+        className: 'text-xs text-dark-700 font-medium',
         title: tags.slice(maxVisible).join(', ')
       },
       `+${remainingCount} more`
@@ -1032,8 +1032,8 @@ export function MetadataField({
   inputWidth = '10rem',
   badge
 }: MetadataFieldProps) {
-  const labelClass = 'text-gray-400 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase';
-  const valueClass = `text-gray-800 font-normal text-xs ${className}`;
+  const labelClass = 'text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase';
+  const valueClass = `text-dark-600 font-normal text-xs ${className}`;
   const valueStyle = {
     fontFamily: "Inter, 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
     letterSpacing: '-0.01em',
@@ -1052,13 +1052,13 @@ export function MetadataField({
       ) : isEditing ? (
         // Edit mode - input field
         <div className="flex items-center">
-          {prefix && <span className="text-gray-500 text-xs mr-0.5">{prefix}</span>}
+          {prefix && <span className="text-dark-700 text-xs mr-0.5">{prefix}</span>}
           <input
             type="text"
             value={value}
             onChange={(e) => onChange?.(fieldKey, e.target.value)}
             placeholder={placeholder}
-            className={`${valueClass} border-0 bg-gray-50/80 focus:bg-white focus:ring-1 focus:ring-blue-200 rounded px-2 py-0.5 transition-all duration-200`}
+            className={`${valueClass} border-0 bg-dark-100/80 focus:bg-dark-100 focus:ring-1 focus:ring-dark-700 rounded px-2 py-0.5 transition-all duration-200`}
             style={{
               ...valueStyle,
               width: inputWidth
@@ -1074,13 +1074,13 @@ export function MetadataField({
           {canCopy && onCopy && (
             <button
               onClick={() => onCopy(value, fieldKey)}
-              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-blue-50 rounded transition-all duration-200"
+              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-dark-100 rounded transition-all duration-200"
               title={`Copy ${label.toLowerCase()}`}
             >
               {copiedField === fieldKey ? (
                 <Check className="h-3 w-3 text-green-600" />
               ) : (
-                <Copy className="h-3 w-3 text-gray-400 hover:text-blue-600" />
+                <Copy className="h-3 w-3 text-dark-600 hover:text-dark-700" />
               )}
             </button>
           )}

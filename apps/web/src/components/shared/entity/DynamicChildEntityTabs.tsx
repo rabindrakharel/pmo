@@ -85,7 +85,7 @@ export function DynamicChildEntityTabs({
   const activeTab = tabs.find(tab => currentPath === tab.path);
 
   return (
-    <div className={`bg-white ${className}`}>
+    <div className={`bg-dark-100 ${className}`}>
       {/* Tab Navigation */}
       <div className="px-6 py-1.5">
         <nav className="flex items-center gap-6" aria-label="Tabs">
@@ -102,10 +102,10 @@ export function DynamicChildEntityTabs({
                 className={[
                   'group inline-flex items-center gap-1.5 px-1 py-1.5 border-b-2 font-normal text-xs transition-all duration-200',
                   isActive
-                    ? 'border-gray-300 text-gray-700'
+                    ? 'border-dark-400 text-dark-600'
                     : tab.disabled
-                    ? 'border-transparent text-gray-400 cursor-not-allowed'
-                    : 'border-transparent text-gray-600 hover:border-gray-300 cursor-pointer'
+                    ? 'border-transparent text-dark-600 cursor-not-allowed'
+                    : 'border-transparent text-dark-700 hover:border-dark-400 cursor-pointer'
                 ].join(' ')}
               >
                 {/* Icon */}
@@ -116,7 +116,7 @@ export function DynamicChildEntityTabs({
 
                 {/* Count badge */}
                 {tab.count !== undefined && (
-                  <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full text-[10px] font-normal bg-gray-100 text-gray-600">
+                  <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full text-[10px] font-normal bg-dark-100 text-dark-700">
                     {tab.count}
                   </span>
                 )}
@@ -127,7 +127,7 @@ export function DynamicChildEntityTabs({
       </div>
 
       {/* Bottom border */}
-      <div className="h-px bg-gray-200" />
+      <div className="h-px bg-dark-200" />
     </div>
   );
 }

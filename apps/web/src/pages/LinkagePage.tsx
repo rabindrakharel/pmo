@@ -665,24 +665,24 @@ export function LinkagePage() {
 
   return (
     <Layout>
-      <div className="h-full flex flex-col bg-gray-50">
+      <div className="h-full flex flex-col bg-dark-100">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-3">
+        <div className="bg-dark-100 border-b border-dark-300 px-6 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {/* Exit Button - Left Side */}
               <button
                 onClick={exitSettingsMode}
-                className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200"
+                className="p-1.5 rounded-md text-dark-600 hover:text-dark-700 hover:bg-dark-100 transition-all duration-200"
                 title="Exit Settings"
               >
                 <ArrowLeft className="h-4 w-4 stroke-[1.5]" />
               </button>
 
-              <Link2 className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+              <Link2 className="h-5 w-5 text-dark-700 stroke-[1.5]" />
               <div>
-                <h1 className="text-sm font-normal text-gray-800">Entity Linkage Management</h1>
-                <p className="text-sm text-gray-500">Manage relationships between parent and child entities</p>
+                <h1 className="text-sm font-normal text-dark-600">Entity Linkage Management</h1>
+                <p className="text-sm text-dark-700">Manage relationships between parent and child entities</p>
               </div>
             </div>
 
@@ -696,8 +696,8 @@ export function LinkagePage() {
               disabled={!entityPreviewData}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 entityPreviewData
-                  ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
-                  : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                  ? 'bg-dark-100 text-dark-600 hover:bg-dark-200 hover:text-dark-600'
+                  : 'bg-dark-100 text-dark-600 cursor-not-allowed'
               }`}
               title={entityPreviewData ? 'Quick preview (Show entity details)' : 'Select an entity to preview'}
             >
@@ -734,9 +734,9 @@ export function LinkagePage() {
         <div className="flex-1 px-6 py-4 overflow-hidden">
           <div className="grid grid-cols-2 gap-4 h-full">
             {/* Left Panel: Parent Entity Selection */}
-            <div className="bg-white rounded border border-gray-300 flex flex-col overflow-hidden shadow-sm">
+            <div className="bg-dark-100 rounded border border-dark-400 flex flex-col overflow-hidden shadow-sm">
               {/* Parent Entity Type Selection - Header */}
-              <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
+              <div className="px-3 py-2 border-b border-dark-300 bg-dark-100">
                 <div className="flex flex-wrap gap-1.5">
                   {parentEntityTypes.map(type => {
                     const IconComponent = type.IconComponent;
@@ -746,8 +746,8 @@ export function LinkagePage() {
                         onClick={() => handleParentTypeToggle(type.value)}
                         className={`flex items-center gap-1 px-2 py-1 rounded border text-xs font-normal transition-all ${
                           selectedParentTypes.includes(type.value)
-                            ? 'bg-blue-50 border-blue-400 text-blue-700 shadow-sm'
-                            : 'bg-white border-gray-300 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                            ? 'bg-dark-100 border-dark-600 text-dark-700 shadow-sm'
+                            : 'bg-dark-100 border-dark-400 text-dark-700 hover:border-dark-400 hover:bg-dark-100'
                         }`}
                       >
                         <IconComponent className="h-3 w-3 stroke-[1.5]" />
@@ -762,13 +762,13 @@ export function LinkagePage() {
                 {/* Search Bar */}
                 <div>
                   <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-dark-600" />
                     <input
                       type="text"
                       placeholder="Search parent entity by name..."
                       value={parentSearchQuery}
                       onChange={(e) => setParentSearchQuery(e.target.value)}
-                      className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-300 focus:ring-0"
+                      className="w-full pl-7 pr-2 py-1.5 text-xs border border-dark-400 rounded bg-dark-100 focus:outline-none focus:border-dark-400 focus:ring-0"
                     />
                   </div>
                 </div>
@@ -777,45 +777,45 @@ export function LinkagePage() {
                 {selectedParentTypes.length > 0 && (
                   <div className="flex-1 flex flex-col min-h-0">
                     {loading ? (
-                      <div className="text-xs text-gray-400 py-6 text-center">Loading...</div>
+                      <div className="text-xs text-dark-600 py-6 text-center">Loading...</div>
                     ) : filteredParentInstances.length === 0 ? (
-                      <div className="text-xs text-gray-400 py-6 text-center">
+                      <div className="text-xs text-dark-600 py-6 text-center">
                         {parentSearchQuery ? `No matches found for "${parentSearchQuery}"` : `No ${getEntityLabel(selectedParentTypes[0])} instances found`}
                       </div>
                     ) : (
-                      <div className="overflow-y-auto border border-gray-200 rounded max-h-[600px]">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50 sticky top-0 z-10">
+                      <div className="overflow-y-auto border border-dark-300 rounded max-h-[600px]">
+                        <table className="min-w-full divide-y divide-dark-400">
+                          <thead className="bg-dark-100 sticky top-0 z-10">
                             <tr>
-                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
+                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-dark-700 bg-dark-100">
                                 Name
                               </th>
-                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
+                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-dark-700 bg-dark-100">
                                 Code
                               </th>
-                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
+                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-dark-700 bg-dark-100">
                                 Description
                               </th>
                             </tr>
                           </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
+                          <tbody className="bg-dark-100 divide-y divide-dark-400">
                             {filteredParentInstances.map(instance => (
                               <tr
                                 key={instance.id}
                                 onClick={() => handleParentInstanceSelect(instance)}
                                 className={`cursor-pointer transition-colors ${
                                   selectedParentId === instance.id
-                                    ? 'bg-blue-50'
-                                    : 'hover:bg-gray-50'
+                                    ? 'bg-dark-100'
+                                    : 'hover:bg-dark-100'
                                 }`}
                               >
-                                <td className="px-3 py-1.5 text-xs text-gray-900 font-normal">
+                                <td className="px-3 py-1.5 text-xs text-dark-600 font-normal">
                                   {instance.name}
                                 </td>
-                                <td className="px-3 py-1.5 text-xs text-gray-500">
+                                <td className="px-3 py-1.5 text-xs text-dark-700">
                                   {instance.code || '-'}
                                 </td>
-                                <td className="px-3 py-1.5 text-xs text-gray-500 truncate max-w-xs">
+                                <td className="px-3 py-1.5 text-xs text-dark-700 truncate max-w-xs">
                                   {instance.descr || '-'}
                                 </td>
                               </tr>
@@ -830,12 +830,12 @@ export function LinkagePage() {
             </div>
 
             {/* Right Panel: Child Entity Selection */}
-            <div className="bg-white rounded border border-gray-300 flex flex-col overflow-hidden shadow-sm">
+            <div className="bg-dark-100 rounded border border-dark-400 flex flex-col overflow-hidden shadow-sm">
               {/* Tab Management Controls - Top of Pane */}
-              <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
+              <div className="px-3 py-2 border-b border-dark-300 bg-dark-100">
                 {selectedParentTypes.length > 0 && (
                   <div className="flex items-center justify-between">
-                    <div className="text-[10px] font-medium text-gray-600 uppercase tracking-wider">
+                    <div className="text-[10px] font-medium text-dark-700 uppercase tracking-wider">
                       Manage Child Tabs
                     </div>
                     <div className="flex items-center gap-1 relative">
@@ -864,7 +864,7 @@ export function LinkagePage() {
                           className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[10px] font-normal transition-all ${
                             showAddDropdown
                               ? 'bg-green-50 border-green-400 text-green-700'
-                              : 'border-gray-300 text-gray-600 hover:bg-green-50 hover:border-green-400 hover:text-green-700'
+                              : 'border-dark-400 text-dark-700 hover:bg-green-50 hover:border-green-400 hover:text-green-700'
                           } disabled:opacity-50 disabled:cursor-not-allowed`}
                           title={showAddDropdown ? (selectedEntitiesToAdd.length > 0 ? `Add ${selectedEntitiesToAdd.length} item(s) and close` : 'Close without changes') : 'Add new child entity types'}
                         >
@@ -883,14 +883,14 @@ export function LinkagePage() {
 
                         {/* Add Dropdown with Search (No bottom button) */}
                         {showAddDropdown && (
-                          <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-gray-300 rounded shadow-lg z-50 max-h-80 flex flex-col">
-                            <div className="p-2 border-b border-gray-200 bg-gray-50">
+                          <div className="absolute right-0 top-full mt-1 w-64 bg-dark-100 border border-dark-400 rounded shadow-lg z-50 max-h-80 flex flex-col">
+                            <div className="p-2 border-b border-dark-300 bg-dark-100">
                               <input
                                 type="text"
                                 value={addSearchQuery}
                                 onChange={(e) => setAddSearchQuery(e.target.value)}
                                 placeholder="Search entities..."
-                                className="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-green-400"
+                                className="w-full px-2 py-1 text-[10px] border border-dark-400 rounded focus:outline-none focus:ring-1 focus:ring-green-400"
                                 autoFocus
                               />
                             </div>
@@ -916,7 +916,7 @@ export function LinkagePage() {
                                   return (
                                     <div
                                       key={entity.code}
-                                      className={`flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 transition-colors ${
+                                      className={`flex items-center gap-2 px-2 py-1.5 hover:bg-dark-100 transition-colors ${
                                         isAlreadyLinked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                                       }`}
                                       onClick={() => {
@@ -934,12 +934,12 @@ export function LinkagePage() {
                                         checked={isSelected}
                                         disabled={isAlreadyLinked}
                                         onChange={() => {}}
-                                        className="h-3 w-3 rounded border-gray-300"
+                                        className="h-3 w-3 rounded border-dark-400"
                                       />
-                                      <IconComponent className="h-3 w-3 text-gray-600" />
+                                      <IconComponent className="h-3 w-3 text-dark-700" />
                                       <div className="flex-1">
-                                        <div className="text-[11px] font-medium text-gray-900">{entity.name}</div>
-                                        <div className="text-[9px] text-gray-500">
+                                        <div className="text-[11px] font-medium text-dark-600">{entity.name}</div>
+                                        <div className="text-[9px] text-dark-700">
                                           {isAlreadyLinked ? 'Already linked' : entity.ui_label}
                                         </div>
                                       </div>
@@ -960,7 +960,7 @@ export function LinkagePage() {
                         className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[10px] font-normal transition-all ${
                           isRemoveMode
                             ? 'bg-green-50 border-green-400 text-green-700'
-                            : 'border-gray-300 text-gray-600 hover:bg-red-50 hover:border-red-400 hover:text-red-700'
+                            : 'border-dark-400 text-dark-700 hover:bg-red-50 hover:border-red-400 hover:text-red-700'
                         }`}
                         title={isRemoveMode ? 'Exit remove mode' : 'Enter remove mode to delete tabs'}
                       >
@@ -982,11 +982,11 @@ export function LinkagePage() {
               </div>
 
               {/* Child Entity Type Selection - Inline Editing Mode */}
-              <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
+              <div className="px-3 py-2 border-b border-dark-300 bg-dark-100">
                 {selectedParentTypes.length > 0 && (
                   <>
                     {validChildTypes.length === 0 ? (
-                      <div className="text-xs text-gray-400 py-1 text-center">
+                      <div className="text-xs text-dark-600 py-1 text-center">
                         No child entity types configured for {getEntityLabel(selectedParentTypes[0])}
                       </div>
                     ) : (
@@ -1006,7 +1006,7 @@ export function LinkagePage() {
                                     ? 'bg-red-50 border-red-300 text-red-700 cursor-default'
                                     : selectedChildType === type
                                       ? 'bg-green-50 border-green-400 text-green-700 shadow-sm'
-                                      : 'bg-white border-gray-300 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                                      : 'bg-dark-100 border-dark-400 text-dark-700 hover:border-dark-400 hover:bg-dark-100'
                                 }`}
                               >
                                 <IconComponent className="h-3 w-3 stroke-[1.5]" />
@@ -1036,13 +1036,13 @@ export function LinkagePage() {
                 {/* Search Bar */}
                 <div>
                   <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-dark-600" />
                     <input
                       type="text"
                       placeholder="Search child entity by name..."
                       value={childSearchQuery}
                       onChange={(e) => setChildSearchQuery(e.target.value)}
-                      className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-300 focus:ring-0"
+                      className="w-full pl-7 pr-2 py-1.5 text-xs border border-dark-400 rounded bg-dark-100 focus:outline-none focus:border-dark-400 focus:ring-0"
                     />
                   </div>
                 </div>
@@ -1051,34 +1051,34 @@ export function LinkagePage() {
                 {selectedChildType && (
                   <div className="flex-1 flex flex-col min-h-0">
                     {loading ? (
-                      <div className="text-xs text-gray-400 py-6 text-center">Loading...</div>
+                      <div className="text-xs text-dark-600 py-6 text-center">Loading...</div>
                     ) : filteredChildInstances.length === 0 ? (
-                      <div className="text-xs text-gray-400 py-6 text-center">
+                      <div className="text-xs text-dark-600 py-6 text-center">
                         {childSearchQuery ? `No matches found for "${childSearchQuery}"` : `No ${getEntityLabel(selectedChildType)} instances found`}
                       </div>
                     ) : (
-                      <div className="overflow-y-auto border border-gray-200 rounded max-h-[600px]">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50 sticky top-0 z-10">
+                      <div className="overflow-y-auto border border-dark-300 rounded max-h-[600px]">
+                        <table className="min-w-full divide-y divide-dark-400">
+                          <thead className="bg-dark-100 sticky top-0 z-10">
                             <tr>
-                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
+                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-dark-700 bg-dark-100">
                                 Name
                               </th>
-                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
+                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-dark-700 bg-dark-100">
                                 Code
                               </th>
-                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-gray-600 bg-gray-50">
+                              <th className="px-3 py-1.5 text-left text-[11px] font-normal text-dark-700 bg-dark-100">
                                 Description
                               </th>
-                              <th className="px-3 py-1.5 text-center text-[11px] font-normal text-gray-600 bg-gray-50">
+                              <th className="px-3 py-1.5 text-center text-[11px] font-normal text-dark-700 bg-dark-100">
                                 Status
                               </th>
-                              <th className="px-3 py-1.5 text-center text-[11px] font-normal text-gray-600 bg-gray-50">
+                              <th className="px-3 py-1.5 text-center text-[11px] font-normal text-dark-700 bg-dark-100">
                                 Action
                               </th>
                             </tr>
                           </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
+                          <tbody className="bg-dark-100 divide-y divide-dark-400">
                             {filteredChildInstances.map(instance => {
                               const isLinked = currentLinkages.some(
                                 linkage => linkage.parent_entity_id === selectedParentId &&
@@ -1088,26 +1088,26 @@ export function LinkagePage() {
                                 <tr
                                   key={instance.id}
                                   className={`transition-colors ${
-                                    isLinked ? 'bg-blue-50' : 'hover:bg-gray-50'
+                                    isLinked ? 'bg-dark-100' : 'hover:bg-dark-100'
                                   }`}
                                 >
-                                  <td className="px-3 py-1.5 text-xs text-gray-900 font-normal">
+                                  <td className="px-3 py-1.5 text-xs text-dark-600 font-normal">
                                     {instance.name}
                                   </td>
-                                  <td className="px-3 py-1.5 text-xs text-gray-500">
+                                  <td className="px-3 py-1.5 text-xs text-dark-700">
                                     {instance.code || '-'}
                                   </td>
-                                  <td className="px-3 py-1.5 text-xs text-gray-500 truncate max-w-xs">
+                                  <td className="px-3 py-1.5 text-xs text-dark-700 truncate max-w-xs">
                                     {instance.descr || '-'}
                                   </td>
                                   <td className="px-3 py-1.5 text-center">
                                     {isLinked ? (
-                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-normal bg-blue-100 text-blue-700">
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-normal bg-dark-100 text-dark-700">
                                         <Check className="h-2.5 w-2.5 mr-0.5" />
                                         Linked
                                       </span>
                                     ) : (
-                                      <span className="text-[10px] text-gray-400">-</span>
+                                      <span className="text-[10px] text-dark-600">-</span>
                                     )}
                                   </td>
                                   <td className="px-3 py-1.5 text-center">

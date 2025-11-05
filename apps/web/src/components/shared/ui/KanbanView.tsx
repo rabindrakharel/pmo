@@ -63,9 +63,9 @@ export function KanbanView({
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700 mx-auto mb-2" />
           <p
-            className="text-gray-600"
+            className="text-dark-700"
             style={{
               fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '13px'
@@ -105,7 +105,7 @@ export function KanbanView({
             </p>
           </div>
           <p
-            className="text-gray-600"
+            className="text-dark-700"
             style={{
               fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '13px'
@@ -125,7 +125,7 @@ export function KanbanView({
     return (
       <div className="text-center py-12">
         <p
-          className="text-gray-600 mb-2"
+          className="text-dark-700 mb-2"
           style={{
             fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
             fontSize: '14px',
@@ -135,7 +135,7 @@ export function KanbanView({
           No Kanban stages configured
         </p>
         <p
-          className="text-gray-500"
+          className="text-dark-700"
           style={{
             fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
             fontSize: '13px'

@@ -371,7 +371,7 @@ export const FIELD_CATEGORY_REGISTRY: Record<FieldCategory, FieldCategoryConfig>
       if (value === null || value === undefined) return '-';
       return value
         ? React.createElement('span', { className: 'text-green-600' }, '✓')
-        : React.createElement('span', { className: 'text-gray-400' }, '✗');
+        : React.createElement('span', { className: 'text-dark-600' }, '✗');
     }
   },
 
@@ -406,7 +406,7 @@ export const FIELD_CATEGORY_REGISTRY: Record<FieldCategory, FieldCategoryConfig>
           href: value,
           target: '_blank',
           rel: 'noopener noreferrer',
-          className: 'text-blue-600 hover:underline'
+          className: 'text-dark-700 hover:underline'
         },
         value
       );
@@ -424,7 +424,7 @@ export const FIELD_CATEGORY_REGISTRY: Record<FieldCategory, FieldCategoryConfig>
       return React.createElement('a',
         {
           href: `mailto:${value}`,
-          className: 'text-blue-600 hover:underline'
+          className: 'text-dark-700 hover:underline'
         },
         value
       );

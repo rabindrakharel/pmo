@@ -99,7 +99,7 @@ export function SignupPage() {
   ];
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="min-h-screen flex bg-dark-100">
       {/* Left Panel - Form */}
       <div className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
@@ -107,7 +107,7 @@ export function SignupPage() {
           <div>
             <Link
               to="/"
-              className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-6"
+              className="inline-flex items-center text-sm text-dark-700 hover:text-dark-600 mb-6"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to home
@@ -116,12 +116,12 @@ export function SignupPage() {
               <div className="h-12 w-12 bg-gradient-to-r from-slate-600 to-slate-700 rounded-lg flex items-center justify-center">
                 <Building2 className="h-6 w-6 text-white" />
               </div>
-              <span className="ml-3 text-2xl font-bold text-gray-900">Huron PMO</span>
+              <span className="ml-3 text-2xl font-bold text-dark-600">Huron PMO</span>
             </div>
-            <h2 className="text-3xl font-bold text-gray-900">
+            <h2 className="text-3xl font-bold text-dark-600">
               Create your account
             </h2>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-dark-700">
               Already have an account?{' '}
               <Link to="/login" className="font-medium text-slate-600 hover:text-slate-700">
                 Sign in
@@ -140,14 +140,14 @@ export function SignupPage() {
             <div className="space-y-4">
               {/* Name */}
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="name" className="block text-sm font-medium text-dark-600">
                   Full Name / Organization Name
                 </label>
                 <input
                   {...register('name')}
                   type="text"
                   autoComplete="name"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                  className="mt-1 block w-full px-3 py-2 border border-dark-400 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                   placeholder="Enter your name"
                 />
                 {errors.name && (
@@ -157,14 +157,14 @@ export function SignupPage() {
 
               {/* Email */}
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="email" className="block text-sm font-medium text-dark-600">
                   Email address
                 </label>
                 <input
                   {...register('email')}
                   type="email"
                   autoComplete="email"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                  className="mt-1 block w-full px-3 py-2 border border-dark-400 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                   placeholder="you@example.com"
                 />
                 {errors.email && (
@@ -174,14 +174,14 @@ export function SignupPage() {
 
               {/* Customer Type */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-dark-600 mb-2">
                   Customer Type
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   {customerTypes.map((type) => (
                     <label
                       key={type.value}
-                      className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 hover:border-gray-300 focus:outline-none"
+                      className="relative flex cursor-pointer rounded-lg border border-dark-400 bg-dark-100 p-4 hover:border-dark-400 focus:outline-none"
                     >
                       <input
                         {...register('custType')}
@@ -190,10 +190,10 @@ export function SignupPage() {
                         className="sr-only"
                       />
                       <div className="flex flex-1 flex-col">
-                        <span className="block text-sm font-medium text-gray-900">
+                        <span className="block text-sm font-medium text-dark-600">
                           {type.label}
                         </span>
-                        <span className="mt-1 flex items-center text-xs text-gray-500">
+                        <span className="mt-1 flex items-center text-xs text-dark-700">
                           {type.description}
                         </span>
                       </div>
@@ -208,7 +208,7 @@ export function SignupPage() {
 
               {/* Password */}
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="password" className="block text-sm font-medium text-dark-600">
                   Password
                 </label>
                 <div className="mt-1 relative">
@@ -216,7 +216,7 @@ export function SignupPage() {
                     {...register('password')}
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
-                    className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                    className="block w-full px-3 py-2 pr-10 border border-dark-400 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                     placeholder="At least 8 characters"
                   />
                   <button
@@ -225,9 +225,9 @@ export function SignupPage() {
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
+                      <EyeOff className="h-4 w-4 text-dark-600" />
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
+                      <Eye className="h-4 w-4 text-dark-600" />
                     )}
                   </button>
                 </div>
@@ -238,7 +238,7 @@ export function SignupPage() {
 
               {/* Confirm Password */}
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-dark-600">
                   Confirm Password
                 </label>
                 <div className="mt-1 relative">
@@ -246,7 +246,7 @@ export function SignupPage() {
                     {...register('confirmPassword')}
                     type={showConfirmPassword ? 'text' : 'password'}
                     autoComplete="new-password"
-                    className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                    className="block w-full px-3 py-2 pr-10 border border-dark-400 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                     placeholder="Re-enter your password"
                   />
                   <button
@@ -255,9 +255,9 @@ export function SignupPage() {
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
+                      <EyeOff className="h-4 w-4 text-dark-600" />
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
+                      <Eye className="h-4 w-4 text-dark-600" />
                     )}
                   </button>
                 </div>
@@ -272,11 +272,11 @@ export function SignupPage() {
                   <input
                     {...register('acceptTerms')}
                     type="checkbox"
-                    className="h-4 w-4 text-slate-600 focus:ring-slate-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-slate-600 focus:ring-slate-500 border-dark-400 rounded"
                   />
                 </div>
                 <div className="ml-3 text-sm">
-                  <label htmlFor="acceptTerms" className="font-medium text-gray-700">
+                  <label htmlFor="acceptTerms" className="font-medium text-dark-600">
                     I agree to the{' '}
                     <a href="#" className="text-slate-600 hover:text-slate-700 underline">
                       Terms and Conditions
@@ -315,7 +315,7 @@ export function SignupPage() {
       </div>
 
       {/* Right Panel - Marketing */}
-      <div className="hidden lg:block relative w-0 flex-1 bg-gradient-to-br from-slate-700 to-blue-700">
+      <div className="hidden lg:block relative w-0 flex-1 bg-gradient-to-br from-slate-700 to-dark-900">
         <div className="absolute inset-0 flex items-center justify-center p-12">
           <div className="max-w-md">
             <h2 className="text-3xl font-bold text-white mb-6">
@@ -335,7 +335,7 @@ export function SignupPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-10 p-6 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+            <div className="mt-10 p-6 bg-dark-100/10 backdrop-blur-sm rounded-lg border border-white/20">
               <p className="text-white/90 italic">
                 "Huron PMO has transformed how we manage our operations. The setup was incredibly easy!"
               </p>

@@ -67,7 +67,7 @@ const CreateWorksiteSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Object({})),
-  worksite_type: Type.String(),
+  worksite_type: Type.Optional(Type.String()),
   addr: Type.Optional(Type.String()),
   postal_code: Type.Optional(Type.String()),
   latitude: Type.Optional(Type.Number()),
@@ -103,6 +103,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
         worksite_type: Type.Optional(Type.String()),
         seasonal_use: Type.Optional(Type.Boolean()),
         equipment_storage: Type.Optional(Type.Boolean()),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         search: Type.Optional(Type.String()),
@@ -125,10 +126,12 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
         worksite_type,
         seasonal_use,
         equipment_storage,
+        page = 1,
         limit = 20,
-        offset = 0,
         search
       } = request.query as any;
+
+      const offset = (page - 1) * limit;
 
       // Build where conditions
       const conditions = [];

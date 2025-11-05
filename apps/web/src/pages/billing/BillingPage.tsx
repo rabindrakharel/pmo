@@ -86,32 +86,32 @@ export function BillingPage() {
   return (
     <Layout>
       <div className="max-w-4xl mx-auto space-y-8">
-        <div className="bg-white shadow rounded-lg">
+        <div className="bg-dark-100 shadow rounded-lg">
           <div className="px-4 py-5 sm:p-6">
             <div className="flex items-center mb-6">
-              <CreditCard className="h-5 w-5 text-gray-600 stroke-[1.5] mr-3" />
+              <CreditCard className="h-5 w-5 text-dark-700 stroke-[1.5] mr-3" />
               <div className="flex-1">
-                <h1 className="text-sm font-normal text-gray-900">Billing & Subscription</h1>
-                <p className="text-sm text-gray-600">Manage your subscription and billing information</p>
+                <h1 className="text-sm font-normal text-dark-600">Billing & Subscription</h1>
+                <p className="text-sm text-dark-700">Manage your subscription and billing information</p>
               </div>
             </div>
 
             {/* Current Plan */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 mb-8">
+            <div className="bg-gradient-to-r from-dark-100 to-indigo-900 border border-dark-400 rounded-lg p-6 mb-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-normal text-gray-900">PMO Enterprise Plan</h3>
-                  <p className="text-gray-600">Full access to all features and unlimited users</p>
+                  <h3 className="text-sm font-normal text-dark-600">PMO Enterprise Plan</h3>
+                  <p className="text-dark-700">Full access to all features and unlimited users</p>
                   <div className="flex items-center mt-2">
-                    <DollarSign className="h-4 w-4 text-gray-500 stroke-[1.5] mr-1" />
-                    <span className="text-sm font-normal text-gray-900">$99.99</span>
-                    <span className="text-gray-600 ml-1">/month</span>
+                    <DollarSign className="h-4 w-4 text-dark-700 stroke-[1.5] mr-1" />
+                    <span className="text-sm font-normal text-dark-600">$99.99</span>
+                    <span className="text-dark-700 ml-1">/month</span>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm text-gray-600">Next billing date</div>
-                  <div className="font-normal text-gray-900">February 1, 2025</div>
-                  <button className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-normal">
+                  <div className="text-sm text-dark-700">Next billing date</div>
+                  <div className="font-normal text-dark-600">February 1, 2025</div>
+                  <button className="mt-2 text-dark-700 hover:text-dark-700 text-sm font-normal">
                     Change plan
                   </button>
                 </div>
@@ -120,22 +120,22 @@ export function BillingPage() {
 
             {/* Payment Method */}
             <div className="mb-8">
-              <h3 className="text-sm font-normal text-gray-900 mb-4">Payment Method</h3>
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <h3 className="text-sm font-normal text-dark-600 mb-4">Payment Method</h3>
+              <div className="bg-dark-100 border border-dark-300 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
-                    <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <CreditCard className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+                    <div className="h-10 w-10 bg-dark-100 rounded-lg flex items-center justify-center">
+                      <CreditCard className="h-5 w-5 text-dark-700 stroke-[1.5]" />
                     </div>
                     <div className="ml-4">
-                      <div className="font-normal text-gray-900">•••• •••• •••• 4242</div>
-                      <div className="text-sm text-gray-500">Expires 12/2028</div>
+                      <div className="font-normal text-dark-600">•••• •••• •••• 4242</div>
+                      <div className="text-sm text-dark-700">Expires 12/2028</div>
                     </div>
                   </div>
                   <button
                     onClick={handleUpdatePaymentMethod}
                     disabled={isUpdatingPayment}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-normal disabled:opacity-50"
+                    className="text-dark-700 hover:text-dark-700 text-sm font-normal disabled:opacity-50"
                   >
                     {isUpdatingPayment ? 'Updating...' : 'Update'}
                   </button>
@@ -145,38 +145,38 @@ export function BillingPage() {
 
             {/* Billing History */}
             <div>
-              <h3 className="text-sm font-normal text-gray-900 mb-4">Billing History</h3>
-              <div className="bg-white shadow overflow-hidden sm:rounded-md">
-                <ul className="divide-y divide-gray-200">
+              <h3 className="text-sm font-normal text-dark-600 mb-4">Billing History</h3>
+              <div className="bg-dark-100 shadow overflow-hidden sm:rounded-md">
+                <ul className="divide-y divide-dark-400">
                   {mockInvoices.map((invoice) => (
                     <li key={invoice.id} className="px-4 py-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
                           <div className="flex-shrink-0">
-                            <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                              <DollarSign className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+                            <div className="h-10 w-10 bg-dark-100 rounded-lg flex items-center justify-center">
+                              <DollarSign className="h-5 w-5 text-dark-700 stroke-[1.5]" />
                             </div>
                           </div>
                           <div className="ml-4">
                             <div className="flex items-center">
-                              <div className="text-sm font-normal text-gray-900 mr-2">
+                              <div className="text-sm font-normal text-dark-600 mr-2">
                                 {invoice.id}
                               </div>
                               {getStatusBadge(invoice.status)}
                             </div>
-                            <div className="text-sm text-gray-500">{invoice.description}</div>
-                            <div className="text-xs text-gray-400">
+                            <div className="text-sm text-dark-700">{invoice.description}</div>
+                            <div className="text-xs text-dark-600">
                               {new Date(invoice.date).toLocaleDateString()}
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center space-x-4">
-                          <div className="text-sm font-normal text-gray-900">
+                          <div className="text-sm font-normal text-dark-600">
                             ${invoice.amount.toFixed(2)}
                           </div>
                           <button
                             onClick={() => downloadInvoice(invoice.id)}
-                            className="text-gray-400 hover:text-gray-600"
+                            className="text-dark-600 hover:text-dark-700"
                           >
                             <Download className="h-4 w-4 stroke-[1.5]" />
                           </button>
@@ -189,29 +189,29 @@ export function BillingPage() {
             </div>
 
             {/* Billing Settings */}
-            <div className="border-t border-gray-200 pt-8 mt-8">
-              <h3 className="text-sm font-normal text-gray-900 mb-4">Billing Settings</h3>
+            <div className="border-t border-dark-300 pt-8 mt-8">
+              <h3 className="text-sm font-normal text-dark-600 mb-4">Billing Settings</h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-sm font-normal text-gray-900">Email invoices</div>
-                    <div className="text-sm text-gray-500">Receive invoices via email</div>
+                    <div className="text-sm font-normal text-dark-600">Email invoices</div>
+                    <div className="text-sm text-dark-700">Receive invoices via email</div>
                   </div>
                   <input
                     type="checkbox"
                     defaultChecked
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-dark-700 focus:ring-dark-7000 border-dark-400 rounded"
                   />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-sm font-normal text-gray-900">Auto-renewal</div>
-                    <div className="text-sm text-gray-500">Automatically renew subscription</div>
+                    <div className="text-sm font-normal text-dark-600">Auto-renewal</div>
+                    <div className="text-sm text-dark-700">Automatically renew subscription</div>
                   </div>
                   <input
                     type="checkbox"
                     defaultChecked
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-dark-700 focus:ring-dark-7000 border-dark-400 rounded"
                   />
                 </div>
               </div>

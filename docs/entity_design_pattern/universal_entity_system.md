@@ -3,8 +3,8 @@
 > **Comprehensive guide to the PMO Platform's universal entity architecture** - DRY-first, config-driven system handling 18+ entity types with 3 universal pages
 
 **Last Updated:** 2025-11-04
-**Version:** 3.1.0 - Enhanced Field Editability & Column Consistency
-**Related Docs:** [UI/UX Architecture](../ui_ux_route_api.md), [Data Model](../datamodel.md)
+**Version:** 3.1.2 - Entity Active/Inactive Toggle Implementation Complete ✅
+**Related Docs:** [UI/UX Architecture](../ui_ux_route_api.md), [Data Model](../datamodel.md), [Column Consistency Update](./COLUMN_CONSISTENCY_UPDATE.md)
 
 ---
 
@@ -19,9 +19,11 @@
 6. [Share & Link Modals](#share--link-modals)
 7. [Inline Editing System](#inline-editing-system)
 8. [Column Consistency Pattern](#column-consistency-pattern)
-9. [Technical Implementation](#technical-implementation)
-10. [API Integration](#api-integration)
-11. [Best Practices](#best-practices)
+9. [Entity Lifecycle Management](#entity-lifecycle-management)
+   - [Active/Inactive Toggle System (v3.1.2)](#activeinactive-toggle-system-v312)
+10. [Technical Implementation](#technical-implementation)
+11. [API Integration](#api-integration)
+12. [Best Practices](#best-practices)
 
 ---
 
@@ -1207,6 +1209,564 @@ Result: Same columns as /task main view
 
 ---
 
+## Entity Lifecycle Management
+
+### Active/Inactive Toggle System (v3.1.2)
+
+**Enterprise-Wide Entity Control with Automatic Child Tab Filtering**
+
+#### 1. Semantics & Business Context
+
+**Purpose:** Provide centralized control over entity availability across the entire PMO platform without data deletion.
+
+**Business Requirements:**
+- **Enterprise Scope** - Disable entire entity types globally (e.g., disable "Cost" tracking for all users)
+- **Data Preservation** - Soft disable (data remains intact, just hidden)
+- **Cascading Impact** - Disabled entities automatically removed from navigation, child tabs, and relationships
+- **Settings Control** - Only admins can enable/disable entities via Settings page
+- **Instant Effect** - Changes take effect immediately across all users and sessions
+
+**Use Cases:**
+- Deprecate unused entity types (e.g., disable "Shipment" if not using logistics)
+- Phase out old workflows (e.g., disable "Work Order" during migration)
+- Simplify UI by hiding unnecessary entity types
+- Temporarily disable entities during maintenance/migration
+- Control feature rollout (enable entities as features become ready)
+
+#### 2. Architecture & DRY Design Patterns
+
+**Single Source of Truth Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  d_entity Table                          │
+│          active_flag BOOLEAN (Single Control)            │
+└────────────────┬────────────────────────────────────────┘
+                 │
+    ┌────────────┴────────────┐
+    │                         │
+    ▼                         ▼
+┌──────────────┐      ┌──────────────────┐
+│ API Filtering│      │  UI Filtering     │
+│  (3 endpoints)│      │ (Automatic)       │
+└──────┬───────┘      └─────────┬─────────┘
+       │                        │
+       ├─► GET /entity/types    │
+       │   └─► WHERE active_flag = true
+       │                        │
+       ├─► GET /entity/type/:code
+       │   └─► WHERE active_flag = true
+       │                        │
+       └─► GET /entity/child-tabs/:type/:id
+           └─► Filters child_entities array
+               by checking active_flag of child entities
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────┐
+│              Universal Impact                            │
+│  • Navigation menus                                      │
+│  • Entity lists                                          │
+│  • Child entity tabs                                     │
+│  • Create/link operations                                │
+│  • Search results                                        │
+│  • Relationship dropdowns                                │
+└─────────────────────────────────────────────────────────┘
+```
+
+**DRY Filtering Pattern:**
+
+```typescript
+// ❌ Anti-pattern: Filtering in frontend
+// (Would require changes in 50+ components)
+
+// ✅ Best practice: Filter once at API layer
+// Single implementation, universal impact
+```
+
+**Centralized Filtering Logic (API Layer):**
+
+All three entity metadata endpoints implement the same filtering pattern:
+
+```typescript
+// Pattern 1: Filter out inactive child entities
+if (childEntitiesMetadata.length > 0) {
+  const childEntityCodes = childEntitiesMetadata.map(c => c.entity);
+
+  // Query active status from d_entity table
+  const activeChildEntities = await client.unsafe(`
+    SELECT code FROM app.d_entity
+    WHERE code IN ($1, $2, ...) AND active_flag = true
+  `, childEntityCodes);
+
+  const activeChildCodes = new Set(activeChildEntities.map(row => row.code));
+
+  // Filter metadata to only include active children
+  childEntitiesMetadata = childEntitiesMetadata.filter(c =>
+    activeChildCodes.has(c.entity)
+  );
+}
+```
+
+#### 3. Database, API & UI/UX Mapping
+
+**Database Schema:**
+
+```sql
+-- d_entity table (already exists)
+CREATE TABLE app.d_entity (
+    code VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    ui_label VARCHAR(100) NOT NULL,
+    ui_icon VARCHAR(50),
+    child_entities JSONB DEFAULT '[]'::jsonb,
+    display_order INT NOT NULL DEFAULT 999,
+    active_flag BOOLEAN DEFAULT true,  -- ← Control flag
+    created_ts TIMESTAMPTZ DEFAULT NOW(),
+    updated_ts TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_d_entity_active ON app.d_entity(active_flag)
+WHERE active_flag = true;
+```
+
+**API Endpoints Modified:**
+
+| Endpoint | Method | Modification | Impact |
+|----------|--------|--------------|--------|
+| `GET /api/v1/entity/types` | GET | Added `include_inactive` query param | Settings page sees all, app sees only active |
+| `GET /api/v1/entity/type/:code` | GET | Filters inactive child entities | Detail pages show only active tabs |
+| `GET /api/v1/entity/child-tabs/:type/:id` | GET | Filters inactive child entities | DynamicChildEntityTabs shows only active |
+| `PUT /api/v1/entity/:code` | PUT | Accepts `active_flag` field | Settings page can toggle status |
+
+**API Request/Response Examples:**
+
+```typescript
+// 1. Settings page: Get all entities (active + inactive)
+GET /api/v1/entity/types?include_inactive=true
+Response: [
+  { code: "project", active_flag: true, ... },
+  { code: "cost", active_flag: false, ... },     // ← Disabled
+  { code: "revenue", active_flag: false, ... }   // ← Disabled
+]
+
+// 2. Application: Get only active entities (default)
+GET /api/v1/entity/types
+Response: [
+  { code: "project", active_flag: true, ... }
+  // cost and revenue are filtered out
+]
+
+// 3. Child tabs: Automatic filtering
+GET /api/v1/entity/child-tabs/project/abc-123
+Response: {
+  tabs: [
+    { entity: "task", ... },      // ✅ Active
+    { entity: "wiki", ... },      // ✅ Active
+    { entity: "artifact", ... }   // ✅ Active
+    // cost and revenue tabs filtered out automatically
+  ]
+}
+
+// 4. Settings page: Toggle entity status
+PUT /api/v1/entity/cost
+Body: { "active_flag": false }
+Response: { success: true, data: { code: "cost", active_flag: false, ... } }
+```
+
+**Frontend Component (Settings Page):**
+
+```typescript
+// apps/web/src/pages/setting/SettingsOverviewPage.tsx
+
+// Fetch all entities including inactive
+const fetchEntities = async () => {
+  const response = await fetch(
+    'http://localhost:4000/api/v1/entity/types?include_inactive=true',
+    { headers: { 'Authorization': `Bearer ${token}` } }
+  );
+  const result = await response.json();
+  setEntities(result);
+};
+
+// Toggle entity active status
+const handleToggleEntityActive = async (code: string, currentActiveFlag: boolean) => {
+  await fetch(`http://localhost:4000/api/v1/entity/${code}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ active_flag: !currentActiveFlag })
+  });
+
+  await fetchEntities(); // Refresh list
+};
+
+// UI: Toggle switch in table
+<td className="px-3 py-2.5 text-center">
+  <button
+    onClick={() => handleToggleEntityActive(entity.code, entity.active_flag)}
+    className={`relative inline-flex h-5 w-9 items-center rounded-full
+      transition-colors ${entity.active_flag ? 'bg-green-500' : 'bg-gray-300'}`}
+    title={entity.active_flag ? 'Enabled - Click to disable' : 'Disabled - Click to enable'}
+  >
+    <span className={`inline-block h-4 w-4 transform rounded-full bg-white
+      transition-transform ${entity.active_flag ? 'translate-x-5' : 'translate-x-0.5'}`} />
+  </button>
+</td>
+```
+
+#### 4. Entity Relationships & Cascading Impact
+
+**Child Tab Filtering Logic:**
+
+```typescript
+// apps/api/src/modules/entity/routes.ts:325-346
+
+// Step 1: Get parent entity metadata from d_entity
+const entityTypeResult = await db.execute(sql`
+  SELECT code, name, ui_label, ui_icon, child_entities
+  FROM app.d_entity
+  WHERE code = ${normalizedEntityType} AND active_flag = true
+`);
+
+let childEntitiesMetadata = JSON.parse(entityType.child_entities);
+
+// Step 2: Filter out inactive child entities
+if (childEntitiesMetadata.length > 0) {
+  const childEntityCodes = childEntitiesMetadata.map(c => c.entity);
+
+  // Build SQL query to check active status of all child entity types
+  const placeholders = childEntityCodes.map((_, i) => `$${i + 1}`).join(', ');
+  const query = `
+    SELECT code FROM app.d_entity
+    WHERE code IN (${placeholders}) AND active_flag = true
+  `;
+  const activeChildEntities = await client.unsafe(query, childEntityCodes);
+
+  const activeChildCodes = new Set(activeChildEntities.map(row => row.code));
+
+  // Filter to only include active child entities
+  childEntitiesMetadata = childEntitiesMetadata.filter(c =>
+    activeChildCodes.has(c.entity)
+  );
+}
+
+// Step 3: Return filtered tabs
+return { tabs: childEntitiesMetadata, ... };
+```
+
+**Cascading Impact Table:**
+
+| Parent Entity | Child Entities in DB | Active Status | Child Tabs Shown |
+|--------------|---------------------|---------------|------------------|
+| Project | task, wiki, artifact, form, **cost**, **revenue** | cost=false, revenue=false | task, wiki, artifact, form |
+| Business | project, **cost**, **revenue** | cost=false, revenue=false | project |
+| Office | task, artifact, wiki, form, **cost**, **revenue** | cost=false, revenue=false | task, artifact, wiki, form |
+| Task | form, artifact, **cost**, **revenue** | cost=false, revenue=false | form, artifact |
+
+**Result:** Disabling "cost" and "revenue" removes them from ALL parent entity detail pages automatically.
+
+#### 5. User Interaction Flow Examples
+
+**Flow 1: Admin Disables Entity Type**
+
+```
+1. Admin navigates to /settings
+   ↓
+2. Expands "Entities" section
+   Shows: Table with all entity types + "Enabled" toggle column
+   ↓
+3. Admin clicks toggle for "Cost" entity
+   Toggle changes: Green (Enabled) → Gray (Disabled)
+   ↓
+4. API Request: PUT /api/v1/entity/cost { "active_flag": false }
+   ↓
+5. Database Update: UPDATE app.d_entity SET active_flag = false WHERE code = 'cost'
+   ↓
+6. Immediate System-Wide Impact:
+   ✅ "Cost" removed from navigation sidebar
+   ✅ "Cost" removed from all child entity tabs
+   ✅ "Cost" removed from create/link options
+   ✅ Existing cost records preserved (no deletion)
+   ✅ Cost data tables still accessible via direct URL (for recovery)
+```
+
+**Flow 2: User Views Project Detail Page**
+
+```
+1. User navigates to /project/abc-123
+   ↓
+2. EntityDetailPage requests child tabs
+   API Call: GET /api/v1/entity/child-tabs/project/abc-123
+   ↓
+3. API Logic:
+   a. Fetch project entity metadata from d_entity
+      → child_entities: [task, wiki, artifact, form, cost, revenue]
+
+   b. Query active status of child entities
+      SELECT code FROM d_entity
+      WHERE code IN ('task', 'wiki', 'artifact', 'form', 'cost', 'revenue')
+        AND active_flag = true
+      → Returns: ['task', 'wiki', 'artifact', 'form']
+
+   c. Filter child_entities array
+      → Filtered result: [task, wiki, artifact, form]
+   ↓
+4. UI Renders:
+   Tabs: [Tasks | Wiki | Artifacts | Forms]
+
+   Missing: Cost, Revenue tabs (automatically filtered out)
+   ↓
+5. User Experience:
+   ✅ Cleaner UI (only relevant tabs shown)
+   ✅ No confusion about disabled features
+   ✅ Consistent across all projects
+```
+
+**Flow 3: Admin Re-enables Entity Type**
+
+```
+1. Admin toggles "Cost" back to enabled in /settings
+   ↓
+2. API Request: PUT /api/v1/entity/cost { "active_flag": true }
+   ↓
+3. Database Update: UPDATE app.d_entity SET active_flag = true WHERE code = 'cost'
+   ↓
+4. Immediate System-Wide Restoration:
+   ✅ "Cost" appears in navigation
+   ✅ "Cost" tab appears on project/task/business detail pages
+   ✅ "Cost" available in create/link operations
+   ✅ All existing cost records immediately accessible
+   ✅ No data recovery needed (nothing was deleted)
+```
+
+#### 6. Critical Considerations When Editing
+
+**For Backend Developers:**
+
+1. **Always Filter at API Layer**
+   - ✅ DO: Implement filtering in entity metadata endpoints
+   - ❌ DON'T: Rely on frontend filtering (inconsistent, can be bypassed)
+
+2. **Use `include_inactive` Parameter Pattern**
+   ```typescript
+   // Settings page needs to see all entities
+   GET /api/v1/entity/types?include_inactive=true
+
+   // Application needs only active entities
+   GET /api/v1/entity/types
+   ```
+
+3. **Filter Child Entities in All Metadata Endpoints**
+   - `GET /api/v1/entity/type/:code` - Filter child_entities array
+   - `GET /api/v1/entity/types` - Filter child_entities for all entities
+   - `GET /api/v1/entity/child-tabs/:type/:id` - Filter tabs array
+
+4. **Use Efficient SQL Queries**
+   ```typescript
+   // ✅ Good: Single query with IN clause
+   SELECT code FROM d_entity
+   WHERE code IN ($1, $2, $3) AND active_flag = true
+
+   // ❌ Bad: N+1 queries
+   for (const code of childCodes) {
+     await db.query('SELECT code FROM d_entity WHERE code = $1', [code]);
+   }
+   ```
+
+5. **Maintain Index Performance**
+   ```sql
+   -- Required index for fast active_flag lookups
+   CREATE INDEX idx_d_entity_active ON app.d_entity(active_flag)
+   WHERE active_flag = true;
+   ```
+
+**For Frontend Developers:**
+
+1. **Never Hard-Code Entity Lists**
+   - ✅ DO: Fetch entities dynamically from API
+   - ❌ DON'T: Maintain static entity arrays in frontend code
+
+2. **Trust API Filtering**
+   - ✅ DO: Use child tabs as returned by API
+   - ❌ DON'T: Add additional client-side filtering logic
+
+3. **Settings Page Exception**
+   ```typescript
+   // Settings page is the ONLY place that uses include_inactive=true
+   const url = window.location.pathname === '/settings'
+     ? '/api/v1/entity/types?include_inactive=true'
+     : '/api/v1/entity/types';
+   ```
+
+4. **Toggle UI Feedback**
+   ```typescript
+   // Provide instant visual feedback
+   const [optimisticActiveFlag, setOptimisticActiveFlag] = useState(entity.active_flag);
+
+   const handleToggle = async () => {
+     setOptimisticActiveFlag(!optimisticActiveFlag); // Instant UI update
+     try {
+       await api.toggleActive(entity.code);
+     } catch (error) {
+       setOptimisticActiveFlag(optimisticActiveFlag); // Revert on error
+       alert('Failed to toggle entity');
+     }
+   };
+   ```
+
+**For Database Administrators:**
+
+1. **Never Hard Delete Entities**
+   - ✅ DO: Use `active_flag = false` for soft disable
+   - ❌ DON'T: DELETE FROM d_entity (breaks references)
+
+2. **Backup Before Bulk Changes**
+   ```sql
+   -- Backup current state before disabling multiple entities
+   CREATE TABLE d_entity_backup AS
+   SELECT * FROM app.d_entity WHERE active_flag = true;
+   ```
+
+3. **Audit Active Flag Changes**
+   ```sql
+   -- Add audit trigger (recommended)
+   CREATE TRIGGER audit_entity_active_flag
+   BEFORE UPDATE ON app.d_entity
+   FOR EACH ROW
+   WHEN (OLD.active_flag IS DISTINCT FROM NEW.active_flag)
+   EXECUTE FUNCTION log_entity_status_change();
+   ```
+
+**For System Architects:**
+
+1. **DRY Principle Enforcement**
+   - Single `active_flag` field controls entire system
+   - No duplicate flags in child tables
+   - No feature flags in configuration files
+
+2. **Zero Configuration Required**
+   - No environment variables
+   - No feature flag services
+   - Pure database-driven control
+
+3. **Performance Monitoring**
+   - Monitor index usage: `idx_d_entity_active`
+   - Track query performance for child tab endpoints
+   - Set up alerts for slow metadata queries (>50ms)
+
+4. **Testing Strategy**
+   ```typescript
+   // Required test cases:
+   test('Disabled entity not in child tabs', async () => {
+     await disableEntity('cost');
+     const tabs = await getChildTabs('project', projectId);
+     expect(tabs.find(t => t.entity === 'cost')).toBeUndefined();
+   });
+
+   test('Re-enabled entity appears in child tabs', async () => {
+     await enableEntity('cost');
+     const tabs = await getChildTabs('project', projectId);
+     expect(tabs.find(t => t.entity === 'cost')).toBeDefined();
+   });
+
+   test('Settings page sees inactive entities', async () => {
+     await disableEntity('revenue');
+     const entities = await getEntities({ include_inactive: true });
+     expect(entities.find(e => e.code === 'revenue')).toBeDefined();
+   });
+   ```
+
+#### 7. Verification & Testing
+
+**Manual Verification Steps:**
+
+```bash
+# 1. Check current entity status
+./tools/test-api.sh GET '/api/v1/entity/types?include_inactive=true' | grep -E '"code"|"active_flag"'
+
+# 2. Disable an entity
+./tools/test-api.sh PUT /api/v1/entity/cost '{"active_flag":false}'
+
+# 3. Verify it's filtered from child tabs
+./tools/test-api.sh GET /api/v1/entity/child-tabs/project/{project-id} | grep "cost"
+# Should return nothing
+
+# 4. Re-enable the entity
+./tools/test-api.sh PUT /api/v1/entity/cost '{"active_flag":true}'
+
+# 5. Verify it reappears in child tabs
+./tools/test-api.sh GET /api/v1/entity/child-tabs/project/{project-id} | grep "cost"
+# Should return cost tab data
+```
+
+**Database Verification:**
+
+```sql
+-- Check active status of all entities
+SELECT code, name, active_flag, display_order
+FROM app.d_entity
+ORDER BY display_order;
+
+-- Check child entities that would be filtered out
+SELECT
+  parent.code AS parent_entity,
+  jsonb_array_elements(parent.child_entities)->>'entity' AS child_entity,
+  child.active_flag AS child_is_active
+FROM app.d_entity parent
+CROSS JOIN LATERAL jsonb_array_elements(parent.child_entities) child_data
+LEFT JOIN app.d_entity child ON child.code = child_data->>'entity'
+WHERE child.active_flag = false OR child.active_flag IS NULL;
+```
+
+**Expected Behavior:**
+
+| Action | API Filtering | Child Tabs | Navigation | Data Access |
+|--------|--------------|------------|------------|-------------|
+| Disable "cost" | Filtered from types list | Removed from all tabs | Removed from sidebar | Direct URL still works |
+| Disable "revenue" | Filtered from types list | Removed from all tabs | Removed from sidebar | Direct URL still works |
+| Enable "cost" | Appears in types list | Appears in tabs | Appears in sidebar | Fully accessible |
+
+#### 8. System Impact Summary
+
+**Files Modified:**
+
+```
+apps/api/src/
+├── modules/entity/routes.ts           # Added filtering logic (3 endpoints)
+└── db/index.ts                        # Exported postgres client
+
+apps/web/src/
+└── pages/setting/SettingsOverviewPage.tsx  # Added "Enabled" toggle column
+
+db/
+└── 30_d_entity.ddl                    # No changes (active_flag already existed)
+```
+
+**Key Architecture Points:**
+
+1. **Centralized Control** - Single `active_flag` in `d_entity` table
+2. **DRY Filtering** - Implemented once at API layer, impacts entire system
+3. **Zero Configuration** - No code changes needed to add new entities
+4. **Instant Propagation** - Changes take effect immediately across all users
+5. **Data Preservation** - Soft disable (no data deletion)
+6. **Settings-Only Management** - Only accessible via Settings page
+7. **Automatic Cascading** - Child tabs filtered automatically
+8. **Performance Optimized** - Uses indexed queries and Set-based filtering
+
+**Benefits:**
+
+✅ **Enterprise Control** - Global on/off switch for entire entity types
+✅ **Clean UI** - Removes clutter by hiding unnecessary entities
+✅ **Safe Operations** - No data deletion, fully reversible
+✅ **Zero Maintenance** - Works for all current and future entities
+✅ **DRY Architecture** - Single implementation, universal impact
+✅ **Instant Effect** - No cache clearing or server restarts needed
+✅ **Audit Trail** - All changes tracked via database timestamps
+
+---
+
 ## Technical Implementation
 
 ### Component File Structure
@@ -1400,7 +1960,11 @@ await api.delete(projectId);
 | `/api/v1/linkage` | GET | Get links | UnifiedLinkageModal |
 | `/api/v1/linkage` | POST | Create link | EntityCreatePage, EntityChildListPage |
 | `/api/v1/linkage/{id}` | DELETE | Delete link | UnifiedLinkageModal |
-| `/api/v1/entity/child-tabs/{type}/{id}` | GET | Get child tabs | DynamicChildEntityTabs |
+| `/api/v1/entity/types` | GET | Get entity types (active only) | Navigation, Application |
+| `/api/v1/entity/types?include_inactive=true` | GET | Get all entity types | SettingsOverviewPage |
+| `/api/v1/entity/type/{code}` | GET | Get entity metadata | EntityConfig |
+| `/api/v1/entity/{code}` | PUT | Update entity metadata (active_flag) | SettingsOverviewPage |
+| `/api/v1/entity/child-tabs/{type}/{id}` | GET | Get child tabs (filtered by active_flag) | DynamicChildEntityTabs |
 | `/api/v1/setting?category={cat}` | GET | Get settings | settingsLoader |
 | `/api/v1/{entity}/{id}/share-url` | POST | Generate share URL | ShareModal |
 | `/api/v1/artifact/{id}/preview` | GET | Get preview URL | FilePreview |
@@ -1638,25 +2202,34 @@ const debouncedSearch = useMemo(
 
 ### v3.1 Enhancements
 
-**Default-Editable Pattern:**
+**Default-Editable Pattern (v3.1):**
 - All fields editable by default (except system fields)
 - Universal "Add Row" support with input boxes for all columns
 - Pattern-based input type detection (text, number, date, dropdown, file)
 - Zero manual configuration required
 
-**Column Consistency Pattern:**
+**Column Consistency Pattern (v3.1.1):**
 - Entity columns defined once in entityConfig.ts
 - Same columns shown regardless of context (main view vs child view)
 - Removed redundant parent ID columns from child entity tables
 - Universal application across all parent→child relationships
 
-**Inline Create-Then-Link Pattern:**
+**Inline Create-Then-Link Pattern (v3.1):**
 - "Add Row" creates entities and linkages automatically
 - Linkages stored in `d_entity_id_map` table
 - Comprehensive error handling and user feedback
 - Verification logging and database validation
 - Graceful degradation if linkage fails
 - Works for all parent-child entity combinations
+
+**Entity Active/Inactive Toggle System (v3.1.2):**
+- Enterprise-wide entity enable/disable control via Settings page
+- Automatic child tab filtering based on `active_flag`
+- DRY API-layer filtering (3 endpoints)
+- Zero frontend configuration required
+- Instant propagation across all users
+- Soft disable with full data preservation
+- Cascading impact on navigation, tabs, and relationships
 
 ### Files by Category
 
@@ -1688,7 +2261,8 @@ const debouncedSearch = useMemo(
 - **Maintainability**: Changes in one place affect all entities
 - **Scalability**: Easily handle 50+ entity types without code bloat
 - **Data Entry**: Seamless "Add Row" functionality across all entities (v3.1)
-- **View Consistency**: Identical column sets regardless of navigation context (v3.1)
+- **View Consistency**: Identical column sets regardless of navigation context (v3.1.1)
+- **Lifecycle Control**: Enterprise-wide entity management with instant effect (v3.1.2)
 
 ---
 

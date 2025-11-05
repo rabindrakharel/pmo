@@ -95,10 +95,10 @@ export function ScopeFilters({
         className={`
           inline-flex items-center px-4 py-2 text-sm font-normal rounded-lg border transition-colors
           ${selectedScopes.length > 0
-            ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+            ? 'bg-dark-100 text-dark-700 border-dark-400 hover:bg-dark-100'
+            : 'bg-dark-100 text-dark-600 border-dark-400 hover:bg-dark-100'
           }
-          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
+          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-7000
         `}
       >
         <Filter className="h-4 w-4 mr-2" />
@@ -117,12 +117,12 @@ export function ScopeFilters({
           {selectedScopeNames.map((scopeName, index) => (
             <span
               key={selectedScopes[index]}
-              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-blue-100 text-blue-800"
+              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-dark-100 text-dark-600"
             >
               {scopeName}
               <button
                 onClick={() => handleScopeToggle(selectedScopes[index])}
-                className="ml-1.5 h-4 w-4 rounded-full hover:bg-blue-200 flex items-center justify-center"
+                className="ml-1.5 h-4 w-4 rounded-full hover:bg-dark-200 flex items-center justify-center"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -133,16 +133,16 @@ export function ScopeFilters({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-10 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg">
+        <div className="absolute z-10 mt-1 w-72 bg-dark-100 border border-dark-300 rounded-lg shadow-lg">
           <div className="py-1 max-h-64 overflow-y-auto">
             {loading && (
-              <div className="px-4 py-2 text-sm text-gray-500">
+              <div className="px-4 py-2 text-sm text-dark-700">
                 Loading scopes...
               </div>
             )}
             
             {!loading && scopes.length === 0 && (
-              <div className="px-4 py-2 text-sm text-gray-500">
+              <div className="px-4 py-2 text-sm text-dark-700">
                 No scope filters available
               </div>
             )}
@@ -158,7 +158,7 @@ export function ScopeFilters({
                     >
                       Clear all filters
                     </button>
-                    <hr className="border-gray-200" />
+                    <hr className="border-dark-300" />
                   </>
                 )}
                 
@@ -166,19 +166,19 @@ export function ScopeFilters({
                 {scopes.map((scope) => (
                   <label
                     key={scope.scope_id}
-                    className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                    className="flex items-center px-4 py-2 hover:bg-dark-100 cursor-pointer"
                   >
                     <input
                       type="checkbox"
                       checked={selectedScopes.includes(scope.scope_id)}
                       onChange={() => handleScopeToggle(scope.scope_id)}
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="h-4 w-4 text-dark-700 border-dark-400 rounded focus:ring-dark-7000"
                     />
                     <div className="ml-3 flex-1">
-                      <div className="text-sm font-normal text-gray-900">
+                      <div className="text-sm font-normal text-dark-600">
                         {scope.scope_name}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-dark-700">
                         {scope.scope_type} • {scope.entity_count} {entityType}
                         {scope.entity_count === 1 ? '' : 's'}
                       </div>
@@ -216,8 +216,8 @@ export function FilterChips({ filters, className = '' }: FilterChipsProps) {
           className={`
             inline-flex items-center px-3 py-1.5 rounded-full text-sm font-normal transition-colors
             ${filter.active
-              ? 'bg-blue-100 text-blue-800 border border-blue-200'
-              : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
+              ? 'bg-dark-100 text-dark-600 border border-dark-400'
+              : 'bg-dark-100 text-dark-600 border border-dark-300 hover:bg-dark-200'
             }
           `}
         >
@@ -225,7 +225,7 @@ export function FilterChips({ filters, className = '' }: FilterChipsProps) {
           {filter.count !== undefined && (
             <span className={`
               ml-1.5 px-1.5 py-0.5 rounded-full text-xs
-              ${filter.active ? 'bg-blue-200' : 'bg-gray-200'}
+              ${filter.active ? 'bg-dark-200' : 'bg-dark-200'}
             `}>
               {filter.count}
             </span>

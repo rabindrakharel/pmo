@@ -88,10 +88,10 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
   // Render loading state
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen bg-dark-100">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading shared content...</p>
+          <Loader2 className="h-12 w-12 text-dark-700 animate-spin mx-auto mb-4" />
+          <p className="text-dark-700">Loading shared content...</p>
         </div>
       </div>
     );
@@ -100,21 +100,21 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
   // Render error state
   if (error || !entityData) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
+      <div className="flex items-center justify-center min-h-screen bg-dark-100">
+        <div className="bg-dark-100 rounded-lg shadow-lg p-8 max-w-md w-full">
           <div className="flex items-center justify-center mb-4">
             <AlertCircle className="h-16 w-16 text-red-500" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 text-center mb-2">
+          <h1 className="text-2xl font-bold text-dark-600 text-center mb-2">
             Content Not Found
           </h1>
-          <p className="text-gray-600 text-center mb-6">
+          <p className="text-dark-700 text-center mb-6">
             {error || 'The shared link you\'re looking for doesn\'t exist or is no longer available.'}
           </p>
           <div className="text-center">
             <button
               onClick={() => navigate('/')}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              className="px-6 py-2 bg-dark-700 text-white rounded-lg hover:bg-dark-800 transition"
             >
               Go to Homepage
             </button>
@@ -161,71 +161,71 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
         return (
           <div className="max-w-5xl mx-auto space-y-6">
             {/* Task Details Card */}
-            <div className="bg-white rounded-lg shadow-lg p-8">
+            <div className="bg-dark-100 rounded-lg shadow-lg p-8">
               <div className="mb-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">{data.name}</h1>
+                    <h1 className="text-3xl font-bold text-dark-600 mb-2">{data.name}</h1>
                     {data.code && (
-                      <p className="text-sm text-gray-500 mb-3 font-mono">{data.code}</p>
+                      <p className="text-sm text-dark-700 mb-3 font-mono">{data.code}</p>
                     )}
                   </div>
                   {data.stage && (
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-dark-100 text-dark-600">
                       {data.stage}
                     </span>
                   )}
                 </div>
 
                 {data.descr && (
-                  <p className="text-gray-700 mb-6 leading-relaxed">{data.descr}</p>
+                  <p className="text-dark-600 mb-6 leading-relaxed">{data.descr}</p>
                 )}
 
                 {/* Task Metadata Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-200">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-dark-300">
                   {data.priority_level && (
                     <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Priority</p>
+                      <p className="text-xs font-medium text-dark-700 uppercase tracking-wider mb-1">Priority</p>
                       <p className={`text-sm font-semibold capitalize ${
                         data.priority_level === 'critical' ? 'text-red-600' :
                         data.priority_level === 'high' ? 'text-orange-600' :
                         data.priority_level === 'medium' ? 'text-yellow-600' :
-                        'text-gray-600'
+                        'text-dark-700'
                       }`}>{data.priority_level}</p>
                     </div>
                   )}
 
                   {data.estimated_hours && (
                     <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Estimated</p>
-                      <p className="text-sm font-semibold text-gray-900">{data.estimated_hours}h</p>
+                      <p className="text-xs font-medium text-dark-700 uppercase tracking-wider mb-1">Estimated</p>
+                      <p className="text-sm font-semibold text-dark-600">{data.estimated_hours}h</p>
                     </div>
                   )}
 
                   {data.actual_hours && (
                     <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Actual</p>
-                      <p className="text-sm font-semibold text-gray-900">{data.actual_hours}h</p>
+                      <p className="text-xs font-medium text-dark-700 uppercase tracking-wider mb-1">Actual</p>
+                      <p className="text-sm font-semibold text-dark-600">{data.actual_hours}h</p>
                     </div>
                   )}
 
                   {data.story_points && (
                     <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Story Points</p>
-                      <p className="text-sm font-semibold text-gray-900">{data.story_points}</p>
+                      <p className="text-xs font-medium text-dark-700 uppercase tracking-wider mb-1">Story Points</p>
+                      <p className="text-sm font-semibold text-dark-600">{data.story_points}</p>
                     </div>
                   )}
                 </div>
 
                 {/* Tags */}
                 {data.tags && data.tags.length > 0 && (
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">Tags</p>
+                  <div className="mt-6 pt-6 border-t border-dark-300">
+                    <p className="text-xs font-medium text-dark-700 uppercase tracking-wider mb-3">Tags</p>
                     <div className="flex flex-wrap gap-2">
                       {data.tags.map((tag: string) => (
                         <span
                           key={tag}
-                          className="inline-flex items-center px-3 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700"
+                          className="inline-flex items-center px-3 py-1 rounded-md text-xs font-medium bg-dark-100 text-dark-600"
                         >
                           {tag.replace(/_/g, ' ')}
                         </span>
@@ -249,27 +249,27 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
       case 'artifact': {
         return (
           <div className="max-w-5xl mx-auto">
-            <div className="bg-white rounded-lg shadow-lg p-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">{data.name}</h1>
+            <div className="bg-dark-100 rounded-lg shadow-lg p-8">
+              <h1 className="text-3xl font-bold text-dark-600 mb-4">{data.name}</h1>
               {data.descr && (
-                <p className="text-gray-700 mb-6">{data.descr}</p>
+                <p className="text-dark-600 mb-6">{data.descr}</p>
               )}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="bg-dark-100 border border-dark-400 rounded-lg p-4 mb-6">
                 <div className="flex items-center space-x-2">
-                  <Share2 className="h-5 w-5 text-blue-600" />
+                  <Share2 className="h-5 w-5 text-dark-700" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Artifact Type</p>
-                    <p className="text-sm text-gray-600">{data.artifact_type || 'Document'}</p>
+                    <p className="text-sm font-medium text-dark-600">Artifact Type</p>
+                    <p className="text-sm text-dark-700">{data.artifact_type || 'Document'}</p>
                   </div>
                 </div>
               </div>
               {data.file_format && (
-                <div className="text-sm text-gray-600 mb-4">
+                <div className="text-sm text-dark-700 mb-4">
                   <strong>Format:</strong> {data.file_format.toUpperCase()}
                 </div>
               )}
               {data.file_size_bytes && (
-                <div className="text-sm text-gray-600 mb-4">
+                <div className="text-sm text-dark-700 mb-4">
                   <strong>Size:</strong> {(data.file_size_bytes / 1024 / 1024).toFixed(2)} MB
                 </div>
               )}
@@ -281,13 +281,13 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
       default: {
         return (
           <div className="max-w-5xl mx-auto">
-            <div className="bg-white rounded-lg shadow-lg p-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">{data.name || 'Shared Content'}</h1>
+            <div className="bg-dark-100 rounded-lg shadow-lg p-8">
+              <h1 className="text-3xl font-bold text-dark-600 mb-4">{data.name || 'Shared Content'}</h1>
               {data.descr && (
-                <p className="text-gray-700 mb-6">{data.descr}</p>
+                <p className="text-dark-600 mb-6">{data.descr}</p>
               )}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <pre className="text-sm text-gray-800 whitespace-pre-wrap">
+              <div className="bg-dark-100 rounded-lg p-4">
+                <pre className="text-sm text-dark-600 whitespace-pre-wrap">
                   {JSON.stringify(data, null, 2)}
                 </pre>
               </div>
@@ -299,13 +299,13 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-dark-100 py-8 px-4">
       {/* Header */}
       <div className="max-w-5xl mx-auto mb-6">
-        <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-lg">
+        <div className="bg-dark-100 border-l-4 border-dark-700 p-4 rounded-lg">
           <div className="flex items-center space-x-2">
-            <Share2 className="h-5 w-5 text-blue-600" />
-            <p className="text-sm text-blue-800">
+            <Share2 className="h-5 w-5 text-dark-700" />
+            <p className="text-sm text-dark-600">
               <strong>Shared Content</strong> - Viewing shared {entityType}
             </p>
           </div>
@@ -316,7 +316,7 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
       {renderEntityContent()}
 
       {/* Footer */}
-      <div className="max-w-5xl mx-auto mt-8 text-center text-sm text-gray-500">
+      <div className="max-w-5xl mx-auto mt-8 text-center text-sm text-dark-700">
         <p>Shared via PMO Enterprise Platform</p>
       </div>
     </div>

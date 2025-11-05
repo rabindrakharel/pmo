@@ -97,8 +97,8 @@ export function DragDropFileUpload({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6 space-y-4">
-      <h2 className="text-sm font-medium text-gray-900">{getTitle()}</h2>
+    <div className="bg-dark-100 rounded-lg shadow p-6 space-y-4">
+      <h2 className="text-sm font-medium text-dark-600">{getTitle()}</h2>
 
       {!selectedFile ? (
         <div
@@ -108,8 +108,8 @@ export function DragDropFileUpload({
           className={`
             border-2 border-dashed rounded-lg p-8 text-center transition-all
             ${isDragging
-              ? 'border-blue-500 bg-blue-50 scale-[1.02]'
-              : 'border-gray-300 bg-gray-50 hover:border-gray-300 hover:bg-gray-100'
+              ? 'border-dark-3000 bg-dark-100 scale-[1.02]'
+              : 'border-dark-400 bg-dark-100 hover:border-dark-400 hover:bg-dark-100'
             }
             ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           `}
@@ -126,42 +126,42 @@ export function DragDropFileUpload({
             htmlFor="entity-file-upload"
             className={disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
           >
-            <Upload className={`h-12 w-12 mx-auto mb-4 ${isDragging ? 'text-blue-500' : 'text-gray-400'}`} />
-            <p className="text-sm font-medium text-gray-700">
+            <Upload className={`h-12 w-12 mx-auto mb-4 ${isDragging ? 'text-dark-6000' : 'text-dark-600'}`} />
+            <p className="text-sm font-medium text-dark-600">
               {isDragging ? `Drop ${getLabel().toLowerCase()} here` : `Drop ${getLabel().toLowerCase()} here or click to browse`}
             </p>
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-dark-700 mt-2">
               {getDescription()}
             </p>
           </label>
         </div>
       ) : (
-        <div className="border border-gray-200 rounded-lg p-4">
+        <div className="border border-dark-300 rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
               {uploadedObjectKey ? (
                 <CheckCircle className="h-5 w-5 text-green-600" />
               ) : isUploading ? (
-                <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />
+                <Loader2 className="h-5 w-5 text-dark-700 animate-spin" />
               ) : (
-                <Upload className="h-5 w-5 text-blue-600" />
+                <Upload className="h-5 w-5 text-dark-700" />
               )}
               <div>
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-medium text-dark-600">
                   {selectedFile.name}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-dark-700">
                   {(selectedFile.size / 1024).toFixed(2)} KB
                 </p>
               </div>
             </div>
             <button
               onClick={onFileRemove}
-              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              className="p-1 hover:bg-dark-100 rounded transition-colors"
               disabled={isUploading}
               type="button"
             >
-              <X className="h-4 w-4 text-gray-400" />
+              <X className="h-4 w-4 text-dark-600" />
             </button>
           </div>
 
@@ -179,7 +179,7 @@ export function DragDropFileUpload({
           )}
 
           {isUploading && (
-            <div className="flex items-center space-x-2 text-sm text-blue-600">
+            <div className="flex items-center space-x-2 text-sm text-dark-700">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span>Uploading...</span>
             </div>

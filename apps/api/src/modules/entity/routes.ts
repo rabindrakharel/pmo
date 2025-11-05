@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { db } from '@/db/index.js';
+import { db, client } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -111,6 +111,28 @@ export async function entityRoutes(fastify: FastifyInstance) {
         entity.child_entities = [];
       }
 
+      // Filter out inactive child entities
+      if (entity.child_entities.length > 0) {
+        const childEntityCodes = entity.child_entities.map((c: any) => c.entity);
+
+        // Build IN clause with raw SQL
+        const placeholders = childEntityCodes.map((_: any, i: number) => `$${i + 1}`).join(', ');
+        const query = `
+          SELECT code
+          FROM app.d_entity
+          WHERE code IN (${placeholders})
+            AND active_flag = true
+        `;
+        const activeChildEntities = await client.unsafe(query, childEntityCodes);
+
+        const activeChildCodes = new Set(activeChildEntities.map((row: any) => row.code));
+
+        // Filter to only include active child entities
+        entity.child_entities = entity.child_entities.filter((c: any) =>
+          activeChildCodes.has(c.entity)
+        );
+      }
+
       return entity;
     } catch (error) {
       fastify.log.error('Error fetching entity type metadata:', error as any);
@@ -121,10 +143,15 @@ export async function entityRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/v1/entity/types
    * Get all entity TYPES with their metadata
+   * Query params:
+   *   - include_inactive: boolean (default: false) - include inactive entities
    */
   fastify.get('/api/v1/entity/types', {
     preHandler: [fastify.authenticate],
     schema: {
+      querystring: Type.Object({
+        include_inactive: Type.Optional(Type.Boolean())
+      }),
       response: {
         200: Type.Array(Type.Object({
           code: Type.String(),
@@ -144,20 +171,36 @@ export async function entityRoutes(fastify: FastifyInstance) {
       }
     }
   }, async (request, reply) => {
+    const { include_inactive } = request.query as { include_inactive?: boolean };
+
     try {
-      const result = await db.execute(sql`
-        SELECT
-          code,
-          name,
-          ui_label,
-          ui_icon,
-          display_order,
-          active_flag,
-          child_entities
-        FROM app.d_entity
-        WHERE active_flag = true
-        ORDER BY display_order ASC
-      `);
+      // Build query conditionally based on include_inactive parameter
+      const result = include_inactive
+        ? await db.execute(sql`
+            SELECT
+              code,
+              name,
+              ui_label,
+              ui_icon,
+              display_order,
+              active_flag,
+              child_entities
+            FROM app.d_entity
+            ORDER BY display_order ASC
+          `)
+        : await db.execute(sql`
+            SELECT
+              code,
+              name,
+              ui_label,
+              ui_icon,
+              display_order,
+              active_flag,
+              child_entities
+            FROM app.d_entity
+            WHERE active_flag = true
+            ORDER BY display_order ASC
+          `);
 
       // Parse child_entities JSONB and map results
       const mappedResult = result.map((row: any) => {
@@ -178,6 +221,24 @@ export async function entityRoutes(fastify: FastifyInstance) {
           active_flag: row.active_flag,
           child_entities: childEntities
         };
+      });
+
+      // Filter out inactive child entities for all entity types
+      // Get all active entity codes once for efficiency
+      const allActiveEntities = await db.execute(sql`
+        SELECT code
+        FROM app.d_entity
+        WHERE active_flag = true
+      `);
+      const activeEntityCodes = new Set(allActiveEntities.map((row: any) => row.code));
+
+      // Filter child_entities for each entity to only include active ones
+      mappedResult.forEach((entity: any) => {
+        if (entity.child_entities && entity.child_entities.length > 0) {
+          entity.child_entities = entity.child_entities.filter((c: any) =>
+            activeEntityCodes.has(c.entity)
+          );
+        }
       });
 
       return mappedResult;
@@ -259,6 +320,29 @@ export async function entityRoutes(fastify: FastifyInstance) {
       }
       if (!Array.isArray(childEntitiesMetadata)) {
         childEntitiesMetadata = [];
+      }
+
+      // Step 1.5: Filter out inactive child entities
+      // Query d_entity to get active status of all child entity types
+      if (childEntitiesMetadata.length > 0) {
+        const childEntityCodes = childEntitiesMetadata.map((c: any) => c.entity);
+
+        // Build IN clause with raw SQL
+        const placeholders = childEntityCodes.map((_: any, i: number) => `$${i + 1}`).join(', ');
+        const query = `
+          SELECT code
+          FROM app.d_entity
+          WHERE code IN (${placeholders})
+            AND active_flag = true
+        `;
+        const activeChildEntities = await client.unsafe(query, childEntityCodes);
+
+        const activeChildCodes = new Set(activeChildEntities.map((row: any) => row.code));
+
+        // Filter to only include active child entities
+        childEntitiesMetadata = childEntitiesMetadata.filter((c: any) =>
+          activeChildCodes.has(c.entity)
+        );
       }
 
       // Step 2: Get entity INSTANCE data from d_entity_instance_id and verify RBAC access
@@ -593,16 +677,17 @@ export async function entityRoutes(fastify: FastifyInstance) {
         return { success: true, data: result[0] };
       }
 
-      // Update using dynamic SQL
+      // Build SQL query with proper parameter binding using postgres client
+      values.push(code);
+
       const updateQuery = `
         UPDATE app.d_entity
         SET ${setClauses.join(', ')}
-        WHERE code = $${values.length + 1}
+        WHERE code = $${values.length}
         RETURNING code, name, ui_label, ui_icon, child_entities, display_order, active_flag
       `;
-      values.push(code);
 
-      const result = await db.execute(sql.raw(updateQuery, values));
+      const result = await client.unsafe(updateQuery, values);
 
       if (result.length === 0) {
         return reply.status(500).send({ error: 'Failed to update entity' });

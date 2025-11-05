@@ -245,13 +245,13 @@ export function ArtifactUploadPage() {
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate('/artifact')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-dark-100 rounded-lg transition-colors"
             >
-              <ArrowLeft className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+              <ArrowLeft className="h-5 w-5 text-dark-700 stroke-[1.5]" />
             </button>
             <div>
-              <h1 className="text-sm font-normal text-gray-800">Upload Artifacts</h1>
-              <p className="mt-1 text-sm text-gray-500">
+              <h1 className="text-sm font-normal text-dark-600">Upload Artifacts</h1>
+              <p className="mt-1 text-sm text-dark-700">
                 Upload files to cloud storage with metadata
               </p>
             </div>
@@ -298,8 +298,8 @@ export function ArtifactUploadPage() {
           onDrop={handleDrop}
           className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
             isDragging
-              ? 'border-blue-500 bg-blue-50'
-              : 'border-gray-300 bg-gray-50 hover:border-gray-300'
+              ? 'border-dark-3000 bg-dark-100'
+              : 'border-dark-400 bg-dark-100 hover:border-dark-400'
           }`}
         >
           <input
@@ -310,11 +310,11 @@ export function ArtifactUploadPage() {
             id="file-upload"
           />
           <label htmlFor="file-upload" className="cursor-pointer">
-            <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-sm font-medium text-gray-700">
+            <Upload className="h-12 w-12 text-dark-600 mx-auto mb-4" />
+            <p className="text-sm font-medium text-dark-600">
               Drop files here or click to browse
             </p>
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-dark-700 mt-2">
               Upload documents, photos, contracts, blueprints, and more
             </p>
           </label>
@@ -323,23 +323,23 @@ export function ArtifactUploadPage() {
         {/* File List */}
         {files.length > 0 && (
           <div className="space-y-4">
-            <h2 className="text-sm font-medium text-gray-700">
+            <h2 className="text-sm font-medium text-dark-600">
               Files ({files.length})
             </h2>
 
             {files.map((fileData) => (
               <div
                 key={fileData.id}
-                className="bg-white rounded-lg border border-gray-200 shadow-sm p-6"
+                className="bg-dark-100 rounded-lg border border-dark-300 shadow-sm p-6"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center space-x-3">
-                    <File className="h-5 w-5 text-gray-400" />
+                    <File className="h-5 w-5 text-dark-600" />
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium text-dark-600">
                         {fileData.file.name}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-dark-700">
                         {(fileData.file.size / 1024).toFixed(2)} KB
                       </p>
                     </div>
@@ -348,12 +348,12 @@ export function ArtifactUploadPage() {
                   <div className="flex items-center space-x-2">
                     {/* Upload Status */}
                     {fileData.uploadStatus === 'pending' && (
-                      <span className="text-xs text-gray-500">Pending</span>
+                      <span className="text-xs text-dark-700">Pending</span>
                     )}
                     {fileData.uploadStatus === 'uploading' && (
                       <div className="flex items-center space-x-2">
-                        <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
-                        <span className="text-xs text-blue-600">
+                        <Loader2 className="h-4 w-4 text-dark-700 animate-spin" />
+                        <span className="text-xs text-dark-700">
                           Uploading... {uploadProgress[fileData.id] || 0}%
                         </span>
                       </div>
@@ -373,10 +373,10 @@ export function ArtifactUploadPage() {
                     {/* Remove Button */}
                     <button
                       onClick={() => handleRemoveFile(fileData.id)}
-                      className="p-1 hover:bg-gray-100 rounded transition-colors"
+                      className="p-1 hover:bg-dark-100 rounded transition-colors"
                       disabled={fileData.uploadStatus === 'uploading'}
                     >
-                      <X className="h-4 w-4 text-gray-400" />
+                      <X className="h-4 w-4 text-dark-600" />
                     </button>
                   </div>
                 </div>
@@ -384,7 +384,7 @@ export function ArtifactUploadPage() {
                 {/* Metadata Fields */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-dark-600 mb-1">
                       Name <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -393,14 +393,14 @@ export function ArtifactUploadPage() {
                       onChange={(e) =>
                         handleMetadataChange(fileData.id, 'name', e.target.value)
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
                       placeholder="Enter artifact name"
                       disabled={fileData.uploadStatus === 'uploaded'}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-dark-600 mb-1">
                       Type
                     </label>
                     <select
@@ -408,7 +408,7 @@ export function ArtifactUploadPage() {
                       onChange={(e) =>
                         handleMetadataChange(fileData.id, 'artifact_type', e.target.value)
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
                       disabled={fileData.uploadStatus === 'uploaded'}
                     >
                       {ARTIFACT_TYPES.map(type => (
@@ -420,7 +420,7 @@ export function ArtifactUploadPage() {
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-dark-600 mb-1">
                       Description
                     </label>
                     <textarea
@@ -429,14 +429,14 @@ export function ArtifactUploadPage() {
                         handleMetadataChange(fileData.id, 'descr', e.target.value)
                       }
                       rows={2}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
                       placeholder="Enter description (optional)"
                       disabled={fileData.uploadStatus === 'uploaded'}
                     />
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-dark-600 mb-1">
                       Tags (comma-separated)
                     </label>
                     <input
@@ -449,7 +449,7 @@ export function ArtifactUploadPage() {
                           e.target.value.split(',').map(t => t.trim()).filter(Boolean)
                         )
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
                       placeholder="e.g., contract, legal, 2024"
                       disabled={fileData.uploadStatus === 'uploaded'}
                     />
@@ -477,7 +477,7 @@ export function ArtifactUploadPage() {
         {/* Empty State */}
         {files.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-dark-700">
               No files selected. Drop files above or click to browse.
             </p>
           </div>

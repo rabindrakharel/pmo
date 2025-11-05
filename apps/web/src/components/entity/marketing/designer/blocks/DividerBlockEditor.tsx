@@ -15,7 +15,7 @@ interface DividerBlockEditorProps {
 
 export function DividerBlockEditor({ block, onUpdate }: DividerBlockEditorProps) {
   return (
-    <div className="border-b border-gray-200">
+    <div className="border-b border-dark-300">
       {/* Divider Preview */}
       <div className="p-8">
         <hr
@@ -30,23 +30,23 @@ export function DividerBlockEditor({ block, onUpdate }: DividerBlockEditorProps)
       </div>
 
       {/* Divider Settings */}
-      <div className="bg-gray-50 px-3 py-2 grid grid-cols-4 gap-2 text-xs">
+      <div className="bg-dark-100 px-3 py-2 grid grid-cols-4 gap-2 text-xs">
         <div>
-          <label className="text-gray-600 block mb-1">Width</label>
+          <label className="text-dark-700 block mb-1">Width</label>
           <input
             type="text"
             value={block.styles?.borderWidth || '1px'}
             onChange={(e) => onUpdate({ styles: { ...block.styles, borderWidth: e.target.value } })}
-            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+            className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
             placeholder="1px"
           />
         </div>
         <div>
-          <label className="text-gray-600 block mb-1">Style</label>
+          <label className="text-dark-700 block mb-1">Style</label>
           <select
             value={block.styles?.borderStyle || 'solid'}
             onChange={(e) => onUpdate({ styles: { ...block.styles, borderStyle: e.target.value } })}
-            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+            className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
           >
             <option value="solid">Solid</option>
             <option value="dashed">Dashed</option>
@@ -54,29 +54,29 @@ export function DividerBlockEditor({ block, onUpdate }: DividerBlockEditorProps)
           </select>
         </div>
         <div>
-          <label className="text-gray-600 block mb-1">Color</label>
+          <label className="text-dark-700 block mb-1">Color</label>
           <div className="flex items-center space-x-1">
             <input
               type="color"
               value={block.styles?.borderColor || '#dee2e6'}
               onChange={(e) => onUpdate({ styles: { ...block.styles, borderColor: e.target.value } })}
-              className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
+              className="w-8 h-8 border border-dark-400 rounded cursor-pointer"
             />
             <input
               type="text"
               value={block.styles?.borderColor || '#dee2e6'}
               onChange={(e) => onUpdate({ styles: { ...block.styles, borderColor: e.target.value } })}
-              className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs"
+              className="flex-1 px-2 py-1 border border-dark-400 rounded text-xs"
             />
           </div>
         </div>
         <div>
-          <label className="text-gray-600 block mb-1">Margin</label>
+          <label className="text-dark-700 block mb-1">Margin</label>
           <input
             type="text"
             value={block.styles?.margin || '20px 0'}
             onChange={(e) => onUpdate({ styles: { ...block.styles, margin: e.target.value } })}
-            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+            className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
             placeholder="20px 0"
           />
         </div>

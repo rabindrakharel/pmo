@@ -128,28 +128,28 @@ export function DataTableBase<T = any>({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-dark-100 rounded-lg shadow-sm border border-dark-300">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-300"></div>
-          <span className="ml-3 text-gray-600">Loading...</span>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-400"></div>
+          <span className="ml-3 text-dark-700">Loading...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`border border-gray-200 rounded-lg ${className}`}>
+    <div className={`border border-dark-300 rounded-lg ${className}`}>
       {/* Scrollable table container */}
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="min-w-full divide-y divide-dark-400">
           {/* Table Header */}
-          <thead className="bg-gray-50">
+          <thead className="bg-dark-100">
             <tr>
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                    col.sortable && !allowReordering ? 'cursor-pointer hover:bg-gray-100' : ''
+                  className={`px-6 py-3 text-left text-xs font-medium text-dark-700 uppercase tracking-wider ${
+                    col.sortable && !allowReordering ? 'cursor-pointer hover:bg-dark-100' : ''
                   } transition-colors`}
                   style={{ width: col.width, textAlign: col.align || 'left' }}
                   onClick={() => col.sortable && !allowReordering && onSort(col.key)}
@@ -164,7 +164,7 @@ export function DataTableBase<T = any>({
           </thead>
 
           {/* Table Body */}
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-dark-100 divide-y divide-dark-400">
             {data.map((record, index) => {
               const rowKey = getRowKey(record, index);
               const isEditing = editingRowId === rowKey;
@@ -177,7 +177,7 @@ export function DataTableBase<T = any>({
                   {isDragOver && draggedIndex !== null && (
                     <tr className="relative pointer-events-none">
                       <td colSpan={columns.length} className="p-0 h-0">
-                        <div className="absolute left-0 right-0 h-1 bg-gray-500 shadow-lg z-50"
+                        <div className="absolute left-0 right-0 h-1 bg-dark-1000 shadow-lg z-50"
                              style={{ top: '-2px' }}
                         />
                       </td>
@@ -186,9 +186,9 @@ export function DataTableBase<T = any>({
 
                   <tr
                     className={`transition-all ${
-                      isDragging ? 'opacity-40 bg-gray-100' :
-                      isEditing ? 'bg-gray-50' :
-                      'hover:bg-gray-50'
+                      isDragging ? 'opacity-40 bg-dark-100' :
+                      isEditing ? 'bg-dark-100' :
+                      'hover:bg-dark-100'
                     } ${allowReordering && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}`}
                     draggable={allowReordering && !isEditing}
                     onDragStart={(e) => onDragStart?.(e, index)}
@@ -215,7 +215,7 @@ export function DataTableBase<T = any>({
                                     e.stopPropagation();
                                     onSaveEdit?.(record);
                                   }}
-                                  className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                                  className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
                                   title="Save"
                                 >
                                   <Check className="h-4 w-4" />
@@ -225,7 +225,7 @@ export function DataTableBase<T = any>({
                                     e.stopPropagation();
                                     onCancelEdit?.();
                                   }}
-                                  className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                                  className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
                                   title="Cancel"
                                 >
                                   <X className="h-4 w-4" />
@@ -259,7 +259,7 @@ export function DataTableBase<T = any>({
 
         {/* Empty state */}
         {data.length === 0 && !allowAddRow && (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12 text-dark-700">
             No data available
           </div>
         )}
@@ -267,13 +267,13 @@ export function DataTableBase<T = any>({
 
       {/* Add Row Button/Form - Prominent styling */}
       {allowAddRow && (
-        <div className="border-t border-gray-200 bg-gray-50">
+        <div className="border-t border-dark-300 bg-dark-100">
           {!isAddingRow ? (
             <button
               onClick={onStartAddRow}
-              className="w-full px-6 py-3.5 text-left text-sm font-medium text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors flex items-center gap-2 group"
+              className="w-full px-6 py-3.5 text-left text-sm font-medium text-dark-700 hover:bg-dark-100 hover:text-dark-700 transition-colors flex items-center gap-2 group"
             >
-              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 group-hover:bg-blue-200 transition-colors">
+              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-dark-100 group-hover:bg-dark-200 transition-colors">
                 <Plus className="h-4 w-4" />
               </div>
               <span>Add new row</span>
@@ -286,14 +286,14 @@ export function DataTableBase<T = any>({
               <div className="flex items-center gap-2 mt-4">
                 <button
                   onClick={onSaveAddRow}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 bg-white rounded-md hover:bg-gray-50 hover:border-gray-400 transition-colors text-sm shadow-sm"
+                  className="flex items-center gap-2 px-4 py-2 border border-dark-400 text-dark-600 bg-dark-100 rounded-md hover:bg-dark-100 hover:border-dark-500 transition-colors text-sm shadow-sm"
                 >
                   <Check className="h-4 w-4" />
                   Save
                 </button>
                 <button
                   onClick={onCancelAddRow}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-600 bg-white rounded-md hover:bg-gray-50 hover:border-gray-400 transition-colors text-sm"
+                  className="flex items-center gap-2 px-4 py-2 border border-dark-400 text-dark-700 bg-dark-100 rounded-md hover:bg-dark-100 hover:border-dark-500 transition-colors text-sm"
                 >
                   <X className="h-4 w-4" />
                   Cancel
@@ -333,7 +333,7 @@ export function ActionButtons<T>({
             e.stopPropagation();
             onEdit(record);
           }}
-          className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+          className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
           title="Edit"
         >
           <Edit className="h-4 w-4" />

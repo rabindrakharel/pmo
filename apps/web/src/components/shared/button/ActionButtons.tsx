@@ -55,8 +55,8 @@ export function EditButton({
   const baseClasses = 'inline-flex items-center font-normal rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
 
   const variantClasses = variant === 'primary'
-    ? 'text-white bg-blue-600 border border-blue-600 hover:bg-blue-700 focus:ring-blue-500'
-    : 'text-blue-600 bg-white border border-blue-600 hover:bg-blue-50 focus:ring-blue-500';
+    ? 'text-white bg-dark-700 border border-dark-700 hover:bg-dark-800 focus:ring-dark-7000'
+    : 'text-dark-700 bg-dark-100 border border-dark-700 hover:bg-dark-100 focus:ring-dark-7000';
 
   const disabledClasses = disabled ? 'opacity-50 cursor-not-allowed' : '';
 
@@ -82,8 +82,8 @@ export function ShareButton({
   const baseClasses = 'inline-flex items-center font-normal rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
 
   const variantClasses = variant === 'primary'
-    ? 'text-white bg-gray-600 border border-gray-300 hover:bg-gray-700 focus:ring-gray-500'
-    : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-blue-500';
+    ? 'text-white bg-dark-600 border border-dark-400 hover:bg-dark-700 focus:ring-gray-500'
+    : 'text-dark-600 bg-dark-100 border border-dark-400 hover:bg-dark-100 focus:ring-dark-7000';
 
   const disabledClasses = disabled ? 'opacity-50 cursor-not-allowed' : '';
 
@@ -108,7 +108,7 @@ export function SaveButton({
   className = ''
 }: SaveButtonProps) {
   const baseClasses = 'inline-flex items-center font-normal rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
-  const variantClasses = 'text-white bg-blue-600 border border-blue-600 hover:bg-blue-700 focus:ring-blue-500';
+  const variantClasses = 'text-white bg-dark-700 border border-dark-700 hover:bg-dark-800 focus:ring-dark-7000';
   const disabledClasses = (disabled || loading) ? 'opacity-50 cursor-not-allowed' : '';
 
   return (
@@ -140,7 +140,7 @@ export function BackButton({
   className = ''
 }: BackButtonProps) {
   const baseClasses = 'rounded-lg flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
-  const variantClasses = 'bg-white border border-gray-300 hover:bg-gray-50 focus:ring-blue-500';
+  const variantClasses = 'bg-dark-100 border border-dark-400 hover:bg-dark-100 focus:ring-dark-7000';
   const disabledClasses = disabled ? 'opacity-50 cursor-not-allowed' : '';
 
   const sizeClasses = size === 'sm' ? 'h-8 w-8' : size === 'lg' ? 'h-12 w-12' : 'h-10 w-10';
@@ -164,7 +164,7 @@ export function CancelButton({
   className = ''
 }: CancelButtonProps) {
   const baseClasses = 'inline-flex items-center font-normal rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
-  const variantClasses = 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-blue-500';
+  const variantClasses = 'text-dark-600 bg-dark-100 border border-dark-400 hover:bg-dark-100 focus:ring-dark-7000';
   const disabledClasses = disabled ? 'opacity-50 cursor-not-allowed' : '';
 
   return (

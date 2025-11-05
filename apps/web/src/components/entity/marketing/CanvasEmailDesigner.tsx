@@ -186,16 +186,16 @@ export function CanvasEmailDesigner({ template, onSave }: CanvasEmailDesignerPro
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
+    <div className="flex flex-col h-screen bg-dark-100">
       {/* Top Toolbar */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm">
+      <div className="bg-dark-100 border-b border-dark-300 px-6 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center space-x-4">
-          <h2 className="text-lg font-semibold text-gray-900">{template.name}</h2>
-          <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
+          <h2 className="text-lg font-semibold text-dark-600">{template.name}</h2>
+          <div className="flex items-center space-x-1 bg-dark-100 rounded-lg p-1">
             <button
               onClick={() => setViewMode('design')}
               className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                viewMode === 'design' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                viewMode === 'design' ? 'bg-dark-100 text-dark-600 shadow-sm' : 'text-dark-700 hover:text-dark-600'
               }`}
             >
               Design
@@ -203,7 +203,7 @@ export function CanvasEmailDesigner({ template, onSave }: CanvasEmailDesignerPro
             <button
               onClick={() => setViewMode('preview')}
               className={`px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center space-x-1 ${
-                viewMode === 'preview' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                viewMode === 'preview' ? 'bg-dark-100 text-dark-600 shadow-sm' : 'text-dark-700 hover:text-dark-600'
               }`}
             >
               <Eye className="h-4 w-4" />
@@ -214,7 +214,7 @@ export function CanvasEmailDesigner({ template, onSave }: CanvasEmailDesignerPro
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
+          className="px-4 py-2 bg-dark-700 text-white rounded-lg text-sm font-medium hover:bg-dark-800 transition-colors flex items-center space-x-2 disabled:opacity-50"
         >
           <Save className="h-4 w-4" />
           <span>{isSaving ? 'Saving...' : 'Save'}</span>
@@ -229,9 +229,9 @@ export function CanvasEmailDesigner({ template, onSave }: CanvasEmailDesignerPro
         )}
 
         {/* Canvas Area */}
-        <div className="flex-1 overflow-auto bg-gray-200 p-8">
+        <div className="flex-1 overflow-auto bg-dark-200 p-8">
           <div
-            className="mx-auto bg-white shadow-2xl relative"
+            className="mx-auto bg-dark-100 shadow-2xl relative"
             style={{
               width: `${schema.canvasWidth}px`,
               height: `${schema.canvasHeight}px`,
@@ -253,7 +253,7 @@ export function CanvasEmailDesigner({ template, onSave }: CanvasEmailDesignerPro
             ))}
 
             {schema.elements.length === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+              <div className="absolute inset-0 flex items-center justify-center text-dark-600">
                 <div className="text-center">
                   <p className="text-lg font-medium mb-2">Your canvas is empty</p>
                   <p className="text-sm">Add elements from the toolbar on the left</p>

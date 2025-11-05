@@ -11,7 +11,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000
 export interface SettingOption {
   value: string | number;
   label: string;
-  colorClass?: string; // Badge color class (e.g., 'bg-blue-100 text-blue-800')
+  colorClass?: string; // Badge color class (e.g., 'bg-dark-100 text-dark-600')
   metadata?: {
     level_id?: number;
     level_descr?: string;
@@ -28,13 +28,13 @@ function colorCodeToTailwindClass(colorCode: string | null | undefined): string 
   if (!colorCode) return undefined;
 
   const colorMap: Record<string, string> = {
-    blue: 'bg-blue-100 text-blue-800',
+    blue: 'bg-dark-100 text-dark-600',
     purple: 'bg-purple-100 text-purple-800',
     yellow: 'bg-yellow-100 text-yellow-800',
     orange: 'bg-orange-100 text-orange-800',
     green: 'bg-green-100 text-green-800',
     red: 'bg-red-100 text-red-800',
-    gray: 'bg-gray-100 text-gray-800',
+    gray: 'bg-dark-100 text-dark-600',
     cyan: 'bg-cyan-100 text-cyan-800',
     indigo: 'bg-indigo-100 text-indigo-800',
     amber: 'bg-amber-100 text-amber-800',
@@ -42,7 +42,7 @@ function colorCodeToTailwindClass(colorCode: string | null | undefined): string 
     emerald: 'bg-emerald-100 text-emerald-800',
   };
 
-  return colorMap[colorCode.toLowerCase()] || 'bg-gray-100 text-gray-800';
+  return colorMap[colorCode.toLowerCase()] || 'bg-dark-100 text-dark-600';
 }
 
 // In-memory cache for settings to avoid repeated API calls

@@ -83,19 +83,19 @@ export function PublicFormPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      <div className="min-h-screen bg-dark-100 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-dark-700" />
       </div>
     );
   }
 
   if (error && !form) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-dark-100 flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-500 stroke-[1.5] mx-auto mb-4" />
-          <h3 className="text-sm font-normal text-gray-900 mb-2">Error</h3>
-          <p className="text-gray-600">{error}</p>
+          <h3 className="text-sm font-normal text-dark-600 mb-2">Error</h3>
+          <p className="text-dark-700">{error}</p>
         </div>
       </div>
     );
@@ -103,17 +103,17 @@ export function PublicFormPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+      <div className="min-h-screen bg-dark-100 flex items-center justify-center">
+        <div className="max-w-md w-full bg-dark-100 rounded-lg shadow-lg p-8 text-center">
           <CheckCircle className="h-16 w-16 text-green-500 stroke-[1.5] mx-auto mb-4" />
-          <h2 className="text-sm font-normal text-gray-900 mb-2">Thank You!</h2>
-          <p className="text-gray-600 mb-6">Your form has been submitted successfully.</p>
+          <h2 className="text-sm font-normal text-dark-600 mb-2">Thank You!</h2>
+          <p className="text-dark-700 mb-6">Your form has been submitted successfully.</p>
           <button
             onClick={() => {
               setSubmitted(false);
               setFormData({});
             }}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-6 py-2 bg-dark-700 text-white rounded-lg hover:bg-dark-800"
           >
             Submit Another Response
           </button>
@@ -133,14 +133,14 @@ export function PublicFormPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-dark-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className="bg-dark-100 rounded-lg shadow-lg overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-6">
+          <div className="bg-gradient-to-r from-dark-700 to-purple-600 px-8 py-6">
             <h1 className="text-sm font-normal text-white">{form?.name}</h1>
             {form?.descr && (
-              <p className="mt-2 text-blue-100">{form.descr}</p>
+              <p className="mt-2 text-dark-600">{form.descr}</p>
             )}
           </div>
 
@@ -158,7 +158,7 @@ export function PublicFormPage() {
             <form onSubmit={handleSubmit} className="space-y-6">
               {fields.map((field: any) => (
                 <div key={field.id || field.name}>
-                  <label className="block text-sm font-normal text-gray-700 mb-2">
+                  <label className="block text-sm font-normal text-dark-600 mb-2">
                     {field.label || field.name}
                     {field.required && <span className="text-red-500 ml-1">*</span>}
                   </label>
@@ -170,7 +170,7 @@ export function PublicFormPage() {
                       placeholder={field.placeholder}
                       value={formData[field.name] || ''}
                       onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
                       rows={4}
                     />
                   ) : field.type === 'select' ? (
@@ -179,7 +179,7 @@ export function PublicFormPage() {
                       required={field.required}
                       value={formData[field.name] || ''}
                       onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
                     >
                       <option value="">Select...</option>
                       {field.options?.map((opt: any) => (
@@ -196,7 +196,7 @@ export function PublicFormPage() {
                       placeholder={field.placeholder}
                       value={formData[field.name] || ''}
                       onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
                     />
                   )}
                 </div>
@@ -206,7 +206,7 @@ export function PublicFormPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-normal hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-dark-700 text-white py-3 px-6 rounded-lg font-normal hover:bg-dark-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submitting ? 'Submitting...' : 'Submit'}
                 </button>

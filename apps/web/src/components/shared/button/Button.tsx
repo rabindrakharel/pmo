@@ -33,11 +33,11 @@ export function Button({
 
   const variantClasses = {
     // All buttons now use light gray border style (per user requirement - no shadows)
-    primary: 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 focus:ring-gray-400 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200',
-    secondary: 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 focus:ring-gray-400 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200',
-    danger: 'border-red-500 text-white bg-gradient-to-b from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 focus:ring-red-400 disabled:bg-gradient-to-b disabled:from-gray-300 disabled:to-gray-300 disabled:border-gray-300 disabled:text-gray-500',
-    success: 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 focus:ring-gray-400 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200',
-    ghost: 'border-transparent text-gray-700 hover:bg-gray-100 focus:ring-gray-400 disabled:text-gray-400',
+    primary: 'border-dark-400 text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 focus:ring-dark-700 disabled:bg-dark-100 disabled:text-dark-600 disabled:border-dark-300',
+    secondary: 'border-dark-400 text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 focus:ring-dark-700 disabled:bg-dark-100 disabled:text-dark-600 disabled:border-dark-300',
+    danger: 'border-red-500 text-white bg-gradient-to-b from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 focus:ring-red-400 disabled:bg-gradient-to-b disabled:from-dark-300 disabled:to-dark-300 disabled:border-dark-400 disabled:text-dark-700',
+    success: 'border-dark-400 text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 focus:ring-dark-700 disabled:bg-dark-100 disabled:text-dark-600 disabled:border-dark-300',
+    ghost: 'border-transparent text-dark-600 hover:bg-dark-100 focus:ring-dark-700 disabled:text-dark-600',
   };
 
   const sizeClasses = {
@@ -147,9 +147,9 @@ export function ActionBar({
   className = '',
 }: ActionBarProps) {
   return (
-    <div className={`flex items-center justify-between bg-white px-6 py-4 border-b border-gray-200 ${className}`}>
+    <div className={`flex items-center justify-between bg-dark-100 px-6 py-4 border-b border-dark-300 ${className}`}>
       <div className="flex items-center space-x-4">
-        {title && <h2 className="text-sm font-normal text-gray-900">{title}</h2>}
+        {title && <h2 className="text-sm font-normal text-dark-600">{title}</h2>}
         {scopeFilters}
       </div>
       <div className="flex items-center space-x-3">

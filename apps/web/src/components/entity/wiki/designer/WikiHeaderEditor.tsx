@@ -30,7 +30,7 @@ export function WikiHeaderEditor({
   const getCoverGradient = (coverValue: string) => {
     switch (coverValue) {
       case 'gradient-blue':
-        return 'bg-gradient-to-r from-blue-500 to-indigo-600';
+        return 'bg-gradient-to-r from-dark-700 to-indigo-600';
       case 'gradient-purple':
         return 'bg-gradient-to-r from-purple-500 to-pink-600';
       case 'gradient-green':
@@ -38,18 +38,18 @@ export function WikiHeaderEditor({
       case 'gradient-orange':
         return 'bg-gradient-to-r from-orange-500 to-red-600';
       case 'solid-gray':
-        return 'bg-gray-500';
+        return 'bg-dark-1000';
       default:
-        return 'bg-gradient-to-r from-blue-500 to-indigo-600';
+        return 'bg-gradient-to-r from-dark-700 to-indigo-600';
     }
   };
 
   const coverOptions = [
-    { value: 'gradient-blue', label: 'Blue', class: 'bg-gradient-to-r from-blue-500 to-indigo-600' },
+    { value: 'gradient-blue', label: 'Blue', class: 'bg-gradient-to-r from-dark-700 to-indigo-600' },
     { value: 'gradient-purple', label: 'Purple', class: 'bg-gradient-to-r from-purple-500 to-pink-600' },
     { value: 'gradient-green', label: 'Green', class: 'bg-gradient-to-r from-green-500 to-teal-600' },
     { value: 'gradient-orange', label: 'Orange', class: 'bg-gradient-to-r from-orange-500 to-red-600' },
-    { value: 'solid-gray', label: 'Gray', class: 'bg-gray-500' },
+    { value: 'solid-gray', label: 'Gray', class: 'bg-dark-1000' },
   ];
 
   const formatUpdatedTime = (dateString: string) => {
@@ -111,7 +111,7 @@ export function WikiHeaderEditor({
 
         {/* Cover picker hint */}
         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-lg shadow-lg flex items-center space-x-2 text-sm text-gray-700">
+          <div className="bg-dark-100/90 backdrop-blur-sm px-3 py-1.5 rounded-lg shadow-lg flex items-center space-x-2 text-sm text-dark-600">
             <ImageIcon className="h-4 w-4" />
             <span>Click to change cover</span>
           </div>
@@ -120,10 +120,10 @@ export function WikiHeaderEditor({
         {/* Cover picker dropdown */}
         {showCoverPicker && (
           <div
-            className="absolute top-4 left-4 bg-white rounded-lg shadow-xl p-3 z-10"
+            className="absolute top-4 left-4 bg-dark-100 rounded-lg shadow-xl p-3 z-10"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-xs font-semibold text-gray-600 mb-2">Choose Cover</div>
+            <div className="text-xs font-semibold text-dark-700 mb-2">Choose Cover</div>
             <div className="space-y-2">
               {coverOptions.map((option) => (
                 <button
@@ -133,11 +133,11 @@ export function WikiHeaderEditor({
                     setShowCoverPicker(false);
                   }}
                   className={`w-full flex items-center space-x-2 p-2 rounded-lg border-2 transition-all ${
-                    cover === option.value ? 'border-blue-500 bg-blue-50' : 'border-transparent hover:border-gray-300'
+                    cover === option.value ? 'border-dark-3000 bg-dark-100' : 'border-transparent hover:border-dark-400'
                   }`}
                 >
                   <div className={`w-6 h-6 rounded ${option.class}`} />
-                  <span className="text-sm text-gray-700">{option.label}</span>
+                  <span className="text-sm text-dark-600">{option.label}</span>
                 </button>
               ))}
             </div>
@@ -146,21 +146,21 @@ export function WikiHeaderEditor({
       </div>
 
       {/* Title and Metadata Section */}
-      <div className="px-16 py-8 bg-white border-b border-gray-200">
+      <div className="px-16 py-8 bg-dark-100 border-b border-dark-300">
         {/* Editable Title */}
         <input
           type="text"
           value={title}
           onChange={(e) => onUpdateTitle(e.target.value)}
           placeholder="Untitled Page"
-          className="w-full text-5xl font-bold text-gray-900 placeholder-gray-300 border-none outline-none focus:ring-0 mb-6 bg-transparent"
+          className="w-full text-5xl font-bold text-dark-600 placeholder-gray-300 border-none outline-none focus:ring-0 mb-6 bg-transparent"
           style={{
             fontFamily: '"Inter", "Segoe UI", system-ui, sans-serif',
           }}
         />
 
         {/* Metadata Line */}
-        <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500">
+        <div className="flex flex-wrap items-center gap-6 text-sm text-dark-700">
           <div className="flex items-center space-x-2">
             <User className="h-4 w-4" />
             <span>{author}</span>

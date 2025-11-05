@@ -105,9 +105,9 @@ export function UniversalBlock({
       style={{ ...dragStyle, ...style }}
       className={`
         universal-block group relative
-        ${isSelected ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
+        ${isSelected ? 'ring-2 ring-dark-7000 ring-offset-2' : ''}
         ${isHidden ? 'opacity-50' : ''}
-        ${isHovered ? 'bg-blue-50/30' : ''}
+        ${isHovered ? 'bg-dark-100/30' : ''}
         ${className}
       `}
       onMouseEnter={() => setIsHovered(true)}
@@ -127,11 +127,11 @@ export function UniversalBlock({
             <button
               {...attributes}
               {...listeners}
-              className="p-1 rounded bg-white border border-gray-300 shadow-sm hover:bg-gray-50 cursor-grab active:cursor-grabbing transition-colors"
+              className="p-1 rounded bg-dark-100 border border-dark-400 shadow-sm hover:bg-dark-100 cursor-grab active:cursor-grabbing transition-colors"
               title="Drag to reorder"
               aria-label="Drag handle"
             >
-              <GripVertical className="h-4 w-4 text-gray-400" />
+              <GripVertical className="h-4 w-4 text-dark-600" />
             </button>
           )}
 
@@ -143,16 +143,16 @@ export function UniversalBlock({
                   e.stopPropagation();
                   setShowContextMenu(!showContextMenu);
                 }}
-                className="p-1 rounded bg-white border border-gray-300 shadow-sm hover:bg-gray-50 transition-colors"
+                className="p-1 rounded bg-dark-100 border border-dark-400 shadow-sm hover:bg-dark-100 transition-colors"
                 title="More actions"
                 aria-label="Block actions menu"
               >
-                <MoreVertical className="h-4 w-4 text-gray-400" />
+                <MoreVertical className="h-4 w-4 text-dark-600" />
               </button>
 
               {/* Context Menu */}
               {showContextMenu && (
-                <div className="absolute left-full ml-2 top-0 bg-white border border-gray-300 rounded-lg shadow-xl z-50 min-w-[180px] py-1">
+                <div className="absolute left-full ml-2 top-0 bg-dark-100 border border-dark-400 rounded-lg shadow-xl z-50 min-w-[180px] py-1">
                   {onMoveUp && (
                     <button
                       onClick={(e) => {
@@ -160,7 +160,7 @@ export function UniversalBlock({
                         onMoveUp();
                         setShowContextMenu(false);
                       }}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-dark-100 flex items-center gap-2"
                     >
                       <ChevronUp className="h-4 w-4" />
                       Move Up
@@ -173,7 +173,7 @@ export function UniversalBlock({
                         onMoveDown();
                         setShowContextMenu(false);
                       }}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-dark-100 flex items-center gap-2"
                     >
                       <ChevronDown className="h-4 w-4" />
                       Move Down
@@ -181,14 +181,14 @@ export function UniversalBlock({
                   )}
                   {onDuplicate && (
                     <>
-                      <div className="h-px bg-gray-200 my-1" />
+                      <div className="h-px bg-dark-200 my-1" />
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onDuplicate();
                           setShowContextMenu(false);
                         }}
-                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-dark-100 flex items-center gap-2"
                       >
                         <Copy className="h-4 w-4" />
                         Duplicate
@@ -202,7 +202,7 @@ export function UniversalBlock({
                         onToggleVisibility();
                         setShowContextMenu(false);
                       }}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-dark-100 flex items-center gap-2"
                     >
                       {isHidden ? (
                         <>
@@ -224,7 +224,7 @@ export function UniversalBlock({
                         onToggleLock();
                         setShowContextMenu(false);
                       }}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-dark-100 flex items-center gap-2"
                     >
                       {isLocked ? (
                         <>
@@ -241,7 +241,7 @@ export function UniversalBlock({
                   )}
                   {onDelete && (
                     <>
-                      <div className="h-px bg-gray-200 my-1" />
+                      <div className="h-px bg-dark-200 my-1" />
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -276,7 +276,7 @@ export function UniversalBlock({
 
       {/* Hover Border Indicator */}
       {(isHovered || isSelected) && !isLocked && (
-        <div className="absolute inset-0 border-2 border-blue-400/30 rounded pointer-events-none" />
+        <div className="absolute inset-0 border-2 border-dark-600/30 rounded pointer-events-none" />
       )}
     </div>
   );

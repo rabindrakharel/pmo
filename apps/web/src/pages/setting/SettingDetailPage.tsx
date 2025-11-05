@@ -248,10 +248,10 @@ export function SettingDetailPage() {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto">
-          <div className="bg-white shadow rounded-lg p-6">
+          <div className="bg-dark-100 shadow rounded-lg p-6">
             <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-3 text-sm text-gray-600">Loading...</span>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700"></div>
+              <span className="ml-3 text-sm text-dark-700">Loading...</span>
             </div>
           </div>
         </div>
@@ -263,8 +263,8 @@ export function SettingDetailPage() {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto">
-          <div className="bg-white shadow rounded-lg p-6">
-            <p className="text-sm text-gray-600">{error || 'Setting not found'}</p>
+          <div className="bg-dark-100 shadow rounded-lg p-6">
+            <p className="text-sm text-dark-700">{error || 'Setting not found'}</p>
           </div>
         </div>
       </Layout>
@@ -276,15 +276,15 @@ export function SettingDetailPage() {
   return (
     <Layout>
       <div className="max-w-7xl mx-auto">
-        <div className="bg-white shadow rounded-lg">
+        <div className="bg-dark-100 shadow rounded-lg">
           <div className="px-4 py-5 sm:p-6">
             {/* Header */}
             <div className="flex items-center mb-6">
               <ExitButton onClick={exitSettingsMode} className="mr-3" />
-              <IconComponent className="h-5 w-5 text-gray-600 stroke-[1.5] mr-3" />
+              <IconComponent className="h-5 w-5 text-dark-700 stroke-[1.5] mr-3" />
               <div className="flex-1">
-                <h1 className="text-sm font-normal text-gray-900">{config.title}</h1>
-                <p className="text-sm text-gray-600">Manage {config.title.toLowerCase()} settings</p>
+                <h1 className="text-sm font-normal text-dark-600">{config.title}</h1>
+                <p className="text-sm text-dark-700">Manage {config.title.toLowerCase()} settings</p>
               </div>
             </div>
 

@@ -310,17 +310,17 @@ export function RBACButton({
 
   const variantClasses = {
     primary: hasPermission
-      ? 'border-blue-600 text-white bg-blue-600 hover:bg-blue-700 hover:border-blue-700 focus:ring-blue-500'
-      : 'border-gray-300 bg-gray-300 text-gray-500 cursor-not-allowed',
+      ? 'border-dark-700 text-white bg-dark-700 hover:bg-dark-800 hover:border-dark-800 focus:ring-dark-7000'
+      : 'border-dark-400 bg-dark-300 text-dark-700 cursor-not-allowed',
     secondary: hasPermission
-      ? 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 focus:ring-gray-500'
-      : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed',
+      ? 'border-dark-400 text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 focus:ring-gray-500'
+      : 'border-dark-300 bg-dark-100 text-dark-600 cursor-not-allowed',
     danger: hasPermission
       ? 'border-red-600 text-white bg-red-600 hover:bg-red-700 hover:border-red-700 focus:ring-red-500'
-      : 'border-gray-300 bg-gray-300 text-gray-500 cursor-not-allowed',
+      : 'border-dark-400 bg-dark-300 text-dark-700 cursor-not-allowed',
     ghost: hasPermission
-      ? 'border-transparent text-gray-700 hover:bg-gray-50 focus:ring-gray-500'
-      : 'border-transparent text-gray-400 cursor-not-allowed',
+      ? 'border-transparent text-dark-600 hover:bg-dark-100 focus:ring-gray-500'
+      : 'border-transparent text-dark-600 cursor-not-allowed',
   };
 
   const sizeClasses = {
@@ -453,9 +453,9 @@ export function ActionBar({
   className = '',
 }: ActionBarProps) {
   return (
-    <div className={`flex items-center justify-between bg-white px-6 py-4 border-b border-gray-200 ${className}`}>
+    <div className={`flex items-center justify-between bg-dark-100 px-6 py-4 border-b border-dark-300 ${className}`}>
       <div className="flex items-center space-x-4">
-        {title && <h2 className="text-sm font-normal text-gray-900">{title}</h2>}
+        {title && <h2 className="text-sm font-normal text-dark-600">{title}</h2>}
         {scopeFilters}
       </div>
       <div className="flex items-center space-x-3">

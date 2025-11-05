@@ -27,7 +27,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
 
   if (!data) {
     return (
-      <div className="text-center py-12 text-gray-500">
+      <div className="text-center py-12 text-dark-700">
         No wiki content available
       </div>
     );
@@ -88,18 +88,18 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
         return <HeadingTag className={headingClasses}>{block.content}</HeadingTag>;
 
       case 'paragraph':
-        return <p className="mb-4 leading-relaxed text-gray-700">{block.content}</p>;
+        return <p className="mb-4 leading-relaxed text-dark-600">{block.content}</p>;
 
       case 'quote':
         return (
-          <blockquote className="border-l-4 border-blue-500 pl-6 py-2 my-4 italic text-gray-600 bg-blue-50/50">
+          <blockquote className="border-l-4 border-dark-3000 pl-6 py-2 my-4 italic text-dark-700 bg-dark-100/50">
             {block.content}
           </blockquote>
         );
 
       case 'code':
         return (
-          <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 my-4 overflow-x-auto">
+          <pre className="bg-dark-900 text-gray-100 rounded-lg p-4 my-4 overflow-x-auto">
             <code className="font-mono text-sm">{block.content}</code>
           </pre>
         );
@@ -111,7 +111,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
         return (
           <ListTag className={`${bulletStyle} ml-6 my-4 space-y-1`}>
             {items.map((item, index) => (
-              <li key={index} className="text-gray-700 leading-relaxed">{item}</li>
+              <li key={index} className="text-dark-600 leading-relaxed">{item}</li>
             ))}
           </ListTag>
         );
@@ -119,8 +119,8 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
 
       case 'callout':
         return (
-          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r my-4">
-            <p className="text-blue-900 font-medium">{block.content}</p>
+          <div className="bg-dark-100 border-l-4 border-dark-3000 p-4 rounded-r my-4">
+            <p className="text-dark-600 font-medium">{block.content}</p>
           </div>
         );
 
@@ -133,7 +133,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
               className="max-w-full h-auto rounded-lg shadow-md"
             />
             {block.properties.alt && (
-              <p className="text-sm text-gray-500 text-center mt-2 italic">
+              <p className="text-sm text-dark-700 text-center mt-2 italic">
                 {block.properties.alt}
               </p>
             )}
@@ -154,7 +154,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
         ) : null;
 
       case 'divider':
-        return <hr className="border-t-2 border-gray-300 my-8" />;
+        return <hr className="border-t-2 border-dark-400 my-8" />;
 
       case 'table': {
         const rows = block.properties?.rows || 3;
@@ -164,12 +164,12 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
 
         return (
           <div className="my-6 overflow-x-auto">
-            <table className="min-w-full border border-gray-300">
+            <table className="min-w-full border border-dark-400">
               <tbody>
                 {cells.map((row: string[], rowIndex: number) => (
-                  <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                  <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-dark-100' : 'bg-dark-100'}>
                     {row.map((cell: string, colIndex: number) => (
-                      <td key={colIndex} className="border border-gray-300 p-3 text-sm text-gray-700">
+                      <td key={colIndex} className="border border-dark-400 p-3 text-sm text-dark-600">
                         {cell || 'Cell'}
                       </td>
                     ))}
@@ -198,7 +198,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
               navigate(`/wiki/${data.id}/edit`);
             }
           }}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-dark-700 text-white rounded-lg hover:bg-dark-800 transition-colors shadow-sm"
         >
           <Edit2 className="h-4 w-4" />
           Edit
@@ -206,13 +206,13 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
       </div>
 
       {/* Content Container - Matches WikiPreviewPanel exactly */}
-      <div className="bg-white rounded-xl shadow-lg">
+      <div className="bg-dark-100 rounded-xl shadow-lg">
         {/* Simple Header */}
-        <div className="px-12 pt-12 pb-6 border-b border-gray-200">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">{title}</h1>
+        <div className="px-12 pt-12 pb-6 border-b border-dark-300">
+          <h1 className="text-4xl font-bold text-dark-600 mb-4">{title}</h1>
 
           {/* Metadata */}
-          <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500">
+          <div className="flex flex-wrap items-center gap-6 text-sm text-dark-700">
             <div className="flex items-center space-x-2">
               <User className="h-4 w-4" />
               <span>{author}</span>
@@ -230,12 +230,12 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
           {/* Tags */}
           {tags && tags.length > 0 && (
             <div className="flex items-center space-x-2 mt-3">
-              <Tag className="h-4 w-4 text-gray-500" />
+              <Tag className="h-4 w-4 text-dark-700" />
               <div className="flex flex-wrap gap-2">
                 {tags.map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium"
+                    className="inline-flex items-center px-3 py-1 bg-dark-100 text-dark-700 rounded-full text-xs font-medium"
                   >
                     {tag}
                   </span>
@@ -248,7 +248,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
         {/* Content */}
         <div className="px-12 py-8">
           {blocks.length === 0 ? (
-            <p className="text-gray-400 text-center py-12">No content yet. Click Edit to add content.</p>
+            <p className="text-dark-600 text-center py-12">No content yet. Click Edit to add content.</p>
           ) : (
             blocks.map((block, index) => (
               <div key={block.id || index}>{renderBlock(block)}</div>

@@ -104,7 +104,7 @@ export function UniversalDesigner({
   toolbarCollapsible = true,
   toolbarDefaultCollapsed = false,
   canvas,
-  canvasBackground = 'bg-gray-50',
+  canvasBackground = 'bg-dark-100',
   canvasMaxWidth = 'max-w-5xl',
   properties,
   propertiesTitle = 'Properties',
@@ -126,14 +126,14 @@ export function UniversalDesigner({
   };
 
   return (
-    <div className={`flex flex-col h-screen bg-white ${className}`}>
+    <div className={`flex flex-col h-screen bg-dark-100 ${className}`}>
       {/* Top Header Bar */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between flex-shrink-0">
+      <div className="bg-dark-100 border-b border-dark-300 px-6 py-3 flex items-center justify-between flex-shrink-0">
         {/* Left: Title & View Modes */}
         <div className="flex items-center space-x-4 flex-1">
           {/* Icon & Title */}
           <div className="flex items-center space-x-3">
-            {icon && <div className="text-gray-600">{icon}</div>}
+            {icon && <div className="text-dark-700">{icon}</div>}
             <div>
               {titleEditable && isEditingTitle ? (
                 <input
@@ -149,33 +149,33 @@ export function UniversalDesigner({
                     }
                   }}
                   autoFocus
-                  className="text-lg font-semibold text-gray-900 border-b-2 border-blue-500 outline-none bg-transparent"
+                  className="text-lg font-semibold text-dark-600 border-b-2 border-dark-3000 outline-none bg-transparent"
                 />
               ) : (
                 <h1
-                  className={`text-lg font-semibold text-gray-900 ${
-                    titleEditable ? 'cursor-pointer hover:text-blue-600' : ''
+                  className={`text-lg font-semibold text-dark-600 ${
+                    titleEditable ? 'cursor-pointer hover:text-dark-700' : ''
                   }`}
                   onClick={() => titleEditable && setIsEditingTitle(true)}
                 >
                   {title}
                 </h1>
               )}
-              {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
+              {subtitle && <p className="text-sm text-dark-700">{subtitle}</p>}
             </div>
           </div>
 
           {/* View Mode Switcher */}
           {viewModes.length > 1 && (
-            <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
+            <div className="flex items-center space-x-1 bg-dark-100 rounded-lg p-1">
               {viewModes.map((mode) => (
                 <button
                   key={mode.id}
                   onClick={() => onViewModeChange?.(mode.id)}
                   className={`px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center space-x-1 ${
                     currentViewMode === mode.id
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-dark-100 text-dark-600 shadow-sm'
+                      : 'text-dark-700 hover:text-dark-600'
                   }`}
                 >
                   {mode.icon}
@@ -195,10 +195,10 @@ export function UniversalDesigner({
               disabled={action.disabled || action.loading}
               className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${
                 action.variant === 'primary'
-                  ? 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50'
+                  ? 'bg-dark-700 text-white hover:bg-dark-800 disabled:opacity-50'
                   : action.variant === 'danger'
                   ? 'bg-red-600 text-white hover:bg-red-700 disabled:opacity-50'
-                  : 'text-gray-700 hover:bg-gray-100 disabled:opacity-50'
+                  : 'text-dark-600 hover:bg-dark-100 disabled:opacity-50'
               }`}
             >
               {action.loading ? (
@@ -214,7 +214,7 @@ export function UniversalDesigner({
             <button
               onClick={primaryAction.onClick}
               disabled={primaryAction.disabled || primaryAction.loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-dark-700 text-white rounded-lg text-sm font-medium hover:bg-dark-800 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {primaryAction.loading ? (
                 <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -232,10 +232,10 @@ export function UniversalDesigner({
               disabled={action.disabled || action.loading}
               className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${
                 action.variant === 'primary'
-                  ? 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50'
+                  ? 'bg-dark-700 text-white hover:bg-dark-800 disabled:opacity-50'
                   : action.variant === 'danger'
                   ? 'bg-red-600 text-white hover:bg-red-700 disabled:opacity-50'
-                  : 'text-gray-700 hover:bg-gray-100 disabled:opacity-50'
+                  : 'text-dark-600 hover:bg-dark-100 disabled:opacity-50'
               }`}
             >
               {action.loading ? (
@@ -250,7 +250,7 @@ export function UniversalDesigner({
           {onCancel && (
             <button
               onClick={onCancel}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded-lg transition-colors"
               title="Cancel"
             >
               <X className="h-5 w-5" />
@@ -264,16 +264,16 @@ export function UniversalDesigner({
         {/* Left Panel - Toolbar */}
         {toolbar && (
           <div
-            className={`bg-white border-r border-gray-200 overflow-y-auto transition-all duration-300 ${
+            className={`bg-dark-100 border-r border-dark-300 overflow-y-auto transition-all duration-300 ${
               toolbarCollapsed ? 'w-12' : 'w-80'
             }`}
           >
             {/* Toolbar Header */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+            <div className="sticky top-0 bg-dark-100 border-b border-dark-300 px-4 py-3 flex items-center justify-between z-10">
               {!toolbarCollapsed && (
                 <div className="flex items-center space-x-2">
-                  <Layers className="h-4 w-4 text-gray-500" />
-                  <h3 className="text-sm font-semibold text-gray-700">
+                  <Layers className="h-4 w-4 text-dark-700" />
+                  <h3 className="text-sm font-semibold text-dark-600">
                     {toolbarTitle}
                   </h3>
                 </div>
@@ -281,7 +281,7 @@ export function UniversalDesigner({
               {toolbarCollapsible && (
                 <button
                   onClick={() => setToolbarCollapsed(!toolbarCollapsed)}
-                  className="p-1 hover:bg-gray-100 rounded text-gray-600 transition-colors"
+                  className="p-1 hover:bg-dark-100 rounded text-dark-700 transition-colors"
                   title={toolbarCollapsed ? 'Expand' : 'Collapse'}
                 >
                   {toolbarCollapsed ? (
@@ -306,16 +306,16 @@ export function UniversalDesigner({
         {/* Right Panel - Properties */}
         {properties && (
           <div
-            className={`bg-white border-l border-gray-200 overflow-y-auto transition-all duration-300 ${
+            className={`bg-dark-100 border-l border-dark-300 overflow-y-auto transition-all duration-300 ${
               propertiesCollapsed ? 'w-12' : 'w-80'
             }`}
           >
             {/* Properties Header */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+            <div className="sticky top-0 bg-dark-100 border-b border-dark-300 px-4 py-3 flex items-center justify-between z-10">
               {propertiesCollapsible && (
                 <button
                   onClick={() => setPropertiesCollapsed(!propertiesCollapsed)}
-                  className="p-1 hover:bg-gray-100 rounded text-gray-600 transition-colors"
+                  className="p-1 hover:bg-dark-100 rounded text-dark-700 transition-colors"
                   title={propertiesCollapsed ? 'Expand' : 'Collapse'}
                 >
                   {propertiesCollapsed ? (
@@ -327,8 +327,8 @@ export function UniversalDesigner({
               )}
               {!propertiesCollapsed && (
                 <div className="flex items-center space-x-2">
-                  <Settings className="h-4 w-4 text-gray-500" />
-                  <h3 className="text-sm font-semibold text-gray-700">
+                  <Settings className="h-4 w-4 text-dark-700" />
+                  <h3 className="text-sm font-semibold text-dark-600">
                     {propertiesTitle}
                   </h3>
                 </div>
@@ -343,7 +343,7 @@ export function UniversalDesigner({
 
       {/* Footer */}
       {footer && (
-        <div className="border-t border-gray-200 bg-white px-6 py-3 flex-shrink-0">
+        <div className="border-t border-dark-300 bg-dark-100 px-6 py-3 flex-shrink-0">
           {footer}
         </div>
       )}

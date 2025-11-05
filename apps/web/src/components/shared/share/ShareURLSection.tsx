@@ -107,19 +107,19 @@ export function ShareURLSection({
   const fullUrl = sharedUrl ? `${window.location.origin}${convertToPublicUrl(sharedUrl)}` : null;
 
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+    <div className="bg-dark-100 border border-dark-400 rounded-lg p-4">
       <div className="flex items-start justify-between">
         <div className="flex items-center space-x-2 flex-1">
-          <Share2 className="h-5 w-5 text-blue-600" />
+          <Share2 className="h-5 w-5 text-dark-700" />
           <div className="flex-1">
-            <h3 className="text-sm font-medium text-gray-900">Public Share Link</h3>
+            <h3 className="text-sm font-medium text-dark-600">Public Share Link</h3>
             {!sharedUrl ? (
-              <p className="text-xs text-gray-600 mt-1">
+              <p className="text-xs text-dark-700 mt-1">
                 Generate a public link that anyone can access without authentication
               </p>
             ) : (
               <div className="mt-2 flex items-center space-x-2">
-                <div className="flex-1 bg-white border border-blue-200 rounded px-3 py-2 text-sm text-gray-700 font-mono break-all">
+                <div className="flex-1 bg-dark-100 border border-dark-400 rounded px-3 py-2 text-sm text-dark-600 font-mono break-all">
                   {fullUrl}
                 </div>
               </div>

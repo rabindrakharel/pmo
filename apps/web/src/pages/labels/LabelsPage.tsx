@@ -130,7 +130,7 @@ export function LabelsPage() {
 
   const getColorClasses = (color: string) => {
     const colors: Record<string, { bg: string; text: string; border: string }> = {
-      blue: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+      blue: { bg: 'bg-dark-100', text: 'text-dark-700', border: 'border-dark-400' },
       purple: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
       green: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
       orange: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
@@ -165,14 +165,14 @@ export function LabelsPage() {
   return (
     <Layout>
       <div className="max-w-7xl mx-auto">
-        <div className="bg-white shadow rounded-lg">
+        <div className="bg-dark-100 shadow rounded-lg">
           <div className="px-4 py-5 sm:p-6">
             {/* Header */}
             <div className="flex items-center mb-6">
-              <Tag className="h-5 w-5 text-gray-600 stroke-[1.5] mr-3" />
+              <Tag className="h-5 w-5 text-dark-700 stroke-[1.5] mr-3" />
               <div className="flex-1">
-                <h1 className="text-sm font-normal text-gray-900">Labels Management</h1>
-                <p className="text-sm text-gray-600">Manage system labels, stages, and dropdown options</p>
+                <h1 className="text-sm font-normal text-dark-600">Labels Management</h1>
+                <p className="text-sm text-dark-700">Manage system labels, stages, and dropdown options</p>
               </div>
             </div>
 
@@ -181,18 +181,18 @@ export function LabelsPage() {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="w-full flex items-center justify-between px-4 py-3 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center justify-between px-4 py-3 border border-dark-400 rounded-lg bg-dark-100 hover:bg-dark-100 transition-colors"
                 >
                   <div className="flex items-center gap-2 flex-wrap">
-                    <Wrench className="h-5 w-5 text-gray-400 stroke-[1.5]" />
+                    <Wrench className="h-5 w-5 text-dark-600 stroke-[1.5]" />
                     {selectedSettings.length === 0 ? (
-                      <span className="text-gray-500">Select settings to manage...</span>
+                      <span className="text-dark-700">Select settings to manage...</span>
                     ) : (
                       <>
                         {selectedSettings.map(settingId => (
                           <span
                             key={settingId}
-                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm"
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-dark-100 text-dark-700 rounded text-sm"
                           >
                             {getSettingLabel(settingId)}
                             <div
@@ -200,7 +200,7 @@ export function LabelsPage() {
                                 e.stopPropagation();
                                 toggleSetting(settingId);
                               }}
-                              className="hover:bg-blue-200 rounded-full p-0.5 cursor-pointer"
+                              className="hover:bg-dark-200 rounded-full p-0.5 cursor-pointer"
                               role="button"
                               tabIndex={0}
                               onKeyDown={(e) => {
@@ -217,22 +217,22 @@ export function LabelsPage() {
                       </>
                     )}
                   </div>
-                  <ChevronDown className={`h-5 w-5 text-gray-400 stroke-[1.5] transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`h-5 w-5 text-dark-600 stroke-[1.5] transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {/* Dropdown Panel */}
                 {isDropdownOpen && (
-                  <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-hidden">
+                  <div className="absolute z-50 w-full mt-2 bg-dark-100 border border-dark-300 rounded-lg shadow-lg max-h-96 overflow-hidden">
                     {/* Search Bar */}
-                    <div className="p-3 border-b border-gray-200 sticky top-0 bg-white">
+                    <div className="p-3 border-b border-dark-300 sticky top-0 bg-dark-100">
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 stroke-[1.5]" />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-600 stroke-[1.5]" />
                         <input
                           type="text"
                           placeholder="Search settings..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full pl-10 pr-4 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                         />
                       </div>
                     </div>
@@ -240,7 +240,7 @@ export function LabelsPage() {
                     {/* Entity Groups */}
                     <div className="overflow-y-auto max-h-80">
                       {filteredGroups.length === 0 ? (
-                        <div className="p-4 text-center text-gray-500">
+                        <div className="p-4 text-center text-dark-700">
                           No settings found matching "{searchQuery}"
                         </div>
                       ) : (
@@ -249,7 +249,7 @@ export function LabelsPage() {
                           const GroupIcon = group.icon;
 
                           return (
-                            <div key={idx} className="border-b border-gray-100 last:border-b-0">
+                            <div key={idx} className="border-b border-dark-300 last:border-b-0">
                               {/* Entity Group Header */}
                               <div className={`px-4 py-2 ${colorClasses.bg} ${colorClasses.border} border-b`}>
                                 <div className="flex items-center gap-2">
@@ -269,16 +269,16 @@ export function LabelsPage() {
                                   return (
                                     <label
                                       key={setting.id}
-                                      className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 cursor-pointer transition-colors"
+                                      className="flex items-center gap-3 px-4 py-2 hover:bg-dark-100 cursor-pointer transition-colors"
                                     >
                                       <input
                                         type="checkbox"
                                         checked={isSelected}
                                         onChange={() => toggleSetting(setting.id)}
-                                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                        className="h-4 w-4 text-dark-700 border-dark-400 rounded focus:ring-dark-7000"
                                       />
-                                      <SettingIcon className="h-4 w-4 text-gray-400" />
-                                      <span className="text-sm text-gray-700">{setting.label}</span>
+                                      <SettingIcon className="h-4 w-4 text-dark-600" />
+                                      <span className="text-sm text-dark-600">{setting.label}</span>
                                     </label>
                                   );
                                 })}
@@ -295,7 +295,7 @@ export function LabelsPage() {
 
             {/* Settings Tables */}
             {selectedSettings.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-12 text-dark-700">
                 <Tag className="h-12 w-12 mx-auto mb-3 text-gray-300 stroke-[1.5]" />
                 <p className="text-sm font-normal">No labels selected</p>
                 <p className="text-sm">Use the dropdown above to select labels to manage</p>
@@ -307,12 +307,12 @@ export function LabelsPage() {
                   const SettingIcon = setting?.icon || Tag;
 
                   return (
-                    <div key={settingId} className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div key={settingId} className="border border-dark-300 rounded-lg overflow-hidden">
                       {/* Section Header */}
-                      <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                      <div className="bg-dark-100 px-4 py-3 border-b border-dark-300">
                         <div className="flex items-center gap-2">
-                          <SettingIcon className="h-5 w-5 text-gray-600 stroke-[1.5]" />
-                          <h2 className="text-sm font-normal text-gray-900">{setting?.label}</h2>
+                          <SettingIcon className="h-5 w-5 text-dark-700 stroke-[1.5]" />
+                          <h2 className="text-sm font-normal text-dark-600">{setting?.label}</h2>
                         </div>
                       </div>
 
@@ -328,6 +328,7 @@ export function LabelsPage() {
                           showEditIcon={true}
                           showDeleteIcon={true}
                           inlineEditable={true}
+                          allowAddRow={true}
                         />
                       </div>
                     </div>

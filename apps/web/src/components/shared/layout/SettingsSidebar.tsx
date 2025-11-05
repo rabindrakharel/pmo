@@ -191,18 +191,18 @@ export function SettingsSidebar() {
   };
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-full">
+    <div className="w-64 bg-dark-100 border-r border-dark-300 flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between h-14 px-4 border-b border-gray-200">
+      <div className="flex items-center justify-between h-14 px-4 border-b border-dark-300">
         <div className="flex items-center">
-          <div className="h-7 w-7 border border-gray-300 rounded flex items-center justify-center">
-            <span className="text-gray-700 font-normal text-xs">PMO</span>
+          <div className="h-7 w-7 border border-dark-400 rounded flex items-center justify-center">
+            <span className="text-dark-600 font-normal text-xs">PMO</span>
           </div>
-          <span className="ml-3 text-sm font-normal text-gray-800">Settings</span>
+          <span className="ml-3 text-sm font-normal text-dark-600">Settings</span>
         </div>
         <button
           onClick={handleExitSettings}
-          className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200"
+          className="p-1.5 rounded-md text-dark-600 hover:text-dark-700 hover:bg-dark-100 transition-all duration-200"
           title="Exit Settings"
         >
           <ArrowLeft className="h-4 w-4 stroke-[1.5]" />
@@ -210,15 +210,15 @@ export function SettingsSidebar() {
       </div>
 
       {/* Search Box */}
-      <div className="px-4 py-3 border-b border-gray-200">
+      <div className="px-4 py-3 border-b border-dark-300">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-600" />
           <input
             type="text"
             placeholder="Search settings..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400/30 focus:border-gray-300"
+            className="w-full pl-9 pr-3 py-1.5 text-sm border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400"
           />
         </div>
       </div>
@@ -228,7 +228,7 @@ export function SettingsSidebar() {
         {Object.entries(groupedItems).map(([category, items]) => (
           <div key={category} className="mb-4">
             {/* Category Header */}
-            <div className="px-3 py-1 text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <div className="px-3 py-1 text-xs font-medium text-dark-700 uppercase tracking-wider">
               {category}
             </div>
 
@@ -244,12 +244,12 @@ export function SettingsSidebar() {
                     onClick={() => handleItemClick(item.href)}
                     className={`${
                       active
-                        ? 'bg-gray-100 text-gray-900 border-r-2 border-gray-300'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
+                        ? 'bg-dark-100 text-dark-600 border-r-2 border-dark-400'
+                        : 'text-dark-700 hover:bg-dark-100 hover:text-dark-600'
                     } w-full group flex items-center px-3 py-1.5 text-sm font-normal rounded-l-lg transition-all duration-200`}
                   >
                     <IconComponent className={`${
-                      active ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-600'
+                      active ? 'text-dark-600' : 'text-dark-700 group-hover:text-dark-700'
                     } mr-3 h-4 w-4 stroke-[1.5] flex-shrink-0`} />
                     <span className="text-left">{item.name}</span>
                   </button>
@@ -262,15 +262,15 @@ export function SettingsSidebar() {
         {/* No Results Message */}
         {filteredItems.length === 0 && (
           <div className="px-3 py-8 text-center">
-            <p className="text-sm text-gray-500">No settings found</p>
-            <p className="text-xs text-gray-400 mt-1">Try a different search term</p>
+            <p className="text-sm text-dark-700">No settings found</p>
+            <p className="text-xs text-dark-600 mt-1">Try a different search term</p>
           </div>
         )}
       </nav>
 
       {/* Footer Info */}
-      <div className="px-4 py-3 border-t border-gray-200">
-        <p className="text-xs text-gray-500">
+      <div className="px-4 py-3 border-t border-dark-300">
+        <p className="text-xs text-dark-700">
           {filteredItems.length} setting{filteredItems.length !== 1 ? 's' : ''}
         </p>
       </div>

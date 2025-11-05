@@ -54,8 +54,8 @@ export function EditableTags({ tags, isEditing, onChange, className = '' }: Edit
           key={`${tag}-${index}`}
           className={`
             inline-flex items-center gap-1 px-2 py-0.5 rounded
-            text-xs font-medium bg-gray-100 text-gray-700
-            ${isEditing ? 'hover:bg-gray-200 transition-colors' : ''}
+            text-xs font-medium bg-dark-100 text-dark-600
+            ${isEditing ? 'hover:bg-dark-200 transition-colors' : ''}
           `}
         >
           <span>{tag}</span>
@@ -63,7 +63,7 @@ export function EditableTags({ tags, isEditing, onChange, className = '' }: Edit
             <button
               type="button"
               onClick={() => handleRemoveTag(tag)}
-              className="hover:bg-gray-300 rounded-full p-0.5 transition-colors"
+              className="hover:bg-dark-300 rounded-full p-0.5 transition-colors"
               title="Remove tag"
             >
               <X className="h-3 w-3" />
@@ -93,8 +93,8 @@ export function EditableTags({ tags, isEditing, onChange, className = '' }: Edit
             }}
             placeholder="Add tag..."
             className="
-              px-2 py-0.5 text-xs border border-gray-300 rounded
-              focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-300
+              px-2 py-0.5 text-xs border border-dark-400 rounded
+              focus:outline-none focus:ring-1 focus:ring-dark-700 focus:border-dark-400
               w-24 transition-all
             "
           />
@@ -105,10 +105,10 @@ export function EditableTags({ tags, isEditing, onChange, className = '' }: Edit
                 e.preventDefault(); // Prevent input blur
                 handleAddTag();
               }}
-              className="p-0.5 hover:bg-gray-100 rounded transition-colors"
+              className="p-0.5 hover:bg-dark-100 rounded transition-colors"
               title="Add tag"
             >
-              <Plus className="h-3.5 w-3.5 text-gray-600" />
+              <Plus className="h-3.5 w-3.5 text-dark-700" />
             </button>
           )}
         </div>
@@ -116,7 +116,7 @@ export function EditableTags({ tags, isEditing, onChange, className = '' }: Edit
 
       {/* Empty state */}
       {tags.length === 0 && !isEditing && (
-        <span className="text-xs text-gray-400">No tags</span>
+        <span className="text-xs text-dark-600">No tags</span>
       )}
     </div>
   );

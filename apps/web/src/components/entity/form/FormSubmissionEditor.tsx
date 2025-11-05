@@ -435,7 +435,7 @@ export function FormSubmissionEditor({
 
   if (!submissionId) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-500">
+      <div className="bg-dark-100 border border-dark-300 rounded-lg p-8 text-center text-sm text-dark-700">
         Select a submission from the Form Data tab to start editing.
       </div>
     );
@@ -444,7 +444,7 @@ export function FormSubmissionEditor({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700" />
       </div>
     );
   }
@@ -458,7 +458,7 @@ export function FormSubmissionEditor({
         </div>
         <button
           onClick={handleRetry}
-          className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+          className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-dark-700 rounded-lg hover:bg-dark-800 transition-colors"
         >
           <RefreshCw className="h-4 w-4 mr-2" />
           Retry
@@ -469,7 +469,7 @@ export function FormSubmissionEditor({
 
   if (!internalSubmission) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-500">
+      <div className="bg-dark-100 border border-dark-300 rounded-lg p-8 text-center text-sm text-dark-700">
         Submission not found or no data available.
       </div>
     );
@@ -478,24 +478,24 @@ export function FormSubmissionEditor({
   return (
     <div className="space-y-4">
       {showHeader && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="bg-dark-100 border border-dark-300 rounded-lg p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-sm font-normal text-gray-800">Edit Form Submission</h2>
-            <p className="text-xs text-gray-500 mt-1">
+            <h2 className="text-sm font-normal text-dark-600">Edit Form Submission</h2>
+            <p className="text-xs text-dark-700 mt-1">
               {form?.name || form?.title || 'Form'} · Submission{' '}
               {submissionId?.substring(0, 8)}…
             </p>
           </div>
           <div className="flex items-center space-x-2">
             {isRefreshing && (
-              <span className="inline-flex items-center text-xs text-gray-500">
+              <span className="inline-flex items-center text-xs text-dark-700">
                 <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
                 Refreshing…
               </span>
             )}
             <button
               onClick={() => fetchSubmission({ forceFullLoading: true })}
-              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-normal rounded-lg text-gray-700 bg-white hover:bg-gray-50"
+              className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-xs font-normal rounded-lg text-dark-600 bg-dark-100 hover:bg-dark-100"
             >
               <RefreshCw className="h-4 w-4 mr-1.5" />
               Refresh
@@ -503,7 +503,7 @@ export function FormSubmissionEditor({
             {onBack && (
               <button
                 onClick={onBack}
-                className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-normal rounded-lg text-gray-700 bg-white hover:bg-gray-50"
+                className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-xs font-normal rounded-lg text-dark-600 bg-dark-100 hover:bg-dark-100"
               >
                 <ArrowLeft className="h-4 w-4 mr-1.5" />
                 Back
@@ -513,59 +513,59 @@ export function FormSubmissionEditor({
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <div className="bg-dark-100 border border-dark-300 rounded-lg p-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
           <div className="flex items-center space-x-2">
-            <Hash className="h-4 w-4 text-gray-400" />
+            <Hash className="h-4 w-4 text-dark-600" />
             <div>
-              <p className="text-gray-500">Form ID</p>
-              <p className="font-normal text-gray-700 break-all">{formId}</p>
+              <p className="text-dark-700">Form ID</p>
+              <p className="font-normal text-dark-600 break-all">{formId}</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Hash className="h-4 w-4 text-gray-400" />
+            <Hash className="h-4 w-4 text-dark-600" />
             <div>
-              <p className="text-gray-500">Submission ID</p>
-              <p className="font-normal text-gray-700 break-all">{submissionId}</p>
+              <p className="text-dark-700">Submission ID</p>
+              <p className="font-normal text-dark-600 break-all">{submissionId}</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <CheckCircle className="h-4 w-4 text-gray-400" />
+            <CheckCircle className="h-4 w-4 text-dark-600" />
             <div>
-              <p className="text-gray-500">Status</p>
-              <p className="font-normal text-gray-700 capitalize">{submissionStatus}</p>
+              <p className="text-dark-700">Status</p>
+              <p className="font-normal text-dark-600 capitalize">{submissionStatus}</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <CheckCircle className="h-4 w-4 text-gray-400" />
+            <CheckCircle className="h-4 w-4 text-dark-600" />
             <div>
-              <p className="text-gray-500">Approval</p>
-              <p className="font-normal text-gray-700 capitalize">{approvalStatus || '—'}</p>
+              <p className="text-dark-700">Approval</p>
+              <p className="font-normal text-dark-600 capitalize">{approvalStatus || '—'}</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Calendar className="h-4 w-4 text-gray-400" />
+            <Calendar className="h-4 w-4 text-dark-600" />
             <div>
-              <p className="text-gray-500">Submitted</p>
-              <p className="font-normal text-gray-700">
+              <p className="text-dark-700">Submitted</p>
+              <p className="font-normal text-dark-600">
                 {createdAt ? new Date(createdAt).toLocaleString('en-CA') : '—'}
               </p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Clock className="h-4 w-4 text-gray-400" />
+            <Clock className="h-4 w-4 text-dark-600" />
             <div>
-              <p className="text-gray-500">Last Updated</p>
-              <p className="font-normal text-gray-700">
+              <p className="text-dark-700">Last Updated</p>
+              <p className="font-normal text-dark-600">
                 {updatedAt ? new Date(updatedAt).toLocaleString('en-CA') : '—'}
               </p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <CheckCircle className="h-4 w-4 text-gray-400" />
+            <CheckCircle className="h-4 w-4 text-dark-600" />
             <div>
-              <p className="text-gray-500">Stage</p>
-              <p className="font-normal text-gray-700 capitalize">{stage}</p>
+              <p className="text-dark-700">Stage</p>
+              <p className="font-normal text-dark-600 capitalize">{stage}</p>
             </div>
           </div>
         </div>

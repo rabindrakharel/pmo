@@ -43,11 +43,11 @@ export function ActionButtonsBar({
   const hasSelection = selectedCount > 0;
 
   return (
-    <div className={`flex items-center justify-between bg-white px-4 py-3 border-b border-gray-200 ${className}`}>
+    <div className={`flex items-center justify-between bg-dark-100 px-4 py-3 border-b border-dark-300 ${className}`}>
       <div className="flex items-center space-x-3">
         {/* Selection info */}
         {hasSelection && (
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-dark-700">
             {selectedCount} {entityType}{selectedCount !== 1 ? 's' : ''} selected
           </span>
         )}
@@ -58,7 +58,7 @@ export function ActionButtonsBar({
             {onBulkShare && (
               <button
                 onClick={onBulkShare}
-                className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 transition-colors"
               >
                 <Share className="h-4 w-4 mr-2 stroke-[1.5]" />
                 Share Selected
@@ -86,7 +86,7 @@ export function ActionButtonsBar({
         {(createLabel || onCreateClick || createHref) && (
           <button
             onClick={handleCreateClick}
-            className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors"
+            className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 transition-colors"
           >
             <Plus className="h-4 w-4 mr-2 stroke-[1.5]" />
             {createLabel || `Create ${entityType.charAt(0).toUpperCase() + entityType.slice(1)}`}

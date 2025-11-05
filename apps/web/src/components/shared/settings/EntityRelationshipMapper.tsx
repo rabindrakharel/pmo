@@ -72,7 +72,7 @@ const ENTITY_TYPES = {
     label: 'Office',
     color: '#3B82F6',
     icon: '🏢',
-    gradient: 'from-blue-500 to-blue-600'
+    gradient: 'from-dark-700 to-dark-700'
   },
   business: {
     label: 'Business',
@@ -641,27 +641,27 @@ export function EntityRelationshipMapper() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[600px] bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg">
+      <div className="flex items-center justify-center h-[600px] bg-gradient-to-br from-dark-100 to-dark-200 rounded-lg">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 font-medium">Loading relationship map...</p>
+          <Loader2 className="h-12 w-12 text-dark-700 animate-spin mx-auto mb-4" />
+          <p className="text-dark-700 font-medium">Loading relationship map...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`${fullscreen ? 'fixed inset-0 z-50 bg-white' : 'relative'}`}>
+    <div className={`${fullscreen ? 'fixed inset-0 z-50 bg-dark-100' : 'relative'}`}>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
+        <div className="flex items-center justify-between p-4 border-b border-dark-300 bg-gradient-to-r from-dark-100 to-purple-900">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
+            <div className="p-2 bg-gradient-to-br from-dark-700 to-purple-600 rounded-lg">
               <Network className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-gray-900">Entity Relationship Mapper</h3>
-              <p className="text-sm text-gray-600">
+              <h3 className="text-lg font-bold text-dark-600">Entity Relationship Mapper</h3>
+              <p className="text-sm text-dark-700">
                 Visual relationship management • {nodes.length} entities • {relationships.length} connections
               </p>
             </div>
@@ -669,13 +669,13 @@ export function EntityRelationshipMapper() {
 
           <div className="flex items-center gap-2">
             {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 bg-white rounded-lg p-1 border border-gray-200">
+            <div className="flex items-center gap-1 bg-dark-100 rounded-lg p-1 border border-dark-300">
               <button
                 onClick={() => setViewMode('graph')}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                   viewMode === 'graph'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-dark-700 text-white shadow-sm'
+                    : 'text-dark-700 hover:bg-dark-100'
                 }`}
               >
                 <Network className="h-4 w-4 inline-block mr-1" />
@@ -685,8 +685,8 @@ export function EntityRelationshipMapper() {
                 onClick={() => setViewMode('list')}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                   viewMode === 'list'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-dark-700 text-white shadow-sm'
+                    : 'text-dark-700 hover:bg-dark-100'
                 }`}
               >
                 <Database className="h-4 w-4 inline-block mr-1" />
@@ -696,7 +696,7 @@ export function EntityRelationshipMapper() {
 
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="p-2 text-gray-600 hover:bg-white rounded-lg transition-colors"
+              className="p-2 text-dark-700 hover:bg-dark-100 rounded-lg transition-colors"
               title="Filters"
             >
               <Filter className="h-5 w-5" />
@@ -704,7 +704,7 @@ export function EntityRelationshipMapper() {
 
             <button
               onClick={loadData}
-              className="p-2 text-gray-600 hover:bg-white rounded-lg transition-colors"
+              className="p-2 text-dark-700 hover:bg-dark-100 rounded-lg transition-colors"
               title="Refresh"
             >
               <RefreshCw className="h-5 w-5" />
@@ -712,7 +712,7 @@ export function EntityRelationshipMapper() {
 
             <button
               onClick={() => setFullscreen(!fullscreen)}
-              className="p-2 text-gray-600 hover:bg-white rounded-lg transition-colors"
+              className="p-2 text-dark-700 hover:bg-dark-100 rounded-lg transition-colors"
               title={fullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
             >
               {fullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
@@ -743,28 +743,28 @@ export function EntityRelationshipMapper() {
 
         {/* Filters */}
         {showFilters && (
-          <div className="mx-4 mt-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <div className="mx-4 mt-4 bg-dark-100 border border-dark-300 rounded-lg p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                <label className="block text-sm font-medium text-dark-600 mb-2">Search</label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-600" />
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search entities..."
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-10 pr-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Entity Type</label>
+                <label className="block text-sm font-medium text-dark-600 mb-2">Entity Type</label>
                 <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                 >
                   <option value="all">All Types</option>
                   {Object.entries(ENTITY_TYPES).map(([key, config]) => (
@@ -795,12 +795,12 @@ export function EntityRelationshipMapper() {
               />
 
               {/* Instructions Overlay */}
-              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-gray-200 max-w-xs">
-                <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+              <div className="absolute top-4 left-4 bg-dark-100/90 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-dark-300 max-w-xs">
+                <h4 className="font-semibold text-dark-600 mb-2 flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-yellow-500" />
                   Quick Guide
                 </h4>
-                <ul className="text-xs text-gray-600 space-y-1">
+                <ul className="text-xs text-dark-700 space-y-1">
                   <li>• <strong>Click</strong> to select node</li>
                   <li>• <strong>Drag</strong> to move node</li>
                   <li>• <strong>Shift+Click</strong> to connect nodes</li>
@@ -813,41 +813,41 @@ export function EntityRelationshipMapper() {
               <div className="absolute bottom-4 right-4 flex flex-col gap-2">
                 <button
                   onClick={() => setScale(prev => Math.min(3, prev * 1.2))}
-                  className="p-2 bg-white rounded-lg shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                  className="p-2 bg-dark-100 rounded-lg shadow-lg border border-dark-300 hover:bg-dark-100 transition-colors"
                   title="Zoom In"
                 >
-                  <Plus className="h-5 w-5 text-gray-700" />
+                  <Plus className="h-5 w-5 text-dark-600" />
                 </button>
                 <button
                   onClick={() => setScale(1)}
-                  className="p-2 bg-white rounded-lg shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors text-xs font-mono"
+                  className="p-2 bg-dark-100 rounded-lg shadow-lg border border-dark-300 hover:bg-dark-100 transition-colors text-xs font-mono"
                   title="Reset Zoom"
                 >
                   {Math.round(scale * 100)}%
                 </button>
                 <button
                   onClick={() => setScale(prev => Math.max(0.1, prev * 0.8))}
-                  className="p-2 bg-white rounded-lg shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                  className="p-2 bg-dark-100 rounded-lg shadow-lg border border-dark-300 hover:bg-dark-100 transition-colors"
                   title="Zoom Out"
                 >
-                  <X className="h-5 w-5 text-gray-700" />
+                  <X className="h-5 w-5 text-dark-600" />
                 </button>
               </div>
 
               {/* Selected Node Info */}
               {selectedNode && (
-                <div className="absolute top-4 right-4 bg-white rounded-lg p-4 shadow-lg border border-gray-200 w-64">
+                <div className="absolute top-4 right-4 bg-dark-100 rounded-lg p-4 shadow-lg border border-dark-300 w-64">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <span className="text-2xl">{selectedNode.icon}</span>
                       <div>
-                        <h4 className="font-semibold text-gray-900">{selectedNode.name}</h4>
-                        <p className="text-xs text-gray-500">{ENTITY_TYPES[selectedNode.type as keyof typeof ENTITY_TYPES]?.label}</p>
+                        <h4 className="font-semibold text-dark-600">{selectedNode.name}</h4>
+                        <p className="text-xs text-dark-700">{ENTITY_TYPES[selectedNode.type as keyof typeof ENTITY_TYPES]?.label}</p>
                       </div>
                     </div>
                     <button
                       onClick={() => setSelectedNode(null)}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-dark-600 hover:text-dark-700"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -855,25 +855,25 @@ export function EntityRelationshipMapper() {
 
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Connections:</span>
-                      <span className="font-semibold text-gray-900">{selectedNode.connections}</span>
+                      <span className="text-dark-700">Connections:</span>
+                      <span className="font-semibold text-dark-600">{selectedNode.connections}</span>
                     </div>
                     {selectedNode.code && (
                       <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Code:</span>
-                        <span className="font-mono text-xs text-gray-900">{selectedNode.code}</span>
+                        <span className="text-dark-700">Code:</span>
+                        <span className="font-mono text-xs text-dark-600">{selectedNode.code}</span>
                       </div>
                     )}
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-gray-200">
-                    <h5 className="text-xs font-semibold text-gray-700 mb-2">Related Connections</h5>
+                  <div className="mt-4 pt-3 border-t border-dark-300">
+                    <h5 className="text-xs font-semibold text-dark-600 mb-2">Related Connections</h5>
                     <div className="space-y-1 max-h-32 overflow-y-auto">
                       {relationships
                         .filter(rel => rel.source.id === selectedNode.id || rel.target.id === selectedNode.id)
                         .map(rel => (
-                          <div key={rel.id} className="flex items-center justify-between text-xs p-1.5 rounded hover:bg-gray-50">
-                            <span className="text-gray-600 truncate">
+                          <div key={rel.id} className="flex items-center justify-between text-xs p-1.5 rounded hover:bg-dark-100">
+                            <span className="text-dark-700 truncate">
                               {rel.source.id === selectedNode.id ? `→ ${rel.target.name}` : `← ${rel.source.name}`}
                             </span>
                             <button
@@ -894,31 +894,31 @@ export function EntityRelationshipMapper() {
           ) : (
             /* List View */
             <div className="p-4 overflow-auto h-full">
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+              <div className="bg-dark-100 rounded-lg border border-dark-300 overflow-hidden">
+                <table className="min-w-full divide-y divide-dark-400">
+                  <thead className="bg-dark-100">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Relationship</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Target</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-dark-700 uppercase">Source</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-dark-700 uppercase">Relationship</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-dark-700 uppercase">Target</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-dark-700 uppercase">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-dark-700 uppercase">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-dark-400">
                     {relationships.map(rel => (
-                      <tr key={rel.id} className="hover:bg-gray-50">
+                      <tr key={rel.id} className="hover:bg-dark-100">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <span className="text-xl">{rel.source.icon}</span>
                             <div>
-                              <div className="text-sm font-medium text-gray-900">{rel.source.name}</div>
-                              <div className="text-xs text-gray-500">{ENTITY_TYPES[rel.source.type as keyof typeof ENTITY_TYPES]?.label}</div>
+                              <div className="text-sm font-medium text-dark-600">{rel.source.name}</div>
+                              <div className="text-xs text-dark-700">{ENTITY_TYPES[rel.source.type as keyof typeof ENTITY_TYPES]?.label}</div>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-dark-100 text-dark-600">
                             {RELATIONSHIP_TYPES.find(rt => rt.value === rel.type)?.icon} {rel.type}
                           </span>
                         </td>
@@ -926,8 +926,8 @@ export function EntityRelationshipMapper() {
                           <div className="flex items-center gap-2">
                             <span className="text-xl">{rel.target.icon}</span>
                             <div>
-                              <div className="text-sm font-medium text-gray-900">{rel.target.name}</div>
-                              <div className="text-xs text-gray-500">{ENTITY_TYPES[rel.target.type as keyof typeof ENTITY_TYPES]?.label}</div>
+                              <div className="text-sm font-medium text-dark-600">{rel.target.name}</div>
+                              <div className="text-xs text-dark-700">{ENTITY_TYPES[rel.target.type as keyof typeof ENTITY_TYPES]?.label}</div>
                             </div>
                           </div>
                         </td>
@@ -938,7 +938,7 @@ export function EntityRelationshipMapper() {
                               Active
                             </span>
                           ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dark-100 text-dark-600">
                               <X className="h-3 w-3 mr-1" />
                               Inactive
                             </span>
@@ -963,24 +963,24 @@ export function EntityRelationshipMapper() {
         </div>
 
         {/* Legend */}
-        <div className="border-t border-gray-200 bg-gray-50 p-3">
+        <div className="border-t border-dark-300 bg-dark-100 p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 flex-wrap">
-              <span className="text-xs font-semibold text-gray-700">Entity Types:</span>
+              <span className="text-xs font-semibold text-dark-600">Entity Types:</span>
               {Object.entries(ENTITY_TYPES).slice(0, 6).map(([key, config]) => (
                 <div key={key} className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: config.color }} />
-                  <span className="text-xs text-gray-600">{config.icon} {config.label}</span>
+                  <span className="text-xs text-dark-700">{config.icon} {config.label}</span>
                 </div>
               ))}
             </div>
 
             <div className="flex items-center gap-4">
-              <span className="text-xs font-semibold text-gray-700">Relationships:</span>
+              <span className="text-xs font-semibold text-dark-600">Relationships:</span>
               {RELATIONSHIP_TYPES.map(type => (
                 <div key={type.value} className="flex items-center gap-1.5">
                   <span className="text-sm">{type.icon}</span>
-                  <span className="text-xs text-gray-600">{type.label}</span>
+                  <span className="text-xs text-dark-700">{type.label}</span>
                 </div>
               ))}
             </div>

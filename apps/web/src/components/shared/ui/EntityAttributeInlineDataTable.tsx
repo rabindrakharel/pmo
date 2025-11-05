@@ -205,13 +205,13 @@ export function EntityAttributeInlineDataTable({
           type="text"
           value={String(editValue || '')}
           onChange={(e) => onUpdate(column.key, e.target.value)}
-          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
+          className="w-full px-2 py-1 border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30 focus:border-dark-500 text-sm"
           placeholder={`Enter ${column.title.toLowerCase()}`}
         />
       );
     }
 
-    return <span className="text-sm text-gray-700">{value ?? '-'}</span>;
+    return <span className="text-sm text-dark-600">{value ?? '-'}</span>;
   };
 
   // Cell renderer wrapper
@@ -258,7 +258,7 @@ export function EntityAttributeInlineDataTable({
   // If no data and not in add mode, show empty message
   if (data.length === 0 && !allowAddRow) {
     return (
-      <div className="text-center py-8 text-gray-400 text-sm">
+      <div className="text-center py-8 text-dark-600 text-sm">
         {emptyMessage}
       </div>
     );

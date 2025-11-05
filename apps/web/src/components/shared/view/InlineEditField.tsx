@@ -50,14 +50,14 @@ export function InlineEditField({
   if (type === 'textarea') {
     return (
       <div className="group">
-        <dt className="text-sm font-normal text-gray-500 mb-1">{label}</dt>
+        <dt className="text-sm font-normal text-dark-700 mb-1">{label}</dt>
         <dd>
           {isEditing ? (
             <div className="space-y-2">
               <textarea
                 value={editValue}
                 onChange={(e) => onValueChange(e.target.value)}
-                className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-dark-500 rounded-md focus:outline-none focus:ring-2 focus:ring-dark-7000"
                 rows={rows}
                 placeholder={`Enter ${label.toLowerCase()}...`}
                 onKeyDown={handleKeyDown}
@@ -67,13 +67,13 @@ export function InlineEditField({
                 <button
                   onClick={() => onSave(fieldName)}
                   disabled={saving}
-                  className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+                  className="px-3 py-1 bg-dark-700 text-white text-sm rounded hover:bg-dark-800 disabled:opacity-50"
                 >
                   {saving ? 'Saving...' : 'Save'}
                 </button>
                 <button
                   onClick={onCancel}
-                  className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
+                  className="px-3 py-1 bg-dark-300 text-dark-600 text-sm rounded hover:bg-dark-400"
                 >
                   Cancel
                 </button>
@@ -82,13 +82,13 @@ export function InlineEditField({
           ) : (
             <div className="group">
               <div className="flex items-start justify-between">
-                <div className="text-sm text-gray-900 flex-1 whitespace-pre-wrap">
+                <div className="text-sm text-dark-600 flex-1 whitespace-pre-wrap">
                   {renderValue ? renderValue(displayValue) : displayValue || 'No description provided'}
                 </div>
                 {canEdit && (
                   <button
                     onClick={() => onEdit(fieldName, rawValue !== undefined ? String(rawValue) : displayValue)}
-                    className="ml-2 p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="ml-2 p-1 text-dark-600 hover:text-dark-700 opacity-0 group-hover:opacity-100 transition-opacity"
                     title={`Edit ${label.toLowerCase()}`}
                   >
                     <Edit3 className="h-4 w-4" />
@@ -104,7 +104,7 @@ export function InlineEditField({
 
   return (
     <div className="group">
-      <dt className="text-sm font-normal text-gray-500 mb-1">{label}</dt>
+      <dt className="text-sm font-normal text-dark-700 mb-1">{label}</dt>
       <dd className="flex items-center justify-between">
         {isEditing ? (
           <div className="flex items-center space-x-2 flex-1">
@@ -112,7 +112,7 @@ export function InlineEditField({
               <select
                 value={editValue}
                 onChange={(e) => onValueChange(e.target.value)}
-                className="flex-1 px-2 py-1 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-2 py-1 border border-dark-500 rounded focus:outline-none focus:ring-2 focus:ring-dark-7000"
                 autoFocus
               >
                 {selectOptions?.map(option => (
@@ -134,7 +134,7 @@ export function InlineEditField({
                   }
                 })()}
                 onChange={(e) => onValueChange(e.target.value)}
-                className="flex-1 px-2 py-1 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-2 py-1 border border-dark-500 rounded focus:outline-none focus:ring-2 focus:ring-dark-7000"
                 onKeyDown={handleKeyDown}
                 autoFocus
               />
@@ -143,7 +143,7 @@ export function InlineEditField({
                 type="number"
                 value={editValue}
                 onChange={(e) => onValueChange(e.target.value)}
-                className="flex-1 px-2 py-1 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-2 py-1 border border-dark-500 rounded focus:outline-none focus:ring-2 focus:ring-dark-7000"
                 onKeyDown={handleKeyDown}
                 autoFocus
               />
@@ -152,7 +152,7 @@ export function InlineEditField({
                 type="text"
                 value={editValue}
                 onChange={(e) => onValueChange(e.target.value)}
-                className="flex-1 px-2 py-1 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-2 py-1 border border-dark-500 rounded focus:outline-none focus:ring-2 focus:ring-dark-7000"
                 onKeyDown={handleKeyDown}
                 autoFocus
               />
@@ -173,13 +173,13 @@ export function InlineEditField({
           </div>
         ) : (
           <>
-            <div className="text-sm text-gray-900 flex-1">
+            <div className="text-sm text-dark-600 flex-1">
               {renderValue ? renderValue(displayValue) : displayValue}
             </div>
             {canEdit && (
               <button
                 onClick={() => onEdit(fieldName, rawValue !== undefined ? String(rawValue) : displayValue)}
-                className="ml-2 p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="ml-2 p-1 text-dark-600 hover:text-dark-700 opacity-0 group-hover:opacity-100 transition-opacity"
                 title={`Edit ${label.toLowerCase()}`}
               >
                 <Edit3 className="h-4 w-4" />

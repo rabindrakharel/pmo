@@ -30,36 +30,36 @@ export function FormPropertiesPanel({
     return (
       <div className="space-y-6">
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">Field Properties</h3>
+          <h3 className="text-sm font-semibold text-dark-600 mb-4">Field Properties</h3>
           <div className="space-y-4">
             {/* Field Type */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Field Type</label>
-              <div className="px-3 py-2 bg-gray-100 rounded text-sm text-gray-700 capitalize">
+              <label className="block text-xs font-medium text-dark-700 mb-1">Field Type</label>
+              <div className="px-3 py-2 bg-dark-100 rounded text-sm text-dark-600 capitalize">
                 {selectedField.type.replace(/_/g, ' ')}
               </div>
             </div>
 
             {/* Field Label */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Field Label</label>
+              <label className="block text-xs font-medium text-dark-700 mb-1">Field Label</label>
               <input
                 type="text"
                 value={selectedField.label}
                 onChange={(e) => onUpdateField({ label: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                 placeholder="Enter field label"
               />
             </div>
 
             {/* Field Name */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Field Name (ID)</label>
+              <label className="block text-xs font-medium text-dark-700 mb-1">Field Name (ID)</label>
               <input
                 type="text"
                 value={selectedField.name}
                 onChange={(e) => onUpdateField({ name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent font-mono text-sm"
                 placeholder="field_name"
               />
             </div>
@@ -67,12 +67,12 @@ export function FormPropertiesPanel({
             {/* Placeholder */}
             {(['text', 'textarea', 'email', 'phone', 'url', 'number'].includes(selectedField.type)) && (
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Placeholder</label>
+                <label className="block text-xs font-medium text-dark-700 mb-1">Placeholder</label>
                 <input
                   type="text"
                   value={selectedField.placeholder || ''}
                   onChange={(e) => onUpdateField({ placeholder: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                   placeholder="Enter placeholder text"
                 />
               </div>
@@ -80,11 +80,11 @@ export function FormPropertiesPanel({
 
             {/* Description/Help Text */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Help Text</label>
+              <label className="block text-xs font-medium text-dark-700 mb-1">Help Text</label>
               <textarea
                 value={selectedField.descr || ''}
                 onChange={(e) => onUpdateField({ descr: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                 placeholder="Optional help text"
                 rows={2}
               />
@@ -97,16 +97,16 @@ export function FormPropertiesPanel({
                   type="checkbox"
                   checked={selectedField.required || false}
                   onChange={(e) => onUpdateField({ required: e.target.checked })}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                  className="rounded border-dark-400 text-dark-700 focus:ring-2 focus:ring-dark-7000"
                 />
-                <span className="text-xs font-medium text-gray-600">Required Field</span>
+                <span className="text-xs font-medium text-dark-700">Required Field</span>
               </label>
             </div>
 
             {/* Options for select/radio/checkbox */}
             {(['select', 'select_multiple', 'radio', 'checkbox'].includes(selectedField.type)) && (
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Options</label>
+                <label className="block text-xs font-medium text-dark-700 mb-1">Options</label>
                 <div className="space-y-2">
                   {(selectedField.options || []).map((option, index) => (
                     <div key={index} className="flex space-x-2">
@@ -118,7 +118,7 @@ export function FormPropertiesPanel({
                           newOptions[index] = e.target.value;
                           onUpdateField({ options: newOptions });
                         }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        className="flex-1 px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
                         placeholder={`Option ${index + 1}`}
                       />
                       <button
@@ -137,7 +137,7 @@ export function FormPropertiesPanel({
                       const newOptions = [...(selectedField.options || []), `Option ${(selectedField.options || []).length + 1}`];
                       onUpdateField({ options: newOptions });
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 border-dashed rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+                    className="w-full px-3 py-2 border border-dark-400 border-dashed rounded-lg text-sm text-dark-700 hover:bg-dark-100"
                   >
                     + Add Option
                   </button>
@@ -150,21 +150,21 @@ export function FormPropertiesPanel({
               <>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Min</label>
+                    <label className="block text-xs font-medium text-dark-700 mb-1">Min</label>
                     <input
                       type="number"
                       value={selectedField.min || ''}
                       onChange={(e) => onUpdateField({ min: e.target.value ? parseInt(e.target.value) : undefined })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Max</label>
+                    <label className="block text-xs font-medium text-dark-700 mb-1">Max</label>
                     <input
                       type="number"
                       value={selectedField.max || ''}
                       onChange={(e) => onUpdateField({ max: e.target.value ? parseInt(e.target.value) : undefined })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
                     />
                   </div>
                 </div>
@@ -176,30 +176,30 @@ export function FormPropertiesPanel({
               <>
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Min</label>
+                    <label className="block text-xs font-medium text-dark-700 mb-1">Min</label>
                     <input
                       type="number"
                       value={selectedField.min || 0}
                       onChange={(e) => onUpdateField({ min: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Max</label>
+                    <label className="block text-xs font-medium text-dark-700 mb-1">Max</label>
                     <input
                       type="number"
                       value={selectedField.max || 100}
                       onChange={(e) => onUpdateField({ max: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Step</label>
+                    <label className="block text-xs font-medium text-dark-700 mb-1">Step</label>
                     <input
                       type="number"
                       value={selectedField.step || 1}
                       onChange={(e) => onUpdateField({ step: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
                     />
                   </div>
                 </div>
@@ -216,7 +216,7 @@ export function FormPropertiesPanel({
     <div className="space-y-6">
       {/* Form Title */}
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-2 flex items-center">
+        <label className="block text-xs font-medium text-dark-700 mb-2 flex items-center">
           <Type className="h-3 w-3 mr-1" />
           Form Title
         </label>
@@ -224,47 +224,47 @@ export function FormPropertiesPanel({
           type="text"
           value={title}
           onChange={(e) => onUpdateTitle(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
           placeholder="Enter form title"
         />
       </div>
 
       {/* Form Description */}
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-2 flex items-center">
+        <label className="block text-xs font-medium text-dark-700 mb-2 flex items-center">
           <Hash className="h-3 w-3 mr-1" />
           Description
         </label>
         <textarea
           value={description}
           onChange={(e) => onUpdateDescription(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
           placeholder="Optional form description"
           rows={3}
         />
       </div>
 
       {/* Current Step Properties */}
-      <div className="pt-4 border-t border-gray-200">
-        <h3 className="text-sm font-semibold text-gray-700 mb-4">Current Step</h3>
+      <div className="pt-4 border-t border-dark-300">
+        <h3 className="text-sm font-semibold text-dark-600 mb-4">Current Step</h3>
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Step Title</label>
+            <label className="block text-xs font-medium text-dark-700 mb-1">Step Title</label>
             <input
               type="text"
               value={currentStep.title}
               onChange={(e) => onUpdateStep({ title: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
               placeholder="Step title"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Step Description</label>
+            <label className="block text-xs font-medium text-dark-700 mb-1">Step Description</label>
             <textarea
               value={currentStep.description || ''}
               onChange={(e) => onUpdateStep({ description: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
               placeholder="Optional step description"
               rows={2}
             />
@@ -273,12 +273,12 @@ export function FormPropertiesPanel({
       </div>
 
       {/* Metadata */}
-      <div className="pt-4 border-t border-gray-200 space-y-3">
-        <div className="flex items-center text-xs text-gray-500">
+      <div className="pt-4 border-t border-dark-300 space-y-3">
+        <div className="flex items-center text-xs text-dark-700">
           <Settings className="h-3 w-3 mr-2" />
           <span>Total Steps: {steps.length}</span>
         </div>
-        <div className="flex items-center text-xs text-gray-500">
+        <div className="flex items-center text-xs text-dark-700">
           <Calendar className="h-3 w-3 mr-2" />
           <span>Last Modified: {new Date().toLocaleDateString()}</span>
         </div>

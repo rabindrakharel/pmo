@@ -53,8 +53,8 @@ const CreatePositionSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Object({})),
-  level_id: Type.Number(),
-  dl__position_level: Type.String(),
+  level_id: Type.Optional(Type.Number()),
+  dl__position_level: Type.Optional(Type.String()),
   leaf_level_flag: Type.Optional(Type.Boolean()),
   root_level_flag: Type.Optional(Type.Boolean()),
   parent_id: Type.Optional(Type.String()),
@@ -81,6 +81,7 @@ export async function positionRoutes(fastify: FastifyInstance) {
         level_id: Type.Optional(Type.Number()),
         management_flag: Type.Optional(Type.Boolean()),
         executive_flag: Type.Optional(Type.Boolean()),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         search: Type.Optional(Type.String()),
@@ -103,10 +104,12 @@ export async function positionRoutes(fastify: FastifyInstance) {
         level_id,
         management_flag,
         executive_flag,
+        page = 1,
         limit = 20,
-        offset = 0,
         search
       } = request.query as any;
+
+      const offset = (page - 1) * limit;
 
       // Build where conditions
       const conditions = [];

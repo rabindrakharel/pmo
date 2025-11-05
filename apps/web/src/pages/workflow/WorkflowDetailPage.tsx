@@ -249,7 +249,7 @@ export function WorkflowDetailPage() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-dark-700"></div>
         </div>
       </Layout>
     );
@@ -269,89 +269,89 @@ export function WorkflowDetailPage() {
     <Layout>
       <div className="space-y-6">
         {/* Header - Compact Container Component - Sticky */}
-        <div className="sticky top-0 z-10 bg-white border-b border-gray-200 pb-3 mb-3">
+        <div className="sticky top-0 z-10 bg-dark-100 border-b border-dark-300 pb-3 mb-3">
           <div className="flex items-center space-x-3 flex-1 min-w-0">
             <ExitButton />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap overflow-x-auto">
               {/* Workflow Name */}
-              <span className="text-gray-400 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">Workflow:</span>
+              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">Workflow:</span>
               <div className="flex items-center gap-1 group">
-                <span className="text-gray-800 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+                <span className="text-dark-600 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
                   {workflowData.name}
                 </span>
                 <button
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-blue-50 rounded transition-all duration-200"
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-dark-100 rounded transition-all duration-200"
                   title="Copy workflow name"
                   onClick={() => copyToClipboard(workflowData.name, 'workflow name')}
                 >
-                  <Copy className="h-3 w-3 text-gray-400 hover:text-blue-600" />
+                  <Copy className="h-3 w-3 text-dark-600 hover:text-dark-700" />
                 </button>
               </div>
 
               <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Instance Code */}
-              <span className="text-gray-400 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">code:</span>
+              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">code:</span>
               <div className="flex items-center gap-1 group">
-                <span className="text-gray-800 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+                <span className="text-dark-600 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
                   {workflowData.workflow_instance_id}
                 </span>
                 <button
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-blue-50 rounded transition-all duration-200"
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-dark-100 rounded transition-all duration-200"
                   title="Copy code"
                   onClick={() => copyToClipboard(workflowData.workflow_instance_id, 'code')}
                 >
-                  <Copy className="h-3 w-3 text-gray-400 hover:text-blue-600" />
+                  <Copy className="h-3 w-3 text-dark-600 hover:text-dark-700" />
                 </button>
               </div>
 
               <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* ID */}
-              <span className="text-gray-400 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">id:</span>
+              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">id:</span>
               <div className="flex items-center gap-1 group">
-                <span className="text-gray-800 font-normal text-xs text-gray-500" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+                <span className="text-dark-600 font-normal text-xs text-dark-700" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
                   {workflowData.id}
                 </span>
                 <button
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-blue-50 rounded transition-all duration-200"
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-dark-100 rounded transition-all duration-200"
                   title="Copy id"
                   onClick={() => copyToClipboard(workflowData.id, 'id')}
                 >
-                  <Copy className="h-3 w-3 text-gray-400 hover:text-blue-600" />
+                  <Copy className="h-3 w-3 text-dark-600 hover:text-dark-700" />
                 </button>
               </div>
 
               <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Template */}
-              <span className="text-gray-400 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">template:</span>
-              <span className="text-gray-800 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">template:</span>
+              <span className="text-dark-600 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
                 {workflowData.workflow_template_name}
               </span>
 
               <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Industry */}
-              <span className="text-gray-400 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">industry:</span>
-              <span className="text-gray-800 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">industry:</span>
+              <span className="text-dark-600 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
                 {workflowData.industry_sector}
               </span>
 
               <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Created */}
-              <span className="text-gray-400 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">created:</span>
-              <span className="text-gray-800 font-normal text-xs" title={workflowData.created_ts} style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">created:</span>
+              <span className="text-dark-600 font-normal text-xs" title={workflowData.created_ts} style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
                 {formatRelativeTime(workflowData.created_ts)}
               </span>
 
               <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Updated */}
-              <span className="text-gray-400 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">updated:</span>
-              <span className="text-gray-800 font-normal text-xs" title={workflowData.updated_ts} style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">updated:</span>
+              <span className="text-dark-600 font-normal text-xs" title={workflowData.updated_ts} style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
                 {formatRelativeTime(workflowData.updated_ts)}
               </span>
             </div>
@@ -360,8 +360,8 @@ export function WorkflowDetailPage() {
         </div>
 
         {/* Workflow DAG Visualization */}
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
-          <div className="flex items-center gap-2 text-gray-600 mb-3">
+        <div className="bg-dark-100 border border-dark-300 rounded-lg p-5">
+          <div className="flex items-center gap-2 text-dark-700 mb-3">
             <GitBranch className="h-4 w-4" />
             <h3 className="text-sm font-medium">Workflow Entity Graph</h3>
           </div>
@@ -372,7 +372,7 @@ export function WorkflowDetailPage() {
               onNodeClick={handleStateClick}
             />
           ) : (
-            <div className="flex items-center justify-center py-8 text-gray-400 text-sm">
+            <div className="flex items-center justify-center py-8 text-dark-600 text-sm">
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
               <span>Loading workflow graph...</span>
             </div>
@@ -381,25 +381,25 @@ export function WorkflowDetailPage() {
 
         {/* Selected Entity Details */}
         {selectedEntity && (
-          <div className="bg-white border-2 border-blue-500 rounded-lg shadow-lg">
+          <div className="bg-dark-100 border-2 border-dark-3000 rounded-lg shadow-lg">
             {/* Compact Entity Header - Sticky */}
-            <div className="sticky top-14 z-10 bg-white border-b border-gray-200 px-6 pt-6 pb-3">
+            <div className="sticky top-14 z-10 bg-dark-100 border-b border-dark-300 px-6 pt-6 pb-3">
               <div className="flex items-center gap-2 flex-wrap overflow-x-auto">
               {/* Entity Name */}
-              <span className="text-gray-400 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">
+              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">
                 {getEntityConfig(selectedEntity.entity_name)?.displayName || selectedEntity.entity_name}:
               </span>
               <div className="flex items-center gap-1 group">
-                <span className="text-gray-800 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+                <span className="text-dark-600 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
                   {selectedEntityData?.name || selectedEntity.entity_name}
                 </span>
                 {selectedEntityData?.name && (
                   <button
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-blue-50 rounded transition-all duration-200"
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-dark-100 rounded transition-all duration-200"
                     title="Copy entity name"
                     onClick={() => copyToClipboard(selectedEntityData.name, 'entity name')}
                   >
-                    <Copy className="h-3 w-3 text-gray-400 hover:text-blue-600" />
+                    <Copy className="h-3 w-3 text-dark-600 hover:text-dark-700" />
                   </button>
                 )}
               </div>
@@ -407,17 +407,17 @@ export function WorkflowDetailPage() {
               {selectedEntityData?.code && (
                 <>
                   <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
-                  <span className="text-gray-400 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">code:</span>
+                  <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">code:</span>
                   <div className="flex items-center gap-1 group">
-                    <span className="text-gray-800 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+                    <span className="text-dark-600 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
                       {selectedEntityData.code}
                     </span>
                     <button
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-blue-50 rounded transition-all duration-200"
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-dark-100 rounded transition-all duration-200"
                       title="Copy code"
                       onClick={() => copyToClipboard(selectedEntityData.code, 'code')}
                     >
-                      <Copy className="h-3 w-3 text-gray-400 hover:text-blue-600" />
+                      <Copy className="h-3 w-3 text-dark-600 hover:text-dark-700" />
                     </button>
                   </div>
                 </>
@@ -426,18 +426,18 @@ export function WorkflowDetailPage() {
               <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Entity ID */}
-              <span className="text-gray-400 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">id:</span>
+              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">id:</span>
               <div className="flex items-center gap-1 group">
-                <span className="text-gray-800 font-normal text-xs text-gray-500" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+                <span className="text-dark-600 font-normal text-xs text-dark-700" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
                   {selectedEntity.entity_id || 'Not created yet'}
                 </span>
                 {selectedEntity.entity_id && (
                   <button
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-blue-50 rounded transition-all duration-200"
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-dark-100 rounded transition-all duration-200"
                     title="Copy id"
                     onClick={() => copyToClipboard(selectedEntity.entity_id!, 'id')}
                   >
-                    <Copy className="h-3 w-3 text-gray-400 hover:text-blue-600" />
+                    <Copy className="h-3 w-3 text-dark-600 hover:text-dark-700" />
                   </button>
                 )}
               </div>
@@ -445,8 +445,8 @@ export function WorkflowDetailPage() {
               {selectedEntityData?.created_ts && (
                 <>
                   <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
-                  <span className="text-gray-400 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">created:</span>
-                  <span className="text-gray-800 font-normal text-xs" title={selectedEntityData.created_ts} style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+                  <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">created:</span>
+                  <span className="text-dark-600 font-normal text-xs" title={selectedEntityData.created_ts} style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
                     {formatRelativeTime(selectedEntityData.created_ts)}
                   </span>
                 </>
@@ -455,8 +455,8 @@ export function WorkflowDetailPage() {
               {selectedEntityData?.updated_ts && (
                 <>
                   <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
-                  <span className="text-gray-400 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">updated:</span>
-                  <span className="text-gray-800 font-normal text-xs" title={selectedEntityData.updated_ts} style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+                  <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">updated:</span>
+                  <span className="text-dark-600 font-normal text-xs" title={selectedEntityData.updated_ts} style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
                     {formatRelativeTime(selectedEntityData.updated_ts)}
                   </span>
                 </>
@@ -467,7 +467,7 @@ export function WorkflowDetailPage() {
             {/* Entity Form Container */}
             <div className="px-6 pb-6 pt-4">
               {entityLoading && (
-                <div className="flex items-center justify-center py-8 text-gray-500">
+                <div className="flex items-center justify-center py-8 text-dark-700">
                   <Loader2 className="h-6 w-6 animate-spin mr-2" />
                   <span>Loading entity data...</span>
                 </div>

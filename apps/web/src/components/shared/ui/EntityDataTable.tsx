@@ -51,7 +51,7 @@ import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 function renderCellValue(column: Column, value: any): React.ReactNode {
   // Return empty state if no value
   if (value === null || value === undefined || value === '') {
-    return <span className="text-gray-400 italic">—</span>;
+    return <span className="text-dark-600 italic">—</span>;
   }
 
   // Settings fields with colored badges (loadOptionsFromSettings: true)
@@ -188,7 +188,7 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
           onClick(e);
           setDropdownOpen(!dropdownOpen);
         }}
-        className="w-full px-2.5 py-1.5 pr-8 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400/30 focus:border-gray-300 bg-white shadow-sm hover:border-gray-300 transition-colors cursor-pointer text-left"
+        className="w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors cursor-pointer text-left"
         style={{
           fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
           fontSize: '13px',
@@ -199,16 +199,16 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
         {selectedOption ? (
           renderSettingBadge(selectedColor, String(selectedOption.label))
         ) : (
-          <span className="text-gray-400">Select...</span>
+          <span className="text-dark-600">Select...</span>
         )}
       </button>
-      <ChevronDown className="h-4 w-4 text-gray-500 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+      <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
 
       {/* Dropdown menu - rendered via portal to avoid overflow clipping */}
       {dropdownOpen && createPortal(
         <div
           ref={dropdownRef}
-          className="bg-white border border-gray-200 rounded-md overflow-auto"
+          className="bg-dark-100 border border-dark-300 rounded-md overflow-auto"
           style={{
             position: 'absolute',
             top: `${dropdownPosition.top}px`,
@@ -233,7 +233,7 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
                     onChange(opt.value as string);
                     setDropdownOpen(false);
                   }}
-                  className="w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors flex items-center"
+                  className="w-full px-3 py-2 text-left hover:bg-dark-100 transition-colors flex items-center"
                 >
                   {renderSettingBadge(optionColor, String(opt.label))}
                 </button>
@@ -389,6 +389,9 @@ export function EntityDataTable<T = any>({
     width: number;
     visible: boolean;
   }>({ left: 0, width: 0, visible: false });
+
+  // Scroll progress state for progress indicator
+  const [scrollProgress, setScrollProgress] = useState(0);
 
   // ============================================================================
   // CENTRALIZED CAPABILITY DETECTION - TRUE DRY SYSTEM
@@ -588,7 +591,7 @@ export function EntityDataTable<T = any>({
               type="radio"
               checked={isSelected}
               onChange={(e) => handleSelectRow(recordId, e.target.checked)}
-              className="h-4 w-4 text-gray-600 border-gray-300 focus:ring-gray-500 cursor-pointer"
+              className="h-4 w-4 text-dark-700 border-dark-400 focus:ring-gray-500 cursor-pointer"
               onClick={(e) => e.stopPropagation()}
               name="row-selection"
             />
@@ -612,8 +615,8 @@ export function EntityDataTable<T = any>({
                 const isDisabled = action.disabled ? action.disabled(record) : false;
 
                 const buttonVariants = {
-                  default: 'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
-                  primary: 'text-gray-700 hover:text-gray-900 hover:bg-gray-100',
+                  default: 'text-dark-700 hover:text-dark-600 hover:bg-dark-100',
+                  primary: 'text-dark-600 hover:text-dark-600 hover:bg-dark-100',
                   danger: 'text-red-600 hover:text-red-900 hover:bg-red-50',
                 };
 
@@ -773,12 +776,28 @@ export function EntityDataTable<T = any>({
   const handleTableScroll = () => {
     if (tableContainerRef.current && bottomScrollbarRef.current) {
       bottomScrollbarRef.current.scrollLeft = tableContainerRef.current.scrollLeft;
+
+      // Update scroll progress indicator
+      const scrollLeft = tableContainerRef.current.scrollLeft;
+      const scrollWidth = tableContainerRef.current.scrollWidth;
+      const clientWidth = tableContainerRef.current.clientWidth;
+      const maxScroll = scrollWidth - clientWidth;
+      const progress = maxScroll > 0 ? (scrollLeft / maxScroll) * 100 : 0;
+      setScrollProgress(progress);
     }
   };
 
   const handleBottomScroll = () => {
     if (tableContainerRef.current && bottomScrollbarRef.current) {
       tableContainerRef.current.scrollLeft = bottomScrollbarRef.current.scrollLeft;
+
+      // Update scroll progress indicator
+      const scrollLeft = bottomScrollbarRef.current.scrollLeft;
+      const scrollWidth = tableContainerRef.current.scrollWidth;
+      const clientWidth = tableContainerRef.current.clientWidth;
+      const maxScroll = scrollWidth - clientWidth;
+      const progress = maxScroll > 0 ? (scrollLeft / maxScroll) * 100 : 0;
+      setScrollProgress(progress);
     }
   };
 
@@ -912,20 +931,20 @@ export function EntityDataTable<T = any>({
 
 
     return (
-      <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gradient-to-r from-gray-50/50 to-white">
-        <div className="flex items-center text-sm text-gray-600">
+      <div className="flex items-center justify-between px-6 py-4 border-t border-dark-300 bg-gradient-to-r from-dark-100/50 to-dark-100">
+        <div className="flex items-center text-sm text-dark-700">
           <span className="font-normal">
             {loading ? (
               <>Loading...</>
             ) : (
-              <>Showing <span className="text-gray-900">{startRecord}</span> to <span className="text-gray-900">{endRecord}</span> of <span className="text-gray-900">{actualTotal}</span> results</>
+              <>Showing <span className="text-dark-600">{startRecord}</span> to <span className="text-dark-600">{endRecord}</span> of <span className="text-dark-600">{actualTotal}</span> results</>
             )}
           </span>
           {showSizeChanger && (
             <select
               value={pageSize}
               onChange={(e) => onChange?.(1, Number(e.target.value))}
-              className="ml-6 px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-gray-400/30 focus:border-gray-300 transition-all duration-200"
+              className="ml-6 px-3 py-1.5 border border-dark-300 rounded-lg text-sm bg-dark-100 focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 transition-all duration-200"
             >
               {pageSizeOptions.map(size => (
                 <option key={size} value={size}>{size} per page</option>
@@ -938,7 +957,7 @@ export function EntityDataTable<T = any>({
           <button
             onClick={() => onChange?.(current - 1, pageSize)}
             disabled={current <= 1 || actualTotal === 0}
-            className="p-2 border border-gray-200 rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white hover:border-gray-300 hover:shadow-sm transition-all duration-200 bg-white/50"
+            className="p-2 border border-dark-300 rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-100 hover:border-dark-400 hover:shadow-sm transition-all duration-200 bg-dark-100/50"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -962,8 +981,8 @@ export function EntityDataTable<T = any>({
                   onClick={() => onChange?.(pageNum, pageSize)}
                   className={`px-3 py-1.5 text-sm border rounded-lg font-normal transition-all duration-200 ${
                     current === pageNum
-                      ? 'bg-gray-100 text-gray-900 border-gray-300 shadow-sm'
-                      : 'border-gray-200 bg-white/70 hover:bg-white hover:border-gray-300 hover:shadow-sm text-gray-700'
+                      ? 'bg-dark-100 text-dark-600 border-dark-400 shadow-sm'
+                      : 'border-dark-300 bg-dark-100/70 hover:bg-dark-100 hover:border-dark-400 hover:shadow-sm text-dark-600'
                   }`}
                 >
                   {pageNum}
@@ -975,7 +994,7 @@ export function EntityDataTable<T = any>({
           <button
             onClick={() => onChange?.(current + 1, pageSize)}
             disabled={current >= totalPages || actualTotal === 0}
-            className="p-2 border border-gray-200 rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white hover:border-gray-300 hover:shadow-sm transition-all duration-200 bg-white/50"
+            className="p-2 border border-dark-300 rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-100 hover:border-dark-400 hover:shadow-sm transition-all duration-200 bg-dark-100/50"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -986,47 +1005,47 @@ export function EntityDataTable<T = any>({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-dark-100 rounded-lg shadow-sm border border-dark-300">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-300"></div>
-          <span className="ml-3 text-gray-600">Loading...</span>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-400"></div>
+          <span className="ml-3 text-dark-700">Loading...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col m-1 h-full ${className}`}>
+    <div className={`bg-dark-100 rounded-xl shadow-sm border border-dark-300 overflow-hidden flex flex-col m-1 h-full ${className}`}>
       {(filterable || columnSelection) && (
-        <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-50/50 border-b border-gray-100">
+        <div className="px-6 py-4 bg-gradient-to-r from-dark-100 to-dark-100/50 border-b border-dark-300">
           {filterable && (
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-6">
-                <div className="flex items-center text-sm text-gray-700">
-                  <Filter className="h-4 w-4 text-gray-500 stroke-[1.5] mr-2" />
-                  <span className="font-normal text-sm text-gray-600">Filter by:</span>
+                <div className="flex items-center text-sm text-dark-600">
+                  <Filter className="h-4 w-4 text-dark-700 stroke-[1.5] mr-2" />
+                  <span className="font-normal text-sm text-dark-700">Filter by:</span>
                 </div>
                 
                 <div className="relative">
                   <select
                     value={selectedFilterColumn}
                     onChange={(e) => setSelectedFilterColumn(e.target.value)}
-                    className="appearance-none px-4 py-1.5 pr-10 w-48 border border-gray-300 rounded-xl text-sm bg-white hover:bg-gray-50 focus:ring-2 focus:ring-gray-400/30 focus:border-gray-300 transition-all duration-200 shadow-sm font-normal text-gray-700"
+                    className="appearance-none px-4 py-1.5 pr-10 w-48 border border-dark-400 rounded-xl text-sm bg-dark-100 hover:bg-dark-100 focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 transition-all duration-200 shadow-sm font-normal text-dark-600"
                   >
-                    <option value="" className="text-gray-500">Select column...</option>
+                    <option value="" className="text-dark-700">Select column...</option>
                     {initialColumns.filter(col => col.filterable).map(column => (
                       <option key={column.key} value={column.key}>
                         {column.title}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="h-4 w-4 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="h-4 w-4 text-dark-600 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                 </div>
 
                 {selectedFilterColumn && (
                   <div className="relative" ref={filterContainerRef}>
                     <div className="relative">
-                      <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                      <Search className="h-4 w-4 text-dark-600 absolute left-3 top-1/2 transform -translate-y-1/2" />
                       <input
                         type="text"
                         placeholder="Type to filter values..."
@@ -1036,12 +1055,12 @@ export function EntityDataTable<T = any>({
                           setShowFilterDropdown(true);
                         }}
                         onFocus={() => setShowFilterDropdown(true)}
-                        className="pl-10 pr-4 py-1.5 w-64 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-gray-400/30 focus:border-gray-300 transition-all duration-200"
+                        className="pl-10 pr-4 py-1.5 w-64 border border-dark-300 rounded-lg text-sm bg-dark-100 focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 transition-all duration-200"
                       />
                     </div>
 
                     {showFilterDropdown && (
-                      <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-xl z-50 backdrop-blur-sm max-h-64 overflow-y-auto">
+                      <div className="absolute top-full left-0 mt-2 w-80 bg-dark-100 border border-dark-300 rounded-xl shadow-xl z-50 backdrop-blur-sm max-h-64 overflow-y-auto">
                         <div className="p-2">
                           {getColumnOptions(selectedFilterColumn)
                             .filter(option =>
@@ -1063,13 +1082,13 @@ export function EntityDataTable<T = any>({
                               return (
                                 <label
                                   key={option}
-                                  className="flex items-center px-3 py-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors group"
+                                  className="flex items-center px-3 py-2 hover:bg-dark-100 rounded-lg cursor-pointer transition-colors group"
                                 >
                                   <input
                                     type="checkbox"
                                     checked={(dropdownFilters[selectedFilterColumn] || []).includes(option)}
                                     onChange={(e) => handleDropdownFilter(selectedFilterColumn, option, e.target.checked)}
-                                    className="mr-3 text-gray-600 rounded focus:ring-gray-500 focus:ring-offset-0 flex-shrink-0"
+                                    className="mr-3 text-dark-700 rounded focus:ring-gray-500 focus:ring-offset-0 flex-shrink-0"
                                   />
                                   <div className="flex-1 min-w-0">
                                     {isSettingsField ? (
@@ -1077,7 +1096,7 @@ export function EntityDataTable<T = any>({
                                       colorCode ? renderSettingBadge(colorCode, option) : renderSettingBadge(undefined, option)
                                     ) : (
                                       // Non-settings field - render text
-                                      <span className="text-sm text-gray-700 group-hover:text-gray-900 truncate">{option}</span>
+                                      <span className="text-sm text-dark-600 group-hover:text-dark-600 truncate">{option}</span>
                                     )}
                                   </div>
                                 </label>
@@ -1088,7 +1107,7 @@ export function EntityDataTable<T = any>({
                             .filter(option =>
                               option.toLowerCase().includes(filterSearchTerm.toLowerCase())
                             ).length === 0 && (
-                            <div className="px-2 py-1.5 text-xs text-gray-500 text-center">
+                            <div className="px-2 py-1.5 text-xs text-dark-700 text-center">
                               No options found
                             </div>
                           )}
@@ -1117,25 +1136,25 @@ export function EntityDataTable<T = any>({
                 <div className="relative" ref={columnSelectorRef}>
                   <button
                     onClick={() => setShowColumnSelector(!showColumnSelector)}
-                    className="flex items-center px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                    className="flex items-center px-3 py-1.5 text-sm text-dark-700 border border-dark-300 rounded hover:bg-dark-100 hover:border-dark-400 transition-colors"
                   >
                     <Columns className="h-4 w-4 mr-2 stroke-[1.5]" />
                     Columns
                   </button>
 
                   {showColumnSelector && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                    <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-lg shadow-lg z-50">
                       <div className="p-2">
-                        <div className="text-sm font-normal text-gray-500 mb-2 px-1">Show Columns</div>
+                        <div className="text-sm font-normal text-dark-700 mb-2 px-1">Show Columns</div>
                         {initialColumns.map(column => (
-                          <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-gray-50 rounded cursor-pointer transition-colors">
+                          <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-100 rounded cursor-pointer transition-colors">
                             <input
                               type="checkbox"
                               checked={visibleColumns.has(column.key)}
                               onChange={() => toggleColumnVisibility(column.key)}
-                              className="mr-3 text-gray-600 rounded focus:ring-gray-400"
+                              className="mr-3 text-dark-700 rounded focus:ring-dark-700"
                             />
-                            <span className="text-sm text-gray-700">{column.title}</span>
+                            <span className="text-sm text-dark-600">{column.title}</span>
                           </label>
                         ))}
                       </div>
@@ -1151,25 +1170,25 @@ export function EntityDataTable<T = any>({
               <div className="relative" ref={columnSelectorRef}>
                 <button
                   onClick={() => setShowColumnSelector(!showColumnSelector)}
-                  className="flex items-center px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                  className="flex items-center px-3 py-1.5 text-sm text-dark-700 border border-dark-300 rounded hover:bg-dark-100 hover:border-dark-400 transition-colors"
                 >
                   <Columns className="h-4 w-4 mr-2 stroke-[1.5]" />
                   Columns
                 </button>
 
                 {showColumnSelector && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                  <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-lg shadow-lg z-50">
                     <div className="p-2">
-                      <div className="text-sm font-normal text-gray-500 mb-2 px-1">Show Columns</div>
+                      <div className="text-sm font-normal text-dark-700 mb-2 px-1">Show Columns</div>
                       {initialColumns.map(column => (
-                        <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-gray-50 rounded cursor-pointer transition-colors">
+                        <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-100 rounded cursor-pointer transition-colors">
                           <input
                             type="checkbox"
                             checked={visibleColumns.has(column.key)}
                             onChange={() => toggleColumnVisibility(column.key)}
-                            className="mr-3 text-gray-600 rounded focus:ring-gray-400"
+                            className="mr-3 text-dark-700 rounded focus:ring-dark-700"
                           />
-                          <span className="text-sm text-gray-700">{column.title}</span>
+                          <span className="text-sm text-dark-600">{column.title}</span>
                         </label>
                       ))}
                     </div>
@@ -1181,9 +1200,9 @@ export function EntityDataTable<T = any>({
 
           {/* Filter Chips */}
           {Object.keys(dropdownFilters).length > 0 && (
-            <div className="mt-3 pt-3 border-t border-gray-200">
+            <div className="mt-3 pt-3 border-t border-dark-300">
               <div className="flex items-center flex-wrap gap-2">
-                <span className="text-xs text-gray-500 font-medium">Active filters:</span>
+                <span className="text-xs text-dark-700 font-medium">Active filters:</span>
                 {Object.entries(dropdownFilters).map(([columnKey, values]) =>
                   values.map((value) => {
                     // Check if this column is a settings field
@@ -1198,7 +1217,7 @@ export function EntityDataTable<T = any>({
                       colorCode = getSettingColor(datalabel, value);
                     }
 
-                    const chipColorClass = colorCode ? (COLOR_MAP[colorCode] || COLOR_MAP.gray) : 'bg-gray-100 text-gray-800';
+                    const chipColorClass = colorCode ? (COLOR_MAP[colorCode] || COLOR_MAP.gray) : 'bg-dark-100 text-dark-600';
 
                     return (
                       <div
@@ -1235,30 +1254,30 @@ export function EntityDataTable<T = any>({
           }}
           onScroll={handleTableScroll}
         >
-          <table 
-            className="w-full" 
-            style={{ 
+          <table
+            className="w-full divide-y divide-dark-400"
+            style={{
               minWidth: columns.length > 7 ? `${columns.length * 200}px` : '100%',
               tableLayout: columns.length <= 7 ? 'auto' : 'fixed'
             }}
           >
-            <thead className="bg-gradient-to-r from-gray-50 to-gray-50/80 sticky top-0 z-30 shadow-sm">
+            <thead className="bg-gradient-to-r from-dark-100 to-dark-100/80 sticky top-0 z-30 shadow-sm">
               <tr>
                 {columns.map((column, index) => (
                   <th
                     key={column.key}
-                    className={`px-6 py-2.5 text-left border-r border-gray-200 ${
-                      column.sortable ? 'cursor-pointer hover:bg-gray-100/50 transition-colors' : ''
+                    className={`px-6 py-2.5 text-left ${
+                      column.sortable ? 'cursor-pointer hover:bg-dark-100/50 transition-colors' : ''
                     } ${columns.length > 7 ? 'min-w-[200px]' : ''} ${
-                      index === 0 ? 'sticky left-0 z-40 bg-gray-50 shadow-r' : ''
+                      index === 0 ? 'sticky left-0 z-40 bg-dark-100 shadow-r' : ''
                     }`}
                     style={{
                       width: columns.length > 7 ? '200px' : (column.width || 'auto'),
                       textAlign: column.align || 'left',
-                      color: '#6b6d70',
+                      color: '#616161',
                       font: "400 12px / 16px 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                       outline: 0,
-                      backgroundColor: '#fff'
+                      backgroundColor: '#FFFFFF'
                     }}
                     onClick={() => column.sortable && handleSort(column.key)}
                   >
@@ -1271,7 +1290,7 @@ export function EntityDataTable<T = any>({
                         <span className="select-none">{column.title}</span>
                         <div className="flex items-center ml-3 space-x-1">
                           {column.sortable && (
-                            <div className="text-gray-400 hover:text-gray-600 transition-colors">
+                            <div className="text-dark-600 hover:text-dark-700 transition-colors">
                               {renderSortIcon(column.key)}
                             </div>
                           )}
@@ -1282,7 +1301,7 @@ export function EntityDataTable<T = any>({
                 ))}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
+            <tbody className="bg-dark-100 divide-y divide-dark-400">
               {filteredAndSortedData.map((record, index) => {
                 const recordId = getRowKey(record, index);
                 const isEditing = inlineEditable && editingRow === recordId;
@@ -1295,7 +1314,7 @@ export function EntityDataTable<T = any>({
                     {isDragOver && draggedIndex !== null && (
                       <tr className="relative pointer-events-none">
                         <td colSpan={columns.length} className="p-0 h-0">
-                          <div className="absolute left-0 right-0 h-1 bg-gray-500 shadow-lg z-50 animate-pulse"
+                          <div className="absolute left-0 right-0 h-1 bg-dark-1000 shadow-lg z-50 animate-pulse"
                                style={{
                                  top: '-2px',
                                  boxShadow: '0 0 8px rgba(107, 114, 128, 0.5)'
@@ -1314,18 +1333,18 @@ export function EntityDataTable<T = any>({
                       onClick={() => !isEditing && onRowClick?.(record)}
                       className={`group transition-all duration-200 ${
                         isDragging
-                          ? 'opacity-40 scale-[0.98] bg-gray-100'
+                          ? 'opacity-40 scale-[0.98] bg-dark-100'
                           : isDragOver
-                            ? 'bg-gray-100/50'
+                            ? 'bg-dark-100/50'
                             : ''
                       } ${
                         isEditing
-                          ? 'bg-gray-50/30'
+                          ? 'bg-dark-100/30'
                           : allowReordering && !isEditing
-                            ? 'cursor-move hover:bg-gray-100/40 hover:shadow-md'
+                            ? 'cursor-move hover:bg-dark-100/40 hover:shadow-md'
                             : onRowClick
-                              ? 'cursor-pointer hover:bg-gradient-to-r hover:from-gray-50/30 hover:to-transparent hover:shadow-sm'
-                              : 'hover:bg-gray-50/30'
+                              ? 'cursor-pointer hover:bg-gradient-to-r hover:from-dark-50/30 hover:to-transparent hover:shadow-sm'
+                              : 'hover:bg-dark-100/30'
                       }`}
                     >
                     {columns.map((column, colIndex) => {
@@ -1335,7 +1354,7 @@ export function EntityDataTable<T = any>({
                           <td
                             key={column.key}
                             className={`px-6 py-2.5 ${
-                              colIndex === 0 ? 'sticky left-0 z-20 bg-white shadow-r' : ''
+                              colIndex === 0 ? 'sticky left-0 z-20 bg-dark-100 shadow-r' : ''
                             }`}
                             style={{
                               textAlign: column.align || 'left',
@@ -1379,7 +1398,7 @@ export function EntityDataTable<T = any>({
                           <td
                             key={column.key}
                             className={`px-6 py-2.5 ${
-                              colIndex === 0 ? 'sticky left-0 z-20 bg-white shadow-r' : ''
+                              colIndex === 0 ? 'sticky left-0 z-20 bg-dark-100 shadow-r' : ''
                             }`}
                             style={{
                               textAlign: column.align || 'center',
@@ -1395,7 +1414,7 @@ export function EntityDataTable<T = any>({
                                       e.stopPropagation();
                                       onSaveInlineEdit?.(record);
                                     }}
-                                    className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                                    className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
                                     title="Save"
                                   >
                                     <Check className="h-4 w-4" />
@@ -1405,7 +1424,7 @@ export function EntityDataTable<T = any>({
                                       e.stopPropagation();
                                       onCancelInlineEdit?.();
                                     }}
-                                    className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                                    className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
                                     title="Cancel"
                                   >
                                     <X className="h-4 w-4" />
@@ -1418,8 +1437,8 @@ export function EntityDataTable<T = any>({
                                     const isDisabled = action.disabled ? action.disabled(record) : false;
 
                                     const buttonVariants = {
-                                      default: 'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
-                                      primary: 'text-gray-700 hover:text-gray-900 hover:bg-gray-100',
+                                      default: 'text-dark-700 hover:text-dark-600 hover:bg-dark-100',
+                                      primary: 'text-dark-600 hover:text-dark-600 hover:bg-dark-100',
                                       danger: 'text-red-600 hover:text-red-900 hover:bg-red-50',
                                     };
 
@@ -1470,7 +1489,7 @@ export function EntityDataTable<T = any>({
                         <td
                           key={column.key}
                           className={`px-6 py-2.5 ${
-                            colIndex === 0 ? 'sticky left-0 z-20 bg-white shadow-r' : ''
+                            colIndex === 0 ? 'sticky left-0 z-20 bg-dark-100 shadow-r' : ''
                           }`}
                           style={{
                             textAlign: column.align || 'left',
@@ -1498,7 +1517,7 @@ export function EntityDataTable<T = any>({
                                   value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
                                   onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="w-full px-2.5 py-1.5 pr-8 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400/30 focus:border-gray-300 bg-white shadow-sm hover:border-gray-300 transition-colors cursor-pointer appearance-none"
+                                  className="w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors cursor-pointer appearance-none"
                                   style={{
                                     fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                                     fontSize: '13px',
@@ -1508,15 +1527,15 @@ export function EntityDataTable<T = any>({
                                     lineHeight: '1.2'
                                   }}
                                 >
-                                  <option value="" className="text-gray-400">Select color...</option>
+                                  <option value="" className="text-dark-600">Select color...</option>
                                   {colorOptions.map(opt => (
-                                    <option key={opt.value} value={opt.value} className="text-gray-900 py-1.5">
+                                    <option key={opt.value} value={opt.value} className="text-dark-600 py-1.5">
                                       {opt.label}
                                     </option>
                                   ))}
                                 </select>
                                 {/* Custom dropdown arrow */}
-                                <ChevronDown className="h-4 w-4 text-gray-500 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                                <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                               </div>
                             ) :
                             // SETTINGS DROPDOWN FIELD WITH COLORED BADGES
@@ -1536,7 +1555,7 @@ export function EntityDataTable<T = any>({
                                 onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
                                 placeholder="Enter tags (comma-separated)"
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-gray-500 focus:border-gray-300"
+                                className="w-full px-2 py-1.5 border border-dark-400 rounded focus:ring-2 focus:ring-gray-500 focus:border-dark-400"
                                 style={{
                                   fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                                   fontSize: '13px',
@@ -1551,7 +1570,7 @@ export function EntityDataTable<T = any>({
                                 value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
                                 onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-gray-500 focus:border-gray-300"
+                                className="w-full px-2 py-1.5 border border-dark-400 rounded focus:ring-2 focus:ring-gray-500 focus:border-dark-400"
                                 style={{
                                   fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                                   fontSize: '13px',
@@ -1577,7 +1596,7 @@ export function EntityDataTable<T = any>({
                                 })()}
                                 onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-gray-500 focus:border-gray-300"
+                                className="w-full px-2 py-1.5 border border-dark-400 rounded focus:ring-2 focus:ring-gray-500 focus:border-dark-400"
                                 style={{
                                   fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                                   fontSize: '13px',
@@ -1591,7 +1610,7 @@ export function EntityDataTable<T = any>({
                                 value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
                                 onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-gray-500 focus:border-gray-300"
+                                className="w-full px-2 py-1.5 border border-dark-400 rounded focus:ring-2 focus:ring-gray-500 focus:border-dark-400"
                                 style={{
                                   fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                                   fontSize: '13px',
@@ -1635,37 +1654,44 @@ export function EntityDataTable<T = any>({
 
         {filteredAndSortedData.length === 0 && !loading && !allowAddRow && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-gray-500">No data found</p>
+            <p className="text-dark-700">No data found</p>
           </div>
         )}
       </div>
 
-      {/* Bottom Scrollbar (monday.com style - fixed to viewport bottom) */}
+      {/* Bottom Scrollbar (Next-Gen Style - fixed to viewport bottom) */}
       {scrollbarStyles.visible && (
         <div
           ref={bottomScrollbarRef}
-          className="overflow-x-auto overflow-y-hidden scrollbar-elegant bg-white border-t border-gray-200 shadow-lg"
+          className="overflow-x-auto overflow-y-hidden bottom-scrollbar-track bottom-scrollbar-enhanced"
           style={{
             position: 'fixed',
             bottom: 0,
             left: `${scrollbarStyles.left}px`,
             width: `${scrollbarStyles.width}px`,
-            height: '17px',
+            height: '24px',
             zIndex: 1000,
-            boxShadow: '0 -2px 8px rgba(0, 0, 0, 0.1)',
           }}
           onScroll={handleBottomScroll}
         >
+          {/* Progress indicator showing scroll position */}
+          <div
+            className="scrollbar-progress-indicator"
+            style={{
+              width: `${scrollProgress}%`,
+            }}
+          />
+          {/* Scrollbar content */}
           <div className="scrollbar-content" style={{ height: '1px' }} />
         </div>
       )}
 
       {/* Add Row Button - Adds inline editable row */}
       {allowAddRow && (
-        <div className="border-t border-gray-200 bg-white">
+        <div className="border-t border-dark-300 bg-dark-100">
           <button
             onClick={handleStartAddRow}
-            className="w-full px-6 py-3 text-left text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-2"
+            className="w-full px-6 py-3 text-left text-sm text-dark-700 hover:bg-dark-100 transition-colors flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />
             <span>Add new row</span>

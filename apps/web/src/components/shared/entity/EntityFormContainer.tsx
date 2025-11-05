@@ -26,7 +26,7 @@ function renderFieldBadge(fieldKey: string, value: string): React.ReactNode {
       'critical': 'bg-red-200 text-red-900',
       'urgent': 'bg-orange-100 text-orange-800'
     };
-    const colorClass = colorMap[value.toLowerCase()] || 'bg-gray-100 text-gray-800';
+    const colorClass = colorMap[value.toLowerCase()] || 'bg-dark-100 text-dark-600';
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
         {value}
@@ -37,19 +37,19 @@ function renderFieldBadge(fieldKey: string, value: string): React.ReactNode {
   // Stage field colors
   if (fieldKey.toLowerCase().includes('stage')) {
     const colorMap: Record<string, string> = {
-      'initiation': 'bg-blue-100 text-blue-800',
+      'initiation': 'bg-dark-100 text-dark-600',
       'planning': 'bg-indigo-100 text-indigo-800',
       'execution': 'bg-purple-100 text-purple-800',
       'monitoring': 'bg-yellow-100 text-yellow-800',
       'closure': 'bg-green-100 text-green-800',
-      'backlog': 'bg-gray-100 text-gray-800',
-      'to do': 'bg-blue-100 text-blue-800',
+      'backlog': 'bg-dark-100 text-dark-600',
+      'to do': 'bg-dark-100 text-dark-600',
       'in progress': 'bg-purple-100 text-purple-800',
       'in review': 'bg-yellow-100 text-yellow-800',
       'done': 'bg-green-100 text-green-800',
       'blocked': 'bg-red-100 text-red-800'
     };
-    const colorClass = colorMap[value.toLowerCase()] || 'bg-gray-100 text-gray-800';
+    const colorClass = colorMap[value.toLowerCase()] || 'bg-dark-100 text-dark-600';
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
         {value}
@@ -61,15 +61,15 @@ function renderFieldBadge(fieldKey: string, value: string): React.ReactNode {
   if (fieldKey.toLowerCase().includes('status')) {
     const colorMap: Record<string, string> = {
       'active': 'bg-green-100 text-green-800',
-      'inactive': 'bg-gray-100 text-gray-800',
+      'inactive': 'bg-dark-100 text-dark-600',
       'pending': 'bg-yellow-100 text-yellow-800',
       'completed': 'bg-green-100 text-green-800',
       'cancelled': 'bg-red-100 text-red-800',
-      'draft': 'bg-gray-100 text-gray-800',
+      'draft': 'bg-dark-100 text-dark-600',
       'published': 'bg-green-100 text-green-800',
-      'archived': 'bg-gray-300 text-gray-700'
+      'archived': 'bg-dark-300 text-dark-600'
     };
-    const colorClass = colorMap[value.toLowerCase()] || 'bg-gray-100 text-gray-800';
+    const colorClass = colorMap[value.toLowerCase()] || 'bg-dark-100 text-dark-600';
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
         {value}
@@ -78,7 +78,7 @@ function renderFieldBadge(fieldKey: string, value: string): React.ReactNode {
   }
 
   // Default: just return text
-  return <span className="text-sm text-gray-700">{value}</span>;
+  return <span className="text-sm text-dark-600">{value}</span>;
 }
 
 /**
@@ -291,7 +291,7 @@ export function EntityFormContainer({
       if (field.type === 'timestamp' && value) {
         return (
           <span
-            className="text-gray-600"
+            className="text-dark-700"
             title={formatFriendlyDate(value)}
             style={{
               fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
@@ -338,7 +338,7 @@ export function EntityFormContainer({
       if (field.type === 'date' && value) {
         return (
           <span
-            className="text-gray-700"
+            className="text-dark-600"
             style={{
               fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '14px',
@@ -364,7 +364,7 @@ export function EntityFormContainer({
             <div className="space-y-3">
               {/* Display actual stage value from entity table */}
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-gray-700">Current Stage:</span>
+                <span className="text-sm font-medium text-dark-600">Current Stage:</span>
                 {renderFieldBadge(field.key, value || 'Not Set')}
               </div>
               {/* DAG visualization overlay from setting_datalabel */}
@@ -381,7 +381,7 @@ export function EntityFormContainer({
 
         if (!displayValue) return (
           <span
-            className="text-gray-400"
+            className="text-dark-600"
             style={{
               fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '14px',
@@ -401,7 +401,7 @@ export function EntityFormContainer({
 
         return (
           <span
-            className="text-gray-700"
+            className="text-dark-600"
             style={{
               fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '14px',
@@ -415,7 +415,7 @@ export function EntityFormContainer({
       if (field.type === 'textarea' || field.type === 'richtext') {
         return (
           <div
-            className="whitespace-pre-wrap text-gray-700"
+            className="whitespace-pre-wrap text-dark-600"
             style={{
               fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '14px',
@@ -431,7 +431,7 @@ export function EntityFormContainer({
         return (
           <div className="flex flex-wrap gap-2">
             {value.map((item, idx) => (
-              <span key={idx} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-blue-100 text-blue-800">
+              <span key={idx} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-dark-100 text-dark-600">
                 {item}
               </span>
             ))}
@@ -450,7 +450,7 @@ export function EntityFormContainer({
         if (value) {
           return (
             <pre
-              className="font-mono bg-gray-50 p-2 rounded overflow-auto max-h-40"
+              className="font-mono bg-dark-100 p-2 rounded overflow-auto max-h-40"
               style={{
                 fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                 fontSize: '13px',
@@ -461,14 +461,14 @@ export function EntityFormContainer({
             </pre>
           );
         }
-        return <span className="text-gray-400">No data</span>;
+        return <span className="text-dark-600">No data</span>;
       }
       if (field.type === 'number') {
         // Auto-detect and format currency fields
         if (isCurrencyField(field.key)) {
           return (
             <span
-              className="text-gray-700 font-medium"
+              className="text-dark-600 font-medium"
               style={{
                 fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                 fontSize: '14px',
@@ -483,7 +483,7 @@ export function EntityFormContainer({
         if (field.prefix) {
           return (
             <span
-              className="text-gray-700"
+              className="text-dark-600"
               style={{
                 fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                 fontSize: '14px',
@@ -497,7 +497,7 @@ export function EntityFormContainer({
         // Regular number
         return (
           <span
-            className="text-gray-700"
+            className="text-dark-600"
             style={{
               fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '14px',
@@ -510,7 +510,7 @@ export function EntityFormContainer({
       }
       return (
         <span
-          className="text-gray-700"
+          className="text-dark-600"
           style={{
             fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
             fontSize: '14px',
@@ -533,7 +533,7 @@ export function EntityFormContainer({
             value={value || ''}
             onChange={(e) => onChange(field.key, e.target.value)}
             className={`w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 ${
-              field.readonly ? 'cursor-not-allowed text-gray-400' : 'text-gray-900 placeholder:text-gray-400/60 hover:placeholder:text-gray-500/80'
+              field.readonly ? 'cursor-not-allowed text-dark-600' : 'text-dark-600 placeholder:text-dark-600/60 hover:placeholder:text-dark-700/80'
             }`}
             style={{
               fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
@@ -553,7 +553,7 @@ export function EntityFormContainer({
             value={value || ''}
             onChange={(e) => onChange(field.key, e.target.value)}
             rows={field.type === 'richtext' ? 6 : 4}
-            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 resize-none text-gray-900 placeholder:text-gray-400/60 hover:placeholder:text-gray-500/80"
+            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 resize-none text-dark-600 placeholder:text-dark-600/60 hover:placeholder:text-dark-700/80"
             style={{
               fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '14px',
@@ -573,7 +573,7 @@ export function EntityFormContainer({
             value={Array.isArray(value) ? value.join(', ') : ''}
             onChange={(e) => onChange(field.key, e.target.value.split(',').map(v => v.trim()).filter(Boolean))}
             placeholder={field.placeholder || "Enter comma-separated values"}
-            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-gray-900 placeholder:text-gray-400/60 hover:placeholder:text-gray-500/80"
+            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-dark-600 placeholder:text-dark-600/60 hover:placeholder:text-dark-700/80"
             style={{
               fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '14px',
@@ -615,7 +615,7 @@ export function EntityFormContainer({
               }
             }}
             rows={6}
-            className="w-full border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0 font-mono resize-none"
+            className="w-full border-0 border-b border-transparent hover:border-dark-400 focus:border-dark-600 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0 font-mono resize-none"
             style={{
               fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '13px',
@@ -639,11 +639,11 @@ export function EntityFormContainer({
           return (
             <div className="space-y-3">
               {/* Display actual stage value from entity table */}
-              <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-                <span className="text-sm font-semibold text-blue-900">Current Stage:</span>
+              <div className="flex items-center gap-3 p-3 bg-dark-100 border border-dark-300 rounded-lg">
+                <span className="text-sm font-semibold text-dark-600">Current Stage:</span>
                 {renderFieldBadge(field.key, value || 'Not Set')}
               </div>
-              <div className="text-xs text-gray-600 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
+              <div className="text-xs text-dark-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
                 <strong>Click a node below</strong> to change the stage
               </div>
               {/* Interactive DAG visualization overlay from setting_datalabel */}
@@ -674,7 +674,7 @@ export function EntityFormContainer({
               }
               onChange(field.key, newValue === '' ? undefined : newValue);
             }}
-            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-gray-900 cursor-pointer hover:text-blue-700"
+            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-dark-600 cursor-pointer hover:text-dark-700"
             style={{
               fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '14px',
@@ -684,7 +684,7 @@ export function EntityFormContainer({
             disabled={field.disabled || field.readonly}
             required={field.required && mode === 'create'}
           >
-            <option value="" className="text-gray-400">Select...</option>
+            <option value="" className="text-dark-600">Select...</option>
             {options.map((opt: any) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
@@ -715,7 +715,7 @@ export function EntityFormContainer({
             type="date"
             value={value ? new Date(value).toISOString().split('T')[0] : ''}
             onChange={(e) => onChange(field.key, e.target.value)}
-            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-gray-900 cursor-pointer hover:text-blue-700"
+            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-dark-600 cursor-pointer hover:text-dark-700"
             style={{
               fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '14px',
@@ -730,7 +730,7 @@ export function EntityFormContainer({
         // Timestamp fields are readonly and show relative time
         return (
           <span
-            className="text-gray-600"
+            className="text-dark-700"
             title={value ? formatFriendlyDate(value) : undefined}
           >
             {value ? formatRelativeTime(value) : '-'}
@@ -751,7 +751,7 @@ export function EntityFormContainer({
   const visibleFields = config.fields.filter(f => !excludedFields.includes(f.key));
 
   return (
-    <div className="bg-gradient-to-br from-white via-white to-blue-50/5 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.03),0_8px_24px_-8px_rgba(0,0,0,0.04)] overflow-hidden backdrop-blur-sm border border-gray-100/50">
+    <div className="bg-gradient-to-br from-dark-100 via-dark-100 to-dark-200/30 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.03),0_8px_24px_-8px_rgba(0,0,0,0.04)] overflow-hidden backdrop-blur-sm border border-dark-300/50">
       <div className="p-6">
         <div className="space-y-0">
           {visibleFields.map((field, index) => {
@@ -780,7 +780,7 @@ export function EntityFormContainer({
             >
               <div className="grid grid-cols-[160px_1fr] gap-4 items-start">
                 <label
-                  className="text-xs font-medium text-gray-500 pt-2 flex items-center gap-1.5"
+                  className="text-xs font-medium text-dark-700 pt-2 flex items-center gap-1.5"
                   style={{
                     fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                     letterSpacing: '0.01em',
@@ -788,7 +788,7 @@ export function EntityFormContainer({
                     fontSize: '11px'
                   }}
                 >
-                  <span className="opacity-50 group-hover:opacity-100 transition-all duration-300 group-hover:text-blue-600">
+                  <span className="opacity-50 group-hover:opacity-100 transition-all duration-300 group-hover:text-dark-700">
                     {/* Show "Date Range" label when displaying both start and end dates together */}
                     {field.key === 'end_date' && data.start_date && !isEditing ? 'Date Range' :
                      field.key === 'planned_end_date' && data.planned_start_date && !isEditing ? 'Planned Date Range' :
@@ -804,8 +804,8 @@ export function EntityFormContainer({
                     relative break-words rounded-md px-3 py-2 -ml-3
                     transition-all duration-300 ease-out
                     ${isEditing
-                      ? 'bg-gradient-to-br from-gray-50/50 via-white/50 to-gray-50/30 hover:from-blue-50/30 hover:via-white/70 hover:to-blue-50/20 hover:shadow-[0_0_0_1px_rgba(59,130,246,0.1),0_2px_8px_-2px_rgba(59,130,246,0.08)] focus-within:from-white focus-within:via-white focus-within:to-blue-50/20 focus-within:shadow-[0_0_0_1px_rgba(59,130,246,0.25),0_4px_16px_-4px_rgba(59,130,246,0.15),0_0_24px_-8px_rgba(96,165,250,0.2)] focus-within:scale-[1.002]'
-                      : 'hover:bg-gradient-to-br hover:from-gray-50/40 hover:via-white/20 hover:to-gray-50/30'
+                      ? 'bg-gradient-to-br from-dark-100/50 via-dark-100/50 to-dark-200/30 hover:from-dark-50/40 hover:via-dark-100/70 hover:to-dark-50/20 hover:shadow-[0_0_0_1px_rgba(139,115,85,0.1),0_2px_8px_-2px_rgba(139,115,85,0.08)] focus-within:from-dark-100 focus-within:via-dark-100 focus-within:to-dark-200/20 focus-within:shadow-[0_0_0_1px_rgba(139,115,85,0.25),0_4px_16px_-4px_rgba(139,115,85,0.15),0_0_24px_-8px_rgba(168,144,120,0.2)] focus-within:scale-[1.002]'
+                      : 'hover:bg-gradient-to-br hover:from-dark-50/40 hover:via-dark-100/20 hover:to-dark-50/30'
                     }
                   `}
                   style={{

@@ -54,9 +54,9 @@ function MenuButtonFieldWrapper({ field }: { field: BuilderField }) {
       'px-4 py-2 text-sm';
 
     const styleClasses =
-      field.menuButtonStyle === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm' :
-      field.menuButtonStyle === 'secondary' ? 'bg-gray-600 text-white hover:bg-gray-700 shadow-sm' :
-      'border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50';
+      field.menuButtonStyle === 'primary' ? 'bg-dark-700 text-white hover:bg-dark-800 shadow-sm' :
+      field.menuButtonStyle === 'secondary' ? 'bg-dark-600 text-white hover:bg-dark-700 shadow-sm' :
+      'border-2 border-dark-400 bg-dark-100 text-dark-600 hover:bg-dark-100';
 
     return `inline-flex items-center space-x-2 rounded-lg font-medium transition-colors ${sizeClasses} ${styleClasses}`;
   };
@@ -87,7 +87,7 @@ function MenuButtonFieldWrapper({ field }: { field: BuilderField }) {
           </button>
 
           {isDropdownOpen && (
-            <div className="absolute z-10 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[200px] left-0">
+            <div className="absolute z-10 mt-2 bg-dark-100 border border-dark-300 rounded-lg shadow-lg py-2 min-w-[200px] left-0">
               {field.menuButtonItems!.map((item) => (
                 <button
                   key={item.id}
@@ -96,7 +96,7 @@ function MenuButtonFieldWrapper({ field }: { field: BuilderField }) {
                     handleMenuClick(item.url, item.openInNewTab);
                     setIsDropdownOpen(false);
                   }}
-                  className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-dark-600 hover:bg-dark-100 transition-colors text-left"
                 >
                   {item.icon && <span>{item.icon}</span>}
                   <span>{item.label}</span>
@@ -602,7 +602,7 @@ export function InteractiveForm({
     const baseInputClass = `w-full px-3 py-2 border rounded-lg text-sm transition-colors ${
       hasError
         ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
-        : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
+        : 'border-dark-400 focus:border-dark-3000 focus:ring-dark-700'
     } focus:ring-2 focus:outline-none`;
 
     switch (field.type) {
@@ -657,7 +657,7 @@ export function InteractiveForm({
               className="w-full"
             />
             {field.useDynamicOptions && !dynamicOptions[field.id] && (
-              <p className="text-gray-500 text-xs mt-1">Loading options from {field.datalabelTable}...</p>
+              <p className="text-dark-700 text-xs mt-1">Loading options from {field.datalabelTable}...</p>
             )}
             {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
           </>
@@ -680,7 +680,7 @@ export function InteractiveForm({
               className="w-full"
             />
             {field.useDynamicOptions && !dynamicOptions[field.id] && (
-              <p className="text-gray-500 text-xs mt-1">Loading options from {field.datalabelTable}...</p>
+              <p className="text-dark-700 text-xs mt-1">Loading options from {field.datalabelTable}...</p>
             )}
             {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
           </>
@@ -703,15 +703,15 @@ export function InteractiveForm({
                     value={opt.value}
                     checked={value === opt.value}
                     onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                    className="text-blue-600 focus:ring-blue-500"
+                    className="text-dark-700 focus:ring-dark-7000"
                     required={field.required && i === 0}
                   />
-                  <span className="text-sm text-gray-700">{opt.label}</span>
+                  <span className="text-sm text-dark-600">{opt.label}</span>
                 </label>
               ))}
             </div>
             {field.useDynamicOptions && !dynamicOptions[field.id] && (
-              <p className="text-gray-500 text-xs mt-1">Loading options from {field.datalabelTable}...</p>
+              <p className="text-dark-700 text-xs mt-1">Loading options from {field.datalabelTable}...</p>
             )}
             {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
           </>
@@ -739,14 +739,14 @@ export function InteractiveForm({
                         : currentValues.filter(v => v !== opt.value);
                       handleFieldChange(field.name, newValues);
                     }}
-                    className="rounded text-blue-600 focus:ring-blue-500"
+                    className="rounded text-dark-700 focus:ring-dark-7000"
                   />
-                  <span className="text-sm text-gray-700">{opt.label}</span>
+                  <span className="text-sm text-dark-600">{opt.label}</span>
                 </label>
               ))}
             </div>
             {field.useDynamicOptions && !dynamicOptions[field.id] && (
-              <p className="text-gray-500 text-xs mt-1">Loading options from {field.datalabelTable}...</p>
+              <p className="text-dark-700 text-xs mt-1">Loading options from {field.datalabelTable}...</p>
             )}
             {hasError && <p className="text-red-600 text-xs mt-1">{errors[field.name]}</p>}
           </>
@@ -774,11 +774,11 @@ export function InteractiveForm({
                     };
                     handleFieldChange(field.name, newValue);
                   }}
-                  className="mt-0.5 rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                  className="mt-0.5 rounded text-dark-700 focus:ring-dark-7000 h-4 w-4"
                   required={field.required}
                 />
                 <div className="flex-1">
-                  <span className="text-sm text-gray-700 group-hover:text-gray-900">
+                  <span className="text-sm text-dark-600 group-hover:text-dark-600">
                     {field.label || field.name}
                   </span>
                   {isChecked && checkedAt && (
@@ -826,13 +826,13 @@ export function InteractiveForm({
                 }
               }}
               accept={field.accept}
-              className="w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              className="w-full text-sm text-dark-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-dark-100 file:text-dark-700 hover:file:bg-dark-100"
               required={field.required}
               disabled={uploadingFiles[field.name]}
             />
             {uploadingFiles[field.name] && (
-              <p className="text-blue-600 text-xs mt-1 flex items-center">
-                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-1" />
+              <p className="text-dark-700 text-xs mt-1 flex items-center">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-dark-700 mr-1" />
                 Uploading file...
               </p>
             )}
@@ -847,7 +847,7 @@ export function InteractiveForm({
                     href={fileUrls[field.name]}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-blue-600 hover:underline flex items-center mt-1"
+                    className="text-xs text-dark-700 hover:underline flex items-center mt-1"
                   >
                     View uploaded file
                   </a>
@@ -872,9 +872,9 @@ export function InteractiveForm({
                 className="w-full"
                 required={field.required}
               />
-              <div className="flex justify-between text-xs text-gray-500">
+              <div className="flex justify-between text-xs text-dark-700">
                 <span>{field.min || 0}</span>
-                <span className="font-semibold text-blue-600">{value || field.min || 0}</span>
+                <span className="font-semibold text-dark-700">{value || field.min || 0}</span>
                 <span>{field.max || 100}</span>
               </div>
             </div>
@@ -904,11 +904,11 @@ export function InteractiveForm({
 
       case 'wiki':
         return (
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="bg-blue-50 border-b border-gray-200 px-4 py-2 flex items-center space-x-2">
-              <BookOpen className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-semibold text-blue-800">{field.wikiTitle || 'Documentation'}</span>
-              <span className="text-xs text-gray-500 ml-auto">Read-only</span>
+          <div className="border border-dark-300 rounded-lg overflow-hidden">
+            <div className="bg-dark-100 border-b border-dark-300 px-4 py-2 flex items-center space-x-2">
+              <BookOpen className="h-4 w-4 text-dark-700" />
+              <span className="text-sm font-semibold text-dark-600">{field.wikiTitle || 'Documentation'}</span>
+              <span className="text-xs text-dark-700 ml-auto">Read-only</span>
             </div>
             <ModularEditor
               value={field.wikiContent || ''}
@@ -1046,8 +1046,8 @@ export function InteractiveForm({
               isInitials={false}
             />
             {uploadingSignatures[field.name] && (
-              <p className="text-blue-600 text-xs mt-1 flex items-center">
-                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-1" />
+              <p className="text-dark-700 text-xs mt-1 flex items-center">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-dark-700 mr-1" />
                 Uploading signature...
               </p>
             )}
@@ -1081,8 +1081,8 @@ export function InteractiveForm({
               isInitials={true}
             />
             {uploadingSignatures[field.name] && (
-              <p className="text-blue-600 text-xs mt-1 flex items-center">
-                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-1" />
+              <p className="text-dark-700 text-xs mt-1 flex items-center">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-dark-700 mr-1" />
                 Uploading initials...
               </p>
             )}
@@ -1143,10 +1143,10 @@ export function InteractiveForm({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4 bg-white rounded-lg border border-gray-200 p-6">
+      <form onSubmit={handleSubmit} className="space-y-4 bg-dark-100 rounded-lg border border-dark-300 p-6">
         {displayFields.length === 0 && (
-          <div className="text-gray-500 text-center py-8">
-            <Layers className="h-6 w-6 mx-auto mb-2 text-gray-400" />
+          <div className="text-dark-700 text-center py-8">
+            <Layers className="h-6 w-6 mx-auto mb-2 text-dark-600" />
             <p className="text-sm">No fields in this step.</p>
           </div>
         )}
@@ -1156,10 +1156,10 @@ export function InteractiveForm({
           return (
             <div key={field.id} className="flex flex-col space-y-1">
               <div className="flex items-center space-x-2">
-                <div className="flex-shrink-0 text-blue-600">
+                <div className="flex-shrink-0 text-dark-700">
                   {getFieldIcon(field.type)}
                 </div>
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-dark-600">
                   {label}
                   {field.required && <span className="text-red-500 ml-1">*</span>}
                 </label>
@@ -1171,13 +1171,13 @@ export function InteractiveForm({
         })}
 
         {/* Navigation Buttons */}
-        <div className="flex items-center justify-between pt-6 border-t border-gray-200">
+        <div className="flex items-center justify-between pt-6 border-t border-dark-300">
           <div>
             {steps.length > 1 && currentStepIndex > 0 && (
               <button
                 type="button"
                 onClick={handlePrevious}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-normal text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-dark-400 rounded-lg text-sm font-normal text-dark-600 bg-dark-100 hover:bg-dark-100 transition-colors"
               >
                 Previous
               </button>
@@ -1186,7 +1186,7 @@ export function InteractiveForm({
 
           <div className="flex items-center space-x-3">
             {steps.length > 1 && (
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-dark-700">
                 Step {currentStepIndex + 1} of {steps.length}
               </span>
             )}
@@ -1194,7 +1194,7 @@ export function InteractiveForm({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="inline-flex items-center px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-dark-700 hover:bg-dark-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-7000 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isSubmitting ? (
                 <>

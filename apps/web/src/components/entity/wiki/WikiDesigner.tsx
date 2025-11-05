@@ -230,14 +230,14 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
     if (viewMode === 'code') {
       return (
         <div className="space-y-4">
-          <div className="bg-gray-900 text-gray-100 rounded-lg p-6 overflow-x-auto">
-            <div className="mb-4 text-sm text-gray-400 font-mono">Content Schema:</div>
+          <div className="bg-dark-900 text-gray-100 rounded-lg p-6 overflow-x-auto">
+            <div className="mb-4 text-sm text-dark-600 font-mono">Content Schema:</div>
             <pre className="text-sm">
               <code>{JSON.stringify({ blocks }, null, 2)}</code>
             </pre>
           </div>
-          <div className="bg-gray-900 text-gray-100 rounded-lg p-6 overflow-x-auto">
-            <div className="mb-4 text-sm text-gray-400 font-mono">Page Metadata:</div>
+          <div className="bg-dark-900 text-gray-100 rounded-lg p-6 overflow-x-auto">
+            <div className="mb-4 text-sm text-dark-600 font-mono">Page Metadata:</div>
             <pre className="text-sm">
               <code>
                 {JSON.stringify(
@@ -264,9 +264,9 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
 
     // Design mode
     return (
-      <div className="max-w-5xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+      <div className="max-w-5xl mx-auto bg-dark-100 rounded-lg shadow-lg overflow-hidden">
         {/* Simple Title Section */}
-        <div className="px-16 pt-12 pb-6 border-b border-gray-200">
+        <div className="px-16 pt-12 pb-6 border-b border-dark-300">
           <input
             type="text"
             value={title}
@@ -275,9 +275,9 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
               setUpdatedDate(new Date().toISOString());
             }}
             placeholder="Untitled Page"
-            className="w-full text-4xl font-bold text-gray-900 bg-transparent border-none outline-none placeholder-gray-300"
+            className="w-full text-4xl font-bold text-dark-600 bg-transparent border-none outline-none placeholder-gray-300"
           />
-          <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
+          <div className="flex items-center gap-4 mt-4 text-sm text-dark-700">
             <span>Author: {author}</span>
             <span>•</span>
             <span>Updated {new Date(updatedDate).toLocaleDateString()}</span>
@@ -289,7 +289,7 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
               {blocks.length === 0 ? (
-                <div className="text-center py-20 text-gray-400">
+                <div className="text-center py-20 text-dark-600">
                   <BookOpen className="h-16 w-16 mx-auto mb-4 opacity-50" />
                   <p className="text-lg font-medium">Start building your wiki page</p>
                   <p className="text-sm mt-2">Add blocks from the left sidebar</p>
@@ -333,7 +333,7 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
       toolbarDefaultCollapsed={false}
 
       canvas={renderCanvas()}
-      canvasBackground="bg-gray-50"
+      canvasBackground="bg-dark-100"
       canvasMaxWidth="max-w-full"
 
       properties={

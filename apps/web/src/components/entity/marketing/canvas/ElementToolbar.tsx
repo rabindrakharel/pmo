@@ -45,8 +45,8 @@ export function ElementToolbar({ onAddElement }: ElementToolbarProps) {
   ];
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 overflow-y-auto p-4">
-      <h3 className="text-sm font-semibold text-gray-900 mb-4">Elements</h3>
+    <div className="w-64 bg-dark-100 border-r border-dark-300 overflow-y-auto p-4">
+      <h3 className="text-sm font-semibold text-dark-600 mb-4">Elements</h3>
       <div className="space-y-2">
         {elements.map((element) => {
           const Icon = element.icon;
@@ -54,23 +54,23 @@ export function ElementToolbar({ onAddElement }: ElementToolbarProps) {
             <button
               key={element.type}
               onClick={() => onAddElement(element.type)}
-              className="w-full flex items-start space-x-3 p-3 rounded-lg border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all group text-left"
+              className="w-full flex items-start space-x-3 p-3 rounded-lg border-2 border-dark-300 hover:border-dark-3000 hover:bg-dark-100 transition-all group text-left"
             >
               <div className={`p-2 rounded-md bg-${element.color}-100 group-hover:bg-${element.color}-200 transition-colors flex-shrink-0`}>
                 <Icon className={`h-5 w-5 text-${element.color}-600`} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-gray-900">{element.label}</div>
-                <div className="text-xs text-gray-500 truncate">{element.description}</div>
+                <div className="text-sm font-medium text-dark-600">{element.label}</div>
+                <div className="text-xs text-dark-700 truncate">{element.description}</div>
               </div>
             </button>
           );
         })}
       </div>
 
-      <div className="mt-6 pt-6 border-t border-gray-200">
-        <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Tips</h4>
-        <ul className="space-y-2 text-xs text-gray-600">
+      <div className="mt-6 pt-6 border-t border-dark-300">
+        <h4 className="text-xs font-semibold text-dark-700 uppercase mb-3">Tips</h4>
+        <ul className="space-y-2 text-xs text-dark-700">
           <li className="flex items-start">
             <span className="mr-2">•</span>
             <span>Click to select, drag to move</span>

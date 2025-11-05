@@ -53,23 +53,23 @@ export function EntityPreviewPanel() {
         }`}
       >
         <div
-          className={`bg-white rounded-xl shadow-2xl w-full max-w-[95vw] h-[95vh] flex flex-col transform transition-transform duration-300 ${
+          className={`bg-dark-100 rounded-xl shadow-2xl w-full max-w-[95vw] h-[95vh] flex flex-col transform transition-transform duration-300 ${
             isEntityPreviewOpen ? 'scale-100' : 'scale-95'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-3 rounded-t-xl">
+          <div className="flex-shrink-0 bg-dark-100 border-b border-dark-300 px-6 py-3 rounded-t-xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="text-gray-400">
+                <div className="text-dark-600">
                   {config.icon}
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold text-gray-900">
+                  <h2 className="text-base font-semibold text-dark-600">
                     {entityPreviewData.label || config.name}
                   </h2>
-                  <p className="text-xs text-gray-500">Quick Preview</p>
+                  <p className="text-xs text-dark-700">Quick Preview</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -77,14 +77,14 @@ export function EntityPreviewPanel() {
                   href={detailPageUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-2 text-dark-600 hover:text-dark-700 hover:bg-dark-100 rounded-lg transition-colors"
                   title="Open in new tab"
                 >
                   <ExternalLink className="h-4 w-4" />
                 </a>
                 <button
                   onClick={closeEntityPreview}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-2 text-dark-600 hover:text-dark-700 hover:bg-dark-100 rounded-lg transition-colors"
                   title="Close preview (ESC)"
                 >
                   <X className="h-5 w-5" />
@@ -94,7 +94,7 @@ export function EntityPreviewPanel() {
           </div>
 
           {/* Content - iframe embedding the actual entity detail page (read-only preview) */}
-          <div className="flex-1 bg-gray-50 rounded-b-xl overflow-hidden">
+          <div className="flex-1 bg-dark-100 rounded-b-xl overflow-hidden">
             <iframe
               src={detailPageUrl}
               className="w-full h-full border-0 pointer-events-none"

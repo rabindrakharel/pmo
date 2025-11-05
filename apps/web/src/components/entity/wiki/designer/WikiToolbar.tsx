@@ -124,25 +124,25 @@ export function WikiToolbar({ onAddBlock, editor }: WikiToolbarProps) {
   return (
     <div className="p-4">
       <div className="mb-6">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+        <h3 className="text-xs font-semibold text-dark-700 uppercase tracking-wider mb-3">
           Content Blocks
         </h3>
         {blockTypes.map((category) => (
           <div key={category.category} className="mb-4">
-            <h4 className="text-xs font-medium text-gray-400 mb-2">{category.category}</h4>
+            <h4 className="text-xs font-medium text-dark-600 mb-2">{category.category}</h4>
             <div className="space-y-1">
               {category.blocks.map((block) => (
                 <button
                   key={block.type}
                   onClick={() => onAddBlock(block.type)}
-                  className="w-full flex items-start space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors text-left group"
+                  className="w-full flex items-start space-x-3 px-3 py-2 rounded-lg hover:bg-dark-100 transition-colors text-left group"
                 >
-                  <block.icon className="h-5 w-5 text-gray-400 group-hover:text-blue-600 flex-shrink-0 mt-0.5" />
+                  <block.icon className="h-5 w-5 text-dark-600 group-hover:text-dark-700 flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
+                    <div className="text-sm font-medium text-dark-600 group-hover:text-dark-600">
                       {block.label}
                     </div>
-                    <div className="text-xs text-gray-500">{block.description}</div>
+                    <div className="text-xs text-dark-700">{block.description}</div>
                   </div>
                 </button>
               ))}
@@ -151,13 +151,13 @@ export function WikiToolbar({ onAddBlock, editor }: WikiToolbarProps) {
         ))}
       </div>
 
-      <div className="border-t border-gray-200 pt-6">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+      <div className="border-t border-dark-300 pt-6">
+        <h3 className="text-xs font-semibold text-dark-700 uppercase tracking-wider mb-3">
           Formatting
         </h3>
         {formatButtons.map((category) => (
           <div key={category.category} className="mb-4">
-            <h4 className="text-xs font-medium text-gray-400 mb-2">{category.category}</h4>
+            <h4 className="text-xs font-medium text-dark-600 mb-2">{category.category}</h4>
             <div className="grid grid-cols-2 gap-2">
               {category.buttons.map((button, index) => (
                 <button
@@ -165,8 +165,8 @@ export function WikiToolbar({ onAddBlock, editor }: WikiToolbarProps) {
                   onClick={button.action}
                   className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-colors ${
                     button.isActive?.()
-                      ? 'bg-blue-50 border-blue-200 text-blue-700'
-                      : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
+                      ? 'bg-dark-100 border-dark-400 text-dark-700'
+                      : 'bg-dark-100 border-dark-300 text-dark-700 hover:bg-dark-100 hover:border-dark-400'
                   }`}
                 >
                   <button.icon className="h-4 w-4 mb-1" />

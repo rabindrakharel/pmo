@@ -134,7 +134,7 @@ export function ColoredDropdown({
           onClick?.(e);
           setDropdownOpen(!dropdownOpen);
         }}
-        className="w-full px-2.5 py-1.5 pr-8 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400/30 focus:border-gray-300 bg-white shadow-sm hover:border-gray-300 transition-colors cursor-pointer text-left"
+        className="w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors cursor-pointer text-left"
         style={{
           fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
           fontSize: '13px',
@@ -145,16 +145,16 @@ export function ColoredDropdown({
         {selectedOption ? (
           renderSettingBadge(selectedColor, String(selectedOption.label))
         ) : (
-          <span className="text-gray-400">{placeholder}</span>
+          <span className="text-dark-600">{placeholder}</span>
         )}
       </button>
-      <ChevronDown className="h-4 w-4 text-gray-500 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+      <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
 
       {/* Dropdown menu - rendered via portal to avoid overflow clipping */}
       {dropdownOpen && createPortal(
         <div
           ref={dropdownRef}
-          className="bg-white border border-gray-200 rounded-md overflow-auto"
+          className="bg-dark-100 border border-dark-300 rounded-md overflow-auto"
           style={{
             position: 'absolute',
             top: `${dropdownPosition.top}px`,
@@ -179,7 +179,7 @@ export function ColoredDropdown({
                     onChange(opt.value as string);
                     setDropdownOpen(false);
                   }}
-                  className="w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors flex items-center"
+                  className="w-full px-3 py-2 text-left hover:bg-dark-100 transition-colors flex items-center"
                 >
                   {renderSettingBadge(optionColor, String(opt.label))}
                 </button>

@@ -15,7 +15,7 @@ interface ButtonBlockEditorProps {
 
 export function ButtonBlockEditor({ block, onUpdate }: ButtonBlockEditorProps) {
   return (
-    <div className="border-b border-gray-200">
+    <div className="border-b border-dark-300">
       {/* Button Preview */}
       <div className="p-8 flex justify-center" style={{ textAlign: block.styles?.textAlign || 'center' }}>
         <a
@@ -37,25 +37,25 @@ export function ButtonBlockEditor({ block, onUpdate }: ButtonBlockEditorProps) {
       </div>
 
       {/* Button Settings */}
-      <div className="bg-gray-50 px-3 py-2 space-y-3 text-xs">
+      <div className="bg-dark-100 px-3 py-2 space-y-3 text-xs">
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-gray-600 block mb-1">Button Text</label>
+            <label className="text-dark-700 block mb-1">Button Text</label>
             <input
               type="text"
               value={block.content || ''}
               onChange={(e) => onUpdate({ content: e.target.value })}
-              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+              className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
               placeholder="Click Here"
             />
           </div>
           <div>
-            <label className="text-gray-600 block mb-1">Link URL</label>
+            <label className="text-dark-700 block mb-1">Link URL</label>
             <input
               type="text"
               value={block.properties?.href || ''}
               onChange={(e) => onUpdate({ properties: { ...block.properties, href: e.target.value } })}
-              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+              className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
               placeholder="https://..."
             />
           </div>
@@ -63,46 +63,46 @@ export function ButtonBlockEditor({ block, onUpdate }: ButtonBlockEditorProps) {
 
         <div className="grid grid-cols-3 gap-2">
           <div>
-            <label className="text-gray-600 block mb-1">Background Color</label>
+            <label className="text-dark-700 block mb-1">Background Color</label>
             <div className="flex items-center space-x-2">
               <input
                 type="color"
                 value={block.styles?.backgroundColor || '#007bff'}
                 onChange={(e) => onUpdate({ styles: { ...block.styles, backgroundColor: e.target.value } })}
-                className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
+                className="w-8 h-8 border border-dark-400 rounded cursor-pointer"
               />
               <input
                 type="text"
                 value={block.styles?.backgroundColor || '#007bff'}
                 onChange={(e) => onUpdate({ styles: { ...block.styles, backgroundColor: e.target.value } })}
-                className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs"
+                className="flex-1 px-2 py-1 border border-dark-400 rounded text-xs"
               />
             </div>
           </div>
           <div>
-            <label className="text-gray-600 block mb-1">Text Color</label>
+            <label className="text-dark-700 block mb-1">Text Color</label>
             <div className="flex items-center space-x-2">
               <input
                 type="color"
                 value={block.styles?.color || '#ffffff'}
                 onChange={(e) => onUpdate({ styles: { ...block.styles, color: e.target.value } })}
-                className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
+                className="w-8 h-8 border border-dark-400 rounded cursor-pointer"
               />
               <input
                 type="text"
                 value={block.styles?.color || '#ffffff'}
                 onChange={(e) => onUpdate({ styles: { ...block.styles, color: e.target.value } })}
-                className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs"
+                className="flex-1 px-2 py-1 border border-dark-400 rounded text-xs"
               />
             </div>
           </div>
           <div>
-            <label className="text-gray-600 block mb-1">Border Radius</label>
+            <label className="text-dark-700 block mb-1">Border Radius</label>
             <input
               type="text"
               value={block.styles?.borderRadius || '4px'}
               onChange={(e) => onUpdate({ styles: { ...block.styles, borderRadius: e.target.value } })}
-              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+              className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
               placeholder="4px"
             />
           </div>
@@ -110,29 +110,29 @@ export function ButtonBlockEditor({ block, onUpdate }: ButtonBlockEditorProps) {
 
         <div className="grid grid-cols-3 gap-2">
           <div>
-            <label className="text-gray-600 block mb-1">Padding</label>
+            <label className="text-dark-700 block mb-1">Padding</label>
             <input
               type="text"
               value={block.styles?.padding || '12px 24px'}
               onChange={(e) => onUpdate({ styles: { ...block.styles, padding: e.target.value } })}
-              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+              className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
             />
           </div>
           <div>
-            <label className="text-gray-600 block mb-1">Font Size</label>
+            <label className="text-dark-700 block mb-1">Font Size</label>
             <input
               type="text"
               value={block.styles?.fontSize || '16px'}
               onChange={(e) => onUpdate({ styles: { ...block.styles, fontSize: e.target.value } })}
-              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+              className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
             />
           </div>
           <div>
-            <label className="text-gray-600 block mb-1">Alignment</label>
+            <label className="text-dark-700 block mb-1">Alignment</label>
             <select
               value={block.styles?.textAlign || 'center'}
               onChange={(e) => onUpdate({ styles: { ...block.styles, textAlign: e.target.value } })}
-              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+              className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
             >
               <option value="left">Left</option>
               <option value="center">Center</option>

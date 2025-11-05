@@ -20,6 +20,9 @@ The **PMO Platform** is an enterprise-grade project management and operations sy
 - **52 Database Tables** (13 core entities, 16 settings, 23 infrastructure)
 - **31+ API Modules** with unified RBAC and JWT authentication
 - **3 Universal Pages** handling all CRUD operations
+- **Inline Create-Then-Link** - Automatic parent-child linkage in `d_entity_id_map` (v3.1)
+- **Default-Editable Pattern** - All fields editable with smart input detection (v3.1)
+- **Column Consistency** - Context-independent table columns (v3.1)
 - **Sequential State Visualization** for workflows and sales funnels
 - **Database-Driven Metadata** for runtime configurability
 - **AWS Deployment** with automated CI/CD pipeline
@@ -57,6 +60,8 @@ The **PMO Platform** is an enterprise-grade project management and operations sy
 
 | Document | Purpose | When to Use | Key Topics |
 |----------|---------|-------------|------------|
+| **[Universal Entity System](./docs/entity_design_pattern/universal_entity_system.md)** | Complete DRY entity architecture | Understanding entity pages, column consistency, inline editing | 3 universal pages, EntityConfig, Column consistency v3.1.1, Create-Link-Edit pattern |
+| **[Column Consistency Update](./docs/entity_design_pattern/COLUMN_CONSISTENCY_UPDATE.md)** | v3.1.1 Column consistency implementation | Understanding child entity table behavior | Context-independent columns, API filtering, Verification tests |
 | **[Kanban System](./docs/component_Kanban_System.md)** | Task board implementation | Building kanban views, task management | Drag-drop, Column configuration, State transitions |
 | **[Dynamic Forms](./docs/form.md)** | JSONB-based form builder | Creating custom forms, form workflows | Form schema, Multi-step wizards, Validation, Submissions |
 | **[Project & Task System](./docs/Project_Task.md)** | Project/task entity implementation | Managing projects, tasks, assignments | Entity structure, Parent-child relationships, Workflows |
@@ -97,12 +102,17 @@ Deployment issue: INFRASTRUCTURE_DESIGN.md + DEPLOYMENT_DESIGN.md
 Database issue: datamodel.md + tools.md (db-import.sh)
 API issue: ui_ux_route_api.md (API Layer section) + tools.md (test-api.sh)
 Settings/dropdown: settings.md + ENTITY_OPTIONS_API.md
+Entity creation/linkage: entity_design_pattern/universal_entity_system.md → Inline create-then-link
+Column consistency: entity_design_pattern/universal_entity_system.md → Column patterns
+Inline editing: entity_design_pattern/universal_entity_system.md → Default-editable pattern
 ```
 
 **📝 Implementation Tasks:**
 ```
-New entity type: ui_ux_route_api.md (Entity Configuration) + datamodel.md (DDL)
+New entity type: entity_design_pattern/universal_entity_system.md (Best Practices) + datamodel.md (DDL)
 New settings category: settings.md + datamodel.md (Settings tables)
+Add Row functionality: entity_design_pattern/universal_entity_system.md → Inline create-then-link
+Parent-child linkage: entity_design_pattern/universal_entity_system.md → Create-link-edit pattern
 Kanban view: component_Kanban_System.md
 Project/task workflow: Project_Task.md
 Form builder: form.md
@@ -112,9 +122,14 @@ Form builder: form.md
 
 | Keywords | Relevant Documents |
 |----------|-------------------|
+| **universal pages, entity system, DRY, create-link-edit** | `entity_design_pattern/universal_entity_system.md` ⭐ |
+| **inline editing, add row, default-editable** | `entity_design_pattern/universal_entity_system.md` |
+| **linkage, parent-child, d_entity_id_map, relationships** | `entity_design_pattern/universal_entity_system.md`, `datamodel.md` |
+| **column consistency, context-independent, child entity tables** | `entity_design_pattern/COLUMN_CONSISTENCY_UPDATE.md` ⭐, `entity_design_pattern/universal_entity_system.md` |
+| **FilteredDataTable, main vs child views** | `entity_design_pattern/COLUMN_CONSISTENCY_UPDATE.md` |
 | **database, schema, DDL, tables, relationships** | `datamodel.md`, `ui_ux_route_api.md` |
 | **API, endpoints, routes, modules** | `ui_ux_route_api.md`, `ENTITY_OPTIONS_API.md`, `S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md` |
-| **frontend, React, components, pages** | `ui_ux_route_api.md`, `component_Kanban_System.md`, `form.md` |
+| **frontend, React, components, pages** | `entity_design_pattern/universal_entity_system.md`, `ui_ux_route_api.md`, `component_Kanban_System.md`, `form.md` |
 | **settings, dropdowns, workflows, stages** | `settings.md`, `ui_ux_route_api.md` |
 | **deployment, AWS, infrastructure, Terraform** | `INFRASTRUCTURE_DESIGN.md`, `DEPLOYMENT_DESIGN.md` |
 | **RBAC, permissions, authorization** | `datamodel.md`, `ui_ux_route_api.md` |
@@ -122,7 +137,7 @@ Form builder: form.md
 | **kanban, task board, drag-drop** | `component_Kanban_System.md` |
 | **file upload, attachments, S3, presigned URLs** | `S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md` |
 | **tools, scripts, db-import, test-api** | `tools.md` |
-| **entity configuration, DRY, universal pages** | `ui_ux_route_api.md` |
+| **entity configuration, DRY, entity config** | `entity_design_pattern/universal_entity_system.md`, `ui_ux_route_api.md` |
 | **projects, tasks, assignments** | `Project_Task.md` |
 
 ---
@@ -262,19 +277,28 @@ MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-**Last Updated:** 2025-10-23
-**Version:** 1.0.0 (Production)
-**Architecture:** DRY-first, Config-driven, Universal Components
+**Last Updated:** 2025-11-04
+**Version:** 3.1.0 (Production)
+**Architecture:** DRY-first, Config-driven, Universal Components with Inline Create-Then-Link
 **Deployment:** http://100.26.224.246:5173
 
 ---
 
 ## 🎯 For AI/LLM Agents
 
-**Primary Reference:** Always start with `docs/ui_ux_route_api.md` for system-wide understanding.
+**Primary Reference:** ⭐ Always start with `docs/entity_design_pattern/universal_entity_system.md` for DRY entity architecture.
+
+**Core Architecture References:**
+- Universal Entity System → `docs/entity_design_pattern/universal_entity_system.md` ⭐ **START HERE**
+- UI/UX Architecture → `docs/ui_ux_route_api.md`
+- Database/Schema → `docs/datamodel.md`
 
 **Task-Specific References:**
-- Database/Schema → `docs/datamodel.md`
+- **New Entity Type** → `docs/entity_design_pattern/universal_entity_system.md` (Best Practices section)
+- **Add Row / Inline Creation** → `docs/entity_design_pattern/universal_entity_system.md` (Inline Create-Then-Link)
+- **Parent-Child Linkage** → `docs/entity_design_pattern/universal_entity_system.md` (Create-Link-Edit Pattern)
+- **Inline Editing** → `docs/entity_design_pattern/universal_entity_system.md` (Default-Editable Pattern)
+- **Column Configuration** → `docs/entity_design_pattern/universal_entity_system.md` (Column Consistency)
 - Settings/Dropdowns → `docs/settings.md`
 - Infrastructure/AWS → `docs/INFRASTRUCTURE_DESIGN.md`
 - Deployment → `docs/DEPLOYMENT_DESIGN.md`
@@ -286,7 +310,13 @@ MIT License - see the [LICENSE](LICENSE) file for details.
 - Tools/Operations → `docs/tools.md`
 
 **Search Strategy:**
-1. Identify task category (architecture, database, API, frontend, infrastructure)
-2. Use keyword table above to find relevant documents
-3. Read `ui_ux_route_api.md` for cross-layer understanding
-4. Dive into specific docs for implementation details
+1. Identify task category (entity operations, database, API, frontend, infrastructure)
+2. **For entity-related tasks:** Start with `universal_entity_system.md` ⭐
+3. Use keyword table above to find relevant documents
+4. Read `ui_ux_route_api.md` for cross-layer understanding
+5. Dive into specific docs for implementation details
+
+**v3.1 Features (2025-11-04):**
+- ✅ Inline Create-Then-Link Pattern - "Add Row" with automatic linkage to `d_entity_id_map`
+- ✅ Default-Editable Pattern - All fields editable unless explicitly readonly
+- ✅ Column Consistency Pattern - Same columns regardless of navigation context

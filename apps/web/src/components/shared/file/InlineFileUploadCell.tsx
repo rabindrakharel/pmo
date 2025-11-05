@@ -159,7 +159,7 @@ export function InlineFileUploadCell({
   const renderCurrentFile = () => {
     if (isUploading) {
       return (
-        <div className="flex items-center space-x-2 text-blue-600">
+        <div className="flex items-center space-x-2 text-dark-700">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span className="text-xs">Uploading...</span>
         </div>
@@ -178,7 +178,7 @@ export function InlineFileUploadCell({
     if (value) {
       const ext = getFileExtension(value);
       return (
-        <div className="flex items-center space-x-2 text-gray-700">
+        <div className="flex items-center space-x-2 text-dark-600">
           <FileIcon className="h-4 w-4" />
           <span className="text-xs font-medium">{ext}</span>
           <CheckCircle className="h-3 w-3 text-green-500" />
@@ -187,7 +187,7 @@ export function InlineFileUploadCell({
     }
 
     return (
-      <span className="text-xs text-gray-400">No file</span>
+      <span className="text-xs text-dark-600">No file</span>
     );
   };
 
@@ -196,7 +196,7 @@ export function InlineFileUploadCell({
       className={`
         relative min-h-[40px] px-2 py-1 rounded border-2 border-dashed
         transition-all cursor-pointer
-        ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-300'}
+        ${isDragging ? 'border-dark-3000 bg-dark-100' : 'border-dark-400 hover:border-dark-400'}
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
         ${uploadError ? 'border-red-300 bg-red-50' : ''}
       `}
@@ -220,7 +220,7 @@ export function InlineFileUploadCell({
         </div>
 
         {!isUploading && (
-          <Upload className={`h-4 w-4 flex-shrink-0 ml-2 ${isDragging ? 'text-blue-500' : 'text-gray-400'}`} />
+          <Upload className={`h-4 w-4 flex-shrink-0 ml-2 ${isDragging ? 'text-dark-6000' : 'text-dark-600'}`} />
         )}
       </div>
 
@@ -229,8 +229,8 @@ export function InlineFileUploadCell({
       )}
 
       {isDragging && (
-        <div className="absolute inset-0 flex items-center justify-center bg-blue-50 bg-opacity-90 rounded">
-          <span className="text-xs font-medium text-blue-700">Drop file here</span>
+        <div className="absolute inset-0 flex items-center justify-center bg-dark-100 bg-opacity-90 rounded">
+          <span className="text-xs font-medium text-dark-700">Drop file here</span>
         </div>
       )}
     </div>

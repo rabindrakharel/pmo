@@ -2,17 +2,26 @@
 
 > **Comprehensive mapping of the entire PMO platform architecture** - From database tables to frontend components, showing how all layers work together using DRY principles.
 >
-> **Last Updated:** 2025-01-23 | **Status:** Production v2.7 (OOP-Style Data Tables)
+> **Last Updated:** 2025-11-04 | **Status:** Production v3.1.1 (Column Consistency)
 >
-> **v2.7 Updates (2025-01-23):**
-> - ✅ **OOP-STYLE DATA TABLE ARCHITECTURE**: Composition pattern for code reuse and maintainability
-> - ✅ Base components: `DataTableBase`, `useDataTableLogic` hook, `ColoredDropdown`
-> - ✅ Specialized components: `SettingsDataTable` (600 LOC), `EntityDataTable` (1540 LOC)
-> - ✅ Composition over inheritance: React's approach to OOP (hooks + components)
-> - ✅ Removed `onView` prop: Redundant with row click navigation (cleaner API)
-> - ✅ Inline editing pattern unified: Edit → Check/Cancel icons (consistent UX)
-> - ✅ Quick add row: + button at bottom of tables (fast data entry)
-> - ✅ See [Data Table Architecture](./datatable_architecture.md) for complete details
+> **v3.1.1 Updates (2025-11-04):**
+> - ✅ **COLUMN CONSISTENCY PATTERN IMPLEMENTATION COMPLETE**: FilteredDataTable uses context-independent columns
+> - ✅ Identical columns everywhere: `/task` and `/project/{id}/task` show same column sets
+> - ✅ Single source of truth: `entityConfig.ts` columns used directly without modification
+> - ✅ No parent ID columns: Parent context clear from URL/breadcrumbs, redundant column removed
+> - ✅ API filtering: Different endpoints for filtering, identical data structure returned
+> - ✅ Universal application: All parent→child relationships use consistent pattern
+> - ✅ See [FilteredDataTable Architecture](./datatable/filtered_data_table_architecture.md) for implementation details
+>
+> **v3.1 Updates (2025-11-04):**
+> - ✅ **INLINE CREATE-THEN-LINK PATTERN**: "Add Row" creates entities AND linkages in `d_entity_id_map`
+> - ✅ Two-step atomic operation: Entity creation → Linkage creation → Table reload
+> - ✅ Universal application: Works for ALL parent-child entity combinations
+> - ✅ Graceful error handling: Entity saved even if linkage fails, user notified
+> - ✅ **DEFAULT-EDITABLE PATTERN**: All fields editable unless explicitly readonly
+> - ✅ 10-rule detection system: Pattern-based input type detection (text, number, date, dropdown, file)
+> - ✅ Zero manual configuration: Removed restrictive defaults, enabled universal "Add Row"
+> - ✅ See [Universal Entity System](./entity_design_pattern/universal_entity_system.md) for complete v3.1 architecture
 >
 > **v2.6 Updates (2025-10-29):**
 > - ✅ **DATABASE-DRIVEN BADGE COLORS**: Automatic color rendering from database `color_code` field
@@ -87,8 +96,10 @@
 9. [Routing Architecture](#routing-architecture)
 10. [RBAC & Permissions](#rbac--permissions)
 11. [Reusable Backend Libraries & Patterns](#reusable-backend-libraries--patterns)
+    - **NEW v3.1:** [Inline Create-Then-Link Pattern](#25-inline-create-then-link-pattern-v31)
 12. [Deployment Architecture](#deployment-architecture)
 13. [DRY Principles Implementation](#dry-principles-implementation)
+    - **NEW v3.1:** [Convention Over Configuration Inline Editing](#6-convention-over-configuration-inline-editing-v23--v31) (Default-Editable Pattern)
 
 ---
 
@@ -828,32 +839,60 @@ GET /api/v1/entity/child-tabs/project/84215ccb...
 
 **File:** `apps/web/src/pages/shared/EntityChildListPage.tsx`
 
-**Purpose:** Show filtered list of child entities under a parent
+**Purpose:** Show filtered list of child entities under a parent with **context-independent columns** (v3.1.1)
 
 **Features:**
-- ✅ Filtered by parent ID and type
+- ✅ Filtered by parent ID and type (server-side via dedicated endpoint)
+- ✅ **Identical columns** to main entity view - no parent column added
 - ✅ Supports same view modes as EntityMainPage
 - ✅ Create button adds child linked to parent
 - ✅ Breadcrumb navigation
+- ✅ Uses FilteredDataTable with context-independent column resolution
 
-**Used by:** All parent-child relationships
+**Column Consistency Pattern (v3.1.1):**
+```typescript
+// Main entity: /task
+columns = getEntityConfig('task').columns
+// → [name, code, stage, priority, hours, assignees]
+
+// Child entity: /project/{id}/task
+columns = getEntityConfig('task').columns  // ← SAME config, SAME columns
+// → [name, code, stage, priority, hours, assignees] ✅ IDENTICAL
+
+// Parent context is already clear from:
+// - URL: /project/abc123/task
+// - Breadcrumb: Project > ABC-2024-001 > Tasks
+// - No need for redundant parent ID column
+```
+
+**Used by:** All parent-child relationships (project→task, business→project, client→task, etc.)
 
 **Example URL:**
-- `/project/84215ccb.../task` → Tasks belonging to this project
-- `/employee/59c0e4ca.../task` → Tasks assigned to this employee
+- `/project/84215ccb.../task` → Tasks belonging to this project (filtered server-side)
+- `/employee/59c0e4ca.../task` → Tasks assigned to this employee (filtered server-side)
 
-**API Call:**
+**API Call Pattern:**
 ```typescript
-// When viewing /project/84215ccb.../task
-GET /api/v1/task?parentId=84215ccb...&parentType=project
+// Dedicated filtered endpoint (v3.1.1):
+GET /api/v1/project/84215ccb.../task?page=1&limit=20
 
-// Backend filters using entity_id_map:
+// Returns IDENTICAL structure to main endpoint:
+{
+  data: [{id, code, name, dl__task_stage, ...}],  // ← Same fields as GET /api/v1/task
+  total: 2,     // Only tasks for this project
+  page: 1,
+  limit: 20
+}
+
+// Backend filtering (entity_id_map):
 SELECT t.* FROM app.d_task t
 JOIN app.entity_id_map m ON t.id = m.child_entity_id
 WHERE m.entity_id = '84215ccb...'
   AND m.entity = 'project'
   AND m.child_entity = 'task';
 ```
+
+**See:** [FilteredDataTable Architecture](./datatable/filtered_data_table_architecture.md) for complete details
 
 ---
 
@@ -1541,20 +1580,28 @@ const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
 └─────────────────────────────────────────────────────────────┘
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ STEP 7: Render Filtered Tasks                               │
+│ STEP 7: Render Filtered Tasks (v3.1.1 Column Consistency)   │
 ├─────────────────────────────────────────────────────────────┤
 │ <FilteredDataTable                                           │
-│   columns={config.columns}                                   │
-│   data={tasks}                                               │
-│   parentId="84215ccb..."                                     │
+│   entityType="task"                                          │
 │   parentType="project"                                       │
-│   childType="task"                                           │
+│   parentId="84215ccb..."                                     │
 │ />                                                           │
 │                                                              │
-│ Shows only tasks for this specific project:                 │
-│ - Task 1: Replace roof shingles (In Progress)               │
-│ - Task 2: Inspect attic ventilation (To Do)                 │
-│ - Task 3: Install gutters (Backlog)                         │
+│ // Inside FilteredDataTable:                                 │
+│ const config = getEntityConfig('task');                      │
+│ const columns = config.columns;  // No parent column added!  │
+│                                                              │
+│ // Renders IDENTICAL columns to /task main view:            │
+│ ┌────────┬──────┬──────────┬──────────┬────────┐           │
+│ │ Name   │ Code │ Stage    │ Priority │ Hours  │           │
+│ ├────────┼──────┼──────────┼──────────┼────────┤           │
+│ │ Roof   │ T001 │ In Prog  │ High     │ 8h     │           │
+│ │ Attic  │ T002 │ To Do    │ Medium   │ 4h     │           │
+│ │ Gutter │ T003 │ Backlog  │ Low      │ 3h     │           │
+│ └────────┴──────┴──────────┴──────────┴────────┘           │
+│                                                              │
+│ Same columns as /task - only data is filtered (3 of 8)      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -2025,6 +2072,192 @@ createMinimalChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
   "message": "task created successfully. Please complete the details."
 }
 ```
+
+---
+
+#### 2.5. Inline Create-Then-Link Pattern (v3.1)
+
+**Added:** 2025-11-04 | **Version:** 3.1
+
+**Purpose:** Seamless inline entity creation with automatic parent-child linkage via "Add Row" functionality
+
+**Component:** `FilteredDataTable.tsx` (apps/web/src/components/shared/dataTable/FilteredDataTable.tsx:215-327)
+
+**Problem Solved (v3.1):**
+- **Before:** Users had to click "Create Task", navigate to form, fill details, save, then verify linkage
+- **After:** Users click "Add Row" in data table, fill fields inline, click checkmark → entity created AND linked
+
+**Two-Step Atomic Operation:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 1: Create Entity                                        │
+│ POST /api/v1/{entityType}                                    │
+├─────────────────────────────────────────────────────────────┤
+│ Body: { name, descr, stage, ... }                           │
+│ • Parent fields (parent_type, parent_id) are REMOVED        │
+│ • Backend generates UUID and creates entity record           │
+│ Response: { id: "new-uuid", name: "...", ... }              │
+└─────────────────────────────────────────────────────────────┘
+                          ↓ (if parentType && parentId)
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 2: Create Linkage                                       │
+│ POST /api/v1/linkage                                         │
+├─────────────────────────────────────────────────────────────┤
+│ Body: {                                                      │
+│   parent_entity_type: "project",                             │
+│   parent_entity_id: "parent-uuid",                           │
+│   child_entity_type: "task",                                 │
+│   child_entity_id: "new-uuid",                               │
+│   relationship_type: "contains"                              │
+│ }                                                            │
+│                                                              │
+│ Creates row in app.d_entity_id_map with active_flag=true    │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 3: Reload Table & Clear State                           │
+│ await fetchData()                                            │
+├─────────────────────────────────────────────────────────────┤
+│ • Table refreshes to show new entity                         │
+│ • Editing state cleared                                      │
+│ • "Add Row" button becomes available again                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Implementation Details:**
+
+```typescript
+// FilteredDataTable.tsx:215-327
+const handleSaveInlineEdit = async (rowId: string) => {
+  const isNewRow = rowId.startsWith('new-row-');
+
+  if (isNewRow) {
+    // Clean payload - remove parent fields
+    delete transformedData.parent_type;
+    delete transformedData.parent_id;
+    delete transformedData._isNew;
+    delete transformedData.id; // Let backend generate UUID
+
+    // STEP 1: Create entity
+    const response = await fetch(`${API_BASE_URL}/api/v1/${entityType}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(transformedData)
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      const newEntityId = result.id;
+      console.log(`✅ Created ${entityType}:`, result);
+
+      // STEP 2: Create linkage (if in parent context)
+      if (parentType && parentId && newEntityId) {
+        console.log(`🔗 Creating linkage: ${parentType}/${parentId} → ${entityType}/${newEntityId}`);
+
+        const linkageResponse = await fetch(`${API_BASE_URL}/api/v1/linkage`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            parent_entity_type: parentType,
+            parent_entity_id: parentId,
+            child_entity_type: entityType,
+            child_entity_id: newEntityId,
+            relationship_type: 'contains'
+          })
+        });
+
+        if (linkageResponse.ok) {
+          const linkageResult = await linkageResponse.json();
+          console.log(`✅ Created linkage in d_entity_id_map:`, linkageResult.data);
+
+          // Verify linkage was created
+          if (!linkageResult.data || !linkageResult.data.id) {
+            console.error('⚠️ Linkage response missing data!');
+            alert(`Warning: ${entityType} created but linkage may have failed.`);
+          }
+        } else {
+          const errorText = await linkageResponse.text();
+          console.error('❌ Failed to create linkage:', linkageResponse.statusText, errorText);
+          alert(`Warning: ${entityType} created successfully, but failed to link to ${parentType}.\n\nError: ${linkageResponse.statusText}`);
+        }
+      }
+
+      // STEP 3: Reload table
+      await fetchData();
+      setEditingRow(null);
+      setEditedData({});
+      setIsAddingRow(false);
+    }
+  }
+};
+```
+
+**Error Handling (Graceful Degradation):**
+
+| Scenario | Behavior | User Experience |
+|----------|----------|-----------------|
+| ✅ Both steps succeed | Entity created + Linkage created | Success: Table refreshes, new row appears |
+| ⚠️ Entity created, linkage fails | Entity saved, no linkage | Warning alert: "Task created but failed to link to project" |
+| ❌ Entity creation fails | Nothing saved | Error alert: Shows server error message |
+| 🔍 Linkage response invalid | Entity saved, linkage uncertain | Warning alert: "Linkage may have failed" |
+
+**Verification:**
+
+```bash
+# Use the verification script to check linkages
+./tools/verify-linkage.sh
+
+# Check specific entity linkage
+./tools/verify-linkage.sh --task <task-uuid>
+
+# Output shows:
+# ✅ Project: ABC-2024-001
+# 🔗 Linkages in d_entity_id_map:
+#     task     | 8 entities
+#     wiki     | 2 entities
+#     artifact | 3 entities
+```
+
+**Universal Application:**
+
+This pattern works for ALL parent-child relationships:
+- `/project/{id}/task` → Create task + link to project
+- `/business/{id}/project` → Create project + link to business
+- `/client/{id}/task` → Create task + link to client
+- `/task/{id}/wiki` → Create wiki + link to task
+- `/task/{id}/artifact` → Create artifact + link to task
+
+**Database Impact:**
+
+```sql
+-- Entity table (e.g., d_task)
+INSERT INTO app.d_task (id, name, descr, task_stage, ...)
+VALUES ('new-uuid', 'Website Redesign', ...);
+
+-- Linkage table (d_entity_id_map)
+INSERT INTO app.d_entity_id_map (
+  id, parent_entity_type, parent_entity_id,
+  child_entity_type, child_entity_id,
+  relationship_type, active_flag
+) VALUES (
+  'link-uuid', 'project', 'parent-uuid',
+  'task', 'new-uuid',
+  'contains', true
+);
+```
+
+**Benefits:**
+
+1. ✅ **Seamless UX:** No form navigation, inline editing feels natural
+2. ✅ **Data Integrity:** Linkages created atomically with entity
+3. ✅ **Universal:** Works for ALL entity types with zero config
+4. ✅ **Transparent:** Console logs show each step for debugging
+5. ✅ **Resilient:** Entity saved even if linkage fails (graceful degradation)
+
+**See Also:**
+- [Universal Entity System v3.1](./entity_design_pattern/universal_entity_system.md) - Complete v3.1 architecture
+- [Architecture v3.1](./ARCHITECTURE_V3.1.md) - DRY design patterns
 
 ---
 
@@ -3468,23 +3701,52 @@ GET /api/v1/setting?category=<name>
 
 **Add New Option:** Insert row in DB → Appears everywhere automatically
 
-### 6. Convention Over Configuration Inline Editing (v2.3)
+### 6. Convention Over Configuration Inline Editing (v2.3 → v3.1)
 
 **ZERO Manual Configuration Required:**
 
 **File:** `apps/web/src/lib/data_transform_render.tsx` (Part 3: Field Capability Detection)
 
-**Auto-Detection Rules (Convention):**
+#### v3.1 Enhancement: Default-Editable Pattern
+
+**Philosophy Change (v3.1):**
+- ❌ **v2.3:** Fields were readonly by default, required explicit `inlineEditable: true` flags
+- ✅ **v3.1:** Fields are **editable by default**, only explicitly restricted fields are readonly
+- **Result:** Universal "Add Row" functionality works seamlessly for ALL entities
+
+**10-Rule Detection System:**
+
+**File:** `apps/web/src/lib/data_transform_render.tsx:521-549`
+
+| Rule | Field Pattern | Edit Type | Priority | Example |
+|------|--------------|-----------|----------|---------|
+| **Rule 1** | `*attachment` | File upload | High | `invoice_attachment` |
+| **Rule 2** | `*_tags`, `tags` | Tags (comma-separated) | High | `tags: "react, typescript"` |
+| **Rule 3** | Has `loadOptionsFromSettings` | Dropdown (settings) | High | `project_stage_name` → dropdown |
+| **Rule 4** | `id`, `*_id` | Readonly | High | `id`, `project_id` (never editable) |
+| **Rule 5** | `created_ts`, `updated_ts` | Readonly | High | System timestamps |
+| **Rule 6** | `*_amount`, `*_count` | Number input | Medium | `budget_amount`, `item_count` |
+| **Rule 7** | `*_date`, `*_ts` | Date picker | Medium | `due_date`, `start_date` |
+| **Rule 8** | Field has `readonly: true` | Readonly | Medium | Explicitly marked readonly in config |
+| **Rule 9** | `parent_*`, `child_count`, `total_*`, `sum_*`, `avg_*`, `max_*`, `min_*` | Readonly | Medium | Computed/relationship fields |
+| **Rule 10** | `_actions`, `_selection` | Readonly | Low | UI-only columns |
+| **Default** | All other fields | Text input (editable) | Lowest | `name`, `descr`, `notes` → text |
+
+**Key Insight (v3.1):**
+> The **default rule** now returns `{ inlineEditable: true, editType: 'text' }` instead of readonly. This ensures "Add Row" shows input boxes for all entity fields unless explicitly restricted.
+
+**Auto-Detection Examples:**
 
 | Field Pattern | Edit Type | Detected By | Example |
 |--------------|-----------|-------------|---------|
-| `tags`, `*_tags` | Comma-separated text | Name pattern | `tags: "react, typescript"` |
-| `*_name`, `*_stage`, `*_tier` | Dropdown (settings) | Suffix + `loadOptionsFromSettings` | `project_stage_name` |
-| `*attachment`, `*invoice`, `*receipt` | File upload (drag-drop) | Name pattern | `invoice_attachment` |
-| `name`, `descr`, `title` | Text input | Common field names | `name`, `description` |
-| `*_amount`, `*_count`, `sort_order` | Number input | Suffix pattern | `budget_amount` |
-| `*_date`, `*_ts` (non-system) | Date picker | Suffix pattern | `due_date` |
-| `id`, `created_ts`, `updated_ts` | **Readonly** | System field pattern | Never editable |
+| `tags`, `*_tags` | Comma-separated text | Rule 2 | `tags: "react, typescript"` |
+| `*_name`, `*_stage`, `*_tier` | Dropdown (settings) | Rule 3 + `loadOptionsFromSettings` | `project_stage_name` |
+| `*attachment`, `*invoice`, `*receipt` | File upload (drag-drop) | Rule 1 | `invoice_attachment` |
+| `name`, `descr`, `title` | Text input | Default rule | `name`, `description` |
+| `*_amount`, `*_count`, `sort_order` | Number input | Rule 6 | `budget_amount` |
+| `*_date`, `*_ts` (non-system) | Date picker | Rule 7 | `due_date` |
+| `id`, `created_ts`, `updated_ts` | **Readonly** | Rules 4, 5 | Never editable |
+| `parent_id`, `child_count`, `total_revenue` | **Readonly** | Rule 9 | Computed fields |
 
 **Benefit:** Add a field named `customer_tier_name` with `loadOptionsFromSettings: true` → Automatically becomes an editable dropdown!
 
@@ -3687,7 +3949,54 @@ Configuration managed in `RELATIONSHIP_MAP` constant (see `parent-action-entity-
 
 ---
 
-**Last Updated:** 2025-10-27
+## v3.1 Summary (2025-11-04)
+
+### What Changed in v3.1
+
+**1. Inline Create-Then-Link Pattern** ([See details](#25-inline-create-then-link-pattern-v31))
+- ✅ "Add Row" in child entity tables now creates entity AND linkage atomically
+- ✅ Two-step process: Entity creation → Linkage creation → Table reload
+- ✅ Works universally for ALL parent-child relationships (project→task, business→project, task→wiki, etc.)
+- ✅ Graceful error handling: Entity saved even if linkage fails
+- ✅ Console logging for transparency and debugging
+- 📁 **File:** `apps/web/src/components/shared/dataTable/FilteredDataTable.tsx:215-327`
+
+**2. Default-Editable Pattern** ([See details](#6-convention-over-configuration-inline-editing-v23--v31))
+- ✅ Fields are now **editable by default** (previously readonly by default)
+- ✅ 10-rule detection system for input type (text, number, date, dropdown, file, readonly)
+- ✅ Zero manual configuration: Removed restrictive defaults
+- ✅ Universal "Add Row" functionality across ALL entity types
+- 📁 **File:** `apps/web/src/lib/data_transform_render.tsx:521-549`
+
+**3. Column Consistency Pattern**
+- ✅ Child entity tables show identical columns to main entity tables
+- ✅ Removed redundant parent ID columns from child views
+- ✅ Context-independent column resolution from `entityConfig.ts`
+- 📁 **File:** `apps/web/src/components/shared/dataTable/FilteredDataTable.tsx:71-79`
+
+### Verification Tools
+
+```bash
+# Verify entity linkages
+./tools/verify-linkage.sh
+
+# Check specific task linkage
+./tools/verify-linkage.sh --task <task-uuid>
+```
+
+### Related Documentation
+
+- **[Universal Entity System v3.1](./entity_design_pattern/universal_entity_system.md)** - Complete v3.1 architecture guide
+- **[Architecture v3.1](./ARCHITECTURE_V3.1.md)** - DRY design patterns and system architecture
+- **[FilteredDataTable Architecture](./datatable/filtered_data_table_architecture.md)** - Table component details
+
+### Breaking Changes
+
+**None.** v3.1 is fully backward compatible. All changes are additive enhancements.
+
+---
+
+**Last Updated:** 2025-11-04
 **Project:** Huron Home Services PMO Platform
-**Version:** Production v2.1 (Hierarchy Mapping + Security Fixes)
+**Version:** Production v3.1 (Inline Create-Then-Link + Default-Editable)
 **Architecture:** DRY-first, Config-driven, Universal Components

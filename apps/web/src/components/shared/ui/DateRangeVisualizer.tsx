@@ -22,7 +22,7 @@ export function DateRangeVisualizer({ startDate, endDate, className = '' }: Date
   // Single date handling
   if (!progress) {
     return (
-      <div className={`text-sm text-gray-400 ${className}`}>
+      <div className={`text-sm text-dark-600 ${className}`}>
         {startDate && !endDate && (
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
@@ -52,7 +52,7 @@ export function DateRangeVisualizer({ startDate, endDate, className = '' }: Date
     <div className={`${className}`}>
       <div className="space-y-2">
         {/* Duration Summary */}
-        <div className="flex items-center justify-between text-xs text-gray-600 font-medium">
+        <div className="flex items-center justify-between text-xs text-dark-700 font-medium">
           <div className="flex items-center gap-1">
             <Calendar className="h-3.5 w-3.5" />
             <span>{formatFriendlyDate(startDate)}</span>
@@ -91,7 +91,7 @@ export function DateRangeVisualizer({ startDate, endDate, className = '' }: Date
         </div>
 
         {/* Progress Details */}
-        <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className="flex items-center justify-between text-xs text-dark-700">
           <span>{daysPassed} days passed • {passedHours.toLocaleString()} hours</span>
           <span>{daysRemaining} days remaining • {remainingHours.toLocaleString()} hours</span>
         </div>

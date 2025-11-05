@@ -30,7 +30,7 @@ function KanbanCard({
   const defaultContent = (
     <>
       <h4
-        className="text-gray-900 mb-2 line-clamp-2"
+        className="text-dark-600 mb-2 line-clamp-2"
         style={{
           fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
           fontSize: '13px',
@@ -42,7 +42,7 @@ function KanbanCard({
       </h4>
       {item.descr && (
         <p
-          className="text-gray-600 mb-2 line-clamp-2"
+          className="text-dark-700 mb-2 line-clamp-2"
           style={{
             fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
             fontSize: '12px',
@@ -75,7 +75,7 @@ function KanbanCard({
         )}
         {item.estimated_hours && (
           <span
-            className="text-gray-500"
+            className="text-dark-700"
             style={{
               fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '11px'
@@ -90,7 +90,7 @@ function KanbanCard({
           {item.tags.slice(0, 2).map((tag: string, idx: number) => (
             <span
               key={idx}
-              className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 text-blue-700"
+              className="inline-flex items-center px-1.5 py-0.5 rounded bg-dark-100 text-dark-700"
               style={{
                 fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                 fontSize: '11px',
@@ -102,7 +102,7 @@ function KanbanCard({
           ))}
           {item.tags.length > 2 && (
             <span
-              className="text-gray-400"
+              className="text-dark-600"
               style={{
                 fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                 fontSize: '11px'
@@ -118,7 +118,7 @@ function KanbanCard({
 
   return (
     <div
-      className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer relative group"
+      className="bg-dark-100 p-3 rounded-lg border border-dark-300 shadow-sm hover:shadow-md transition-shadow cursor-pointer relative group"
       onClick={onClick}
       draggable
       onDragStart={(e) => {
@@ -128,13 +128,13 @@ function KanbanCard({
       {renderContent ? renderContent(item) : defaultContent}
 
       <button
-        className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute top-2 right-2 p-1 rounded hover:bg-dark-100 opacity-0 group-hover:opacity-100 transition-opacity"
         onClick={(e) => {
           e.stopPropagation();
           setShowMenu(!showMenu);
         }}
       >
-        <MoreVertical className="h-4 w-4 text-gray-400" />
+        <MoreVertical className="h-4 w-4 text-dark-600" />
       </button>
     </div>
   );
@@ -175,7 +175,7 @@ function KanbanColumnComponent({
   return (
     <div className="flex flex-col min-w-[280px] max-w-[280px]">
       {/* Column Header */}
-      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-t-lg border-b border-gray-200">
+      <div className="flex items-center justify-between p-3 bg-dark-100 rounded-t-lg border-b border-dark-300">
         <div className="flex items-center space-x-2">
           {column.color && (
             <div
@@ -184,7 +184,7 @@ function KanbanColumnComponent({
             />
           )}
           <h3
-            className="text-gray-900"
+            className="text-dark-600"
             style={{
               fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
               fontSize: '13px',
@@ -196,7 +196,7 @@ function KanbanColumnComponent({
           </h3>
         </div>
         <span
-          className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full"
+          className="bg-dark-200 text-dark-600 px-2 py-0.5 rounded-full"
           style={{
             fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
             fontSize: '11px',
@@ -210,8 +210,8 @@ function KanbanColumnComponent({
       {/* Column Content */}
       <div
         className={`
-          flex-1 p-3 bg-gray-50 border border-t-0 rounded-b-lg overflow-y-auto
-          ${isDragOver ? 'bg-blue-50 border-blue-300' : ''}
+          flex-1 p-3 bg-dark-100 border border-t-0 rounded-b-lg overflow-y-auto
+          ${isDragOver ? 'bg-dark-100 border-dark-500' : ''}
         `}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
@@ -222,7 +222,7 @@ function KanbanColumnComponent({
           {column.items.length === 0 ? (
             <div className="text-center py-8">
               <p
-                className="text-gray-400"
+                className="text-dark-600"
                 style={{
                   fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
                   fontSize: '13px',
@@ -272,7 +272,7 @@ export function KanbanBoard({
     return (
       <div className="text-center py-12">
         <p
-          className="text-gray-500"
+          className="text-dark-700"
           style={{
             fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
             fontSize: '13px',

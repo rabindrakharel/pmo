@@ -15,9 +15,9 @@ interface SpacerBlockEditorProps {
 
 export function SpacerBlockEditor({ block, onUpdate }: SpacerBlockEditorProps) {
   return (
-    <div className="border-b border-gray-200">
+    <div className="border-b border-dark-300">
       {/* Spacer Preview */}
-      <div className="p-4 bg-gray-50">
+      <div className="p-4 bg-dark-100">
         <div
           style={{
             height: block.styles?.height || '20px',
@@ -34,9 +34,9 @@ export function SpacerBlockEditor({ block, onUpdate }: SpacerBlockEditorProps) {
       </div>
 
       {/* Spacer Settings */}
-      <div className="bg-gray-50 px-3 py-2 text-xs">
+      <div className="bg-dark-100 px-3 py-2 text-xs">
         <div>
-          <label className="text-gray-600 block mb-1">Height</label>
+          <label className="text-dark-700 block mb-1">Height</label>
           <input
             type="range"
             min="10"
@@ -51,10 +51,10 @@ export function SpacerBlockEditor({ block, onUpdate }: SpacerBlockEditorProps) {
               type="text"
               value={block.styles?.height || '20px'}
               onChange={(e) => onUpdate({ styles: { ...block.styles, height: e.target.value } })}
-              className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs"
+              className="flex-1 px-2 py-1 border border-dark-400 rounded text-xs"
               placeholder="20px"
             />
-            <span className="text-gray-500">Vertical spacing</span>
+            <span className="text-dark-700">Vertical spacing</span>
           </div>
         </div>
       </div>

@@ -455,16 +455,16 @@ export function AdvancedFormBuilder({
         <div className="flex items-center space-x-3">
           <button
             onClick={handleCancel}
-            className="h-10 w-10 bg-white border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50"
+            className="h-10 w-10 bg-dark-100 border border-dark-300 rounded-lg flex items-center justify-center hover:bg-dark-100"
             title="Back"
           >
-            <ArrowLeft className="h-5 w-5 text-gray-700 stroke-[1.5]" />
+            <ArrowLeft className="h-5 w-5 text-dark-600 stroke-[1.5]" />
           </button>
           <div>
-            <h1 className="text-sm font-normal text-gray-800">{headerTitle}</h1>
-            <p className="mt-1 text-xs font-light text-gray-500">
+            <h1 className="text-sm font-normal text-dark-600">{headerTitle}</h1>
+            <p className="mt-1 text-xs font-light text-dark-700">
               Composable, drag-and-drop form builder • Step {currentStepIndex + 1} of {steps.length}
-              {savingDraft && <span className="text-blue-600 ml-2">• Draft saving...</span>}
+              {savingDraft && <span className="text-dark-700 ml-2">• Draft saving...</span>}
             </p>
           </div>
         </div>
@@ -475,7 +475,7 @@ export function AdvancedFormBuilder({
             <button
               onClick={saveDraft}
               disabled={savingDraft || !title}
-              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 disabled:opacity-50 transition-colors"
             >
               <Save className="h-4 w-4 mr-2 stroke-[1.5]" />
               {savingDraft ? 'Saving Draft..' : 'Save Draft'}
@@ -485,7 +485,7 @@ export function AdvancedFormBuilder({
             <button
               onClick={handleSaveForm}
               disabled={saving || !title || fields.length === 0}
-              className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-dark-700 hover:bg-dark-800 disabled:opacity-50 transition-colors"
             >
               <Save className="h-4 w-4 mr-2 stroke-[1.5]" />
               {saving ? 'Publishing...' : 'Publish Form'}
@@ -495,16 +495,16 @@ export function AdvancedFormBuilder({
       </div>
 
       {/* Step Navigation */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <div className="bg-dark-100 rounded-xl shadow-sm border border-dark-300 p-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
-            <Layers className="h-5 w-5 text-gray-600 stroke-[1.5]" />
-            <h3 className="text-sm font-normal text-gray-700">Form Steps</h3>
-            <span className="text-xs font-light text-gray-500">Use Ctrl+← / Ctrl+→ to navigate</span>
+            <Layers className="h-5 w-5 text-dark-700 stroke-[1.5]" />
+            <h3 className="text-sm font-normal text-dark-600">Form Steps</h3>
+            <span className="text-xs font-light text-dark-700">Use Ctrl+← / Ctrl+→ to navigate</span>
           </div>
           <button
             onClick={addStep}
-            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-dark-700 hover:bg-dark-800 transition-colors"
           >
             <Plus className="h-4 w-4 mr-2 stroke-[1.5]" />
             Add Step
@@ -515,7 +515,7 @@ export function AdvancedFormBuilder({
           <button
             onClick={() => navigateToStep(currentStepIndex - 1)}
             disabled={currentStepIndex === 0}
-            className="p-1.5 rounded-md border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-1.5 rounded-md border border-dark-300 hover:bg-dark-100 disabled:opacity-50 disabled:cursor-not-allowed"
             title="Previous step (Ctrl+←)"
           >
             <ChevronLeft className="h-4 w-4 stroke-[1.5]" />
@@ -528,12 +528,12 @@ export function AdvancedFormBuilder({
                   onClick={() => navigateToStep(index)}
                   className={`px-3 py-2 rounded-lg text-sm font-normal transition-colors min-w-0 flex items-center space-x-2 ${
                     index === currentStepIndex
-                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
+                      ? 'bg-dark-100 text-dark-700 border border-dark-400'
+                      : 'bg-dark-100 text-dark-700 hover:bg-dark-100 border border-dark-300'
                   }`}
                 >
                   <span className="truncate">{step.title}</span>
-                  <span className="text-xs bg-white bg-opacity-70 px-1.5 py-0.5 rounded">
+                  <span className="text-xs bg-dark-100 bg-opacity-70 px-1.5 py-0.5 rounded">
                     {fields.filter(f => f.stepId === step.id).length}
                   </span>
                 </button>
@@ -543,7 +543,7 @@ export function AdvancedFormBuilder({
                     <input
                       value={step.title}
                       onChange={(e) => updateStepName(step.id, e.target.value)}
-                      className="px-2 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm"
+                      className="px-2 py-1 text-xs border border-dark-400 rounded bg-dark-100 shadow-sm"
                       placeholder="Step name"
                     />
                   </div>
@@ -568,7 +568,7 @@ export function AdvancedFormBuilder({
           <button
             onClick={() => navigateToStep(currentStepIndex + 1)}
             disabled={currentStepIndex === steps.length - 1}
-            className="p-1.5 rounded-md border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-1.5 rounded-md border border-dark-300 hover:bg-dark-100 disabled:opacity-50 disabled:cursor-not-allowed"
             title="Next step (Ctrl+→)"
           >
             <ChevronRight className="h-4 w-4 stroke-[1.5]" />
@@ -580,23 +580,23 @@ export function AdvancedFormBuilder({
         {/* Fullscreen Layout: Field Types and Form Builder side by side */}
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-0">
           {/* Left: Field Types Palette */}
-          <aside className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col overflow-hidden">
-            <div className="text-sm font-normal text-gray-700 mb-3">Field Types</div>
+          <aside className="lg:col-span-1 bg-dark-100 rounded-xl shadow-sm border border-dark-300 p-4 flex flex-col overflow-hidden">
+            <div className="text-sm font-normal text-dark-600 mb-3">Field Types</div>
 
             <div className="relative mb-3">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 stroke-[1.5]" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-600 stroke-[1.5]" />
               <input
                 type="text"
                 placeholder="Search field types..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-3 py-2 border border-dark-400 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
               />
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               {filteredPalette.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 text-sm">
+                <div className="text-center py-8 text-dark-700 text-sm">
                   No field types found
                 </div>
               ) : (
@@ -614,17 +614,17 @@ export function AdvancedFormBuilder({
           {/* Center & Right: Form Builder and Preview */}
           <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0">
             {/* Form Canvas */}
-            <section className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col overflow-hidden">
+            <section className="lg:col-span-2 bg-dark-100 rounded-xl shadow-sm border border-dark-300 p-4 flex flex-col overflow-hidden">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <div className="text-sm font-normal text-gray-700">
+                  <div className="text-sm font-normal text-dark-600">
                     {currentStep?.title || 'Step'} - Form Fields
                   </div>
-                  <div className="text-xs font-light text-gray-500">
+                  <div className="text-xs font-light text-dark-700">
                     Add fields to this step by selecting from the palette
                   </div>
                 </div>
-                <div className="text-xs font-light text-gray-500">
+                <div className="text-xs font-light text-dark-700">
                   {currentStepFields.length} field{currentStepFields.length !== 1 ? 's' : ''}
                 </div>
               </div>
@@ -632,20 +632,20 @@ export function AdvancedFormBuilder({
               {currentStepIndex === 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                   <div className="flex flex-col">
-                    <label className="text-sm font-normal text-gray-500 mb-1">Form Title</label>
+                    <label className="text-sm font-normal text-dark-700 mb-1">Form Title</label>
                     <input
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                      className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
                     />
                   </div>
                   <div className="flex flex-col">
-                    <label className="text-sm font-normal text-gray-500 mb-1">Description</label>
+                    <label className="text-sm font-normal text-dark-700 mb-1">Description</label>
                     <input
                       value={descr}
                       onChange={(e) => setDescr(e.target.value)}
                       placeholder="Optional"
-                      className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                      className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
                     />
                   </div>
                 </div>
@@ -655,10 +655,10 @@ export function AdvancedFormBuilder({
                 <SortableContext items={currentStepFields.map(f => f.id)} strategy={rectSortingStrategy}>
                   <DroppableFormCanvas>
                     {currentStepFields.length === 0 ? (
-                      <div className="h-96 border border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-500">
-                        <Layers className="h-8 w-8 mb-2 text-gray-400 stroke-[1.5]" />
+                      <div className="h-96 border border-dashed border-dark-400 rounded-lg flex flex-col items-center justify-center text-dark-700">
+                        <Layers className="h-8 w-8 mb-2 text-dark-600 stroke-[1.5]" />
                         <p className="text-sm">No fields in this step yet</p>
-                        <p className="text-xs text-gray-400">Drag field types from the palette or click to add them to {currentStep?.title}</p>
+                        <p className="text-xs text-dark-600">Drag field types from the palette or click to add them to {currentStep?.title}</p>
                       </div>
                     ) : (
                       <div className="space-y-3 pb-32">
@@ -681,10 +681,10 @@ export function AdvancedFormBuilder({
             </section>
 
             {/* Live Preview */}
-            <aside className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col overflow-hidden">
+            <aside className="lg:col-span-1 bg-dark-100 rounded-xl shadow-sm border border-dark-300 p-4 flex flex-col overflow-hidden">
               <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-normal text-gray-700">Live Preview</div>
-                <div className="text-xs font-light text-gray-500">
+                <div className="text-sm font-normal text-dark-600">Live Preview</div>
+                <div className="text-xs font-light text-dark-700">
                   {currentStep?.title} ({currentStepIndex + 1}/{steps.length})
                 </div>
               </div>
@@ -704,14 +704,14 @@ export function AdvancedFormBuilder({
 
         <DragOverlay dropAnimation={{ duration: 200, easing: 'ease' }}>
           {activeId ? (
-            <div className="px-4 py-3 rounded-lg bg-white border-2 border-blue-400 shadow-2xl">
+            <div className="px-4 py-3 rounded-lg bg-dark-100 border-2 border-dark-600 shadow-2xl">
               {activeId.includes('field-type-') ? (
-                <div className="flex items-center space-x-2 text-sm font-normal text-blue-600">
+                <div className="flex items-center space-x-2 text-sm font-normal text-dark-700">
                   <Plus className="h-4 w-4 stroke-[1.5]" />
                   <span>Adding field...</span>
                 </div>
               ) : (
-                <div className="text-sm font-normal text-gray-700">Moving field...</div>
+                <div className="text-sm font-normal text-dark-600">Moving field...</div>
               )}
             </div>
           ) : null}

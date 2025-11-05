@@ -45,7 +45,15 @@
       "Bash(do echo \"=== $table ===\" PGPASSWORD=app psql -h localhost -p 5434 -U app -d app -c \"\\d app.$table\")",
       "Bash(timeout 10 bash:*)",
       "Bash(timeout 10 pnpm run type-check:*)",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzYyMjk1ODU2LCJleHAiOjE3NjIzODIyNTZ9.zHEUeS_Nzf5EHCgW4feC9lQTyvaVjpMborst-JTbG4s\")",
+      "Bash(bash:*)",
+      "Bash(chmod:*)",
+      "Bash(/tmp/replace-blue-colors.sh)",
+      "Bash(/tmp/replace-all-colors.sh:*)",
+      "Bash(pnpm run type-check:web:*)",
+      "Bash(find . -type f ( -name \"*.tsx\" -o -name \"*.ts\" ) -exec sed -i )",
+      "Bash({} +)"
     ],
     "deny": [],
     "ask": [],

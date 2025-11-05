@@ -112,22 +112,22 @@ export function MetadataTable({ value, onChange, isEditing = false }: MetadataTa
   };
 
   if (entries.length === 0 && !isEditing) {
-    return <span className="text-gray-400 text-sm">No metadata</span>;
+    return <span className="text-dark-600 text-sm">No metadata</span>;
   }
 
   return (
     <div className="space-y-2">
       <table className="w-full text-sm border-collapse">
         <thead>
-          <tr className="border-b border-gray-200">
-            <th className="text-left py-1 px-2 text-xs font-medium text-gray-500 w-1/3">Key</th>
-            <th className="text-left py-1 px-2 text-xs font-medium text-gray-500">Value</th>
+          <tr className="border-b border-dark-300">
+            <th className="text-left py-1 px-2 text-xs font-medium text-dark-700 w-1/3">Key</th>
+            <th className="text-left py-1 px-2 text-xs font-medium text-dark-700">Value</th>
             {isEditing && <th className="w-10"></th>}
           </tr>
         </thead>
         <tbody>
           {entries.map(([key, val]) => (
-            <tr key={key} className="border-b border-gray-100 hover:bg-gray-50 group">
+            <tr key={key} className="border-b border-dark-300 hover:bg-dark-100 group">
               {/* Key column */}
               <td className="py-1.5 px-2">
                 {editingKey === `key-${key}` && isEditing ? (
@@ -141,7 +141,7 @@ export function MetadataTable({ value, onChange, isEditing = false }: MetadataTa
                         if (e.key === 'Enter') handleUpdateKey(key, e.currentTarget.value);
                         if (e.key === 'Escape') setEditingKey(null);
                       }}
-                      className="flex-1 px-2 py-0.5 text-xs border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="flex-1 px-2 py-0.5 text-xs border border-dark-500 rounded focus:outline-none focus:ring-1 focus:ring-dark-7000"
                     />
                   </div>
                 ) : (
@@ -149,7 +149,7 @@ export function MetadataTable({ value, onChange, isEditing = false }: MetadataTa
                     onClick={() => isEditing && setEditingKey(`key-${key}`)}
                     disabled={!isEditing}
                     className={`text-left w-full font-mono text-xs ${
-                      isEditing ? 'text-blue-600 hover:text-blue-800 cursor-pointer' : 'text-gray-700'
+                      isEditing ? 'text-dark-700 hover:text-dark-600 cursor-pointer' : 'text-dark-600'
                     }`}
                   >
                     {key}
@@ -170,7 +170,7 @@ export function MetadataTable({ value, onChange, isEditing = false }: MetadataTa
                         if (e.key === 'Enter') handleUpdateValue(key, e.currentTarget.value);
                         if (e.key === 'Escape') setEditingKey(null);
                       }}
-                      className="flex-1 px-2 py-0.5 text-xs border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="flex-1 px-2 py-0.5 text-xs border border-dark-500 rounded focus:outline-none focus:ring-1 focus:ring-dark-7000"
                     />
                   </div>
                 ) : (
@@ -178,13 +178,13 @@ export function MetadataTable({ value, onChange, isEditing = false }: MetadataTa
                     onClick={() => isEditing && setEditingKey(`val-${key}`)}
                     disabled={!isEditing}
                     className={`text-left w-full font-mono text-xs ${
-                      isEditing ? 'hover:bg-blue-50 rounded px-1 -mx-1 cursor-pointer' : ''
+                      isEditing ? 'hover:bg-dark-100 rounded px-1 -mx-1 cursor-pointer' : ''
                     }`}
                   >
                     <span className={typeof val === 'boolean' ? 'text-purple-600' :
                                    typeof val === 'number' ? 'text-green-600' :
                                    typeof val === 'object' ? 'text-orange-600' :
-                                   'text-gray-700'}>
+                                   'text-dark-600'}>
                       {formatValue(val)}
                     </span>
                   </button>
@@ -208,7 +208,7 @@ export function MetadataTable({ value, onChange, isEditing = false }: MetadataTa
 
           {/* Add new row */}
           {isEditing && isAddingNew && (
-            <tr className="border-b border-gray-100 bg-blue-50">
+            <tr className="border-b border-dark-300 bg-dark-100">
               <td className="py-1.5 px-2">
                 <input
                   type="text"
@@ -227,7 +227,7 @@ export function MetadataTable({ value, onChange, isEditing = false }: MetadataTa
                       setNewValue('');
                     }
                   }}
-                  className="w-full px-2 py-0.5 text-xs border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-2 py-0.5 text-xs border border-dark-500 rounded focus:outline-none focus:ring-1 focus:ring-dark-7000"
                 />
               </td>
               <td className="py-1.5 px-2">
@@ -248,7 +248,7 @@ export function MetadataTable({ value, onChange, isEditing = false }: MetadataTa
                       setNewValue('');
                     }
                   }}
-                  className="w-full px-2 py-0.5 text-xs border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-2 py-0.5 text-xs border border-dark-500 rounded focus:outline-none focus:ring-1 focus:ring-dark-7000"
                 />
               </td>
               <td className="py-1.5 px-2">
@@ -283,7 +283,7 @@ export function MetadataTable({ value, onChange, isEditing = false }: MetadataTa
       {isEditing && !isAddingNew && (
         <button
           onClick={() => setIsAddingNew(true)}
-          className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors"
+          className="flex items-center gap-1 px-2 py-1 text-xs text-dark-700 hover:bg-dark-100 rounded transition-colors"
         >
           <Plus className="h-3 w-3" />
           Add field
@@ -292,11 +292,11 @@ export function MetadataTable({ value, onChange, isEditing = false }: MetadataTa
 
       {/* Type hints */}
       {isEditing && (
-        <div className="text-xs text-gray-500 mt-2 space-y-0.5">
+        <div className="text-xs text-dark-700 mt-2 space-y-0.5">
           <div>💡 <strong>Tips:</strong></div>
           <div className="ml-4">• Click key or value to edit inline</div>
-          <div className="ml-4">• Values: <code className="bg-gray-100 px-1 rounded">true/false</code> = boolean, numbers = number, <code className="bg-gray-100 px-1 rounded">{'{}'}</code> = JSON</div>
-          <div className="ml-4">• Press <kbd className="bg-gray-100 px-1 rounded border">Enter</kbd> to save, <kbd className="bg-gray-100 px-1 rounded border">Esc</kbd> to cancel</div>
+          <div className="ml-4">• Values: <code className="bg-dark-100 px-1 rounded">true/false</code> = boolean, numbers = number, <code className="bg-dark-100 px-1 rounded">{'{}'}</code> = JSON</div>
+          <div className="ml-4">• Press <kbd className="bg-dark-100 px-1 rounded border">Enter</kbd> to save, <kbd className="bg-dark-100 px-1 rounded border">Esc</kbd> to cancel</div>
         </div>
       )}
     </div>

@@ -294,6 +294,7 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
           parentId={parentId}
           showActionButtons={false}
           inlineEditable={true}
+          allowAddRow={true}
           onBulkShare={handleBulkShare}
           onBulkDelete={handleBulkDelete}
           onRowClick={handleRowClick}
@@ -304,7 +305,7 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
     if (loading) {
       return (
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700" />
         </div>
       );
     }
@@ -315,7 +316,7 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
           <p className="text-red-600">{error}</p>
           <button
             onClick={loadChildData}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="mt-4 px-4 py-2 bg-dark-700 text-white rounded-lg hover:bg-dark-800"
           >
             Retry
           </button>
@@ -326,7 +327,7 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
     // KANBAN VIEW - Settings-driven, no fallbacks
     if (view === 'kanban' && config.kanban) {
       return (
-        <div className="bg-white rounded-lg shadow p-6 h-full overflow-x-auto">
+        <div className="bg-dark-100 rounded-lg shadow p-6 h-full overflow-x-auto">
           <KanbanView
             config={config}
             data={data}
@@ -341,7 +342,7 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
     // GRID VIEW
     if (view === 'grid' && config.grid) {
       return (
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-dark-100 rounded-lg shadow p-6">
           <GridView
             items={data}
             onItemClick={handleRowClick}
@@ -365,7 +366,7 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
         {/* Header with View Switcher and Create Button */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <h2 className="text-sm font-normal text-gray-800">
+            <h2 className="text-sm font-normal text-dark-600">
               {config.pluralName}
             </h2>
           </div>
@@ -382,7 +383,7 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
             <button
               onClick={handleCreateClick}
               disabled={loading}
-              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-normal rounded text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="h-4 w-4 mr-2 stroke-[1.5]" />
               {loading ? 'Creating...' : `Create ${config.displayName}`}

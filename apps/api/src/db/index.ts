@@ -15,6 +15,9 @@ const client = postgres(config.DATABASE_URL, {
   connect_timeout: 10,
 });
 
+// Export client for raw SQL queries
+export { client };
+
 // Create drizzle instance with all schemas
 export const db = drizzle(client, {
   schema: {

@@ -69,7 +69,7 @@ export function InlineText({
   if (isEditing && !disabled) {
     return (
       <div className={`inline-edit-text flex items-center gap-2 ${className}`}>
-        {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
+        {label && <label className="text-sm font-medium text-dark-600">{label}</label>}
         <input
           ref={inputRef}
           type="text"
@@ -81,7 +81,7 @@ export function InlineText({
           }}
           onBlur={handleSave}
           disabled={isSaving}
-          className="px-2 py-1 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-2 py-1 border border-dark-3000 rounded focus:outline-none focus:ring-2 focus:ring-dark-7000"
           placeholder={placeholder}
         />
         <button
@@ -106,19 +106,19 @@ export function InlineText({
 
   return (
     <div className={`inline-edit-text group flex items-center gap-2 ${className}`}>
-      {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
+      {label && <label className="text-sm font-medium text-dark-600">{label}</label>}
       <span
         onClick={() => !disabled && setIsEditing(true)}
         className={`${
           disabled ? 'cursor-default' : 'cursor-pointer'
-        } px-2 py-1 rounded hover:bg-gray-100 transition-colors ${
-          !value ? 'text-gray-400 italic' : ''
+        } px-2 py-1 rounded hover:bg-dark-100 transition-colors ${
+          !value ? 'text-dark-600 italic' : ''
         }`}
       >
         {value || placeholder}
       </span>
       {!disabled && (
-        <Edit2 className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <Edit2 className="h-3 w-3 text-dark-600 opacity-0 group-hover:opacity-100 transition-opacity" />
       )}
     </div>
   );
@@ -165,7 +165,7 @@ export function InlineTextarea({
   if (isEditing && !disabled) {
     return (
       <div className={`inline-edit-textarea ${className}`}>
-        {label && <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
+        {label && <label className="block text-sm font-medium text-dark-600 mb-1">{label}</label>}
         <textarea
           ref={textareaRef}
           value={editValue}
@@ -177,7 +177,7 @@ export function InlineTextarea({
           }}
           disabled={isSaving}
           rows={4}
-          className="w-full px-3 py-2 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-dark-3000 rounded focus:outline-none focus:ring-2 focus:ring-dark-7000"
           placeholder={placeholder}
         />
         <div className="flex items-center gap-2 mt-2">
@@ -191,11 +191,11 @@ export function InlineTextarea({
           <button
             onClick={handleCancel}
             disabled={isSaving}
-            className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors text-sm"
+            className="px-3 py-1 bg-dark-200 text-dark-600 rounded hover:bg-dark-300 transition-colors text-sm"
           >
             Cancel
           </button>
-          <span className="text-xs text-gray-500">Press Ctrl+Enter to save, Esc to cancel</span>
+          <span className="text-xs text-dark-700">Press Ctrl+Enter to save, Esc to cancel</span>
         </div>
       </div>
     );
@@ -203,18 +203,18 @@ export function InlineTextarea({
 
   return (
     <div className={`inline-edit-textarea group ${className}`}>
-      {label && <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
+      {label && <label className="block text-sm font-medium text-dark-600 mb-1">{label}</label>}
       <div
         onClick={() => !disabled && setIsEditing(true)}
         className={`${
           disabled ? 'cursor-default' : 'cursor-pointer'
-        } px-3 py-2 rounded border border-transparent hover:border-gray-300 hover:bg-gray-50 transition-colors whitespace-pre-wrap ${
-          !value ? 'text-gray-400 italic' : ''
+        } px-3 py-2 rounded border border-transparent hover:border-dark-400 hover:bg-dark-100 transition-colors whitespace-pre-wrap ${
+          !value ? 'text-dark-600 italic' : ''
         }`}
       >
         {value || placeholder}
         {!disabled && (
-          <Edit2 className="h-3 w-3 text-gray-400 inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <Edit2 className="h-3 w-3 text-dark-600 inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
         )}
       </div>
     </div>
@@ -269,14 +269,14 @@ export function InlineSelect({
   if (isEditing && !disabled) {
     return (
       <div className={`inline-edit-select flex items-center gap-2 ${className}`}>
-        {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
+        {label && <label className="text-sm font-medium text-dark-600">{label}</label>}
         <select
           ref={selectRef}
           value={editValue}
           onChange={(e) => handleSave(e.target.value)}
           onBlur={() => setIsEditing(false)}
           disabled={isSaving}
-          className="px-2 py-1 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-2 py-1 border border-dark-3000 rounded focus:outline-none focus:ring-2 focus:ring-dark-7000"
         >
           <option value="">{placeholder}</option>
           {options.map((opt) => (
@@ -288,7 +288,7 @@ export function InlineSelect({
         <button
           onClick={handleCancel}
           disabled={isSaving}
-          className="p-1 text-gray-600 hover:bg-gray-100 rounded transition-colors"
+          className="p-1 text-dark-700 hover:bg-dark-100 rounded transition-colors"
           title="Cancel"
         >
           <X className="h-4 w-4" />
@@ -299,19 +299,19 @@ export function InlineSelect({
 
   return (
     <div className={`inline-edit-select group flex items-center gap-2 ${className}`}>
-      {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
+      {label && <label className="text-sm font-medium text-dark-600">{label}</label>}
       <span
         onClick={() => !disabled && setIsEditing(true)}
         className={`${
           disabled ? 'cursor-default' : 'cursor-pointer'
-        } px-2 py-1 rounded hover:bg-gray-100 transition-colors ${
-          !selectedOption ? 'text-gray-400 italic' : ''
+        } px-2 py-1 rounded hover:bg-dark-100 transition-colors ${
+          !selectedOption ? 'text-dark-600 italic' : ''
         }`}
       >
         {selectedOption?.label || placeholder}
       </span>
       {!disabled && (
-        <Edit2 className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <Edit2 className="h-3 w-3 text-dark-600 opacity-0 group-hover:opacity-100 transition-opacity" />
       )}
     </div>
   );
@@ -376,9 +376,9 @@ export function InlineNumber({
   if (isEditing && !disabled) {
     return (
       <div className={`inline-edit-number flex items-center gap-2 ${className}`}>
-        {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
-        {prefix && <span className="text-gray-600">{prefix}</span>}
-        {icon && <span className="text-gray-600">{icon}</span>}
+        {label && <label className="text-sm font-medium text-dark-600">{label}</label>}
+        {prefix && <span className="text-dark-700">{prefix}</span>}
+        {icon && <span className="text-dark-700">{icon}</span>}
         <input
           ref={inputRef}
           type="number"
@@ -393,10 +393,10 @@ export function InlineNumber({
           min={min}
           max={max}
           step={step}
-          className="w-24 px-2 py-1 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-24 px-2 py-1 border border-dark-3000 rounded focus:outline-none focus:ring-2 focus:ring-dark-7000"
           placeholder={placeholder}
         />
-        {suffix && <span className="text-gray-600">{suffix}</span>}
+        {suffix && <span className="text-dark-700">{suffix}</span>}
         <button
           onClick={handleSave}
           disabled={isSaving}
@@ -421,22 +421,22 @@ export function InlineNumber({
 
   return (
     <div className={`inline-edit-number group flex items-center gap-2 ${className}`}>
-      {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
-      {prefix && <span className="text-gray-600">{prefix}</span>}
-      {icon && <span className="text-gray-600">{icon}</span>}
+      {label && <label className="text-sm font-medium text-dark-600">{label}</label>}
+      {prefix && <span className="text-dark-700">{prefix}</span>}
+      {icon && <span className="text-dark-700">{icon}</span>}
       <span
         onClick={() => !disabled && setIsEditing(true)}
         className={`${
           disabled ? 'cursor-default' : 'cursor-pointer'
-        } px-2 py-1 rounded hover:bg-gray-100 transition-colors ${
-          value == null ? 'text-gray-400 italic' : ''
+        } px-2 py-1 rounded hover:bg-dark-100 transition-colors ${
+          value == null ? 'text-dark-600 italic' : ''
         }`}
       >
         {displayValue}
       </span>
-      {suffix && <span className="text-gray-600">{suffix}</span>}
+      {suffix && <span className="text-dark-700">{suffix}</span>}
       {!disabled && (
-        <Edit2 className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <Edit2 className="h-3 w-3 text-dark-600 opacity-0 group-hover:opacity-100 transition-opacity" />
       )}
     </div>
   );
@@ -516,8 +516,8 @@ export function InlineDate({
   if (isEditing && !disabled) {
     return (
       <div className={`inline-edit-date flex items-center gap-2 ${className}`}>
-        {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
-        <Calendar className="h-4 w-4 text-gray-500" />
+        {label && <label className="text-sm font-medium text-dark-600">{label}</label>}
+        <Calendar className="h-4 w-4 text-dark-700" />
         <input
           ref={inputRef}
           type="date"
@@ -525,7 +525,7 @@ export function InlineDate({
           onChange={(e) => setEditValue(e.target.value)}
           onBlur={handleSave}
           disabled={isSaving}
-          className="px-2 py-1 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-2 py-1 border border-dark-3000 rounded focus:outline-none focus:ring-2 focus:ring-dark-7000"
         />
         <button
           onClick={handleCancel}
@@ -541,20 +541,20 @@ export function InlineDate({
 
   return (
     <div className={`inline-edit-date group flex items-center gap-2 ${className}`}>
-      {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
-      <Calendar className="h-4 w-4 text-gray-500" />
+      {label && <label className="text-sm font-medium text-dark-600">{label}</label>}
+      <Calendar className="h-4 w-4 text-dark-700" />
       <span
         onClick={() => !disabled && setIsEditing(true)}
         className={`${
           disabled ? 'cursor-default' : 'cursor-pointer'
-        } px-2 py-1 rounded hover:bg-gray-100 transition-colors ${
-          !value ? 'text-gray-400 italic' : ''
+        } px-2 py-1 rounded hover:bg-dark-100 transition-colors ${
+          !value ? 'text-dark-600 italic' : ''
         }`}
       >
         {value ? formatDate(value) : placeholder}
       </span>
       {!disabled && (
-        <Edit2 className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <Edit2 className="h-3 w-3 text-dark-600 opacity-0 group-hover:opacity-100 transition-opacity" />
       )}
     </div>
   );

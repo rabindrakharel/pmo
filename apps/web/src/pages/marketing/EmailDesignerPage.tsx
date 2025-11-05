@@ -52,7 +52,7 @@ export function EmailDesignerPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-dark-700" />
       </div>
     );
   }
@@ -64,7 +64,7 @@ export function EmailDesignerPage() {
           <p className="text-red-600 mb-4">{error || 'Template not found'}</p>
           <button
             onClick={() => navigate('/marketing')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-dark-700 text-white rounded-lg hover:bg-dark-800"
           >
             Back to Marketing
           </button>

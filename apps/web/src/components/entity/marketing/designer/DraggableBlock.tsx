@@ -58,7 +58,7 @@ export function DraggableBlock({ block, isSelected, onSelect, onUpdate, onDelete
       ref={setNodeRef}
       style={style}
       className={`group relative border-2 transition-all ${
-        isSelected ? 'border-blue-500 bg-blue-50/30' : 'border-transparent hover:border-gray-300'
+        isSelected ? 'border-dark-3000 bg-dark-100/30' : 'border-transparent hover:border-dark-400'
       }`}
       onClick={onSelect}
     >
@@ -67,17 +67,17 @@ export function DraggableBlock({ block, isSelected, onSelect, onUpdate, onDelete
         <button
           {...attributes}
           {...listeners}
-          className="p-2 bg-white border border-gray-300 rounded hover:bg-gray-50 cursor-grab active:cursor-grabbing"
+          className="p-2 bg-dark-100 border border-dark-400 rounded hover:bg-dark-100 cursor-grab active:cursor-grabbing"
           aria-label="Drag to reorder"
         >
-          <GripVertical className="h-4 w-4 text-gray-500" />
+          <GripVertical className="h-4 w-4 text-dark-700" />
         </button>
         <button
           onClick={(e) => {
             e.stopPropagation();
             onDelete();
           }}
-          className="p-2 bg-white border border-red-300 rounded hover:bg-red-50"
+          className="p-2 bg-dark-100 border border-red-300 rounded hover:bg-red-50"
           aria-label="Delete block"
         >
           <Trash2 className="h-4 w-4 text-red-500" />
@@ -89,7 +89,7 @@ export function DraggableBlock({ block, isSelected, onSelect, onUpdate, onDelete
 
       {/* Selection Indicator */}
       {isSelected && (
-        <div className="absolute top-0 right-0 px-2 py-1 bg-blue-500 text-white text-xs font-medium rounded-bl">
+        <div className="absolute top-0 right-0 px-2 py-1 bg-dark-1000 text-white text-xs font-medium rounded-bl">
           Selected
         </div>
       )}

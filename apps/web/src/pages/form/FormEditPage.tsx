@@ -145,7 +145,7 @@ export function FormEditPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-dark-700"></div>
       </div>
     );
   }
@@ -154,11 +154,11 @@ export function FormEditPage() {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <h3 className="text-lg font-semibold text-gray-900">Form not found</h3>
-          <p className="mt-2 text-gray-600">The form you're looking for doesn't exist.</p>
+          <h3 className="text-lg font-semibold text-dark-600">Form not found</h3>
+          <p className="mt-2 text-dark-700">The form you're looking for doesn't exist.</p>
           <button
             onClick={() => navigate('/form')}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="mt-4 px-4 py-2 bg-dark-700 text-white rounded-lg hover:bg-dark-800"
           >
             Back to Forms
           </button>

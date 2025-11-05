@@ -156,18 +156,18 @@ export function AddDatalabelModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+      <div className="bg-dark-100 rounded-xl shadow-2xl w-full max-w-md mx-4">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-dark-300">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 rounded-lg">
-              <Plus className="h-5 w-5 text-blue-700" />
+            <div className="p-2 bg-dark-100 rounded-lg">
+              <Plus className="h-5 w-5 text-dark-700" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-dark-600">
                 {entityCode ? `Add Datalabel to ${entityName}` : 'Add New Datalabel'}
               </h2>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-dark-700 mt-0.5">
                 {entityCode ? 'Create a new data label for this entity' : 'Create a new entity or data label'}
               </p>
             </div>
@@ -175,7 +175,7 @@ export function AddDatalabelModal({
           <button
             onClick={handleClose}
             disabled={loading}
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50"
+            className="p-2 rounded-lg text-dark-600 hover:text-dark-700 hover:bg-dark-100 transition-colors disabled:opacity-50"
           >
             <X className="h-5 w-5" />
           </button>
@@ -185,19 +185,19 @@ export function AddDatalabelModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Entity Selector (dropdown if not provided) */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label className="block text-sm font-medium text-dark-600 mb-1.5">
               Entity Type {!entityCode && <span className="text-red-500">*</span>}
             </label>
             {entityCode ? (
               // Read-only display when entity is pre-selected
-              <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 text-sm flex items-center gap-2">
+              <div className="w-full px-3 py-2 border border-dark-400 rounded-lg bg-dark-100 text-dark-700 text-sm flex items-center gap-2">
                 {selectedEntity && selectedEntity.ui_icon && (
                   React.createElement(getIconComponent(selectedEntity.ui_icon), {
                     className: "h-4 w-4"
                   })
                 )}
                 <span>{selectedEntity?.ui_label || entityCode}</span>
-                <span className="text-gray-400 text-xs">({formData.entity_code})</span>
+                <span className="text-dark-600 text-xs">({formData.entity_code})</span>
               </div>
             ) : (
               // Dropdown selector when entity is not pre-selected
@@ -206,33 +206,33 @@ export function AddDatalabelModal({
                   type="button"
                   onClick={() => setShowEntityDropdown(!showEntityDropdown)}
                   disabled={loading || entitiesLoading}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-400 text-sm flex items-center justify-between hover:bg-gray-50 transition-colors"
+                  className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000 disabled:bg-dark-100 disabled:text-dark-600 text-sm flex items-center justify-between hover:bg-dark-100 transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     {selectedEntity ? (
                       <>
                         {selectedEntity.ui_icon && React.createElement(getIconComponent(selectedEntity.ui_icon), {
-                          className: "h-4 w-4 text-gray-600"
+                          className: "h-4 w-4 text-dark-700"
                         })}
-                        <span className="text-gray-900">{selectedEntity.ui_label}</span>
-                        <span className="text-gray-400 text-xs">({selectedEntity.code})</span>
+                        <span className="text-dark-600">{selectedEntity.ui_label}</span>
+                        <span className="text-dark-600 text-xs">({selectedEntity.code})</span>
                       </>
                     ) : (
-                      <span className="text-gray-400">Select an entity type...</span>
+                      <span className="text-dark-600">Select an entity type...</span>
                     )}
                   </div>
-                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showEntityDropdown ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`h-4 w-4 text-dark-600 transition-transform ${showEntityDropdown ? 'rotate-180' : ''}`} />
                 </button>
 
                 {/* Dropdown menu */}
                 {showEntityDropdown && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-50 w-full mt-1 bg-dark-100 border border-dark-400 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {entitiesLoading ? (
-                      <div className="px-3 py-2 text-sm text-gray-500 text-center">
+                      <div className="px-3 py-2 text-sm text-dark-700 text-center">
                         Loading entities...
                       </div>
                     ) : entities.length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-gray-500 text-center">
+                      <div className="px-3 py-2 text-sm text-dark-700 text-center">
                         No entities found
                       </div>
                     ) : (
@@ -244,15 +244,15 @@ export function AddDatalabelModal({
                             setFormData({ ...formData, entity_code: entity.code });
                             setShowEntityDropdown(false);
                           }}
-                          className={`w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors flex items-center gap-2 ${
-                            formData.entity_code === entity.code ? 'bg-blue-50' : ''
+                          className={`w-full px-3 py-2 text-left hover:bg-dark-100 transition-colors flex items-center gap-2 ${
+                            formData.entity_code === entity.code ? 'bg-dark-100' : ''
                           }`}
                         >
                           {entity.ui_icon && React.createElement(getIconComponent(entity.ui_icon), {
-                            className: "h-4 w-4 text-gray-600"
+                            className: "h-4 w-4 text-dark-700"
                           })}
-                          <span className="text-sm text-gray-900">{entity.ui_label}</span>
-                          <span className="text-xs text-gray-400">({entity.code})</span>
+                          <span className="text-sm text-dark-600">{entity.ui_label}</span>
+                          <span className="text-xs text-dark-600">({entity.code})</span>
                         </button>
                       ))
                     )}
@@ -260,14 +260,14 @@ export function AddDatalabelModal({
                 )}
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-dark-700 mt-1">
               {entityCode ? 'Pre-selected entity from group' : 'Select entity type from existing entities in the system'}
             </p>
           </div>
 
           {/* Label Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label className="block text-sm font-medium text-dark-600 mb-1.5">
               Label Name <span className="text-red-500">*</span>
             </label>
             <input
@@ -276,17 +276,17 @@ export function AddDatalabelModal({
               onChange={(e) => setFormData({ ...formData, label_name: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
               disabled={loading}
               placeholder="e.g., stage, priority, status"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000 text-sm"
               required
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-dark-700 mt-1">
               Lowercase identifier (spaces converted to underscores)
             </p>
           </div>
 
           {/* UI Label */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label className="block text-sm font-medium text-dark-600 mb-1.5">
               Display Label <span className="text-red-500">*</span>
             </label>
             <input
@@ -295,17 +295,17 @@ export function AddDatalabelModal({
               onChange={(e) => setFormData({ ...formData, ui_label: e.target.value })}
               disabled={loading}
               placeholder="e.g., Task Stages, Project Priority"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000 text-sm"
               required
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-dark-700 mt-1">
               User-friendly label displayed in the UI
             </p>
           </div>
 
           {/* UI Icon */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label className="block text-sm font-medium text-dark-600 mb-1.5">
               Icon (Optional)
             </label>
             <div className="relative icon-picker-container">
@@ -313,29 +313,29 @@ export function AddDatalabelModal({
                 type="button"
                 onClick={() => setShowIconPicker(!showIconPicker)}
                 disabled={loading}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-400 text-sm flex items-center justify-between hover:bg-gray-50 transition-colors"
+                className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000 disabled:bg-dark-100 disabled:text-dark-600 text-sm flex items-center justify-between hover:bg-dark-100 transition-colors"
               >
                 <div className="flex items-center gap-2">
                   {formData.ui_icon && React.createElement(getIconComponent(formData.ui_icon), {
-                    className: "h-4 w-4 text-gray-600"
+                    className: "h-4 w-4 text-dark-700"
                   })}
-                  <span className="text-gray-900">{formData.ui_icon || 'Tag'}</span>
+                  <span className="text-dark-600">{formData.ui_icon || 'Tag'}</span>
                 </div>
-                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showIconPicker ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`h-4 w-4 text-dark-600 transition-transform ${showIconPicker ? 'rotate-180' : ''}`} />
               </button>
 
               {/* Icon Picker Dropdown */}
               {showIconPicker && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl p-3">
+                <div className="absolute z-50 w-full mt-1 bg-dark-100 border border-dark-400 rounded-lg shadow-xl p-3">
                   <div className="mb-2">
                     <div className="relative">
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-dark-600" />
                       <input
                         type="text"
                         value={iconSearchQuery}
                         onChange={(e) => setIconSearchQuery(e.target.value)}
                         placeholder="Search icons..."
-                        className="w-full pl-7 pr-3 py-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-400/30"
+                        className="w-full pl-7 pr-3 py-1.5 text-xs border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30"
                         autoFocus
                       />
                     </div>
@@ -358,16 +358,16 @@ export function AddDatalabelModal({
                               setShowIconPicker(false);
                               setIconSearchQuery('');
                             }}
-                            className={`p-2 rounded hover:bg-blue-50 transition-colors ${isSelected ? 'bg-blue-100 ring-2 ring-blue-400' : ''}`}
+                            className={`p-2 rounded hover:bg-dark-100 transition-colors ${isSelected ? 'bg-dark-100 ring-2 ring-dark-700' : ''}`}
                             title={iconName}
                           >
-                            <IconComponent className="h-4 w-4 text-gray-700" />
+                            <IconComponent className="h-4 w-4 text-dark-600" />
                           </button>
                         );
                       })}
                   </div>
-                  <div className="mt-2 flex items-center justify-between border-t border-gray-200 pt-2">
-                    <span className="text-xs text-gray-500">
+                  <div className="mt-2 flex items-center justify-between border-t border-dark-300 pt-2">
+                    <span className="text-xs text-dark-700">
                       {AVAILABLE_ICON_NAMES.filter(name =>
                         iconSearchQuery === '' || name.toLowerCase().includes(iconSearchQuery.toLowerCase())
                       ).length} icons
@@ -378,7 +378,7 @@ export function AddDatalabelModal({
                         setShowIconPicker(false);
                         setIconSearchQuery('');
                       }}
-                      className="px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded"
+                      className="px-2 py-1 text-xs text-dark-700 hover:bg-dark-100 rounded"
                     >
                       Close
                     </button>
@@ -386,7 +386,7 @@ export function AddDatalabelModal({
                 </div>
               )}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-dark-700 mt-1">
               Choose an icon for the data label (default: Tag)
             </p>
           </div>
@@ -403,7 +403,7 @@ export function AddDatalabelModal({
             <button
               type="submit"
               disabled={loading || !formData.entity_code || !formData.label_name || !formData.ui_label}
-              className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium text-sm"
+              className="flex-1 px-4 py-2.5 bg-dark-700 text-white rounded-lg hover:bg-dark-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium text-sm"
             >
               {loading ? (
                 <>
@@ -421,7 +421,7 @@ export function AddDatalabelModal({
               type="button"
               onClick={handleClose}
               disabled={loading}
-              className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 font-medium text-sm"
+              className="px-4 py-2.5 border border-dark-400 text-dark-600 rounded-lg hover:bg-dark-100 transition-colors disabled:opacity-50 font-medium text-sm"
             >
               Cancel
             </button>

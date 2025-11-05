@@ -61,22 +61,22 @@ export function ImageBlockEditor({ block, onUpdate }: ImageBlockEditorProps) {
   };
 
   return (
-    <div className="border-b border-gray-200">
+    <div className="border-b border-dark-300">
       {/* Image Display or Upload Area */}
       {!block.content ? (
         <div
           {...getRootProps()}
           className={`p-8 border-2 border-dashed rounded-lg m-4 cursor-pointer transition-colors ${
-            isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'
+            isDragActive ? 'border-dark-3000 bg-dark-100' : 'border-dark-400 hover:border-dark-600'
           }`}
         >
           <input {...getInputProps()} />
           <div className="text-center">
-            <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-            <p className="text-sm font-medium text-gray-700 mb-1">
+            <Upload className="h-12 w-12 mx-auto mb-4 text-dark-600" />
+            <p className="text-sm font-medium text-dark-600 mb-1">
               {isDragActive ? 'Drop image here' : 'Click to upload or drag and drop'}
             </p>
-            <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+            <p className="text-xs text-dark-700">PNG, JPG, GIF up to 10MB</p>
           </div>
         </div>
       ) : (
@@ -92,7 +92,7 @@ export function ImageBlockEditor({ block, onUpdate }: ImageBlockEditorProps) {
                 onCropComplete={onCropComplete}
                 onZoomChange={setZoom}
               />
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-lg p-4 flex items-center space-x-4">
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-dark-100 rounded-lg shadow-lg p-4 flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <label className="text-sm font-medium">Zoom:</label>
                   <input
@@ -107,13 +107,13 @@ export function ImageBlockEditor({ block, onUpdate }: ImageBlockEditorProps) {
                 </div>
                 <button
                   onClick={handleCropSave}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                  className="px-4 py-2 bg-dark-700 text-white rounded-lg text-sm font-medium hover:bg-dark-800"
                 >
                   Apply Crop
                 </button>
                 <button
                   onClick={() => setShowCropper(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300"
+                  className="px-4 py-2 bg-dark-200 text-dark-600 rounded-lg text-sm font-medium hover:bg-dark-300"
                 >
                   Cancel
                 </button>
@@ -134,7 +134,7 @@ export function ImageBlockEditor({ block, onUpdate }: ImageBlockEditorProps) {
               <div className="mt-4 flex items-center justify-center space-x-2">
                 <button
                   onClick={() => setShowCropper(true)}
-                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium flex items-center space-x-2"
+                  className="px-3 py-2 bg-dark-100 hover:bg-dark-200 rounded-lg text-sm font-medium flex items-center space-x-2"
                 >
                   <Crop className="h-4 w-4" />
                   <span>Crop Image</span>
@@ -154,34 +154,34 @@ export function ImageBlockEditor({ block, onUpdate }: ImageBlockEditorProps) {
 
       {/* Image Settings */}
       {block.content && !showCropper && (
-        <div className="bg-gray-50 px-3 py-2 grid grid-cols-3 gap-2 text-xs">
+        <div className="bg-dark-100 px-3 py-2 grid grid-cols-3 gap-2 text-xs">
           <div>
-            <label className="text-gray-600 block mb-1">Alt Text</label>
+            <label className="text-dark-700 block mb-1">Alt Text</label>
             <input
               type="text"
               value={block.properties?.alt || ''}
               onChange={(e) => onUpdate({ properties: { ...block.properties, alt: e.target.value } })}
-              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+              className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
               placeholder="Image description"
             />
           </div>
           <div>
-            <label className="text-gray-600 block mb-1">Width</label>
+            <label className="text-dark-700 block mb-1">Width</label>
             <input
               type="text"
               value={block.properties?.width || '100%'}
               onChange={(e) => onUpdate({ properties: { ...block.properties, width: e.target.value } })}
-              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+              className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
               placeholder="100%"
             />
           </div>
           <div>
-            <label className="text-gray-600 block mb-1">Padding</label>
+            <label className="text-dark-700 block mb-1">Padding</label>
             <input
               type="text"
               value={block.styles?.padding || '0'}
               onChange={(e) => onUpdate({ styles: { ...block.styles, padding: e.target.value } })}
-              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+              className="w-full px-2 py-1 border border-dark-400 rounded text-xs"
             />
           </div>
         </div>

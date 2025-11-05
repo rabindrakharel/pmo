@@ -192,7 +192,7 @@ export function WikiEditorPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-dark-700" />
       </div>
     );
   }
@@ -204,7 +204,7 @@ export function WikiEditorPage() {
           <p className="text-red-600 mb-4">{error || 'Page not found'}</p>
           <button
             onClick={() => navigate('/wiki')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-dark-700 text-white rounded-lg hover:bg-dark-800"
           >
             Back to Wiki
           </button>
@@ -273,12 +273,12 @@ export function WikiEditorPage() {
       {/* Exit Confirmation Modal */}
       {showExitConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+          <div className="bg-dark-100 rounded-lg shadow-xl max-w-md w-full mx-4">
             <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-dark-600 mb-2">
                 Exit Wiki Editor?
               </h3>
-              <p className="text-sm text-gray-600 mb-6">
+              <p className="text-sm text-dark-700 mb-6">
                 You have unsaved changes. What would you like to do?
               </p>
               <div className="flex gap-3">
@@ -290,7 +290,7 @@ export function WikiEditorPage() {
                 </button>
                 <button
                   onClick={() => setShowExitConfirm(false)}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                  className="flex-1 px-4 py-2 bg-dark-200 text-dark-600 rounded-lg hover:bg-dark-300 transition-colors font-medium"
                 >
                   Cancel
                 </button>

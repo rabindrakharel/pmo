@@ -40,16 +40,16 @@ export function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-dark-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center bg-blue-600 rounded-full">
+          <div className="mx-auto h-12 w-12 flex items-center justify-center bg-dark-700 rounded-full">
             <LogIn className="h-6 w-6 text-white" />
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-dark-600">
             Sign in to your account
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-center text-sm text-dark-700">
             PMO Task Management Platform
           </p>
         </div>
@@ -63,7 +63,7 @@ export function LoginForm() {
 
           <div className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-normal text-gray-700">
+              <label htmlFor="email" className="block text-sm font-normal text-dark-600">
                 Email address
               </label>
               <input
@@ -71,7 +71,7 @@ export function LoginForm() {
                 type="email"
                 autoComplete="email"
                 required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="mt-1 block w-full px-3 py-2 border border-dark-400 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-dark-7000 focus:border-dark-3000"
                 placeholder="Enter your email"
               />
               {errors.email && (
@@ -80,7 +80,7 @@ export function LoginForm() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-normal text-gray-700">
+              <label htmlFor="password" className="block text-sm font-normal text-dark-600">
                 Password
               </label>
               <div className="mt-1 relative">
@@ -89,7 +89,7 @@ export function LoginForm() {
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   required
-                  className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-3 py-2 pr-10 border border-dark-400 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-dark-7000 focus:border-dark-3000"
                   placeholder="Enter your password"
                 />
                 <button
@@ -98,9 +98,9 @@ export function LoginForm() {
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-400" />
+                    <EyeOff className="h-4 w-4 text-dark-600" />
                   ) : (
-                    <Eye className="h-4 w-4 text-gray-400" />
+                    <Eye className="h-4 w-4 text-dark-600" />
                   )}
                 </button>
               </div>
@@ -114,7 +114,7 @@ export function LoginForm() {
             <button
               type="submit"
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-normal rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-normal rounded-md text-white bg-dark-700 hover:bg-dark-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-7000 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -125,10 +125,10 @@ export function LoginForm() {
           </div>
 
           <div className="text-center">
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-dark-700">
               Demo credentials:
             </div>
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-xs text-dark-700 mt-1">
               <div>james.miller@huronhome.ca / password123</div>
             </div>
           </div>

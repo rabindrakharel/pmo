@@ -160,15 +160,15 @@ export const ShareModal: React.FC<ShareModalProps> = ({
       <div className="space-y-6">
         {/* Entity Info */}
         {entityName && (
-          <div className="bg-gray-50 rounded-lg p-4">
-            <p className="text-sm text-gray-600">Sharing:</p>
-            <p className="text-base font-medium text-gray-900">{entityName}</p>
+          <div className="bg-dark-100 rounded-lg p-4">
+            <p className="text-sm text-dark-700">Sharing:</p>
+            <p className="text-base font-medium text-dark-600">{entityName}</p>
           </div>
         )}
 
         {/* Share Type Selection */}
         <div>
-          <label className="text-sm font-medium text-gray-700 mb-3 block">
+          <label className="text-sm font-medium text-dark-600 mb-3 block">
             Share with
           </label>
           <div className="space-y-2">
@@ -177,14 +177,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               onClick={() => setShareType('public')}
               className={`w-full flex items-start gap-3 p-4 rounded-lg border-2 transition-all ${
                 shareType === 'public'
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-dark-3000 bg-dark-100'
+                  : 'border-dark-300 hover:border-dark-400'
               }`}
             >
-              <LinkIcon className="h-5 w-5 text-gray-600 mt-0.5 flex-shrink-0" />
+              <LinkIcon className="h-5 w-5 text-dark-700 mt-0.5 flex-shrink-0" />
               <div className="text-left flex-1">
-                <p className="font-medium text-gray-900">Anyone with the link</p>
-                <p className="text-sm text-gray-500">
+                <p className="font-medium text-dark-600">Anyone with the link</p>
+                <p className="text-sm text-dark-700">
                   Create a shareable link that anyone can access
                 </p>
               </div>
@@ -195,14 +195,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               onClick={() => setShareType('users')}
               className={`w-full flex items-start gap-3 p-4 rounded-lg border-2 transition-all ${
                 shareType === 'users'
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-dark-3000 bg-dark-100'
+                  : 'border-dark-300 hover:border-dark-400'
               }`}
             >
-              <User className="h-5 w-5 text-gray-600 mt-0.5 flex-shrink-0" />
+              <User className="h-5 w-5 text-dark-700 mt-0.5 flex-shrink-0" />
               <div className="text-left flex-1">
-                <p className="font-medium text-gray-900">Specific users</p>
-                <p className="text-sm text-gray-500">
+                <p className="font-medium text-dark-600">Specific users</p>
+                <p className="text-sm text-dark-700">
                   Share with selected users only
                 </p>
               </div>
@@ -213,14 +213,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               onClick={() => setShareType('roles')}
               className={`w-full flex items-start gap-3 p-4 rounded-lg border-2 transition-all ${
                 shareType === 'roles'
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-dark-3000 bg-dark-100'
+                  : 'border-dark-300 hover:border-dark-400'
               }`}
             >
-              <Shield className="h-5 w-5 text-gray-600 mt-0.5 flex-shrink-0" />
+              <Shield className="h-5 w-5 text-dark-700 mt-0.5 flex-shrink-0" />
               <div className="text-left flex-1">
-                <p className="font-medium text-gray-900">Specific roles</p>
-                <p className="text-sm text-gray-500">
+                <p className="font-medium text-dark-600">Specific roles</p>
+                <p className="text-sm text-dark-700">
                   Share with users in selected roles
                 </p>
               </div>
@@ -231,7 +231,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         {/* Public Link Display */}
         {shareType === 'public' && shareUrl && (
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">
+            <label className="text-sm font-medium text-dark-600 mb-2 block">
               Share link
             </label>
             <div className="flex gap-2">
@@ -239,16 +239,16 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 type="text"
                 value={`${window.location.origin}${shareUrl}`}
                 readOnly
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm font-mono"
+                className="flex-1 px-3 py-2 border border-dark-400 rounded-lg bg-dark-100 text-sm font-mono"
               />
               <button
                 onClick={handleCopyUrl}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition-colors"
+                className="px-4 py-2 bg-dark-100 hover:bg-dark-200 border border-dark-400 rounded-lg transition-colors"
               >
                 {copied ? (
                   <Check className="h-4 w-4 text-green-600" />
                 ) : (
-                  <Copy className="h-4 w-4 text-gray-600" />
+                  <Copy className="h-4 w-4 text-dark-700" />
                 )}
               </button>
             </div>
@@ -258,14 +258,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         {/* User Selection */}
         {shareType === 'users' && (
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">
+            <label className="text-sm font-medium text-dark-600 mb-2 block">
               Select users
             </label>
-            <div className="border border-gray-300 rounded-lg max-h-60 overflow-y-auto">
+            <div className="border border-dark-400 rounded-lg max-h-60 overflow-y-auto">
               {users.map((user) => (
                 <label
                   key={user.id}
-                  className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0"
+                  className="flex items-center gap-3 p-3 hover:bg-dark-100 cursor-pointer border-b border-dark-300 last:border-0"
                 >
                   <input
                     type="checkbox"
@@ -277,11 +277,11 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                         setSelectedUsers(selectedUsers.filter(id => id !== user.id));
                       }
                     }}
-                    className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    className="h-4 w-4 text-dark-700 rounded border-dark-400 focus:ring-dark-7000"
                   />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                    <p className="text-xs text-gray-500">{user.email}</p>
+                    <p className="text-sm font-medium text-dark-600">{user.name}</p>
+                    <p className="text-xs text-dark-700">{user.email}</p>
                   </div>
                 </label>
               ))}
@@ -292,14 +292,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         {/* Role Selection */}
         {shareType === 'roles' && (
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">
+            <label className="text-sm font-medium text-dark-600 mb-2 block">
               Select roles
             </label>
-            <div className="border border-gray-300 rounded-lg max-h-60 overflow-y-auto">
+            <div className="border border-dark-400 rounded-lg max-h-60 overflow-y-auto">
               {roles.map((role) => (
                 <label
                   key={role.id}
-                  className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0"
+                  className="flex items-center gap-3 p-3 hover:bg-dark-100 cursor-pointer border-b border-dark-300 last:border-0"
                 >
                   <input
                     type="checkbox"
@@ -311,10 +311,10 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                         setSelectedRoles(selectedRoles.filter(id => id !== role.id));
                       }
                     }}
-                    className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    className="h-4 w-4 text-dark-700 rounded border-dark-400 focus:ring-dark-7000"
                   />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{role.name}</p>
+                    <p className="text-sm font-medium text-dark-600">{role.name}</p>
                   </div>
                 </label>
               ))}

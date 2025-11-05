@@ -255,14 +255,14 @@ export function EntityAssignmentDataTable({
   // Helper function to get entity type color
   const getEntityTypeColor = (entityType: string): string => {
     const colors: Record<string, string> = {
-      'biz': 'bg-blue-500',
+      'biz': 'bg-dark-1000',
       'org': 'bg-green-500',
       'client': 'bg-purple-500',
       'project': 'bg-orange-500',
       'hr': 'bg-pink-500',
       'worksite': 'bg-indigo-500'
     };
-    return colors[entityType] || 'bg-gray-500';
+    return colors[entityType] || 'bg-dark-1000';
   };
 
   // Filter available parents by search term
@@ -440,10 +440,10 @@ export function EntityAssignmentDataTable({
 
   if (loading) {
     return (
-      <div className="bg-white shadow rounded-lg p-6">
-        <h3 className="text-sm font-normal text-gray-900 mb-4">Parent Entity Assignments</h3>
-        <div className="flex items-center text-gray-500">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+      <div className="bg-dark-100 shadow rounded-lg p-6">
+        <h3 className="text-sm font-normal text-dark-600 mb-4">Parent Entity Assignments</h3>
+        <div className="flex items-center text-dark-700">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-dark-700 mr-2"></div>
           Loading parent entity assignments...
         </div>
       </div>
@@ -452,11 +452,11 @@ export function EntityAssignmentDataTable({
 
 
   return (
-    <div className="bg-white shadow rounded-lg p-4 mb-6">
+    <div className="bg-dark-100 shadow rounded-lg p-4 mb-6">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-normal text-gray-900">Parent Entity Assignments</h3>
+        <h3 className="text-sm font-normal text-dark-600">Parent Entity Assignments</h3>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-dark-700">
             {actionEntityType}: {actionEntityName}
           </span>
           {effectiveCanAssign && (
@@ -466,8 +466,8 @@ export function EntityAssignmentDataTable({
                 showSavedMessage
                   ? 'border-green-300 text-green-700 bg-green-50 focus:ring-green-500'
                   : isEditMode
-                    ? 'border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 focus:ring-blue-500'
-                    : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:ring-blue-500'
+                    ? 'border-dark-500 text-dark-700 bg-dark-100 hover:bg-dark-100 focus:ring-dark-7000'
+                    : 'border-dark-400 text-dark-600 bg-dark-100 hover:bg-dark-100 focus:ring-dark-7000'
               }`}
             >
               {showSavedMessage ? (
@@ -525,13 +525,13 @@ export function EntityAssignmentDataTable({
         {Object.keys(getGroupedAssignments()).length > 0 ? (
           <div className="space-y-2">
             {Object.entries(getGroupedAssignments()).map(([entityType, entityAssignments]) => (
-              <div key={entityType} className="bg-gray-50 rounded p-3 border border-gray-200">
+              <div key={entityType} className="bg-dark-100 rounded p-3 border border-dark-300">
                 {/* Entity Type Header */}
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-normal text-gray-700 flex items-center gap-1.5">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <h4 className="text-xs font-normal text-dark-600 flex items-center gap-1.5">
+                    <div className="w-2 h-2 bg-dark-1000 rounded-full"></div>
                     {getEntityTypeDisplayName(entityType)}
-                    <span className="text-xs text-gray-400 font-normal">
+                    <span className="text-xs text-dark-600 font-normal">
                       ({entityAssignments.length} assigned)
                     </span>
                   </h4>
@@ -542,7 +542,7 @@ export function EntityAssignmentDataTable({
                   {entityAssignments.map(assignment => (
                     <div
                       key={assignment.id}
-                      className="inline-flex items-center gap-1.5 px-2 py-1 bg-white text-gray-700 text-xs rounded border border-gray-200 shadow-sm"
+                      className="inline-flex items-center gap-1.5 px-2 py-1 bg-dark-100 text-dark-600 text-xs rounded border border-dark-300 shadow-sm"
                     >
                       <span>{assignment.parent_entity_name}</span>
                       {isEditMode && effectiveCanAssign && (
@@ -561,23 +561,23 @@ export function EntityAssignmentDataTable({
             ))}
           </div>
         ) : (
-          <div className="text-center py-6 text-gray-500">
+          <div className="text-center py-6 text-dark-700">
             <p className="text-xs">No parent entity assignments yet.</p>
             {effectiveCanAssign && (
-              <p className="text-xs mt-1 text-gray-400">Click "Add Parent Entity" to assign parent entities.</p>
+              <p className="text-xs mt-1 text-dark-600">Click "Add Parent Entity" to assign parent entities.</p>
             )}
           </div>
         )}
 
         {/* Add New Assignment Section */}
-        <div className="border-t border-gray-200 pt-4">
+        <div className="border-t border-dark-300 pt-4">
           {/* Add New Assignment Button/Search */}
           {effectiveCanAssign && (
             <div className="relative">
               {!showSearchInput ? (
                 <button
                   onClick={() => setShowSearchInput(true)}
-                  className="add-button inline-flex items-center gap-1 px-2.5 py-1 border border-dashed border-gray-300 text-gray-500 text-xs rounded hover:border-gray-300 hover:text-gray-600 transition-colors"
+                  className="add-button inline-flex items-center gap-1 px-2.5 py-1 border border-dashed border-dark-400 text-dark-700 text-xs rounded hover:border-dark-400 hover:text-dark-700 transition-colors"
                 >
                   <Plus className="h-3 w-3" />
                   Add Parent Entity
@@ -585,13 +585,13 @@ export function EntityAssignmentDataTable({
               ) : (
                 <div className="search-container flex items-center gap-2">
                   <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
+                    <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3 w-3 text-dark-600" />
                     <input
                       type="text"
                       placeholder="Search to add parent entity..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-8 pr-3 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs min-w-56"
+                      className="pl-8 pr-3 py-1.5 border border-dark-400 rounded focus:ring-1 focus:ring-dark-7000 focus:border-dark-3000 text-xs min-w-56"
                       autoFocus
                     />
                   </div>
@@ -600,7 +600,7 @@ export function EntityAssignmentDataTable({
                       setShowSearchInput(false);
                       setSearchTerm('');
                     }}
-                    className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="p-1 text-dark-600 hover:text-dark-700 transition-colors"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -609,9 +609,9 @@ export function EntityAssignmentDataTable({
 
               {/* Search Results Dropdown */}
               {showSearchInput && (
-                <div className="search-dropdown absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 rounded shadow-lg z-50 max-h-64 overflow-y-auto" style={{ maxHeight: '256px' }}>
+                <div className="search-dropdown absolute top-full left-0 mt-1 w-80 bg-dark-100 border border-dark-300 rounded shadow-lg z-50 max-h-64 overflow-y-auto" style={{ maxHeight: '256px' }}>
                   {Object.keys(getGroupedAvailableParents()).length === 0 ? (
-                    <div className="p-3 text-center text-gray-500 text-xs">
+                    <div className="p-3 text-center text-dark-700 text-xs">
                       {searchTerm ? 'No matching entities found' : 'No entities available'}
                     </div>
                   ) : (
@@ -624,7 +624,7 @@ export function EntityAssignmentDataTable({
                           <div key={entityType} className="mb-2 last:mb-0">
                             {/* Entity Type Header - Clickable */}
                             <div
-                              className="sticky top-0 bg-gray-50 px-2 py-1.5 border-b border-gray-200 mb-1.5 cursor-pointer hover:bg-gray-100 transition-colors rounded"
+                              className="sticky top-0 bg-dark-100 px-2 py-1.5 border-b border-dark-300 mb-1.5 cursor-pointer hover:bg-dark-100 transition-colors rounded"
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -634,21 +634,21 @@ export function EntityAssignmentDataTable({
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center space-x-1.5">
                                   {isCollapsed ? (
-                                    <ChevronRight className="h-2.5 w-2.5 text-gray-500" />
+                                    <ChevronRight className="h-2.5 w-2.5 text-dark-700" />
                                   ) : (
-                                    <ChevronDown className="h-2.5 w-2.5 text-gray-500" />
+                                    <ChevronDown className="h-2.5 w-2.5 text-dark-700" />
                                   )}
-                                  <h4 className="text-xs font-normal text-gray-700 uppercase tracking-wide">
+                                  <h4 className="text-xs font-normal text-dark-600 uppercase tracking-wide">
                                     {getEntityTypeDisplayName(entityType)}
                                   </h4>
                                 </div>
                                 <div className="flex items-center space-x-1.5">
                                   {assignedCount > 0 && (
-                                    <span className="bg-blue-100 text-blue-800 text-xs font-normal px-1.5 py-0.5 rounded">
+                                    <span className="bg-dark-100 text-dark-600 text-xs font-normal px-1.5 py-0.5 rounded">
                                       {assignedCount}
                                     </span>
                                   )}
-                                  <span className="text-xs text-gray-500">
+                                  <span className="text-xs text-dark-700">
                                     {parents.length}
                                   </span>
                                 </div>
@@ -663,7 +663,7 @@ export function EntityAssignmentDataTable({
                                   return (
                                     <div
                                       key={parent.id}
-                                      className="flex items-center p-1.5 hover:bg-gray-50 rounded transition-colors cursor-pointer ml-1.5"
+                                      className="flex items-center p-1.5 hover:bg-dark-100 rounded transition-colors cursor-pointer ml-1.5"
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
@@ -674,10 +674,10 @@ export function EntityAssignmentDataTable({
                                         type="checkbox"
                                         checked={isChecked}
                                         onChange={() => {}} // Handled by parent onClick
-                                        className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded flex-shrink-0 pointer-events-none"
+                                        className="h-3 w-3 text-dark-700 focus:ring-dark-7000 border-dark-400 rounded flex-shrink-0 pointer-events-none"
                                       />
                                       <div className="ml-2 flex-1 min-w-0">
-                                        <div className="text-xs text-gray-900 truncate">
+                                        <div className="text-xs text-dark-600 truncate">
                                           {parent.name}
                                         </div>
                                       </div>
@@ -701,13 +701,13 @@ export function EntityAssignmentDataTable({
         </div>
 
         {/* Assignment Count */}
-        <div className="pt-3 border-t border-gray-200">
-          <div className="flex items-center justify-between text-xs text-gray-600">
+        <div className="pt-3 border-t border-dark-300">
+          <div className="flex items-center justify-between text-xs text-dark-700">
             <span>
               {assignments.filter(a => a.active).length} parent entities assigned
             </span>
             {effectiveCanAssign && !isEditMode && (
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-dark-600">
                 Click "Edit" to manage assignments
               </span>
             )}

@@ -156,7 +156,7 @@ export function QuoteItemsRenderer({ value, onChange, isEditing = false }: Quote
         return (
           <div className="flex items-center justify-center">
             {item.item_type === 'service' ? (
-              <Wrench className="h-4 w-4 text-blue-500" title="Service" />
+              <Wrench className="h-4 w-4 text-dark-6000" title="Service" />
             ) : (
               <Package className="h-4 w-4 text-green-500" title="Product" />
             )}
@@ -164,7 +164,7 @@ export function QuoteItemsRenderer({ value, onChange, isEditing = false }: Quote
         );
 
       case 'item_code':
-        return <span className="font-mono text-xs text-gray-700">{item.item_code}</span>;
+        return <span className="font-mono text-xs text-dark-600">{item.item_code}</span>;
 
       case 'item_name':
         if (isEditingRow) {
@@ -179,7 +179,7 @@ export function QuoteItemsRenderer({ value, onChange, isEditing = false }: Quote
                   onUpdate('item_name', '');
                   onUpdate('unit_rate', 0);
                 }}
-                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300"
+                className="w-full px-2 py-1 text-xs border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30 focus:border-dark-500"
               >
                 <option value="service">Service</option>
                 <option value="product">Product</option>
@@ -204,7 +204,7 @@ export function QuoteItemsRenderer({ value, onChange, isEditing = false }: Quote
                     onUpdate('line_total', calc.lineTotal);
                   }
                 }}
-                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300"
+                className="w-full px-2 py-1 text-xs border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30 focus:border-dark-500"
               >
                 <option value="">Select {item.item_type}...</option>
                 {(item.item_type === 'service' ? serviceOptions : productOptions).map((opt) => (
@@ -216,7 +216,7 @@ export function QuoteItemsRenderer({ value, onChange, isEditing = false }: Quote
             </div>
           );
         }
-        return <span className="text-sm font-medium text-gray-900">{item.item_name}</span>;
+        return <span className="text-sm font-medium text-dark-600">{item.item_name}</span>;
 
       case 'quantity':
         if (isEditingRow) {
@@ -235,14 +235,14 @@ export function QuoteItemsRenderer({ value, onChange, isEditing = false }: Quote
               }}
               step="0.01"
               min="0"
-              className="w-full px-2 py-1 text-xs text-right border border-gray-300 rounded focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300"
+              className="w-full px-2 py-1 text-xs text-right border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30 focus:border-dark-500"
             />
           );
         }
-        return <span className="text-sm text-gray-700">{item.quantity}</span>;
+        return <span className="text-sm text-dark-600">{item.quantity}</span>;
 
       case 'unit_rate':
-        return <span className="text-sm text-gray-700">{formatCurrency(item.unit_rate)}</span>;
+        return <span className="text-sm text-dark-600">{formatCurrency(item.unit_rate)}</span>;
 
       case 'discount_pct':
         if (isEditingRow) {
@@ -262,20 +262,20 @@ export function QuoteItemsRenderer({ value, onChange, isEditing = false }: Quote
               step="0.1"
               min="0"
               max="100"
-              className="w-full px-2 py-1 text-xs text-right border border-gray-300 rounded focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300"
+              className="w-full px-2 py-1 text-xs text-right border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30 focus:border-dark-500"
             />
           );
         }
-        return <span className="text-sm text-gray-700">{item.discount_pct}%</span>;
+        return <span className="text-sm text-dark-600">{item.discount_pct}%</span>;
 
       case 'subtotal':
-        return <span className="text-sm text-gray-700">{formatCurrency(item.subtotal)}</span>;
+        return <span className="text-sm text-dark-600">{formatCurrency(item.subtotal)}</span>;
 
       case 'tax_pct':
-        return <span className="text-sm text-gray-600">{item.tax_pct}%</span>;
+        return <span className="text-sm text-dark-700">{item.tax_pct}%</span>;
 
       case 'line_total':
-        return <span className="text-sm font-bold text-gray-900">{formatCurrency(item.line_total)}</span>;
+        return <span className="text-sm font-bold text-dark-600">{formatCurrency(item.line_total)}</span>;
 
       default:
         return null;
@@ -344,7 +344,7 @@ export function QuoteItemsRenderer({ value, onChange, isEditing = false }: Quote
   });
 
   if (items.length === 0 && !isEditing) {
-    return <span className="text-gray-400 text-sm">No line items</span>;
+    return <span className="text-dark-600 text-sm">No line items</span>;
   }
 
   return (
@@ -366,15 +366,15 @@ export function QuoteItemsRenderer({ value, onChange, isEditing = false }: Quote
 
       {/* Subtotal row */}
       {items.length > 0 && (
-        <div className="flex justify-end items-center gap-4 py-2 px-4 bg-gray-50 border-t-2 border-gray-300 rounded">
-          <span className="text-sm font-medium text-gray-700">Subtotal:</span>
-          <span className="text-sm font-bold text-gray-900">{formatCurrency(getTotalAmount())}</span>
+        <div className="flex justify-end items-center gap-4 py-2 px-4 bg-dark-100 border-t-2 border-dark-400 rounded">
+          <span className="text-sm font-medium text-dark-600">Subtotal:</span>
+          <span className="text-sm font-bold text-dark-600">{formatCurrency(getTotalAmount())}</span>
         </div>
       )}
 
       {/* Help text */}
       {isEditing && (
-        <div className="text-xs text-gray-500 mt-2 space-y-0.5">
+        <div className="text-xs text-dark-700 mt-2 space-y-0.5">
           <div>💡 <strong>Tips:</strong></div>
           <div className="ml-4">• Select service or product from dropdown</div>
           <div className="ml-4">• Edit quantity or discount % - subtotal, tax, and total update automatically</div>

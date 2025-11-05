@@ -165,11 +165,11 @@ export function FilePreview({ entityType, entityId, data, isEditing }: FilePrevi
   const fileSize = getFileSize();
 
   return (
-    <div className="bg-white rounded-lg shadow p-4">
+    <div className="bg-dark-100 rounded-lg shadow p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-medium text-gray-900">{getLabel()}</h2>
+        <h2 className="text-sm font-medium text-dark-600">{getLabel()}</h2>
         {fileRef && fileFormat && (
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-dark-700">
             Format: {fileFormat.toUpperCase()}
             {fileSize && ` · Size: ${fileSize} KB`}
           </span>
@@ -183,10 +183,10 @@ export function FilePreview({ entityType, entityId, data, isEditing }: FilePrevi
           <p className="text-xs text-amber-700 mt-1">{getEmptyDescription()}</p>
         </div>
       ) : loadingPreview ? (
-        <div className="flex items-center justify-center h-48 bg-gray-50 rounded-lg">
+        <div className="flex items-center justify-center h-48 bg-dark-100 rounded-lg">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2" />
-            <p className="text-sm text-gray-600">Loading preview...</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700 mx-auto mb-2" />
+            <p className="text-sm text-dark-700">Loading preview...</p>
           </div>
         </div>
       ) : previewUrl ? (
@@ -198,7 +198,7 @@ export function FilePreview({ entityType, entityId, data, isEditing }: FilePrevi
             // PDF Preview
             if (format === 'pdf') {
               return (
-                <div className="rounded-lg overflow-hidden border border-gray-200">
+                <div className="rounded-lg overflow-hidden border border-dark-300">
                   <iframe
                     src={previewUrl}
                     className="w-full h-[600px]"
@@ -211,7 +211,7 @@ export function FilePreview({ entityType, entityId, data, isEditing }: FilePrevi
             // Image Preview
             if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(format)) {
               return (
-                <div className="rounded-lg overflow-hidden border border-gray-200 bg-gray-50 p-4">
+                <div className="rounded-lg overflow-hidden border border-dark-300 bg-dark-100 p-4">
                   <div className="flex items-center justify-center">
                     <img
                       src={previewUrl}
@@ -230,7 +230,7 @@ export function FilePreview({ entityType, entityId, data, isEditing }: FilePrevi
             // Video Preview
             if (['mp4', 'webm', 'ogg', 'mov', 'avi'].includes(format)) {
               return (
-                <div className="rounded-lg overflow-hidden border border-gray-200">
+                <div className="rounded-lg overflow-hidden border border-dark-300">
                   <video
                     src={previewUrl}
                     controls
@@ -244,11 +244,11 @@ export function FilePreview({ entityType, entityId, data, isEditing }: FilePrevi
 
             // Unsupported format
             return (
-              <div className="bg-gray-50 p-6 text-center rounded-lg border border-gray-200">
-                <p className="text-sm text-gray-600">
+              <div className="bg-dark-100 p-6 text-center rounded-lg border border-dark-300">
+                <p className="text-sm text-dark-700">
                   Preview not available for {format.toUpperCase() || 'this'} file type.
                 </p>
-                <p className="text-xs text-gray-500 mt-1.5">
+                <p className="text-xs text-dark-700 mt-1.5">
                   Use the Download button to view this file.
                 </p>
               </div>
@@ -256,9 +256,9 @@ export function FilePreview({ entityType, entityId, data, isEditing }: FilePrevi
           })()}
         </>
       ) : (
-        <div className="bg-gray-50 p-6 text-center rounded-lg border border-gray-200">
-          <p className="text-sm text-gray-600">Preview URL not available</p>
-          <p className="text-xs text-gray-500 mt-1.5">Click Download to view the file</p>
+        <div className="bg-dark-100 p-6 text-center rounded-lg border border-dark-300">
+          <p className="text-sm text-dark-700">Preview URL not available</p>
+          <p className="text-xs text-dark-700 mt-1.5">Click Download to view the file</p>
         </div>
       )}
     </div>

@@ -246,7 +246,7 @@ export function SettingsDataTable({
 
     switch (column.key) {
       case 'id':
-        return <span className="text-sm text-gray-900">{value}</span>;
+        return <span className="text-sm text-dark-600">{value}</span>;
 
       case 'name':
         return isEditing ? (
@@ -254,7 +254,7 @@ export function SettingsDataTable({
             type="text"
             value={String(editValue || '')}
             onChange={(e) => setEditingData({ ...editingData, name: e.target.value })}
-            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
+            className="w-full px-2 py-1 border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30 focus:border-dark-500 text-sm"
             placeholder="Enter name"
           />
         ) : (
@@ -267,11 +267,11 @@ export function SettingsDataTable({
             type="text"
             value={String(editValue || '')}
             onChange={(e) => setEditingData({ ...editingData, descr: e.target.value })}
-            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm"
+            className="w-full px-2 py-1 border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30 focus:border-dark-500 text-sm"
             placeholder="Enter description"
           />
         ) : (
-          <span className="text-sm text-gray-700">{value || '-'}</span>
+          <span className="text-sm text-dark-600">{value || '-'}</span>
         );
 
       case 'parent_id':
@@ -280,11 +280,11 @@ export function SettingsDataTable({
             type="number"
             value={editValue ?? ''}
             onChange={(e) => setEditingData({ ...editingData, parent_id: e.target.value ? Number(e.target.value) : null })}
-            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400/30 focus:border-blue-300 text-sm text-center"
+            className="w-full px-2 py-1 border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30 focus:border-dark-500 text-sm text-center"
             placeholder="Parent ID"
           />
         ) : (
-          <span className="text-sm text-gray-900">{value ?? '-'}</span>
+          <span className="text-sm text-dark-600">{value ?? '-'}</span>
         );
 
       case 'color_code':

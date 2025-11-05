@@ -62,16 +62,16 @@ function DraggableFieldTypeButton({ type, label, description, icon: Icon, onAddF
       {...listeners}
       {...attributes}
       onClick={() => onAddField(type)}
-      className={`w-full flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-100 transition-colors text-left group ${
+      className={`w-full flex items-start space-x-3 p-3 rounded-lg hover:bg-dark-100 transition-colors text-left group ${
         isDragging ? 'opacity-50' : ''
       }`}
     >
-      <div className="flex-shrink-0 p-2 bg-white border border-gray-200 rounded-md group-hover:border-blue-300 group-hover:bg-blue-50 transition-colors">
-        <Icon className="h-4 w-4 text-gray-600 group-hover:text-blue-600" />
+      <div className="flex-shrink-0 p-2 bg-dark-100 border border-dark-300 rounded-md group-hover:border-dark-500 group-hover:bg-dark-100 transition-colors">
+        <Icon className="h-4 w-4 text-dark-700 group-hover:text-dark-700" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-gray-900">{label}</div>
-        <div className="text-xs text-gray-500 mt-0.5">{description}</div>
+        <div className="text-sm font-medium text-dark-600">{label}</div>
+        <div className="text-xs text-dark-700 mt-0.5">{description}</div>
       </div>
     </button>
   );
@@ -165,26 +165,26 @@ export function FormFieldTypesToolbar({ onAddField }: FormFieldTypesToolbarProps
     <div className="space-y-4">
       {/* Search Bar */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-600" />
         <input
           type="text"
           placeholder="Search field types..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full pl-10 pr-3 py-2 border border-dark-400 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
         />
       </div>
 
       {/* Field Types */}
       <div className="space-y-6">
         {filteredFieldTypes.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 text-sm">
+          <div className="text-center py-8 text-dark-700 text-sm">
             No field types found
           </div>
         ) : (
           filteredFieldTypes.map((category) => (
             <div key={category.category}>
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              <h4 className="text-xs font-semibold text-dark-700 uppercase tracking-wider mb-3">
                 {category.category}
               </h4>
               <div className="space-y-1">

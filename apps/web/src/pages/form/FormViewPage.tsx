@@ -114,22 +114,22 @@ export function FormViewPage() {
           <div className="flex items-center space-x-3">
             <button
               onClick={() => navigate('/form')}
-              className="h-10 w-10 bg-white border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50"
+              className="h-10 w-10 bg-dark-100 border border-dark-300 rounded-lg flex items-center justify-center hover:bg-dark-100"
               title="Back"
             >
-              <ArrowLeft className="h-5 w-5 text-gray-700 stroke-[1.5]" />
+              <ArrowLeft className="h-5 w-5 text-dark-600 stroke-[1.5]" />
             </button>
             <div>
-              <h1 className="text-sm font-normal text-gray-500">
+              <h1 className="text-sm font-normal text-dark-700">
                 {form?.name || 'Form'}
-                <span className="text-xs font-light text-gray-500 ml-3">
+                <span className="text-xs font-light text-dark-700 ml-3">
                   Form · {id}
                 </span>
               </h1>
-              <p className="mt-1 text-sm text-gray-600">
+              <p className="mt-1 text-sm text-dark-700">
                 {form?.descr || 'Form design preview'}
                 {steps.length > 1 && (
-                  <span className="text-sm text-blue-600">
+                  <span className="text-sm text-dark-700">
                     {' '}• Multi-step form ({steps.length} steps)
                   </span>
                 )}
@@ -139,7 +139,7 @@ export function FormViewPage() {
           <div className="flex items-center space-x-3">
             <button
               onClick={() => navigate(`/form/${id}/edit`)}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-normal rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center px-4 py-2 border border-dark-400 text-sm font-normal rounded-lg text-dark-600 bg-dark-100 hover:bg-dark-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-7000"
               title="Edit form"
             >
               <Edit3 className="h-4 w-4 mr-2 stroke-[1.5]" />
@@ -149,34 +149,34 @@ export function FormViewPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="text-xs font-normal text-gray-500 uppercase tracking-wide">Created</div>
-            <div className="mt-1 text-sm text-gray-900">{form?.createdTs ? new Date(form.createdTs).toLocaleString('en-CA') : '—'}</div>
+          <div className="bg-dark-100 rounded-xl shadow-sm border border-dark-300 p-4">
+            <div className="text-xs font-normal text-dark-700 uppercase tracking-wide">Created</div>
+            <div className="mt-1 text-sm text-dark-600">{form?.createdTs ? new Date(form.createdTs).toLocaleString('en-CA') : '—'}</div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="text-xs font-normal text-gray-500 uppercase tracking-wide">Updated</div>
-            <div className="mt-1 text-sm text-gray-900">{form?.updatedTs ? new Date(form.updatedTs).toLocaleString('en-CA') : '—'}</div>
+          <div className="bg-dark-100 rounded-xl shadow-sm border border-dark-300 p-4">
+            <div className="text-xs font-normal text-dark-700 uppercase tracking-wide">Updated</div>
+            <div className="mt-1 text-sm text-dark-600">{form?.updatedTs ? new Date(form.updatedTs).toLocaleString('en-CA') : '—'}</div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="text-xs font-normal text-gray-500 uppercase tracking-wide">Version</div>
-            <div className="mt-1 text-sm text-gray-900">{form?.version || '—'}</div>
+          <div className="bg-dark-100 rounded-xl shadow-sm border border-dark-300 p-4">
+            <div className="text-xs font-normal text-dark-700 uppercase tracking-wide">Version</div>
+            <div className="mt-1 text-sm text-dark-600">{form?.version || '—'}</div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="text-xs font-normal text-gray-500 uppercase tracking-wide">Total Fields</div>
-            <div className="mt-1 text-sm text-gray-900">{fields.length} field{fields.length !== 1 ? 's' : ''}</div>
+          <div className="bg-dark-100 rounded-xl shadow-sm border border-dark-300 p-4">
+            <div className="text-xs font-normal text-dark-700 uppercase tracking-wide">Total Fields</div>
+            <div className="mt-1 text-sm text-dark-600">{fields.length} field{fields.length !== 1 ? 's' : ''}</div>
           </div>
         </div>
 
         {/* Step Navigation */}
         {steps.length > 1 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+          <div className="bg-dark-100 rounded-xl shadow-sm border border-dark-300 p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
-                <Layers className="h-5 w-5 text-gray-600 stroke-[1.5]" />
-                <h3 className="text-sm font-normal text-gray-700">Form Steps</h3>
-                <span className="text-xs text-gray-500">Navigate through the form</span>
+                <Layers className="h-5 w-5 text-dark-700 stroke-[1.5]" />
+                <h3 className="text-sm font-normal text-dark-600">Form Steps</h3>
+                <span className="text-xs text-dark-700">Navigate through the form</span>
               </div>
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-dark-700">
                 Step {currentStepIndex + 1} of {steps.length}
               </div>
             </div>
@@ -185,7 +185,7 @@ export function FormViewPage() {
               <button
                 onClick={() => navigateToStep(currentStepIndex - 1)}
                 disabled={currentStepIndex === 0}
-                className="p-1.5 rounded-md border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-1.5 rounded-md border border-dark-300 hover:bg-dark-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Previous step"
               >
                 <ChevronLeft className="h-4 w-4 stroke-[1.5]" />
@@ -198,12 +198,12 @@ export function FormViewPage() {
                     onClick={() => navigateToStep(index)}
                     className={`px-3 py-2 rounded-lg text-sm font-normal transition-colors min-w-0 flex items-center space-x-2 ${
                       index === currentStepIndex
-                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                        : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
+                        ? 'bg-dark-100 text-dark-700 border border-dark-400'
+                        : 'bg-dark-100 text-dark-700 hover:bg-dark-100 border border-dark-300'
                     }`}
                   >
                     <span className="truncate">{step.title}</span>
-                    <span className="text-xs bg-white bg-opacity-70 px-1.5 py-0.5 rounded">
+                    <span className="text-xs bg-dark-100 bg-opacity-70 px-1.5 py-0.5 rounded">
                       {fields.filter(f => f.stepId === step.id).length}
                     </span>
                   </button>
@@ -213,7 +213,7 @@ export function FormViewPage() {
               <button
                 onClick={() => navigateToStep(currentStepIndex + 1)}
                 disabled={currentStepIndex === steps.length - 1}
-                className="p-1.5 rounded-md border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-1.5 rounded-md border border-dark-300 hover:bg-dark-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Next step"
               >
                 <ChevronRight className="h-4 w-4 stroke-[1.5]" />
@@ -222,23 +222,23 @@ export function FormViewPage() {
           </div>
         )}
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-gray-50/70">
-            <div className="flex items-center text-sm text-gray-700 font-normal">
-              <Eye className="h-5 w-5 text-gray-600 stroke-[1.5] mr-3" />
+        <div className="bg-dark-100 rounded-xl shadow-sm border border-dark-300 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-3 border-b border-dark-300 bg-gradient-to-r from-dark-100 to-dark-100/70">
+            <div className="flex items-center text-sm text-dark-600 font-normal">
+              <Eye className="h-5 w-5 text-dark-700 stroke-[1.5] mr-3" />
               Form Preview
               {steps.length > 1 && currentStep && (
-                <span className="ml-2 text-xs text-gray-500">
+                <span className="ml-2 text-xs text-dark-700">
                   • {currentStep.title} ({currentStepIndex + 1}/{steps.length})
                 </span>
               )}
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-dark-700">
               {currentStepFields.length} field{currentStepFields.length !== 1 ? 's' : ''} in this step
             </div>
           </div>
           {loading ? (
-            <div className="p-6 text-gray-600">Loading…</div>
+            <div className="p-6 text-dark-700">Loading…</div>
           ) : (
             <div className="p-6">
               <FormPreview 

@@ -696,8 +696,8 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       <div className="h-full p-6 flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-500 text-4xl mb-4">⚠️</div>
-          <h3 className="text-sm font-normal text-gray-900 mb-2">Configuration Error</h3>
-          <p className="text-sm text-gray-600 mb-4">Entity configuration not found for: {entityType}</p>
+          <h3 className="text-sm font-normal text-dark-600 mb-2">Configuration Error</h3>
+          <p className="text-sm text-dark-700 mb-4">Entity configuration not found for: {entityType}</p>
         </div>
       </div>
     );
