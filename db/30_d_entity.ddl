@@ -410,3 +410,14 @@ VALUES (
   '[]'::jsonb,
   205
 );
+
+-- Chat entity type (AI Assistant - leaf node - no children)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'chat',
+  'AI Chat',
+  'AI Assistant',
+  'MessageSquare',
+  '[]'::jsonb,
+  210
+);

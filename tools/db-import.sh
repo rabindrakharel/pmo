@@ -177,8 +177,10 @@ validate_all_ddls() {
         "38_d_industry_workflow_graph_head.ddl"
         "39_d_industry_workflow_graph_data.ddl"
         "40_f_industry_workflow_events.ddl"
+        "41_f_customer_interaction.ddl"
         "41_d_calendar.ddl"
         "42_d_employee_calendar.ddl"
+        "43_d_booking.ddl"
     )
 
     for file in "${ddl_files[@]}"; do
@@ -268,6 +270,8 @@ import_ddls() {
     execute_sql "$DB_PATH/fact_quote.ddl" "Quote fact table (customer quotes with line items)"
     execute_sql "$DB_PATH/fact_work_order.ddl" "Work order fact table (service delivery tracking)"
     execute_sql "$DB_PATH/40_f_industry_workflow_events.ddl" "Workflow events fact table (process analytics)"
+    execute_sql "$DB_PATH/41_f_customer_interaction.ddl" "Customer interaction fact table (omnichannel communications)"
+    execute_sql "$DB_PATH/43_d_booking.ddl" "Booking dimension table (service appointments)"
 
     # Marketing entities - Email templates
     execute_sql "$DB_PATH/35_d_email_template.ddl" "Email template entities"

@@ -6,6 +6,7 @@ import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
 import multipart from '@fastify/multipart';
+import websocket from '@fastify/websocket';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { config } from '@/lib/config.js';
 import { logger } from '@/lib/logger.js';
@@ -73,6 +74,14 @@ await fastify.register(multipart, {
     fileSize: 10 * 1024 * 1024, // 10MB
     files: 10,
   },
+});
+
+// WebSocket support for voice calls
+await fastify.register(websocket, {
+  options: {
+    maxPayload: 1048576, // 1MB
+    perMessageDeflate: false // Disable compression for real-time audio
+  }
 });
 
 // Abilities plugin removed - using on-demand RBAC instead

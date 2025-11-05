@@ -9,6 +9,8 @@ import { WikiDraggableBlock } from './designer/WikiDraggableBlock';
 import { WikiPropertiesPanel } from './designer/WikiPropertiesPanel';
 import { WikiPreviewPanel } from './designer/WikiPreviewPanel';
 import { WikiHeaderEditor } from './designer/WikiHeaderEditor';
+import { CollaborativePresence, CollaborativeCursor } from './CollaborativePresence';
+import { useCollaborativeWiki } from '../../../hooks/useCollaborativeWiki';
 
 export interface WikiBlock {
   id: string;
@@ -67,6 +69,24 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
   const [createdDate] = useState<string>(page.createdTs || new Date().toISOString());
   const [updatedDate, setUpdatedDate] = useState<string>(page.updatedTs || new Date().toISOString());
 
+  // Collaborative editing
+  const token = localStorage.getItem('auth_token') || '';
+  const collab = useCollaborativeWiki({
+    wikiId: page.id || '',
+    token,
+    enabled: Boolean(page.id),
+    onSyncStatusChange: (status) => {
+      console.log('Collab sync status:', status);
+    },
+  });
+
+  // Sync local blocks with collaborative blocks
+  useEffect(() => {
+    if (collab.isConnected && collab.blocks.length > 0) {
+      setBlocks(collab.blocks);
+    }
+  }, [collab.blocks, collab.isConnected]);
+
   // Sync state when page prop changes (after save/reload)
   useEffect(() => {
     if (page.content?.blocks) {
@@ -90,14 +110,21 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      setBlocks(produce((draft) => {
+      const updatedBlocks = produce(blocks, (draft) => {
         const oldIndex = draft.findIndex((b) => b.id === active.id);
         const newIndex = draft.findIndex((b) => b.id === over.id);
         return arrayMove(draft, oldIndex, newIndex);
-      }));
+      });
+      setBlocks(updatedBlocks);
+
+      // Sync with Y.js if connected
+      if (collab.isConnected) {
+        collab.updateBlocks(updatedBlocks);
+      }
+
       setUpdatedDate(new Date().toISOString());
     }
-  }, []);
+  }, [blocks, collab]);
 
   // Block operations
   const handleAddBlock = useCallback((type: WikiBlock['type'], level?: number) => {
@@ -110,42 +137,68 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
       properties: type === 'image' ? { src: '', alt: '' } : type === 'video' ? { src: '' } : type === 'table' ? { rows: 3, cols: 3 } : type === 'list' ? { items: [''] } : {},
     };
 
-    setBlocks(produce((draft) => {
-      draft.push(newBlock);
-    }));
+    const updatedBlocks = [...blocks, newBlock];
+    setBlocks(updatedBlocks);
+
+    // Sync with Y.js if connected
+    if (collab.isConnected) {
+      collab.updateBlocks(updatedBlocks);
+    }
+
     setSelectedBlockId(newBlock.id);
     setUpdatedDate(new Date().toISOString());
-  }, []);
+  }, [blocks, collab]);
 
   const handleUpdateBlock = useCallback((blockId: string, updates: Partial<WikiBlock>) => {
-    setBlocks(produce((draft) => {
+    const updatedBlocks = produce(blocks, (draft) => {
       const block = draft.find((b) => b.id === blockId);
       if (block) {
         Object.assign(block, updates);
       }
-    }));
+    });
+    setBlocks(updatedBlocks);
+
+    // Sync with Y.js if connected
+    if (collab.isConnected) {
+      collab.updateBlocks(updatedBlocks);
+    }
+
     setUpdatedDate(new Date().toISOString());
-  }, []);
+  }, [blocks, collab]);
 
   const handleDeleteBlock = useCallback((blockId: string) => {
-    setBlocks(produce((draft) => draft.filter((b) => b.id !== blockId)));
+    const updatedBlocks = blocks.filter((b) => b.id !== blockId);
+    setBlocks(updatedBlocks);
+
+    // Sync with Y.js if connected
+    if (collab.isConnected) {
+      collab.updateBlocks(updatedBlocks);
+    }
+
     if (selectedBlockId === blockId) {
       setSelectedBlockId(null);
     }
     setUpdatedDate(new Date().toISOString());
-  }, [selectedBlockId]);
+  }, [blocks, selectedBlockId, collab]);
 
   const handleDuplicateBlock = useCallback((blockId: string) => {
-    setBlocks(produce((draft) => {
+    const updatedBlocks = produce(blocks, (draft) => {
       const block = draft.find((b) => b.id === blockId);
       if (block) {
         const newBlock = { ...block, id: `block-${Date.now()}` };
         const index = draft.findIndex((b) => b.id === blockId);
         draft.splice(index + 1, 0, newBlock);
       }
-    }));
+    });
+    setBlocks(updatedBlocks);
+
+    // Sync with Y.js if connected
+    if (collab.isConnected) {
+      collab.updateBlocks(updatedBlocks);
+    }
+
     setUpdatedDate(new Date().toISOString());
-  }, []);
+  }, [blocks, collab]);
 
   // Save
   const handleSave = async () => {
@@ -296,15 +349,20 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
                 </div>
               ) : (
                 blocks.map((block) => (
-                  <WikiDraggableBlock
-                    key={block.id}
-                    block={block}
-                    isSelected={selectedBlockId === block.id}
-                    onSelect={() => setSelectedBlockId(block.id)}
-                    onUpdate={(updates) => handleUpdateBlock(block.id, updates)}
-                    onDelete={() => handleDeleteBlock(block.id)}
-                    onDuplicate={() => handleDuplicateBlock(block.id)}
-                  />
+                  <div key={block.id} className="relative">
+                    <WikiDraggableBlock
+                      block={block}
+                      isSelected={selectedBlockId === block.id}
+                      onSelect={() => setSelectedBlockId(block.id)}
+                      onUpdate={(updates) => handleUpdateBlock(block.id, updates)}
+                      onDelete={() => handleDeleteBlock(block.id)}
+                      onDuplicate={() => handleDuplicateBlock(block.id)}
+                    />
+                    {/* Show collaborative cursors */}
+                    {page.id && (
+                      <CollaborativeCursor users={collab.users} blockId={block.id} />
+                    )}
+                  </div>
                 ))
               )}
             </SortableContext>
@@ -318,7 +376,18 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
     <UniversalDesigner
       // Header
       title={title || 'Untitled Wiki Page'}
-      subtitle={`Last updated ${new Date(updatedDate).toLocaleDateString()}`}
+      subtitle={
+        <div className="flex items-center gap-4">
+          <span>{`Last updated ${new Date(updatedDate).toLocaleDateString()}`}</span>
+          {page.id && (
+            <CollaborativePresence
+              users={collab.users}
+              syncStatus={collab.syncStatus}
+              currentUserId={localStorage.getItem('user_id') || undefined}
+            />
+          )}
+        </div>
+      }
       icon={<BookOpen className="h-6 w-6" />}
       titleEditable
       onTitleChange={setTitle}

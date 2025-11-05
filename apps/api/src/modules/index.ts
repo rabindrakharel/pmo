@@ -41,6 +41,13 @@ import { invoiceRoutes } from './invoice/routes.js';
 import { costRoutes } from './cost/routes.js';
 import { revenueRoutes } from './revenue/routes.js';
 
+// AI Chat Widget API module
+import { chatRoutes } from './chat/routes.js';
+import { bookingRoutes } from './booking/routes.js';
+
+// Collaborative Editing API module
+import { collabRoutes } from './collab/routes.js';
+
 // New hierarchical API modules
 import { hierarchyRoutes } from './meta/hierarchy-routes.js';
 import { singleEntityRoutes } from './entity/single-entity-routes.js';
@@ -131,6 +138,15 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   // Financial API routes
   await costRoutes(fastify);
   await revenueRoutes(fastify);
+
+  // AI Chat Widget routes
+  await fastify.register(chatRoutes, { prefix: '/api/v1/chat' });
+
+  // Booking routes (service appointments)
+  await bookingRoutes(fastify);
+
+  // Collaborative editing routes (WebSocket + presence)
+  await collabRoutes(fastify);
 
   // Upload routes (file upload to MinIO/S3)
   await uploadRoutes(fastify);

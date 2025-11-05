@@ -28,6 +28,9 @@ import { WorkflowDetailPage } from './pages/workflow';
 // Marketing Pages
 import { EmailDesignerPage } from './pages/marketing/EmailDesignerPage';
 
+// Chat Page
+import { ChatPage } from './pages/ChatPage';
+
 // Profile & Settings Pages
 import { ProfilePage } from './pages/profile';
 import { LabelsPage } from './pages/labels';
@@ -83,7 +86,7 @@ function AppRoutes() {
 
   // Core entities that use standard auto-generated routing
   // Note: 'artifact', 'form', 'wiki', 'marketing' use custom routes defined below
-  const coreEntities = ['biz', 'office', 'project', 'task', 'employee', 'role', 'worksite', 'cust', 'position', 'service', 'product', 'quote', 'work_order', 'inventory', 'order', 'invoice', 'shipment', 'cost', 'revenue'];
+  const coreEntities = ['biz', 'office', 'project', 'task', 'employee', 'role', 'worksite', 'cust', 'position', 'service', 'product', 'quote', 'work_order', 'inventory', 'order', 'invoice', 'shipment', 'cost', 'revenue', 'booking'];
 
   // Generate routes for all core entities from entityConfig
   const generateEntityRoutes = () => {
@@ -177,6 +180,9 @@ function AppRoutes() {
 
       {/* Special Routes - Marketing (email designer) */}
       <Route path="/marketing/:id/design" element={<ProtectedRoute><EmailDesignerPage /></ProtectedRoute>} />
+
+      {/* Special Routes - Chat (AI Assistant Widget) */}
+      <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
 
       {/* Profile Navigation Pages */}
       <Route

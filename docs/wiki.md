@@ -2,8 +2,8 @@
 
 > **Knowledge Base with Block-Based Content Management** - Notion-style wiki pages with hierarchical structure, publication workflow, and rich content blocks
 
-**Last Updated:** 2025-10-23
-**Status:** ✅ Production Ready (Full Stack Complete)
+**Last Updated:** 2025-11-05
+**Status:** ✅ Production Ready (Full Stack + Real-Time Collaborative Editing)
 
 ---
 
@@ -25,12 +25,15 @@
 
 **Wiki** serves as the platform's knowledge base and content management system, providing:
 - **Block-based content** with Notion-style editing (headings, paragraphs, lists, code, quotes, etc.)
+- **Real-time collaborative editing** with Y.js CRDTs - multiple users edit simultaneously (Confluence-style)
+- **User presence indicators** showing who's online and where they're editing
 - **Hierarchical structure** for organizing documentation, guides, workflows, and policies
 - **Publication workflow** from draft → review → published → archived
 - **Visibility controls** for public, internal, restricted, or private content
 - **Entity relationships** linking wiki pages to projects, tasks, clients, employees
 - **Version tracking** with audit trail of content revisions
 - **SEO optimization** with keywords, summaries, and metadata
+- **Auto-save** with periodic persistence (30s intervals) and connection-based triggers
 
 ### Business Workflows
 
@@ -91,7 +94,7 @@ Draft (v1) → Edit (v2) → Review (v3) → Published (v4) → Archived (v5)
 │  ├─ /wiki                   → EntityMainPage (list)         │
 │  ├─ /wiki/new               → WikiEditorPage (create)       │
 │  ├─ /wiki/:id               → EntityDetailPage (view)       │
-│  ├─ /wiki/:id/edit          → WikiEditorPage (edit)         │
+│  ├─ /wiki/:id/edit          → WikiEditorPage (collab edit)  │
 │  └─ /wiki/shared/:code      → SharedURLEntityPage (public)  │
 │                                                              │
 ├─────────────────────────────────────────────────────────────┤
@@ -102,9 +105,12 @@ Draft (v1) → Edit (v2) → Review (v3) → Published (v4) → Archived (v5)
 │  │   ├─ WikiDraggableBlock  → Individual content blocks     │
 │  │   ├─ WikiBlockToolbar    → Block type selector           │
 │  │   ├─ WikiPropertiesPanel → Page & block metadata         │
-│  │   └─ WikiPreviewPanel    → Real-time preview             │
+│  │   ├─ WikiPreviewPanel    → Real-time preview             │
+│  │   ├─ CollaborativePresence → User presence indicators    │
+│  │   └─ CollaborativeCursor   → Block edit indicators       │
 │  ├─ WikiContentRenderer     → Display published content     │
-│  └─ UniversalDesigner       → Reusable designer layout      │
+│  ├─ UniversalDesigner       → Reusable designer layout      │
+│  └─ useCollaborativeWiki    → Y.js WebSocket hook           │
 │                                                              │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
@@ -115,7 +121,17 @@ Draft (v1) → Edit (v2) → Review (v3) → Published (v4) → Archived (v5)
 │  ├─ PUT    /api/v1/wiki/:id                → Update page    │
 │  ├─ DELETE /api/v1/wiki/:id                → Soft delete    │
 │  ├─ GET    /api/v1/wiki/:id/children       → Get hierarchy  │
+│  ├─ WS     /api/v1/collab/wiki/:id         → Real-time sync │
+│  ├─ GET    /api/v1/collab/wiki/:id/users   → Active users   │
 │  └─ GET    /api/v1/setting?datalabel=dl__wiki_publication_status │
+│                                                              │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  🔄 REAL-TIME SYNC (Y.js + WebSocket)                        │
+│  ├─ Room Manager            → Per-wiki collaboration rooms  │
+│  ├─ Y.Doc (CRDT)            → Conflict-free document state  │
+│  ├─ Awareness Protocol      → User presence tracking        │
+│  └─ Auto-Save Timer         → Periodic DB persistence (30s) │
 │                                                              │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
@@ -204,7 +220,59 @@ updated_ts: 2025-01-03 09:00:00
 - Publication status changes are workflow transitions, not new entities
 - Simplifies hierarchical structure (parent_wiki_id stays stable)
 
-#### 3. **Hierarchical Page Structure**
+#### 3. **Real-Time Collaborative Editing (Y.js CRDT)**
+
+**NEW in v3.2 (2025-11-05)**: Wiki pages now support simultaneous multi-user editing using Y.js Conflict-free Replicated Data Types (CRDTs).
+
+**Architecture:**
+```
+User A Browser                     Fastify Server                     User B Browser
+     ↓                                    ↓                                  ↓
+Y.Doc (local CRDT)  ←─── WebSocket ───→ Room Manager ←─── WebSocket ───→ Y.Doc (local CRDT)
+     ↓                                    ↓                                  ↓
+React State                     Y.Doc (server CRDT)                    React State
+     ↓                                    ↓
+UI Updates                        Auto-save (30s)
+                                         ↓
+                                    PostgreSQL
+                                   (d_wiki.content)
+```
+
+**Key Components:**
+- **Y.Doc**: CRDT document per wiki page (client + server)
+- **WebSocket Provider**: Real-time sync protocol (`y-protocols/sync`)
+- **Awareness Protocol**: User presence tracking (`y-protocols/awareness`)
+- **Room Manager**: Isolated collaboration rooms per wiki ID
+- **Auto-Save**: Periodic persistence to database
+
+**Conflict Resolution Example:**
+```typescript
+// User A adds block at index 2
+blocks.splice(2, 0, { id: 'block-A', type: 'paragraph', content: 'A' });
+
+// User B simultaneously adds block at index 2
+blocks.splice(2, 0, { id: 'block-B', type: 'paragraph', content: 'B' });
+
+// Y.js CRDT automatically merges:
+// Result: Both blocks exist, deterministic order based on client IDs
+blocks = [
+  { id: 'block-1', ... },
+  { id: 'block-2', ... },
+  { id: 'block-A', ... },  // User A's block
+  { id: 'block-B', ... },  // User B's block
+  { id: 'block-3', ... },
+];
+```
+
+**User Presence Indicators:**
+- Connection status (Live, Connecting, Offline)
+- Active user count ("2 people editing")
+- User avatars with assigned colors
+- Cursor position indicators on blocks being edited
+
+**For detailed implementation, see:** `docs/COLLABORATIVE_WIKI_EDITING.md`
+
+#### 4. **Hierarchical Page Structure**
 
 ```
 /wiki
@@ -1247,6 +1315,8 @@ SELECT * FROM hierarchy WHERE id IN (SELECT parent_wiki_id FROM hierarchy);
 - **Database Schema**: Complete with hierarchical structure, publication workflow
 - **Block-Based Editor**: Notion-style content editing with 11 block types
 - **Auto-Resize Textareas**: No scrollbars, content expands naturally
+- **Real-Time Collaborative Editing**: Y.js CRDT-based multi-user editing (NEW v3.2)
+- **User Presence Indicators**: Confluence-style avatars and connection status (NEW v3.2)
 - **Publication Workflow**: Draft → Review → Published → Archived
 - **RBAC Integration**: Permission-based access control
 - **Hierarchical Structure**: Parent-child relationships for organized content
@@ -1259,6 +1329,10 @@ SELECT * FROM hierarchy WHERE id IN (SELECT parent_wiki_id FROM hierarchy);
 | Auto-resize textareas | ✅ Complete |
 | Drag-and-drop reordering | ✅ Complete |
 | Real-time preview | ✅ Complete |
+| **Real-time collaborative editing** | ✅ Complete (v3.2) |
+| **User presence indicators** | ✅ Complete (v3.2) |
+| **Collaborative cursors** | ✅ Complete (v3.2) |
+| **Auto-save (30s)** | ✅ Complete (v3.2) |
 | Publication workflow | ✅ Complete |
 | Hierarchical structure | ✅ Complete |
 | RBAC integration | ✅ Complete |
@@ -1281,6 +1355,7 @@ SELECT * FROM hierarchy WHERE id IN (SELECT parent_wiki_id FROM hierarchy);
 
 ## Related Documentation
 
+### Core Wiki Documentation
 - **UI/UX Architecture**: `docs/ui_ux_route_api.md`
 - **Database Schema**: `db/25_d_wiki.ddl`
 - **API Implementation**: `apps/api/src/modules/wiki/routes.ts`
@@ -1288,8 +1363,17 @@ SELECT * FROM hierarchy WHERE id IN (SELECT parent_wiki_id FROM hierarchy);
 - **Content Renderer**: `apps/web/src/components/entity/wiki/WikiContentRenderer.tsx`
 - **Block Component**: `apps/web/src/components/entity/wiki/designer/WikiDraggableBlock.tsx`
 
+### Collaborative Editing (NEW v3.2)
+- **Collaborative Editing Architecture**: `docs/COLLABORATIVE_WIKI_EDITING.md` ⭐
+- **Backend WebSocket Handler**: `apps/api/src/modules/collab/wiki-collab-handler.ts`
+- **Backend Collab Routes**: `apps/api/src/modules/collab/routes.ts`
+- **Frontend Hook**: `apps/web/src/hooks/useCollaborativeWiki.ts`
+- **Presence UI**: `apps/web/src/components/entity/wiki/CollaborativePresence.tsx`
+
 ---
 
-**Last Updated:** 2025-10-23
-**Status:** Production Ready (Full Stack Complete)
-**Next Steps:** Consider adding collaborative editing, comment system, and full-text search
+**Last Updated:** 2025-11-05
+**Status:** Production Ready (Full Stack + Real-Time Collaborative Editing v3.2)
+**Version:** 3.2.0
+**New Features:** ✅ Y.js CRDT collaborative editing, ✅ User presence indicators, ✅ Auto-save
+**Next Steps:** Consider adding comment system, revision history viewer, and full-text search

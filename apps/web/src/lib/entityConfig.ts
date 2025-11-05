@@ -2435,6 +2435,166 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     // Use workflow_instance_id for detail page navigation instead of id
     detailPageIdField: 'workflow_instance_id'
+  },
+
+  // --------------------------------------------------------------------------
+  // BOOKING (Service Appointments)
+  // --------------------------------------------------------------------------
+  booking: {
+    name: 'booking',
+    displayName: 'Booking',
+    pluralName: 'Bookings',
+    apiEndpoint: '/api/v1/booking',
+
+    columns: generateStandardColumns(
+      ['booking_number', 'customer_name', 'service_name', 'requested_date', 'requested_time_start', 'booking_status', 'assigned_employee_name', 'urgency_level', 'created_ts'],
+      {
+        overrides: {
+          booking_number: {
+            title: 'Booking #',
+            sortable: true
+          },
+          customer_name: {
+            title: 'Customer',
+            sortable: true
+          },
+          service_name: {
+            title: 'Service',
+            sortable: true
+          },
+          requested_date: {
+            title: 'Date',
+            sortable: true
+          },
+          requested_time_start: {
+            title: 'Time',
+            sortable: true
+          },
+          booking_status: {
+            title: 'Status',
+            sortable: true,
+            render: (value) => {
+              const statusColors: Record<string, string> = {
+                'pending': 'bg-yellow-100 text-yellow-800',
+                'confirmed': 'bg-blue-100 text-blue-800',
+                'assigned': 'bg-indigo-100 text-indigo-800',
+                'in_progress': 'bg-purple-100 text-purple-800',
+                'completed': 'bg-green-100 text-green-800',
+                'cancelled': 'bg-red-100 text-red-800',
+                'no_show': 'bg-dark-100 text-dark-600'
+              };
+              return renderBadge(value || 'pending', statusColors);
+            }
+          },
+          assigned_employee_name: {
+            title: 'Assigned To',
+            sortable: true
+          },
+          urgency_level: {
+            title: 'Urgency',
+            sortable: true,
+            render: (value) => {
+              const urgencyColors: Record<string, string> = {
+                'low': 'bg-dark-100 text-dark-600',
+                'normal': 'bg-blue-100 text-blue-800',
+                'high': 'bg-orange-100 text-orange-800',
+                'emergency': 'bg-red-100 text-red-800'
+              };
+              return renderBadge(value || 'normal', urgencyColors);
+            }
+          }
+        }
+      }
+    ),
+
+    fields: [
+      { key: 'name', label: 'Booking Name', type: 'text', required: true },
+      { key: 'code', label: 'Code', type: 'text', required: true },
+      { key: 'booking_number', label: 'Booking Number', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
+
+      // Customer Information
+      { key: 'customer_name', label: 'Customer Name', type: 'text', required: true },
+      { key: 'customer_email', label: 'Customer Email', type: 'text' },
+      { key: 'customer_phone', label: 'Customer Phone', type: 'text', required: true },
+      { key: 'customer_address', label: 'Address', type: 'text' },
+      { key: 'customer_city', label: 'City', type: 'text' },
+      { key: 'customer_province', label: 'Province', type: 'text' },
+      { key: 'customer_postal_code', label: 'Postal Code', type: 'text' },
+
+      // Service Details
+      { key: 'service_id', label: 'Service', type: 'select', loadOptionsFromEntity: 'service', required: true },
+      { key: 'service_name', label: 'Service Name', type: 'text', readonly: true },
+      { key: 'service_category', label: 'Service Category', type: 'text', readonly: true },
+
+      // Scheduling
+      { key: 'requested_date', label: 'Requested Date', type: 'date', required: true },
+      { key: 'requested_time_start', label: 'Start Time', type: 'text' },
+      { key: 'requested_time_end', label: 'End Time', type: 'text' },
+      { key: 'scheduled_ts', label: 'Scheduled', type: 'timestamp' },
+
+      // Assignment
+      { key: 'assigned_employee_id', label: 'Assigned Employee', type: 'select', loadOptionsFromEntity: 'employee' },
+      { key: 'assigned_employee_name', label: 'Assigned To', type: 'text', readonly: true },
+
+      // Status & Priority
+      { key: 'booking_status', label: 'Status', type: 'select', options: [
+        { value: 'pending', label: 'Pending' },
+        { value: 'confirmed', label: 'Confirmed' },
+        { value: 'assigned', label: 'Assigned' },
+        { value: 'in_progress', label: 'In Progress' },
+        { value: 'completed', label: 'Completed' },
+        { value: 'cancelled', label: 'Cancelled' },
+        { value: 'no_show', label: 'No Show' }
+      ]},
+      { key: 'urgency_level', label: 'Urgency', type: 'select', options: [
+        { value: 'low', label: 'Low' },
+        { value: 'normal', label: 'Normal' },
+        { value: 'high', label: 'High' },
+        { value: 'emergency', label: 'Emergency' }
+      ]},
+
+      // Pricing
+      { key: 'estimated_cost_amt', label: 'Estimated Cost', type: 'number' },
+      { key: 'quoted_cost_amt', label: 'Quoted Cost', type: 'number' },
+      { key: 'final_cost_amt', label: 'Final Cost', type: 'number' },
+
+      // Additional Info
+      { key: 'special_instructions', label: 'Special Instructions', type: 'textarea' },
+      { key: 'property_access_instructions', label: 'Property Access', type: 'textarea' },
+      { key: 'parking_instructions', label: 'Parking Instructions', type: 'textarea' },
+      { key: 'pet_information', label: 'Pet Information', type: 'textarea' },
+
+      // Feedback
+      { key: 'customer_rating', label: 'Customer Rating', type: 'number' },
+      { key: 'customer_feedback', label: 'Customer Feedback', type: 'textarea' },
+
+      // Metadata
+      { key: 'booking_source', label: 'Source', type: 'text', readonly: true },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // CHAT (AI Chat Widget)
+  // --------------------------------------------------------------------------
+  chat: {
+    name: 'chat',
+    displayName: 'AI Chat',
+    pluralName: 'AI Chat',
+    apiEndpoint: '/api/v1/chat',
+
+    columns: [],
+
+    fields: [],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
   }
 };
 
