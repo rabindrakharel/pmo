@@ -7,7 +7,7 @@ Access how current state of things work, understand the current state of truth, 
 
 Document struction:
 1. [Semantics & Business Context](#semantics--business-context)
-2. [Architecture, Block diagrams & DRY Design Patterns](#architecture--design-patterns)
+2. [Architecture, Block diagrams & DRY Design Patterns](#architecture--design-patterns), user interaction journey, how front end request are served step by step, 
 3. [Database, API & UI/UX Mapping](#database-api--uiux-mapping) - Only if it involves api, database, uiux!
 4. [Entity Relationships](#dry-principles--entity-relationships) - only if .ddl has changed
 5. [Central Configuration & Middleware](#central-configuration--middleware) - if entity config, auth, or any middleware has changed. 
@@ -16,6 +16,8 @@ Document struction:
 
 Action: You must update all the other .md file that are referred here below:
 (donot update instruction file)
+
+DON'T INCLUDE LONG CODE LINES!!!!! 
 
 
 critic: 
