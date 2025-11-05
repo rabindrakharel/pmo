@@ -1047,6 +1047,35 @@ APIFactory.register('shipment', shipmentApi);
 APIFactory.register('cost', costApi);
 APIFactory.register('revenue', revenueApi);
 
+// Calendar
+export const calendarApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; person_entity_type?: string; person_entity_id?: string }) {
+    const response = await apiClient.get('/api/v1/person-calendar', { params });
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/person-calendar/${id}`);
+    return response.data;
+  },
+
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/person-calendar', data);
+    return response.data;
+  },
+
+  async update(id: string, data: any) {
+    const response = await apiClient.patch(`/api/v1/person-calendar/${id}`, data);
+    return response.data;
+  },
+
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/person-calendar/${id}`);
+    return response.data;
+  },
+};
+APIFactory.register('calendar', calendarApi);
+
 /**
  * Export the APIFactory for use in components
  */

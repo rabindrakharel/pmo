@@ -33,7 +33,7 @@ export interface Booking {
   // Service details
   service_id: string;
   service_name: string;
-  service_category?: string;
+  service_category?: string; // References dl__service_category settings (HVAC, Plumbing, Electrical, Landscaping, General Contracting)
 
   // Scheduling
   requested_date: string;
@@ -121,7 +121,7 @@ export interface CreateBookingRequest {
   customer_postal_code?: string;
   service_id: string;
   service_name: string;
-  service_category?: string;
+  service_category?: string; // References dl__service_category settings (HVAC, Plumbing, Electrical, Landscaping, General Contracting)
   requested_date: string;
   requested_time_start?: string;
   requested_time_end?: string;

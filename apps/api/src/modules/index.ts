@@ -44,6 +44,8 @@ import { revenueRoutes } from './revenue/routes.js';
 // AI Chat Widget API module
 import { chatRoutes } from './chat/routes.js';
 import { bookingRoutes } from './booking/routes.js';
+import { personCalendarRoutes } from './person-calendar/routes.js';
+import { interactionRoutes } from './interaction/routes.js';
 
 // Collaborative Editing API module
 import { collabRoutes } from './collab/routes.js';
@@ -144,6 +146,12 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
 
   // Booking routes (service appointments)
   await bookingRoutes(fastify);
+
+  // Person Calendar routes (universal availability/booking calendar)
+  await personCalendarRoutes(fastify);
+
+  // Interaction routes (customer interactions across channels)
+  await interactionRoutes(fastify);
 
   // Collaborative editing routes (WebSocket + presence)
   await collabRoutes(fastify);

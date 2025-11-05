@@ -7,6 +7,7 @@
 -- Services represent the types of work offered by Huron Home Services.
 -- Used in quotes and work orders to specify what services are being provided.
 -- Each service has pricing, duration estimates, and service category metadata.
+-- Service categories reference dl__service_category settings for dropdown values.
 -- In-place updates (same ID, version++), soft delete preserves historical data.
 --
 -- DATABASE BEHAVIOR:
@@ -27,7 +28,7 @@
 -- • id: uuid PRIMARY KEY (stable, never changes)
 -- • code: varchar(50) UNIQUE NOT NULL (business identifier: 'SVC-HVAC-001')
 -- • name: text NOT NULL (display name: 'HVAC Installation')
--- • service_category: text ('HVAC', 'Plumbing', 'Electrical', 'Landscaping', etc.)
+-- • service_category: text (references dl__service_category settings: 'HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting')
 -- • standard_rate_amt: decimal(15,2) (standard pricing per service)
 -- • estimated_hours: numeric(10,2) (typical time to complete)
 -- • minimum_charge_amt: decimal(15,2) (minimum charge for this service)
@@ -58,7 +59,7 @@ CREATE TABLE app.d_service (
     version integer DEFAULT 1,
 
     -- Service-specific fields
-    service_category text, -- HVAC, Plumbing, Electrical, Landscaping, General Contracting, etc.
+    service_category text, -- References dl__service_category settings: HVAC, Plumbing, Electrical, Landscaping, General Contracting
     standard_rate_amt decimal(15,2), -- Standard rate for this service
     estimated_hours numeric(10,2), -- Typical hours to complete
     minimum_charge_amt decimal(15,2), -- Minimum charge regardless of time
@@ -208,3 +209,4 @@ INSERT INTO app.d_service (code, name, descr, metadata,
 );
 
 COMMENT ON TABLE app.d_service IS 'Service catalog for quotes and work orders with standard rates and estimates';
+COMMENT ON COLUMN app.d_service.service_category IS 'Service category - references dl__service_category settings (HVAC, Plumbing, Electrical, Landscaping, General Contracting)';

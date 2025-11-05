@@ -4,6 +4,7 @@ import { Plus, ArrowLeft } from 'lucide-react';
 import { Layout, FilteredDataTable, ViewSwitcher } from '../../components/shared';
 import { KanbanView } from '../../components/shared/ui/KanbanView';
 import { GridView } from '../../components/shared/ui/GridView';
+import { CalendarView } from '../../components/shared/ui/CalendarView';
 import { DAGVisualizer } from '../../components/workflow/DAGVisualizer';
 import { useViewMode } from '../../lib/hooks/useViewMode';
 import { getEntityConfig, ViewMode } from '../../lib/entityConfig';
@@ -199,6 +200,20 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
             descriptionField={config.grid.cardFields[1] || 'descr'}
             badgeFields={config.grid.cardFields.slice(2) || []}
             imageField={config.grid.imageField}
+          />
+        </div>
+      );
+    }
+
+    // CALENDAR VIEW - Employee-filterable calendar grid
+    if (view === 'calendar') {
+      return (
+        <div className="bg-dark-100 rounded-lg shadow p-6">
+          <CalendarView
+            config={config}
+            data={data}
+            onSlotClick={handleRowClick}
+            emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
           />
         </div>
       );

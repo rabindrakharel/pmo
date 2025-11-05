@@ -285,6 +285,23 @@ VALUES (
   130
 );
 
+-- Calendar entity type (leaf node - no children)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'calendar',
+  'Calendar',
+  'Calendars',
+  'Calendar',
+  '[]'::jsonb,
+  135
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  child_entities = EXCLUDED.child_entities,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
 -- Service entity type (leaf node - no children)
 INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (

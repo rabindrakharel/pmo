@@ -42,6 +42,9 @@
 --   - dl__customer_opportunity_funnel
 --   - dl__industry_sector
 --   - dl__acquisition_channel
+--   - dl__quote_stage
+--   - dl__work_order_status
+--   - dl__service_category
 --
 -- Integration Points:
 --   - API endpoint: GET /api/v1/setting?category=dl__task_stage
@@ -238,6 +241,15 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
   {"id": 4, "name": "Completed", "descr": "Work has been completed", "parent_ids": [2], "color_code": "green"},
   {"id": 5, "name": "Cancelled", "descr": "Work order was cancelled", "parent_ids": [], "color_code": "red"},
   {"id": 6, "name": "Rescheduled", "descr": "Work order has been rescheduled", "parent_ids": [0], "color_code": "purple"}
+]'::jsonb),
+
+-- Service Category Labels
+('dl__service_category', 'Service Categories', 'Wrench', '[
+  {"id": 0, "name": "HVAC", "descr": "Heating, Ventilation, and Air Conditioning services", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Plumbing", "descr": "Plumbing installation, repair, and maintenance services", "parent_ids": [], "color_code": "cyan"},
+  {"id": 2, "name": "Electrical", "descr": "Electrical installation, wiring, and repair services", "parent_ids": [], "color_code": "yellow"},
+  {"id": 3, "name": "Landscaping", "descr": "Landscaping, lawn care, and outdoor maintenance services", "parent_ids": [], "color_code": "green"},
+  {"id": 4, "name": "General Contracting", "descr": "General contracting, renovation, and construction services", "parent_ids": [], "color_code": "orange"}
 ]'::jsonb);
 
 COMMENT ON TABLE app.setting_datalabel IS 'Unified data label table for all entity labels (stages, statuses, priorities, etc.)';

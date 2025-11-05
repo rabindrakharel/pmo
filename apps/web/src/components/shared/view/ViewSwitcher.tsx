@@ -1,5 +1,5 @@
 import React from 'react';
-import { List, Kanban, Grid, GitBranch } from 'lucide-react';
+import { List, Kanban, Grid, Calendar, GitBranch } from 'lucide-react';
 import { ViewMode } from '../../../lib/entityConfig';
 
 interface ViewSwitcherProps {
@@ -13,6 +13,7 @@ const viewIcons: Record<ViewMode, React.ComponentType<any>> = {
   table: List,
   kanban: Kanban,
   grid: Grid,
+  calendar: Calendar,
   graph: GitBranch
 };
 
@@ -20,6 +21,7 @@ const viewLabels: Record<ViewMode, string> = {
   table: 'Table',
   kanban: 'Kanban',
   grid: 'Grid',
+  calendar: 'Calendar',
   graph: 'Graph'
 };
 

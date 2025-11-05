@@ -177,10 +177,9 @@ validate_all_ddls() {
         "38_d_industry_workflow_graph_head.ddl"
         "39_d_industry_workflow_graph_data.ddl"
         "40_f_industry_workflow_events.ddl"
-        "41_f_customer_interaction.ddl"
-        "41_d_calendar.ddl"
-        "42_d_employee_calendar.ddl"
-        "43_d_booking.ddl"
+        "41_f_interaction.ddl"
+        "45_d_event.ddl"
+        "44_d_entity_person_calendar.ddl"
     )
 
     for file in "${ddl_files[@]}"; do
@@ -220,10 +219,6 @@ import_ddls() {
 
     # Core personnel - Must come before organizational assignments
     execute_sql "$DB_PATH/11_d_employee.ddl" "Employee entities with authentication"
-
-    # Calendar and scheduling - Depends on employees
-    execute_sql "$DB_PATH/41_d_calendar.ddl" "Calendar events and scheduling"
-    execute_sql "$DB_PATH/42_d_employee_calendar.ddl" "Employee calendar attendance mapping"
 
     # Organizational hierarchy - Office first, then business units
     execute_sql "$DB_PATH/12_d_office.ddl" "Office entity with 4-level hierarchy"
@@ -270,8 +265,11 @@ import_ddls() {
     execute_sql "$DB_PATH/fact_quote.ddl" "Quote fact table (customer quotes with line items)"
     execute_sql "$DB_PATH/fact_work_order.ddl" "Work order fact table (service delivery tracking)"
     execute_sql "$DB_PATH/40_f_industry_workflow_events.ddl" "Workflow events fact table (process analytics)"
-    execute_sql "$DB_PATH/41_f_customer_interaction.ddl" "Customer interaction fact table (omnichannel communications)"
-    execute_sql "$DB_PATH/43_d_booking.ddl" "Booking dimension table (service appointments)"
+    execute_sql "$DB_PATH/41_f_interaction.ddl" "Customer interaction fact table (omnichannel communications)"
+
+    # Event and calendar system - Events first, then calendar slots that reference events
+    execute_sql "$DB_PATH/45_d_event.ddl" "Event entities (meetings, appointments, service calls)"
+    execute_sql "$DB_PATH/44_d_entity_person_calendar.ddl" "Universal person calendar (employee/customer availability slots)"
 
     # Marketing entities - Email templates
     execute_sql "$DB_PATH/35_d_email_template.ddl" "Email template entities"
@@ -399,7 +397,7 @@ validate_schema() {
 print_summary() {
     print_status $PURPLE "📋 IMPORT SUMMARY"
     print_status $PURPLE "=================="
-    print_status $CYAN "• PMO Enterprise schema with 46 DDL files imported"
+    print_status $CYAN "• PMO Enterprise schema with 47 DDL files imported"
     print_status $CYAN "• Head/data pattern for temporal entities"
     print_status $CYAN "• 4-level office hierarchy (Office → District → Region → Corporate)"
     print_status $CYAN "• 3-level business hierarchy"
@@ -425,7 +423,7 @@ print_summary() {
 
 # Main execution
 main() {
-    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 46 DDL FILES"
+    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 47 DDL FILES"
     print_status $PURPLE "==============================================="
 
     if [ "$DRY_RUN" = true ]; then

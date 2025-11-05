@@ -23,6 +23,7 @@ import {
   TrendingUp,
   Wrench,
   ClipboardCheck,
+  Calendar,
   type LucideIcon
 } from 'lucide-react';
 
@@ -48,6 +49,7 @@ const iconMap: Record<string, LucideIcon> = {
   'TrendingUp': TrendingUp,
   'Wrench': Wrench,
   'ClipboardCheck': ClipboardCheck,
+  'Calendar': Calendar,
 };
 
 /**

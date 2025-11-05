@@ -72,7 +72,7 @@ export interface Service {
   code: string;
   name: string;
   descr?: string;
-  service_category: string;
+  service_category: string; // References dl__service_category settings (HVAC, Plumbing, Electrical, Landscaping, General Contracting)
   standard_rate_amt: number;
   estimated_hours: number;
   minimum_charge_amt: number;

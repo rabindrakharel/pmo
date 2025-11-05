@@ -63,7 +63,7 @@ import {
 // Type Definitions
 // ============================================================================
 
-export type ViewMode = 'table' | 'kanban' | 'grid' | 'graph';
+export type ViewMode = 'table' | 'kanban' | 'grid' | 'calendar' | 'graph';
 
 export interface ColumnDef {
   key: string;
@@ -886,6 +886,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
         { value: 'contractor', label: 'Contractor' },
         { value: 'temporary', label: 'Temporary' }
       ]},
+      { key: 'skills_service_categories', label: 'Service Skills', type: 'multiselect', loadOptionsFromSettings: 'dl__service_category' },
       { key: 'hire_date', label: 'Hire Date', type: 'date' },
       { key: 'address_line1', label: 'Address Line 1', type: 'text' },
       { key: 'address_line2', label: 'Address Line 2', type: 'text' },
@@ -2120,7 +2121,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
         overrides: {
           name: { label: 'Service Name' },
           code: { label: 'Service Code' },
-          service_category: { label: 'Category' }
+          service_category: {
+            label: 'Category',
+            loadOptionsFromSettings: 'dl__service_category'
+          }
         }
       }
     ),
@@ -2578,6 +2582,427 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     supportedViews: ['table'],
     defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // PERSON CALENDAR (Universal Availability/Booking Calendar)
+  // --------------------------------------------------------------------------
+  person_calendar: {
+    name: 'person_calendar',
+    displayName: 'Calendar Slot',
+    pluralName: 'Calendar',
+    apiEndpoint: '/api/v1/person-calendar',
+
+    columns: generateStandardColumns(
+      ['person_entity_type', 'from_ts', 'to_ts', 'availability_flag', 'title', 'appointment_medium', 'created_ts'],
+      {
+        overrides: {
+          person_entity_type: {
+            title: 'Type',
+            sortable: true,
+            render: (value) => {
+              const typeColors: Record<string, string> = {
+                'employee': 'bg-blue-100 text-blue-800',
+                'client': 'bg-green-100 text-green-800',
+                'customer': 'bg-purple-100 text-purple-800'
+              };
+              return renderBadge(value || 'employee', typeColors);
+            }
+          },
+          from_ts: {
+            title: 'Start Time',
+            sortable: true,
+            render: (value) => value ? new Date(value).toLocaleString('en-CA', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            }) : '-'
+          },
+          to_ts: {
+            title: 'End Time',
+            sortable: true,
+            render: (value) => value ? new Date(value).toLocaleString('en-CA', {
+              hour: '2-digit',
+              minute: '2-digit'
+            }) : '-'
+          },
+          availability_flag: {
+            title: 'Status',
+            sortable: true,
+            render: (value) => {
+              const statusColors: Record<string, string> = {
+                'true': 'bg-green-100 text-green-800',
+                'false': 'bg-red-100 text-red-800'
+              };
+              const displayValue = value ? 'Available' : 'Booked';
+              return renderBadge(displayValue, statusColors);
+            }
+          },
+          title: {
+            title: 'Appointment',
+            sortable: true
+          },
+          appointment_medium: {
+            title: 'Medium',
+            sortable: true,
+            render: (value) => {
+              if (!value) return '-';
+              const mediumColors: Record<string, string> = {
+                'onsite': 'bg-blue-100 text-blue-800',
+                'virtual': 'bg-purple-100 text-purple-800'
+              };
+              return renderBadge(value, mediumColors);
+            }
+          }
+        }
+      }
+    ),
+
+    fields: [
+      { key: 'name', label: 'Slot Name', type: 'text', required: true },
+      { key: 'code', label: 'Code', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
+
+      // Person Identification
+      { key: 'person_entity_type', label: 'Person Type', type: 'select', required: true, options: [
+        { value: 'employee', label: 'Employee' },
+        { value: 'client', label: 'Client' },
+        { value: 'customer', label: 'Customer' }
+      ]},
+      { key: 'person_entity_id', label: 'Person', type: 'text', required: true },
+
+      // Time Slot
+      { key: 'from_ts', label: 'Start Time', type: 'timestamp', required: true },
+      { key: 'to_ts', label: 'End Time', type: 'timestamp', required: true },
+      { key: 'timezone', label: 'Timezone', type: 'text' },
+
+      // Availability
+      { key: 'availability_flag', label: 'Available', type: 'checkbox' },
+
+      // Appointment Details (when booked)
+      { key: 'title', label: 'Appointment Title', type: 'text' },
+      { key: 'appointment_medium', label: 'Meeting Type', type: 'select', options: [
+        { value: 'onsite', label: 'Onsite' },
+        { value: 'virtual', label: 'Virtual' }
+      ]},
+      { key: 'appointment_addr', label: 'Address', type: 'textarea' },
+      { key: 'instructions', label: 'Instructions', type: 'textarea' },
+
+      // Metadata (project_id, task_id, interaction_id, etc.)
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+
+      // Notifications
+      { key: 'reminder_sent_flag', label: 'Reminder Sent', type: 'checkbox', readonly: true },
+      { key: 'confirmation_sent_flag', label: 'Confirmation Sent', type: 'checkbox', readonly: true },
+
+      // Timestamps
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
+    ],
+
+    supportedViews: ['table', 'kanban', 'calendar'],
+    defaultView: 'table',
+
+    kanbanConfig: {
+      groupByField: 'availability_flag',
+      titleField: 'title',
+      subtitleField: 'from_ts'
+    },
+
+    calendarConfig: {
+      dateField: 'from_ts',
+      endDateField: 'to_ts',
+      titleField: 'title',
+      personField: 'person_entity_id',
+      personTypeField: 'person_entity_type',
+      statusField: 'availability_flag'
+    }
+  },
+
+  // --------------------------------------------------------------------------
+  // INTERACTION (Customer Interactions)
+  // --------------------------------------------------------------------------
+  interaction: {
+    name: 'interaction',
+    displayName: 'Interaction',
+    pluralName: 'Interactions',
+    apiEndpoint: '/api/v1/interaction',
+
+    columns: generateStandardColumns(
+      ['interaction_number', 'interaction_type', 'channel', 'interaction_ts', 'sentiment_label', 'priority_level', 'content_summary', 'created_ts'],
+      {
+        overrides: {
+          interaction_number: {
+            title: 'Interaction #',
+            sortable: true
+          },
+          interaction_type: {
+            title: 'Type',
+            sortable: true,
+            render: (value) => {
+              const typeColors: Record<string, string> = {
+                'voice_call': 'bg-blue-100 text-blue-800',
+                'chat': 'bg-green-100 text-green-800',
+                'email': 'bg-purple-100 text-purple-800',
+                'sms': 'bg-yellow-100 text-yellow-800',
+                'video_call': 'bg-indigo-100 text-indigo-800',
+                'social_media': 'bg-pink-100 text-pink-800',
+                'in_person': 'bg-gray-100 text-gray-800'
+              };
+              return renderBadge(value || 'chat', typeColors);
+            }
+          },
+          channel: {
+            title: 'Channel',
+            sortable: true,
+            render: (value) => {
+              const channelColors: Record<string, string> = {
+                'phone': 'bg-blue-100 text-blue-800',
+                'live_chat': 'bg-green-100 text-green-800',
+                'whatsapp': 'bg-green-100 text-green-800',
+                'email': 'bg-purple-100 text-purple-800',
+                'facebook': 'bg-blue-100 text-blue-800',
+                'twitter': 'bg-sky-100 text-sky-800',
+                'zoom': 'bg-indigo-100 text-indigo-800',
+                'in_store': 'bg-gray-100 text-gray-800'
+              };
+              return renderBadge(value || 'phone', channelColors);
+            }
+          },
+          interaction_ts: {
+            title: 'Date',
+            sortable: true,
+            render: (value) => value ? new Date(value).toLocaleString('en-CA', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            }) : '-'
+          },
+          sentiment_label: {
+            title: 'Sentiment',
+            sortable: true,
+            render: (value) => {
+              if (!value) return '-';
+              const sentimentColors: Record<string, string> = {
+                'positive': 'bg-green-100 text-green-800',
+                'neutral': 'bg-gray-100 text-gray-800',
+                'negative': 'bg-red-100 text-red-800',
+                'mixed': 'bg-yellow-100 text-yellow-800'
+              };
+              return renderBadge(value, sentimentColors);
+            }
+          },
+          priority_level: {
+            title: 'Priority',
+            sortable: true,
+            render: (value) => {
+              if (!value) return '-';
+              const priorityColors: Record<string, string> = {
+                'low': 'bg-gray-100 text-gray-800',
+                'normal': 'bg-blue-100 text-blue-800',
+                'high': 'bg-orange-100 text-orange-800',
+                'urgent': 'bg-red-100 text-red-800',
+                'critical': 'bg-red-100 text-red-800'
+              };
+              return renderBadge(value, priorityColors);
+            }
+          },
+          content_summary: {
+            title: 'Summary',
+            sortable: false,
+            render: (value) => value ? (value.length > 100 ? value.substring(0, 100) + '...' : value) : '-'
+          }
+        }
+      }
+    ),
+
+    fields: [
+      // Identification
+      { key: 'interaction_number', label: 'Interaction Number', type: 'text', required: true },
+      { key: 'interaction_type', label: 'Type', type: 'select', required: true, options: [
+        { value: 'voice_call', label: 'Voice Call' },
+        { value: 'chat', label: 'Chat' },
+        { value: 'email', label: 'Email' },
+        { value: 'sms', label: 'SMS' },
+        { value: 'video_call', label: 'Video Call' },
+        { value: 'social_media', label: 'Social Media' },
+        { value: 'in_person', label: 'In Person' }
+      ]},
+      { key: 'interaction_subtype', label: 'Subtype', type: 'select', options: [
+        { value: 'inbound', label: 'Inbound' },
+        { value: 'outbound', label: 'Outbound' },
+        { value: 'follow_up', label: 'Follow Up' },
+        { value: 'escalation', label: 'Escalation' }
+      ]},
+      { key: 'channel', label: 'Channel', type: 'select', required: true, options: [
+        { value: 'phone', label: 'Phone' },
+        { value: 'live_chat', label: 'Live Chat' },
+        { value: 'whatsapp', label: 'WhatsApp' },
+        { value: 'email', label: 'Email' },
+        { value: 'facebook', label: 'Facebook' },
+        { value: 'twitter', label: 'Twitter' },
+        { value: 'zoom', label: 'Zoom' },
+        { value: 'in_store', label: 'In Store' }
+      ]},
+
+      // Timing
+      { key: 'interaction_ts', label: 'Interaction Time', type: 'timestamp' },
+      { key: 'duration_seconds', label: 'Duration (seconds)', type: 'number' },
+
+      // Person Entities (JSONB)
+      { key: 'interaction_person_entities', label: 'People Involved', type: 'jsonb' },
+      { key: 'interaction_intention_entity', label: 'Intention (Create)', type: 'select', options: [
+        { value: 'task', label: 'Task' },
+        { value: 'project', label: 'Project' },
+        { value: 'quote', label: 'Quote' },
+        { value: 'opportunity', label: 'Opportunity' }
+      ]},
+
+      // Content
+      { key: 'content_format', label: 'Content Format', type: 'text' },
+      { key: 'content_text', label: 'Content Text', type: 'textarea' },
+      { key: 'content_summary', label: 'Summary', type: 'textarea' },
+      { key: 'transcript_text', label: 'Transcript', type: 'textarea' },
+
+      // Sentiment & Analytics
+      { key: 'sentiment_score', label: 'Sentiment Score (-100 to 100)', type: 'number' },
+      { key: 'sentiment_label', label: 'Sentiment', type: 'select', options: [
+        { value: 'positive', label: 'Positive' },
+        { value: 'neutral', label: 'Neutral' },
+        { value: 'negative', label: 'Negative' },
+        { value: 'mixed', label: 'Mixed' }
+      ]},
+      { key: 'customer_satisfaction_score', label: 'CSAT Score', type: 'number' },
+      { key: 'emotion_tags', label: 'Emotion Tags', type: 'array' },
+
+      // Classification
+      { key: 'interaction_reason', label: 'Reason', type: 'text' },
+      { key: 'interaction_category', label: 'Category', type: 'text' },
+      { key: 'priority_level', label: 'Priority', type: 'select', options: [
+        { value: 'low', label: 'Low' },
+        { value: 'normal', label: 'Normal' },
+        { value: 'high', label: 'High' },
+        { value: 'urgent', label: 'Urgent' },
+        { value: 'critical', label: 'Critical' }
+      ]},
+
+      // Metadata
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+
+      // Timestamps
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // CALENDAR
+  // --------------------------------------------------------------------------
+  calendar: {
+    name: 'calendar',
+    displayName: 'Calendar',
+    pluralName: 'Calendars',
+    apiEndpoint: '/api/v1/person-calendar',
+
+    columns: generateStandardColumns(
+      ['name', 'person_entity_type', 'from_ts', 'to_ts', 'availability_flag', 'title', 'appointment_medium', 'created_ts'],
+      {
+        overrides: {
+          person_entity_type: {
+            title: 'Person Type',
+            width: '110px',
+            render: (value) => renderBadge(value || 'employee', {
+              'employee': 'bg-blue-100 text-blue-800',
+              'client': 'bg-green-100 text-green-800',
+              'customer': 'bg-purple-100 text-purple-800'
+            })
+          },
+          from_ts: {
+            title: 'From',
+            render: renderTimestamp
+          },
+          to_ts: {
+            title: 'To',
+            render: renderTimestamp
+          },
+          availability_flag: {
+            title: 'Available',
+            width: '100px',
+            render: (value) => renderBadge(value ? 'Available' : 'Booked', {
+              'Available': 'bg-green-100 text-green-800',
+              'Booked': 'bg-red-100 text-red-800'
+            })
+          },
+          title: {
+            title: 'Event Title'
+          },
+          appointment_medium: {
+            title: 'Medium',
+            width: '100px',
+            render: (value) => value ? renderBadge(value, {
+              'onsite': 'bg-blue-100 text-blue-800',
+              'virtual': 'bg-purple-100 text-purple-800'
+            }) : '-'
+          }
+        }
+      }
+    ),
+
+    fields: [
+      { key: 'code', label: 'Code', type: 'text', required: true },
+      { key: 'name', label: 'Slot Name', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
+      {
+        key: 'person_entity_type',
+        label: 'Person Type',
+        type: 'select',
+        required: true,
+        options: [
+          { value: 'employee', label: 'Employee' },
+          { value: 'client', label: 'Client' },
+          { value: 'customer', label: 'Customer' }
+        ]
+      },
+      { key: 'person_entity_id', label: 'Person ID', type: 'text', required: true },
+      { key: 'from_ts', label: 'Start Time', type: 'date', required: true },
+      { key: 'to_ts', label: 'End Time', type: 'date', required: true },
+      { key: 'timezone', label: 'Timezone', type: 'text' },
+      {
+        key: 'availability_flag',
+        label: 'Available',
+        type: 'select',
+        options: [
+          { value: 'true', label: 'Available' },
+          { value: 'false', label: 'Booked' }
+        ],
+        coerceBoolean: true
+      },
+      { key: 'title', label: 'Event Title', type: 'text' },
+      {
+        key: 'appointment_medium',
+        label: 'Appointment Medium',
+        type: 'select',
+        options: [
+          { value: 'onsite', label: 'Onsite' },
+          { value: 'virtual', label: 'Virtual' }
+        ]
+      },
+      { key: 'appointment_addr', label: 'Address/URL', type: 'textarea' },
+      { key: 'instructions', label: 'Instructions', type: 'textarea' },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
+      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
+    ],
+
+    supportedViews: ['table', 'calendar'],
+    defaultView: 'calendar'
   },
 
   // --------------------------------------------------------------------------

@@ -39,6 +39,7 @@
 -- • hire_date, termination_date: date (employment lifecycle)
 -- • last_login_ts: timestamptz (session tracking)
 -- • failed_login_attempts: integer (security lockout: 5 attempts triggers 30-min lock)
+-- • skills_service_categories: text[] (service categories employee is skilled in: ['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting'])
 --
 -- AUTHENTICATION FLOW:
 -- 1. POST /api/v1/auth/login with {email, password}
@@ -121,7 +122,10 @@ CREATE TABLE app.d_employee (
   -- Work preferences and attributes
   remote_work_eligible_flag boolean DEFAULT false,
   time_zone varchar(50) DEFAULT 'America/Toronto',
-  preferred_language varchar(10) DEFAULT 'en'
+  preferred_language varchar(10) DEFAULT 'en',
+
+  -- Skills and certifications
+  skills_service_categories text[] DEFAULT ARRAY[]::text[] -- Array of service categories from d_service (HVAC, Plumbing, Electrical, Landscaping, General Contracting, etc.)
 );
 
 
@@ -155,6 +159,7 @@ INSERT INTO app.d_employee (
     remote_work_eligible_flag,
     time_zone,
     preferred_language,
+    skills_service_categories,
     metadata
 ) VALUES (
     '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
@@ -184,6 +189,7 @@ INSERT INTO app.d_employee (
     true,
     'America/Toronto',
     'en',
+    ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting']::text[], -- CEO has knowledge of all service categories
     '{
         "employee_preferences": {
             "notification_methods": ["email", "sms"],
@@ -212,12 +218,13 @@ INSERT INTO app.d_employee (
     department,
     title,
     hire_date,
-    manager_employee_id
+    manager_employee_id,
+    skills_service_categories
 ) VALUES
-('EMP-002', 'Sarah Johnson', 'Chief Operating Officer responsible for day-to-day operations', 'sarah.johnson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Sarah', 'Johnson', '+1-519-555-0002', 'full-time', 'Operations', 'Chief Operating Officer', '2020-02-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'),
-('EMP-003', 'Michael Chen', 'Chief Technology Officer overseeing IT infrastructure and development', 'michael.chen@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Michael', 'Chen', '+1-519-555-0003', 'full-time', 'Technology', 'Chief Technology Officer', '2020-03-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'),
-('EMP-004', 'Lisa Rodriguez', 'Vice President of Sales managing client relationships and revenue_amt', 'lisa.rodriguez@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Lisa', 'Rodriguez', '+1-519-555-0004', 'full-time', 'Sales', 'Vice President of Sales', '2020-04-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'),
-('EMP-005', 'David Thompson', 'Senior Project Manager for landscaping and maintenance projects', 'david.thompson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'David', 'Thompson', '+1-519-555-0005', 'full-time', 'Operations', 'Senior Project Manager', '2020-05-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13');
+('EMP-002', 'Sarah Johnson', 'Chief Operating Officer responsible for day-to-day operations', 'sarah.johnson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Sarah', 'Johnson', '+1-519-555-0002', 'full-time', 'Operations', 'Chief Operating Officer', '2020-02-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping']::text[]),
+('EMP-003', 'Michael Chen', 'Chief Technology Officer overseeing IT infrastructure and development', 'michael.chen@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Michael', 'Chen', '+1-519-555-0003', 'full-time', 'Technology', 'Chief Technology Officer', '2020-03-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY[]::text[]),
+('EMP-004', 'Lisa Rodriguez', 'Vice President of Sales managing client relationships and revenue_amt', 'lisa.rodriguez@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Lisa', 'Rodriguez', '+1-519-555-0004', 'full-time', 'Sales', 'Vice President of Sales', '2020-04-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting']::text[]),
+('EMP-005', 'David Thompson', 'Senior Project Manager for landscaping and maintenance projects', 'david.thompson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'David', 'Thompson', '+1-519-555-0005', 'full-time', 'Operations', 'Senior Project Manager', '2020-05-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['Landscaping']::text[]);
 
 COMMENT ON TABLE app.d_employee IS 'Employee entities with authentication, contact info, and organizational assignments';-- =====================================================
 -- COMPREHENSIVE EMPLOYEE DATA GENERATION (500+ Employees)
@@ -313,6 +320,7 @@ DECLARE
     v_hire_date date;
     v_manager_id uuid;
     v_manager_email text;
+    v_skills text[];
     i int;
 
 BEGIN
@@ -399,6 +407,23 @@ BEGIN
             END;
         END IF;
 
+        -- Assign skills based on department
+        CASE v_department
+            WHEN 'Landscaping' THEN v_skills := ARRAY['Landscaping']::text[];
+            WHEN 'Snow Removal' THEN v_skills := ARRAY['Landscaping']::text[];
+            WHEN 'HVAC' THEN v_skills := ARRAY['HVAC']::text[];
+            WHEN 'Plumbing' THEN v_skills := ARRAY['Plumbing']::text[];
+            WHEN 'Solar Energy' THEN v_skills := ARRAY['Electrical']::text[];
+            WHEN 'Operations' THEN v_skills := ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping']::text[];
+            WHEN 'Finance' THEN v_skills := ARRAY[]::text[];
+            WHEN 'Human Resources' THEN v_skills := ARRAY[]::text[];
+            WHEN 'IT' THEN v_skills := ARRAY[]::text[];
+            WHEN 'Marketing' THEN v_skills := ARRAY[]::text[];
+            WHEN 'Sales' THEN v_skills := ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting']::text[];
+            WHEN 'Customer Service' THEN v_skills := ARRAY[]::text[];
+            ELSE v_skills := ARRAY[]::text[];
+        END CASE;
+
         -- Get manager ID
         SELECT id INTO v_manager_id FROM app.d_employee WHERE email = v_manager_email LIMIT 1;
 
@@ -410,7 +435,8 @@ BEGIN
             code, name, descr, email, password_hash,
             first_name, last_name, phone, mobile,
             address_line1, city, province, postal_code, country,
-            employee_type, department, title, hire_date, manager_employee_id
+            employee_type, department, title, hire_date, manager_employee_id,
+            skills_service_categories
         ) VALUES (
             v_code,
             v_full_name,
@@ -430,7 +456,8 @@ BEGIN
             v_department,
             v_title,
             v_hire_date,
-            v_manager_id
+            v_manager_id,
+            v_skills
         );
 
     END LOOP;

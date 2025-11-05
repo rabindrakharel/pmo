@@ -106,7 +106,7 @@ const FUNCTION_DEFINITIONS: OpenAIFunction[] = [
         service_category: {
           type: 'string',
           enum: ['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting'],
-          description: 'Filter services by category (optional)'
+          description: 'Filter services by category (optional). Values from dl__service_category settings.'
         }
       },
       required: []
@@ -135,7 +135,7 @@ const FUNCTION_DEFINITIONS: OpenAIFunction[] = [
         service_category: {
           type: 'string',
           enum: ['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting'],
-          description: 'Service category to filter employees by department'
+          description: 'Service category to filter employees by department. Values from dl__service_category settings.'
         },
         requested_date: {
           type: 'string',

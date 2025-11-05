@@ -50,17 +50,11 @@ export async function createSession(args: {
           interaction_type,
           interaction_subtype,
           channel,
-          interaction_datetime,
-          customer_id,
-          customer_name,
-          customer_type,
+          interaction_ts,
+          interaction_person_entities,
           content_text,
           source_system,
-          resolution_status,
-          active_flag,
-          metadata,
-          browser_user_agent,
-          integration_metadata
+          metadata
         ) VALUES (
           ${sessionId}::uuid,
           ${interactionNumber},
@@ -68,16 +62,19 @@ export async function createSession(args: {
           'inbound',
           'live_chat',
           now(),
-          ${args.customer_id || null},
-          ${customerName || 'Anonymous'},
-          ${customerType},
-          '[]',
+          ${JSON.stringify(args.customer_id ? [{ person_entity_type: 'customer', person_entity_id: args.customer_id }] : [])}::jsonb,
+          '',
           'ai_chat_widget',
-          'open',
-          true,
-          ${JSON.stringify(args.metadata || {})},
-          ${args.metadata?.user_agent || null},
-          ${JSON.stringify({ referrer_url: args.referrer_url || null, customer_email: args.customer_email || null })}
+          ${JSON.stringify({
+            ...args.metadata || {},
+            customer_name: customerName || 'Anonymous',
+            customer_type: customerType,
+            resolution_status: 'open',
+            active_flag: true,
+            browser_user_agent: args.metadata?.user_agent || null,
+            referrer_url: args.referrer_url || null,
+            customer_email: args.customer_email || null
+          })}::jsonb
         )
         RETURNING id::text
       `;
@@ -327,17 +324,16 @@ export async function getRecentInteractions(limit: number = 50): Promise<any[]> 
       SELECT
         id::text,
         interaction_number,
-        interaction_datetime,
-        customer_name,
+        interaction_ts,
+        metadata->>'customer_name' as customer_name,
         sentiment_label,
-        resolution_status,
-        duration_seconds,
-        first_contact_resolution
+        metadata->>'resolution_status' as resolution_status,
+        duration_seconds
       FROM app.f_customer_interaction
       WHERE interaction_type = 'chat'
         AND source_system = 'ai_chat_widget'
-        AND active_flag = true
-      ORDER BY interaction_datetime DESC
+        AND metadata->>'active_flag' = 'true'
+      ORDER BY interaction_ts DESC
       LIMIT ${limit}
     `;
 
