@@ -128,18 +128,31 @@ export interface OpenAIFunctionCall {
   arguments: string; // JSON string
 }
 
+export interface OpenAIToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
 export interface OpenAIMessage {
-  role: 'system' | 'user' | 'assistant' | 'function';
+  role: 'system' | 'user' | 'assistant' | 'function' | 'tool';
   content: string | null;
   name?: string;
-  function_call?: OpenAIFunctionCall;
+  function_call?: OpenAIFunctionCall; // Legacy
+  tool_calls?: OpenAIToolCall[]; // New format
+  tool_call_id?: string; // For tool responses
 }
 
 export interface OpenAIChatCompletionRequest {
   model: string;
   messages: OpenAIMessage[];
-  functions?: OpenAIFunction[];
-  function_call?: 'auto' | 'none' | { name: string };
+  functions?: OpenAIFunction[]; // Legacy
+  function_call?: 'auto' | 'none' | { name: string }; // Legacy
+  tools?: Array<{ type: 'function'; function: OpenAIFunction }>; // New format
+  tool_choice?: 'auto' | 'none' | 'required' | { type: 'function'; function: { name: string } }; // New format
   temperature?: number;
   max_tokens?: number;
 }
@@ -164,7 +177,8 @@ export interface OpenAIChatCompletionResponse {
     message: {
       role: string;
       content: string | null;
-      function_call?: OpenAIFunctionCall;
+      function_call?: OpenAIFunctionCall; // Legacy
+      tool_calls?: OpenAIToolCall[]; // New format
     };
     finish_reason: string;
   }[];

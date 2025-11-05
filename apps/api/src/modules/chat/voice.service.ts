@@ -23,51 +23,57 @@ export interface VoiceSessionConfig {
 
 /**
  * System instructions for voice agent
+ * Concise version optimized for OpenAI Realtime API limits
  */
-const VOICE_SYSTEM_INSTRUCTIONS = `You are a helpful voice assistant for Huron Home Services, a leading Canadian home services company.
+const VOICE_SYSTEM_INSTRUCTIONS = `You are the AI customer service assistant for Huron Home Services, a Canadian home services company serving the Greater Toronto Area.
 
 COMPANY INFORMATION:
 - Services: HVAC, Plumbing, Electrical, Landscaping, General Contracting
-- Coverage: Ontario, Canada (Toronto, Mississauga, Oakville, Burlington, Hamilton, Brampton)
-- Business Hours: Monday-Friday 8AM-6PM, Saturday 9AM-5PM, Sunday Closed
-- Emergency Services: 24/7 for HVAC and Plumbing emergencies
+- Coverage: Toronto, Mississauga, Oakville, Burlington, Hamilton, Brampton, Vaughan (GTA, Ontario)
+- Hours: Mon-Fri 8AM-6PM, Sat 9AM-5PM, Sun Emergency Only
+- Emergency: 24/7 for HVAC and Plumbing
 
 YOUR ROLE:
-- Answer questions about services
-- Provide pricing estimates
-- Check employee availability
-- Book appointments directly
-- Be conversational, friendly, and professional
+You ARE Huron Home Services. You have full access to our PMO platform through 50+ API tools to help customers with:
+- Service bookings and scheduling
+- Project and task management
+- Employee availability and assignments
+- Customer account management
+- Pricing and service information
 
-VOICE INTERACTION GUIDELINES:
-- Speak naturally and conversationally
-- Keep responses concise (2-3 sentences max per turn)
-- Ask one question at a time
-- Confirm important details by repeating them back
-- Use casual, friendly Canadian English
-- If customer needs to repeat something, be patient and understanding
+CRITICAL RULES:
+1. You WORK FOR Huron Home Services - never say "I'm not directly tied to Huron Home Services"
+2. ALWAYS use your API tools to get real data - never guess or make up information
+3. ONLY discuss Huron Home Services topics - politely redirect off-topic questions
+4. Keep responses brief (2-3 sentences) - this is a voice conversation
+5. Ask ONE question at a time when gathering information
+6. Confirm important details by repeating them back
 
-BOOKING FLOW:
-1. Greet warmly and ask how you can help
-2. Identify service needed
-3. Ask for preferred date
-4. Check availability
-5. Collect: name, phone, address (one at a time)
-6. Confirm all details before booking
-7. Provide confirmation number clearly
+VOICE CONVERSATION STYLE:
+- Greet warmly: "Hi! This is Huron Home Services. How can I help you today?"
+- Speak naturally and conversationally in Canadian English
+- When booking: collect name, phone, address, service type, date (one piece at a time)
+- Always use tools to check availability before confirming appointments
+- Provide confirmation numbers after creating bookings
 
-IMPORTANT:
-- Always confirm phone numbers digit by digit if unclear
-- For addresses, ask for street, then city separately
-- If you don't understand, politely ask customer to repeat
-- Keep conversation natural and flowing
-- Use "um" and "uh" sparingly - be clear and confident`;
+TOOL USAGE:
+- Use project_list, task_list, employee_list, booking tools, etc. to fetch real data
+- Use project_create, task_create, booking_create to save new records
+- If a tool fails, explain clearly and offer alternatives
+- All data is real-time from our PMO database
+
+STAY FOCUSED: If asked about topics outside Huron Home Services (politics, general knowledge, other companies), politely redirect: "I'm specifically designed to help with Huron Home Services. How can I assist you with our services today?"`;
 
 /**
  * Convert MCP ChatCompletionTool format to Realtime API format
+ * Chat format: { type: 'function', function: { name, description, parameters } }
+ * Realtime format: { type: 'function', name, description, parameters }
  */
 function convertMCPToolsToRealtimeFormat(mcpTools: any[]): any[] {
-  return mcpTools.map(tool => tool.function);
+  return mcpTools.map(tool => ({
+    type: 'function',
+    ...tool.function
+  }));
 }
 
 /**
@@ -120,6 +126,12 @@ export class VoiceSession {
 
         // Get MCP tools
         const mcpTools = getRealtimeMCPTools();
+        console.log(`📦 Loaded ${mcpTools.length} MCP tools for voice agent`);
+        console.log(`🛠️ Tool categories: Project, Task, Employee, Customer, Business, Booking, Wiki, Form, etc.`);
+
+        // Log first few tool names for verification
+        const toolNames = mcpTools.slice(0, 10).map((t: any) => t.name).join(', ');
+        console.log(`🔧 Sample tools: ${toolNames}...`);
 
         // Configure session
         this.sendToOpenAI({
@@ -240,18 +252,25 @@ export class VoiceSession {
     const functionName = message.name;
     const args = JSON.parse(message.arguments);
 
-    console.log(`🔧 Voice AI calling MCP tool: ${functionName}`, args);
+    console.log(`\n🔧 ═══════════════════════════════════════════════════`);
+    console.log(`🎙️ Voice AI calling MCP tool: ${functionName}`);
+    console.log(`📝 Arguments:`, JSON.stringify(args, null, 2));
+    console.log(`🔑 Auth Token: ${this.authToken ? '✅ Available' : '❌ Missing'}`);
 
     try {
       let result: any;
 
       // Execute MCP tool if auth token is available
       if (this.authToken) {
-        console.log(`📡 Executing MCP tool via API: ${functionName}`);
+        console.log(`📡 Executing MCP tool via PMO API...`);
+        const startTime = Date.now();
         result = await executeMCPTool(functionName, args, this.authToken);
+        const duration = Date.now() - startTime;
+        console.log(`✅ Tool executed successfully in ${duration}ms`);
+        console.log(`📦 Result:`, JSON.stringify(result, null, 2).substring(0, 500));
       } else {
         // Fall back to legacy function tools if no auth token
-        console.log(`⚠️ No auth token, using legacy tools: ${functionName}`);
+        console.log(`⚠️ No auth token available - using legacy tools`);
         if (functionName === 'create_booking') {
           result = await functionTools.create_booking(args, this.interactionSessionId);
         } else if (functionName === 'get_available_services') {
@@ -259,7 +278,8 @@ export class VoiceSession {
         } else if (functionName === 'get_employee_availability') {
           result = await functionTools.get_employee_availability(args);
         } else {
-          result = { error: 'Function not found' };
+          console.log(`❌ Function not found in legacy tools: ${functionName}`);
+          result = { error: 'Function not found - auth token required for this operation' };
         }
       }
 
@@ -278,9 +298,11 @@ export class VoiceSession {
         type: 'response.create'
       });
 
-      console.log(`✅ Function ${functionName} executed successfully`);
+      console.log(`✅ MCP tool ${functionName} completed - sending result to AI`);
+      console.log(`═══════════════════════════════════════════════════\n`);
     } catch (error) {
-      console.error(`❌ Function ${functionName} failed:`, error);
+      console.error(`\n❌ ERROR: MCP tool ${functionName} failed`);
+      console.error(`Error details:`, error);
 
       // Send error back to OpenAI
       this.sendToOpenAI({

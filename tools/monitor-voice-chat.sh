@@ -29,11 +29,19 @@ if [[ "${1:-}" == "--verbose" ]]; then
   VERBOSE=true
 fi
 
-# Find most recent log file
-LOG_FILE=$(ls -t /tmp/pmo-api-*.log 2>/dev/null | head -1)
+# Find log file (check project logs first, then /tmp)
+if [[ -f "$PROJECT_ROOT/logs/api.log" ]]; then
+  LOG_FILE="$PROJECT_ROOT/logs/api.log"
+else
+  LOG_FILE=$(ls -t /tmp/pmo-api-*.log 2>/dev/null | head -1)
+fi
 
 if [[ -z "$LOG_FILE" ]]; then
-  echo -e "${RED}Error: No API log file found in /tmp/pmo-api-*.log${NC}"
+  echo -e "${RED}Error: No API log file found${NC}"
+  echo -e "${YELLOW}Searched:${NC}"
+  echo -e "  - $PROJECT_ROOT/logs/api.log"
+  echo -e "  - /tmp/pmo-api-*.log"
+  echo ""
   echo -e "${YELLOW}Make sure the API server is running with: ./tools/start-all.sh${NC}"
   exit 1
 fi

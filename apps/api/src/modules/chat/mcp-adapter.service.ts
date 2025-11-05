@@ -177,18 +177,54 @@ export function getCustomerServiceTools(): ChatCompletionTool[] {
     categories: [
       'Project',
       'Task',
-      'Customer',
-      'Service',
       'Employee',
+      'Customer',
+      'Business',
+      'Office',
+      'Worksite',
+      'Role',
+      'Position',
       'Booking',
+      'Wiki',
+      'Form',
+      'Artifact',
+      'Product',
+      'Sales',
+      'Operations',
+      'Linkage',
+      'Settings',
     ],
     excludeEndpoints: [
       'auth_login',
       'auth_logout',
       'customer_signup',
       'customer_signin',
+      'pmo_authenticate',
+      'pmo_api_info',
+      // Exclude delete operations for safety
+      'project_delete',
+      'task_delete',
+      'employee_delete',
+      'customer_delete',
+      'business_delete',
+      'office_delete',
     ],
-    maxTools: 50, // Limit to avoid token issues
+    maxTools: 60, // Increased limit for more comprehensive access
+  });
+}
+
+/**
+ * Get ALL available tools (for admin/internal use)
+ */
+export function getAllPMOTools(): ChatCompletionTool[] {
+  return getMCPTools({
+    excludeEndpoints: [
+      'auth_login',
+      'auth_logout',
+      'customer_signup',
+      'customer_signin',
+    ],
+    maxTools: 100,
   });
 }
 

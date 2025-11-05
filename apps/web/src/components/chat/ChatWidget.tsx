@@ -34,7 +34,6 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
   const voiceWSRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
-  const audioElementRef = useRef<HTMLAudioElement | null>(null);
 
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -153,9 +152,11 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
 
   async function startVoiceCall() {
     try {
+      console.log('🎙️ Starting voice call...');
       setVoiceStatus('Requesting microphone access...');
       setIsVoiceActive(true);
       setError(null);
+      setShowVoiceCall(false); // Hide the initial UI immediately
 
       // Request microphone permission
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -172,18 +173,15 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
       const audioContext = new AudioContext({ sampleRate: 24000 });
       audioContextRef.current = audioContext;
 
-      // Create audio element for playback
-      const audioElement = new Audio();
-      audioElement.autoplay = true;
-      audioElementRef.current = audioElement;
-
       // Connect to WebSocket with auth token
       const token = localStorage.getItem('auth_token');
       const wsUrl = apiBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
-      const ws = new WebSocket(
-        `${wsUrl}/api/v1/chat/voice/call?name=${encodeURIComponent(user?.name || 'User')}&email=${encodeURIComponent(user?.email || '')}&token=${encodeURIComponent(token || '')}`
-      );
+      const wsFullUrl = `${wsUrl}/api/v1/chat/voice/call?name=${encodeURIComponent(user?.name || 'User')}&email=${encodeURIComponent(user?.email || '')}&token=${encodeURIComponent(token || '')}`;
 
+      console.log('🔗 Connecting to WebSocket:', wsUrl + '/api/v1/chat/voice/call');
+      console.log('📡 Full WS URL (token hidden):', wsFullUrl.replace(token || '', '***'));
+
+      const ws = new WebSocket(wsFullUrl);
       voiceWSRef.current = ws;
 
       ws.onopen = async () => {
@@ -283,8 +281,12 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
           } else if (data.type === 'response.audio.done') {
             setVoiceStatus('🎙️ Voice call active - Speak now!');
           } else if (data.type === 'error') {
-            setVoiceStatus(`Error: ${data.message || 'Unknown error'}`);
-            setError(data.message || data.error || 'Voice error occurred');
+            // Handle OpenAI error object properly
+            const errorMessage = data.message ||
+                               (typeof data.error === 'string' ? data.error : data.error?.message) ||
+                               'Voice error occurred';
+            setVoiceStatus(`Error: ${errorMessage}`);
+            setError(errorMessage);
           } else if (data.type === 'conversation.item.created') {
             console.log('Transcript:', data.item?.content);
           } else if (data.type === 'response.done') {
@@ -346,12 +348,6 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
       audioContextRef.current = null;
     }
 
-    // Stop audio playback
-    if (audioElementRef.current) {
-      audioElementRef.current.pause();
-      audioElementRef.current = null;
-    }
-
     setIsVoiceActive(false);
     setVoiceStatus('Not connected');
     setShowVoiceCall(false);
@@ -387,7 +383,10 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 if (isVoiceActive) {
                   endVoiceCall();
                 } else {
@@ -403,14 +402,24 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
               <Phone className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setIsMinimized(!isMinimized)}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsMinimized(!isMinimized);
+              }}
               className="p-2 hover:bg-white/20 rounded-full transition-colors"
               title="Minimize"
             >
               <Minimize2 className="w-4 h-4" />
             </button>
             <button
-              onClick={handleClose}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleClose();
+              }}
               className="p-2 hover:bg-white/20 rounded-full transition-colors"
               title="Close"
             >
@@ -440,7 +449,12 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
                   </div>
                 </div>
                 <button
-                  onClick={endVoiceCall}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    endVoiceCall();
+                  }}
                   className="bg-red-500 hover:bg-red-600 text-white rounded-full p-2 transition-all shadow-lg hover:shadow-xl"
                   title="End Call"
                 >
@@ -464,14 +478,24 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
 
                   <div className="flex gap-2">
                     <button
-                      onClick={startVoiceCall}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        startVoiceCall();
+                      }}
                       className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-2 rounded-full text-sm font-medium shadow-lg transition-all flex items-center gap-2"
                     >
                       <Phone className="w-4 h-4" />
                       Start Call
                     </button>
                     <button
-                      onClick={() => setShowVoiceCall(false)}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowVoiceCall(false);
+                      }}
                       className="text-gray-600 hover:text-gray-800 text-sm px-4 py-2 rounded-full hover:bg-gray-100"
                     >
                       Cancel

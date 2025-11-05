@@ -310,13 +310,14 @@ export async function getAIResponse(
     const maxIterations = 5; // Prevent infinite loops
 
     while (
-      response.choices[0].message.function_call &&
+      response.choices[0].message.tool_calls &&
+      response.choices[0].message.tool_calls.length > 0 &&
       iterations < maxIterations
     ) {
       iterations++;
-      const functionCall = response.choices[0].message.function_call;
-      const functionName = functionCall.name;
-      const functionArgs = JSON.parse(functionCall.arguments);
+      const toolCall = response.choices[0].message.tool_calls[0]; // Handle first tool call
+      const functionName = toolCall.function.name;
+      const functionArgs = JSON.parse(toolCall.function.arguments);
 
       console.log(`🤖 AI calling function: ${functionName}`, functionArgs);
 
@@ -351,15 +352,15 @@ export async function getAIResponse(
         error
       });
 
-      // Add function result to conversation
+      // Add tool result to conversation (new tools format)
       messages.push({
         role: 'assistant',
         content: null,
-        function_call: functionCall
+        tool_calls: [toolCall]
       });
       messages.push({
-        role: 'function',
-        name: functionName,
+        role: 'tool',
+        tool_call_id: toolCall.id,
         content: JSON.stringify(functionResult)
       });
 
@@ -387,11 +388,17 @@ async function callOpenAI(
   messages: OpenAIMessage[],
   tools?: any[]
 ): Promise<OpenAIChatCompletionResponse> {
+  // Convert tools to proper format if using legacy FUNCTION_DEFINITIONS
+  const formattedTools = tools || FUNCTION_DEFINITIONS.map(fn => ({
+    type: 'function' as const,
+    function: fn
+  }));
+
   const requestBody: OpenAIChatCompletionRequest = {
     model: OPENAI_MODEL,
     messages,
-    functions: tools || FUNCTION_DEFINITIONS,
-    function_call: 'auto',
+    tools: formattedTools,
+    tool_choice: 'auto',
     temperature: 0.7,
     max_tokens: 1000
   };
