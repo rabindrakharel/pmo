@@ -177,6 +177,8 @@ validate_all_ddls() {
         "38_d_industry_workflow_graph_head.ddl"
         "39_d_industry_workflow_graph_data.ddl"
         "40_f_industry_workflow_events.ddl"
+        "41_d_calendar.ddl"
+        "42_d_employee_calendar.ddl"
     )
 
     for file in "${ddl_files[@]}"; do
@@ -216,6 +218,10 @@ import_ddls() {
 
     # Core personnel - Must come before organizational assignments
     execute_sql "$DB_PATH/11_d_employee.ddl" "Employee entities with authentication"
+
+    # Calendar and scheduling - Depends on employees
+    execute_sql "$DB_PATH/41_d_calendar.ddl" "Calendar events and scheduling"
+    execute_sql "$DB_PATH/42_d_employee_calendar.ddl" "Employee calendar attendance mapping"
 
     # Organizational hierarchy - Office first, then business units
     execute_sql "$DB_PATH/12_d_office.ddl" "Office entity with 4-level hierarchy"

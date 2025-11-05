@@ -28,22 +28,22 @@ export function Button({
   tooltip,
   type = 'button',
 }: ButtonProps) {
-  // Standardized base classes for all buttons - Light gray border style
-  const baseClasses = 'inline-flex items-center border text-sm font-normal rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-0';
+  // Standardized base classes for all buttons - Soft Slate theme with subtle shadows
+  const baseClasses = 'inline-flex items-center border text-sm font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-0 shadow-sm';
 
   const variantClasses = {
-    // All buttons now use light gray border style (per user requirement - no shadows)
-    primary: 'border-dark-400 text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 focus:ring-dark-700 disabled:bg-dark-100 disabled:text-dark-600 disabled:border-dark-300',
-    secondary: 'border-dark-400 text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 focus:ring-dark-700 disabled:bg-dark-100 disabled:text-dark-600 disabled:border-dark-300',
-    danger: 'border-red-500 text-white bg-gradient-to-b from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 focus:ring-red-400 disabled:bg-gradient-to-b disabled:from-dark-300 disabled:to-dark-300 disabled:border-dark-400 disabled:text-dark-700',
-    success: 'border-dark-400 text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 focus:ring-dark-700 disabled:bg-dark-100 disabled:text-dark-600 disabled:border-dark-300',
-    ghost: 'border-transparent text-dark-600 hover:bg-dark-100 focus:ring-dark-700 disabled:text-dark-600',
+    // Soft Slate theme with Notion-style subtle elevations
+    primary: 'border-dark-300 text-dark-700 bg-dark-100 hover:bg-dark-200 hover:border-dark-400 hover:shadow focus:ring-dark-accent focus:ring-opacity-30 disabled:bg-dark-100 disabled:text-dark-500 disabled:border-dark-300 disabled:shadow-none disabled:opacity-50',
+    secondary: 'border-dark-300 text-dark-700 bg-dark-100 hover:bg-dark-200 hover:border-dark-400 hover:shadow focus:ring-dark-accent focus:ring-opacity-30 disabled:bg-dark-100 disabled:text-dark-500 disabled:border-dark-300 disabled:shadow-none disabled:opacity-50',
+    danger: 'border-red-500 text-white bg-gradient-to-b from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 hover:shadow-md focus:ring-red-400 disabled:bg-gradient-to-b disabled:from-dark-300 disabled:to-dark-300 disabled:border-dark-400 disabled:text-dark-500 disabled:shadow-none disabled:opacity-50',
+    success: 'border-dark-success text-white bg-dark-success hover:opacity-90 hover:shadow-md focus:ring-dark-success focus:ring-opacity-30 disabled:bg-dark-300 disabled:text-dark-500 disabled:border-dark-300 disabled:shadow-none disabled:opacity-50',
+    ghost: 'border-transparent text-dark-700 hover:bg-dark-200 focus:ring-dark-accent focus:ring-opacity-30 disabled:text-dark-500 disabled:opacity-50 shadow-none',
   };
 
   const sizeClasses = {
-    sm: 'px-2.5 py-1 text-xs',
-    md: 'px-3 py-1.5 text-sm',
-    lg: 'px-4 py-2 text-base',
+    sm: 'px-2.5 py-1.5 text-xs',
+    md: 'px-4 py-2 text-sm',
+    lg: 'px-5 py-2.5 text-base',
   };
 
   const finalClassName = `${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`;

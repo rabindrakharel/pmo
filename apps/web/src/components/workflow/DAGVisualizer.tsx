@@ -166,13 +166,6 @@ export function DAGVisualizer({ nodes, currentNodeId, onNodeClick }: DAGVisualiz
   const positions = calculatePositions();
   const positionMap = new Map(positions.map(p => [p.id, p]));
 
-  // Debug logging
-  console.log('[DAGVisualizer] Nodes:', visibleNodes);
-  console.log('[DAGVisualizer] First node detail:', visibleNodes[0]);
-  console.log('[DAGVisualizer] All node parent_ids:', visibleNodes.map(n => ({ id: n.id, parent_ids: n.parent_ids })));
-  console.log('[DAGVisualizer] Children map:', Array.from(childrenMap.entries()));
-  console.log('[DAGVisualizer] Position map:', Array.from(positionMap.entries()));
-
   // Calculate SVG dimensions
   const maxX = Math.max(...positions.map(p => p.x)) + 180;
   const maxY = Math.max(...positions.map(p => p.y)) + 50;
@@ -181,19 +174,11 @@ export function DAGVisualizer({ nodes, currentNodeId, onNodeClick }: DAGVisualiz
   const renderEdges = () => {
     const edges: ReactElement[] = [];
 
-    console.log('[DAGVisualizer] renderEdges - Starting edge rendering');
-    console.log('[DAGVisualizer] renderEdges - visibleNodes count:', visibleNodes.length);
-
     visibleNodes.forEach(node => {
       const fromPos = positionMap.get(node.id);
-      console.log(`[DAGVisualizer] renderEdges - Node ${node.id} position:`, fromPos);
-      if (!fromPos) {
-        console.warn(`[DAGVisualizer] renderEdges - No position found for node ${node.id}`);
-        return;
-      }
+      if (!fromPos) return;
 
       const children = childrenMap.get(node.id) || [];
-      console.log(`[DAGVisualizer] renderEdges - Node ${node.id} has ${children.length} children:`, children);
 
       children.forEach(childId => {
         const toPos = positionMap.get(childId);
@@ -209,13 +194,11 @@ export function DAGVisualizer({ nodes, currentNodeId, onNodeClick }: DAGVisualiz
         const midX = (fromX + toX) / 2;
         const path = `M ${fromX} ${fromY} C ${midX} ${fromY}, ${midX} ${toY}, ${toX} ${toY}`;
 
-        console.log(`[DAGVisualizer] Creating edge from ${node.id} to ${childId}:`, { fromX, fromY, toX, toY, path });
-
         edges.push(
           <path
             key={`edge-${node.id}-${childId}`}
             d={path}
-            stroke="#D0D0D0"
+            stroke="#E9E9E7"
             strokeWidth={1}
             fill="none"
             markerEnd="url(#arrowhead)"
@@ -224,7 +207,6 @@ export function DAGVisualizer({ nodes, currentNodeId, onNodeClick }: DAGVisualiz
       });
     });
 
-    console.log(`[DAGVisualizer] Total edges created: ${edges.length}`);
     return edges;
   };
 
@@ -257,7 +239,7 @@ export function DAGVisualizer({ nodes, currentNodeId, onNodeClick }: DAGVisualiz
             rx={18.5}
             ry={18.5}
             fill="#FFFFFF"
-            stroke="#D0D0D0"
+            stroke="#E9E9E7"
             strokeWidth={1}
             strokeLinejoin="round"
             shapeRendering="geometricPrecision"
@@ -268,7 +250,7 @@ export function DAGVisualizer({ nodes, currentNodeId, onNodeClick }: DAGVisualiz
           {/* Checkmark for completed nodes */}
           {isCompleted && (
             <g transform="translate(115, 5)">
-              <circle cx="8" cy="8" r="8" fill="#616161" />
+              <circle cx="8" cy="8" r="8" fill="#787774" />
               <path
                 d="M 5 8 L 7 10 L 11 6"
                 stroke="#FFFFFF"
@@ -317,9 +299,9 @@ export function DAGVisualizer({ nodes, currentNodeId, onNodeClick }: DAGVisualiz
             x={70}
             y={25}
             textAnchor="middle"
-            fontSize={12}
+            fontSize={13}
             fontWeight="500"
-            fill={isCurrent ? '#616161' : '#9E9E9E'}
+            fill={isCurrent ? '#37352F' : '#787774'}
           >
             {displayText}
           </text>
@@ -342,7 +324,7 @@ export function DAGVisualizer({ nodes, currentNodeId, onNodeClick }: DAGVisualiz
             orient="auto"
             markerUnits="strokeWidth"
           >
-            <path d="M0,0 L0,5 L7,2.5 z" fill="#D0D0D0" />
+            <path d="M0,0 L0,5 L7,2.5 z" fill="#E9E9E7" />
           </marker>
         </defs>
 

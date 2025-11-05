@@ -1248,7 +1248,7 @@ export function EntityDataTable<T = any>({
       <div className="relative flex flex-col" style={{ maxHeight: 'calc(100vh - 400px)' }}>
         <div
           ref={tableContainerRef}
-          className="overflow-y-auto overflow-x-auto hide-scrollbar-x"
+          className="overflow-y-auto overflow-x-auto scrollbar-elegant"
           style={{
             maxHeight: 'calc(100% - 100px)',
           }}
@@ -1274,8 +1274,8 @@ export function EntityDataTable<T = any>({
                     style={{
                       width: columns.length > 7 ? '200px' : (column.width || 'auto'),
                       textAlign: column.align || 'left',
-                      color: '#616161',
-                      font: "400 12px / 16px 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
+                      color: '#37352F',
+                      font: "500 13px / 18px 'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
                       outline: 0,
                       backgroundColor: '#FFFFFF'
                     }}
@@ -1369,9 +1369,9 @@ export function EntityDataTable<T = any>({
                                 padding: '2px 8px',
                                 overflow: 'hidden',
                                 whiteSpace: 'nowrap',
-                                fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                                fontSize: '13px',
-                                color: '#333'
+                                fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+                                fontSize: '14px',
+                                color: '#37352F'
                               }}
                             >
                               {column.render
@@ -1519,9 +1519,9 @@ export function EntityDataTable<T = any>({
                                   onClick={(e) => e.stopPropagation()}
                                   className="w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors cursor-pointer appearance-none"
                                   style={{
-                                    fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                                    fontSize: '13px',
-                                    color: '#333',
+                                    fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+                                    fontSize: '14px',
+                                    color: '#37352F',
                                     minHeight: '32px',
                                     maxHeight: '32px',
                                     lineHeight: '1.2'
@@ -1557,9 +1557,9 @@ export function EntityDataTable<T = any>({
                                 placeholder="Enter tags (comma-separated)"
                                 className="w-full px-2 py-1.5 border border-dark-400 rounded focus:ring-2 focus:ring-gray-500 focus:border-dark-400"
                                 style={{
-                                  fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                                  fontSize: '13px',
-                                  color: '#333'
+                                  fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+                                  fontSize: '14px',
+                                  color: '#37352F'
                                 }}
                               />
                             ) :
@@ -1572,9 +1572,9 @@ export function EntityDataTable<T = any>({
                                 onClick={(e) => e.stopPropagation()}
                                 className="w-full px-2 py-1.5 border border-dark-400 rounded focus:ring-2 focus:ring-gray-500 focus:border-dark-400"
                                 style={{
-                                  fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                                  fontSize: '13px',
-                                  color: '#333'
+                                  fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+                                  fontSize: '14px',
+                                  color: '#37352F'
                                 }}
                               />
                             ) :
@@ -1598,9 +1598,9 @@ export function EntityDataTable<T = any>({
                                 onClick={(e) => e.stopPropagation()}
                                 className="w-full px-2 py-1.5 border border-dark-400 rounded focus:ring-2 focus:ring-gray-500 focus:border-dark-400"
                                 style={{
-                                  fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                                  fontSize: '13px',
-                                  color: '#333'
+                                  fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+                                  fontSize: '14px',
+                                  color: '#37352F'
                                 }}
                               />
                             ) : (
@@ -1612,9 +1612,9 @@ export function EntityDataTable<T = any>({
                                 onClick={(e) => e.stopPropagation()}
                                 className="w-full px-2 py-1.5 border border-dark-400 rounded focus:ring-2 focus:ring-gray-500 focus:border-dark-400"
                                 style={{
-                                  fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                                  fontSize: '13px',
-                                  color: '#333'
+                                  fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+                                  fontSize: '14px',
+                                  color: '#37352F'
                                 }}
                               />
                             )
@@ -1628,9 +1628,9 @@ export function EntityDataTable<T = any>({
                                 padding: '2px 8px',
                                 overflow: 'hidden',
                                 whiteSpace: 'nowrap',
-                                fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                                fontSize: '13px',
-                                color: '#333',
+                                fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+                                fontSize: '14px',
+                                color: '#37352F',
                                 userSelect: 'none',
                                 cursor: 'inherit'
                               } as React.CSSProperties}

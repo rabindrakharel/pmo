@@ -79,7 +79,7 @@ export async function universalEntityDelete(
       SET active_flag = false,
           to_ts = NOW(),
           updated_ts = NOW()
-      WHERE id = ${entityId}::uuid
+      WHERE id::text = ${entityId}
     `);
 
     // STEP 2: Soft-delete from entity instance registry
@@ -89,7 +89,7 @@ export async function universalEntityDelete(
         SET active_flag = false,
             updated_ts = NOW()
         WHERE entity_type = ${entityType}
-          AND entity_id = ${entityId}::uuid
+          AND entity_id::text = ${entityId}
       `);
     }
 
@@ -101,7 +101,7 @@ export async function universalEntityDelete(
         SET active_flag = false,
             updated_ts = NOW()
         WHERE child_entity_type = ${entityType}
-          AND child_entity_id = ${entityId}::uuid
+          AND child_entity_id = ${entityId}
       `);
 
       // Soft-delete linkages where this entity is a parent
@@ -110,7 +110,7 @@ export async function universalEntityDelete(
         SET active_flag = false,
             updated_ts = NOW()
         WHERE parent_entity_type = ${entityType}
-          AND parent_entity_id = ${entityId}::uuid
+          AND parent_entity_id = ${entityId}
       `);
     }
   } catch (error) {
@@ -132,7 +132,7 @@ export async function entityExists(
   const result = await db.execute(sql`
     SELECT 1
     FROM app.${tableIdentifier}
-    WHERE id = ${entityId}::uuid
+    WHERE id::text = ${entityId}
       AND active_flag = true
     LIMIT 1
   `);
