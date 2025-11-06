@@ -68,7 +68,7 @@ CREATE TABLE app.d_employee (
   country varchar(100) DEFAULT 'Canada',
 
   -- Employment details
-  employee_type varchar(50) DEFAULT 'full-time', -- full-time, part-time, contract, temporary, intern
+  dl__employee_employment_type text, -- References app.setting_datalabel (datalabel_name='dl__employee_employment_type')
   department varchar(100),
   title varchar(200),
   hire_date date,
@@ -89,8 +89,8 @@ CREATE TABLE app.d_employee (
   -- Compliance and tracking
   sin varchar(20), -- Social Insurance Number (Canada)
   birth_date date,
-  citizenship varchar(100),
-  security_clearance varchar(50),
+  dl__employee_citizenship_status text, -- References app.setting_datalabel (datalabel_name='dl__employee_citizenship_status')
+  dl__employee_security_clearance text, -- References app.setting_datalabel (datalabel_name='dl__employee_security_clearance')
 
   -- Work preferences and attributes
   remote_work_eligible_flag boolean DEFAULT false,
@@ -120,15 +120,15 @@ INSERT INTO app.d_employee (
     province,
     postal_code,
     country,
-    employee_type,
+    dl__employee_employment_type,
     department,
     title,
     hire_date,
     salary_band,
     pay_grade,
     sin,
-    citizenship,
-    security_clearance,
+    dl__employee_citizenship_status,
+    dl__employee_security_clearance,
     remote_work_eligible_flag,
     time_zone,
     preferred_language,
@@ -150,14 +150,14 @@ INSERT INTO app.d_employee (
     'Ontario',
     'N6A 1A1',
     'Canada',
-    'full-time',
+    'Full-time',
     'Executive',
     'Chief Executive Officer',
     '2020-01-01',
     'Executive',
     'C1',
     '123-456-789',
-    'Canadian',
+    'Canadian Citizen',
     'Enhanced',
     true,
     'America/Toronto',
@@ -187,17 +187,17 @@ INSERT INTO app.d_employee (
     first_name,
     last_name,
     phone,
-    employee_type,
+    dl__employee_employment_type,
     department,
     title,
     hire_date,
     manager_employee_id,
     skills_service_categories
 ) VALUES
-('EMP-002', 'Sarah Johnson', 'Chief Operating Officer responsible for day-to-day operations', 'sarah.johnson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Sarah', 'Johnson', '+1-519-555-0002', 'full-time', 'Operations', 'Chief Operating Officer', '2020-02-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping']::text[]),
-('EMP-003', 'Michael Chen', 'Chief Technology Officer overseeing IT infrastructure and development', 'michael.chen@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Michael', 'Chen', '+1-519-555-0003', 'full-time', 'Technology', 'Chief Technology Officer', '2020-03-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY[]::text[]),
-('EMP-004', 'Lisa Rodriguez', 'Vice President of Sales managing client relationships and revenue_amt', 'lisa.rodriguez@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Lisa', 'Rodriguez', '+1-519-555-0004', 'full-time', 'Sales', 'Vice President of Sales', '2020-04-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting']::text[]),
-('EMP-005', 'David Thompson', 'Senior Project Manager for landscaping and maintenance projects', 'david.thompson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'David', 'Thompson', '+1-519-555-0005', 'full-time', 'Operations', 'Senior Project Manager', '2020-05-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['Landscaping']::text[]);
+('EMP-002', 'Sarah Johnson', 'Chief Operating Officer responsible for day-to-day operations', 'sarah.johnson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Sarah', 'Johnson', '+1-519-555-0002', 'Full-time', 'Operations', 'Chief Operating Officer', '2020-02-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping']::text[]),
+('EMP-003', 'Michael Chen', 'Chief Technology Officer overseeing IT infrastructure and development', 'michael.chen@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Michael', 'Chen', '+1-519-555-0003', 'Full-time', 'Technology', 'Chief Technology Officer', '2020-03-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY[]::text[]),
+('EMP-004', 'Lisa Rodriguez', 'Vice President of Sales managing client relationships and revenue_amt', 'lisa.rodriguez@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Lisa', 'Rodriguez', '+1-519-555-0004', 'Full-time', 'Sales', 'Vice President of Sales', '2020-04-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting']::text[]),
+('EMP-005', 'David Thompson', 'Senior Project Manager for landscaping and maintenance projects', 'david.thompson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'David', 'Thompson', '+1-519-555-0005', 'Full-time', 'Operations', 'Senior Project Manager', '2020-05-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['Landscaping']::text[]);
 
 COMMENT ON TABLE app.d_employee IS 'Employee entities with authentication, contact info, and organizational assignments';-- =====================================================
 -- COMPREHENSIVE EMPLOYEE DATA GENERATION (500+ Employees)
@@ -408,7 +408,7 @@ BEGIN
             code, name, descr, email, password_hash,
             first_name, last_name, phone, mobile,
             address_line1, city, province, postal_code, country,
-            employee_type, department, title, hire_date, manager_employee_id,
+            dl__employee_employment_type, department, title, hire_date, manager_employee_id,
             skills_service_categories
         ) VALUES (
             v_code,
@@ -425,7 +425,12 @@ BEGIN
             v_province,
             v_postal_code,
             'Canada',
-            v_emp_type,
+            CASE v_emp_type
+                WHEN 'full-time' THEN 'Full-time'
+                WHEN 'part-time' THEN 'Part-time'
+                WHEN 'seasonal' THEN 'Seasonal'
+                ELSE v_emp_type
+            END,
             v_department,
             v_title,
             v_hire_date,

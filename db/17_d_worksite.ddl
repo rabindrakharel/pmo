@@ -69,7 +69,7 @@ CREATE TABLE app.d_worksite (
   water_available_flag boolean DEFAULT false,
 
   -- Safety and compliance
-  safety_rating text,
+  dl__worksite_safety_rating text, -- References app.setting_datalabel (datalabel_name='dl__worksite_safety_rating')
   safety_last_inspection_date date,
   environmental_permits jsonb DEFAULT '[]'::jsonb,
 
@@ -92,7 +92,7 @@ CREATE TABLE app.d_worksite (
 INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
   security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
-  washroom_facilities_flag, power_available_flag, water_available_flag, safety_rating,
+  washroom_facilities_flag, power_available_flag, water_available_flag, dl__worksite_safety_rating,
   safety_last_inspection_date, seasonal_use_flag, metadata
 ) VALUES
 ('HHS-HQ', 'Huron Home Services HQ',
@@ -112,7 +112,7 @@ INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_cod
  true,
  true,
  true,
- 'A+',
+ 'Excellent',
  CURRENT_DATE - INTERVAL '30 days',
  false,
  '{
@@ -125,7 +125,7 @@ INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_cod
 INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
   security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
-  washroom_facilities_flag, power_available_flag, water_available_flag, safety_rating,
+  washroom_facilities_flag, power_available_flag, water_available_flag, dl__worksite_safety_rating,
   safety_last_inspection_date, seasonal_use_flag, metadata
 ) VALUES
 ('HHS-TOR-SC', 'Toronto Service Center',
@@ -145,7 +145,7 @@ INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_cod
  true,
  true,
  true,
- 'A',
+ 'Very Good',
  CURRENT_DATE - INTERVAL '45 days',
  false,
  '{
@@ -155,10 +155,10 @@ INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_cod
 
 -- Seasonal Winter Operations Center
 INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
-  latitude, longitude, capacity_workers, equipment_storage, vehicle_parking,
-  security_required, indoor_space_sqft, outdoor_space_sqft, office_space,
-  washroom_facilities, power_available, water_available, safety_rating,
-  safety_last_inspection, seasonal_use, seasonal_period, metadata
+  latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
+  security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
+  washroom_facilities_flag, power_available_flag, water_available_flag, dl__worksite_safety_rating,
+  safety_last_inspection_date, seasonal_use_flag, seasonal_period, metadata
 ) VALUES
 ('HHS-WINTER-STG', 'Winter Ops - Equipment Staging',
  'Seasonal winter operations facility for snow removal equipment staging, salt storage, and emergency response coordination',
@@ -177,7 +177,7 @@ INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_cod
  true,
  true,
  true,
- 'A',
+ 'Very Good',
  CURRENT_DATE - INTERVAL '15 days',
  true,
  'winter',
@@ -191,7 +191,7 @@ INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_cod
 INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
   security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
-  washroom_facilities_flag, power_available_flag, water_available_flag, safety_rating,
+  washroom_facilities_flag, power_available_flag, water_available_flag, dl__worksite_safety_rating,
   safety_last_inspection_date, seasonal_use_flag, metadata
 ) VALUES
 ('HHS-SOL-1847', 'Solar Install - 1847 Sheridan Park Dr',
@@ -211,7 +211,7 @@ INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_cod
  false,
  true,
  false,
- 'B+',
+ 'Good',
  CURRENT_DATE - INTERVAL '7 days',
  false,
  '{
@@ -223,7 +223,7 @@ INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_cod
 INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
   security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
-  washroom_facilities_flag, power_available_flag, water_available_flag, safety_rating,
+  washroom_facilities_flag, power_available_flag, water_available_flag, dl__worksite_safety_rating,
   safety_last_inspection_date, seasonal_use_flag, metadata
 ) VALUES
 ('HHS-LAND-SQ1', 'Landscaping - Square One Plaza',
@@ -243,7 +243,7 @@ INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_cod
  true,
  true,
  true,
- 'A',
+ 'Very Good',
  CURRENT_DATE - INTERVAL '10 days',
  false,
  '{
@@ -255,7 +255,7 @@ INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_cod
 INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
   security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
-  washroom_facilities_flag, power_available_flag, water_available_flag, safety_rating,
+  washroom_facilities_flag, power_available_flag, water_available_flag, dl__worksite_safety_rating,
   safety_last_inspection_date, seasonal_use_flag, metadata
 ) VALUES
 ('HHS-EQUIP-MV', 'Equipment Storage - Meadowvale',
@@ -275,7 +275,7 @@ INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_cod
  true,
  true,
  true,
- 'A',
+ 'Very Good',
  CURRENT_DATE - INTERVAL '20 days',
  false,
  '{
