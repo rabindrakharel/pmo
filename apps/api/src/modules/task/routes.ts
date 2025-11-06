@@ -9,7 +9,7 @@ import {
   filterUniversalColumns,
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
-import { universalEntityDelete } from '../../lib/entity-delete-route-factory.js';
+import { universalEntityDelete, createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 
 const TaskSchema = Type.Object({
   id: Type.String(),
@@ -572,62 +572,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Delete task (soft delete)
-  fastify.delete('/api/v1/task/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
-      response: {
-        204: Type.Null(),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    // Direct RBAC check for task delete access
-    const taskDeleteAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'task'
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 3 = ANY(rbac.permission)
-    `);
-
-    if (taskDeleteAccess.length === 0) {
-      return reply.status(403).send({ error: 'Insufficient permissions to delete this task' });
-    }
-
-    try {
-      // Check if task exists
-      const existing = await db.execute(sql`
-        SELECT id FROM app.d_task WHERE id = ${id}
-      `);
-      
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Task not found' });
-      }
-
-      // Use universal delete factory for consistent cascading delete
-      await universalEntityDelete('task', id);
-
-      return reply.status(204).send();
-    } catch (error) {
-      fastify.log.error('Error deleting task:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
+  // Delete task with cascading cleanup (soft delete)
+  // Uses universal delete factory pattern - deletes from:
+  // 1. app.d_task (base entity table)
+  // 2. app.d_entity_instance_id (entity registry)
+  // 3. app.d_entity_id_map (linkages in both directions)
+  createEntityDeleteEndpoint(fastify, 'task');
 
   // Kanban status update endpoint (for drag-drop operations)
   fastify.patch('/api/v1/task/:id/status', {
