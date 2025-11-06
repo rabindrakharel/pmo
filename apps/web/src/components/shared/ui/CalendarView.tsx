@@ -1,21 +1,23 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronDown, ChevronUp, User, Users, Building } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronDown, ChevronUp, User, Users, Building, Edit2, Trash2 } from 'lucide-react';
 import type { EntityConfig } from '../../../lib/entityConfig';
+import { CalendarEventModal, type CalendarEvent, type EventFormData } from './CalendarEventModal';
 
 /**
- * CalendarView Component
+ * CalendarView Component with Drag-and-Drop
  *
  * Displays calendar slots in a weekly calendar grid format with person entity filtering.
  * Designed for the person-calendar entity to show availability and bookings.
  *
  * Features:
  * - Week-based calendar view
- * - Multi-select person filter with checkboxes (employees, clients, customers)
+ * - Multi-select person filter with checkboxes (employees, customers)
  * - Collapsible sidebar for person selection
  * - Color-coded availability (green=available, red=booked)
- * - Overlayed view for multiple people
- * - Time slot display (15-minute increments)
- * - Click to view/edit calendar slots
+ * - Drag-and-drop to create new events
+ * - Drag-and-drop to move existing events
+ * - Click to edit event details
+ * - Visual feedback during drag operations
  */
 
 interface CalendarViewProps {
@@ -37,6 +39,14 @@ interface PersonEntity {
   name: string;
   type: 'employee' | 'customer';
   email?: string;
+}
+
+interface DragState {
+  isCreating: boolean;
+  isMoving: boolean;
+  dragStartSlot: { date: Date; hour: number; minute: number; personId?: string } | null;
+  dragEndSlot: { date: Date; hour: number; minute: number } | null;
+  movingEventId: string | null;
 }
 
 const PERSON_TYPE_COLORS = {
@@ -61,6 +71,21 @@ export function CalendarView({
   const [loading, setLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['employee']));
+
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+  const [modalData, setModalData] = useState<CalendarEvent | null>(null);
+
+  // Drag state
+  const [dragState, setDragState] = useState<DragState>({
+    isCreating: false,
+    isMoving: false,
+    dragStartSlot: null,
+    dragEndSlot: null,
+    movingEventId: null
+  });
+  const [dragOverSlot, setDragOverSlot] = useState<{ date: Date; hour: number; minute: number } | null>(null);
 
   // Fetch all person entities (employees, clients, customers)
   useEffect(() => {
@@ -268,6 +293,241 @@ export function CalendarView({
     }
   };
 
+  // Drag-and-drop handlers
+  const handleMouseDown = (date: Date, hour: number, minute: number, existingSlot?: any) => {
+    if (existingSlot && !existingSlot.availability_flag) {
+      // Start moving an existing booked event
+      setDragState({
+        isCreating: false,
+        isMoving: true,
+        dragStartSlot: { date, hour, minute },
+        dragEndSlot: null,
+        movingEventId: existingSlot.id
+      });
+    } else {
+      // Start creating a new event
+      // Use the first selected person, or the first available person
+      const firstSelectedPerson = Array.from(selectedPersonIds)[0] || people[0]?.id;
+      setDragState({
+        isCreating: true,
+        isMoving: false,
+        dragStartSlot: { date, hour, minute, personId: firstSelectedPerson },
+        dragEndSlot: { date, hour, minute },
+        movingEventId: null
+      });
+    }
+  };
+
+  const handleMouseEnter = (date: Date, hour: number, minute: number) => {
+    if (dragState.isCreating && dragState.dragStartSlot) {
+      setDragState(prev => ({
+        ...prev,
+        dragEndSlot: { date, hour, minute }
+      }));
+    }
+    if (dragState.isMoving) {
+      setDragOverSlot({ date, hour, minute });
+    }
+  };
+
+  const handleMouseUp = async (date: Date, hour: number, minute: number) => {
+    if (dragState.isCreating && dragState.dragStartSlot) {
+      // Create new event
+      const { dragStartSlot, dragEndSlot } = dragState;
+      if (dragEndSlot) {
+        const startTime = new Date(dragStartSlot.date);
+        startTime.setHours(dragStartSlot.hour, dragStartSlot.minute, 0, 0);
+
+        const endTime = new Date(dragEndSlot.date);
+        endTime.setHours(dragEndSlot.hour, dragEndSlot.minute + 15, 0, 0); // Add 15 minutes to include the end slot
+
+        // Open modal to fill in details
+        const person = getPersonById(dragStartSlot.personId || Array.from(selectedPersonIds)[0] || people[0]?.id);
+        setModalData({
+          person_entity_type: person?.type || 'employee',
+          person_entity_id: person?.id || '',
+          from_ts: startTime.toISOString(),
+          to_ts: endTime.toISOString(),
+          timezone: 'America/Toronto',
+          availability_flag: false, // Default to booking
+          title: '',
+          appointment_medium: 'onsite',
+          appointment_addr: '',
+          instructions: ''
+        });
+        setModalMode('create');
+        setModalOpen(true);
+      }
+    } else if (dragState.isMoving && dragState.movingEventId && dragOverSlot) {
+      // Move existing event
+      await handleMoveEvent(dragState.movingEventId, dragOverSlot);
+    }
+
+    // Reset drag state
+    setDragState({
+      isCreating: false,
+      isMoving: false,
+      dragStartSlot: null,
+      dragEndSlot: null,
+      movingEventId: null
+    });
+    setDragOverSlot(null);
+  };
+
+  const handleMoveEvent = async (eventId: string, newSlot: { date: Date; hour: number; minute: number }) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+
+      // Find the original event
+      const originalEvent = filteredData.find(slot => slot.id === eventId);
+      if (!originalEvent) return;
+
+      // Calculate the duration of the original event
+      const originalStart = new Date(originalEvent.from_ts);
+      const originalEnd = new Date(originalEvent.to_ts);
+      const durationMs = originalEnd.getTime() - originalStart.getTime();
+
+      // Calculate new start and end times
+      const newStart = new Date(newSlot.date);
+      newStart.setHours(newSlot.hour, newSlot.minute, 0, 0);
+      const newEnd = new Date(newStart.getTime() + durationMs);
+
+      // Update the event
+      const response = await fetch(`${apiBaseUrl}/api/v1/person-calendar/${eventId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from_ts: newStart.toISOString(),
+          to_ts: newEnd.toISOString()
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to move event');
+      }
+
+      // Refresh data
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to move event:', error);
+      alert('Failed to move event. Please try again.');
+    }
+  };
+
+  const handleEditSlot = (slot: any) => {
+    setModalData({
+      id: slot.id,
+      person_entity_type: slot.person_entity_type,
+      person_entity_id: slot.person_entity_id,
+      from_ts: slot.from_ts,
+      to_ts: slot.to_ts,
+      timezone: slot.timezone || 'America/Toronto',
+      availability_flag: slot.availability_flag,
+      title: slot.title || '',
+      appointment_medium: slot.appointment_medium || 'onsite',
+      appointment_addr: slot.appointment_addr || '',
+      instructions: slot.instructions || ''
+    });
+    setModalMode('edit');
+    setModalOpen(true);
+  };
+
+  const handleDeleteSlot = async (slotId: string) => {
+    if (!window.confirm('Are you sure you want to delete this calendar slot?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+
+      const response = await fetch(`${apiBaseUrl}/api/v1/person-calendar/${slotId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete slot');
+      }
+
+      // Refresh data
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to delete slot:', error);
+      alert('Failed to delete slot. Please try again.');
+    }
+  };
+
+  const handleSaveEvent = async (eventData: EventFormData) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+
+      const url = modalMode === 'create'
+        ? `${apiBaseUrl}/api/v1/person-calendar`
+        : `${apiBaseUrl}/api/v1/person-calendar/${modalData?.id}`;
+
+      const method = modalMode === 'create' ? 'POST' : 'PATCH';
+
+      // Generate unique code for new events
+      const code = modalMode === 'create'
+        ? `${eventData.person_entity_type.toUpperCase().slice(0, 3)}-CAL-${Date.now()}`
+        : undefined;
+
+      const body = modalMode === 'create'
+        ? { ...eventData, code, name: eventData.title || 'Calendar Slot' }
+        : eventData;
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${modalMode} event`);
+      }
+
+      // Refresh data
+      window.location.reload();
+    } catch (error) {
+      console.error(`Failed to ${modalMode} event:`, error);
+      throw error;
+    }
+  };
+
+  // Check if a slot is in the drag selection
+  const isInDragSelection = (date: Date, hour: number, minute: number): boolean => {
+    if (!dragState.isCreating || !dragState.dragStartSlot || !dragState.dragEndSlot) {
+      return false;
+    }
+
+    const { dragStartSlot, dragEndSlot } = dragState;
+    const currentTime = new Date(date);
+    currentTime.setHours(hour, minute, 0, 0);
+
+    const startTime = new Date(dragStartSlot.date);
+    startTime.setHours(dragStartSlot.hour, dragStartSlot.minute, 0, 0);
+
+    const endTime = new Date(dragEndSlot.date);
+    endTime.setHours(dragEndSlot.hour, dragEndSlot.minute, 0, 0);
+
+    const minTime = startTime < endTime ? startTime : endTime;
+    const maxTime = startTime > endTime ? startTime : endTime;
+
+    return currentTime >= minTime && currentTime <= maxTime;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -394,6 +654,9 @@ export function CalendarView({
               <span className="font-medium">
                 {selectedPersonIds.size} {selectedPersonIds.size === 1 ? 'person' : 'people'} selected
               </span>
+              <span className="text-xs text-dark-700 ml-2">
+                (Drag on empty slots to create events, drag events to move them)
+              </span>
             </div>
 
             {/* Week Navigation */}
@@ -430,7 +693,7 @@ export function CalendarView({
           {/* Calendar Grid */}
           <div className="border border-dark-300 rounded-lg overflow-hidden">
             <div className="overflow-x-auto max-h-[calc(100vh-220px)]">
-              <table className="w-full border-collapse">
+              <table className="w-full border-collapse select-none">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-dark-100">
                     <th className="border border-dark-300 px-3 py-2 text-left text-sm font-medium text-dark-600 w-24 sticky left-0 bg-dark-100">
@@ -452,13 +715,21 @@ export function CalendarView({
                       </td>
                       {weekDays.map((day, dayIdx) => {
                         const slots = getSlots(day, hour, minute);
+                        const isInSelection = isInDragSelection(day, hour, minute);
+                        const isDragOver = dragOverSlot &&
+                          dragOverSlot.date.toISOString().split('T')[0] === day.toISOString().split('T')[0] &&
+                          dragOverSlot.hour === hour &&
+                          dragOverSlot.minute === minute;
 
                         return (
                           <td
                             key={dayIdx}
                             className={`border border-dark-300 px-1 py-1 text-xs align-top ${
-                              slots.length > 0 ? 'cursor-pointer' : ''
-                            }`}
+                              isInSelection ? 'bg-blue-100 border-blue-400' : ''
+                            } ${isDragOver ? 'bg-yellow-100 border-yellow-400' : ''} cursor-pointer`}
+                            onMouseDown={() => handleMouseDown(day, hour, minute, slots[0])}
+                            onMouseEnter={() => handleMouseEnter(day, hour, minute)}
+                            onMouseUp={() => handleMouseUp(day, hour, minute)}
                           >
                             {slots.length > 0 && (
                               <div className="space-y-0.5">
@@ -471,8 +742,7 @@ export function CalendarView({
                                   return (
                                     <div
                                       key={slotIdx}
-                                      onClick={() => onSlotClick?.(slot)}
-                                      className={`px-1.5 py-1 rounded ${
+                                      className={`px-1.5 py-1 rounded group relative ${
                                         isAvailable ? 'bg-green-50 hover:bg-green-100' :
                                         isBooked ? colors.bg + ' hover:opacity-80' :
                                         'bg-dark-50'
@@ -480,19 +750,43 @@ export function CalendarView({
                                         isAvailable ? 'border-green-200' :
                                         isBooked ? colors.border :
                                         'border-dark-200'
-                                      } transition-colors cursor-pointer`}
+                                      } transition-colors cursor-move`}
                                       title={`${person?.name || 'Unknown'}: ${slot.title || (isAvailable ? 'Available' : 'Booked')}`}
+                                      draggable={isBooked}
                                     >
                                       <div className="flex items-center gap-1">
                                         <div className={`w-1.5 h-1.5 rounded-full ${colors.dot} flex-shrink-0`} />
                                         {isBooked && slot.title && (
-                                          <div className={`font-medium ${colors.text} truncate text-xs`}>
+                                          <div className={`font-medium ${colors.text} truncate text-xs flex-1`}>
                                             {slot.title}
                                           </div>
                                         )}
                                         {isAvailable && (
                                           <div className="text-green-700 text-xs">Available</div>
                                         )}
+                                      </div>
+                                      {/* Action buttons (show on hover) */}
+                                      <div className="absolute right-1 top-1 hidden group-hover:flex gap-1">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEditSlot(slot);
+                                          }}
+                                          className="p-0.5 bg-white rounded shadow hover:bg-blue-50"
+                                          title="Edit"
+                                        >
+                                          <Edit2 className="h-3 w-3 text-blue-600" />
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteSlot(slot.id);
+                                          }}
+                                          className="p-0.5 bg-white rounded shadow hover:bg-red-50"
+                                          title="Delete"
+                                        >
+                                          <Trash2 className="h-3 w-3 text-red-600" />
+                                        </button>
                                       </div>
                                     </div>
                                   );
@@ -523,6 +817,10 @@ export function CalendarView({
               <div className="w-3 h-3 bg-purple-100 border border-purple-300 rounded" />
               <span>Customer Booked</span>
             </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-blue-100 border border-blue-400 rounded" />
+              <span>Drag Selection</span>
+            </div>
           </div>
 
           {/* Empty State */}
@@ -539,6 +837,20 @@ export function CalendarView({
           )}
         </div>
       </div>
+
+      {/* Event Modal */}
+      <CalendarEventModal
+        isOpen={modalOpen}
+        onClose={() => {
+          setModalOpen(false);
+          setModalData(null);
+        }}
+        onSave={handleSaveEvent}
+        initialData={modalData}
+        mode={modalMode}
+        employees={peopleByType.employee || []}
+        customers={peopleByType.customer || []}
+      />
     </div>
   );
 }
