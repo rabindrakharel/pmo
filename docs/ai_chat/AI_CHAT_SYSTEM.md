@@ -2,6 +2,17 @@
 
 **Version:** 2.1.0 | **Status:** Production | **Updated:** 2025-11-06
 
+> **🚀 ENHANCED ARCHITECTURE AVAILABLE:** For stateful multi-agent workflows with intent graphs, conversation boundaries, and cost optimization, see the **[Multi-Agent Orchestrator](../orchestrator/README.md)**.
+>
+> The orchestrator provides:
+> - External state management (prevents context loss)
+> - Specialized agents (Critic, Evaluator, Worker)
+> - Intent graph templates for reliable workflows
+> - 30-85% cost reduction through model optimization
+> - Auto-goodbye/hangup for off-topic conversations
+>
+> This document covers the direct OpenAI integration approach. Use this for simple chat scenarios. Use the orchestrator for complex, stateful workflows.
+
 ---
 
 ## 1. Semantics & Business Context

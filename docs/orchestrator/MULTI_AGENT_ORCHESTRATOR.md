@@ -1,5 +1,11 @@
 # Multi-Agent LLM Orchestrator Framework
 
+> **📌 DOCUMENTATION UPDATED:** This document has been superseded by the consolidated technical reference.
+>
+> **Please refer to:** [`README.md`](./README.md) for the complete, up-to-date orchestrator documentation.
+>
+> This file is kept for historical reference only.
+
 **Version:** 1.0.0 | **Status:** Production Ready | **Updated:** 2025-11-06
 
 ---
