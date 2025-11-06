@@ -21,7 +21,7 @@ import { FormBuilderPage, FormEditPage, FormDataPreviewPage, PublicFormPage } fr
 import { WikiEditorPage } from './pages/wiki';
 
 // Artifact Pages
-import { ArtifactUploadPage } from './pages/artifact';
+// Note: Using EntityCreatePage instead of custom ArtifactUploadPage
 
 // Workflow Pages
 import { WorkflowDetailPage } from './pages/workflow';
@@ -40,7 +40,7 @@ import { DevelopersPage } from './pages/DevelopersPage';
 // Profile & Settings Pages
 import { ProfilePage } from './pages/profile';
 import { LabelsPage } from './pages/labels';
-import { SettingsPage, DataLabelPage, IntegrationsPage, SettingsOverviewPage, EntityLinkagePage, SettingDetailPage } from './pages/setting';
+import { DataLabelPage, IntegrationsPage, SettingsOverviewPage, EntityLinkagePage, SettingDetailPage } from './pages/setting';
 import { SecurityPage } from './pages/security';
 import { BillingPage } from './pages/billing';
 import { LinkagePage } from './pages/LinkagePage';
@@ -51,15 +51,6 @@ import { EntityMainPage, EntityDetailPage, EntityChildListPage, EntityCreatePage
 
 // Entity Configuration
 import { entityConfigs } from './lib/entityConfig';
-
-// Wrapper component to map :category param to EntityMainPage entityType
-function SettingDetailPageWrapper() {
-  const { category } = useParams<{ category: string }>();
-  if (!category) {
-    return <Navigate to="/settings/data-labels" replace />;
-  }
-  return <EntityMainPage entityType={category} />;
-}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
