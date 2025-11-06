@@ -79,7 +79,11 @@
       "Bash(timeout 3 ./tools/logs-api.sh:*)",
       "Bash(timeout 3 ./tools/logs-web.sh:*)",
       "Bash(jq:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": [],
