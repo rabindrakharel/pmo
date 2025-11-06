@@ -56,10 +56,14 @@ async function criticNode(state: OrchestratorState): Promise<StateUpdate> {
   const { boundaries } = graph;
   const userMessage = state.userMessage?.toLowerCase() || '';
 
-  // Check forbidden topics
-  const isForbidden = boundaries.forbiddenTopics.some(topic =>
-    userMessage.includes(topic.toLowerCase())
-  );
+  // Check forbidden topics using whole-word matching to avoid false positives
+  // (e.g., "news" shouldn't match in postal code "n3s 3k3")
+  const isForbidden = boundaries.forbiddenTopics.some(topic => {
+    const topicLower = topic.toLowerCase();
+    // Use word boundary regex for more accurate matching
+    const regex = new RegExp(`\\b${topicLower}\\b`, 'i');
+    return regex.test(userMessage);
+  });
 
   if (isForbidden) {
     const newOffTopicCount = state.offTopicCount + 1;
