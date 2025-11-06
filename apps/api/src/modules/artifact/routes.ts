@@ -4,6 +4,7 @@ import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import { s3AttachmentService } from '@/lib/s3-attachments.js';
 import { config } from '@/lib/config.js';
+import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 
 // Artifact schemas aligned with actual app.d_artifact columns
 const ArtifactSchema = Type.Object({
@@ -306,33 +307,13 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Delete artifact (soft delete)
-  fastify.delete('/api/v1/artifact/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      tags: ['artifact'],
-      summary: 'Delete artifact',
-      params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-      response: { 204: Type.Null() },
-    },
-  }, async (request, reply) => {
-    const { id } = request.params as any;
-
-    try {
-      const result = await db.execute(sql`
-        UPDATE app.d_artifact
-        SET active_flag = false, updated_ts = NOW(), to_ts = NOW()
-        WHERE id = ${id} AND active_flag = true
-        RETURNING id
-      `);
-
-      if (!result.length) return reply.status(404).send({ error: 'Not found' });
-      return reply.status(204).send();
-    } catch (error) {
-      fastify.log.error('Error deleting artifact:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
+  // Delete artifact with cascading cleanup (soft delete)
+  // Uses universal delete factory pattern - deletes from:
+  // 1. app.d_artifact (base entity table)
+  // 2. app.d_entity_instance_id (entity registry)
+  // 3. app.d_entity_id_map (linkages in both directions)
+  // Adds proper RBAC checks and entity existence validation
+  createEntityDeleteEndpoint(fastify, 'artifact');
 
   // Upload artifact file (generates presigned URL and saves metadata)
   fastify.post('/api/v1/artifact/upload', {

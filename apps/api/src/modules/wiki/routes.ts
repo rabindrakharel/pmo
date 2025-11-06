@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 
 const WikiSchema = Type.Object({
   id: Type.String(),
@@ -580,72 +581,11 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Delete (soft)
-  fastify.delete('/api/v1/wiki/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-      response: {
-        204: Type.Null(),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })
-      }
-    }
-  }, async (request, reply) => {
-    const { id } = request.params as any;
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    // RBAC check for wiki delete access
-    const wikiDeleteAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'wiki'
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 3 = ANY(rbac.permission)
-    `);
-
-    if (wikiDeleteAccess.length === 0) {
-      return reply.status(403).send({ error: 'Insufficient permissions to delete this wiki' });
-    }
-
-    try {
-      // Check if wiki exists
-      const existing = await db.execute(sql`
-        SELECT id FROM app.d_wiki WHERE id = ${id} AND active_flag = true
-      `);
-
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Wiki not found' });
-      }
-
-      // Soft delete the wiki
-      const deleted = await db.execute(sql`
-        UPDATE app.d_wiki SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
-        WHERE id = ${id} AND active_flag = true
-        RETURNING id
-      `);
-
-      if (!deleted.length) return reply.status(404).send({ error: 'Not found' });
-
-      // Also soft delete from d_entity_instance_id
-      await db.execute(sql`
-        UPDATE app.d_entity_instance_id
-        SET active_flag = false, updated_ts = NOW()
-        WHERE entity_type = 'wiki' AND entity_id = ${id}::uuid
-      `);
-
-      return reply.status(204).send();
-    } catch (e) {
-      fastify.log.error('Error delete wiki: ' + String(e));
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
+  // Delete wiki with cascading cleanup (soft delete)
+  // Uses universal delete factory pattern - deletes from:
+  // 1. app.d_wiki (base entity table)
+  // 2. app.d_entity_instance_id (entity registry)
+  // 3. app.d_entity_id_map (linkages in both directions)
+  createEntityDeleteEndpoint(fastify, 'wiki');
 }
 

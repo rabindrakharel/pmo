@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 
 // Response schema matching minimalistic database structure
 const FormSchema = Type.Object({
@@ -1080,60 +1081,10 @@ export async function formRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Soft delete form
-  fastify.delete('/api/v1/form/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String(),
-      }),
-      response: {
-        200: Type.Object({ message: Type.String() }),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
-    try {
-      const userId = request.user?.sub;
-      if (!userId) {
-        return reply.status(401).send({ error: 'Unauthorized' });
-      }
-
-      const { id } = request.params as { id: string };
-
-      // Check delete permission (permission 3)
-      const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'form'
-          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 3 = ANY(rbac.permission)
-        LIMIT 1
-      `);
-
-      if (hasPermission.length === 0) {
-        return reply.status(403).send({ error: 'No permission to delete this form' });
-      }
-
-      // Soft delete - set active_flag = false and to_ts = NOW()
-      const result = await db.execute(sql`
-        UPDATE app.d_form_head
-        SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
-        WHERE id = ${id} AND active_flag = true
-        RETURNING id
-      `);
-
-      if (result.length === 0) {
-        return reply.status(404).send({ error: 'Form not found or already deleted' });
-      }
-
-      return { message: 'Form deleted successfully' };
-    } catch (error) {
-      fastify.log.error('Error deleting form: ' + String(error));
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
+  // Delete form with cascading cleanup (soft delete)
+  // Uses universal delete factory pattern - deletes from:
+  // 1. app.d_form_head (base entity table)
+  // 2. app.d_entity_instance_id (entity registry)
+  // 3. app.d_entity_id_map (linkages in both directions)
+  createEntityDeleteEndpoint(fastify, 'form');
 }
