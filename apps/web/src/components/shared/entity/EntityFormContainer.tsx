@@ -12,73 +12,15 @@ import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
 import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField } from '../../../lib/data_transform_render';
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';
+import { getBadgeClass, textStyles } from '../../../lib/designSystem';
 
 /**
  * Helper function to render badge with color based on field type and value
+ * Now uses the centralized design system for consistency
  */
 function renderFieldBadge(fieldKey: string, value: string): React.ReactNode {
-  // Priority field colors
-  if (fieldKey.toLowerCase().includes('priority')) {
-    const colorMap: Record<string, string> = {
-      'high': 'bg-red-100 text-red-800',
-      'medium': 'bg-yellow-100 text-yellow-800',
-      'low': 'bg-green-100 text-green-800',
-      'critical': 'bg-red-200 text-red-900',
-      'urgent': 'bg-orange-100 text-orange-800'
-    };
-    const colorClass = colorMap[value.toLowerCase()] || 'bg-dark-100 text-dark-600';
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
-        {value}
-      </span>
-    );
-  }
-
-  // Stage field colors
-  if (fieldKey.toLowerCase().includes('stage')) {
-    const colorMap: Record<string, string> = {
-      'initiation': 'bg-dark-100 text-dark-600',
-      'planning': 'bg-indigo-100 text-indigo-800',
-      'execution': 'bg-purple-100 text-purple-800',
-      'monitoring': 'bg-yellow-100 text-yellow-800',
-      'closure': 'bg-green-100 text-green-800',
-      'backlog': 'bg-dark-100 text-dark-600',
-      'to do': 'bg-dark-100 text-dark-600',
-      'in progress': 'bg-purple-100 text-purple-800',
-      'in review': 'bg-yellow-100 text-yellow-800',
-      'done': 'bg-green-100 text-green-800',
-      'blocked': 'bg-red-100 text-red-800'
-    };
-    const colorClass = colorMap[value.toLowerCase()] || 'bg-dark-100 text-dark-600';
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
-        {value}
-      </span>
-    );
-  }
-
-  // Status field colors
-  if (fieldKey.toLowerCase().includes('status')) {
-    const colorMap: Record<string, string> = {
-      'active': 'bg-green-100 text-green-800',
-      'inactive': 'bg-dark-100 text-dark-600',
-      'pending': 'bg-yellow-100 text-yellow-800',
-      'completed': 'bg-green-100 text-green-800',
-      'cancelled': 'bg-red-100 text-red-800',
-      'draft': 'bg-dark-100 text-dark-600',
-      'published': 'bg-green-100 text-green-800',
-      'archived': 'bg-dark-300 text-dark-600'
-    };
-    const colorClass = colorMap[value.toLowerCase()] || 'bg-dark-100 text-dark-600';
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
-        {value}
-      </span>
-    );
-  }
-
-  // Default: just return text
-  return <span className="text-sm text-dark-600">{value}</span>;
+  const badgeClass = getBadgeClass(fieldKey, value);
+  return <span className={badgeClass}>{value}</span>;
 }
 
 /**

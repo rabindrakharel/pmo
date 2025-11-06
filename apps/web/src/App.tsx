@@ -33,6 +33,10 @@ import { EmailDesignerPage } from './pages/marketing/EmailDesignerPage';
 import { ChatPage } from './pages/ChatPage';
 import { VoiceChatPage } from './pages/VoiceChatPage';
 
+// Guide Pages
+import { UserGuidePage } from './pages/UserGuidePage';
+import { DevelopersPage } from './pages/DevelopersPage';
+
 // Profile & Settings Pages
 import { ProfilePage } from './pages/profile';
 import { LabelsPage } from './pages/labels';
@@ -192,6 +196,10 @@ function AppRoutes() {
       {/* Special Routes - Chat (AI Assistant Widget) */}
       <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
       <Route path="/voice-chat" element={<ProtectedRoute><VoiceChatPage /></ProtectedRoute>} />
+
+      {/* Guide Pages */}
+      <Route path="/userguide" element={<ProtectedRoute><UserGuidePage /></ProtectedRoute>} />
+      <Route path="/developers" element={<ProtectedRoute><DevelopersPage /></ProtectedRoute>} />
 
       {/* Profile Navigation Pages */}
       <Route
