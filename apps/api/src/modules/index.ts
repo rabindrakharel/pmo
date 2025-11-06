@@ -46,6 +46,7 @@ import { chatRoutes } from './chat/routes.js';
 import { bookingRoutes } from './booking/routes.js';
 import { personCalendarRoutes } from './person-calendar/routes.js';
 import { interactionRoutes } from './interaction/routes.js';
+import { eventRoutes } from './event/routes.js';
 
 // LangGraph Orchestrator API module
 import { registerLangGraphOrchestratorRoutes } from './chat/orchestrator/langgraph/langgraph-orchestrator.routes.js';
@@ -155,6 +156,9 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
 
   // Person Calendar routes (universal availability/booking calendar)
   await personCalendarRoutes(fastify);
+
+  // Event routes (meetings/appointments with calendar invites)
+  await eventRoutes(fastify);
 
   // Interaction routes (customer interactions across channels)
   await interactionRoutes(fastify);
