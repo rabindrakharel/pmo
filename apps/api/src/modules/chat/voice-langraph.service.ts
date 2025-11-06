@@ -6,7 +6,6 @@
 
 import WebSocket from 'ws';
 import { processVoiceMessage } from './orchestrator/voice-orchestrator.service.js';
-import { disconnectVoiceSession } from './voice.service.js';
 
 /**
  * Voice session configuration

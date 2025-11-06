@@ -7,6 +7,7 @@
 import type { AgentActionResult, IntentGraph } from '../types/intent-graph.types.js';
 import { stateManager } from '../state/state-manager.service.js';
 import { getGoodbyeMessage } from '../config/engaging-messages.config.js';
+import { getOpenAIService } from '../services/openai.service.js';
 
 /**
  * Critic Agent
@@ -25,8 +26,8 @@ export class CriticAgent {
     const startTime = Date.now();
 
     try {
-      // Check for off-topic requests
-      const isOffTopic = this.detectOffTopic(
+      // Check for off-topic requests using LLM
+      const isOffTopic = await this.detectOffTopicWithLLM(
         args.userMessage,
         args.graph.boundaries.allowedTopics,
         args.graph.boundaries.forbiddenTopics
@@ -314,7 +315,36 @@ export class CriticAgent {
   // ========================================
 
   /**
-   * Detect if user message is off-topic
+   * Detect if user message is off-topic using LLM
+   */
+  private async detectOffTopicWithLLM(
+    message: string,
+    allowedTopics: string[],
+    forbiddenTopics: string[]
+  ): Promise<boolean> {
+    try {
+      const openaiService = getOpenAIService();
+
+      const result = await openaiService.checkOffTopic({
+        userMessage: message,
+        allowedTopics,
+        forbiddenTopics,
+      });
+
+      console.log(`[Critic] Off-topic check: ${result.isOffTopic ? 'YES' : 'NO'} (cost: $${(result.costCents / 100).toFixed(4)})`);
+      console.log(`[Critic] Reason: ${result.reason}`);
+
+      return result.isOffTopic;
+    } catch (error: any) {
+      console.error('[Critic] Error checking off-topic with LLM, falling back to keyword matching:', error.message);
+
+      // Fallback to keyword-based detection
+      return this.detectOffTopic(message, allowedTopics, forbiddenTopics);
+    }
+  }
+
+  /**
+   * Detect if user message is off-topic (fallback method using keywords)
    */
   private detectOffTopic(
     message: string,

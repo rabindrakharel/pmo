@@ -10,6 +10,7 @@ import { createCalendarBookingGraph } from './calendar-booking.langgraph.js';
 import { StateManager } from '../state/state-manager.service.js';
 import { createPostgresCheckpointer } from './postgres-checkpointer.js';
 import { MCPAdapterService } from '../../mcp-adapter.service.js';
+import { getOpenAIService } from '../services/openai.service.js';
 
 /**
  * LangGraph Orchestrator Service
@@ -179,14 +180,12 @@ export class LangGraphOrchestratorService {
       // Automatically disconnect voice session if conversation ended
       if (result.conversationEnded && chatSessionId) {
         try {
-          // Try both voice service implementations (OpenAI Realtime and Langraph)
-          const { disconnectVoiceSession } = await import('../../voice.service.js');
+          // Disconnect voice session
           const { disconnectVoiceLangraphSession } = await import('../../voice-langraph.service.js');
 
-          const realtimeDisconnected = disconnectVoiceSession(chatSessionId);
-          const langraphDisconnected = disconnectVoiceLangraphSession(chatSessionId);
+          const disconnected = disconnectVoiceLangraphSession(chatSessionId);
 
-          if (realtimeDisconnected || langraphDisconnected) {
+          if (disconnected) {
             console.log(`📞 Voice session ${chatSessionId} automatically disconnected by LangGraph orchestrator (${result.endReason})`);
           }
         } catch (error) {
@@ -215,95 +214,146 @@ export class LangGraphOrchestratorService {
 
   /**
    * Detect intent from user message
+   * Uses GPT-3.5 Turbo for better accuracy
    */
   private async detectIntent(message: string): Promise<string> {
-    const lowerMessage = message.toLowerCase();
+    try {
+      // Get available intents
+      const availableIntents = Array.from(this.graphs.keys());
 
-    // Simple keyword-based intent detection
-    const bookingKeywords = ['book', 'schedule', 'appointment', 'service', 'need', 'want', 'landscaping', 'hvac', 'plumbing'];
+      // Use LLM for intent detection
+      const openaiService = getOpenAIService();
+      const result = await openaiService.detectIntent(message, availableIntents);
 
-    for (const keyword of bookingKeywords) {
-      if (lowerMessage.includes(keyword)) {
-        return 'CalendarBooking';
+      console.log(`[LangGraphOrchestrator] Intent detected: ${result.intent} (confidence: ${result.confidence}%, cost: $${(result.costCents / 100).toFixed(4)})`);
+      console.log(`[LangGraphOrchestrator] Reasoning: ${result.reasoning}`);
+
+      return result.intent;
+    } catch (error: any) {
+      console.error('[LangGraphOrchestrator] Error detecting intent with LLM, falling back to default:', error.message);
+
+      // Fallback: Simple keyword-based intent detection
+      const lowerMessage = message.toLowerCase();
+      const bookingKeywords = ['book', 'schedule', 'appointment', 'service', 'need', 'want', 'landscaping', 'hvac', 'plumbing'];
+
+      for (const keyword of bookingKeywords) {
+        if (lowerMessage.includes(keyword)) {
+          return 'CalendarBooking';
+        }
       }
-    }
 
-    // Default intent
-    return 'CalendarBooking';
+      // Default intent
+      return 'CalendarBooking';
+    }
   }
 
   /**
    * Extract structured data from user message
-   * Uses simple regex and keyword matching (could be enhanced with NLP/LLM)
+   * Uses GPT-3.5 Turbo for better data extraction
    */
   private async extractDataFromMessage(state: OrchestratorState): Promise<OrchestratorState> {
-    const message = state.userMessage?.toLowerCase() || '';
+    const message = state.userMessage || '';
 
-    const updates: Record<string, any> = {};
-
-    // Extract phone number
-    const phoneMatch = message.match(/(\d{3}[-.\s]?\d{3}[-.\s]?\d{4}|\d{10})/);
-    if (phoneMatch) {
-      updates.customer_phone = phoneMatch[0].replace(/[-.\s]/g, '');
+    if (!message || message === '[CALL_STARTED]') {
+      return state;
     }
 
-    // Extract email
-    const emailMatch = message.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
-    if (emailMatch) {
-      updates.customer_email = emailMatch[0];
-    }
+    try {
+      // Define fields to extract based on booking workflow
+      const fieldsToExtract = [
+        { key: 'customer_name', type: 'string', description: 'Full name of the customer' },
+        { key: 'customer_phone', type: 'string', description: 'Phone number (10 digits, no formatting)' },
+        { key: 'customer_email', type: 'string', description: 'Email address' },
+        { key: 'customer_address', type: 'string', description: 'Full street address' },
+        { key: 'customer_city', type: 'string', description: 'City name' },
+        { key: 'service_category', type: 'string', description: 'Service type: hvac, plumbing, electrical, landscaping, or general_contracting' },
+        { key: 'job_description', type: 'string', description: 'Description of the service needed or problem to fix' },
+        { key: 'desired_date', type: 'date', description: 'Preferred date for service (YYYY-MM-DD format)' },
+        { key: 'selected_time', type: 'string', description: 'Preferred time slot (e.g., "9:00 AM", "2:00 PM")' },
+      ];
 
-    // Extract name (simple heuristic: "I'm X" or "My name is X" or "This is X")
-    const nameMatch = message.match(/(?:i'?m|my name is|this is|i am)\s+([a-z]+)/i);
-    if (nameMatch) {
-      updates.customer_name = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1);
-    }
+      // Build conversation context
+      const conversationContext = Object.keys(state.variables).length > 0
+        ? `Current information collected: ${JSON.stringify(state.variables)}`
+        : 'This is the start of the conversation';
 
-    // Extract service category
-    const services = ['hvac', 'plumbing', 'electrical', 'landscaping', 'contracting'];
-    for (const service of services) {
-      if (message.includes(service)) {
-        updates.service_category = service.charAt(0).toUpperCase() + service.slice(1);
-        break;
+      // Use LLM to extract data
+      const openaiService = getOpenAIService();
+      const result = await openaiService.extractData({
+        userMessage: message,
+        fieldsToExtract,
+        conversationContext,
+      });
+
+      console.log(`[LangGraphOrchestrator] Extracted data:`, result.extractedData);
+      console.log(`[LangGraphOrchestrator] Data extraction cost: $${(result.costCents / 100).toFixed(4)}`);
+
+      // Merge extracted data into state variables (don't overwrite existing values)
+      const updates: Record<string, any> = {};
+      for (const [key, value] of Object.entries(result.extractedData)) {
+        if (value && !state.variables[key]) {
+          updates[key] = value;
+        }
       }
-    }
 
-    // Extract date (simple: YYYY-MM-DD format)
-    const dateMatch = message.match(/(\d{4}-\d{2}-\d{2})/);
-    if (dateMatch) {
-      updates.desired_date = dateMatch[0];
-    }
+      if (Object.keys(updates).length > 0) {
+        return {
+          ...state,
+          variables: {
+            ...state.variables,
+            ...updates,
+          },
+        };
+      }
 
-    // Extract time preference
-    if (message.includes('morning') || message.includes('9 am') || message.includes('9am')) {
-      updates.selected_time = '9:00 AM';
-    } else if (message.includes('afternoon') || message.includes('2 pm') || message.includes('2pm')) {
-      updates.selected_time = '2:00 PM';
-    }
+      return state;
+    } catch (error: any) {
+      console.error('[LangGraphOrchestrator] Error extracting data with LLM, falling back to regex:', error.message);
 
-    // Extract address/city
-    const cityMatch = message.match(/(?:in|at|from)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
-    if (cityMatch) {
-      updates.customer_city = cityMatch[1];
-    }
+      // Fallback: Simple regex-based extraction
+      const message = state.userMessage?.toLowerCase() || '';
+      const updates: Record<string, any> = {};
 
-    // If we have meaningful context in the message, treat it as job description
-    if (message.length > 50 && !state.variables.job_description) {
-      updates.job_description = state.userMessage;
-    }
+      // Extract phone number
+      const phoneMatch = message.match(/(\d{3}[-.\s]?\d{3}[-.\s]?\d{4}|\d{10})/);
+      if (phoneMatch) {
+        updates.customer_phone = phoneMatch[0].replace(/[-.\s]/g, '');
+      }
 
-    // Merge updates into state variables
-    if (Object.keys(updates).length > 0) {
-      return {
-        ...state,
-        variables: {
-          ...state.variables,
-          ...updates,
-        },
-      };
-    }
+      // Extract email
+      const emailMatch = message.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
+      if (emailMatch) {
+        updates.customer_email = emailMatch[0];
+      }
 
-    return state;
+      // Extract name
+      const nameMatch = message.match(/(?:i'?m|my name is|this is|i am)\s+([a-z]+)/i);
+      if (nameMatch) {
+        updates.customer_name = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1);
+      }
+
+      // Extract service category
+      const services = ['hvac', 'plumbing', 'electrical', 'landscaping', 'contracting'];
+      for (const service of services) {
+        if (message.includes(service)) {
+          updates.service_category = service.charAt(0).toUpperCase() + service.slice(1);
+          break;
+        }
+      }
+
+      // Merge updates
+      if (Object.keys(updates).length > 0) {
+        return {
+          ...state,
+          variables: {
+            ...state.variables,
+            ...updates,
+          },
+        };
+      }
+
+      return state;
+    }
   }
 
   /**

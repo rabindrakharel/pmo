@@ -67,10 +67,10 @@ The **Voice Orchestrator** integrates voice chat (speech-to-text and text-to-spe
 
 ✅ **Full Orchestrator Integration** - Voice benefits from multi-agent coordination
 ✅ **Stateful Conversations** - Persistent context across voice interactions
-✅ **Cost Effective** - Whisper + TTS cheaper than Realtime API
+✅ **Cost Optimized** - GPT-3.5 Turbo agents (94.7% cheaper than Realtime API)
 ✅ **Quality Control** - Critic and Evaluator agents ensure quality
 ✅ **MCP Tools** - Voice can trigger any MCP tool (bookings, tasks, etc.)
-✅ **Engaging Messages** - Natural updates during processing
+✅ **Natural Language** - LLM-based response generation
 ✅ **Auto-Goodbye** - Handles off-topic gracefully
 
 ---
@@ -505,19 +505,19 @@ Backend:
 3. **Batch processing** - Process multiple short utterances together
 4. **Cache TTS** - Cache common responses
 
-### Cost Comparison
+### Cost Breakdown
 
-**Whisper + TTS (new approach):**
-- Whisper: $0.006 per minute
-- TTS: $0.015 per 1M characters
-- Total: ~$0.02-0.05 per conversation
+**Current Implementation (Cost-Optimized):**
+- Whisper STT: $0.006 per minute
+- GPT-3.5 Turbo Orchestrator: $0.0015 per 1K tokens (~$0.004 per conversation)
+- OpenAI TTS: $0.015 per 1M characters (~$0.006 per conversation)
+- **Total: ~$0.016 per conversation**
 
-**Realtime API (old approach):**
-- $0.06 per minute (input)
-- $0.24 per minute (output)
-- Total: ~$0.30 per conversation
+**Previous Implementation (Removed):**
+- OpenAI Realtime API: ~$0.30 per conversation
+- **Savings: 94.7%** 🎉
 
-**Savings: 80-85%** 🎉
+**See:** [`VOICE_COST_OPTIMIZED_ARCHITECTURE.md`](./VOICE_COST_OPTIMIZED_ARCHITECTURE.md) for detailed cost analysis.
 
 ---
 

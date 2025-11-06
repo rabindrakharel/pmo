@@ -21,16 +21,16 @@ import type {
   ChatMessage
 } from './types.js';
 
-import { voiceRoutes } from './voice.routes.js';
+import { voiceLangraphRoutes } from './voice-langraph.routes.js';
 import { orchestratorRoutes } from './orchestrator/orchestrator.routes.js';
-import { disconnectVoiceSession, getActiveVoiceSessionCount } from './voice.service.js';
+import { disconnectVoiceLangraphSession, getActiveVoiceLangraphSessionCount } from './voice-langraph.service.js';
 
 /**
  * Register chat routes
  */
 export async function chatRoutes(fastify: FastifyInstance) {
-  // Register voice WebSocket routes
-  await voiceRoutes(fastify);
+  // Register voice WebSocket routes (cost-optimized)
+  await voiceLangraphRoutes(fastify);
 
   // Register orchestrator routes
   await orchestratorRoutes(fastify);
@@ -122,7 +122,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
       const conversationHistory = [...session.conversation_history, userMessage];
 
-      // Get AI response with function calling (using MCP tools)
+      // Use LangGraph orchestrator for text chat (same as voice)
       const token = request.headers.authorization?.replace('Bearer ', '') || '';
 
       // Log token status for debugging
@@ -132,56 +132,67 @@ export async function chatRoutes(fastify: FastifyInstance) {
         console.log(`🔐 Chat session ${session_id} using authenticated MCP tools`);
       }
 
-      const aiResult = await getAIResponse(conversationHistory, {
-        interactionSessionId: session_id,
-        useMCP: true,
-        authToken: token,
-        maxTools: 50
+      // Import LangGraph orchestrator
+      const { getLangGraphOrchestratorService } = await import('./orchestrator/langgraph/langgraph-orchestrator.service.js');
+      const orchestrator = getLangGraphOrchestratorService();
+
+      // Get or create orchestrator session
+      const orchestratorSessionId = session.metadata?.orchestrator_session_id;
+
+      // Process message through LangGraph orchestrator
+      const orchestratorResult = await orchestrator.processMessage({
+        sessionId: orchestratorSessionId,
+        message,
+        chatSessionId: session_id,
+        userId: customer_id || session.metadata?.customer_id,
+        authToken: token
       });
 
-      // Add AI response to conversation
+      // Add user and assistant messages to conversation
+      const userMessage: ChatMessage = {
+        role: 'user',
+        content: message,
+        timestamp: new Date().toISOString()
+      };
+
       const assistantMessage: ChatMessage = {
         role: 'assistant',
-        content: aiResult.response,
+        content: orchestratorResult.response,
         timestamp: new Date().toISOString()
       };
 
       const updatedConversation = [...conversationHistory, assistantMessage];
 
-      // Check if booking was created
-      const bookingCreated = aiResult.functionCalls.some(
-        fc => fc.function_name === 'create_booking' && fc.success
-      );
-      const bookingResult = aiResult.functionCalls.find(
-        fc => fc.function_name === 'create_booking' && fc.success
-      );
-
-      // Calculate cost
-      const costCents = calculateCost(aiResult.tokensUsed);
+      // Check if booking was created (based on node context)
+      const bookingCreated = orchestratorResult.currentNode === 'confirm_booking' && orchestratorResult.completed;
 
       // Update session in database
       await updateSession(session_id, updatedConversation, {
-        total_tokens: (session.total_tokens || 0) + aiResult.tokensUsed,
-        total_cost_cents: (session.total_cost_cents || 0) + costCents,
-        model_used: aiResult.modelUsed,
-        booking_id: bookingResult?.result?.booking_id,
-        function_calls: aiResult.functionCalls.map(fc => fc.function_name)
+        total_tokens: (session.total_tokens || 0) + 100, // Estimated - will add proper tracking
+        total_cost_cents: (session.total_cost_cents || 0) + 2, // ~$0.02 per conversation with GPT-3.5
+        model_used: 'gpt-3.5-turbo',
+        metadata: {
+          ...session.metadata,
+          orchestrator_session_id: orchestratorResult.sessionId,
+          current_intent: orchestratorResult.intent,
+          current_node: orchestratorResult.currentNode
+        }
       });
 
       // Prepare response
       const response: ChatMessageResponse = {
         session_id,
-        response: aiResult.response,
-        function_calls: aiResult.functionCalls.length > 0 ? aiResult.functionCalls : undefined,
+        response: orchestratorResult.response,
+        function_calls: undefined, // LangGraph handles this internally
         booking_created: bookingCreated,
-        booking_number: bookingResult?.result?.booking_number,
-        tokens_used: aiResult.tokensUsed,
+        booking_number: undefined, // Will extract from state if needed
+        tokens_used: 100, // Estimated - will add proper tracking
         timestamp: new Date().toISOString()
       };
 
       reply.code(200).send(response);
 
-      console.log(`✅ Message processed for session ${session_id}: ${aiResult.tokensUsed} tokens, ${aiResult.functionCalls.length} function calls`);
+      console.log(`✅ Message processed for session ${session_id} via LangGraph (intent: ${orchestratorResult.intent}, node: ${orchestratorResult.currentNode})`);
     } catch (error) {
       console.error('Error processing message:', error);
       reply.code(500).send({
@@ -274,7 +285,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
       // Try to disconnect voice session if it exists
       if (session_type === 'auto' || session_type === 'voice') {
-        voiceDisconnected = disconnectVoiceSession(sessionId);
+        voiceDisconnected = disconnectVoiceLangraphSession(sessionId);
       }
 
       // Always close the session in database (works for both text and voice)
@@ -296,7 +307,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
         message: success
           ? 'Session disconnected successfully'
           : 'Session not found',
-        active_voice_sessions: getActiveVoiceSessionCount()
+        active_voice_sessions: getActiveVoiceLangraphSessionCount()
       });
 
       if (success) {

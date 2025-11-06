@@ -519,8 +519,8 @@ export class OrchestratorService {
 
       // Try to disconnect voice session if active
       try {
-        const { disconnectVoiceSession } = await import('../../voice.service.js');
-        const voiceDisconnected = disconnectVoiceSession(chatSessionId);
+        const { disconnectVoiceLangraphSession } = await import('../../voice-langraph.service.js');
+        const voiceDisconnected = disconnectVoiceLangraphSession(chatSessionId);
         if (voiceDisconnected) {
           console.log(`📞 Voice session ${chatSessionId} automatically disconnected by orchestrator`);
         }

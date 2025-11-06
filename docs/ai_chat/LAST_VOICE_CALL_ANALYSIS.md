@@ -1,17 +1,36 @@
-# Complete Voice Call Analysis Report
+# Complete Voice Call Analysis Report - HISTORICAL
 
 **Date:** 2025-11-06
-**Session Type:** Old WebSocket Voice (OpenAI Realtime API)
+**Session Type:** ❌ **DEPRECATED** - Old WebSocket Voice (OpenAI Realtime API)
 **Duration:** ~3 minutes
 **Model:** GPT-4 Realtime (not GPT-3.5 Turbo orchestrator)
+**Status:** 🗑️ **Implementation Removed** - See current implementation below
 
 ---
 
-## ⚠️ IMPORTANT NOTE
+## 🚨 DEPRECATION NOTICE
 
-**This voice call used the OLD WebSocket implementation** (OpenAI Realtime API), NOT the new orchestrator endpoints I just created.
+**This document is HISTORICAL ONLY.**
 
-The new orchestrator voice endpoints (`/api/v1/chat/orchestrator/voice`) haven't been used yet.
+**OLD Implementation (REMOVED):**
+- Files: `voice.service.ts`, `voice.routes.ts`
+- Technology: OpenAI Realtime API + WebSocket
+- Cost: ~$0.30 per conversation
+- Status: ❌ **Deleted on 2025-11-06**
+
+**CURRENT Implementation:**
+- Files: `voice-langraph.service.ts`, `voice-langraph.routes.ts`
+- Technology: Whisper STT + GPT-3.5 Turbo + OpenAI TTS
+- Cost: ~$0.016 per conversation (94.7% cheaper)
+- Documentation: [`VOICE_COST_OPTIMIZED_ARCHITECTURE.md`](./VOICE_COST_OPTIMIZED_ARCHITECTURE.md)
+
+---
+
+## ⚠️ IMPORTANT NOTE (Historical)
+
+**This voice call used the OLD WebSocket implementation** (OpenAI Realtime API), which has been removed from the codebase.
+
+The current implementation uses `/api/v1/chat/langgraph/voice` endpoints with cost-optimized GPT-3.5 Turbo orchestration.
 
 ---
 

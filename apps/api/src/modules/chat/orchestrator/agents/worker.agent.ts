@@ -8,6 +8,7 @@ import type { AgentActionResult, NodeAction } from '../types/intent-graph.types.
 import { stateManager } from '../state/state-manager.service.js';
 import { executeMCPTool } from '../../mcp-adapter.service.js';
 import { getEngagingMessage, detectSentiment, getEmpatheticResponse } from '../config/engaging-messages.config.js';
+import { getOpenAIService } from '../services/openai.service.js';
 
 /**
  * Worker Agent
@@ -178,8 +179,13 @@ export class WorkerAgent {
         success: true
       });
 
-      // Include engaging message in response
-      const mcpResponse = this.generateMCPResponse(args.action.mcpTool, result, stateUpdates);
+      // Generate natural response using LLM
+      const mcpResponse = await this.generateNaturalMCPResponse({
+        toolName: args.action.mcpTool,
+        toolResult: result,
+        stateUpdates,
+        nodeContext: args.nodeContext,
+      });
 
       return {
         success: true,
@@ -423,17 +429,64 @@ export class WorkerAgent {
     return null;
   }
 
-  private generateMCPResponse(toolName: string, result: any, stateUpdates: Record<string, any>): string {
-    if (toolName.includes('create')) {
-      return 'Done! I\'ve created that record.';
+  /**
+   * Generate natural language response for MCP tool result using LLM
+   */
+  private async generateNaturalMCPResponse(args: {
+    toolName: string;
+    toolResult: any;
+    stateUpdates: Record<string, any>;
+    nodeContext: string;
+  }): Promise<string> {
+    try {
+      const openaiService = getOpenAIService();
+
+      // Build context for response generation
+      const systemInstructions = `You are a friendly customer service agent helping book home services appointments.
+
+The system just executed a tool: ${args.toolName}
+Node context: ${args.nodeContext}
+
+Generate a brief, natural response to confirm the action and guide the conversation forward.
+Keep it to 1-2 sentences maximum.`;
+
+      const responseGuidelines = `Guidelines:
+- Be warm and conversational
+- Confirm what was done
+- If creating a booking, mention the booking number if available
+- Guide the user to the next step naturally
+- Don't be overly technical`;
+
+      const contextMessage = `Tool: ${args.toolName}
+Result: ${JSON.stringify(args.toolResult, null, 2)}
+State updates: ${JSON.stringify(args.stateUpdates, null, 2)}`;
+
+      const result = await openaiService.generateResponse({
+        context: contextMessage,
+        userMessage: `[Tool ${args.toolName} completed successfully]`,
+        conversationHistory: [],
+        systemInstructions,
+        responseGuidelines,
+      });
+
+      console.log(`[Worker] Generated LLM response (cost: $${(result.costCents / 100).toFixed(4)}):`, result.response);
+
+      return result.response;
+    } catch (error: any) {
+      console.error('[Worker] Error generating LLM response, using fallback:', error.message);
+
+      // Fallback to simple responses
+      if (args.toolName.includes('create')) {
+        return 'Done! I\'ve created that record.';
+      }
+      if (args.toolName.includes('list') || args.toolName.includes('search')) {
+        return 'Let me check that for you...';
+      }
+      if (args.toolName.includes('update')) {
+        return 'Updated successfully!';
+      }
+      return 'Operation completed.';
     }
-    if (toolName.includes('list') || toolName.includes('search')) {
-      return 'Let me check that for you...';
-    }
-    if (toolName.includes('update')) {
-      return 'Updated successfully!';
-    }
-    return 'Operation completed.';
   }
 
   private getMCPActionDescription(toolName: string): string {
