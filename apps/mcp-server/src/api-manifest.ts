@@ -724,7 +724,7 @@ export const API_MANIFEST: APIEndpoint[] = [
     category: 'Customer',
     parameters: {
       path: {
-        customer_id: 'Customer UUID to update'
+        id: 'Customer UUID to update'
       },
       body: {
         // Dynamic body - can include ANY customer field
@@ -742,6 +742,36 @@ export const API_MANIFEST: APIEndpoint[] = [
     parameters: {
       path: {
         id: 'Customer UUID'
+      }
+    }
+  },
+  {
+    name: 'customer_get_hierarchy',
+    method: 'GET',
+    path: '/api/v1/cust/:id/hierarchy',
+    description: 'Get customer hierarchy (parent and children)',
+    requiresAuth: true,
+    category: 'Customer',
+    parameters: {
+      path: {
+        id: 'Customer UUID'
+      }
+    }
+  },
+  {
+    name: 'customer_get_projects',
+    method: 'GET',
+    path: '/api/v1/cust/:id/project',
+    description: 'Get projects linked to customer',
+    requiresAuth: true,
+    category: 'Customer',
+    parameters: {
+      path: {
+        id: 'Customer UUID'
+      },
+      query: {
+        limit: 'Number of results',
+        offset: 'Pagination offset'
       }
     }
   },
@@ -1500,7 +1530,7 @@ export const API_MANIFEST: APIEndpoint[] = [
     method: 'GET',
     path: '/api/v1/booking',
     description: 'List all bookings/appointments',
-    requiresAuth: true,
+    requiresAuth: false,
     category: 'Booking'
   },
   {
@@ -1508,7 +1538,7 @@ export const API_MANIFEST: APIEndpoint[] = [
     method: 'GET',
     path: '/api/v1/booking/:id',
     description: 'Get single booking',
-    requiresAuth: true,
+    requiresAuth: false,
     category: 'Booking',
     parameters: {
       path: {
@@ -1521,7 +1551,7 @@ export const API_MANIFEST: APIEndpoint[] = [
     method: 'POST',
     path: '/api/v1/booking',
     description: 'Create new booking/appointment',
-    requiresAuth: true,
+    requiresAuth: false,
     category: 'Booking'
   },
 
