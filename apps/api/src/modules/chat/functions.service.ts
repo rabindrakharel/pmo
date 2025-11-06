@@ -588,7 +588,7 @@ export async function createCustomer(args: {
 
 /**
  * Function 10: Update Customer
- * Update existing customer information
+ * Update existing customer information - supports ANY field dynamically
  */
 export async function updateCustomer(args: {
   customer_id: string;
@@ -598,29 +598,54 @@ export async function updateCustomer(args: {
   address?: string;
   city?: string;
   province?: string;
+  postal_code?: string;
+  // Support any additional field
+  [key: string]: any;
 }): Promise<any> {
   try {
     const updates: any = { updated_ts: client`now()` };
 
-    if (args.name) {
+    // Map common fields to database column names
+    if (args.name !== undefined) {
       updates.name = args.name;
       updates.primary_contact_name = args.name;
     }
-    if (args.phone) updates.primary_phone = args.phone;
-    if (args.email) updates.primary_email = args.email;
-    if (args.address) updates.primary_address = args.address;
-    if (args.city) updates.city = args.city;
-    if (args.province) updates.province = args.province;
+    if (args.phone !== undefined) updates.primary_phone = args.phone;
+    if (args.email !== undefined) updates.primary_email = args.email;
+    if (args.address !== undefined) updates.primary_address = args.address;
+    if (args.city !== undefined) updates.city = args.city;
+    if (args.province !== undefined) updates.province = args.province;
+    if (args.postal_code !== undefined) updates.postal_code = args.postal_code;
+
+    // Handle any other fields dynamically (for future extensibility)
+    const knownFields = ['customer_id', 'name', 'phone', 'email', 'address', 'city', 'province', 'postal_code'];
+    for (const [key, value] of Object.entries(args)) {
+      if (!knownFields.includes(key) && value !== undefined) {
+        // Map to actual column name if needed
+        const columnName = key.startsWith('primary_') ? key : `primary_${key}`;
+        updates[columnName] = value;
+      }
+    }
+
+    if (Object.keys(updates).length === 1) {
+      // Only updated_ts, no actual changes
+      console.log(`⚠️ No fields to update for customer: ${args.customer_id}`);
+      return await client`
+        SELECT id::text, code, name, primary_email, primary_phone, primary_address, city, province
+        FROM app.d_cust
+        WHERE id = ${args.customer_id}::uuid AND active_flag = true
+      `.then(r => r[0]);
+    }
 
     const query = client`
       UPDATE app.d_cust
       SET ${client(updates)}
       WHERE id = ${args.customer_id}::uuid AND active_flag = true
-      RETURNING id::text, code, name, primary_email, primary_phone, primary_address, city
+      RETURNING id::text, code, name, primary_email, primary_phone, primary_address, city, province, postal_code
     `;
 
     const result = await query;
-    console.log(`✅ Updated customer: ${args.customer_id}`);
+    console.log(`✅ Updated customer: ${args.customer_id} with fields: ${Object.keys(updates).join(', ')}`);
     return result.length > 0 ? result[0] : null;
   } catch (error) {
     console.error('Error in updateCustomer:', error);

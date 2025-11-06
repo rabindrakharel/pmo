@@ -1,27 +1,26 @@
 # AI Chat System - Complete Architecture
 
-**Version:** 2.0.0 | **Status:** Production Ready | **Updated:** 2025-11-05
+**Version:** 2.1.0 | **Status:** Production | **Updated:** 2025-11-06
 
 ---
 
 ## 1. Semantics & Business Context
 
 ### Purpose
-AI-powered customer service system with **text** and **voice** capabilities, enabling customers to interact naturally with an AI agent that has authenticated access to the complete PMO API ecosystem (126+ endpoints) via Model Context Protocol (MCP).
+AI-powered customer service system providing **text chat** and **voice calling** capabilities with authenticated access to 50+ PMO API endpoints via Model Context Protocol (MCP).
 
 ### Business Value
-- **24/7 Automated Service**: Handle inquiries, bookings, and service requests without human intervention
-- **Multi-Modal Interaction**: Text chat and voice calling for maximum accessibility
-- **Full Platform Access**: AI accesses projects, tasks, employees, bookings, services, and all business entities
-- **Authenticated Operations**: All AI actions execute under user context with RBAC enforcement
-- **Complete Audit Trail**: All conversations stored in `f_customer_interaction` for compliance and training
+- **24/7 Automated Service** - Handle inquiries, bookings, service requests without human intervention
+- **Multi-Modal Interaction** - Text chat (GPT-4-turbo) + Voice calling (GPT-4o-realtime)
+- **Full Platform Access** - AI executes authenticated operations (RBAC-enforced) across all entities
+- **Conversation Memory** - AI tracks context throughout conversation, never re-asks questions
+- **Strict Boundaries** - Refuses off-topic requests, focused solely on Huron Home Services
 
 ### Core Capabilities
-1. **Text Chat**: GPT-4-turbo with function calling → 50 MCP tools
-2. **Voice Chat**: GPT-4o-realtime with audio streaming → 50 MCP tools
-3. **Booking Creation**: Create service appointments via natural conversation
-4. **Real-Time Availability**: Check employee schedules and available time slots
-5. **Session Management**: Database-backed conversation history with race condition handling
+- **Customer Profile Management** - Create, search, update incrementally (field-by-field)
+- **Service Booking** - Check availability, create appointments, manage bookings
+- **Task Creation** - Convert customer issues into tasks with proper categorization
+- **Real-Time Data Access** - Employee schedules, service catalog, availability via MCP tools
 
 ---
 
@@ -30,401 +29,374 @@ AI-powered customer service system with **text** and **voice** capabilities, ena
 ### System Block Diagram
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    CLIENT LAYER                          │
-│  ┌─────────────┐              ┌─────────────────┐       │
-│  │ Text Chat   │──HTTP/WS────│  Voice Call     │       │
-│  │ (Widget)    │              │  (WebRTC)       │       │
-│  └─────────────┘              └─────────────────┘       │
-└──────────────┬──────────────────────┬───────────────────┘
-               │                      │
-               ▼                      ▼
-┌──────────────────────────────────────────────────────────┐
-│                BACKEND (Fastify API)                      │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │  Chat Routes                                       │  │
-│  │  POST /session/new  │  POST /message               │  │
-│  │  WS   /voice/call   │  GET  /analytics             │  │
-│  └─────────┬────────────────────┬─────────────────────┘  │
-│            │                    │                         │
-│            ▼                    ▼                         │
-│  ┌──────────────────┐  ┌──────────────────────┐         │
-│  │ OpenAI Service   │  │ Voice Service        │         │
-│  │ (GPT-4-turbo)    │  │ (GPT-4o-realtime)    │         │
-│  │ - Chat API       │  │ - Audio streaming    │         │
-│  │ - Function calls │  │ - PCM16 @ 24kHz      │         │
-│  └────────┬─────────┘  └────────┬─────────────┘         │
-│           └──────────┬───────────┘                       │
-│                      ▼                                    │
-│         ┌──────────────────────────┐                     │
-│         │   MCP Adapter            │                     │
-│         │   - Tool converter       │                     │
-│         │   - API executor         │                     │
-│         │   - JWT auth             │                     │
-│         └──────────┬───────────────┘                     │
-│                    │                                      │
-│                    ▼                                      │
-│         ┌──────────────────────────┐                     │
-│         │ API Manifest (126 tools) │                     │
-│         │ Filtered → 50 tools      │                     │
-│         │ for customer service     │                     │
-│         └──────────┬───────────────┘                     │
-│                    │                                      │
-│                    ▼                                      │
-│         ┌──────────────────────────┐                     │
-│         │ Authenticated API Calls  │                     │
-│         │ (axios + JWT token)      │                     │
-│         └──────────┬───────────────┘                     │
-└────────────────────┼──────────────────────────────────────┘
-                     │
-                     ▼
-          ┌──────────────────────┐
-          │   PostgreSQL         │
-          │ - f_customer_        │
-          │   interaction        │
-          │ - d_booking          │
-          │ - d_service          │
-          │ - d_employee         │
-          └──────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│              CLIENT (React 19)                       │
+│  ChatWidget.tsx                                      │
+│  ├─ Text Chat Tab                                   │
+│  └─ Voice Call Button (Phone Icon)                  │
+└────────────┬────────────────────────────────────────┘
+             │ HTTP (text) / WebSocket (voice)
+             │ Bearer Token (JWT)
+             ▼
+┌─────────────────────────────────────────────────────┐
+│          BACKEND (Fastify API)                       │
+│  ┌────────────────────────────────────────────────┐ │
+│  │ Chat Routes (routes.ts)                        │ │
+│  │  POST /session/new   → createSession()         │ │
+│  │  POST /message       → getAIResponse()         │ │
+│  │  WS   /voice/call    → VoiceService            │ │
+│  └────────────┬───────────────────────────────────┘ │
+│               ▼                                      │
+│  ┌────────────────────────────────────────────────┐ │
+│  │ AI Services                                    │ │
+│  │  openai.service.ts   → Chat completions       │ │
+│  │  voice.service.ts    → Realtime API           │ │
+│  └────────────┬───────────────────────────────────┘ │
+│               ▼                                      │
+│  ┌────────────────────────────────────────────────┐ │
+│  │ MCP Adapter (mcp-adapter.service.ts)          │ │
+│  │  executeMCPTool(name, args, authToken)        │ │
+│  │  ├─ Tool filtering (50/126)                   │ │
+│  │  └─ POST /api/mcp/execute/:toolName           │ │
+│  └────────────┬───────────────────────────────────┘ │
+└───────────────┼─────────────────────────────────────┘
+                ▼
+┌─────────────────────────────────────────────────────┐
+│          PMO API ECOSYSTEM                           │
+│  126+ Authenticated Endpoints                        │
+│  ├─ Customer CRUD                                    │
+│  ├─ Task Management                                  │
+│  ├─ Project Operations                               │
+│  └─ Employee/Booking/Service APIs                    │
+└─────────────────────────────────────────────────────┘
 ```
 
-### DRY Patterns
+### DRY Design Patterns
 
-#### 1. Single MCP Adapter for Both Chat Types
-**File:** `apps/api/src/modules/chat/mcp-adapter.service.ts`
+#### Pattern 1: Universal MCP Tool Execution
+**Both text and voice use identical tool execution flow:**
 
 ```typescript
-// Universal tool provider
-getMCPTools({ categories, excludeEndpoints, maxTools })
-getCustomerServiceTools()  // Returns 50 relevant tools
-executeMCPTool(toolName, args, authToken)  // Execute with auth
-endpointToOpenAITool(endpoint)  // Convert API → OpenAI format
+// BOTH agents call:
+executeMCPTool(toolName, args, authToken)
+  → POST /api/mcp/execute/:toolName
+  → Returns standardized result
+
+// No SQL, no direct DB access
+// All operations via authenticated API calls
 ```
 
-**Benefit:** Text and voice chat share identical tool definitions and execution logic.
-
-#### 2. Format Converter Pattern
-```typescript
-// Text Chat (Chat Completions API)
-{ type: 'function', function: { name, description, parameters } }
-
-// Voice Chat (Realtime API)
-{ name, description, parameters }
-
-// Converter
-convertMCPToolsToRealtimeFormat(mcpTools) {
-  return mcpTools.map(tool => tool.function)
-}
-```
-
-#### 3. Retry with Exponential Backoff
-**Purpose:** Handle race conditions when multiple sessions start simultaneously.
+#### Pattern 2: Incremental Data Collection
+**Customer profile building happens field-by-field:**
 
 ```typescript
-for (let attempt = 0; attempt < 5; attempt++) {
-  try {
-    const interactionNumber = await generateInteractionNumber();
-    await createSession({ interactionNumber, ... });
-    return { success: true };
-  } catch (error) {
-    if (error.code === '23505') {  // Duplicate key
-      await sleep(50 * (attempt + 1));
-      continue;
-    }
-    throw error;
-  }
-}
+// Step 1: Create minimal profile
+customer_create({name, phone}) → {id}
+
+// Step 2: Update as info arrives
+customer_update({customer_id, address})
+customer_update({customer_id, city, postal_code})
+customer_update({customer_id, email})
+
+// Each update: JSONB merge in d_cust table
 ```
 
-### User Interaction Journey
+#### Pattern 3: Conversation Memory via Context
+**System prompts enforce memory tracking:**
 
-#### Text Chat Flow
 ```
-1. User clicks chat icon
-   ↓
-2. POST /session/new → Creates DB session
-   ↓
-3. User types message
-   ↓
-4. POST /message → OpenAI GPT-4-turbo
-   ↓
-5. AI decides which MCP tools to call
-   ↓
-6. Execute tools via authenticated API
-   ↓
-7. AI responds with natural language
-   ↓
-8. Booking created in d_booking table
-   ↓
-9. Confirmation shown in chat
+CONVERSATION MEMORY - CRITICAL:
+- TRACK ALL INFORMATION: Remember everything customer provides
+- NEVER RE-ASK: If customer said "I'm John", never ask name again
+- BUILD ON CONTEXT: Use previous info to move forward
+- STORED INFO: After customer_update, that field is SAVED
 ```
 
-#### Voice Call Flow
-```
-1. User clicks phone button
-   ↓
-2. WebSocket /voice/call established
-   ↓
-3. Microphone captures audio (WebRTC)
-   ↓
-4. Audio → PCM16 @ 24kHz → base64
-   ↓
-5. Stream to OpenAI Realtime API
-   ↓
-6. AI processes audio + calls MCP tools
-   ↓
-7. Audio response streamed back
-   ↓
-8. PCM16 → AudioBuffer → Speakers
-   ↓
-9. Transcript displayed for accessibility
+**AI uses OpenAI's native context window, not database memory.**
+
+#### Pattern 4: Schema Consistency
+**All custom fields stored in JSONB metadata:**
+
+```sql
+-- f_customer_interaction DDL:
+metadata jsonb DEFAULT '{}'::jsonb
+
+-- NOT direct columns:
+❌ resolution_status column
+❌ first_contact_resolution column
+✅ metadata->>'resolution_status'
+✅ metadata->>'first_contact_resolution'
 ```
 
 ---
 
 ## 3. Database, API & UI/UX Mapping
 
-### Database Schema
+### Database Layer
 
-**Table:** `app.f_customer_interaction`
+**Table: `f_customer_interaction` (db/41_f_interaction.ddl)**
 
+Core schema:
 ```sql
 CREATE TABLE app.f_customer_interaction (
   id uuid PRIMARY KEY,
-  interaction_number text UNIQUE,         -- INT-YYYY-NNNNN
-  interaction_type text,                  -- 'chat'
-  channel text,                           -- 'live_chat' | 'voice'
-  customer_id uuid,
-  customer_name text,
-  content_text jsonb,                     -- Messages array
-  source_system text,                     -- 'ai_chat_widget'
-  resolution_status text,                 -- 'open'|'resolved'|'abandoned'
-  metadata jsonb,                         -- { interaction_type: 'voice'|'text' }
-  integration_metadata jsonb,             -- { referrer_url, customer_email }
-  sentiment_score numeric,
-  duration_seconds integer,
-  total_tokens integer,
-  total_cost_cents integer,
-  created_ts timestamptz DEFAULT now()
+  interaction_number varchar(50) UNIQUE,
+  interaction_type varchar(50),          -- 'chat', 'voice_call'
+  channel varchar(50),                   -- 'live_chat', 'phone'
+  interaction_person_entities jsonb,     -- [{person_entity_type, person_entity_id}]
+  content_text text,                     -- Conversation JSON array
+  metadata jsonb,                        -- Custom fields (resolution, tokens, etc.)
+  source_system varchar(50),             -- 'ai_chat_widget'
+  created_ts timestamptz,
+  updated_ts timestamptz
 );
 ```
 
-**Table:** `app.d_booking` - Created via AI chat
+**Key JSONB fields:**
+- `interaction_person_entities` - Customer/employee references
+- `metadata` - Flexible storage for: `customer_name`, `customer_email`, `resolution_status`, `total_tokens`, `total_cost_cents`
 
-```sql
-CREATE TABLE app.d_booking (
-  id uuid PRIMARY KEY,
-  booking_number text UNIQUE,             -- BK-YYYY-NNNNNN
-  booking_source text,                    -- 'ai_widget'
-  customer_name text NOT NULL,
-  customer_phone text NOT NULL,
-  customer_email text,
-  service_id uuid REFERENCES d_service,
-  requested_date date NOT NULL,
-  requested_time_start time NOT NULL,
-  assigned_employee_id uuid REFERENCES d_employee,
-  booking_status text,                    -- 'pending'|'confirmed'|'completed'
-  interaction_session_id uuid REFERENCES f_customer_interaction,
-  created_ts timestamptz DEFAULT now()
-);
+### API Layer
+
+**Routes: `/api/v1/chat/*`**
+
+```typescript
+POST /session/new
+  → createSession(customer_id?, customer_email?)
+  → INSERT INTO f_customer_interaction
+  → Returns {session_id, interaction_number}
+
+POST /message
+  → getSession(session_id)
+  → getAIResponse(conversationHistory, {useMCP: true, authToken})
+  → updateSession(session_id, updatedConversation, metadata)
+  → Returns {response, function_calls, booking_created}
+
+WS /voice/call
+  → VoiceService.handleConnection()
+  → OpenAI Realtime API bidirectional audio
+  → executeMCPTool() on function calls
 ```
 
-### API Endpoints
+**Function execution flow:**
 
-#### Text Chat
-```
-POST /api/v1/chat/session/new
-Body: { customer_email, customer_name, referrer_url }
-Response: { session_id, greeting, timestamp }
+```typescript
+// Text chat:
+routes.ts → openai.service.ts → executeFunctionCall()
+  → if (useMCP && authToken) executeMCPTool()
+  → else fallback to legacy function tools
 
-POST /api/v1/chat/message
-Body: { session_id, message }
-Headers: Authorization: Bearer <JWT>
-Response: { response, function_calls, tokens_used }
-```
-
-#### Voice Chat
-```
-WebSocket /api/v1/chat/voice/call?token=<JWT>&name=...&email=...
-→ { type: 'input_audio_buffer.append', audio: <base64 PCM16> }
-← { type: 'response.audio.delta', delta: <base64> }
-← { type: 'response.audio_transcript.done', transcript: "..." }
+// Voice chat:
+voice.service.ts → handleFunctionCall()
+  → if (authToken) executeMCPTool()
+  → else legacy function tools
 ```
 
-### Frontend Components
+### UI/UX Layer
 
-**Widget** (`apps/widget/src/`):
-- `App.tsx` - Main container with text/voice toggle
-- `VoiceCall.tsx` - Voice call UI with WebRTC audio
-- `styles.css` - Complete widget styling (600+ lines)
-- Built to `public/widget/widget.js` (467KB UMD bundle)
+**Component: `ChatWidget.tsx`**
 
-**Main App Integration**:
-- `/booking` - EntityMainPage for all bookings
-- `/booking/:id` - EntityDetailPage for single booking
-- `entityConfig.ts` - Booking entity configuration
+```typescript
+// State management:
+const {user} = useAuth();
+const token = localStorage.getItem('auth_token');
+
+// Text chat flow:
+1. startChatSession() → POST /session/new (with token)
+2. handleSendMessage() → POST /message (with token)
+3. Display response with typing animation
+
+// Voice chat flow:
+1. startVoiceCall() → WebSocket connection with token
+2. Capture audio → send PCM16 chunks
+3. Receive audio → play via AudioContext
+4. Display transcript in real-time
+```
 
 ---
 
 ## 4. Entity Relationships
 
-### d_booking Relationships
+**Relevant DDL:** `db/41_f_interaction.ddl`, `db/14_d_cust.ddl`
+
+### Relationship Model
+
 ```
-d_booking
-├── service_id → d_service (service being booked)
-├── assigned_employee_id → d_employee (technician assigned)
-├── interaction_session_id → f_customer_interaction (chat session)
-└── customer_id → d_cust (if registered customer)
+f_customer_interaction (Fact Table)
+├─ interaction_person_entities (JSONB array)
+│  └─ [{person_entity_type: 'customer', person_entity_id: <uuid>}]
+│     ↓
+│     d_cust (Customer Dimension)
+│     ├─ id (uuid PRIMARY KEY)
+│     ├─ name, primary_phone, primary_email
+│     └─ primary_address, city, province, postal_code
+│
+└─ metadata (JSONB)
+   ├─ customer_name
+   ├─ customer_email
+   ├─ resolution_status
+   ├─ total_tokens
+   └─ total_cost_cents
 ```
 
-### f_customer_interaction Relationships
-```
-f_customer_interaction
-├── customer_id → d_cust (if known customer)
-└── content_text (JSONB) → Array of messages
-    ├── { role: 'user', content: "..." }
-    ├── { role: 'assistant', content: "..." }
-    └── { role: 'function', name: 'create_booking', content: "{...}" }
-```
+**No foreign keys** - All relationships via JSONB arrays for flexibility.
 
-### d_service & d_employee
-```
-d_service
-├── id (used by create_booking function)
-├── service_category (HVAC, Plumbing, etc.)
-└── standard_rate_amt (pricing)
+### Customer Update Pattern
 
-d_employee
-├── id (used for assignment)
-├── department (matched to service_category)
-└── d_employee_calendar → d_calendar (availability)
+```typescript
+// Dynamic field updates (functions.service.ts):
+updateCustomer({
+  customer_id: string,
+  [key: string]: any  // ANY field accepted
+})
+
+// Maps to UPDATE d_cust:
+SET
+  name = $name,
+  primary_phone = $phone,
+  primary_address = $address,
+  city = $city,
+  postal_code = $postal_code,
+  ...any_field = $value,
+  updated_ts = NOW()
+WHERE id = $customer_id
 ```
 
 ---
 
 ## 5. Central Configuration & Middleware
 
-### Auth Token Flow
+### System Prompts
 
-**Frontend → Backend**
+**Both text and voice agents use identical boundary rules:**
+
 ```typescript
-// Text chat
-fetch('/api/v1/chat/message', {
-  headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
-});
+// openai.service.ts + voice.service.ts:
 
-// Voice chat
-new WebSocket(`/chat/voice/call?token=${encodeURIComponent(token)}`);
+STRICT BOUNDARIES:
+1. ONLY Huron Home Services (HVAC, Plumbing, Electrical, Landscaping, Contracting)
+2. Refuse off-topic: "I'm specifically here for Huron Home Services..."
+3. ALWAYS use API tools - never guess
+4. Brief responses (2-3 sentences)
+5. ONE question at a time
+6. NEVER re-ask provided information
+
+CONVERSATION MEMORY:
+- Track all info: name, phone, address, issue, service type, date
+- After customer_create/update, that info is SAVED
+- Reference memory: "Got it, let me update your address" (not "What's your address?")
+
+INCREMENTAL DATA COLLECTION:
+1. Get name + phone FIRST
+2. search_customer (by phone)
+3. If not found → customer_create ({name, phone})
+4. As customer provides more → customer_update ({customer_id, field: value})
+5. Use saved customer_id for tasks/bookings
 ```
 
-**Backend → MCP Tools**
-```typescript
-// Extract token
-const authToken = request.headers.authorization?.replace('Bearer ', '') ||
-                 request.query?.token;
-
-// Pass to MCP executor
-const result = await executeMCPTool('create_booking', args, authToken);
-```
-
-### MCP Tool Configuration
-
-**File:** `apps/api/src/modules/chat/mcp-adapter.service.ts`
+### MCP Adapter Configuration
 
 ```typescript
+// mcp-adapter.service.ts:
+
 export function getCustomerServiceTools(): ChatCompletionTool[] {
   return getMCPTools({
-    categories: [
-      'Project', 'Task', 'Customer', 'Service',
-      'Employee', 'Booking'
+    includeCategories: [
+      'Customer', 'Task', 'Project', 'Employee',
+      'Booking', 'Service', 'Settings'
     ],
     excludeEndpoints: [
-      'auth_login', 'auth_logout',
-      'customer_signup', 'customer_signin'
+      'auth_login', 'customer_delete', 'task_delete', ...
     ],
-    maxTools: 50  // OpenAI token limit
+    maxTools: 50  // Limit to avoid token overflow
   });
+}
+
+export async function executeMCPTool(
+  toolName: string,
+  args: any,
+  authToken: string
+): Promise<any> {
+  const url = `${API_BASE_URL}/api/mcp/execute/${toolName}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${authToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(args)
+  });
+  return response.json();
 }
 ```
 
-**Why 50 tools?** OpenAI has ~16k token limit for system prompts + tools. 126 tools ≈ 20k tokens (exceeds limit). Customer service needs projects, tasks, bookings, services, employees, customers. Admin tools excluded.
+### Auth Token Flow
 
-### Environment Variables
-```bash
-# Required
-OPENAI_API_KEY=sk-proj-...
+```typescript
+// Frontend → Backend:
+ChatWidget.tsx:
+  const token = localStorage.getItem('auth_token');
+  headers: {'Authorization': `Bearer ${token}`}
 
-# Optional
-OPENAI_MODEL=gpt-4-turbo-preview
-NODE_ENV=production
+// Backend extraction:
+routes.ts:
+  const token = request.headers.authorization?.replace('Bearer ', '');
+
+// Token validation:
+- If token present → useMCP: true, 50+ tools available
+- If no token → falls back to 3 legacy tools (limited)
 ```
 
 ---
 
 ## 6. User Interaction Flow Examples
 
-### Example 1: Text Chat - Book HVAC Service
+### Example 1: Text Chat - Service Booking
 
 ```
-User: "I need my furnace serviced"
+User: "Hi, I need my furnace fixed"
+  ↓ POST /message
+  ↓ AI analyzes: needs customer info
+AI: "Hi! I'm the assistant for Huron Home Services. Can I get your name and phone?"
 
-AI calls: get_available_services({ category: 'HVAC' })
-→ Returns: [{ id: '...', name: 'Furnace Maintenance', price: '$150' }]
+User: "I'm Sarah, 647-555-1234"
+  ↓ AI calls: customer_list({phone: "647-555-1234"})
+  ↓ Result: null (not found)
+  ↓ AI calls: customer_create({name: "Sarah", phone: "647-555-1234"})
+  ↓ Result: {id: "abc-123", name: "Sarah", ...}
+AI: "Perfect Sarah! You're in good hands. What's your address?"
 
-AI: "I can help! Our furnace maintenance service is $150.
-     When would you like to schedule it?"
-
-User: "Next Tuesday at 2pm"
-
-AI calls: get_employee_availability({ date: '2025-11-12', category: 'HVAC' })
-→ Returns: [{ id: 'emp-123', name: 'John Smith', available: true }]
-
-AI: "Great! John Smith is available. May I have your name and address?"
-
-User: "Sarah Johnson, 123 Main St, Toronto"
-
-AI calls: create_booking({
-  service_id: '...',
-  customer_name: 'Sarah Johnson',
-  customer_phone: '416-555-1234',
-  customer_address: '123 Main St, Toronto',
-  requested_date: '2025-11-12',
-  requested_time_start: '14:00',
-  assigned_employee_id: 'emp-123'
-})
-→ Returns: { booking_number: 'BK-2025-00042', success: true }
-
-AI: "Perfect! Your booking is confirmed.
-     Booking #: BK-2025-00042
-     Service: Furnace Maintenance
-     Date: Nov 12, 2025 at 2:00 PM
-     Technician: John Smith"
+User: "123 Main St, Toronto, M5A 1A1"
+  ↓ AI calls: customer_update({customer_id: "abc-123", address: "123 Main St", city: "Toronto", postal_code: "M5A 1A1"})
+  ↓ Result: {id: "abc-123", primary_address: "123 Main St", ...}
+AI: "Got it. That sounds frustrating. Let me check HVAC availability for 123 Main St..."
+  ↓ AI calls: get_employee_availability({service_category: "HVAC", requested_date: "2025-11-07"})
+  ↓ Result: [{employee_name: "John", available_slots: ["09:00", "14:00"]}]
+AI: "We have HVAC technicians available tomorrow at 9 AM or 2 PM. Which works better?"
 ```
 
-### Example 2: Voice Chat - Check Project Status
+**Key behaviors:**
+- ✅ Never asked "What's your name?" twice
+- ✅ Stored address/city/postal_code in single update
+- ✅ Used saved customer_id for availability check
+- ✅ Empathy: "That sounds frustrating. You're in good hands."
+
+### Example 2: Voice Call - Off-Topic Handling
 
 ```
-User: (speaks) "What's the status of the downtown renovation project?"
+User (voice): "What's the weather tomorrow?"
+  ↓ AI detects off-topic
+AI (voice): "I'm specifically here for Huron Home Services bookings and support. Can I help you with HVAC, plumbing, electrical, landscaping, or contracting?"
 
-AI (transcription via Whisper)
-→ "What's the status of the downtown renovation project?"
-
-AI calls: project_list({ filters: { name: 'downtown renovation' } })
-→ Returns: [{ id: '...', name: 'Downtown Renovation', stage: 'In Progress' }]
-
-AI (voice response)
-→ Audio: "The downtown renovation project is currently in progress.
-          Would you like more details about specific tasks?"
-
-User: (speaks) "Yes, what tasks are pending?"
-
-AI calls: task_list({ project_id: '...', stage: 'pending' })
-→ Returns: [{ name: 'Electrical Inspection', due: '2025-11-10' }, ...]
-
-AI (voice response)
-→ Audio: "There are 3 pending tasks. The most urgent is the
-          electrical inspection due on November 10th."
+User: "Oh okay, I need my toilet fixed"
+  ↓ AI switches to service mode
+AI: "That sounds concerning. You're in good hands. Can I get your name and phone number?"
 ```
+
+**Boundary enforcement:**
+- ❌ Never answers weather, jokes, general knowledge
+- ✅ Standard refusal response
+- ✅ Redirects to service offerings
 
 ---
 
@@ -432,222 +404,127 @@ AI (voice response)
 
 ### For Developers Extending This System
 
-#### 1. **Always Use MCP Adapter**
+#### ⚠️ **Token Required for Full Functionality**
 ```typescript
-// ❌ WRONG
-const result = await functionTools.create_booking(args);
+// Without authToken:
+- Falls back to 3 legacy tools (limited)
+- Cannot create_customer, create_task, check availability
+- Logs: "⚠️ Falling back to legacy tools (no auth token)"
 
-// ✅ CORRECT
-const result = await executeMCPTool('create_booking', args, authToken);
+// With authToken:
+- Access to 50 MCP tools
+- Full CRUD on customers, tasks, projects, bookings
+- Logs: "📡 Executing MCP tool via PMO API: customer_create"
 ```
-**Why:** MCP adapter ensures authenticated API calls with proper error handling.
 
-#### 2. **Handle Race Conditions**
-The retry logic in `conversation.service.ts:createSession()` is **critical**. Multiple users clicking chat simultaneously cause duplicate interaction numbers without retry.
-
-#### 3. **Voice vs Text Tool Format**
-- **Text Chat**: `ChatCompletionTool` format (with `type: 'function'` wrapper)
-- **Voice Chat**: Unwrapped function definitions
-Use `convertMCPToolsToRealtimeFormat()` to convert.
-
-#### 4. **Auth Token Must Be Passed**
-Without auth token, MCP tools fall back to legacy function tools (only 3). Verify:
+#### ⚠️ **Schema Consistency**
 ```typescript
-if (!authToken) {
-  console.warn('⚠️ No auth token - limited tool access');
+// f_customer_interaction has NO direct columns for:
+❌ customer_id, customer_name, resolution_status, first_contact_resolution
+
+// Use JSONB fields:
+✅ interaction_person_entities (array of entity references)
+✅ metadata (flexible storage for custom fields)
+
+// Extract customer_id:
+const customerEntity = row.interaction_person_entities
+  .find(e => e.person_entity_type === 'customer');
+const customerId = customerEntity?.person_entity_id;
+```
+
+#### ⚠️ **Conversation Memory is Context-Based**
+```typescript
+// AI memory = OpenAI context window (NOT database)
+// To maintain memory:
+- Pass FULL conversationHistory array to getAIResponse()
+- System prompt instructs AI to track info
+- For 100+ message conversations, implement summarization
+```
+
+#### ⚠️ **Dynamic Field Updates**
+```typescript
+// customer_update accepts ANY field:
+customer_update({
+  customer_id: "abc",
+  primary_address: "123 Main St",    // Standard field
+  custom_field: "value"              // Dynamic field
+})
+
+// All fields optional except customer_id
+// Backend handles field mapping (primary_ prefix)
+```
+
+#### ⚠️ **MCP Tool Format Differences**
+```typescript
+// Text Chat: ChatCompletionTool format
+{
+  type: 'function',
+  function: {name, description, parameters}
 }
-```
 
-#### 5. **Tool Limit is 50**
-126 MCP tools exceed OpenAI token limits. `maxTools: 50` filters to customer-service-relevant tools only.
-
-#### 6. **Audio Format Must Be PCM16 @ 24kHz**
-```typescript
-// Frontend audio processing
-const audioContext = new AudioContext({ sampleRate: 24000 });
-const pcm16 = new Int16Array(inputData.length);
-for (let i = 0; i < inputData.length; i++) {
-  const s = Math.max(-1, Math.min(1, inputData[i]));
-  pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+// Voice Chat: Realtime API format
+{
+  type: 'function',
+  name, description, parameters
 }
-const base64 = btoa(String.fromCharCode(...new Uint8Array(pcm16.buffer)));
-```
-**Why:** OpenAI Realtime API requires PCM16. Wrong format = silent audio.
 
-#### 7. **Voice Sessions Clean Up Automatically**
+// Use convertMCPToolsToRealtimeFormat() for voice
+```
+
+#### ⚠️ **Race Condition Handling**
 ```typescript
-clientWs.on('close', () => {
-  this.cleanup();  // Closes OpenAI connection
-});
-```
-No manual cleanup needed.
-
-### Security Considerations
-
-**Auth Token Transmission:**
-- ✅ Text Chat: Bearer token in `Authorization` header (HTTPS)
-- ⚠️ Voice Chat: Token in query param (WSS connection)
-- **Recommendation:** Move token to WebSocket upgrade headers instead of query params to avoid server log exposure.
-
-**RBAC Enforcement:**
-All MCP tool calls execute with user's JWT token → RBAC checked at API layer.
-```
-User with "view-only" role calls create_booking
-→ executeMCPTool('create_booking', args, userToken)
-→ API returns 403 Forbidden
-→ AI responds: "I don't have permission to create bookings."
+// createSession retries on duplicate interaction_number:
+- Max 3 attempts
+- Exponential backoff (50ms, 100ms, 150ms)
+- Throws after exhausting retries
 ```
 
-**SQL Injection Protection:**
-All queries use parameterized queries via `postgres` tagged templates:
+#### ⚠️ **Tool Call Limit**
 ```typescript
-await client`INSERT INTO app.f_customer_interaction VALUES (${sessionId}, ...)`
+// OpenAI token limits:
+- 50 tools ≈ 8-10k tokens (safe)
+- 126 tools ≈ 20k+ tokens (exceeds limit)
+
+// Filter to customer-service-relevant tools only:
+getCustomerServiceTools() // Returns 50/126 tools
 ```
 
-### Performance Optimization
+---
 
-**Current Capacity:**
-- Concurrent Sessions: ~10k per server (WebSocket limit)
-- Token Usage: ~2k tokens per text message (with tool calls)
-- Audio Latency: 200-500ms for voice responses
-- Database Load: 2-3 queries per message
+## Quick Reference
 
-**Bottlenecks:**
-1. OpenAI API Rate Limits: 10k req/min (GPT-4), 50 req/min (Realtime)
-2. Database Writes: Session updates on every message
-3. WebSocket Connections: Each voice session = 2 WebSockets
-
-**Optimization Recommendations:**
-1. Batch session updates (every N messages vs every message)
-2. Cache `getCustomerServiceTools()` result
-3. Connection pooling for database
-
-### Testing & Verification
-
-**Test Text Chat:**
-```bash
-./tools/test-api.sh POST /api/v1/chat/session/new '{
-  "customer_email": "test@example.com"
-}'
-
-./tools/test-api.sh POST /api/v1/chat/message '{
-  "session_id": "<ID>",
-  "message": "What services do you offer?"
-}'
-```
-
-**Test Voice Chat:**
-```javascript
-// Browser console on http://localhost:5173
-// Click voice button, observe logs:
-// "✅ OpenAI Realtime connected"
-// "📡 Loading 50 MCP tools for voice agent"
-```
-
-### Monitoring & Logging
-
-**Key Metrics:**
-```sql
--- Session creation rate
-SELECT DATE(created_ts), COUNT(*)
-FROM f_customer_interaction
-WHERE source_system = 'ai_chat_widget'
-GROUP BY DATE(created_ts);
-
--- Token usage & costs
-SELECT SUM(total_tokens), SUM(total_cost_cents)/100.0
-FROM f_customer_interaction
-WHERE source_system = 'ai_chat_widget';
-
--- Booking conversion rate
-SELECT
-  COUNT(*) as total_chats,
-  COUNT(CASE WHEN EXISTS (
-    SELECT 1 FROM d_booking b WHERE b.interaction_session_id = f.id
-  ) THEN 1 END) as bookings_created
-FROM f_customer_interaction f
-WHERE source_system = 'ai_chat_widget';
-```
-
-### Files Modified
-
-**Backend:**
+**Files Modified (v2.1.0):**
 ```
 apps/api/src/modules/chat/
-├── mcp-adapter.service.ts       ← NEW: MCP tool converter
-├── openai.service.ts             ← MODIFIED: Added MCP integration
-├── voice.service.ts              ← MODIFIED: Added MCP tools
-├── voice.routes.ts               ← MODIFIED: Pass auth token
-├── routes.ts                     ← MODIFIED: Pass auth token
-└── conversation.service.ts       ← MODIFIED: Retry logic
+├── openai.service.ts       ← System prompt + MCP logging
+├── voice.service.ts        ← Memory tracking + boundaries
+├── functions.service.ts    ← Dynamic customer_update
+├── conversation.service.ts ← Schema consistency (metadata)
+└── routes.ts               ← Token logging
+
+docs/ai_chat/
+└── AI_CHAT_SYSTEM.md      ← This document
 ```
 
-**Frontend:**
-```
-apps/web/src/components/chat/
-└── ChatWidget.tsx                ← MODIFIED: Pass token in WebSocket
-```
+**Key APIs:**
+- `POST /api/v1/chat/session/new` - Create session
+- `POST /api/v1/chat/message` - Send message (text)
+- `WS /api/v1/chat/voice/call` - Voice call (WebSocket)
+- `POST /api/mcp/execute/:toolName` - Execute MCP tool
 
-**Total Changes:**
-- 1 file created: `mcp-adapter.service.ts`
-- 6 files modified
-- ~300 lines added
-
----
-
-## Quick Start
-
-### 1. Configure OpenAI API Key
+**Testing:**
 ```bash
-# .env
-OPENAI_API_KEY=sk-your-actual-key-here
+# Check logs for MCP tool usage:
+./tools/logs-api.sh | grep "📡 Executing MCP tool"
+
+# Test text chat:
+curl -X POST http://localhost:4000/api/v1/chat/message \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"session_id":"...","message":"I need HVAC service"}'
 ```
 
-### 2. Start API
-```bash
-./tools/restart-api.sh
-```
-
-### 3. Test Chat
-Open: `http://localhost:4000/widget/demo.html`
-
-### 4. Test Voice
-Click phone button (📞), allow microphone, speak!
-
 ---
 
-## Cost Estimation
-
-**Text Chat:** ~$0.05 per conversation
-**Voice Chat:** ~$0.06 per minute (~$0.30 for 5 min call)
-**Monthly (1,000 conversations):** ~$50-100
-
----
-
-## Architecture Decision Records
-
-### ADR-001: Why MCP Instead of Direct Function Tools?
-**Decision:** Use MCP Server API manifest instead of hardcoded function tools.
-**Rationale:**
-- Single Source of Truth: API manifest already defines 126 endpoints
-- Automatic Updates: New endpoints automatically available to AI
-- Consistency: Same tools for text, voice, and MCP clients
-- Maintainability: No duplicate definitions
-
-**Trade-offs:**
-- Added complexity: MCP adapter layer
-- Token limits: Can't use all 126 tools (limited to 50)
-
-### ADR-002: Why 50 Tool Limit?
-**Decision:** Filter MCP tools to 50 customer-service-relevant endpoints.
-**Rationale:**
-- OpenAI ~16k token limit for system prompts + tools
-- 126 tools ≈ 20k tokens (exceeds limit)
-- Customer service needs: projects, tasks, bookings, services, employees
-- Admin tools: office/role management → not needed for chat
-
----
-
-**Version:** 2.0.0
 **Status:** ✅ Production Ready
-**Last Updated:** 2025-11-05
+**Version:** 2.1.0
+**Last Updated:** 2025-11-06

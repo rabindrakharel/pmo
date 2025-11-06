@@ -119,6 +119,14 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
       // Get AI response with function calling (using MCP tools)
       const token = request.headers.authorization?.replace('Bearer ', '') || '';
+
+      // Log token status for debugging
+      if (!token) {
+        console.warn(`⚠️ No auth token for session ${session_id} - AI will have limited tool access`);
+      } else {
+        console.log(`🔐 Chat session ${session_id} using authenticated MCP tools`);
+      }
+
       const aiResult = await getAIResponse(conversationHistory, {
         interactionSessionId: session_id,
         useMCP: true,

@@ -111,16 +111,15 @@ export async function getSession(sessionId: string): Promise<ChatSession | null>
     const result = await client`
       SELECT
         id::text as session_id,
-        customer_id::text,
-        customer_name,
         interaction_type,
         content_text as conversation_history,
         source_system as model_used,
         metadata,
+        interaction_person_entities,
         created_ts::text,
         updated_ts::text
       FROM app.f_customer_interaction
-      WHERE id = ${sessionId}::uuid AND active_flag = true
+      WHERE id = ${sessionId}::uuid
     `;
 
     if (result.length === 0) {
@@ -129,31 +128,29 @@ export async function getSession(sessionId: string): Promise<ChatSession | null>
 
     const row = result[0];
     const conversationHistory = row.conversation_history
-      ? JSON.parse(row.conversation_history)
+      ? (typeof row.conversation_history === 'string' ? JSON.parse(row.conversation_history) : row.conversation_history)
       : [];
 
-    // Get booking info if exists
-    const bookingResult = await client`
-      SELECT id::text, booking_number
-      FROM app.d_booking
-      WHERE interaction_session_id = ${sessionId}::uuid
-        AND active_flag = true
-      LIMIT 1
-    `;
-    const booking = bookingResult[0];
+    // Extract customer info from metadata and interaction_person_entities
+    const metadata = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : (row.metadata || {});
+    const personEntities = typeof row.interaction_person_entities === 'string' ? JSON.parse(row.interaction_person_entities) : (row.interaction_person_entities || []);
+
+    // Find customer entity from person_entities
+    const customerEntity = personEntities.find((e: any) => e.person_entity_type === 'customer');
+    const customerId = customerEntity?.person_entity_id;
 
     return {
       session_id: row.session_id,
-      customer_id: row.customer_id,
-      customer_email: row.metadata?.customer_email,
-      customer_name: row.customer_name,
+      customer_id: customerId,
+      customer_email: metadata?.customer_email,
+      customer_name: metadata?.customer_name || 'Anonymous',
       interaction_type: row.interaction_type,
       conversation_history: conversationHistory,
       model_used: row.model_used || 'gpt-4',
-      total_tokens: row.metadata?.total_tokens || 0,
-      total_cost_cents: row.metadata?.total_cost_cents || 0,
-      booking_created_flag: !!booking,
-      booking_id: booking?.id,
+      total_tokens: metadata?.total_tokens || 0,
+      total_cost_cents: metadata?.total_cost_cents || 0,
+      booking_created_flag: false, // Will be determined below
+      booking_id: undefined,
       created_ts: row.created_ts,
       updated_ts: row.updated_ts
     };
@@ -218,14 +215,17 @@ export async function updateSession(
 
     await updateQuery;
 
-    // If booking was created, update flags
+    // If booking was created, update metadata with resolution info
     if (metadata.booking_id) {
       await client`
         UPDATE app.f_customer_interaction
         SET
-          resolution_status = 'resolved',
-          first_contact_resolution = true,
-          follow_up_required = false
+          metadata = metadata || ${JSON.stringify({
+            resolution_status: 'resolved',
+            first_contact_resolution: true,
+            follow_up_required: false,
+            booking_id: metadata.booking_id
+          })}::jsonb
         WHERE id = ${sessionId}::uuid
       `;
     }
@@ -255,7 +255,7 @@ export async function closeSession(
     await client`
       UPDATE app.f_customer_interaction
       SET
-        resolution_status = ${resolution},
+        metadata = metadata || ${JSON.stringify({ resolution_status: resolution })}::jsonb,
         updated_ts = now()
       WHERE id = ${sessionId}::uuid
     `;

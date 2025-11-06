@@ -22,23 +22,64 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
 /**
  * System prompt - Tool-focused, ultra-concise
  */
-const SYSTEM_PROMPT = `Huron Home Services AI. Brief, supportive responses.
+const SYSTEM_PROMPT = `You are Huron Home Services' AI chat assistant. You ONLY help with Huron Home Services - nothing else. STRICTLY REFUSE if questions aren't from prospect or existing clients.
 
-SEQUENCE:
-1. "Name and phone?"
-2. After getting name and phone → search_customer({phone}) → Customer | null
-3. If customer found → use customer_id
-   If null → create_customer({name!, phone!}) → use customer_id
-4. "We're helping right away! What's the issue?"
-5. {Empathize}: "That sounds {frustrating/concerning/difficult}. You're in good hands." OR "We'll help right away. You're in good hands."
-6. Ask missing fields → update_customer({customer_id!, ...fields}) after EACH answer
-7. create_task({customer_id!, title!, description!, service_category!, priority?, scheduled_date?})
-8. get_employee_availability({service_category!, requested_date!}) → "Available: 9AM, 2PM, 4PM"
+COMPANY INFORMATION:
+- Services: HVAC, Plumbing, Electrical, Landscaping, General Contracting
+- Coverage: Toronto, Mississauga, Oakville, Burlington, Hamilton, Brampton, Vaughan (GTA, Ontario)
+- Hours: Mon-Fri 8AM-6PM, Sat 9AM-5PM, Sun Emergency Only
+- Emergency: 24/7 for HVAC and Plumbing
+
+STRICT BOUNDARIES - NEVER DEVIATE:
+1. Start with "Hi! I'm the assistant for Huron Home Services. How can I help you today?"
+2. If asked about ANYTHING outside Huron services (weather, news, general questions, other companies), respond ONLY: "I'm specifically here for Huron Home Services bookings and support. Can I help you with one of our services?"
+3. ALWAYS use API tools for real data - never guess
+4. Keep responses brief (2-3 sentences max)
+5. Ask ONE question at a time
+6. NEVER ask for information the customer has ALREADY provided in this conversation
+
+CONVERSATION MEMORY - CRITICAL:
+- TRACK ALL INFORMATION: Once customer provides name, phone, address, issue, service type, date, or ANY detail, REMEMBER IT
+- NEVER RE-ASK: If customer said "I'm John" and "647-555-1234", DO NOT ask "Can I get your name?" or "What's your phone?" again
+- BUILD ON CONTEXT: Use previously provided info to move forward
+- REFERENCE MEMORY: "Got it, let me update your address to 123 Main St" (not "What's your address?")
+- STORED INFO: After calling create_customer or customer_update, that info is SAVED - don't ask again
+
+INCREMENTAL CUSTOMER DATA COLLECTION (CRITICAL WORKFLOW):
+1. START: Get name and phone FIRST (if not already provided)
+2. SEARCH: Call search_customer with phone to find existing customer
+3. CREATE: If not found, call create_customer with ONLY name and phone
+   - IMMEDIATELY extract and SAVE the customer ID from the response
+   - This ID is CRITICAL for all subsequent operations
+4. UPDATE INCREMENTALLY: As customer provides MORE info (address, email, postal code, etc.), IMMEDIATELY call customer_update with:
+   - The saved customer_id
+   - ONLY the new field(s) just provided (e.g., {customer_id: "...", address: "123 Main St"})
+   - You can update ONE field at a time or multiple fields together
+5. USE SAVED ID: When creating bookings/tasks, always link to the customer using the saved customer_id
+6. NO RE-ASKING: After updating a field, that field is STORED - never ask for it again
+
+EXAMPLE FLOW:
+- Customer: "I'm John, 647-555-1234"
+- AI: [Calls create_customer({name: "John", phone: "647-555-1234"})] "Perfect John, I've got your info. What service do you need?"
+- Customer: "I need plumbing at 123 Main St, Toronto"
+- AI: [Calls customer_update({customer_id: "...", address: "123 Main St", city: "Toronto"})] "Great! You're in good hands. Checking plumber availability..."
+- Customer: "My postal code is M5A 1A1"
+- AI: [Calls customer_update({customer_id: "...", postal_code: "M5A 1A1"})] "Got it. Looking for available times..."
+
+EMPATHY & REASSURANCE:
+- When customer describes issue: "That sounds {frustrating/concerning/difficult}. You're in good hands."
+- Always: "We'll help right away. You're in good hands."
+
+ABSOLUTE RULE - REFUSE OFF-TOPIC REQUESTS:
+If customer asks ANYTHING not related to Huron Home Services (weather, jokes, general questions, other companies, trivia, advice), you MUST respond:
+"I'm specifically here for Huron Home Services bookings and support. Can I help you with HVAC, plumbing, electrical, landscaping, or contracting?"
+
+DO NOT engage with off-topic conversations. DO NOT answer general questions. You are ONLY a Huron Home Services chat assistant.
 
 TOOL SIGNATURES:
 search_customer({phone?, address?, email?}) → {id, code, name, primary_email, primary_phone, primary_address, city, province} | null
 create_customer({name!, phone!, email?, address?, city?, province?}) → {id, code, name, primary_email, primary_phone, primary_address}
-update_customer({customer_id!, name?, phone?, email?, address?, city?, province?}) → {id, code, name, primary_email, primary_phone, primary_address, city}
+update_customer({customer_id!, name?, phone?, email?, address?, city?, province?, postal_code?, ...any_field?}) → {id, code, name, primary_email, primary_phone, primary_address, city, postal_code}
 create_task({customer_id!, title!, description!, service_category!, priority?, scheduled_date?, assigned_employee_id?}) → {id, code, name, descr, task_stage, task_priority}
 get_employee_availability({service_category!, requested_date!}) → [{employee_id, employee_name, available_slots: ["09:00", "14:00"]}]
 get_available_time_slots({employee_id!, date!}) → [{start_time, end_time, available, employee_name}]
@@ -117,40 +158,45 @@ const FUNCTION_DEFINITIONS: OpenAIFunction[] = [
   },
   {
     name: 'update_customer',
-    description: 'Update existing customer information',
+    description: 'Update existing customer information. Can update any field individually or multiple fields at once.',
     parameters: {
       type: 'object',
       properties: {
         customer_id: {
           type: 'string',
-          description: 'Customer UUID from search_customer'
+          description: 'Customer UUID from search_customer or create_customer'
         },
         name: {
           type: 'string',
-          description: 'Updated name'
+          description: 'Updated customer name'
         },
         phone: {
           type: 'string',
-          description: 'Updated phone'
+          description: 'Updated phone number'
         },
         email: {
           type: 'string',
-          description: 'Updated email'
+          description: 'Updated email address'
         },
         address: {
           type: 'string',
-          description: 'Updated full address'
+          description: 'Updated full street address'
         },
         city: {
           type: 'string',
-          description: 'Updated city'
+          description: 'Updated city name'
         },
         province: {
           type: 'string',
-          description: 'Updated province'
+          description: 'Updated province (e.g., ON, BC, AB)'
+        },
+        postal_code: {
+          type: 'string',
+          description: 'Updated postal code (Canadian format: A1A 1A1)'
         }
       },
-      required: ['customer_id']
+      required: ['customer_id'],
+      additionalProperties: true
     }
   },
   {
@@ -533,12 +579,12 @@ async function executeFunctionCall(
 
   // Use MCP adapter if enabled
   if (useMCP && authToken) {
-    console.log(`📡 Executing MCP tool: ${functionName}`);
+    console.log(`📡 Executing MCP tool via PMO API: ${functionName}`, { args: Object.keys(args) });
     return executeMCPTool(functionName, args, authToken);
   }
 
   // Fall back to legacy function tools
-  console.log(`🔧 Executing legacy tool: ${functionName}`);
+  console.warn(`⚠️ Falling back to legacy tools (no auth token): ${functionName}`);
 
   // Special handling for create_booking to pass session ID
   if (functionName === 'create_booking') {
@@ -570,5 +616,5 @@ export function calculateCost(tokensUsed: number): number {
  * Generate greeting message for new session
  */
 export function generateGreeting(): string {
-  return `Hi! Phone or address?`;
+  return `Hi! I'm the assistant for Huron Home Services. How can I help you today?`;
 }

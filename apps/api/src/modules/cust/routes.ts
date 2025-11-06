@@ -55,10 +55,10 @@ const CustSchema = Type.Object({
 });
 
 const CreateCustSchema = Type.Object({
-  code: Type.String({ minLength: 1 }),
-  name: Type.String({ minLength: 1 }),
+  name: Type.String({ minLength: 1 }), // Only name is required
+  code: Type.Optional(Type.String()),  // Auto-generated if not provided
+  cust_number: Type.Optional(Type.String()), // Auto-generated if not provided
   descr: Type.Optional(Type.String()),
-  cust_number: Type.String({ minLength: 1 }),
   cust_type: Type.Optional(Type.String()),
   cust_status: Type.Optional(Type.String()),
   // Address and location
@@ -312,6 +312,26 @@ export async function custRoutes(fastify: FastifyInstance) {
     // Transform request data (tags string → array, etc.)
     const data = transformRequestBody(request.body as any);
 
+    // Auto-generate code from name if not provided
+    if (!data.code) {
+      data.code = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || `cust-${Date.now()}`;
+    }
+
+    // Auto-generate cust_number if not provided
+    if (!data.cust_number) {
+      if (data.primary_phone) {
+        // Use phone number as cust_number (remove non-digits)
+        data.cust_number = data.primary_phone.replace(/\D/g, '');
+      } else {
+        // Generate from timestamp
+        data.cust_number = `CUST${Date.now()}`;
+      }
+    }
+
+    // Set primary_contact_name from name if not provided
+    if (!data.primary_contact_name && data.name) {
+      data.primary_contact_name = data.name;
+    }
 
     try {
       // Check for unique customer number
