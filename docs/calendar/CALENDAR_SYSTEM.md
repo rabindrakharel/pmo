@@ -774,6 +774,30 @@ slots.map(slot => groupByDateTime(slot))  // Recalculates every render
 | POST | `/api/v1/person-calendar/book` | Book multiple slots |
 | POST | `/api/v1/person-calendar/cancel` | Cancel booking |
 
+### Event API Endpoints (Email Invites)
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/api/v1/event` | Create event with automatic calendar invites |
+| GET | `/api/v1/event` | List all events |
+| GET | `/api/v1/event/:id` | Get event with calendar slots |
+| PATCH | `/api/v1/event/:id` | Update event details |
+| DELETE | `/api/v1/event/:id` | Delete event and cancel slots |
+| POST | `/api/v1/event/:id/send-invites` | Manually resend calendar invites |
+
+**See:** [CALENDAR_EVENT_EMAIL_INVITES.md](./CALENDAR_EVENT_EMAIL_INVITES.md) for complete email invite documentation
+
+---
+
+### Related Features
+
+**Calendar Event Email Invites** - Automatic .ics email attachments when events are created
+- Sends calendar invites to employees and customers
+- Compatible with Outlook, Gmail, and iCloud
+- Blocks recipient calendars automatically
+- Links events to calendar slots via `event_id`
+- See [CALENDAR_EVENT_EMAIL_INVITES.md](./CALENDAR_EVENT_EMAIL_INVITES.md)
+
 ---
 
 **Document Version:** 1.0.0

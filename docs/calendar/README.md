@@ -16,6 +16,12 @@ Multi-person availability and booking management system for PMO platform.
 
 ### Supporting Documentation
 
+**[CALENDAR_EVENT_EMAIL_INVITES.md](./CALENDAR_EVENT_EMAIL_INVITES.md)** - Email invite system
+- Automatic calendar invites with .ics attachments
+- Outlook, Gmail, and iCloud compatibility
+- SMTP configuration and setup
+- Event API endpoints and examples
+
 **[DOCUMENTATION_UPDATES.md](./DOCUMENTATION_UPDATES.md)** - Impact on existing docs
 - Files requiring updates
 - Specific changes needed
