@@ -890,9 +890,9 @@ CRITIC_MODEL=gpt-3.5-turbo
 ```
 
 ### Cost Metrics
-- **Text chat:** $0.02-0.05/conversation (with model optimization)
-- **Voice chat:** $0.02-0.05/conversation (Whisper + TTS)
-- **Savings:** 30-85% vs direct GPT-4 or Realtime API
+- **Text chat:** ~$0.016/conversation (GPT-3.5 Turbo orchestrator)
+- **Voice chat:** ~$0.016/conversation (Whisper + GPT-3.5 Turbo + TTS)
+- **Savings:** 94.7% vs OpenAI Realtime API ($0.30/conversation)
 
 ### Performance
 - **Text latency:** 500-2000ms (orchestrator + MCP)
