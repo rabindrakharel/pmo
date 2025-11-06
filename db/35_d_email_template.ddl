@@ -1,53 +1,28 @@
 -- =====================================================
--- EMAIL TEMPLATE ENTITY (d_email_template) - HEAD TABLE
--- Visual email template builder for marketing campaigns
+-- EMAIL TEMPLATE (d_email_template) - MARKETING
 -- =====================================================
 --
--- BUSINESS PURPOSE:
--- Stores email templates designed with a visual builder that includes:
--- - Rich text content blocks
--- - Images and media
--- - Embedded form fields for customer data collection
--- - Reusable email layouts for marketing campaigns
+-- SEMANTICS:
+-- • Visual email templates for marketing campaigns
+-- • Block-based builder: text, images, forms, buttons, dividers
+-- • Reusable layouts with JSONB schema
 --
--- API SEMANTICS & LIFECYCLE:
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/email-template, INSERT with version=1
+-- • UPDATE: PUT /api/v1/email-template/{id}, version++, in-place
+-- • DELETE: active_flag=false, to_ts=now()
+-- • LIST: GET /api/v1/email-template, RBAC filtered
 --
--- 1. CREATE NEW TEMPLATE
---    • Endpoint: POST /api/v1/email-template
---    • Body: {name, subject, template_schema: {blocks: [...]}}
---    • Returns: {id: "new-uuid", version: 1}
---    • Database: INSERT with version=1, active_flag=true, created_ts=now()
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY
+-- • name, subject: varchar
+-- • template_schema: jsonb ({"blocks": [{"type", "content", "styles"}]})
+-- • template_type: varchar (marketing, transactional, notification)
 --
--- 2. UPDATE TEMPLATE (Save/Edit)
---    • Endpoint: PUT /api/v1/email-template/{id}
---    • Body: {template_schema: {blocks: [...]}, name, subject}
---    • Returns: {id: "same-uuid", version: 2}
---    • Database: UPDATE SET template_schema=$1, version=version+1, updated_ts=now()
---    • SCD Behavior: IN-PLACE UPDATE (version increments)
+-- RELATIONSHIPS:
+-- • RBAC: entity_id_rbac_map
 --
--- 3. SOFT DELETE TEMPLATE
---    • Endpoint: DELETE /api/v1/email-template/{id}
---    • Database: UPDATE SET active_flag=false, to_ts=now()
---
--- 4. LIST TEMPLATES
---    • Endpoint: GET /api/v1/email-template
---    • Database: SELECT * FROM d_email_template WHERE active_flag=true
---    • RBAC: Filtered by entity_id_rbac_map (permission 0=view required)
---
--- 5. GET SINGLE TEMPLATE
---    • Endpoint: GET /api/v1/email-template/{id}
---    • Database: SELECT * FROM d_email_template WHERE id=$1 AND active_flag=true
---
--- TEMPLATE SCHEMA STRUCTURE (JSONB):
--- {
---   "blocks": [
---     {
---       "id": "block-1",
---       "type": "text|image|form|button|divider|spacer",
---       "content": "...",
---       "styles": {...},
---       "properties": {...}
---     }
+-- =====================================================
 --   ],
 --   "globalStyles": {
 --     "backgroundColor": "#ffffff",

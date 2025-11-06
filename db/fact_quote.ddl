@@ -1,43 +1,25 @@
 -- =====================================================
--- QUOTE FACT TABLE (fact_quote)
--- Customer quotes for services and products
+-- QUOTE FACT TABLE (fact_quote) - PRICING PROPOSALS
 -- =====================================================
 --
 -- SEMANTICS:
--- Quotes represent pricing proposals for customers tied to tasks.
--- Each quote includes multiple services and products stored in quote_items JSONB array.
--- Quotes track total revenue, stage progression, validity period, and approval status.
--- In-place updates (same ID, version++), soft delete preserves historical data.
---
--- DATABASE BEHAVIOR:
--- • CREATE: INSERT with version=1, active_flag=true
---   Example: INSERT INTO fact_quote (id, code, name, descr, dl__quote_stage,
---                                     quote_total_amt, quote_items, valid_until_date)
---            VALUES ('q1111111-...', 'QT-2024-001', 'HVAC Installation Quote',
---                    'Complete HVAC installation for residential client', 'Draft',
---                    8500.00, '[{"item_type":"service","item_id":"s1111111-...","quantity":1.0,"unit_rate":5500.00}]'::jsonb,
---                    '2024-12-31')
---
--- • UPDATE: Same ID, version++, updated_ts refreshes
---   Example: UPDATE fact_quote SET dl__quote_stage='Sent', sent_date=now(), version=version+1
---            WHERE id='q1111111-...'
---
--- • SOFT DELETE: active_flag=false, to_ts=now()
---   Example: UPDATE fact_quote SET active_flag=false, to_ts=now() WHERE id='q1111111-...'
+-- • Customer pricing proposals tied to tasks
+-- • quote_items JSONB: services/products with quantities/rates
+-- • Stage progression (Draft→Sent→Accepted/Rejected), validity period
+-- • In-place updates (version++), soft delete
 --
 -- KEY FIELDS:
--- • id: uuid PRIMARY KEY (stable, never changes)
--- • code: varchar(50) UNIQUE NOT NULL (business identifier: 'QT-2024-001')
--- • name: text NOT NULL (display name: 'HVAC Installation Quote')
--- • dl__quote_stage: text (references setting_datalabel: 'Draft', 'Sent', 'Accepted', 'Rejected', etc.)
--- • quote_items: jsonb (array of line items with services and products)
--- • quote_tax_amt: decimal(15,2) (calculated tax amount)
--- • quote_total_amt: decimal(15,2) (total quote amount including tax)
--- • subtotal_amt: decimal(15,2) (amount before tax and discounts)
--- • discount_pct: numeric(5,2) (discount percentage if applicable)
--- • discount_amt: decimal(15,2) (discount dollar amount)
--- • valid_until_date: date (quote expiration date)
--- • sent_date, accepted_date, rejected_date: date (workflow tracking)
+-- • id: uuid, code: varchar(50) UNIQUE ('QT-2024-001')
+-- • dl__quote_stage: text (Draft, Sent, Accepted, Rejected)
+-- • quote_items: jsonb ([{item_type, item_id, quantity, unit_rate}])
+-- • subtotal_amt, discount_amt, quote_tax_amt, quote_total_amt: decimal(15,2)
+-- • valid_until_date, sent_date, accepted_date, rejected_date: date
+--
+-- RELATIONSHIPS:
+-- • Parent: task (via d_entity_id_map)
+-- • Children: work_order (via d_entity_id_map)
+--
+-- =====================================================
 --
 -- QUOTE_ITEMS JSONB STRUCTURE:
 -- Array of line item objects with per-line discounts and taxes:

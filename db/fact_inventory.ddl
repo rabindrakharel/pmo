@@ -1,28 +1,22 @@
 -- =====================================================
--- Inventory Transaction Fact Table (fact_inventory)
+-- INVENTORY FACT TABLE (fact_inventory) - TRANSACTIONS
 -- =====================================================
 --
 -- SEMANTICS:
--- Transaction-level fact table capturing all inventory movements and stock levels.
--- Records every inventory transaction: receipts, issues, adjustments, transfers.
--- Grain: One row per inventory transaction (movement event).
+-- • Transaction-level inventory movements (receipts, issues, adjustments, transfers)
+-- • One row per transaction event, perpetual inventory tracking
+-- • Supports valuation, turnover analysis, cycle counting, COGS
 --
--- BUSINESS CONTEXT:
--- - Tracks perpetual inventory across multiple warehouses/locations
--- - Records all stock movements: receipts from suppliers, issues to jobs, adjustments
--- - Supports inventory valuation, stock turnover analysis, and reorder planning
--- - Enables cycle counting, variance tracking, and shrinkage analysis
--- - Foundation for cost accounting and COGS calculation
+-- KEY FIELDS:
+-- • transaction_type: varchar (receipt, issue, adjustment, transfer)
+-- • transaction_qty: numeric (positive=receipt, negative=issue)
+-- • product_id, office_id, employee_id: uuid (links)
+-- • transaction_date: date
 --
 -- RELATIONSHIPS:
--- - Links to d_product (product dimension)
--- - Links to fact_order (if inventory issued for order)
--- - Links to d_project (if inventory issued to project)
--- - Links to d_office (warehouse/location)
--- - Links to d_employee (who performed transaction)
+-- • d_product, fact_order, d_project, d_office, d_employee
 --
--- METRICS:
--- - Transaction quantity (positive = receipt, negative = issue)
+-- =====================================================
 -- - On-hand quantity, available quantity, allocated quantity
 -- - Inventory value (at cost), average cost, FIFO cost
 -- - Stock turnover rate, days on hand

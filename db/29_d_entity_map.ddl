@@ -1,30 +1,21 @@
 -- =====================================================
--- ENTITY TYPE LINKAGE MAP TABLE (d_entity_map)
--- Valid parent-child entity TYPE relationships
--- Defines which entity types can be linked together
+-- ENTITY TYPE LINKAGE MAP (d_entity_map) - TYPE REGISTRY
 -- =====================================================
 --
--- BUSINESS PURPOSE:
--- Maintains a registry of valid parent-child entity type relationships.
--- Acts as a reference table for validating entity_id_map entries and
--- ensuring only valid entity relationships are created in the system.
+-- SEMANTICS:
+-- • Registry of valid parent-child entity TYPE relationships (not instances)
+-- • Validates entity_id_map entries before creation
+-- • Reference table for allowed relationships
 --
--- PARENT-CHILD ENTITY RELATIONSHIPS:
---   PARENT ENTITY     → CHILD ENTITIES
---   =====================================
---   business (biz)    → project
---   project           → task, artifact, wiki, form
---   office            → task, artifact, wiki, form
---   cust              → project, artifact, form
---   role              → employee
---   task              → form, artifact
---   form              → artifact
---   employee          → (no children)
---   wiki              → (no children)
---   artifact          → (no children)
---   worksite          → (no children, standalone)
---   position          → (no children, standalone)
---   reports           → (no children, standalone)
+-- VALID RELATIONSHIPS:
+-- • business → project, cost, revenue
+-- • project → task, artifact, wiki, form, cost, revenue
+-- • office → task, artifact, wiki, form, cost, revenue
+-- • cust → project, artifact, form, cost, revenue
+-- • role → employee
+-- • task → form, artifact, cost, revenue
+-- • form → artifact
+-- • Standalone (no children): employee, wiki, artifact, worksite, position, reports
 --
 -- =====================================================
 

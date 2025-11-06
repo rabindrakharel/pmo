@@ -1,28 +1,23 @@
 -- =====================================================
--- Customer Order Fact Table (fact_order)
+-- ORDER FACT TABLE (fact_order) - CUSTOMER ORDERS
 -- =====================================================
 --
 -- SEMANTICS:
--- Transaction-level fact table capturing all customer orders and order line items.
--- Represents the complete order lifecycle from quotation through fulfillment.
--- Grain: One row per order line item (product ordered).
+-- • Customer orders and line items (materials, equipment, services)
+-- • Order lifecycle: quote → confirmed → processing → shipped → delivered
+-- • One row per order line item, supports sales analytics and demand forecasting
 --
--- BUSINESS CONTEXT:
--- - Records all material orders, equipment purchases, and service bookings
--- - Supports sales analytics, demand forecasting, and inventory planning
--- - Tracks order status from quote → confirmed → processing → shipped → delivered
--- - Enables customer buying pattern analysis and product performance metrics
--- - Foundation for revenue recognition and sales reporting
+-- KEY FIELDS:
+-- • order_status: varchar (quote, confirmed, processing, shipped, delivered)
+-- • order_date, ship_date, delivery_date: date
+-- • product_id, customer_id, project_id, employee_id, office_id: uuid
+-- • order_qty, unit_price, line_total_amt: numeric/decimal
 --
 -- RELATIONSHIPS:
--- - Links to d_product (product dimension)
--- - Links to d_client (customer dimension)
--- - Links to d_project (associated project, if applicable)
--- - Links to d_employee (sales representative)
--- - Links to d_office (selling office/branch)
--- - Parent-child within table (order header → order lines)
+-- • d_product, d_cust, d_project, d_employee, d_office
+-- • Children: fact_invoice, fact_shipment
 --
--- METRICS:
+-- =====================================================
 -- - Order quantity, unit price, extended price, discount amount
 -- - Order count, line count, average order value
 -- - Order fulfillment time, backorder rate

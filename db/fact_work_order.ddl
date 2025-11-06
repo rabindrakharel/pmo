@@ -1,33 +1,25 @@
 -- =====================================================
--- WORK ORDER FACT TABLE (fact_work_order)
--- Actual work performed for customers
+-- WORK ORDER FACT TABLE (fact_work_order) - ACTUAL WORK
 -- =====================================================
 --
 -- SEMANTICS:
--- Work orders represent actual work performed, often following accepted quotes.
--- Tracks services rendered, products used, labor hours, and completion status.
--- Work orders can be linked to quotes or created independently for service calls.
--- In-place updates (same ID, version++), soft delete preserves historical data.
---
--- DATABASE BEHAVIOR:
--- • CREATE: INSERT with version=1, active_flag=true
---   Example: INSERT INTO fact_work_order (id, code, name, descr, dl__work_order_status,
---                                          scheduled_date, assigned_technician_name)
---            VALUES ('w1111111-...', 'WO-2024-001', 'HVAC Installation Work Order',
---                    'Complete HVAC installation per quote QT-2024-001', 'Scheduled', '2024-11-15', 'John Smith')
---
--- • UPDATE: Same ID, version++, updated_ts refreshes
---   Example: UPDATE fact_work_order SET dl__work_order_status='In Progress', started_ts=now(), version=version+1
---            WHERE id='w1111111-...'
---
--- • SOFT DELETE: active_flag=false, to_ts=now()
---   Example: UPDATE fact_work_order SET active_flag=false, to_ts=now() WHERE id='w1111111-...'
+-- • Actual work performed, often following accepted quotes
+-- • Tracks services rendered, products used, labor hours, completion
+-- • Can link to quotes or standalone for service calls
+-- • In-place updates (version++), soft delete
 --
 -- KEY FIELDS:
--- • id: uuid PRIMARY KEY (stable, never changes)
--- • code: varchar(50) UNIQUE NOT NULL (business identifier: 'WO-2024-001')
--- • name: text NOT NULL (display name: 'HVAC Installation Work Order')
--- • dl__work_order_status: text (references setting_datalabel: 'Scheduled', 'In Progress', 'Completed', etc.)
+-- • id: uuid, code: varchar(50) UNIQUE ('WO-2024-001')
+-- • dl__work_order_status: text (Scheduled, In Progress, Completed, Cancelled)
+-- • scheduled_date, started_ts, completed_ts: timestamptz
+-- • assigned_technician_name: varchar
+-- • work_order_items: jsonb (services/products used)
+-- • total_labor_hours: numeric, total_amt: decimal(15,2)
+--
+-- RELATIONSHIPS:
+-- • Parent: quote, task (via d_entity_id_map)
+--
+-- =====================================================
 -- • scheduled_date: date (when work is scheduled)
 -- • started_ts, completed_ts: timestamptz (actual work start/completion)
 -- • assigned_technician_name: text (technician assigned to work)

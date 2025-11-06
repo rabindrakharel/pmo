@@ -1,28 +1,29 @@
 -- =====================================================
--- REVENUE FACT TABLE (f_revenue) - FACT TABLE
--- Revenue tracking with forecasting, multi-currency support, and receipt management
+-- REVENUE FACT TABLE (f_revenue) - FINANCIAL TRACKING
 -- =====================================================
 --
--- BUSINESS PURPOSE:
--- Tracks revenue_amt associated with projects, tasks, customers, businesses, and offices.
--- Supports revenue_amt forecasting, actual revenue_amt tracking, multi-currency transactions, and
--- S3-based sales_amt receipt attachment storage. Primary financial tracking entity for revenue_amt analysis.
+-- SEMANTICS:
+-- • Revenue tracking: projects, tasks, customers, businesses, offices
+-- • Forecasting, actual revenue, multi-currency support
+-- • S3-based receipt attachments, auto-links to parents via d_entity_id_map
 --
--- API SEMANTICS & LIFECYCLE:
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/revenue, creates entity_id_map entries to parents
+-- • UPDATE: PUT /api/v1/revenue/{id}, version++, adjust amounts/forecasts
+-- • DELETE: active_flag=false, to_ts=now()
+-- • AGGREGATE: SUM by project_id, customer_id, business_id for reports
 --
--- 1. CREATE REVENUE ENTRY
---    • Endpoint: POST /api/v1/revenue_amt
---    • Body: {revenue_code, descr, customer_id, business_id, project_id, task_id, office_id, revenue_amt_local, revenue_amt_invoice, invoice_currency, exch_rate, revenue_forecasted_amt_lcl, sales_receipt_attachment}
---    • Returns: {id: "new-uuid", version: 1, ...}
---    • Database: INSERT with version=1, active_flag=true, created_ts=now()
---    • RBAC: Requires permission 4 (create) on entity='revenue_amt', entity_id='all'
---    • Business Rule: Creates entity_id_map entries for parent relationships (project/task/customer/business/office)
---    • S3 Integration: sales_receipt_attachment stores S3 URI from S3_ATTACHMENT_SERVICE
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY
+-- • revenue_code: varchar (receipt number)
+-- • revenue_amt, invoice_amt, forecasted_amt: numeric(15,2)
+-- • invoice_currency_code: varchar(3) (CAD, USD)
+-- • exchange_rate: numeric(10,6)
+-- • receipt_url: text (S3 URI)
 --
--- 2. UPDATE REVENUE ENTRY (Receipt Updates, Amount Adjustments, Forecasts)
---    • Endpoint: PUT /api/v1/revenue/{id}
---    • Body: {revenue_amt, invoice_amt, sales_receipt_url, forecasted_amt}
---    • Returns: {id: "same-uuid", version: 2, updated_ts: "new-timestamp"}
+-- RELATIONSHIPS:
+-- • Parents: project, task, customer, business, office (via d_entity_id_map)
+-- • RBAC: entity_id_rbac_map
 --
 -- =====================================================
 

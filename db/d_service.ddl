@@ -1,33 +1,19 @@
 -- =====================================================
--- SERVICE ENTITY (d_service) - DIMENSION
--- Service catalog for quotes and work orders
+-- SERVICE ENTITY (d_service) - CATALOG
 -- =====================================================
 --
 -- SEMANTICS:
--- Services represent the types of work offered by Huron Home Services.
--- Used in quotes and work orders to specify what services are being provided.
--- Each service has pricing, duration estimates, and service category metadata.
--- Service categories reference dl__service_category settings for dropdown values.
--- In-place updates (same ID, version++), soft delete preserves historical data.
---
--- DATABASE BEHAVIOR:
--- • CREATE: INSERT with version=1, active_flag=true
---   Example: INSERT INTO d_service (id, code, name, descr, service_category,
---                                    standard_rate_amt, estimated_hours)
---            VALUES ('s1111111-...', 'SVC-HVAC-001', 'HVAC Installation',
---                    'Complete HVAC system installation', 'HVAC', 2500.00, 8.0)
---
--- • UPDATE: Same ID, version++, updated_ts refreshes
---   Example: UPDATE d_service SET standard_rate_amt=2750.00, version=version+1
---            WHERE id='s1111111-...'
---
--- • SOFT DELETE: active_flag=false, to_ts=now()
---   Example: UPDATE d_service SET active_flag=false, to_ts=now() WHERE id='s1111111-...'
+-- • Service types offered (installation, maintenance, repair)
+-- • Used in quotes/work orders, pricing, duration estimates
+-- • Service categories: dl__service_category settings
+-- • In-place updates (version++), soft delete
 --
 -- KEY FIELDS:
--- • id: uuid PRIMARY KEY (stable, never changes)
--- • code: varchar(50) UNIQUE NOT NULL (business identifier: 'SVC-HVAC-001')
--- • name: text NOT NULL (display name: 'HVAC Installation')
+-- • id: uuid PRIMARY KEY, code: varchar(50) UNIQUE
+-- • dl__service_category: text (HVAC, Plumbing, Electrical, Landscaping)
+-- • standard_rate_amt: numeric(12,2), estimated_hours: numeric(5,2)
+--
+-- =====================================================
 -- • service_category: text (references dl__service_category settings: 'HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting')
 -- • standard_rate_amt: decimal(15,2) (standard pricing per service)
 -- • estimated_hours: numeric(10,2) (typical time to complete)

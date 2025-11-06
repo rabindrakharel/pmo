@@ -1,33 +1,19 @@
 -- =====================================================
--- PRODUCT ENTITY (d_product) - DIMENSION
--- Product catalog for quotes and work orders
+-- PRODUCT ENTITY (d_product) - CATALOG
 -- =====================================================
 --
 -- SEMANTICS:
--- Products represent physical items sold or installed by Huron Home Services.
--- Used in quotes and work orders to specify materials and equipment being provided.
--- Each product has pricing, inventory tracking, and supplier information.
--- In-place updates (same ID, version++), soft delete preserves historical data.
---
--- DATABASE BEHAVIOR:
--- • CREATE: INSERT with version=1, active_flag=true
---   Example: INSERT INTO d_product (id, code, name, descr, product_category,
---                                    unit_price_amt, on_hand_qty)
---            VALUES ('p1111111-...', 'PRD-HVAC-001', 'Carrier HVAC Unit 3-Ton',
---                    '3-ton central air conditioning unit', 'HVAC Equipment', 3200.00, 5)
---
--- • UPDATE: Same ID, version++, updated_ts refreshes
---   Example: UPDATE d_product SET unit_price_amt=3350.00, on_hand_qty=3, version=version+1
---            WHERE id='p1111111-...'
---
--- • SOFT DELETE: active_flag=false, to_ts=now()
---   Example: UPDATE d_product SET active_flag=false, to_ts=now() WHERE id='p1111111-...'
+-- • Physical items sold/installed (materials, equipment)
+-- • Used in quotes/work orders, pricing, inventory tracking
+-- • In-place updates (version++), soft delete
 --
 -- KEY FIELDS:
--- • id: uuid PRIMARY KEY (stable, never changes)
--- • code: varchar(50) UNIQUE NOT NULL (business identifier: 'PRD-HVAC-001', SKU)
--- • name: text NOT NULL (display name: 'Carrier HVAC Unit 3-Ton')
--- • product_category: text ('HVAC Equipment', 'Plumbing Fixtures', 'Electrical Materials', etc.)
+-- • id: uuid PRIMARY KEY, code: varchar(50) UNIQUE (SKU)
+-- • product_category: text (HVAC, Plumbing, Electrical)
+-- • unit_price_amt: numeric(12,2), on_hand_qty: integer
+-- • supplier_info: jsonb
+--
+-- =====================================================
 -- • unit_price_amt: decimal(15,2) (standard selling price per unit)
 -- • cost_amt: decimal(15,2) (cost to acquire/purchase)
 -- • on_hand_qty: integer (current inventory quantity)
