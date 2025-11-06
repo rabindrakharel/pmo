@@ -291,13 +291,8 @@ export function EntityFormContainer({
       if (field.type === 'timestamp' && value) {
         return (
           <span
-            className="text-dark-700"
+            className="text-dark-700 text-base tracking-tight"
             title={formatFriendlyDate(value)}
-            style={{
-              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '14px',
-              letterSpacing: '-0.01em'
-            }}
           >
             {formatRelativeTime(value)}
           </span>
@@ -337,14 +332,7 @@ export function EntityFormContainer({
       // Regular date field rendering
       if (field.type === 'date' && value) {
         return (
-          <span
-            className="text-dark-600"
-            style={{
-              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '14px',
-              letterSpacing: '-0.01em'
-            }}
-          >
+          <span className="text-dark-600 text-base tracking-tight">
             {formatFriendlyDate(value)}
           </span>
         );
@@ -380,14 +368,7 @@ export function EntityFormContainer({
         const displayValue = option?.label || value;
 
         if (!displayValue) return (
-          <span
-            className="text-dark-600"
-            style={{
-              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '14px',
-              letterSpacing: '-0.01em'
-            }}
-          >
+          <span className="text-dark-600 text-base tracking-tight">
             -
           </span>
         );
@@ -400,29 +381,14 @@ export function EntityFormContainer({
         }
 
         return (
-          <span
-            className="text-dark-600"
-            style={{
-              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '14px',
-              letterSpacing: '-0.01em'
-            }}
-          >
+          <span className="text-dark-600 text-base tracking-tight">
             {displayValue}
           </span>
         );
       }
       if (field.type === 'textarea' || field.type === 'richtext') {
         return (
-          <div
-            className="whitespace-pre-wrap text-dark-600"
-            style={{
-              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '14px',
-              letterSpacing: '-0.01em',
-              lineHeight: '1.6'
-            }}
-          >
+          <div className="whitespace-pre-wrap text-dark-600 text-base tracking-tight leading-relaxed">
             {value || '-'}
           </div>
         );
@@ -449,14 +415,7 @@ export function EntityFormContainer({
         // Other JSONB fields show as formatted JSON
         if (value) {
           return (
-            <pre
-              className="font-mono bg-dark-100 p-2 rounded overflow-auto max-h-40"
-              style={{
-                fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                fontSize: '13px',
-                color: '#333'
-              }}
-            >
+            <pre className="font-mono bg-dark-100 p-2 rounded overflow-auto max-h-40 text-sm text-dark-700">
               {JSON.stringify(value, null, 2)}
             </pre>
           );
@@ -467,14 +426,7 @@ export function EntityFormContainer({
         // Auto-detect and format currency fields
         if (isCurrencyField(field.key)) {
           return (
-            <span
-              className="text-dark-600 font-medium"
-              style={{
-                fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                fontSize: '14px',
-                letterSpacing: '-0.01em'
-              }}
-            >
+            <span className="text-dark-600 font-medium text-base tracking-tight">
               {formatCurrency(value)}
             </span>
           );
@@ -482,41 +434,20 @@ export function EntityFormContainer({
         // Handle explicit prefix (deprecated, use isCurrencyField instead)
         if (field.prefix) {
           return (
-            <span
-              className="text-dark-600"
-              style={{
-                fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                fontSize: '14px',
-                letterSpacing: '-0.01em'
-              }}
-            >
+            <span className="text-dark-600 text-base tracking-tight">
               {`${field.prefix}${value || 0}`}
             </span>
           );
         }
         // Regular number
         return (
-          <span
-            className="text-dark-600"
-            style={{
-              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '14px',
-              letterSpacing: '-0.01em'
-            }}
-          >
+          <span className="text-dark-600 text-base tracking-tight">
             {value || '-'}
           </span>
         );
       }
       return (
-        <span
-          className="text-dark-600"
-          style={{
-            fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-            fontSize: '14px',
-            letterSpacing: '-0.01em'
-          }}
-        >
+        <span className="text-dark-600 text-base tracking-tight">
           {value || '-'}
         </span>
       );
@@ -532,15 +463,9 @@ export function EntityFormContainer({
             type={field.type}
             value={value || ''}
             onChange={(e) => onChange(field.key, e.target.value)}
-            className={`w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 ${
+            className={`w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-base tracking-tight ${
               field.readonly ? 'cursor-not-allowed text-dark-600' : 'text-dark-600 placeholder:text-dark-600/60 hover:placeholder:text-dark-700/80'
             }`}
-            style={{
-              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '14px',
-              letterSpacing: '-0.01em',
-              fontWeight: '400'
-            }}
             placeholder={field.placeholder}
             disabled={field.disabled || field.readonly}
             required={field.required && mode === 'create'}
@@ -553,14 +478,7 @@ export function EntityFormContainer({
             value={value || ''}
             onChange={(e) => onChange(field.key, e.target.value)}
             rows={field.type === 'richtext' ? 6 : 4}
-            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 resize-none text-dark-600 placeholder:text-dark-600/60 hover:placeholder:text-dark-700/80"
-            style={{
-              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '14px',
-              letterSpacing: '-0.01em',
-              lineHeight: '1.6',
-              fontWeight: '400'
-            }}
+            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 resize-none text-dark-600 placeholder:text-dark-600/60 hover:placeholder:text-dark-700/80 text-base tracking-tight leading-relaxed"
             placeholder={field.placeholder}
             disabled={field.disabled || field.readonly}
             required={field.required && mode === 'create'}
@@ -573,13 +491,7 @@ export function EntityFormContainer({
             value={Array.isArray(value) ? value.join(', ') : ''}
             onChange={(e) => onChange(field.key, e.target.value.split(',').map(v => v.trim()).filter(Boolean))}
             placeholder={field.placeholder || "Enter comma-separated values"}
-            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-dark-600 placeholder:text-dark-600/60 hover:placeholder:text-dark-700/80"
-            style={{
-              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '14px',
-              letterSpacing: '-0.01em',
-              fontWeight: '400'
-            }}
+            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-dark-600 placeholder:text-dark-600/60 hover:placeholder:text-dark-700/80 text-base tracking-tight"
             disabled={field.disabled || field.readonly}
           />
         );
@@ -615,12 +527,7 @@ export function EntityFormContainer({
               }
             }}
             rows={6}
-            className="w-full border-0 border-b border-transparent hover:border-dark-400 focus:border-dark-600 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0 font-mono resize-none"
-            style={{
-              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '13px',
-              color: '#333'
-            }}
+            className="w-full border-0 border-b border-transparent hover:border-dark-400 focus:border-dark-600 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0 font-mono resize-none text-sm text-dark-700"
             placeholder={field.placeholder}
             disabled={field.disabled || field.readonly}
           />
@@ -674,13 +581,7 @@ export function EntityFormContainer({
               }
               onChange(field.key, newValue === '' ? undefined : newValue);
             }}
-            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-dark-600 cursor-pointer hover:text-dark-700"
-            style={{
-              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '14px',
-              letterSpacing: '-0.01em',
-              fontWeight: '400'
-            }}
+            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-dark-600 cursor-pointer hover:text-dark-700 text-base tracking-tight"
             disabled={field.disabled || field.readonly}
             required={field.required && mode === 'create'}
           >
@@ -715,13 +616,7 @@ export function EntityFormContainer({
             type="date"
             value={value ? new Date(value).toISOString().split('T')[0] : ''}
             onChange={(e) => onChange(field.key, e.target.value)}
-            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-dark-600 cursor-pointer hover:text-dark-700"
-            style={{
-              fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '14px',
-              letterSpacing: '-0.01em',
-              fontWeight: '400'
-            }}
+            className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-dark-600 cursor-pointer hover:text-dark-700 text-base tracking-tight"
             disabled={field.disabled || field.readonly}
             required={field.required && mode === 'create'}
           />
@@ -779,15 +674,7 @@ export function EntityFormContainer({
               <div className="group transition-all duration-300 ease-out py-1"
             >
               <div className="grid grid-cols-[160px_1fr] gap-4 items-start">
-                <label
-                  className="text-xs font-medium text-dark-700 pt-2 flex items-center gap-1.5"
-                  style={{
-                    fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                    letterSpacing: '0.01em',
-                    textTransform: 'uppercase',
-                    fontSize: '11px'
-                  }}
-                >
+                <label className="text-2xs font-medium text-dark-700 pt-2 flex items-center gap-1.5 uppercase tracking-wide">
                   <span className="opacity-50 group-hover:opacity-100 transition-all duration-300 group-hover:text-dark-700">
                     {/* Show "Date Range" label when displaying both start and end dates together */}
                     {field.key === 'end_date' && data.start_date && !isEditing ? 'Date Range' :
@@ -807,14 +694,8 @@ export function EntityFormContainer({
                       ? 'bg-gradient-to-br from-dark-100/50 via-dark-100/50 to-dark-200/30 hover:from-dark-50/40 hover:via-dark-100/70 hover:to-dark-50/20 hover:shadow-[0_0_0_1px_rgba(139,115,85,0.1),0_2px_8px_-2px_rgba(139,115,85,0.08)] focus-within:from-dark-100 focus-within:via-dark-100 focus-within:to-dark-200/20 focus-within:shadow-[0_0_0_1px_rgba(139,115,85,0.25),0_4px_16px_-4px_rgba(139,115,85,0.15),0_0_24px_-8px_rgba(168,144,120,0.2)] focus-within:scale-[1.002]'
                       : 'hover:bg-gradient-to-br hover:from-dark-50/40 hover:via-dark-100/20 hover:to-dark-50/30'
                     }
+                    text-sm text-dark-700 tracking-tight leading-normal
                   `}
-                  style={{
-                    fontFamily: "'Inter', 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                    fontSize: '13px',
-                    color: '#1f2937',
-                    letterSpacing: '-0.01em',
-                    lineHeight: '1.5'
-                  }}
                 >
                   {renderField(field)}
                 </div>

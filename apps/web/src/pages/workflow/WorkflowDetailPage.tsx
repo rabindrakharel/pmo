@@ -275,9 +275,9 @@ export function WorkflowDetailPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap overflow-x-auto">
               {/* Workflow Name */}
-              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">Workflow:</span>
+              <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">Workflow:</span>
               <div className="flex items-center gap-1 group">
-                <span className="text-dark-600 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+                <span className="text-dark-600 font-medium text-xs tracking-tight">
                   {workflowData.name}
                 </span>
                 <button
@@ -292,9 +292,9 @@ export function WorkflowDetailPage() {
               <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Instance Code */}
-              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">code:</span>
+              <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">code:</span>
               <div className="flex items-center gap-1 group">
-                <span className="text-dark-600 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+                <span className="text-dark-600 font-medium text-xs tracking-tight">
                   {workflowData.workflow_instance_id}
                 </span>
                 <button
@@ -309,9 +309,9 @@ export function WorkflowDetailPage() {
               <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* ID */}
-              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">id:</span>
+              <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">id:</span>
               <div className="flex items-center gap-1 group">
-                <span className="text-dark-600 font-normal text-xs text-dark-700" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+                <span className="text-dark-700 font-medium text-xs tracking-tight">
                   {workflowData.id}
                 </span>
                 <button
@@ -326,32 +326,32 @@ export function WorkflowDetailPage() {
               <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Template */}
-              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">template:</span>
-              <span className="text-dark-600 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+              <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">template:</span>
+              <span className="text-dark-600 font-medium text-xs tracking-tight">
                 {workflowData.workflow_template_name}
               </span>
 
               <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Industry */}
-              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">industry:</span>
-              <span className="text-dark-600 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+              <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">industry:</span>
+              <span className="text-dark-600 font-medium text-xs tracking-tight">
                 {workflowData.industry_sector}
               </span>
 
               <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Created */}
-              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">created:</span>
-              <span className="text-dark-600 font-normal text-xs" title={workflowData.created_ts} style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+              <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">created:</span>
+              <span className="text-dark-600 font-medium text-xs tracking-tight" title={workflowData.created_ts}>
                 {formatRelativeTime(workflowData.created_ts)}
               </span>
 
               <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Updated */}
-              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">updated:</span>
-              <span className="text-dark-600 font-normal text-xs" title={workflowData.updated_ts} style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+              <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">updated:</span>
+              <span className="text-dark-600 font-medium text-xs tracking-tight" title={workflowData.updated_ts}>
                 {formatRelativeTime(workflowData.updated_ts)}
               </span>
             </div>
@@ -386,11 +386,11 @@ export function WorkflowDetailPage() {
             <div className="sticky top-14 z-10 bg-dark-100 border-b border-dark-300 px-6 pt-6 pb-3">
               <div className="flex items-center gap-2 flex-wrap overflow-x-auto">
               {/* Entity Name */}
-              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">
+              <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">
                 {getEntityConfig(selectedEntity.entity_name)?.displayName || selectedEntity.entity_name}:
               </span>
               <div className="flex items-center gap-1 group">
-                <span className="text-dark-600 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+                <span className="text-dark-600 font-medium text-xs tracking-tight">
                   {selectedEntityData?.name || selectedEntity.entity_name}
                 </span>
                 {selectedEntityData?.name && (
@@ -407,9 +407,9 @@ export function WorkflowDetailPage() {
               {selectedEntityData?.code && (
                 <>
                   <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
-                  <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">code:</span>
+                  <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">code:</span>
                   <div className="flex items-center gap-1 group">
-                    <span className="text-dark-600 font-normal text-xs" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+                    <span className="text-dark-600 font-medium text-xs tracking-tight">
                       {selectedEntityData.code}
                     </span>
                     <button
@@ -426,9 +426,9 @@ export function WorkflowDetailPage() {
               <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
 
               {/* Entity ID */}
-              <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">id:</span>
+              <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">id:</span>
               <div className="flex items-center gap-1 group">
-                <span className="text-dark-600 font-normal text-xs text-dark-700" style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+                <span className="text-dark-700 font-medium text-xs tracking-tight">
                   {selectedEntity.entity_id || 'Not created yet'}
                 </span>
                 {selectedEntity.entity_id && (
@@ -445,8 +445,8 @@ export function WorkflowDetailPage() {
               {selectedEntityData?.created_ts && (
                 <>
                   <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
-                  <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">created:</span>
-                  <span className="text-dark-600 font-normal text-xs" title={selectedEntityData.created_ts} style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+                  <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">created:</span>
+                  <span className="text-dark-600 font-medium text-xs tracking-tight" title={selectedEntityData.created_ts}>
                     {formatRelativeTime(selectedEntityData.created_ts)}
                   </span>
                 </>
@@ -455,8 +455,8 @@ export function WorkflowDetailPage() {
               {selectedEntityData?.updated_ts && (
                 <>
                   <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>
-                  <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">updated:</span>
-                  <span className="text-dark-600 font-normal text-xs" title={selectedEntityData.updated_ts} style={{ fontFamily: 'Inter, "Open Sans", "Helvetica Neue", helvetica, arial, sans-serif', letterSpacing: '-0.01em', fontWeight: 500 }}>
+                  <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">updated:</span>
+                  <span className="text-dark-600 font-medium text-xs tracking-tight" title={selectedEntityData.updated_ts}>
                     {formatRelativeTime(selectedEntityData.updated_ts)}
                   </span>
                 </>

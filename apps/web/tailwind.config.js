@@ -7,12 +7,15 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["'Open Sans'", "'Helvetica Neue'", 'Helvetica', 'Arial', 'sans-serif'],
+        sans: ["'Inter'", "'Open Sans'", '-apple-system', 'BlinkMacSystemFont', "'Segoe UI'", 'Helvetica', 'Arial', 'sans-serif'],
       },
       fontSize: {
-        'base': '13px',
-        'sm': '12px',
-        'xs': '11px',
+        // Standardized typography scale for consistent UI
+        'base': '14px',      // Body text - primary content
+        'sm': '13px',        // Small text - secondary content
+        'xs': '12px',        // Tiny text - labels, captions
+        '2xs': '11px',       // Micro text - metadata
+        '3xs': '10px',       // Ultra-micro - uppercase labels
       },
       colors: {
         // Soft Slate Theme - Notion-inspired premium color palette
