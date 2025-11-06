@@ -62,7 +62,14 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
 
       // Type-safe API call using APIFactory
       const api = APIFactory.getAPI(entityType);
-      const response = await api.list({ page: 1, pageSize: 100 });
+
+      // For person-calendar in calendar view, only load booked events
+      const params: any = { page: 1, pageSize: 100 };
+      if ((entityType === 'person-calendar' || entityType === 'calendar') && view === 'calendar') {
+        params.availability_flag = 'false'; // API expects string 'false' for booked events
+      }
+
+      const response = await api.list(params);
       setData(response.data || []);
     } catch (err) {
       console.error(`Failed to load ${entityType}:`, err);
@@ -207,8 +214,11 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
 
     // CALENDAR VIEW - Employee-filterable calendar grid
     if (view === 'calendar') {
-      // Filter to show only booked events (availability_flag = false)
-      const bookedEvents = data.filter((item: any) => item.availability_flag === false);
+      // Data is already filtered to show only booked events (availability_flag = false) from API
+      // Apply client-side filter as safety net in case of any type coercion issues
+      const bookedEvents = data.filter((item: any) =>
+        item.availability_flag === false || item.availability_flag === 'false'
+      );
 
       return (
         <div className="bg-dark-100 rounded-lg shadow p-6">
