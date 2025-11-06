@@ -26,15 +26,32 @@ const CustSchema = Type.Object({
   cust_number: Type.String(),
   cust_type: Type.String(),
   cust_status: Type.String(),
-  primary_contact_name: Type.Optional(Type.String()),
-  primary_email: Type.Optional(Type.String()),
-  primary_phone: Type.Optional(Type.String()),
+  // Address and location
+  primary_address: Type.Optional(Type.String()),
   city: Type.Optional(Type.String()),
-  // Sales and marketing fields - _name columns only
+  province: Type.Optional(Type.String()),
+  postal_code: Type.Optional(Type.String()),
+  country: Type.Optional(Type.String()),
+  geo_coordinates: Type.Optional(Type.Any()),
+  // Business information
+  business_legal_name: Type.Optional(Type.String()),
+  business_type: Type.Optional(Type.String()),
+  gst_hst_number: Type.Optional(Type.String()),
+  business_number: Type.Optional(Type.String()),
+  // Sales and marketing fields
   dl__customer_opportunity_funnel: Type.Optional(Type.String()),
   dl__industry_sector: Type.Optional(Type.String()),
   dl__acquisition_channel: Type.Optional(Type.String()),
   dl__customer_tier: Type.Optional(Type.String()),
+  // Contact information
+  primary_contact_name: Type.Optional(Type.String()),
+  primary_email: Type.Optional(Type.String()),
+  primary_phone: Type.Optional(Type.String()),
+  secondary_contact_name: Type.Optional(Type.String()),
+  secondary_email: Type.Optional(Type.String()),
+  secondary_phone: Type.Optional(Type.String()),
+  // Entity configuration
+  entities: Type.Optional(Type.Array(Type.String())),
 });
 
 const CreateCustSchema = Type.Object({
@@ -44,9 +61,32 @@ const CreateCustSchema = Type.Object({
   cust_number: Type.String({ minLength: 1 }),
   cust_type: Type.Optional(Type.String()),
   cust_status: Type.Optional(Type.String()),
+  // Address and location
+  primary_address: Type.Optional(Type.String()),
+  city: Type.Optional(Type.String()),
+  province: Type.Optional(Type.String()),
+  postal_code: Type.Optional(Type.String()),
+  country: Type.Optional(Type.String()),
+  geo_coordinates: Type.Optional(Type.Any()),
+  // Business information
+  business_legal_name: Type.Optional(Type.String()),
+  business_type: Type.Optional(Type.String()),
+  gst_hst_number: Type.Optional(Type.String()),
+  business_number: Type.Optional(Type.String()),
+  // Sales and marketing fields
+  dl__customer_opportunity_funnel: Type.Optional(Type.String()),
+  dl__industry_sector: Type.Optional(Type.String()),
+  dl__acquisition_channel: Type.Optional(Type.String()),
+  dl__customer_tier: Type.Optional(Type.String()),
+  // Contact information
   primary_contact_name: Type.Optional(Type.String()),
   primary_email: Type.Optional(Type.String()),
   primary_phone: Type.Optional(Type.String()),
+  secondary_contact_name: Type.Optional(Type.String()),
+  secondary_email: Type.Optional(Type.String()),
+  secondary_phone: Type.Optional(Type.String()),
+  // Entity configuration
+  entities: Type.Optional(Type.Array(Type.String())),
   metadata: Type.Optional(Type.Any()),
   active_flag: Type.Optional(Type.Boolean()),
 });
@@ -111,12 +151,13 @@ export async function custRoutes(fastify: FastifyInstance) {
       const customers = await db.execute(sql`
         SELECT
           c.id, c.code, c.name, c."descr", c.metadata, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts, c.version,
-          c.cust_number, c.cust_type, c.cust_status, c.primary_contact_name,
-          c.primary_email, c.primary_phone, c.city,
-          c.dl__customer_opportunity_funnel,
-          c.dl__industry_sector,
-          c.dl__acquisition_channel,
-          c.dl__customer_tier
+          c.cust_number, c.cust_type, c.cust_status,
+          c.primary_address, c.city, c.province, c.postal_code, c.country, c.geo_coordinates,
+          c.business_legal_name, c.business_type, c.gst_hst_number, c.business_number,
+          c.dl__customer_opportunity_funnel, c.dl__industry_sector, c.dl__acquisition_channel, c.dl__customer_tier,
+          c.primary_contact_name, c.primary_email, c.primary_phone,
+          c.secondary_contact_name, c.secondary_email, c.secondary_phone,
+          c.entities
         FROM app.d_cust c
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY c.name ASC NULLS LAST, c.created_ts DESC
@@ -159,12 +200,13 @@ export async function custRoutes(fastify: FastifyInstance) {
       const customer = await db.execute(sql`
         SELECT
           c.id, c.code, c.name, c."descr", c.metadata, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts, c.version,
-          c.cust_number, c.cust_type, c.cust_status, c.primary_contact_name,
-          c.primary_email, c.primary_phone, c.city,
-          c.dl__customer_opportunity_funnel,
-          c.dl__industry_sector,
-          c.dl__acquisition_channel,
-          c.dl__customer_tier
+          c.cust_number, c.cust_type, c.cust_status,
+          c.primary_address, c.city, c.province, c.postal_code, c.country, c.geo_coordinates,
+          c.business_legal_name, c.business_type, c.gst_hst_number, c.business_number,
+          c.dl__customer_opportunity_funnel, c.dl__industry_sector, c.dl__acquisition_channel, c.dl__customer_tier,
+          c.primary_contact_name, c.primary_email, c.primary_phone,
+          c.secondary_contact_name, c.secondary_email, c.secondary_phone,
+          c.entities
         FROM app.d_cust c
         WHERE c.id = ${id}
       `);
@@ -213,12 +255,13 @@ export async function custRoutes(fastify: FastifyInstance) {
       const customerResult = await db.execute(sql`
         SELECT
           c.id, c.code, c.name, c."descr", c.metadata, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts, c.version,
-          c.cust_number, c.cust_type, c.cust_status, c.primary_contact_name,
-          c.primary_email, c.primary_phone, c.city,
-          c.dl__customer_opportunity_funnel,
-          c.dl__industry_sector,
-          c.dl__acquisition_channel,
-          c.dl__customer_tier
+          c.cust_number, c.cust_type, c.cust_status,
+          c.primary_address, c.city, c.province, c.postal_code, c.country, c.geo_coordinates,
+          c.business_legal_name, c.business_type, c.gst_hst_number, c.business_number,
+          c.dl__customer_opportunity_funnel, c.dl__industry_sector, c.dl__acquisition_channel, c.dl__customer_tier,
+          c.primary_contact_name, c.primary_email, c.primary_phone,
+          c.secondary_contact_name, c.secondary_email, c.secondary_phone,
+          c.entities
         FROM app.d_cust c
         WHERE c.id = ${id}
       `);
@@ -284,8 +327,12 @@ export async function custRoutes(fastify: FastifyInstance) {
       const result = await db.execute(sql`
         INSERT INTO app.d_cust (
           code, name, "descr", cust_number, cust_type, cust_status,
+          primary_address, city, province, postal_code, country, geo_coordinates,
+          business_legal_name, business_type, gst_hst_number, business_number,
+          dl__customer_opportunity_funnel, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
           primary_contact_name, primary_email, primary_phone,
-          metadata, active_flag
+          secondary_contact_name, secondary_email, secondary_phone,
+          entities, metadata, active_flag
         )
         VALUES (
           ${data.code},
@@ -294,9 +341,27 @@ export async function custRoutes(fastify: FastifyInstance) {
           ${data.cust_number},
           ${data.cust_type || 'residential'},
           ${data.cust_status || 'active'},
+          ${data.primary_address || null},
+          ${data.city || null},
+          ${data.province || 'ON'},
+          ${data.postal_code || null},
+          ${data.country || 'Canada'},
+          ${data.geo_coordinates ? JSON.stringify(data.geo_coordinates) : null}::jsonb,
+          ${data.business_legal_name || null},
+          ${data.business_type || null},
+          ${data.gst_hst_number || null},
+          ${data.business_number || null},
+          ${data.dl__customer_opportunity_funnel || null},
+          ${data.dl__industry_sector || null},
+          ${data.dl__acquisition_channel || null},
+          ${data.dl__customer_tier || null},
           ${data.primary_contact_name || null},
           ${data.primary_email || null},
           ${data.primary_phone || null},
+          ${data.secondary_contact_name || null},
+          ${data.secondary_email || null},
+          ${data.secondary_phone || null},
+          ${data.entities ? sql`${data.entities}::text[]` : sql`ARRAY[]::text[]`},
           ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
           ${data.active_flag !== false}
         )
@@ -371,9 +436,32 @@ export async function custRoutes(fastify: FastifyInstance) {
       if (data.cust_number !== undefined) updateFields.push(sql`cust_number = ${data.cust_number}`);
       if (data.cust_type !== undefined) updateFields.push(sql`cust_type = ${data.cust_type}`);
       if (data.cust_status !== undefined) updateFields.push(sql`cust_status = ${data.cust_status}`);
+      // Address and location
+      if (data.primary_address !== undefined) updateFields.push(sql`primary_address = ${data.primary_address}`);
+      if (data.city !== undefined) updateFields.push(sql`city = ${data.city}`);
+      if (data.province !== undefined) updateFields.push(sql`province = ${data.province}`);
+      if (data.postal_code !== undefined) updateFields.push(sql`postal_code = ${data.postal_code}`);
+      if (data.country !== undefined) updateFields.push(sql`country = ${data.country}`);
+      if (data.geo_coordinates !== undefined) updateFields.push(sql`geo_coordinates = ${JSON.stringify(data.geo_coordinates)}::jsonb`);
+      // Business information
+      if (data.business_legal_name !== undefined) updateFields.push(sql`business_legal_name = ${data.business_legal_name}`);
+      if (data.business_type !== undefined) updateFields.push(sql`business_type = ${data.business_type}`);
+      if (data.gst_hst_number !== undefined) updateFields.push(sql`gst_hst_number = ${data.gst_hst_number}`);
+      if (data.business_number !== undefined) updateFields.push(sql`business_number = ${data.business_number}`);
+      // Sales and marketing
+      if (data.dl__customer_opportunity_funnel !== undefined) updateFields.push(sql`dl__customer_opportunity_funnel = ${data.dl__customer_opportunity_funnel}`);
+      if (data.dl__industry_sector !== undefined) updateFields.push(sql`dl__industry_sector = ${data.dl__industry_sector}`);
+      if (data.dl__acquisition_channel !== undefined) updateFields.push(sql`dl__acquisition_channel = ${data.dl__acquisition_channel}`);
+      if (data.dl__customer_tier !== undefined) updateFields.push(sql`dl__customer_tier = ${data.dl__customer_tier}`);
+      // Contact information
       if (data.primary_contact_name !== undefined) updateFields.push(sql`primary_contact_name = ${data.primary_contact_name}`);
       if (data.primary_email !== undefined) updateFields.push(sql`primary_email = ${data.primary_email}`);
       if (data.primary_phone !== undefined) updateFields.push(sql`primary_phone = ${data.primary_phone}`);
+      if (data.secondary_contact_name !== undefined) updateFields.push(sql`secondary_contact_name = ${data.secondary_contact_name}`);
+      if (data.secondary_email !== undefined) updateFields.push(sql`secondary_email = ${data.secondary_email}`);
+      if (data.secondary_phone !== undefined) updateFields.push(sql`secondary_phone = ${data.secondary_phone}`);
+      // Entity configuration
+      if (data.entities !== undefined) updateFields.push(sql`entities = ${data.entities}::text[]`);
       if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
       if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
 

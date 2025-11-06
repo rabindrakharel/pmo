@@ -139,7 +139,7 @@ export class VoiceSession {
           session: {
             modalities: ['text', 'audio'],
             instructions: VOICE_SYSTEM_INSTRUCTIONS,
-            voice: 'alloy',
+            voice: 'shimmer',
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
             input_audio_transcription: {

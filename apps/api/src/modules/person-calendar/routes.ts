@@ -34,12 +34,16 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           appointment_medium,
           appointment_addr,
           instructions,
+          event_id::text,
           metadata,
           reminder_sent_flag,
+          reminder_sent_ts::text,
           confirmation_sent_flag,
+          confirmation_sent_ts::text,
           active_flag,
           created_ts::text,
-          updated_ts::text
+          updated_ts::text,
+          version
         FROM app.d_entity_person_calendar
         WHERE active_flag = true
         ORDER BY from_ts ASC
@@ -79,6 +83,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           appointment_medium,
           appointment_addr,
           instructions,
+          event_id::text,
           metadata,
           reminder_sent_flag,
           reminder_sent_ts::text,
@@ -264,6 +269,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           appointment_medium,
           appointment_addr,
           instructions,
+          event_id::text,
           metadata,
           created_ts::text
         FROM app.d_entity_person_calendar
@@ -304,6 +310,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           appointment_medium,
           appointment_addr,
           instructions,
+          event_id,
           metadata
         ) VALUES (
           ${slot.code},
@@ -319,6 +326,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           ${slot.appointment_medium || null},
           ${slot.appointment_addr || null},
           ${slot.instructions || null},
+          ${slot.event_id || null},
           ${slot.metadata ? JSON.stringify(slot.metadata) : '{}'}::jsonb
         )
         RETURNING id::text, code, name, from_ts::text, to_ts::text, created_ts::text
@@ -368,6 +376,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           appointment_medium = COALESCE(${updates.appointment_medium || null}, appointment_medium),
           appointment_addr = COALESCE(${updates.appointment_addr || null}, appointment_addr),
           instructions = COALESCE(${updates.instructions || null}, instructions),
+          event_id = COALESCE(${updates.event_id || null}, event_id),
           metadata = COALESCE(${updates.metadata ? JSON.stringify(updates.metadata) : null}::jsonb, metadata),
           reminder_sent_flag = COALESCE(${updates.reminder_sent_flag !== undefined ? updates.reminder_sent_flag : null}, reminder_sent_flag),
           reminder_sent_ts = CASE WHEN ${updates.reminder_sent_flag} = true THEN now() ELSE reminder_sent_ts END,
@@ -376,7 +385,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           updated_ts = now(),
           version = version + 1
         WHERE id = ${id}::uuid AND active_flag = true
-        RETURNING id::text, code, name, availability_flag, title, updated_ts::text
+        RETURNING id::text, code, name, availability_flag, title, event_id::text, updated_ts::text
       `;
 
       const result = await updateQuery;
@@ -402,6 +411,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
     Body: {
       slot_ids: string[];
       title: string;
+      event_id?: string;
       appointment_medium?: string;
       appointment_addr?: string;
       instructions?: string;
@@ -409,13 +419,14 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
     };
   }>('/api/v1/person-calendar/book', async (request, reply) => {
     try {
-      const { slot_ids, title, appointment_medium, appointment_addr, instructions, metadata } = request.body;
+      const { slot_ids, title, event_id, appointment_medium, appointment_addr, instructions, metadata } = request.body;
 
       const bookQuery = client`
         UPDATE app.d_entity_person_calendar
         SET
           availability_flag = false,
           title = ${title},
+          event_id = ${event_id || null},
           appointment_medium = ${appointment_medium || null},
           appointment_addr = ${appointment_addr || null},
           instructions = ${instructions || null},
@@ -425,7 +436,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
         WHERE id = ANY(${slot_ids.map(id => id)}::uuid[])
           AND active_flag = true
           AND availability_flag = true
-        RETURNING id::text, code, name, title, from_ts::text, to_ts::text
+        RETURNING id::text, code, name, title, event_id::text, from_ts::text, to_ts::text
       `;
 
       const result = await bookQuery;
@@ -464,6 +475,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
         SET
           availability_flag = true,
           title = NULL,
+          event_id = NULL,
           appointment_medium = NULL,
           appointment_addr = NULL,
           instructions = NULL,

@@ -16,8 +16,18 @@ const WikiSchema = Type.Object({
   content_html: Type.Optional(Type.String()),
   wiki_type: Type.Optional(Type.String()),
   category: Type.Optional(Type.String()),
+  page_path: Type.Optional(Type.String()),
+  parent_wiki_id: Type.Optional(Type.String()),
+  sort_order: Type.Optional(Type.Number()),
   publication_status: Type.Optional(Type.String()),
+  published_ts: Type.Optional(Type.String()),
+  published_by_empid: Type.Optional(Type.String()),
   visibility: Type.Optional(Type.String()),
+  read_access_groups: Type.Optional(Type.Array(Type.String())),
+  edit_access_groups: Type.Optional(Type.Array(Type.String())),
+  keywords: Type.Optional(Type.Array(Type.String())),
+  primary_entity_type: Type.Optional(Type.String()),
+  primary_entity_id: Type.Optional(Type.String()),
   active_flag: Type.Boolean(),
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
@@ -37,8 +47,18 @@ const CreateWikiSchema = Type.Object({
   content_html: Type.Optional(Type.String()),
   wiki_type: Type.Optional(Type.String()),
   category: Type.Optional(Type.String()),
+  page_path: Type.Optional(Type.String()),
+  parent_wiki_id: Type.Optional(Type.String()),
+  sort_order: Type.Optional(Type.Number()),
   publication_status: Type.Optional(Type.String()),
+  published_ts: Type.Optional(Type.String()),
+  published_by_empid: Type.Optional(Type.String()),
   visibility: Type.Optional(Type.String()),
+  read_access_groups: Type.Optional(Type.Array(Type.String())),
+  edit_access_groups: Type.Optional(Type.Array(Type.String())),
+  keywords: Type.Optional(Type.Array(Type.String())),
+  primary_entity_type: Type.Optional(Type.String()),
+  primary_entity_id: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Union([Type.Object({}), Type.String(), Type.Any()])),
 });
 
@@ -115,13 +135,24 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           w.name,
           w.code,
           w.descr,
+          w.internal_url,
+          w.shared_url,
           w.metadata,
           w.wiki_type,
           w.category,
+          w.page_path,
+          w.parent_wiki_id,
+          w.sort_order,
           w.publication_status,
+          w.published_ts,
+          w.published_by_empid,
           w.visibility,
+          w.read_access_groups,
+          w.edit_access_groups,
           w.keywords,
           w.summary,
+          w.primary_entity_type,
+          w.primary_entity_id,
           w.active_flag,
           w.from_ts,
           w.to_ts,
@@ -196,6 +227,8 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           w.name,
           w.code,
           w.descr,
+          w.internal_url,
+          w.shared_url,
           COALESCE(w.metadata, '{}'::jsonb) as metadata,
           w.content,
           w.wiki_type,
@@ -302,26 +335,44 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       // Insert into d_wiki (head table)
       const wikiResult = await db.execute(sql`
         INSERT INTO app.d_wiki (
-          code, name, descr, metadata, wiki_type, category,
-          publication_status, visibility, summary, content, active_flag, version
+          code, name, descr, internal_url, shared_url, metadata,
+          wiki_type, category, page_path, parent_wiki_id, sort_order,
+          publication_status, published_ts, published_by_empid,
+          visibility, read_access_groups, edit_access_groups, keywords,
+          summary, content, primary_entity_type, primary_entity_id,
+          active_flag, version
         ) VALUES (
           ${code},
           ${data.name},
           ${data.descr || null},
+          ${data.internal_url || null},
+          ${data.shared_url || null},
           ${JSON.stringify(data.metadata || {})}::jsonb,
           ${data.wiki_type || 'page'},
           ${data.category || null},
+          ${data.page_path || null},
+          ${data.parent_wiki_id || null},
+          ${data.sort_order || 0},
           ${data.publication_status || 'draft'},
+          ${data.published_ts || null},
+          ${data.published_by_empid || null},
           ${data.visibility || 'internal'},
+          ${data.read_access_groups || sql`'{}'::varchar[]`},
+          ${data.edit_access_groups || sql`'{}'::varchar[]`},
+          ${data.keywords || sql`'{}'::varchar[]`},
           ${data.summary || null},
           ${data.content ? JSON.stringify(data.content) : null}::jsonb,
+          ${data.primary_entity_type || null},
+          ${data.primary_entity_id || null},
           true,
           1
         )
-        RETURNING id, code, name, descr, metadata, wiki_type,
-                  category, publication_status, visibility, summary, content,
-                  active_flag, from_ts, to_ts,
-                  created_ts, updated_ts, version
+        RETURNING id, code, name, descr, internal_url, shared_url, metadata,
+                  wiki_type, category, page_path, parent_wiki_id, sort_order,
+                  publication_status, published_ts, published_by_empid,
+                  visibility, read_access_groups, edit_access_groups, keywords,
+                  summary, content, primary_entity_type, primary_entity_id,
+                  active_flag, from_ts, to_ts, created_ts, updated_ts, version
       `);
 
       const wiki = wikiResult[0] as any;
@@ -415,6 +466,12 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       if (data.descr !== undefined) {
         updateParts.push(sql`descr = ${data.descr}`);
       }
+      if (data.internal_url !== undefined) {
+        updateParts.push(sql`internal_url = ${data.internal_url}`);
+      }
+      if (data.shared_url !== undefined) {
+        updateParts.push(sql`shared_url = ${data.shared_url}`);
+      }
       if (data.summary !== undefined) {
         updateParts.push(sql`summary = ${data.summary}`);
       }
@@ -427,11 +484,41 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       if (data.category !== undefined) {
         updateParts.push(sql`category = ${data.category}`);
       }
+      if (data.page_path !== undefined) {
+        updateParts.push(sql`page_path = ${data.page_path}`);
+      }
+      if (data.parent_wiki_id !== undefined) {
+        updateParts.push(sql`parent_wiki_id = ${data.parent_wiki_id}`);
+      }
+      if (data.sort_order !== undefined) {
+        updateParts.push(sql`sort_order = ${data.sort_order}`);
+      }
       if (data.publication_status !== undefined) {
         updateParts.push(sql`publication_status = ${data.publication_status}`);
       }
+      if (data.published_ts !== undefined) {
+        updateParts.push(sql`published_ts = ${data.published_ts}`);
+      }
+      if (data.published_by_empid !== undefined) {
+        updateParts.push(sql`published_by_empid = ${data.published_by_empid}`);
+      }
       if (data.visibility !== undefined) {
         updateParts.push(sql`visibility = ${data.visibility}`);
+      }
+      if (data.read_access_groups !== undefined) {
+        updateParts.push(sql`read_access_groups = ${data.read_access_groups}::varchar[]`);
+      }
+      if (data.edit_access_groups !== undefined) {
+        updateParts.push(sql`edit_access_groups = ${data.edit_access_groups}::varchar[]`);
+      }
+      if (data.keywords !== undefined) {
+        updateParts.push(sql`keywords = ${data.keywords}::varchar[]`);
+      }
+      if (data.primary_entity_type !== undefined) {
+        updateParts.push(sql`primary_entity_type = ${data.primary_entity_type}`);
+      }
+      if (data.primary_entity_id !== undefined) {
+        updateParts.push(sql`primary_entity_id = ${data.primary_entity_id}`);
       }
       if (data.content !== undefined) {
         updateParts.push(sql`content = ${JSON.stringify(data.content)}::jsonb`);

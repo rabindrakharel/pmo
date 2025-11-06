@@ -197,7 +197,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       const children = await db.execute(sql`
         SELECT
-          id, name, descr, dl__business_level, parent_id, metadata,
+          id, code, name, descr, dl__business_level, parent_id, metadata,
           budget_allocated_amt, manager_employee_id, office_id,
           from_ts, to_ts, active_flag, created_ts, updated_ts, version
         FROM app.d_business
