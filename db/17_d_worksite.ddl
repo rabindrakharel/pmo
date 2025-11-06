@@ -1,61 +1,30 @@
 -- ============================================================================
--- XXI. WORKSITE ENTITIES
+-- WORKSITE ENTITY (d_worksite) - PHYSICAL LOCATIONS
 -- ============================================================================
-
--- ============================================================================
+--
 -- SEMANTICS:
--- ============================================================================
+-- • Physical operational facilities, project locations, service delivery sites
+-- • Foundation for resource allocation, equipment management, safety compliance
+-- • Categories: headquarters, branch, project, storage, seasonal
 --
--- Purpose:
---   Physical worksite entities representing operational facilities, project
---   locations, and service delivery sites. Provides foundation for resource
---   allocation, equipment management, safety compliance, and operational
---   coordination across all service delivery locations.
+-- OPERATIONS:
+-- • CREATE: INSERT with version=1, active_flag=true
+-- • UPDATE: Same ID, version++, in-place
+-- • DELETE: active_flag=false, to_ts=now()
+-- • LIST: Filter by worksite_type, geocoding
 --
--- Entity Type: worksite
--- Entity Classification: Standalone Entity (can be parent or action entity)
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY
+-- • code: varchar, worksite_type: text (headquarters, branch, project, storage, seasonal)
+-- • addr, postal_code: text, latitude, longitude: numeric
+-- • capacity_workers, vehicle_parking: int
+-- • equipment_storage_flag, security_required_flag: boolean
+-- • indoor_space_sqft, outdoor_space_sqft: numeric
+-- • power_available_flag, water_available_flag: boolean
 --
--- Parent Entities:
---   - biz (business units assign/manage worksites)
---   - org (geographic/organizational placement)
+-- RELATIONSHIPS:
+-- • RBAC: entity_id_rbac_map
 --
--- Action Entities:
---   - project (projects can be assigned to worksites)
---   - task (tasks can be performed at worksites)
---   - form (forms can be associated with worksite operations)
---   - artifact (worksite documentation and assets)
---   - employee (staff can be assigned to worksites)
---
--- Worksite Categories:
---   - headquarters: Corporate headquarters and primary operational facilities
---   - branch: Regional branch offices and service centers
---   - project: Project-specific worksites and temporary locations
---   - storage: Equipment storage and inventory management facilities
---   - seasonal: Seasonal operational sites (winter storage, summer staging)
---
--- New Design Integration:
---   - Maps to entity_id_hierarchy_mapping for parent-child relationships
---   - No direct foreign keys to other entities (follows new standard)
---   - Supports RBAC via entity_id_rbac_map table
---   - Uses common field structure across all entities
---   - Includes metadata jsonb field for extensibility
---
--- Legacy Design Elements Retained:
---   - Operational attributes (capacity, equipment storage, safety ratings)
---   - Geographic positioning (latitude/longitude, address)
---   - Facility specifications (indoor/outdoor space, utilities)
---   - Safety and compliance tracking
---   - Seasonal operations support
---
--- UI Navigation Model:
---   - Appears in sidebar menu as "Worksite"
---   - Main page shows FilteredDataTable with searchable/filterable worksites
---   - Row click navigates to Worksite Detail Page
---   - Detail page shows Overview tab + child entity tabs (projects, tasks, etc.)
---   - Inline editing available on detail page with RBAC permission checks
-
--- ============================================================================
--- DDL:
 -- ============================================================================
 
 CREATE TABLE app.d_worksite (

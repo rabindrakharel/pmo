@@ -1,66 +1,30 @@
 -- ============================================================================
--- XXIV. POSITION ENTITIES
+-- POSITION ENTITY (d_position) - HIERARCHICAL
 -- ============================================================================
-
--- ============================================================================
+--
 -- SEMANTICS:
--- ============================================================================
+-- • Organizational hierarchy positions from CEO through Associate Director (8 levels)
+-- • Foundation for reporting, authority, compensation, career progression
+-- • Self-referencing hierarchy with dl__position_level
 --
--- Purpose:
---   Position entities representing organizational hierarchy positions and
---   authority levels from CEO/President through Associate Director.
---   Provides foundation for reporting relationships, authority delegation,
---   compensation planning, and career progression management.
+-- OPERATIONS:
+-- • CREATE: INSERT with version=1, active_flag=true
+-- • UPDATE: Same ID, version++, in-place
+-- • DELETE: active_flag=false, to_ts=now()
+-- • HIERARCHY: Recursive CTE on parent_id
 --
--- Entity Type: position
--- Entity Classification: Hierarchical Entity (supports organizational structure)
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY
+-- • code: varchar, dl__position_level: text (CEO/President→C-Level→SVP→VP→AVP→Sr Dir→Dir→Assoc Dir)
+-- • parent_id: uuid (self-ref for hierarchy)
+-- • management_flag, executive_flag: boolean
+-- • salary_band_min_amt, salary_band_max_amt, bonus_target_pct: numeric
+-- • approval_limit_amt: numeric
 --
--- Parent Entities:
---   - biz (business units define position structures)
---   - org (geographic position assignments and responsibilities)
+-- RELATIONSHIPS:
+-- • Self: parent_id → d_position.id (8-level hierarchy)
+-- • RBAC: entity_id_rbac_map
 --
--- Action Entities:
---   - employee (employees are assigned to positions)
---   - role (positions can encompass multiple roles)
---   - project (positions can have project responsibilities)
---   - task (positions can be assigned specific tasks)
---   - form (position-based form approvals and workflows)
---
--- Position Hierarchy Levels:
---   - Level 0: CEO/President - Chief Executive Officer or President
---   - Level 1: C-Level - Chief Officers (CTO, CFO, COO, etc.)
---   - Level 2: SVP/EVP - Senior/Executive Vice President
---   - Level 3: VP - Vice President
---   - Level 4: AVP - Assistant Vice President
---   - Level 5: Senior Director - Senior Director Level
---   - Level 6: Director - Director Level
---   - Level 7: Associate Director - Associate Director Level (leaf level)
---
--- New Design Integration:
---   - Maps to entity_id_hierarchy_mapping for parent-child relationships
---   - No direct foreign keys to other entities (follows new standard)
---   - Supports RBAC via entity_id_rbac_map table
---   - Uses common field structure across all entities
---   - Includes metadata jsonb field for extensibility
---   - dl__position_level references app.setting_datalabel (datalabel_name='position__level')
---
--- Legacy Design Elements Retained:
---   - Hierarchical structure with level_id references
---   - Management and executive classifications
---   - Compensation bands and authority limits
---   - Organizational capacity planning
---   - Remote work eligibility
---
--- UI Navigation Model:
---   - Appears in sidebar menu as "Position"
---   - Main page shows FilteredDataTable with searchable/filterable positions
---   - Row click navigates to Position Detail Page
---   - Detail page shows Overview tab + child entity tabs (employees, roles, etc.)
---   - Inline editing available on detail page with RBAC permission checks
---   - Hierarchical tree view available for organizational chart display
-
--- ============================================================================
--- DDL:
 -- ============================================================================
 
 CREATE TABLE app.d_position (

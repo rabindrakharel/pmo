@@ -3,26 +3,29 @@
 -- Document and file management with version control and access controls
 -- =====================================================
 --
--- BUSINESS PURPOSE:
--- Manages documents, templates, images, videos, and other file artifacts linked to projects, tasks,
--- or standalone repositories. Supports version control, security classification, and visibility controls.
--- Actual file content stored separately (MinIO/S3); this table tracks metadata and relationships.
+-- SEMANTICS:
+-- • Documents, templates, images, videos linked to projects/tasks
+-- • Version control, security classification, visibility controls
+-- • Files stored in MinIO/S3; this table tracks metadata/relationships
 --
--- API SEMANTICS & LIFECYCLE:
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/artifact (multipart/form-data), uploads to S3, INSERT with version=1
+-- • UPDATE: PUT /api/v1/artifact/{id}, metadata only, version++
+-- • DELETE: active_flag=false, to_ts=now() (file remains in S3)
+-- • LIST: Filter by artifact_type, entity_type, security_classification
 --
--- 1. CREATE ARTIFACT (Upload Document/File)
---    • Endpoint: POST /api/v1/artifact (multipart/form-data)
---    • Body: {name, code, artifact_type, file, primary_entity_type, primary_entity_id, visibility, security_classification}
---    • Returns: {id: "new-uuid", version: 1, attachment_size_bytes, ...}
---    • Database: INSERT with version=1, active_flag=true, is_latest_version=true, created_ts=now()
---    • File Storage: Uploads file to MinIO/S3 bucket; stores reference in d_artifact_data
---    • RBAC: Requires permission 4 (create) on entity='artifact', entity_id='all'
---    • Business Rule: File metadata extracted (size, format); virus scanning may be applied
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY
+-- • artifact_type, attachment_format: text
+-- • attachment_size_bytes: bigint
+-- • attachment_object_bucket, attachment_object_key, attachment: text (S3 refs)
+-- • entity_type, entity_id: text, uuid (parent entity link)
+-- • visibility, security_classification: text
+-- • latest_version_flag: boolean
 --
--- 2. UPDATE ARTIFACT METADATA (Rename, Recategorize, Change Visibility)
---    • Endpoint: PUT /api/v1/artifact/{id}
---    • Body: {name, descr, visibility, security_classification}
---    • Returns: {id: "same-uuid", version: 2, updated_ts: "new-timestamp"}
+-- RELATIONSHIPS:
+-- • Parent: project, task, form, etc. (via entity_type/entity_id)
+-- • RBAC: entity_id_rbac_map
 --
 -- =====================================================
 

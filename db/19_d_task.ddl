@@ -1,42 +1,30 @@
 -- =====================================================
--- TASK ENTITY (d_task) - HEAD TABLE
--- Task management with Kanban workflow, assignments, and estimation
+-- TASK ENTITY (d_task) - WORK ITEMS
 -- =====================================================
 --
 -- SEMANTICS:
--- Tasks are individual work items with workflow stages, priorities, and time tracking.
--- Displayed in Kanban boards with drag-drop stage transitions.
--- Each task has stable UUID, in-place updates (no archival), supports child entities.
+-- • Individual work items with stages, priorities, time tracking
+-- • Kanban board display with drag-drop stage transitions
+-- • Supports assignees, artifacts, forms as children
 --
--- DATABASE BEHAVIOR:
+-- OPERATIONS:
 -- • CREATE: INSERT with version=1, active_flag=true
---   Example: INSERT INTO d_task (id, code, name, dl__task_stage, dl__task_priority, estimated_hours)
---            VALUES ('a2222222-...', 'DT-TASK-002', 'Vendor Evaluation', 'Planning', 'critical', 60.0)
---
 -- • UPDATE: Same ID, version++, updated_ts refreshes
---   Example: UPDATE d_task SET dl__task_stage='In Progress', actual_hours=15.0, version=version+1
---            WHERE id='a2222222-...'
---
--- • SOFT DELETE: active_flag=false, to_ts=now()
---   Example: UPDATE d_task SET active_flag=false, to_ts=now() WHERE id='a2222222-...'
+-- • DELETE: active_flag=false, to_ts=now()
+-- • QUERY: Filter by dl__task_stage, dl__task_priority
 --
 -- KEY FIELDS:
--- • id: uuid PRIMARY KEY (stable, never changes)
--- • code: varchar(50) UNIQUE NOT NULL ('DT-TASK-002')
--- • dl__task_stage: text (setting_datalabel: 'Backlog', 'Planning', 'In Progress', 'Completed', ...)
--- • dl__task_priority: text (setting_datalabel: 'low', 'medium', 'high', 'critical')
--- • estimated_hours, actual_hours: numeric(10,2) (time tracking)
+-- • id: uuid PRIMARY KEY (stable)
+-- • code: varchar(50) UNIQUE ('DT-TASK-002')
+-- • dl__task_stage: text (Backlog→Planning→In Progress→Completed)
+-- • dl__task_priority: text (low, medium, high, critical)
+-- • estimated_hours, actual_hours: numeric(10,2)
 -- • story_points: integer (agile estimation)
--- • internal_url, shared_url: text (navigation and sharing)
 --
--- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: project (via metadata.project_id or d_entity_id_map)
--- • Children: artifact, form, employee (assignees via d_entity_id_map)
---
--- DATALABEL INTEGRATION:
--- • dl__task_stage: setting_datalabel WHERE datalabel_name='dl__task_stage'
--- • dl__task_priority: setting_datalabel WHERE datalabel_name='dl__task_priority'
--- • Frontend renders: Kanban columns by stage, colored priority badges
+-- RELATIONSHIPS:
+-- • Parent: project (via d_entity_id_map)
+-- • Children: artifact, form, employee (assignees), cost, revenue
+-- • RBAC: entity_id_rbac_map
 --
 -- =====================================================
 

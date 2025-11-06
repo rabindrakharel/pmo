@@ -1,70 +1,29 @@
 -- ============================================================================
--- XXIII. ROLE ENTITIES
+-- ROLE ENTITY (d_role)
 -- ============================================================================
-
--- ============================================================================
+--
 -- SEMANTICS:
--- ============================================================================
+-- • Organizational functions, responsibilities, authority levels across departments
+-- • Foundation for permission management, career progression, capability requirements
+-- • Categories: executive, management, operational, technical, administrative
 --
--- Purpose:
---   Role entities representing organizational functions, responsibilities,
---   and authority levels across all departments and operational areas.
---   Provides foundation for permission management, organizational structure,
---   career progression, and capability requirement definition.
+-- OPERATIONS:
+-- • CREATE: INSERT with version=1, active_flag=true
+-- • UPDATE: Same ID, version++, in-place
+-- • DELETE: active_flag=false, to_ts=now()
+-- • LIST: Filter by category, RBAC enforced
 --
--- Entity Type: role
--- Entity Classification: Standalone Entity (primarily used in relationships)
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY
+-- • code, role_code: varchar, text
+-- • role_category: text (executive, management, operational, technical, administrative)
+-- • system_role_flag, management_role_flag, client_facing_flag, safety_critical_flag: boolean
+-- • background_check_required_flag, licensing_required_flag: boolean
 --
--- Parent Entities:
---   - biz (business units define role structures)
---   - org (geographic role assignments and responsibilities)
+-- RELATIONSHIPS:
+-- • Children: employee (via d_entity_id_map)
+-- • RBAC: entity_id_rbac_map
 --
--- Action Entities:
---   - employee (employees are assigned to roles via rel_emp_role)
---   - task (roles can be responsible for specific tasks)
---   - form (role-based form access and responsibilities)
---   - artifact (role-specific documentation and procedures)
---   - wiki (role-based knowledge and procedures)
---
--- Role Categories:
---   - executive: C-level and senior executive leadership roles
---   - management: Management and supervisory roles with team responsibility
---   - operational: Field operations and service delivery roles
---   - technical: Specialized technical and professional roles
---   - administrative: Support, coordination, and administrative roles
---
--- Role Hierarchy Levels:
---   - Executive Level: CEO, CFO, CTO, COO (strategic leadership)
---   - Senior Management: SVP, VP, Directors (operational leadership)
---   - Middle Management: Managers, Supervisors (team leadership)
---   - Professional: Senior Technicians, Specialists (expertise)
---   - Operational: Technicians, Coordinators (service delivery)
---   - Support: Administrative, Part-time, Seasonal (operational support)
---
--- New Design Integration:
---   - Maps to entity_id_hierarchy_mapping for parent-child relationships
---   - No direct foreign keys to other entities (follows new standard)
---   - Supports RBAC via entity_id_rbac_map table
---   - Uses common field structure across all entities
---   - Includes metadata jsonb field for extensibility
---   - Links to employees via rel_emp_role relationship table
---
--- Legacy Design Elements Retained:
---   - Role identification and categorization
---   - Authority and permission attributes
---   - Capability and certification requirements
---   - Safety and security requirements
---   - Organizational context and reporting levels
---
--- UI Navigation Model:
---   - Appears in sidebar menu as "Role"
---   - Main page shows FilteredDataTable with searchable/filterable roles
---   - Row click navigates to Role Detail Page
---   - Detail page shows Overview tab + child entity tabs (employees, tasks, etc.)
---   - Inline editing available on detail page with RBAC permission checks
-
--- ============================================================================
--- DDL:
 -- ============================================================================
 
 CREATE TABLE app.d_role (

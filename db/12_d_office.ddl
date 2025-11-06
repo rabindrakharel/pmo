@@ -1,110 +1,31 @@
 -- =====================================================
--- OFFICE ENTITY (d_office) - HIERARCHICAL ENTITY
--- Physical office locations with 4-level organizational hierarchy
+-- OFFICE ENTITY (d_office) - LOCATION HIERARCHY
 -- =====================================================
 --
--- BUSINESS PURPOSE:
--- Manages physical office locations across a 4-level hierarchy (Office → District → Region → Corporate).
--- Offices house employees, serve as operational bases, and define geographic service areas.
--- Level 0 (Office) entries contain full address information; higher levels aggregate organizational structure.
+-- SEMANTICS:
+-- • Physical office locations with 4-level hierarchy (Office→District→Region→Corporate)
+-- • Houses employees, defines service areas, operational coordination
+-- • Level 0 offices have full addresses; higher levels for org structure
 --
--- API SEMANTICS & LIFECYCLE:
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/office, INSERT with version=1, active_flag=true
+-- • UPDATE: PUT /api/v1/office/{id}, same ID, version++, in-place
+-- • DELETE: active_flag=false, to_ts=now() (preserves employees/businesses)
+-- • LIST: GET /api/v1/office, filters by level/province, RBAC enforced
+-- • HIERARCHY: Recursive CTE on parent_id for tree traversal
 --
--- 1. CREATE OFFICE
---    • Endpoint: POST /api/v1/office
---    • Body: {name, code, level_name, parent_id, address_line1, city, province, postal_code}
---    • Returns: {id: "new-uuid", version: 1, ...}
---    • Database: INSERT with version=1, active_flag=true, created_ts=now()
---    • RBAC: Requires permission 4 (create) on entity='office', entity_id='all'
---    • Business Rule: dl__office_level must match app.setting_datalabel (datalabel_name='office__level') entries ("Office", "District", "Region", "Corporate")
---
--- 2. UPDATE OFFICE (Address Changes, Reassignment to Parent)
---    • Endpoint: PUT /api/v1/office/{id}
---    • Body: {name, address_line1, city, parent_id, tags}
---    • Returns: {id: "same-uuid", version: 2, updated_ts: "new-timestamp"}
---    • Database: UPDATE SET [fields], version=version+1, updated_ts=now() WHERE id=$1
---    • SCD Behavior: IN-PLACE UPDATE
---      - Same ID (preserves employee assignments and business unit relationships)
---      - version increments (audit trail)
---      - updated_ts refreshed
---      - NO archival (office can move from District A to District B)
---    • RBAC: Requires permission 1 (edit) on entity='office', entity_id={id} OR 'all'
---    • Business Rule: Changing parent_id restructures hierarchy
---
--- 3. SOFT DELETE OFFICE
---    • Endpoint: DELETE /api/v1/office/{id}
---    • Database: UPDATE SET active_flag=false, to_ts=now() WHERE id=$1
---    • RBAC: Requires permission 3 (delete)
---    • Business Rule: Hides from lists; preserves employee assignments and business units
---
--- 4. LIST OFFICES (Hierarchical or Flat)
---    • Endpoint: GET /api/v1/office?level_name=Office&province=Ontario&limit=50
---    • Database:
---      SELECT o.* FROM d_office o
---      WHERE o.active_flag=true
---        AND EXISTS (
---          SELECT 1 FROM entity_id_rbac_map rbac
---          WHERE rbac.empid=$user_id
---            AND rbac.entity='office'
---            AND (rbac.entity_id=o.id::text OR rbac.entity_id='all')
---            AND 0=ANY(rbac.permission)  -- View permission
---        )
---      ORDER BY o.dl__office_level DESC, o.name ASC
---      LIMIT $1 OFFSET $2
---    • RBAC: User sees ONLY offices they have view access to
---    • Frontend: Renders in EntityMainPage with table view (tree structure optional)
---
--- 5. GET SINGLE OFFICE
---    • Endpoint: GET /api/v1/office/{id}
---    • Database: SELECT * FROM d_office WHERE id=$1 AND active_flag=true
---    • RBAC: Checks entity_id_rbac_map for view permission
---    • Frontend: EntityDetailPage renders fields + tabs for child offices/businesses
---
--- 6. GET OFFICE HIERARCHY (Recursive Tree)
---    • Endpoint: GET /api/v1/office/{id}/hierarchy
---    • Database: Recursive CTE traversing parent_id relationships
---      WITH RECURSIVE office_tree AS (
---        SELECT id, name, parent_id, level_name, 1 AS depth
---        FROM d_office WHERE id=$1
---        UNION ALL
---        SELECT o.id, o.name, o.parent_id, o.level_name, ot.depth+1
---        FROM d_office o
---        INNER JOIN office_tree ot ON o.parent_id = ot.id
---      )
---      SELECT * FROM office_tree ORDER BY depth, name
---    • Frontend: TreeView component or nested list
---
--- 7. GET OFFICE CHILDREN (Immediate Subordinates)
---    • Endpoint: GET /api/v1/office/{id}/children
---    • Database: SELECT * FROM d_office WHERE parent_id=$1 AND active_flag=true
---    • Business Rule: Returns only direct reports (District's Offices, Region's Districts, etc.)
---
--- KEY SCD FIELDS:
--- • id: Stable UUID (never changes, preserves employee and business unit assignments)
--- • version: Increments on updates (audit trail of address changes, hierarchy moves)
--- • from_ts: Office establishment date (never modified)
--- • to_ts: Office closure timestamp (NULL=active, timestamptz=closed)
--- • active_flag: Operational status (true=active, false=closed/archived)
--- • created_ts: Original creation time (never modified)
--- • updated_ts: Last modification time (refreshed on UPDATE)
---
--- KEY BUSINESS FIELDS:
--- • dl__office_level: Hierarchy level ("Office", "District", "Region", "Corporate")
---   - Loaded from app.setting_datalabel table (datalabel_name='office__level') via GET /api/v1/setting?category=office__level
---   - Determines position in organizational tree
---   - Only level 0 (Office) has full address details
--- • parent_id: Hierarchical relationship (NULL for Corporate, UUID for all others)
---   - Points to immediate parent office in tree
---   - Self-referencing foreign key pattern
--- • address_line1, city, province, postal_code: Physical location (level 0 only)
---   - Higher levels inherit geographic coverage from children
--- • tags: JSONB array for filtering (["service_office", "london", "field_operations"])
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY (stable)
+-- • code: varchar(50) UNIQUE ('CORP-HQ-001')
+-- • dl__office_level: text (Office, District, Region, Corporate)
+-- • parent_id: uuid (self-ref for hierarchy, NULL for Corporate)
+-- • address_line1, city, province, postal_code: varchar (level 0 only)
+-- • version: integer (audit trail)
 --
 -- RELATIONSHIPS:
--- • parent_id → d_office (self-reference for 4-level hierarchy)
--- • office_id ← d_business (business units are assigned to offices)
--- • office_id ← d_employee (employees work at offices)
--- • office_id ← entity_id_map (child entities linked via mapping table)
+-- • Self: parent_id → d_office.id (4-level hierarchy)
+-- • Children: business, employee, task, artifact, wiki, form, cost, revenue
+-- • RBAC: entity_id_rbac_map
 --
 -- =====================================================
 

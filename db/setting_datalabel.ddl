@@ -1,62 +1,32 @@
 -- ============================================================================
 -- UNIFIED SETTING DATA LABEL TABLE
 -- ============================================================================
-
--- ============================================================================
+--
 -- SEMANTICS:
--- ============================================================================
+-- • DRY table for ALL entity data labels (stages, statuses, priorities)
+-- • Replaces 17 separate tables with one JSONB-based structure
+-- • Powers dropdowns, badges, workflow transitions
 --
--- Purpose:
---   Unified table for ALL entity data labels (stages, statuses, priorities, etc.)
---   Replaces 17 separate setting_datalabel_* tables with ONE DRY table.
---   Uses JSONB metadata array to store normalized label data.
+-- STRUCTURE:
+-- • datalabel_name: dl__{entity}_{label} ('dl__task_stage', 'dl__project_stage')
+-- • metadata: JSONB array [{id, name, descr, parent_ids, color_code}]
+-- • ui_label, ui_icon: For settings page display
 --
--- Structure:
---   - datalabel_name: dl__{entity}_{labelname} format (e.g., 'dl__task_stage', 'dl__project_stage')
---   - metadata: JSONB array of label definitions
---   - updated_ts: Last modification timestamp
+-- ENTITY-LABEL COMBOS:
+-- • Task: dl__task_stage, dl__task_priority, dl__task_update_type
+-- • Project: dl__project_stage
+-- • Form: dl__form_submission_status, dl__form_approval_status
+-- • Wiki: dl__wiki_publication_status
+-- • Customer: dl__customer_tier, dl__customer_opportunity_funnel
+-- • Quote/Work: dl__quote_stage, dl__work_order_status
+-- • Services: dl__service_category, dl__client_service
+-- • Org: dl__business_level, dl__office_level, dl__position_level
+-- • Other: dl__industry_sector, dl__acquisition_channel
 --
--- Metadata Array Format:
---   [
---     {
---       "id": 0,
---       "name": "Initiation",
---       "descr": "Project concept and initial planning",
---       "parent_ids": [],
---       "color_code": "blue",
---       "updated_ts": "2025-10-29T14:00:16.547Z"
---     },
---     ...
---   ]
---
--- Entity-Label Combinations:
---   - dl__task_stage, dl__task_priority, dl__task_update_type
---   - dl__project_stage
---   - dl__form_submission_status, dl__form_approval_status
---   - dl__wiki_publication_status
---   - dl__client_status, dl__client_service
---   - dl__business_level
---   - dl__office_level
---   - dl__position_level
---   - dl__customer_tier
---   - dl__customer_opportunity_funnel
---   - dl__industry_sector
---   - dl__acquisition_channel
---   - dl__quote_stage
---   - dl__work_order_status
---   - dl__service_category
---
--- Integration Points:
---   - API endpoint: GET /api/v1/setting?category=dl__task_stage
---   - Frontend: loadOptionsFromSettings('dl__task_stage')
---   - Forms: Auto-populated dropdowns
---   - Tables: Badge rendering with color_code
---
--- Benefits:
---   - DRY: Single table instead of 17 separate tables
---   - Flexible: Easy to add new entity-label combinations
---   - Maintainable: Centralized data label management
---   - Performant: JSONB indexing for fast queries
+-- API INTEGRATION:
+-- • GET /api/v1/setting?category=dl__task_stage
+-- • Frontend: loadOptionsFromSettings('dl__task_stage')
+-- • Auto-populated dropdowns, badge rendering with color_code
 --
 
 CREATE TABLE app.setting_datalabel (
