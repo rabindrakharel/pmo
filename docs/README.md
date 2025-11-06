@@ -120,13 +120,15 @@
 **When to use:** Stateful multi-agent workflows, intent graphs, conversation boundaries, voice + text orchestration
 
 **Files:**
-- `README.md` - **Primary reference** for orchestrator architecture (v1.1, consolidated guide)
+- `SYSTEM_DESIGN.md` - **⭐ Complete end-to-end plumbing** (1300+ lines, architecture deep dive, request flows, database interactions)
+- `README.md` - **Primary reference** for orchestrator architecture (v2.0, LangGraph-based)
+- `LANGGRAPH_MIGRATION.md` - LangGraph migration guide (v2.0)
 - `NEW_FEATURES.md` - v1.1 enhancements (configurable models, engaging messages, auto-goodbye)
 - `VOICE_ORCHESTRATOR_GUIDE.md` - Voice integration with STT/TTS
 - `QUICK_START_GUIDE.md` - Testing and curl examples
 - `MULTI_AGENT_ORCHESTRATOR.md` - Original guide (superseded by README.md)
 
-**Keywords:** orchestrator, multi-agent, intent graph, stateful workflow, conversation boundaries, voice chat, STT, TTS, Whisper, engaging messages, auto-goodbye, off-topic handling, agent roles, Critic, Evaluator, Worker
+**Keywords:** orchestrator, multi-agent, intent graph, stateful workflow, conversation boundaries, voice chat, STT, TTS, Whisper, engaging messages, auto-goodbye, off-topic handling, agent roles, Critic, Evaluator, Worker, LangGraph, end-to-end plumbing, system design, component architecture
 
 ---
 

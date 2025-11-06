@@ -848,6 +848,40 @@ assert(result.shouldEndConversation === true);
 
 ---
 
+## Additional Documentation
+
+### Complete System Design & Plumbing
+For detailed end-to-end plumbing, component interactions, and technical implementation details, see:
+
+**[📘 SYSTEM_DESIGN.md](./SYSTEM_DESIGN.md)** - Complete technical reference (1300+ lines) covering:
+- **Complete System Architecture** - Visual diagram with all components and data flows
+- **End-to-End Request Flow** - Detailed step-by-step from user input to response (8 phases)
+- **Component Deep Dive** - LangGraph compilation, state annotation, reducers
+- **State Management Plumbing** - Session lifecycle, database interactions, recovery
+- **MCP Tool Execution Flow** - Complete call lifecycle with authentication
+- **Database Persistence Layer** - Schema, relationships, query patterns, performance
+- **Error Handling** - Multi-layer error handling with retry logic
+- **Authentication Flow** - JWT token journey through all layers
+- **Session Lifecycle** - Complete timeline with examples
+- **Performance Optimizations** - Caching, pooling, indexing strategies
+
+### Migration Guide
+**[📘 LANGGRAPH_MIGRATION.md](./LANGGRAPH_MIGRATION.md)** - LangGraph migration guide covering:
+- Why LangGraph (benefits and rationale)
+- Architecture comparison (custom vs LangGraph)
+- API changes and migration path
+- Developer workflows (frontend and backend)
+- Testing strategies
+- Troubleshooting
+
+### Feature Documentation
+- **[NEW_FEATURES.md](./NEW_FEATURES.md)** - v1.1 features (configurable models, engaging messages, auto-goodbye)
+- **[VOICE_ORCHESTRATOR_GUIDE.md](./VOICE_ORCHESTRATOR_GUIDE.md)** - Voice integration with STT/TTS
+- **[QUICK_START_GUIDE.md](./QUICK_START_GUIDE.md)** - Testing and curl examples
+- **[MULTI_AGENT_ORCHESTRATOR.md](./MULTI_AGENT_ORCHESTRATOR.md)** - Original guide (superseded by README.md)
+
+---
+
 ## Quick Reference
 
 ### File Locations
@@ -902,4 +936,16 @@ CRITIC_MODEL=gpt-3.5-turbo
 
 ---
 
-**Status:** Production Ready | **Version:** 1.1.0 | **Last Updated:** 2025-11-06
+**Status:** Production Ready | **Version:** 2.0.0 | **Last Updated:** 2025-11-06
+
+---
+
+## Documentation Index
+
+For comprehensive technical details:
+- **[SYSTEM_DESIGN.md](./SYSTEM_DESIGN.md)** - End-to-end plumbing and architecture ⭐
+- **[LANGGRAPH_MIGRATION.md](./LANGGRAPH_MIGRATION.md)** - Migration guide
+- **[README.md](./README.md)** - This document (architectural overview)
+- **[NEW_FEATURES.md](./NEW_FEATURES.md)** - v1.1 features
+- **[VOICE_ORCHESTRATOR_GUIDE.md](./VOICE_ORCHESTRATOR_GUIDE.md)** - Voice integration
+- **[QUICK_START_GUIDE.md](./QUICK_START_GUIDE.md)** - Testing guide
