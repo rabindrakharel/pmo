@@ -1524,6 +1524,226 @@ export const API_MANIFEST: APIEndpoint[] = [
     }
   },
 
+  // ==================== INTERACTION ====================
+  {
+    name: 'interaction_list',
+    method: 'GET',
+    path: '/api/v1/interaction',
+    description: 'List all customer interactions with filtering',
+    requiresAuth: true,
+    category: 'Interaction',
+    parameters: {
+      query: {
+        interaction_type: 'Filter by interaction type',
+        channel: 'Filter by channel',
+        sentiment_label: 'Filter by sentiment',
+        priority_level: 'Filter by priority',
+        from_date: 'Filter interactions from date',
+        to_date: 'Filter interactions to date',
+        search: 'Search in content',
+        limit: 'Number of results',
+        offset: 'Pagination offset'
+      }
+    }
+  },
+  {
+    name: 'interaction_get',
+    method: 'GET',
+    path: '/api/v1/interaction/:id',
+    description: 'Get single interaction by ID',
+    requiresAuth: true,
+    category: 'Interaction',
+    parameters: {
+      path: {
+        id: 'Interaction UUID'
+      }
+    }
+  },
+  {
+    name: 'interaction_create',
+    method: 'POST',
+    path: '/api/v1/interaction',
+    description: 'Create new interaction',
+    requiresAuth: true,
+    category: 'Interaction',
+    parameters: {
+      body: {
+        interaction_number: 'Unique interaction number',
+        interaction_type: 'Type of interaction (voice_call, chat, email, etc.)',
+        channel: 'Channel (phone, live_chat, email, etc.)',
+        interaction_subtype: 'Subtype (inbound, outbound, etc.)',
+        interaction_person_entities: 'Array of person entities involved',
+        content_text: 'Interaction content text',
+        transcript_text: 'Transcript for voice/video',
+        sentiment_score: 'Sentiment score',
+        sentiment_label: 'Sentiment label',
+        customer_satisfaction_score: 'CSAT score',
+        interaction_reason: 'Reason for interaction',
+        interaction_category: 'Category',
+        priority_level: 'Priority level',
+        metadata: 'Additional metadata'
+      }
+    }
+  },
+  {
+    name: 'interaction_update',
+    method: 'PATCH',
+    path: '/api/v1/interaction/:id',
+    description: 'Update existing interaction',
+    requiresAuth: true,
+    category: 'Interaction',
+    parameters: {
+      path: {
+        id: 'Interaction UUID'
+      },
+      body: {
+        interaction_intention_entity: 'Entity to create from interaction',
+        content_summary: 'Summary of interaction',
+        transcript_text: 'Updated transcript',
+        sentiment_score: 'Updated sentiment score',
+        sentiment_label: 'Updated sentiment label',
+        customer_satisfaction_score: 'Updated CSAT score',
+        emotion_tags: 'Array of emotion tags',
+        interaction_reason: 'Updated reason',
+        interaction_category: 'Updated category',
+        priority_level: 'Updated priority',
+        metadata: 'Updated metadata'
+      }
+    }
+  },
+  {
+    name: 'interaction_delete',
+    method: 'DELETE',
+    path: '/api/v1/interaction/:id',
+    description: 'Soft delete interaction',
+    requiresAuth: true,
+    category: 'Interaction',
+    parameters: {
+      path: {
+        id: 'Interaction UUID'
+      }
+    }
+  },
+
+  // ==================== PERSON CALENDAR ====================
+  {
+    name: 'person_calendar_list',
+    method: 'GET',
+    path: '/api/v1/person-calendar',
+    description: 'List all person calendar slots',
+    requiresAuth: true,
+    category: 'Calendar',
+    parameters: {
+      query: {
+        availability_flag: 'Filter by availability',
+        page: 'Page number',
+        limit: 'Number of results'
+      }
+    }
+  },
+  {
+    name: 'person_calendar_get',
+    method: 'GET',
+    path: '/api/v1/person-calendar/:id',
+    description: 'Get single calendar slot by ID',
+    requiresAuth: true,
+    category: 'Calendar',
+    parameters: {
+      path: {
+        id: 'Calendar slot UUID'
+      }
+    }
+  },
+  {
+    name: 'person_calendar_get_available',
+    method: 'GET',
+    path: '/api/v1/person-calendar/available',
+    description: 'Get available calendar slots',
+    requiresAuth: true,
+    category: 'Calendar'
+  },
+  {
+    name: 'person_calendar_get_booked',
+    method: 'GET',
+    path: '/api/v1/person-calendar/booked',
+    description: 'Get booked calendar slots',
+    requiresAuth: true,
+    category: 'Calendar'
+  },
+  {
+    name: 'person_calendar_create',
+    method: 'POST',
+    path: '/api/v1/person-calendar',
+    description: 'Create new calendar slot',
+    requiresAuth: true,
+    category: 'Calendar',
+    parameters: {
+      body: {
+        code: 'Calendar slot code',
+        name: 'Calendar slot name',
+        person_entity_type: 'Person entity type (employee, customer)',
+        person_entity_id: 'Person entity UUID',
+        from_ts: 'Start timestamp',
+        to_ts: 'End timestamp',
+        availability_flag: 'Is slot available',
+        title: 'Slot title',
+        appointment_medium: 'Appointment medium',
+        appointment_addr: 'Appointment address',
+        instructions: 'Instructions',
+        metadata: 'Additional metadata'
+      }
+    }
+  },
+  {
+    name: 'person_calendar_update',
+    method: 'PATCH',
+    path: '/api/v1/person-calendar/:id',
+    description: 'Update calendar slot',
+    requiresAuth: true,
+    category: 'Calendar',
+    parameters: {
+      path: {
+        id: 'Calendar slot UUID'
+      },
+      body: {
+        name: 'Updated name',
+        from_ts: 'Updated start timestamp',
+        to_ts: 'Updated end timestamp',
+        availability_flag: 'Updated availability',
+        title: 'Updated title',
+        metadata: 'Updated metadata'
+      }
+    }
+  },
+  {
+    name: 'person_calendar_book',
+    method: 'POST',
+    path: '/api/v1/person-calendar/book',
+    description: 'Book a calendar slot',
+    requiresAuth: true,
+    category: 'Calendar',
+    parameters: {
+      body: {
+        slot_id: 'Calendar slot UUID to book',
+        customer_id: 'Customer UUID',
+        event_details: 'Event details'
+      }
+    }
+  },
+  {
+    name: 'person_calendar_delete',
+    method: 'DELETE',
+    path: '/api/v1/person-calendar/:id',
+    description: 'Soft delete calendar slot',
+    requiresAuth: true,
+    category: 'Calendar',
+    parameters: {
+      path: {
+        id: 'Calendar slot UUID'
+      }
+    }
+  },
+
   // ==================== BOOKING ====================
   {
     name: 'booking_list',
@@ -1607,6 +1827,8 @@ export const API_CATEGORIES = [
   'S3',
   'Workflow',
   'Email',
+  'Interaction',
+  'Calendar',
   'Chat',
   'Booking',
   'System'
