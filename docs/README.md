@@ -18,6 +18,7 @@
 | **Universal entity system (DRY)** | `entity_design_pattern/` | `universal_entity_system.md` ⭐ |
 | **All API endpoints** | `entity_ui_ux_route_api.md` | Complete API reference (31+ modules) |
 | **How AI chat works** | `ai_chat/` | `AI_CHAT_SYSTEM.md` (text + voice) |
+| **How orchestrator works** | `orchestrator/` | `README.md` ⭐ (multi-agent workflows) |
 | **How MCP server works** | `ai_mcp/` | `MCP_SERVER_OVERVIEW.md` (126 tools) |
 
 ### 🏗️ "I need to build..."
@@ -31,7 +32,8 @@
 | **Service workflow** | `service_appointment_task_work_orders/` | `SERVICE_WORKFLOW_ARCHITECTURE.md` ⭐ |
 | **Quote system** | `product_services_quotes/` | `TECHNICAL_REFERENCE.md` ⭐ |
 | **DAG/workflow visualization** | `dag_graph_vizualization/` | `dag_visualizer_two_use_cases.md` |
-| **AI-powered feature** | `ai_chat/`, `ai_mcp/` | Both folders |
+| **AI-powered feature** | `ai_chat/`, `ai_mcp/`, `orchestrator/` | All AI folders |
+| **Multi-agent orchestrator workflow** | `orchestrator/` | `README.md` ⭐ (intent graphs, stateful workflows) |
 
 ### 🐛 "I need to debug..."
 
@@ -111,6 +113,20 @@
 - `VOICE_AGENT_MCP_INTEGRATION.md` - Voice chat MCP integration
 
 **Keywords:** MCP, Model Context Protocol, AI tools, API manifest, Claude integration, tool calling
+
+---
+
+#### `orchestrator/` ⭐ **MULTI-AGENT ORCHESTRATOR**
+**When to use:** Stateful multi-agent workflows, intent graphs, conversation boundaries, voice + text orchestration
+
+**Files:**
+- `README.md` - **Primary reference** for orchestrator architecture (v1.1, consolidated guide)
+- `NEW_FEATURES.md` - v1.1 enhancements (configurable models, engaging messages, auto-goodbye)
+- `VOICE_ORCHESTRATOR_GUIDE.md` - Voice integration with STT/TTS
+- `QUICK_START_GUIDE.md` - Testing and curl examples
+- `MULTI_AGENT_ORCHESTRATOR.md` - Original guide (superseded by README.md)
+
+**Keywords:** orchestrator, multi-agent, intent graph, stateful workflow, conversation boundaries, voice chat, STT, TTS, Whisper, engaging messages, auto-goodbye, off-topic handling, agent roles, Critic, Evaluator, Worker
 
 ---
 
