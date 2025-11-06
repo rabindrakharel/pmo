@@ -640,7 +640,7 @@ export function CalendarView({
                     </div>
 
                     {/* Select All */}
-                    <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-dark-50 rounded cursor-pointer">
+                    <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-dark-50 rounded cursor-pointer transition-colors">
                       <input
                         type="checkbox"
                         checked={peopleByType.employee.filter(p =>
@@ -651,16 +651,17 @@ export function CalendarView({
                             p.name.toLowerCase().includes(employeeSearchTerm.toLowerCase())
                           );
                           const allSelected = filtered.every(p => selectedPersonIds.has(p.id));
+                          const next = new Set(selectedPersonIds); // Create copy first
                           filtered.forEach(p => {
                             if (allSelected) {
-                              selectedPersonIds.delete(p.id);
+                              next.delete(p.id);
                             } else {
-                              selectedPersonIds.add(p.id);
+                              next.add(p.id);
                             }
                           });
-                          setSelectedPersonIds(new Set(selectedPersonIds));
+                          setSelectedPersonIds(next);
                         }}
-                        className="rounded border-dark-400 text-blue-600 focus:ring-blue-500"
+                        className="h-4 w-4 rounded border-2 border-dark-400 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer transition-all"
                       />
                       <span className="text-xs font-medium text-dark-600">Select All</span>
                     </label>
@@ -670,12 +671,12 @@ export function CalendarView({
                       {peopleByType.employee
                         .filter(person => person.name.toLowerCase().includes(employeeSearchTerm.toLowerCase()))
                         .map(person => (
-                          <label key={person.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-dark-50 rounded cursor-pointer">
+                          <label key={person.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-dark-50 rounded cursor-pointer transition-colors">
                             <input
                               type="checkbox"
                               checked={selectedPersonIds.has(person.id)}
                               onChange={() => togglePerson(person.id)}
-                              className="rounded border-dark-400 text-blue-600 focus:ring-blue-500"
+                              className="h-4 w-4 rounded border-2 border-dark-400 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer transition-all"
                             />
                             <span className="text-xs text-dark-600 truncate flex-1">{person.name}</span>
                           </label>
@@ -705,22 +706,22 @@ export function CalendarView({
 
                 {expandedSections.has('customer') && (
                   <div className="px-3 py-2 space-y-1">
-                    <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-dark-50 rounded cursor-pointer">
+                    <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-dark-50 rounded cursor-pointer transition-colors">
                       <input
                         type="checkbox"
                         checked={peopleByType.customer.every(p => selectedPersonIds.has(p.id))}
                         onChange={() => toggleAllType('customer')}
-                        className="rounded border-dark-400 text-purple-600 focus:ring-purple-500"
+                        className="h-4 w-4 rounded border-2 border-dark-400 text-purple-600 focus:ring-2 focus:ring-purple-500 focus:ring-offset-0 cursor-pointer transition-all"
                       />
                       <span className="text-xs font-medium text-dark-600">Select All</span>
                     </label>
                     {peopleByType.customer.map(person => (
-                      <label key={person.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-dark-50 rounded cursor-pointer">
+                      <label key={person.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-dark-50 rounded cursor-pointer transition-colors">
                         <input
                           type="checkbox"
                           checked={selectedPersonIds.has(person.id)}
                           onChange={() => togglePerson(person.id)}
-                          className="rounded border-dark-400 text-purple-600 focus:ring-purple-500"
+                          className="h-4 w-4 rounded border-2 border-dark-400 text-purple-600 focus:ring-2 focus:ring-purple-500 focus:ring-offset-0 cursor-pointer transition-all"
                         />
                         <span className="text-xs text-dark-600 truncate flex-1">{person.name}</span>
                       </label>
