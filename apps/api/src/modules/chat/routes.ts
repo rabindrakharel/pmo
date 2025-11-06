@@ -22,6 +22,7 @@ import type {
 } from './types.js';
 
 import { voiceRoutes } from './voice.routes.js';
+import { orchestratorRoutes } from './orchestrator/orchestrator.routes.js';
 
 /**
  * Register chat routes
@@ -29,6 +30,9 @@ import { voiceRoutes } from './voice.routes.js';
 export async function chatRoutes(fastify: FastifyInstance) {
   // Register voice WebSocket routes
   await voiceRoutes(fastify);
+
+  // Register orchestrator routes
+  await orchestratorRoutes(fastify);
 
   /**
    * POST /api/v1/chat/session/new
