@@ -10,6 +10,7 @@ import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPan
 
 // Landing & Auth Pages
 import { LandingPage } from './pages/LandingPage';
+import { WelcomePage } from './pages/WelcomePage';
 import { SignupPage } from './pages/SignupPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 
@@ -127,8 +128,14 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/" element={isAuthenticated ? <Navigate to="/project" replace /> : <LandingPage />} />
+      <Route path="/" element={isAuthenticated ? <Navigate to="/welcome" replace /> : <LandingPage />} />
       <Route path="/public/form/:id" element={<PublicFormPage />} />
+
+      {/* Welcome Page (Post-Signin Landing) */}
+      <Route
+        path="/welcome"
+        element={<ProtectedRoute><WelcomePage /></ProtectedRoute>}
+      />
 
       {/* Shared Entity Routes (Auth Required) */}
       <Route path="/task/shared/:code" element={<ProtectedRoute><SharedURLEntityPage entityType="task" /></ProtectedRoute>} />
@@ -139,11 +146,11 @@ function AppRoutes() {
 
       <Route
         path="/login"
-        element={isAuthenticated ? <Navigate to="/project" replace /> : <LoginForm />}
+        element={isAuthenticated ? <Navigate to="/welcome" replace /> : <LoginForm />}
       />
       <Route
         path="/signup"
-        element={isAuthenticated ? <Navigate to="/project" replace /> : <SignupPage />}
+        element={isAuthenticated ? <Navigate to="/welcome" replace /> : <SignupPage />}
       />
       <Route
         path="/onboarding"
@@ -282,7 +289,7 @@ function AppRoutes() {
         }
       />
 
-      <Route path="*" element={<Navigate to="/project" replace />} />
+      <Route path="*" element={<Navigate to="/welcome" replace />} />
     </Routes>
   );
 }
