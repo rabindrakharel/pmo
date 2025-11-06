@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronDown, ChevronUp, User, Users, Building, Edit2, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronDown, ChevronUp, User, Users, Building } from 'lucide-react';
 import type { EntityConfig } from '../../../lib/entityConfig';
 import { CalendarEventModal, type CalendarEvent, type EventFormData } from './CalendarEventModal';
+import { CalendarEventPopover } from './CalendarEventPopover';
 
 /**
  * CalendarView Component with Drag-and-Drop
@@ -76,6 +77,11 @@ export function CalendarView({
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [modalData, setModalData] = useState<CalendarEvent | null>(null);
+
+  // Popover state
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [popoverEvent, setPopoverEvent] = useState<any | null>(null);
+  const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
 
   // Drag state
   const [dragState, setDragState] = useState<DragState>({
@@ -418,7 +424,28 @@ export function CalendarView({
     }
   };
 
+  const handleEventClick = (slot: any, event: React.MouseEvent) => {
+    // Don't open popover if we're dragging
+    if (dragState.isCreating || dragState.isMoving) {
+      return;
+    }
+
+    setPopoverEvent(slot);
+    setPopoverPosition({ x: event.clientX, y: event.clientY });
+    setPopoverOpen(true);
+  };
+
+  const handleClosePopover = () => {
+    setPopoverOpen(false);
+    setPopoverEvent(null);
+  };
+
   const handleEditSlot = (slot: any) => {
+    // Close popover if open
+    if (popoverOpen) {
+      handleClosePopover();
+    }
+
     setModalData({
       id: slot.id,
       person_entity_type: slot.person_entity_type,
@@ -437,7 +464,20 @@ export function CalendarView({
   };
 
   const handleDeleteSlot = async (slotId: string) => {
-    if (!window.confirm('Are you sure you want to delete this calendar slot?')) {
+    // Close popover if open
+    if (popoverOpen) {
+      handleClosePopover();
+    }
+
+    // Find the event to show better confirmation message
+    const eventToDelete = filteredData.find(slot => slot.id === slotId);
+    const person = eventToDelete ? getPersonById(eventToDelete.person_entity_id) : null;
+
+    const confirmMessage = eventToDelete?.title
+      ? `Are you sure you want to delete "${eventToDelete.title}"${person ? ` for ${person.name}` : ''}?`
+      : `Are you sure you want to delete this calendar slot${person ? ` for ${person.name}` : ''}?`;
+
+    if (!window.confirm(confirmMessage)) {
       return;
     }
 
@@ -655,7 +695,7 @@ export function CalendarView({
                 {selectedPersonIds.size} {selectedPersonIds.size === 1 ? 'person' : 'people'} selected
               </span>
               <span className="text-xs text-dark-700 ml-2">
-                (Drag on empty slots to create events, drag events to move them)
+                (Click events to view • Drag empty slots to create • Drag events to reschedule)
               </span>
             </div>
 
@@ -739,55 +779,59 @@ export function CalendarView({
                                   const isBooked = slot.availability_flag === false;
                                   const colors = PERSON_TYPE_COLORS[person?.type || 'employee'];
 
+                                  // Format time for display
+                                  const fromTime = new Date(slot.from_ts);
+                                  const toTime = new Date(slot.to_ts);
+                                  const timeStr = `${fromTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+
                                   return (
                                     <div
                                       key={slotIdx}
-                                      className={`px-1.5 py-1 rounded group relative ${
-                                        isAvailable ? 'bg-green-50 hover:bg-green-100' :
-                                        isBooked ? colors.bg + ' hover:opacity-80' :
+                                      className={`px-2 py-1.5 rounded group relative ${
+                                        isAvailable ? 'bg-green-50 hover:bg-green-100 hover:shadow-sm' :
+                                        isBooked ? colors.bg + ' hover:opacity-90 hover:shadow-sm' :
                                         'bg-dark-50'
                                       } border ${
-                                        isAvailable ? 'border-green-200' :
-                                        isBooked ? colors.border :
+                                        isAvailable ? 'border-green-200 hover:border-green-300' :
+                                        isBooked ? colors.border + ' hover:' + colors.border :
                                         'border-dark-200'
-                                      } transition-colors cursor-move`}
-                                      title={`${person?.name || 'Unknown'}: ${slot.title || (isAvailable ? 'Available' : 'Booked')}`}
+                                      } transition-all cursor-pointer`}
+                                      onClick={(e) => handleEventClick(slot, e)}
+                                      title={`Click to view details\n${person?.name || 'Unknown'}: ${slot.title || (isAvailable ? 'Available' : 'Booked')}`}
                                       draggable={isBooked}
                                     >
-                                      <div className="flex items-center gap-1">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${colors.dot} flex-shrink-0`} />
-                                        {isBooked && slot.title && (
-                                          <div className={`font-medium ${colors.text} truncate text-xs flex-1`}>
-                                            {slot.title}
+                                      <div className="space-y-0.5">
+                                        {/* Title or Status */}
+                                        <div className="flex items-center gap-1">
+                                          <div className={`w-1.5 h-1.5 rounded-full ${colors.dot} flex-shrink-0`} />
+                                          {isBooked && slot.title ? (
+                                            <div className={`font-semibold ${colors.text} truncate text-xs flex-1`}>
+                                              {slot.title}
+                                            </div>
+                                          ) : isAvailable ? (
+                                            <div className="text-green-700 font-medium text-xs">Available</div>
+                                          ) : (
+                                            <div className={`font-medium ${colors.text} text-xs`}>Booked</div>
+                                          )}
+                                        </div>
+
+                                        {/* Person Name */}
+                                        {person && (
+                                          <div className={`text-xs ${colors.text} opacity-80 truncate pl-2.5`}>
+                                            {person.name}
                                           </div>
                                         )}
-                                        {isAvailable && (
-                                          <div className="text-green-700 text-xs">Available</div>
+
+                                        {/* Time (show for booked events) */}
+                                        {isBooked && (
+                                          <div className={`text-xs ${colors.text} opacity-70 pl-2.5`}>
+                                            {timeStr}
+                                          </div>
                                         )}
                                       </div>
-                                      {/* Action buttons (show on hover) */}
-                                      <div className="absolute right-1 top-1 hidden group-hover:flex gap-1">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleEditSlot(slot);
-                                          }}
-                                          className="p-0.5 bg-white rounded shadow hover:bg-blue-50"
-                                          title="Edit"
-                                        >
-                                          <Edit2 className="h-3 w-3 text-blue-600" />
-                                        </button>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteSlot(slot.id);
-                                          }}
-                                          className="p-0.5 bg-white rounded shadow hover:bg-red-50"
-                                          title="Delete"
-                                        >
-                                          <Trash2 className="h-3 w-3 text-red-600" />
-                                        </button>
-                                      </div>
+
+                                      {/* Hover indicator */}
+                                      <div className="absolute inset-0 ring-2 ring-blue-400 ring-opacity-0 group-hover:ring-opacity-40 rounded transition-all pointer-events-none" />
                                     </div>
                                   );
                                 })}
@@ -851,6 +895,18 @@ export function CalendarView({
         employees={peopleByType.employee || []}
         customers={peopleByType.customer || []}
       />
+
+      {/* Event Popover */}
+      {popoverOpen && popoverEvent && (
+        <CalendarEventPopover
+          event={popoverEvent}
+          person={getPersonById(popoverEvent.person_entity_id)}
+          position={popoverPosition}
+          onClose={handleClosePopover}
+          onEdit={handleEditSlot}
+          onDelete={handleDeleteSlot}
+        />
+      )}
     </div>
   );
 }
