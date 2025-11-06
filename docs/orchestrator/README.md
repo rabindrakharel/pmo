@@ -1,6 +1,11 @@
 # Multi-Agent LLM Orchestrator - Technical Architecture
 
-**Version:** 1.1.0 | **Status:** Production | **Updated:** 2025-11-06
+**Version:** 2.0.0 | **Status:** Production | **Updated:** 2025-11-06
+
+> **🚀 FRAMEWORK MIGRATION:** The orchestrator has been migrated to **LangGraph** (v2.0). See [`LANGGRAPH_MIGRATION.md`](./LANGGRAPH_MIGRATION.md) for migration guide.
+>
+> **New API:** `/api/v1/chat/langgraph/` (LangGraph-based)
+> **Legacy API:** `/api/v1/chat/orchestrator/` (deprecated, will be removed in v3.0)
 
 > **Audience:** Staff architects and engineers implementing or extending the orchestrator
 
