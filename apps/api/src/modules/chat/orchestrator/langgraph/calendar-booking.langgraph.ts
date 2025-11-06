@@ -1,12 +1,14 @@
 /**
- * Calendar Booking LangGraph - Simplified Flow
+ * Calendar Booking LangGraph - Corrected Flow
  *
  * Flow:
- * 1. Create customer record if not exist
- * 2. Create task and record customer's issue
- * 3. Create calendar event for available employee with service expertise
- * 4. Put task link in calendar event
- * 5. Give info to customer about who is coming at what time
+ * 1. Gather Intent/Issue: Listen to what service customer needs
+ * 2. Gather Customer Info: Get name, phone, address
+ * 3. Create/Find Customer: Create customer record if not exist
+ * 4. Create Task: Record customer's issue and service request
+ * 5. Find Employee: Find available technician with expertise
+ * 6. Create Calendar: Book appointment and link to task
+ * 7. Confirm: Give customer the booking details
  *
  * @module orchestrator/langgraph/calendar-booking
  */
@@ -103,23 +105,153 @@ async function criticNode(state: OrchestratorState): Promise<StateUpdate> {
 }
 
 /**
- * Step 1: Create/Find Customer
- * Creates customer record if not exist, otherwise finds existing customer
+ * Step 0: Gather Intent/Issue
+ * Listen to customer's issue and what service they need FIRST
  */
-async function createOrFindCustomerNode(state: OrchestratorState, mcpAdapter: any): Promise<StateUpdate> {
-  console.log('[LangGraph] Step 1: Create/Find Customer');
+async function gatherIntentNode(state: OrchestratorState): Promise<StateUpdate> {
+  console.log('[LangGraph] Step 0: Gather Intent/Issue');
 
-  // Check if we have required customer info
-  if (!state.variables.customer_name || !state.variables.customer_phone) {
+  const userMessage = state.userMessage?.toLowerCase() || '';
+
+  // Check if we already have BOTH service category AND detailed description
+  if (state.variables.service_category && state.variables.job_description && state.variables.job_description.length > 10) {
+    console.log('[LangGraph] Intent already captured, moving to gather customer info');
+    return {}; // Continue to next node
+  }
+
+  // Try to extract service category from user message
+  const serviceKeywords = {
+    'hvac': ['hvac', 'heating', 'cooling', 'furnace', 'air conditioning', 'ac', 'heat pump', 'thermostat'],
+    'plumbing': ['plumbing', 'plumber', 'leak', 'pipe', 'drain', 'toilet', 'sink', 'water heater', 'faucet'],
+    'electrical': ['electrical', 'electrician', 'electric', 'wiring', 'outlet', 'breaker', 'light', 'power'],
+    'landscaping': ['landscaping', 'landscape', 'lawn', 'grass', 'tree', 'garden', 'yard', 'mowing'],
+    'general_contracting': ['renovation', 'remodel', 'construction', 'repair', 'fix', 'install', 'build']
+  };
+
+  let detectedService: string | null = null;
+  for (const [service, keywords] of Object.entries(serviceKeywords)) {
+    if (keywords.some(keyword => userMessage.includes(keyword))) {
+      detectedService = service;
+      break;
+    }
+  }
+
+  // If service detected and we already asked for details, save and continue
+  if (detectedService && state.variables.asked_for_details) {
+    console.log(`[LangGraph] Service detected: ${detectedService}, user provided details`);
     return {
-      currentNode: 'create_or_find_customer',
-      naturalResponse: "Hi! I'd be happy to help you schedule a service. Can I get your name and phone number?",
+      currentNode: 'gather_intent',
+      variables: {
+        service_category: detectedService,
+        job_description: state.userMessage, // Save their full description
+      },
+      // Don't require user input - move to next node
+    };
+  }
+
+  // If service detected for first time, ask for more details
+  if (detectedService && !state.variables.service_category) {
+    return {
+      currentNode: 'gather_intent',
+      variables: {
+        service_category: detectedService,
+        job_description: state.userMessage, // Save their initial message
+        asked_for_details: true,
+      },
+      naturalResponse: `Got it, ${detectedService.replace('_', ' ')} service. Can you describe what exactly needs to be done?`,
       requiresUserInput: true,
     };
   }
 
+  // If we have service but waiting for detailed description
+  if (state.variables.service_category && !state.variables.job_description) {
+    return {
+      currentNode: 'gather_intent',
+      variables: {
+        job_description: state.userMessage,
+      },
+      // Don't require input - continue to next node
+    };
+  }
+
+  // If no service detected yet, ask what they need
+  if (!state.variables.asked_for_intent) {
+    return {
+      currentNode: 'gather_intent',
+      variables: {
+        asked_for_intent: true,
+      },
+      naturalResponse: "What type of service do you need today? We offer HVAC, Plumbing, Electrical, Landscaping, and General Contracting.",
+      requiresUserInput: true,
+    };
+  }
+
+  // User has responded but we still can't detect service - ask directly
+  return {
+    currentNode: 'gather_intent',
+    naturalResponse: "I didn't quite catch that. Which service do you need? HVAC, Plumbing, Electrical, Landscaping, or General Contracting?",
+    requiresUserInput: true,
+  };
+}
+
+/**
+ * Step 1: Gather Customer Information
+ * Get name, phone, and address before creating any records
+ */
+async function gatherCustomerInfoNode(state: OrchestratorState): Promise<StateUpdate> {
+  console.log('[LangGraph] Step 1: Gather Customer Info');
+
+  // Check if we have all required customer info
+  const hasName = !!state.variables.customer_name;
+  const hasPhone = !!state.variables.customer_phone;
+  const hasAddress = !!state.variables.customer_address;
+
+  if (hasName && hasPhone && hasAddress) {
+    console.log('[LangGraph] Customer info complete, moving to create/find customer');
+    return {}; // Continue to next node
+  }
+
+  // Ask for name first
+  if (!hasName) {
+    return {
+      currentNode: 'gather_customer_info',
+      naturalResponse: "Perfect! Can I get your name please?",
+      requiresUserInput: true,
+    };
+  }
+
+  // Ask for phone
+  if (!hasPhone) {
+    return {
+      currentNode: 'gather_customer_info',
+      naturalResponse: `Thanks ${state.variables.customer_name}! What's the best phone number to reach you?`,
+      requiresUserInput: true,
+    };
+  }
+
+  // Ask for address
+  if (!hasAddress) {
+    return {
+      currentNode: 'gather_customer_info',
+      naturalResponse: "Great! What's the service address?",
+      requiresUserInput: true,
+    };
+  }
+
+  return {};
+}
+
+/**
+ * Step 2: Create/Find Customer
+ * Creates customer record if not exist, otherwise finds existing customer
+ * At this point, we already have all customer info from gather_customer_info node
+ */
+async function createOrFindCustomerNode(state: OrchestratorState, mcpAdapter: any): Promise<StateUpdate> {
+  console.log('[LangGraph] Step 2: Create/Find Customer');
+
   try {
     // First, try to find existing customer by phone
+    console.log('[LangGraph] Searching for existing customer...');
     const searchResult = await mcpAdapter.executeMCPTool('customer_list', {
       query_search: state.variables.customer_phone,
     }, state.authToken);
@@ -135,13 +267,14 @@ async function createOrFindCustomerNode(state: OrchestratorState, mcpAdapter: an
         currentNode: 'create_or_find_customer',
         variables: {
           customer_id: customer.id,
-          customer_name: customer.name,
+          customer_code: customer.code,
+          customer_name: customer.name || state.variables.customer_name,
           customer_email: customer.primary_email,
-          customer_address: customer.primary_address,
+          customer_address: customer.primary_address || state.variables.customer_address,
           customer_city: customer.city,
           is_new_customer: false,
         },
-        naturalResponse: `Welcome back, ${customer.name}! Let's schedule your service.`,
+        naturalResponse: `Welcome back, ${customer.name || state.variables.customer_name}! I've found your account. Let me create the work order for your ${state.variables.service_category} service.`,
         metadata: {
           ...state.metadata,
           totalMcpCalls: state.metadata.totalMcpCalls + 1,
@@ -150,16 +283,7 @@ async function createOrFindCustomerNode(state: OrchestratorState, mcpAdapter: an
     }
 
     // Customer not found, create new one
-    console.log('[LangGraph] Creating new customer');
-
-    // Get address if we don't have it yet
-    if (!state.variables.customer_address) {
-      return {
-        currentNode: 'create_or_find_customer',
-        naturalResponse: "Thanks! What's your service address?",
-        requiresUserInput: true,
-      };
-    }
+    console.log('[LangGraph] Creating new customer...');
 
     const createResult = await mcpAdapter.executeMCPTool('customer_create', {
       body_name: state.variables.customer_name,
@@ -181,7 +305,7 @@ async function createOrFindCustomerNode(state: OrchestratorState, mcpAdapter: an
         customer_code: createResult.code,
         is_new_customer: true,
       },
-      naturalResponse: `Perfect! I've saved your information. Now let's schedule your service.`,
+      naturalResponse: `Perfect! I've created your account. Now creating the work order for your ${state.variables.service_category} service...`,
       metadata: {
         ...state.metadata,
         totalMcpCalls: state.metadata.totalMcpCalls + 2,
@@ -197,39 +321,25 @@ async function createOrFindCustomerNode(state: OrchestratorState, mcpAdapter: an
         message: error.message,
         agentRole: 'worker',
       },
-      naturalResponse: "I'm having trouble with customer records. Let me try again.",
+      naturalResponse: "I'm having trouble creating your account. Let me try again.",
     };
   }
 }
 
 /**
- * Step 2: Create Task and Record Issue
+ * Step 3: Create Task and Record Issue
  * Creates a task with the customer's service request
+ * At this point, we already have service_category and job_description from gather_intent node
  */
 async function createTaskNode(state: OrchestratorState, mcpAdapter: any): Promise<StateUpdate> {
-  console.log('[LangGraph] Step 2: Create Task');
-
-  // Check if we have required info
-  if (!state.variables.service_category) {
-    return {
-      currentNode: 'create_task',
-      naturalResponse: "What type of service do you need? (e.g., HVAC, Plumbing, Electrical, Landscaping, General Contracting)",
-      requiresUserInput: true,
-    };
-  }
-
-  if (!state.variables.job_description) {
-    return {
-      currentNode: 'create_task',
-      naturalResponse: "Please tell me what you need done.",
-      requiresUserInput: true,
-    };
-  }
+  console.log('[LangGraph] Step 3: Create Task');
 
   try {
     // Create task with customer's issue
-    const taskName = `${state.variables.service_category}: ${state.variables.job_description}`;
+    const serviceDisplay = (state.variables.service_category || 'Service').replace('_', ' ').toUpperCase();
+    const taskName = `${serviceDisplay}: ${state.variables.job_description}`;
 
+    console.log('[LangGraph] Creating task...');
     const taskResult = await mcpAdapter.executeMCPTool('task_create', {
       body_name: taskName,
       body_descr: `Customer: ${state.variables.customer_name}\nPhone: ${state.variables.customer_phone}\nAddress: ${state.variables.customer_address}\n\nIssue: ${state.variables.job_description}`,
@@ -259,8 +369,7 @@ async function createTaskNode(state: OrchestratorState, mcpAdapter: any): Promis
         task_code: taskResult.code,
         task_name: taskResult.name,
       },
-      naturalResponse: `Got it! I've created work order #${taskResult.code} for your ${state.variables.service_category} service. Now let me find an available technician with that expertise.`,
-      engagingMessage: "Finding available technician...",
+      naturalResponse: `Great! I've created work order #${taskResult.code} for your ${serviceDisplay} service. Now finding you an available technician...`,
       metadata: {
         ...state.metadata,
         totalMcpCalls: state.metadata.totalMcpCalls + 2,
@@ -282,11 +391,11 @@ async function createTaskNode(state: OrchestratorState, mcpAdapter: any): Promis
 }
 
 /**
- * Step 3: Find Available Employee with Service Expertise
+ * Step 4: Find Available Employee with Service Expertise
  * Finds employees who can handle the requested service category
  */
 async function findAvailableEmployeeNode(state: OrchestratorState, mcpAdapter: any): Promise<StateUpdate> {
-  console.log('[LangGraph] Step 3: Find Available Employee');
+  console.log('[LangGraph] Step 4: Find Available Employee');
 
   // Get desired date/time if not already set
   if (!state.variables.desired_date) {
@@ -354,11 +463,11 @@ async function findAvailableEmployeeNode(state: OrchestratorState, mcpAdapter: a
 }
 
 /**
- * Step 4: Create Calendar Event with Task Link
+ * Step 5: Create Calendar Event with Task Link
  * Creates calendar appointment and links it to the task
  */
 async function createCalendarEventNode(state: OrchestratorState, mcpAdapter: any): Promise<StateUpdate> {
-  console.log('[LangGraph] Step 4: Create Calendar Event');
+  console.log('[LangGraph] Step 5: Create Calendar Event');
 
   try {
     // Parse date and time
@@ -439,11 +548,11 @@ async function createCalendarEventNode(state: OrchestratorState, mcpAdapter: any
 }
 
 /**
- * Step 5: Confirm and Notify Customer
+ * Step 6: Confirm and Notify Customer
  * Gives customer the final booking information and asks for additional requests
  */
 async function confirmAndNotifyNode(state: OrchestratorState): Promise<StateUpdate> {
-  console.log('[LangGraph] Step 5: Confirm and Notify');
+  console.log('[LangGraph] Step 6: Confirm and Notify');
 
   // Check if we've already asked for another request
   if (!state.variables.asked_for_another_request) {
@@ -551,14 +660,30 @@ function routeNextNode(state: OrchestratorState): string {
       return 'critic';
 
     case 'critic':
-      return 'create_or_find_customer';
+      return 'gather_intent';
+
+    case 'gather_intent':
+      // Move to gather customer info if we have service category and description
+      if (state.variables.service_category && state.variables.job_description) {
+        return 'gather_customer_info';
+      }
+      // Stay if still gathering intent
+      return 'gather_intent';
+
+    case 'gather_customer_info':
+      // Move to create/find customer if we have all customer info
+      if (state.variables.customer_name && state.variables.customer_phone && state.variables.customer_address) {
+        return 'create_or_find_customer';
+      }
+      // Stay if still gathering customer info
+      return 'gather_customer_info';
 
     case 'create_or_find_customer':
       // Move to create task if we have customer ID
       if (state.variables.customer_id) {
         return 'create_task';
       }
-      // Stay if still gathering customer info
+      // Stay if still creating/finding customer
       return 'create_or_find_customer';
 
     case 'create_task':
@@ -600,9 +725,11 @@ function routeNextNode(state: OrchestratorState): string {
 export function createCalendarBookingGraph(mcpAdapter: any) {
   // Create graph with state annotation
   const graph = new StateGraph(OrchestratorStateAnnotation)
-    // Add nodes - Simplified 5-step workflow
+    // Add nodes - Corrected 6-step workflow
     .addNode('entry', entryNode)
     .addNode('critic', criticNode)
+    .addNode('gather_intent', gatherIntentNode)
+    .addNode('gather_customer_info', gatherCustomerInfoNode)
     .addNode('create_or_find_customer', (state: OrchestratorState) => createOrFindCustomerNode(state, mcpAdapter))
     .addNode('create_task', (state: OrchestratorState) => createTaskNode(state, mcpAdapter))
     .addNode('find_available_employee', (state: OrchestratorState) => findAvailableEmployeeNode(state, mcpAdapter))
@@ -613,6 +740,8 @@ export function createCalendarBookingGraph(mcpAdapter: any) {
     .addEdge(START, 'entry')
     .addConditionalEdges('entry', routeNextNode)
     .addConditionalEdges('critic', routeNextNode)
+    .addConditionalEdges('gather_intent', routeNextNode)
+    .addConditionalEdges('gather_customer_info', routeNextNode)
     .addConditionalEdges('create_or_find_customer', routeNextNode)
     .addConditionalEdges('create_task', routeNextNode)
     .addConditionalEdges('find_available_employee', routeNextNode)

@@ -23,6 +23,7 @@ import type {
 
 import { voiceRoutes } from './voice.routes.js';
 import { orchestratorRoutes } from './orchestrator/orchestrator.routes.js';
+import { disconnectVoiceSession, getActiveVoiceSessionCount } from './voice.service.js';
 
 /**
  * Register chat routes
@@ -246,6 +247,65 @@ export async function chatRoutes(fastify: FastifyInstance) {
       console.error('Error closing session:', error);
       reply.code(500).send({
         error: 'Failed to close session',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  /**
+   * POST /api/v1/chat/session/:sessionId/disconnect
+   * Disconnect a chat session (works for both text and voice)
+   * For text chat: marks session as closed in database
+   * For voice chat: closes WebSocket connection AND marks session as closed
+   */
+  fastify.post<{
+    Params: { sessionId: string };
+    Body: {
+      resolution?: 'resolved' | 'abandoned' | 'escalated';
+      session_type?: 'text' | 'voice' | 'auto';
+    };
+  }>('/session/:sessionId/disconnect', async (request, reply) => {
+    try {
+      const { sessionId } = request.params;
+      const { resolution = 'resolved', session_type = 'auto' } = request.body;
+
+      let voiceDisconnected = false;
+      let textClosed = false;
+
+      // Try to disconnect voice session if it exists
+      if (session_type === 'auto' || session_type === 'voice') {
+        voiceDisconnected = disconnectVoiceSession(sessionId);
+      }
+
+      // Always close the session in database (works for both text and voice)
+      if (session_type === 'auto' || session_type === 'text' || voiceDisconnected) {
+        try {
+          await closeSession(sessionId, resolution);
+          textClosed = true;
+        } catch (error) {
+          console.warn(`Could not close session ${sessionId} in database:`, error);
+        }
+      }
+
+      const success = voiceDisconnected || textClosed;
+
+      reply.code(success ? 200 : 404).send({
+        success,
+        voice_disconnected: voiceDisconnected,
+        text_closed: textClosed,
+        message: success
+          ? 'Session disconnected successfully'
+          : 'Session not found',
+        active_voice_sessions: getActiveVoiceSessionCount()
+      });
+
+      if (success) {
+        console.log(`✅ Session disconnected: ${sessionId} (voice: ${voiceDisconnected}, text: ${textClosed}, resolution: ${resolution})`);
+      }
+    } catch (error) {
+      console.error('Error disconnecting session:', error);
+      reply.code(500).send({
+        error: 'Failed to disconnect session',
         message: error instanceof Error ? error.message : 'Unknown error'
       });
     }

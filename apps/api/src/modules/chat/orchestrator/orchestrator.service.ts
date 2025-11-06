@@ -496,6 +496,7 @@ export class OrchestratorService {
 
   /**
    * Close chat session (calls MCP endpoint to terminate chat)
+   * Also disconnects voice sessions if active
    */
   private async closeChatSession(chatSessionId: string, reason: string): Promise<void> {
     try {
@@ -515,6 +516,18 @@ export class OrchestratorService {
       `;
 
       console.log(`🔚 Chat session ${chatSessionId} closed by orchestrator: ${reason}`);
+
+      // Try to disconnect voice session if active
+      try {
+        const { disconnectVoiceSession } = await import('../../voice.service.js');
+        const voiceDisconnected = disconnectVoiceSession(chatSessionId);
+        if (voiceDisconnected) {
+          console.log(`📞 Voice session ${chatSessionId} automatically disconnected by orchestrator`);
+        }
+      } catch (error) {
+        console.error('Error disconnecting voice session:', error);
+        // Don't throw - voice disconnection is not critical
+      }
     } catch (error) {
       console.error('Error closing chat session:', error);
       // Don't throw - session closing is not critical

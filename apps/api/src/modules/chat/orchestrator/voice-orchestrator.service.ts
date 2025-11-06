@@ -4,7 +4,7 @@
  * @module orchestrator/voice-orchestrator
  */
 
-import { orchestratorService } from './orchestrator.service.js';
+import { getLangGraphOrchestratorService } from './langgraph/langgraph-orchestrator.service.js';
 import FormData from 'form-data';
 import axios from 'axios';
 import { PassThrough } from 'stream';
@@ -129,15 +129,15 @@ export async function processVoiceMessage(args: {
       throw new Error('No speech detected in audio');
     }
 
-    // Step 2: Process through orchestrator
-    console.log('🎯 Step 2: Processing through orchestrator...');
-    const orchestratorResult = await orchestratorService.processMessage({
+    // Step 2: Process through LangGraph orchestrator
+    console.log('🎯 Step 2: Processing through LangGraph orchestrator...');
+    const orchestrator = getLangGraphOrchestratorService();
+    const orchestratorResult = await orchestrator.processMessage({
       sessionId: args.sessionId,
       message: transcript,
       authToken: args.authToken,
       chatSessionId: args.chatSessionId,
-      userId: args.userId,
-      tenantId: args.tenantId
+      userId: args.userId
     });
 
     // Step 3: Text-to-Speech (OpenAI TTS)

@@ -107,3 +107,59 @@ COMMENT ON TABLE app.orchestrator_agent_log IS 'Detailed log of agent actions, L
 COMMENT ON COLUMN app.orchestrator_agent_log.agent_role IS 'Type of agent: orchestrator, worker, evaluator, or critic';
 COMMENT ON COLUMN app.orchestrator_agent_log.mcp_tool_name IS 'Name of MCP tool called (customer_create, task_update, etc.)';
 COMMENT ON COLUMN app.orchestrator_agent_log.duration_ms IS 'Execution time in milliseconds';
+-- =====================================================
+-- Orchestrator State Table
+-- Stores key-value state variables for each session
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS app.orchestrator_state (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id uuid REFERENCES app.orchestrator_session(id) ON DELETE CASCADE,
+  key varchar(100),                -- e.g., 'customer_id', 'booking_id', 'service_category'
+  value jsonb,                     -- Flexible value storage
+  value_type varchar(50),          -- e.g., 'string', 'number', 'boolean', 'object'
+  source varchar(100),             -- Which node/agent set this value
+  node_context varchar(100),       -- Current workflow node when set
+  validated boolean,               -- Whether the value has been validated
+
+  created_ts timestamptz DEFAULT now(),
+  updated_ts timestamptz DEFAULT now(),
+
+  UNIQUE(session_id, key)          -- One value per key per session
+);
+
+-- Indexes for state table
+CREATE INDEX idx_orchestrator_state_session ON app.orchestrator_state(session_id);
+CREATE INDEX idx_orchestrator_state_key ON app.orchestrator_state(key);
+
+-- Comments
+COMMENT ON TABLE app.orchestrator_state IS 'Key-value state storage for orchestrator sessions';
+COMMENT ON COLUMN app.orchestrator_state.key IS 'State variable name (customer_id, service_category, etc.)';
+COMMENT ON COLUMN app.orchestrator_state.value IS 'JSONB value for flexible storage';
+
+-- =====================================================
+-- Orchestrator Summary Table
+-- Stores conversation summaries for context retention
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS app.orchestrator_summary (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id uuid REFERENCES app.orchestrator_session(id) ON DELETE CASCADE,
+  summary_type varchar(50),        -- 'full', 'incremental', 'node_completion'
+  summary_text text,               -- LLM-generated summary
+  up_to_node varchar(100),         -- Last node included in summary
+  message_count integer,           -- Number of messages summarized
+  model_used varchar(100),         -- Model used for summarization
+  tokens_used integer,             -- Token count for summary generation
+
+  created_ts timestamptz DEFAULT now()
+);
+
+-- Indexes for summary table
+CREATE INDEX idx_orchestrator_summary_session ON app.orchestrator_summary(session_id);
+CREATE INDEX idx_orchestrator_summary_type ON app.orchestrator_summary(summary_type);
+
+-- Comments
+COMMENT ON TABLE app.orchestrator_summary IS 'Conversation summaries for long-running sessions';
+COMMENT ON COLUMN app.orchestrator_summary.summary_type IS 'Type of summary: full, incremental, or node_completion';
+COMMENT ON COLUMN app.orchestrator_summary.summary_text IS 'LLM-generated natural language summary';

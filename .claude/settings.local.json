@@ -101,7 +101,13 @@
       "Bash(/tmp/test-calendar-booking-workflow.sh)",
       "Bash(terraform output:*)",
       "Bash(/tmp/simple-booking-test.sh:*)",
-      "Bash(./infra-tf/deploy-code.sh:*)"
+      "Bash(./infra-tf/deploy-code.sh:*)",
+      "Bash(timeout 30 bash:*)",
+      "Bash(aws ssm list-commands:*)",
+      "Bash(timeout 60 /tmp/simple-booking-test.sh:*)",
+      "Bash(ssh:*)",
+      "Bash(aws s3 ls:*)",
+      "Bash(terraform state list:*)"
     ],
     "deny": [],
     "ask": [],

@@ -12,6 +12,18 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01';
 
 /**
+ * Global registry of active voice sessions
+ * Maps session ID to VoiceSession instance
+ */
+const activeVoiceSessions = new Map<string, VoiceSession>();
+
+/**
+ * Mapping from interaction session ID to voice session ID
+ * Allows lookup by either ID
+ */
+const interactionToVoiceSessionMap = new Map<string, string>();
+
+/**
  * Voice session configuration
  */
 export interface VoiceSessionConfig {
@@ -19,6 +31,74 @@ export interface VoiceSessionConfig {
   interactionSessionId?: string;
   instructions?: string;
   authToken?: string;
+}
+
+/**
+ * Register a voice session in the global registry
+ */
+export function registerVoiceSession(sessionId: string, session: VoiceSession): void {
+  activeVoiceSessions.set(sessionId, session);
+
+  // Also register the mapping from interaction session ID to voice session ID
+  const sessionInfo = session.getSessionInfo();
+  if (sessionInfo.interactionSessionId) {
+    interactionToVoiceSessionMap.set(sessionInfo.interactionSessionId, sessionId);
+    console.log(`📝 Registered voice session ${sessionId} (interaction: ${sessionInfo.interactionSessionId}) (Total active: ${activeVoiceSessions.size})`);
+  } else {
+    console.log(`📝 Registered voice session ${sessionId} (Total active: ${activeVoiceSessions.size})`);
+  }
+}
+
+/**
+ * Unregister a voice session from the global registry
+ */
+export function unregisterVoiceSession(sessionId: string): void {
+  // Remove from both maps
+  const session = activeVoiceSessions.get(sessionId);
+  if (session) {
+    const sessionInfo = session.getSessionInfo();
+    if (sessionInfo.interactionSessionId) {
+      interactionToVoiceSessionMap.delete(sessionInfo.interactionSessionId);
+    }
+  }
+  activeVoiceSessions.delete(sessionId);
+  console.log(`🗑️ Unregistered voice session ${sessionId} (Total active: ${activeVoiceSessions.size})`);
+}
+
+/**
+ * Get active voice session by ID
+ */
+export function getVoiceSession(sessionId: string): VoiceSession | undefined {
+  return activeVoiceSessions.get(sessionId);
+}
+
+/**
+ * Disconnect a voice session by ID (supports both voice session ID and interaction session ID)
+ */
+export function disconnectVoiceSession(sessionId: string): boolean {
+  // Try direct lookup first
+  let session = activeVoiceSessions.get(sessionId);
+
+  // If not found, try looking up by interaction session ID
+  if (!session) {
+    const voiceSessionId = interactionToVoiceSessionMap.get(sessionId);
+    if (voiceSessionId) {
+      session = activeVoiceSessions.get(voiceSessionId);
+    }
+  }
+
+  if (session) {
+    session.disconnect();
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Get count of active voice sessions
+ */
+export function getActiveVoiceSessionCount(): number {
+  return activeVoiceSessions.size;
 }
 
 /**
@@ -35,7 +115,7 @@ COMPANY INFORMATION:
 - Emergency: 24/7 for HVAC and Plumbing
 
 STRICT BOUNDARIES - NEVER DEVIATE:
-1. Start with "Hi, Good morning/afternoon/evening, I am assistant for huron services. How can I help you with today?"
+1. When you see [CALL_STARTED] or the call begins, IMMEDIATELY greet with: "Hi, good morning/afternoon/evening! This is Huron Home Services. How can I help you today?"
 2. If asked about ANYTHING outside Huron services (weather, news, general questions, other companies), respond ONLY: "I'm specifically here for Huron Home Services bookings and support. Can I help you with one of our services?"
 3. ALWAYS use API tools for real data - never guess
 4. Keep responses brief (2-3 sentences max)
@@ -92,7 +172,12 @@ ABSOLUTE RULE - REFUSE OFF-TOPIC REQUESTS:
 If customer asks ANYTHING not related to Huron Home Services (weather, jokes, general questions, other companies, trivia, advice), you MUST respond:
 "I'm specifically here for Huron Home Services bookings and support. Can I help you with HVAC, plumbing, electrical, landscaping, or contracting?"
 
-DO NOT engage with off-topic conversations. DO NOT answer general questions. You are ONLY a Huron Home Services receptionist.`;
+DO NOT engage with off-topic conversations. DO NOT answer general questions. You are ONLY a Huron Home Services receptionist.
+
+ENDING THE CALL:
+When the conversation is complete (booking confirmed, no more questions, or customer says goodbye):
+- Say a warm closing: "Thank you for choosing Huron Home Services! Have a great day!"
+- The call will automatically disconnect after the conversation workflow completes`;
 
 /**
  * Convert MCP ChatCompletionTool format to Realtime API format
@@ -131,6 +216,9 @@ export class VoiceSession {
     this.sessionId = config.sessionId;
     this.interactionSessionId = config.interactionSessionId;
     this.authToken = config.authToken;
+
+    // Register this session in the global registry
+    registerVoiceSession(this.sessionId, this);
   }
 
   /**
@@ -163,7 +251,9 @@ export class VoiceSession {
         const toolNames = mcpTools.slice(0, 10).map((t: any) => t.name).join(', ');
         console.log(`🔧 Sample tools: ${toolNames}...`);
 
-        // Configure session
+        // Configure session with fresh state
+        // IMPORTANT: Each voice call gets a completely NEW session
+        // The OpenAI Realtime API should NOT retain any previous conversation context
         this.sendToOpenAI({
           type: 'session.update',
           session: {
@@ -183,9 +273,34 @@ export class VoiceSession {
             },
             tools: mcpTools,
             tool_choice: 'auto',
-            temperature: 0.8
+            temperature: 0.8,
+            // Ensure max_response_output_tokens is set to prevent runaway responses
+            max_response_output_tokens: 4096
           }
         });
+
+        console.log(`🆕 Fresh voice session configured: ${this.sessionId} (Interaction: ${this.interactionSessionId})`);
+
+        // Trigger AI to speak first with greeting
+        // Add a system message to prompt the greeting
+        setTimeout(() => {
+          this.sendToOpenAI({
+            type: 'conversation.item.create',
+            item: {
+              type: 'message',
+              role: 'user',
+              content: [{
+                type: 'input_text',
+                text: '[CALL_STARTED]'
+              }]
+            }
+          });
+
+          // Request AI response to greet the user
+          this.sendToOpenAI({
+            type: 'response.create'
+          });
+        }, 500);
 
         resolve();
       });
@@ -385,5 +500,48 @@ export class VoiceSession {
       this.openaiWs = null;
     }
     this.isConnected = false;
+
+    // Unregister this session from the global registry
+    unregisterVoiceSession(this.sessionId);
+  }
+
+  /**
+   * Public method to disconnect the voice session
+   * Can be called externally (e.g., via MCP tool)
+   */
+  public disconnect(): void {
+    console.log(`🔌 Disconnecting voice session ${this.sessionId}`);
+
+    // Send goodbye message to client before closing
+    try {
+      this.clientWs.send(JSON.stringify({
+        type: 'session.disconnected',
+        message: 'Voice call ended',
+        timestamp: new Date().toISOString()
+      }));
+    } catch (error) {
+      console.error('Error sending disconnect message:', error);
+    }
+
+    // Close both WebSocket connections
+    if (this.openaiWs) {
+      this.openaiWs.close();
+    }
+    if (this.clientWs.readyState === WebSocket.OPEN) {
+      this.clientWs.close();
+    }
+
+    this.cleanup();
+  }
+
+  /**
+   * Get session information
+   */
+  public getSessionInfo() {
+    return {
+      sessionId: this.sessionId,
+      interactionSessionId: this.interactionSessionId,
+      isConnected: this.isConnected
+    };
   }
 }

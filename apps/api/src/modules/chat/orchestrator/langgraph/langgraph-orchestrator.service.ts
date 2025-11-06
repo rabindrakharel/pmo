@@ -176,6 +176,25 @@ export class LangGraphOrchestratorService {
         {}
       );
 
+      // Automatically disconnect voice session if conversation ended
+      if (result.conversationEnded && chatSessionId) {
+        try {
+          // Try both voice service implementations (OpenAI Realtime and Langraph)
+          const { disconnectVoiceSession } = await import('../../voice.service.js');
+          const { disconnectVoiceLangraphSession } = await import('../../voice-langraph.service.js');
+
+          const realtimeDisconnected = disconnectVoiceSession(chatSessionId);
+          const langraphDisconnected = disconnectVoiceLangraphSession(chatSessionId);
+
+          if (realtimeDisconnected || langraphDisconnected) {
+            console.log(`📞 Voice session ${chatSessionId} automatically disconnected by LangGraph orchestrator (${result.endReason})`);
+          }
+        } catch (error) {
+          console.error('Error disconnecting voice session:', error);
+          // Don't throw - voice disconnection is not critical
+        }
+      }
+
       // Return response
       return {
         sessionId,

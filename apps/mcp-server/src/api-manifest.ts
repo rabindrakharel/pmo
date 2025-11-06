@@ -1523,6 +1523,23 @@ export const API_MANIFEST: APIEndpoint[] = [
       }
     }
   },
+  {
+    name: 'chat_disconnect_session',
+    method: 'POST',
+    path: '/api/v1/chat/session/:sessionId/disconnect',
+    description: 'Disconnect and close a chat session (works for both text and voice calls). Call this when the conversation is complete to hang up voice calls or end text chats.',
+    requiresAuth: false,
+    category: 'Chat',
+    parameters: {
+      path: {
+        sessionId: 'Session ID to disconnect (voice or text chat session ID)'
+      },
+      body: {
+        resolution: 'Resolution status: resolved (default), abandoned, or escalated',
+        session_type: 'Session type: auto (default, tries both), voice, or text'
+      }
+    }
+  },
 
   // ==================== INTERACTION ====================
   {

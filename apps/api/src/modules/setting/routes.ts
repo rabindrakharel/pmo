@@ -185,14 +185,14 @@ export async function settingRoutes(fastify: FastifyInstance) {
         VALUES (${datalabelName}, ${ui_label}, ${ui_icon || null}, '[]'::jsonb)
       `);
 
-      return reply.status(200).send({
+      return {
         success: true,
         data: {
           datalabel_name: datalabelName,
           ui_label: ui_label,
           ui_icon: ui_icon || null,
         },
-      });
+      };
     } catch (error) {
       fastify.log.error('Error creating category:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -267,7 +267,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
       `);
 
       // Return the created item
-      return reply.status(200).send({
+      return {
         success: true,
         data: {
           id: String(newId),
@@ -277,7 +277,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
           color_code: itemToAdd.color_code,
           position: metadata.length - 1,
         },
-      });
+      };
     } catch (error) {
       fastify.log.error('Error creating setting:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -423,10 +423,10 @@ export async function settingRoutes(fastify: FastifyInstance) {
         WHERE datalabel_name = ${datalabelName}
       `);
 
-      return reply.status(200).send({
+      return {
         success: true,
         message: `Item ${id} deleted successfully`,
-      });
+      };
     } catch (error) {
       fastify.log.error('Error deleting setting:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -502,10 +502,10 @@ export async function settingRoutes(fastify: FastifyInstance) {
         WHERE datalabel_name = ${datalabelName}
       `);
 
-      return reply.status(200).send({
+      return {
         success: true,
         message: 'Items reordered successfully',
-      });
+      };
     } catch (error) {
       fastify.log.error('Error reordering settings:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
