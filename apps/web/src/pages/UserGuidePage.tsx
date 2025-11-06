@@ -229,7 +229,7 @@ export function UserGuidePage() {
           <div className="flex items-center space-x-3">
             <Link
               to="/chat"
-              className="inline-flex items-center px-4 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              className="inline-flex items-center px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               Ask AI Assistant
@@ -257,29 +257,29 @@ export function UserGuidePage() {
             <h2 className="text-lg font-medium text-dark-700">Popular Topics</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <button className="flex items-center justify-between p-3 bg-dark-100 border border-dark-300 rounded-lg hover:border-purple-400 hover:bg-dark-50 transition-colors text-left">
-              <span className="text-sm text-dark-700">Creating your first project</span>
-              <ChevronRight className="h-4 w-4 text-dark-600" />
+            <button className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-gray-50 transition-colors text-left">
+              <span className="text-sm text-gray-700">Creating your first project</span>
+              <ChevronRight className="h-4 w-4 text-gray-600" />
             </button>
-            <button className="flex items-center justify-between p-3 bg-dark-100 border border-dark-300 rounded-lg hover:border-purple-400 hover:bg-dark-50 transition-colors text-left">
-              <span className="text-sm text-dark-700">Task assignment basics</span>
-              <ChevronRight className="h-4 w-4 text-dark-600" />
+            <button className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-gray-50 transition-colors text-left">
+              <span className="text-sm text-gray-700">Task assignment basics</span>
+              <ChevronRight className="h-4 w-4 text-gray-600" />
             </button>
-            <button className="flex items-center justify-between p-3 bg-dark-100 border border-dark-300 rounded-lg hover:border-purple-400 hover:bg-dark-50 transition-colors text-left">
-              <span className="text-sm text-dark-700">Using the form builder</span>
-              <ChevronRight className="h-4 w-4 text-dark-600" />
+            <button className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-gray-50 transition-colors text-left">
+              <span className="text-sm text-gray-700">Using the form builder</span>
+              <ChevronRight className="h-4 w-4 text-gray-600" />
             </button>
-            <button className="flex items-center justify-between p-3 bg-dark-100 border border-dark-300 rounded-lg hover:border-purple-400 hover:bg-dark-50 transition-colors text-left">
-              <span className="text-sm text-dark-700">AI assistant features</span>
-              <ChevronRight className="h-4 w-4 text-dark-600" />
+            <button className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-gray-50 transition-colors text-left">
+              <span className="text-sm text-gray-700">AI assistant features</span>
+              <ChevronRight className="h-4 w-4 text-gray-600" />
             </button>
-            <button className="flex items-center justify-between p-3 bg-dark-100 border border-dark-300 rounded-lg hover:border-purple-400 hover:bg-dark-50 transition-colors text-left">
-              <span className="text-sm text-dark-700">Calendar & scheduling</span>
-              <ChevronRight className="h-4 w-4 text-dark-600" />
+            <button className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-gray-50 transition-colors text-left">
+              <span className="text-sm text-gray-700">Calendar & scheduling</span>
+              <ChevronRight className="h-4 w-4 text-gray-600" />
             </button>
-            <button className="flex items-center justify-between p-3 bg-dark-100 border border-dark-300 rounded-lg hover:border-purple-400 hover:bg-dark-50 transition-colors text-left">
-              <span className="text-sm text-dark-700">Workflow automation</span>
-              <ChevronRight className="h-4 w-4 text-dark-600" />
+            <button className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-gray-50 transition-colors text-left">
+              <span className="text-sm text-gray-700">Workflow automation</span>
+              <ChevronRight className="h-4 w-4 text-gray-600" />
             </button>
           </div>
         </div>
@@ -287,33 +287,33 @@ export function UserGuidePage() {
         {/* Guide Sections */}
         <div className="space-y-6">
           {guideSections.map((section) => (
-            <div key={section.id} className="bg-dark-100 rounded-xl border border-dark-300 p-6">
+            <div key={section.id} className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center mb-4">
-                <div className="h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
-                  <section.icon className="h-5 w-5 text-purple-600" />
+                <div className="h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center mr-3">
+                  <section.icon className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-medium text-dark-700">{section.title}</h2>
-                  <p className="text-sm text-dark-600">{section.description}</p>
+                  <h2 className="text-lg font-medium text-gray-900">{section.title}</h2>
+                  <p className="text-sm text-gray-600">{section.description}</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {section.articles.map((article, idx) => (
                   <div
                     key={idx}
-                    className="p-4 bg-dark-100 border border-dark-300 rounded-lg hover:border-purple-400 hover:shadow-sm transition-all cursor-pointer group"
+                    className="p-4 bg-gray-50 border border-gray-200 rounded-lg hover:border-blue-400 hover:shadow-sm transition-all cursor-pointer group"
                     onClick={() => {
                       if (article.link) window.location.href = article.link;
                     }}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <h3 className="text-sm font-medium text-dark-700 group-hover:text-purple-600 transition-colors">
+                        <h3 className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
                           {article.title}
                         </h3>
-                        <p className="text-xs text-dark-600 mt-1">{article.description}</p>
+                        <p className="text-xs text-gray-600 mt-1">{article.description}</p>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-dark-600 flex-shrink-0 ml-2 group-hover:text-purple-600 transition-colors" />
+                      <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0 ml-2 group-hover:text-blue-600 transition-colors" />
                     </div>
                   </div>
                 ))}
@@ -323,49 +323,49 @@ export function UserGuidePage() {
         </div>
 
         {/* Video Tutorials */}
-        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border border-purple-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center mb-4">
-            <Video className="h-5 w-5 text-purple-600 mr-2" />
-            <h2 className="text-lg font-medium text-dark-700">Video Tutorials</h2>
+            <Video className="h-5 w-5 text-blue-600 mr-2" />
+            <h2 className="text-lg font-medium text-gray-900">Video Tutorials</h2>
           </div>
-          <p className="text-sm text-dark-600 mb-4">
+          <p className="text-sm text-gray-600 mb-4">
             Watch step-by-step video tutorials to learn how to use the platform effectively.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg p-4 border border-purple-200 hover:shadow-md transition-shadow">
-              <div className="h-32 bg-gradient-to-r from-purple-400 to-indigo-500 rounded-lg flex items-center justify-center mb-3">
+            <div className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
+              <div className="h-32 bg-blue-600 rounded-lg flex items-center justify-center mb-3">
                 <PlayCircle className="h-12 w-12 text-white" />
               </div>
-              <h3 className="text-sm font-medium text-dark-700 mb-1">Platform Introduction</h3>
-              <p className="text-xs text-dark-600">5 min · Overview</p>
+              <h3 className="text-sm font-medium text-gray-900 mb-1">Platform Introduction</h3>
+              <p className="text-xs text-gray-600">5 min · Overview</p>
             </div>
-            <div className="bg-white rounded-lg p-4 border border-purple-200 hover:shadow-md transition-shadow">
-              <div className="h-32 bg-gradient-to-r from-blue-400 to-cyan-500 rounded-lg flex items-center justify-center mb-3">
+            <div className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
+              <div className="h-32 bg-blue-600 rounded-lg flex items-center justify-center mb-3">
                 <PlayCircle className="h-12 w-12 text-white" />
               </div>
-              <h3 className="text-sm font-medium text-dark-700 mb-1">Creating Projects</h3>
-              <p className="text-xs text-dark-600">8 min · Tutorial</p>
+              <h3 className="text-sm font-medium text-gray-900 mb-1">Creating Projects</h3>
+              <p className="text-xs text-gray-600">8 min · Tutorial</p>
             </div>
-            <div className="bg-white rounded-lg p-4 border border-purple-200 hover:shadow-md transition-shadow">
-              <div className="h-32 bg-gradient-to-r from-green-400 to-emerald-500 rounded-lg flex items-center justify-center mb-3">
+            <div className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
+              <div className="h-32 bg-blue-600 rounded-lg flex items-center justify-center mb-3">
                 <PlayCircle className="h-12 w-12 text-white" />
               </div>
-              <h3 className="text-sm font-medium text-dark-700 mb-1">AI Assistant Guide</h3>
-              <p className="text-xs text-dark-600">6 min · Advanced</p>
+              <h3 className="text-sm font-medium text-gray-900 mb-1">AI Assistant Guide</h3>
+              <p className="text-xs text-gray-600">6 min · Advanced</p>
             </div>
           </div>
         </div>
 
         {/* Need More Help */}
-        <div className="bg-dark-100 rounded-xl border border-dark-300 p-6 text-center">
-          <HelpCircle className="h-12 w-12 text-purple-600 mx-auto mb-4" />
-          <h2 className="text-lg font-medium text-dark-700 mb-2">Need More Help?</h2>
-          <p className="text-sm text-dark-600 mb-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
+          <HelpCircle className="h-12 w-12 text-blue-600 mx-auto mb-4" />
+          <h2 className="text-lg font-medium text-gray-900 mb-2">Need More Help?</h2>
+          <p className="text-sm text-gray-600 mb-4">
             Can't find what you're looking for? Our AI assistant is here to help 24/7.
           </p>
           <Link
             to="/chat"
-            className="inline-flex items-center px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            className="inline-flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <MessageSquare className="h-4 w-4 mr-2" />
             Chat with AI Assistant
