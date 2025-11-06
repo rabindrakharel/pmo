@@ -20,83 +20,178 @@ const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
 
 /**
- * System prompt for the AI agent
- * Defines the agent's role, capabilities, and behavior
+ * System prompt - Tool-focused, ultra-concise
  */
-const SYSTEM_PROMPT = `You are an AI customer service assistant for Huron Home Services, a leading Canadian home services company.
+const SYSTEM_PROMPT = `Huron Home Services AI. Max 3 words per response.
 
-COMPANY INFORMATION:
-- Services: HVAC, Plumbing, Electrical, Landscaping, General Contracting
-- Coverage: Ontario, Canada (Toronto, Mississauga, Oakville, Burlington, Hamilton, Brampton)
-- Business Hours: Monday-Friday 8AM-6PM, Saturday 9AM-5PM, Sunday Closed
-- Emergency Services: 24/7 for HVAC and Plumbing emergencies
-- Phone: 1-800-HURON-HOME
-- Website: huronhome.ca
+SEQUENCE:
+1. "Phone/address?"
+2. search_customer({phone?, address?, email?}) → Customer | null
+   If null → create_customer({name!, phone!, email?, address?, city?, province?})
+3. "Issue?"
+4. {Empathize}: "That sounds {frustrating/concerning/difficult}. We're here to help." OR "We'll help right away."
+5. Ask missing fields → update_customer({customer_id!, ...fields}) after EACH answer
+6. create_task({customer_id!, title!, description!, service_category!, priority?, scheduled_date?})
+7. get_employee_availability({service_category!, requested_date!}) → "Available: 9AM, 2PM, 4PM"
 
-YOUR ROLE:
-1. Answer questions about services we offer
-2. Provide pricing estimates based on service catalog
-3. Check employee availability for requested services
-4. Book appointments directly in our calendar system
-5. Collect customer contact information (name, phone, email, address)
+TOOL SIGNATURES:
+search_customer({phone?, address?, email?}) → {id, code, name, primary_email, primary_phone, primary_address, city, province} | null
+create_customer({name!, phone!, email?, address?, city?, province?}) → {id, code, name, primary_email, primary_phone, primary_address}
+update_customer({customer_id!, name?, phone?, email?, address?, city?, province?}) → {id, code, name, primary_email, primary_phone, primary_address, city}
+create_task({customer_id!, title!, description!, service_category!, priority?, scheduled_date?, assigned_employee_id?}) → {id, code, name, descr, task_stage, task_priority}
+get_employee_availability({service_category!, requested_date!}) → [{employee_id, employee_name, available_slots: ["09:00", "14:00"]}]
+get_available_time_slots({employee_id!, date!}) → [{start_time, end_time, available, employee_name}]
 
-CAPABILITIES (via function calling):
-- get_available_services: List all services we offer with categories
-- get_service_details: Get detailed info about a specific service (pricing, duration, requirements)
-- get_employee_availability: Check which employees are available for a service on a specific date
-- get_available_time_slots: Get specific time slots for a selected employee
-- create_booking: Create a confirmed booking/appointment
-- get_booking_info: Retrieve booking details
-- cancel_booking: Cancel an existing booking
+VALID VALUES:
+service_category: "HVAC" | "Plumbing" | "Electrical" | "Landscaping" | "General Contracting"
+priority: "low" | "medium" | "high" | "critical"
 
-CONVERSATION FLOW FOR BOOKING:
-1. Greet customer warmly
-2. Ask how you can help
-3. If they want service info → use get_service_details or get_available_services
-4. If they want to book → collect in order:
-   a) Service type needed (HVAC, Plumbing, Electrical, Landscaping, or General Contracting)
-   b) Preferred date (must be in future)
-   c) Customer name
-   d) Phone number (Canadian format)
-   e) Service address (full address including city)
-   f) Email address (optional but recommended)
-   g) Special requirements or instructions (optional)
-5. Check availability → use get_employee_availability
-6. Show available time slots → use get_available_time_slots
-7. Confirm booking → use create_booking with all collected info
-8. Provide booking confirmation number and details
-
-IMPORTANT RULES:
-- Always be polite, professional, and helpful
-- Use clear, simple Canadian English
-- For emergency services (urgent HVAC or Plumbing), mention 24/7 availability
-- Always confirm customer details before creating booking
-- Provide booking confirmation number prominently
-- If you cannot help with something, politely explain and suggest they call 1-800-HURON-HOME
-- Do NOT make up information - use functions to get real data
-- Always collect full address including city for bookings
-- Validate phone numbers are in reasonable format (10 digits)
-- Dates must be in YYYY-MM-DD format when calling functions
-
-TONE & STYLE:
-- Friendly and approachable
-- Professional but not overly formal
-- Patient with customers who need clarification
-- Enthusiastic about helping solve their problems
-- Clear and concise in explanations
-
-CANADIAN CONTEXT:
-- Use "neighbourhood" not "neighborhood"
-- Use metric measurements when relevant
-- Understand Ontario geography (GTA, Golden Horseshoe, etc.)
-- Be aware of Canadian holidays and weather patterns
-`;
+RULES:
+- Max 3 words
+- Use tools in sequence
+- Update customer after EACH field
+- Create task BEFORE availability
+- Dates: YYYY-MM-DD`;
 
 /**
  * OpenAI function definitions
  * These tell the AI what functions are available and how to call them
  */
 const FUNCTION_DEFINITIONS: OpenAIFunction[] = [
+  {
+    name: 'search_customer',
+    description: 'Search for existing customer by phone number, email, or address',
+    parameters: {
+      type: 'object',
+      properties: {
+        phone: {
+          type: 'string',
+          description: 'Customer phone number (10 digits)'
+        },
+        email: {
+          type: 'string',
+          description: 'Customer email address'
+        },
+        address: {
+          type: 'string',
+          description: 'Customer address (partial match supported)'
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'create_customer',
+    description: 'Create a new customer record when customer not found',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Customer full name'
+        },
+        phone: {
+          type: 'string',
+          description: 'Customer phone number (10 digits)'
+        },
+        email: {
+          type: 'string',
+          description: 'Customer email (optional)'
+        },
+        address: {
+          type: 'string',
+          description: 'Full street address'
+        },
+        city: {
+          type: 'string',
+          description: 'City name'
+        },
+        province: {
+          type: 'string',
+          description: 'Province code (default: ON)'
+        }
+      },
+      required: ['name', 'phone']
+    }
+  },
+  {
+    name: 'update_customer',
+    description: 'Update existing customer information',
+    parameters: {
+      type: 'object',
+      properties: {
+        customer_id: {
+          type: 'string',
+          description: 'Customer UUID from search_customer'
+        },
+        name: {
+          type: 'string',
+          description: 'Updated name'
+        },
+        phone: {
+          type: 'string',
+          description: 'Updated phone'
+        },
+        email: {
+          type: 'string',
+          description: 'Updated email'
+        },
+        address: {
+          type: 'string',
+          description: 'Updated full address'
+        },
+        city: {
+          type: 'string',
+          description: 'Updated city'
+        },
+        province: {
+          type: 'string',
+          description: 'Updated province'
+        }
+      },
+      required: ['customer_id']
+    }
+  },
+  {
+    name: 'create_task',
+    description: 'Create a service task for customer issue/problem',
+    parameters: {
+      type: 'object',
+      properties: {
+        customer_id: {
+          type: 'string',
+          description: 'Customer UUID'
+        },
+        title: {
+          type: 'string',
+          description: 'Brief task title (e.g., "HVAC system not heating")'
+        },
+        description: {
+          type: 'string',
+          description: 'Detailed problem description from customer'
+        },
+        service_category: {
+          type: 'string',
+          enum: ['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting'],
+          description: 'Service type needed'
+        },
+        priority: {
+          type: 'string',
+          enum: ['low', 'medium', 'high', 'critical'],
+          description: 'Task priority (default: medium)'
+        },
+        scheduled_date: {
+          type: 'string',
+          description: 'Preferred date YYYY-MM-DD'
+        },
+        assigned_employee_id: {
+          type: 'string',
+          description: 'Employee UUID if assigned'
+        }
+      },
+      required: ['customer_id', 'title', 'description', 'service_category']
+    }
+  },
   {
     name: 'get_available_services',
     description: 'Get list of all available services offered by Huron Home Services, optionally filtered by category',
@@ -474,11 +569,5 @@ export function calculateCost(tokensUsed: number): number {
  * Generate greeting message for new session
  */
 export function generateGreeting(): string {
-  return `Hello! I'm here to help you with Huron Home Services. We offer HVAC, Plumbing, Electrical, Landscaping, and General Contracting services across Ontario.
-
-How can I help you today? You can:
-• Ask about our services and pricing
-• Check availability for a service
-• Schedule an appointment
-• Get information about an existing booking`;
+  return `Hi! Phone or address?`;
 }

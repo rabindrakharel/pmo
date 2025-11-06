@@ -605,7 +605,7 @@ OPENAI_API_KEY=sk-your-actual-key-here
 
 ### 2. Start API
 ```bash
-./tools/start-api.sh
+./tools/restart-api.sh
 ```
 
 ### 3. Test Chat

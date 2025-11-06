@@ -212,8 +212,7 @@ export async function updateSession(
         sentiment_label = ${sentimentLabel},
         metadata = metadata || ${JSON.stringify(metadata)}::jsonb,
         updated_ts = now(),
-        duration_seconds = EXTRACT(EPOCH FROM (now() - created_ts))::integer,
-        ai_analyzed = true
+        duration_seconds = EXTRACT(EPOCH FROM (now() - created_ts))::integer
       WHERE id = ${sessionId}::uuid
     `;
 
