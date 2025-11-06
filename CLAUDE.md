@@ -65,6 +65,7 @@ The **PMO Platform** is an enterprise-grade project management and operations sy
 | **[Kanban System](./docs/component_Kanban_System.md)** | Task board implementation | Building kanban views, task management | Drag-drop, Column configuration, State transitions |
 | **[Dynamic Forms](./docs/form.md)** | JSONB-based form builder | Creating custom forms, form workflows | Form schema, Multi-step wizards, Validation, Submissions |
 | **[Project & Task System](./docs/Project_Task.md)** | Project/task entity implementation | Managing projects, tasks, assignments | Entity structure, Parent-child relationships, Workflows |
+| **[AI Chat System](./docs/ai_chat/AI_CHAT_SYSTEM.md)** | Complete AI chat system with text & voice | Implementing AI-powered customer service | Text chat, Voice calling, MCP integration, Function tools, Booking automation |
 
 ### 🛠️ Tools & Operations
 
@@ -139,6 +140,8 @@ Form builder: form.md
 | **tools, scripts, db-import, test-api** | `tools.md` |
 | **entity configuration, DRY, entity config** | `entity_design_pattern/universal_entity_system.md`, `ui_ux_route_api.md` |
 | **projects, tasks, assignments** | `Project_Task.md` |
+| **AI chat, voice calling, MCP, function tools, booking automation** | `ai_chat/AI_CHAT_SYSTEM.md` ⭐ |
+| **OpenAI, GPT-4, realtime API, chat widget, customer service** | `ai_chat/AI_CHAT_SYSTEM.md` |
 
 ---
 

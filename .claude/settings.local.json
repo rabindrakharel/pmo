@@ -78,7 +78,8 @@
       "Bash(timeout 2 ./tools/logs-web.sh:*)",
       "Bash(timeout 3 ./tools/logs-api.sh:*)",
       "Bash(timeout 3 ./tools/logs-web.sh:*)",
-      "Bash(jq:*)"
+      "Bash(jq:*)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": [],
