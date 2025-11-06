@@ -1032,13 +1032,8 @@ export function MetadataField({
   inputWidth = '10rem',
   badge
 }: MetadataFieldProps) {
-  const labelClass = 'text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase';
-  const valueClass = `text-dark-600 font-normal text-xs ${className}`;
-  const valueStyle = {
-    fontFamily: "Inter, 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-    letterSpacing: '-0.01em',
-    fontWeight: '500'
-  };
+  const labelClass = 'text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase';
+  const valueClass = `text-dark-600 font-medium text-xs tracking-tight ${className}`;
 
   if (!value && !isEditing) return null;
 
@@ -1060,7 +1055,6 @@ export function MetadataField({
             placeholder={placeholder}
             className={`${valueClass} border-0 bg-dark-100/80 focus:bg-dark-100 focus:ring-1 focus:ring-dark-700 rounded px-2 py-0.5 transition-all duration-200`}
             style={{
-              ...valueStyle,
               width: inputWidth
             }}
           />
@@ -1068,7 +1062,7 @@ export function MetadataField({
       ) : (
         // View mode - text with copy button
         <div className="flex items-center gap-1 group">
-          <span className={valueClass} style={valueStyle}>
+          <span className={valueClass}>
             {prefix}{value}
           </span>
           {canCopy && onCopy && (

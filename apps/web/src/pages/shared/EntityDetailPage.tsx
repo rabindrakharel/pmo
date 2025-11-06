@@ -606,12 +606,8 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
     );
   }
 
-  // DRY: Consistent metadata value styling
-  const metadataValueClass = "text-[13px] text-dark-600 leading-[1.4] whitespace-nowrap";
-  const metadataValueStyle: React.CSSProperties = {
-    fontFamily: "Inter, 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-    letterSpacing: '-0.01em'
-  };
+  // DRY: Consistent metadata value styling (standardized to use Tailwind only)
+  const metadataValueClass = "text-sm text-dark-600 leading-normal tracking-tight whitespace-nowrap";
 
   return (
     <Layout>
@@ -677,14 +673,9 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 {/* Created */}
                 {data.created_ts && (
                   <>
-                    <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">created:</span>
+                    <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">created:</span>
                     <span
-                      className="text-dark-600 font-normal text-xs"
-                      style={{
-                        fontFamily: "Inter, 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                        letterSpacing: '-0.01em',
-                        fontWeight: '500'
-                      }}
+                      className="text-dark-600 font-medium text-xs tracking-tight"
                       title={formatFriendlyDate(data.created_ts)}
                     >
                       {formatRelativeTime(data.created_ts)}
@@ -697,14 +688,9 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 {/* Updated */}
                 {data.updated_ts && (
                   <>
-                    <span className="text-dark-600 font-medium text-[10px] flex-shrink-0 tracking-wide uppercase">updated:</span>
+                    <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">updated:</span>
                     <span
-                      className="text-dark-600 font-normal text-xs"
-                      style={{
-                        fontFamily: "Inter, 'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-                        letterSpacing: '-0.01em',
-                        fontWeight: '500'
-                      }}
+                      className="text-dark-600 font-medium text-xs tracking-tight"
                       title={formatFriendlyDate(data.updated_ts)}
                     >
                       {formatRelativeTime(data.updated_ts)}
