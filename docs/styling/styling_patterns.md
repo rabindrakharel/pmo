@@ -1,12 +1,20 @@
 # PMO Platform - Styling Patterns & Design System
 
-> **Comprehensive design system documentation** - The single source of truth for all UI/UX styling patterns, colors, typography, icons, buttons, labels, and tabs across the PMO platform
+> **Comprehensive design system documentation** - The single source of truth for all UI/UX styling patterns, colors, typography, icons, buttons, labels, tabs, layouts, and component patterns across the PMO platform
 
-**Last Updated:** 2025-11-04
-**Version:** 7.0 - Soft Slate Theme Integration
+**Last Updated:** 2025-11-06
+**Version:** 8.0 - Layout & Design System Documentation
 **Current Theme:** Soft Slate v5.0.0 (Notion-Inspired)
-**Architecture:** Tailwind CSS v4 + React 19 + TypeScript
-**Coverage:** All components, pages, and shared patterns
+**Architecture:** Tailwind CSS v4 + React 19 + TypeScript + Centralized Design System
+**Coverage:** All components, pages, layouts, animations, responsive patterns, and shared utilities
+
+**What's New in v8.0:**
+- 📐 Complete layout patterns and page structure documentation
+- 🎨 Design system constants (`designSystem.ts`) fully documented
+- 🎬 Animation and transition standards formalized
+- 📱 Responsive design patterns and breakpoint strategy
+- 🛠️ Helper utilities (`cx()`, `getBadgeClass()`) documented
+- 🖼️ View components (Grid, Kanban, Calendar, Tree) patterns added
 
 ---
 
@@ -24,6 +32,12 @@
 10. [Interactive States](#10-interactive-states)
 11. [Component-Specific Patterns](#11-component-specific-patterns)
 12. [Soft Slate Theme Implementation](#12-soft-slate-theme-implementation)
+13. [Layout Patterns](#13-layout-patterns)
+14. [Design System](#14-design-system)
+15. [Animation & Transitions](#15-animation--transitions)
+16. [Responsive Design](#16-responsive-design)
+17. [Helper Utilities](#17-helper-utilities)
+18. [View Components](#18-view-components)
 
 ---
 
@@ -1523,6 +1537,783 @@ The PMO platform now features a premium Notion-inspired Soft Slate theme:
 
 ---
 
+## 13. Layout Patterns
+
+### 13.1 Page Structure
+
+**Main Layout Architecture (`Layout.tsx`):**
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ Fixed Header (h-14)                                       │
+├────────┬─────────────────────────────────────────────────┤
+│        │ Sticky Header Bar (breadcrumb/navigation)       │
+│ Side   ├─────────────────────────────────────────────────┤
+│ bar    │                                                  │
+│ (w-44  │ Main Content Area (flex-1 overflow-y-auto)      │
+│ or     │ - bg-dark-50 (canvas background)                │
+│ w-16)  │ - Content cards/panels on white surfaces        │
+│        │                                                  │
+│        │                                                  │
+└────────┴─────────────────────────────────────────────────┘
+```
+
+**Key Layout Classes:**
+```jsx
+// Full viewport height container
+<div className="h-screen flex flex-col">
+
+  // Fixed header
+  <header className="h-14 bg-dark-100 border-b border-dark-300">
+    {/* Header content */}
+  </header>
+
+  // Main layout with sidebar
+  <div className="flex-1 flex overflow-hidden">
+
+    // Collapsible sidebar
+    <aside className={`${collapsed ? 'w-16' : 'w-44'} transition-all duration-300 ease-in-out bg-dark-100 border-r border-dark-300`}>
+      {/* Sidebar nav */}
+    </aside>
+
+    // Main content area
+    <main className="flex-1 flex flex-col overflow-hidden bg-dark-50">
+      {/* Page content */}
+    </main>
+  </div>
+</div>
+```
+
+### 13.2 Container Patterns
+
+**Page Container:**
+```jsx
+// Standard page width with auto margins
+<div className="w-[97%] max-w-[1536px] mx-auto px-4 py-6">
+  {/* Page content */}
+</div>
+```
+
+**Card Container:**
+```jsx
+// Standard card with padding and border
+<div className="bg-dark-100 border border-dark-300 rounded-xl shadow-sm p-6">
+  {/* Card content */}
+</div>
+
+// Compact card
+<div className="bg-dark-100 border border-dark-300 rounded-lg shadow-sm p-4">
+  {/* Compact content */}
+</div>
+```
+
+**Section Container:**
+```jsx
+// Section with spacing
+<section className="space-y-6">
+  <h2 className="text-xl font-medium text-dark-700">Section Title</h2>
+  {/* Section content */}
+</section>
+
+// Compact section
+<section className="space-y-3">
+  {/* Compact content */}
+</section>
+```
+
+### 13.3 Grid Layouts
+
+**Responsive Grid Patterns:**
+```jsx
+// 2-column grid
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  {/* Grid items */}
+</div>
+
+// 3-column grid
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  {/* Grid items */}
+</div>
+
+// 4-column grid (responsive)
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+  {/* Grid items */}
+</div>
+```
+
+### 13.4 Flex Layouts
+
+**Common Flex Patterns:**
+```jsx
+// Horizontal alignment with spacing
+<div className="flex items-center justify-between">
+  <span>Left content</span>
+  <span>Right content</span>
+</div>
+
+// Vertical stack with gap
+<div className="flex flex-col gap-4">
+  {/* Stacked items */}
+</div>
+
+// Centered content
+<div className="flex items-center justify-center h-full">
+  {/* Centered content */}
+</div>
+
+// Icon + text alignment (most common - 547 occurrences)
+<div className="inline-flex items-center gap-2">
+  <Icon className="h-4 w-4" />
+  <span>Label</span>
+</div>
+```
+
+### 13.5 Overflow & Scrolling
+
+**Scrollable Containers:**
+```jsx
+// Vertical scroll
+<div className="overflow-y-auto max-h-[600px] scrollbar-elegant">
+  {/* Scrollable content */}
+</div>
+
+// Horizontal scroll (tables)
+<div className="overflow-x-auto scrollbar-elegant">
+  <table className="min-w-full">
+    {/* Table content */}
+  </table>
+</div>
+
+// Both directions
+<div className="overflow-auto scrollbar-elegant">
+  {/* Content */}
+</div>
+
+// Hidden overflow
+<div className="overflow-hidden">
+  {/* No scrollbars */}
+</div>
+```
+
+---
+
+## 14. Design System
+
+### 14.1 Overview
+
+**Location:** `apps/web/src/lib/designSystem.ts`
+
+The platform includes a centralized design system with exported constants for consistent styling across all components.
+
+**⚠️ Note:** This design system is available but currently underutilized. Consider using these constants in new components for better maintainability.
+
+### 14.2 Text Styles
+
+**Usage:**
+```jsx
+import { textStyles } from '@/lib/designSystem';
+
+// Headings
+<h1 className={textStyles.heading.h1}>Page Title</h1>
+<h2 className={textStyles.heading.h2}>Section Title</h2>
+<h3 className={textStyles.heading.h3}>Subsection</h3>
+
+// Body text
+<p className={textStyles.body.base}>Regular paragraph text</p>
+<p className={textStyles.body.small}>Small body text</p>
+
+// Muted/secondary text
+<span className={textStyles.muted.base}>Secondary information</span>
+
+// Labels
+<label className={textStyles.label.base}>FIELD LABEL:</label>
+
+// Values
+<span className={textStyles.value.base}>Value Display</span>
+
+// Metadata
+<span className={textStyles.metadata.base}>Last updated: 2025-11-04</span>
+```
+
+**Available Text Styles:**
+- `heading.h1` through `heading.h4` - Page and section headings
+- `body.large`, `body.base`, `body.small` - Body text hierarchy
+- `muted.large`, `muted.base`, `muted.small` - Secondary text
+- `label.base`, `label.large` - Uppercase labels
+- `value.base`, `value.large`, `value.small` - Data display
+- `metadata.base`, `metadata.small` - Metadata text
+
+### 14.3 Container Styles
+
+**Usage:**
+```jsx
+import { containerStyles } from '@/lib/designSystem';
+
+// Cards
+<div className={containerStyles.card.base}>
+  Basic card
+</div>
+
+<div className={containerStyles.card.hover}>
+  Card with hover effect
+</div>
+
+<div className={containerStyles.card.interactive}>
+  Clickable card
+</div>
+
+// Sections
+<section className={containerStyles.section.base}>
+  Standard section
+</section>
+
+<section className={containerStyles.section.compact}>
+  Compact section
+</section>
+
+// Form fields
+<div className={containerStyles.field.container}>
+  <label className={containerStyles.field.label}>Label</label>
+  <input className={containerStyles.field.input} />
+</div>
+```
+
+**Available Container Styles:**
+- `card.base` - Basic card with border and shadow
+- `card.hover` - Card with hover effects (purple border)
+- `card.interactive` - Clickable card with cursor pointer
+- `section.base` - Standard section (p-6)
+- `section.compact` - Compact section (p-4)
+- `field.*` - Form field components (container, label, input, select, textarea)
+
+### 14.4 Badge Styles
+
+**Usage:**
+```jsx
+import { badgeStyles, getBadgeClass } from '@/lib/designSystem';
+
+// Status badges
+<span className={`${badgeStyles.base} ${badgeStyles.status.active}`}>
+  Active
+</span>
+
+// Priority badges
+<span className={`${badgeStyles.base} ${badgeStyles.priority.high}`}>
+  High Priority
+</span>
+
+// Stage badges
+<span className={`${badgeStyles.base} ${badgeStyles.stage.planning}`}>
+  Planning
+</span>
+
+// Dynamic badge (recommended)
+<span className={getBadgeClass('status', 'active')}>
+  Active
+</span>
+```
+
+**Available Badge Categories:**
+- **Status:** active, inactive, pending, completed, cancelled, draft, published, archived
+- **Priority:** critical, high, urgent, medium, low
+- **Stage:** initiation, planning, execution, monitoring, closure, backlog, to do, in progress, in review, done, blocked
+
+### 14.5 Button Styles
+
+**Usage:**
+```jsx
+import { buttonStyles } from '@/lib/designSystem';
+
+// Icon buttons
+<button className={buttonStyles.icon.base}>
+  <Icon className="h-4 w-4" />
+</button>
+
+// Active icon button
+<button className={buttonStyles.icon.active}>
+  <Icon className="h-4 w-4" />
+</button>
+
+// Link buttons
+<button className={buttonStyles.link.base}>
+  Click here
+</button>
+```
+
+### 14.6 Spacing Constants
+
+**Usage:**
+```jsx
+import { spacing } from '@/lib/designSystem';
+
+// Page container
+<div className={`${spacing.page.width} ${spacing.page.padding}`}>
+  {/* Page content */}
+</div>
+
+// Section spacing
+<div className={spacing.section.gap}>
+  {/* Sections with standard gap */}
+</div>
+
+// Grid layouts
+<div className={spacing.grid.cols3}>
+  {/* 3-column responsive grid */}
+</div>
+```
+
+**Available Spacing:**
+- `page.width` - `w-[97%] max-w-[1536px] mx-auto`
+- `page.padding` - `px-4 py-6`
+- `section.gap` - `space-y-6`
+- `section.gapCompact` - `space-y-3`
+- `grid.cols2/cols3/cols4` - Responsive grid configurations
+
+### 14.7 Color Constants
+
+**Usage:**
+```jsx
+import { colors } from '@/lib/designSystem';
+
+// Primary brand
+<div className={`bg-${colors.primary} text-white`}>
+  Primary colored element
+</div>
+
+// Semantic colors
+<div className={`text-${colors.success}`}>Success message</div>
+<div className={`text-${colors.error}`}>Error message</div>
+
+// Neutral colors
+<div className={`bg-${colors.neutral[50]}`}>Canvas background</div>
+```
+
+---
+
+## 15. Animation & Transitions
+
+### 15.1 Standard Transitions
+
+**Common Transition Patterns:**
+```jsx
+// Color transitions (most common)
+transition-colors
+
+// All properties (217 occurrences)
+transition-all duration-200
+
+// Specific properties
+transition-transform duration-150
+transition-opacity duration-200
+```
+
+**Duration Standards:**
+- `duration-150` - Fast interactions (hover, click)
+- `duration-200` - Standard UI transitions (most common)
+- `duration-300` - Slower animations (sidebar collapse, modals)
+
+**Easing Functions:**
+- `ease-in-out` - Sidebar collapse/expand animations
+- Default easing for most transitions
+
+### 15.2 Component Animations
+
+**Button Hover:**
+```jsx
+<button className="transition-colors duration-200 hover:bg-dark-200">
+  Button
+</button>
+```
+
+**Sidebar Collapse:**
+```jsx
+<aside className={`${collapsed ? 'w-16' : 'w-44'} transition-all duration-300 ease-in-out`}>
+  {/* Sidebar content */}
+</aside>
+```
+
+**Icon Rotation:**
+```jsx
+<ChevronDown className={`h-4 w-4 transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`} />
+```
+
+**Modal Fade In:**
+```jsx
+// Backdrop
+<div className="transition-opacity duration-200 bg-black/50" />
+
+// Modal
+<div className="transition-all duration-200 transform scale-100 opacity-100">
+  {/* Modal content */}
+</div>
+```
+
+**Loading Spinner:**
+```jsx
+<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-accent" />
+```
+
+### 15.3 Hover Effects
+
+**Card Hover:**
+```jsx
+<div className="transition-all duration-200 hover:shadow-md hover:border-purple-400">
+  Card content
+</div>
+```
+
+**Button Shadow Hover:**
+```jsx
+<button className="shadow-sm hover:shadow transition-all duration-200">
+  Button
+</button>
+```
+
+**Background Hover:**
+```jsx
+<button className="hover:bg-dark-200 transition-colors">
+  Icon button
+</button>
+```
+
+---
+
+## 16. Responsive Design
+
+### 16.1 Breakpoint Strategy
+
+**Tailwind Breakpoints:**
+- `sm:` - 640px (tablet)
+- `md:` - 768px (small desktop)
+- `lg:` - 1024px (large desktop)
+- `xl:` - 1280px (extra large)
+- `2xl:` - 1536px (ultra wide)
+
+**⚠️ Note:** The PMO platform uses minimal responsive design. Most layouts are optimized for desktop (1024px+).
+
+### 16.2 Common Responsive Patterns
+
+**Show/Hide on Mobile:**
+```jsx
+// Hide on mobile, show on tablet+
+<span className="hidden sm:inline">Desktop content</span>
+
+// Show on mobile, hide on tablet+
+<span className="sm:hidden">Mobile content</span>
+```
+
+**Responsive Grid:**
+```jsx
+// 1 column mobile, 2 columns tablet, 4 columns desktop
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+  {/* Grid items */}
+</div>
+```
+
+**Responsive Text Sizes:**
+```jsx
+<h1 className="text-xl md:text-2xl lg:text-3xl">
+  Responsive Heading
+</h1>
+```
+
+**Responsive Padding:**
+```jsx
+<div className="px-4 md:px-6 lg:px-8">
+  {/* Content with responsive padding */}
+</div>
+```
+
+### 16.3 Mobile Considerations
+
+**Limited Mobile Optimization:**
+The platform is primarily desktop-focused. Mobile views may have:
+- Horizontal scrolling for tables
+- Collapsed sidebar by default
+- Single-column layouts
+
+**Future Enhancements:**
+- Responsive navigation
+- Touch-optimized buttons
+- Mobile-first form layouts
+- Swipe gestures for modals
+
+---
+
+## 17. Helper Utilities
+
+### 17.1 Class Name Combiner
+
+**Function:** `cx(...classes)`
+
+**Location:** `apps/web/src/lib/designSystem.ts`
+
+**Usage:**
+```jsx
+import { cx } from '@/lib/designSystem';
+
+// Combine conditional classes
+<div className={cx(
+  'base-class',
+  isActive && 'active-class',
+  isDisabled && 'disabled-class',
+  customClass
+)}>
+  Content
+</div>
+
+// Example
+<button className={cx(
+  'px-4 py-2 rounded-lg',
+  isPrimary && 'bg-purple-600 text-white',
+  isDisabled && 'opacity-50 cursor-not-allowed'
+)}>
+  Button
+</button>
+```
+
+**Benefits:**
+- Filters out `false`, `undefined`, and `null` values
+- Cleaner conditional class application
+- Better than string concatenation or template literals
+
+### 17.2 Dynamic Badge Class
+
+**Function:** `getBadgeClass(fieldKey, value)`
+
+**Location:** `apps/web/src/lib/designSystem.ts`
+
+**Usage:**
+```jsx
+import { getBadgeClass } from '@/lib/designSystem';
+
+// Automatically determine badge color based on field type
+<span className={getBadgeClass('status', 'active')}>
+  Active
+</span>
+
+<span className={getBadgeClass('priority', 'high')}>
+  High
+</span>
+
+<span className={getBadgeClass('stage', 'planning')}>
+  Planning
+</span>
+```
+
+**How It Works:**
+1. Checks if field name contains "priority", "status", or "stage"
+2. Returns appropriate badge class from `badgeStyles`
+3. Falls back to `inactive` style if no match
+
+**Supported Field Types:**
+- `priority` - Returns priority color (critical, high, urgent, medium, low)
+- `status` - Returns status color (active, inactive, pending, completed, etc.)
+- `stage` - Returns stage color (initiation, planning, execution, etc.)
+
+### 17.3 Common Utility Patterns
+
+**Truncate Text:**
+```jsx
+<div className="truncate max-w-xs">
+  Very long text that will be truncated with ellipsis
+</div>
+
+// Multi-line truncate
+<div className="line-clamp-2">
+  Long text that will be truncated after 2 lines
+</div>
+```
+
+**Absolute Positioning:**
+```jsx
+// Top right corner
+<div className="absolute top-2 right-2">Badge</div>
+
+// Centered
+<div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+  Centered content
+</div>
+```
+
+**Z-Index Layers:**
+```jsx
+z-0    // Base layer
+z-10   // Elevated content
+z-20   // Dropdowns
+z-30   // Sticky headers
+z-40   // Modals
+z-50   // Tooltips/popovers
+```
+
+---
+
+## 18. View Components
+
+### 18.1 Grid View Pattern
+
+**Location:** `apps/web/src/components/views/GridView.tsx`
+
+**Usage:**
+```jsx
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+  <div className="bg-dark-100 border border-dark-300 rounded-lg shadow-sm hover:shadow-md transition-all p-4">
+    <img src={image} className="w-full h-32 object-cover rounded-lg mb-3" />
+    <h3 className="text-base font-medium text-dark-700 mb-1">Title</h3>
+    <p className="text-sm text-dark-600 mb-2">Description</p>
+    <div className="flex items-center justify-between">
+      <span className={getBadgeClass('status', 'active')}>Active</span>
+      <button className={buttonStyles.icon.base}>
+        <Edit className="h-4 w-4" />
+      </button>
+    </div>
+  </div>
+</div>
+```
+
+**Card Sizes:**
+- **Small:** Fixed height with compact content
+- **Medium:** Standard card height (default)
+- **Large:** Expanded card with more content
+
+### 18.2 Kanban View Pattern
+
+**Location:** `apps/web/src/components/views/KanbanBoard.tsx`
+
+**Column Structure:**
+```jsx
+<div className="flex gap-4 overflow-x-auto">
+  {/* Column */}
+  <div className="flex-shrink-0 w-80">
+    {/* Column header */}
+    <div className="bg-dark-100 border-b border-dark-300 px-4 py-3">
+      <h3 className="font-medium text-dark-700">Column Title</h3>
+      <span className="text-xs text-dark-600">5 items</span>
+    </div>
+
+    {/* Cards */}
+    <div className="space-y-2 p-2">
+      <div className="bg-dark-100 rounded-lg border border-dark-300 shadow-sm hover:shadow-md transition-all p-3">
+        <h4 className="text-sm font-medium text-dark-700 mb-2">Card Title</h4>
+        <div className="flex items-center gap-2">
+          <span className={getBadgeClass('priority', 'high')}>High</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+**Drag-Drop Support:**
+- Uses `@dnd-kit` library
+- Smooth animations on drag
+- Visual feedback on hover
+
+### 18.3 Calendar View Pattern
+
+**Location:** `apps/web/src/components/views/CalendarView.tsx`
+
+**Day Cell:**
+```jsx
+<div className="border border-dark-300 p-2 min-h-24 bg-dark-100">
+  <div className="text-xs text-dark-600 mb-1">15</div>
+
+  {/* Events */}
+  <div className="space-y-1">
+    <div className="bg-blue-100 text-blue-800 rounded px-2 py-1 text-xs">
+      Meeting at 2pm
+    </div>
+  </div>
+</div>
+```
+
+### 18.4 Tree View Pattern
+
+**Location:** `apps/web/src/components/views/TreeView.tsx`
+
+**Nested Structure:**
+```jsx
+<div className="space-y-1">
+  {/* Parent item */}
+  <div className="flex items-center gap-2 p-2 hover:bg-dark-200 rounded cursor-pointer">
+    <ChevronRight className={`h-4 w-4 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+    <Folder className="h-4 w-4 text-dark-600" />
+    <span className="text-sm text-dark-700">Parent Folder</span>
+  </div>
+
+  {/* Child items (nested) */}
+  {expanded && (
+    <div className="ml-6 space-y-1">
+      <div className="flex items-center gap-2 p-2 hover:bg-dark-200 rounded cursor-pointer">
+        <File className="h-4 w-4 text-dark-600" />
+        <span className="text-sm text-dark-700">Child Item</span>
+      </div>
+    </div>
+  )}
+</div>
+```
+
+### 18.5 View Switcher Component
+
+**Location:** `apps/web/src/components/shared/ViewSwitcher.tsx`
+
+**Usage:**
+```jsx
+<div className="inline-flex bg-dark-100 border border-dark-400 rounded-lg">
+  <button className={`px-3 py-1.5 text-sm transition-colors first:rounded-l-lg ${view === 'table' ? 'bg-dark-100 text-dark-700' : 'text-dark-600 hover:bg-dark-100'}`}>
+    <Table className="h-4 w-4" />
+  </button>
+  <button className={`px-3 py-1.5 text-sm transition-colors border-l border-dark-400 ${view === 'grid' ? 'bg-dark-100 text-dark-700' : 'text-dark-600 hover:bg-dark-100'}`}>
+    <Grid className="h-4 w-4" />
+  </button>
+  <button className={`px-3 py-1.5 text-sm transition-colors border-l border-dark-400 last:rounded-r-lg ${view === 'kanban' ? 'bg-dark-100 text-dark-700' : 'text-dark-600 hover:bg-dark-100'}`}>
+    <Kanban className="h-4 w-4" />
+  </button>
+</div>
+```
+
+---
+
+## Quick Reference - Updated
+
+### Design System Imports
+
+```jsx
+import {
+  textStyles,
+  containerStyles,
+  badgeStyles,
+  buttonStyles,
+  spacing,
+  colors,
+  getBadgeClass,
+  cx
+} from '@/lib/designSystem';
+```
+
+### Common Layout Patterns
+
+| Pattern | Classes |
+|---------|---------|
+| **Page Container** | `w-[97%] max-w-[1536px] mx-auto px-4 py-6` |
+| **Card** | `bg-dark-100 border border-dark-300 rounded-xl shadow-sm p-6` |
+| **Responsive Grid** | `grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4` |
+| **Flex Center** | `flex items-center justify-center` |
+| **Icon + Text** | `inline-flex items-center gap-2` |
+| **Scrollable** | `overflow-y-auto scrollbar-elegant` |
+
+### Animation Standards
+
+| Use Case | Classes |
+|----------|---------|
+| **Button Hover** | `transition-colors duration-200` |
+| **Card Hover** | `transition-all duration-200 hover:shadow-md` |
+| **Sidebar Toggle** | `transition-all duration-300 ease-in-out` |
+| **Icon Rotate** | `transition-transform duration-150` |
+| **Loading Spinner** | `animate-spin rounded-full` |
+
+---
+
 **Maintained By:** PMO Platform Team
-**Last Audit:** 2025-11-04
-**Version:** 7.0 - Soft Slate Theme Integration
+**Last Audit:** 2025-11-06
+**Version:** 8.0 - Layout & Design System Documentation
