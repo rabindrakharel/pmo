@@ -6,6 +6,7 @@
 
 import type { AgentActionResult, IntentGraph } from '../types/intent-graph.types.js';
 import { stateManager } from '../state/state-manager.service.js';
+import { getGoodbyeMessage } from '../config/engaging-messages.config.js';
 
 /**
  * Critic Agent
@@ -32,22 +33,44 @@ export class CriticAgent {
       );
 
       if (isOffTopic) {
+        // Track off-topic attempts
+        const offTopicCount = (args.state._off_topic_count || 0) + 1;
+        await stateManager.setState(args.sessionId, '_off_topic_count', offTopicCount, {
+          source: 'critic',
+          validated: true
+        });
+
         await stateManager.logAgentAction({
           session_id: args.sessionId,
           agent_role: 'critic',
           agent_action: 'review_conversation',
-          output_data: { off_topic: true },
+          output_data: { off_topic: true, off_topic_count: offTopicCount },
           success: true,
           natural_response: 'Off-topic request detected',
           duration_ms: Date.now() - startTime
         });
+
+        // After 2 off-topic attempts, end conversation
+        if (offTopicCount >= 2) {
+          const goodbyeMessage = getGoodbyeMessage('off_topic');
+
+          return {
+            success: false,
+            agentRole: 'critic',
+            action: 'review_conversation',
+            error: 'off_topic_repeated',
+            naturalResponse: goodbyeMessage,
+            shouldEndConversation: true,
+            endReason: 'off_topic'
+          };
+        }
 
         return {
           success: false,
           agentRole: 'critic',
           action: 'review_conversation',
           error: 'off_topic',
-          naturalResponse: this.generateOffTopicResponse(args.graph.name)
+          naturalResponse: this.generateOffTopicResponse(args.graph.name) + ' (This is your first warning.)'
         };
       }
 
@@ -64,12 +87,16 @@ export class CriticAgent {
           duration_ms: Date.now() - startTime
         });
 
+        const goodbyeMessage = getGoodbyeMessage('max_turns');
+
         return {
           success: false,
           agentRole: 'critic',
           action: 'review_conversation',
           error: 'max_turns_exceeded',
-          naturalResponse: 'This conversation has been going on for a while. Would you like me to connect you with a human agent?'
+          naturalResponse: goodbyeMessage,
+          shouldEndConversation: true,
+          endReason: 'max_turns'
         };
       }
 

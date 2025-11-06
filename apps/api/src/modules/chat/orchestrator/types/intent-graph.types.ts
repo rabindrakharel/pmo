@@ -192,6 +192,9 @@ export interface AgentActionResult {
   error?: string;
   nextNode?: string;
   requiresUserInput?: boolean;
+  engagingMessage?: string; // Message to show while agent is working
+  shouldEndConversation?: boolean; // Signal to end conversation
+  endReason?: 'completed' | 'off_topic' | 'max_turns' | 'user_requested'; // Reason for ending
 }
 
 /**

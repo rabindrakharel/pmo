@@ -7,6 +7,7 @@
 import type { AgentActionResult, NodeAction } from '../types/intent-graph.types.js';
 import { stateManager } from '../state/state-manager.service.js';
 import { executeMCPTool } from '../../mcp-adapter.service.js';
+import { getEngagingMessage, detectSentiment, getEmpatheticResponse } from '../config/engaging-messages.config.js';
 
 /**
  * Worker Agent
@@ -135,6 +136,10 @@ export class WorkerAgent {
 
     console.log(`🔧 Worker executing MCP tool: ${args.action.mcpTool}`, { args: mcpArgs });
 
+    // Get engaging message for this MCP call
+    const engagingMsg = getEngagingMessage('mcp_call', args.action.mcpTool);
+    console.log(`💬 Engaging message: ${engagingMsg.message}`);
+
     // Execute MCP tool
     try {
       const result = await executeMCPTool(args.action.mcpTool, mcpArgs, args.authToken);
@@ -173,12 +178,16 @@ export class WorkerAgent {
         success: true
       });
 
+      // Include engaging message in response
+      const mcpResponse = this.generateMCPResponse(args.action.mcpTool, result, stateUpdates);
+
       return {
         success: true,
         agentRole: 'worker',
         action: 'mcp_call',
         stateUpdates,
-        naturalResponse: this.generateMCPResponse(args.action.mcpTool, result, stateUpdates)
+        naturalResponse: mcpResponse,
+        engagingMessage: engagingMsg.message // Include for potential streaming/progress updates
       };
     } catch (error: any) {
       console.error(`❌ MCP tool ${args.action.mcpTool} failed:`, error.message);
@@ -236,7 +245,15 @@ export class WorkerAgent {
 
     // If we have a user message, try to extract data from it
     const stateUpdates: Record<string, any> = {};
+    let empatheticPrefix = '';
+
     if (args.userMessage) {
+      // Detect sentiment and add empathetic response
+      const sentiment = detectSentiment(args.userMessage);
+      if (sentiment) {
+        empatheticPrefix = getEmpatheticResponse(sentiment) + ' ';
+      }
+
       // Simple extraction (in production, use NER or structured extraction)
       for (const field of args.action.collectFields) {
         if (!args.state[field.key]) {
@@ -260,13 +277,14 @@ export class WorkerAgent {
 
     // Still have missing fields - ask for the first one
     const nextField = missingFields[0];
+    const prompt = nextField.prompt || `Can you provide your ${nextField.key}?`;
 
     return {
       success: true,
       agentRole: 'worker',
       action: 'collect_data',
       stateUpdates,
-      naturalResponse: nextField.prompt || `Can you provide your ${nextField.key}?`,
+      naturalResponse: empatheticPrefix + prompt,
       requiresUserInput: true
     };
   }

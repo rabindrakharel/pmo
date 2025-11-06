@@ -35,6 +35,8 @@ export interface OrchestratedMessageResponse {
   requiresUserInput?: boolean;
   completed?: boolean;
   error?: string;
+  conversationEnded?: boolean; // Conversation was terminated
+  endReason?: 'completed' | 'off_topic' | 'max_turns' | 'user_requested'; // Why it ended
   agentLogs?: Array<{
     agent: string;
     action: string;
@@ -144,6 +146,27 @@ export class OrchestratorService {
       });
 
       if (!criticResult.success) {
+        // Check if conversation should end
+        if (criticResult.shouldEndConversation) {
+          // Mark session as completed
+          await stateManager.completeSession(session.id, 'failed');
+
+          // Close chat session if linked
+          if (session.chat_session_id) {
+            await this.closeChatSession(session.chat_session_id, criticResult.endReason || 'off_topic');
+          }
+
+          return {
+            sessionId: session.id,
+            response: criticResult.naturalResponse || 'Goodbye!',
+            intent: session.current_intent,
+            currentNode: session.current_node || undefined,
+            completed: true,
+            conversationEnded: true,
+            endReason: criticResult.endReason
+          };
+        }
+
         return {
           sessionId: session.id,
           response: criticResult.naturalResponse || 'Let\'s stay on topic.',
@@ -469,6 +492,33 @@ export class OrchestratorService {
     if (state.task_code) parts.push(`Booking: ${state.task_code}`);
 
     return parts.join(', ') || 'Conversation completed';
+  }
+
+  /**
+   * Close chat session (calls MCP endpoint to terminate chat)
+   */
+  private async closeChatSession(chatSessionId: string, reason: string): Promise<void> {
+    try {
+      const { client } = await import('../../../db/index.js');
+
+      // Update chat interaction metadata to mark as closed
+      await client`
+        UPDATE app.f_customer_interaction
+        SET
+          metadata = metadata || ${JSON.stringify({
+            closed_by_orchestrator: true,
+            close_reason: reason,
+            closed_ts: new Date().toISOString()
+          })}::jsonb,
+          updated_ts = now()
+        WHERE id = ${chatSessionId}::uuid
+      `;
+
+      console.log(`🔚 Chat session ${chatSessionId} closed by orchestrator: ${reason}`);
+    } catch (error) {
+      console.error('Error closing chat session:', error);
+      // Don't throw - session closing is not critical
+    }
   }
 
   /**
