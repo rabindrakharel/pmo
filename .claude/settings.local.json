@@ -93,7 +93,11 @@
       "Bash(SESSION_ID=\"c4ecc07c-1c5e-4d9a-99bd-bd4b325788af\" curl:*)",
       "Bash(/home/rabin/projects/pmo/tools/test-voice-orchestrator.sh:*)",
       "Bash(node -e:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(tac:*)",
+      "Bash(/tmp/full-api-logs.txt echo '📊 Full Voice Call Interaction Analysis' echo ======================================== echo echo '🎙️ CONVERSATION TRANSCRIPT:' echo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ grep -E \"🎤|🤖\" /tmp/full-api-logs.txt)",
+      "Bash(/tmp/extract-voice-logs.sh)",
+      "Bash(/tmp/test-dynamic-update.sh)"
     ],
     "deny": [],
     "ask": [],

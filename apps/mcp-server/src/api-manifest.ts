@@ -520,12 +520,19 @@ export const API_MANIFEST: APIEndpoint[] = [
     name: 'employee_update',
     method: 'PUT',
     path: '/api/v1/employee/:id',
-    description: 'Update employee',
+    description: 'Update employee. All fields are optional - only provide fields to update',
     requiresAuth: true,
     category: 'Employee',
     parameters: {
       path: {
         id: 'Employee UUID'
+      },
+      body: {
+        name: 'Employee full name',
+        email: 'Email address',
+        phone: 'Phone number',
+        title: 'Job title',
+        active_flag: 'Active status (true/false)'
       }
     }
   },
@@ -577,12 +584,22 @@ export const API_MANIFEST: APIEndpoint[] = [
     name: 'business_update',
     method: 'PUT',
     path: '/api/v1/biz/:id',
-    description: 'Update business',
+    description: 'Update business. All fields are optional - only provide fields to update',
     requiresAuth: true,
     category: 'Business',
     parameters: {
       path: {
         id: 'Business UUID'
+      },
+      body: {
+        name: 'Business name',
+        legal_name: 'Legal business name',
+        description: 'Business description',
+        address: 'Business address',
+        city: 'City',
+        province: 'Province/State',
+        postal_code: 'Postal code',
+        active_flag: 'Active status (true/false)'
       }
     }
   },
@@ -702,12 +719,16 @@ export const API_MANIFEST: APIEndpoint[] = [
     name: 'customer_update',
     method: 'PUT',
     path: '/api/v1/cust/:id',
-    description: 'Update customer',
+    description: 'Update customer fields dynamically. You can update ANY customer field(s) incrementally as you learn information. Common fields: name, primary_phone, primary_email, primary_address, city, province, postal_code, country, cust_type, cust_status. Just provide whatever fields you want to update - you can call this multiple times to update different fields.',
     requiresAuth: true,
     category: 'Customer',
     parameters: {
       path: {
-        id: 'Customer UUID'
+        customer_id: 'Customer UUID to update'
+      },
+      body: {
+        // Dynamic body - can include ANY customer field
+        '*': 'Any customer field to update (name, primary_phone, primary_email, primary_address, city, province, postal_code, country, etc.)'
       }
     }
   },

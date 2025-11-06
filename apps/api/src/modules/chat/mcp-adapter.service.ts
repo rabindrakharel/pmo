@@ -136,10 +136,24 @@ export async function executeMCPTool(
 
   // Extract body parameters
   const body: Record<string, any> = {};
+
+  // Support dynamic body fields (any arg starting with body_)
+  // This allows the LLM to pass any field dynamically without predefined schema
+  for (const argKey of Object.keys(args)) {
+    if (argKey.startsWith('body_')) {
+      const fieldName = argKey.substring(5); // Remove 'body_' prefix
+      body[fieldName] = args[argKey];
+      delete args[argKey];
+    }
+  }
+
+  // Also support predefined body parameters from manifest (for backward compatibility)
   if (endpoint.parameters?.body) {
     for (const key of Object.keys(endpoint.parameters.body)) {
+      if (key === '*') continue; // Skip wildcard marker
+
       const bodyKey = `body_${key}`;
-      if (args[bodyKey]) {
+      if (args[bodyKey] && !body[key]) { // Don't override if already set
         body[key] = args[bodyKey];
         delete args[bodyKey];
       }

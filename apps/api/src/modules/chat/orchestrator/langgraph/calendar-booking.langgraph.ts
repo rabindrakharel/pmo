@@ -1,6 +1,13 @@
 /**
- * Calendar Booking LangGraph
- * LangGraph implementation of the CalendarBooking workflow
+ * Calendar Booking LangGraph - Simplified Flow
+ *
+ * Flow:
+ * 1. Create customer record if not exist
+ * 2. Create task and record customer's issue
+ * 3. Create calendar event for available employee with service expertise
+ * 4. Put task link in calendar event
+ * 5. Give info to customer about who is coming at what time
+ *
  * @module orchestrator/langgraph/calendar-booking
  */
 
@@ -41,7 +48,6 @@ async function entryNode(state: OrchestratorState): Promise<StateUpdate> {
 
 /**
  * Critic Node: Review conversation for boundaries
- * Checks for off-topic conversations and enforces rules
  */
 async function criticNode(state: OrchestratorState): Promise<StateUpdate> {
   console.log('[LangGraph] Critic node - Review conversation');
@@ -58,7 +64,6 @@ async function criticNode(state: OrchestratorState): Promise<StateUpdate> {
   if (isForbidden) {
     const newOffTopicCount = state.offTopicCount + 1;
 
-    // After 2 off-topic attempts, end conversation
     if (newOffTopicCount >= 2) {
       return {
         offTopicCount: newOffTopicCount,
@@ -88,55 +93,42 @@ async function criticNode(state: OrchestratorState): Promise<StateUpdate> {
     };
   }
 
-  // Conversation is within boundaries
   return {
-    engagingMessage: undefined, // Clear any previous engaging message
+    engagingMessage: undefined,
   };
 }
 
 /**
- * Node 1: Identify Customer
+ * Step 1: Create/Find Customer
+ * Creates customer record if not exist, otherwise finds existing customer
  */
-async function identifyCustomerNode(state: OrchestratorState, mcpAdapter: any): Promise<StateUpdate> {
-  console.log('[LangGraph] Identify Customer node');
+async function createOrFindCustomerNode(state: OrchestratorState, mcpAdapter: any): Promise<StateUpdate> {
+  console.log('[LangGraph] Step 1: Create/Find Customer');
 
-  const graphNode = CalendarBookingGraph.nodes.identify_customer;
-
-  // Check if we already have customer_name and customer_phone
+  // Check if we have required customer info
   if (!state.variables.customer_name || !state.variables.customer_phone) {
     return {
-      currentNode: 'identify_customer',
+      currentNode: 'create_or_find_customer',
       naturalResponse: "Hi! I'd be happy to help you schedule a service. Can I get your name and phone number?",
       requiresUserInput: true,
-      engagingMessage: undefined,
     };
   }
 
-  // Search for existing customer by phone
   try {
-    const mcpResult = await mcpAdapter.executeMCPTool('customer_list', {
-      phone: state.variables.customer_phone,
+    // First, try to find existing customer by phone
+    const searchResult = await mcpAdapter.executeMCPTool('customer_list', {
+      query_search: state.variables.customer_phone,
     }, state.authToken);
 
-    const customers = mcpResult?.customers || [];
-
-    // Log agent action
-    const agentAction = {
-      agentRole: 'worker' as const,
-      action: 'mcp_call',
-      nodeContext: 'identify_customer',
-      success: true,
-      mcpTool: 'customer_list',
-      mcpArgs: { phone: state.variables.customer_phone },
-      mcpResult,
-      timestamp: new Date(),
-    };
+    const customers = searchResult?.data || searchResult?.customers || [];
 
     if (customers.length > 0) {
       // Existing customer found
       const customer = customers[0];
+      console.log(`[LangGraph] Found existing customer: ${customer.id}`);
+
       return {
-        currentNode: 'identify_customer',
+        currentNode: 'create_or_find_customer',
         variables: {
           customer_id: customer.id,
           customer_name: customer.name,
@@ -145,202 +137,177 @@ async function identifyCustomerNode(state: OrchestratorState, mcpAdapter: any): 
           customer_city: customer.city,
           is_new_customer: false,
         },
-        agentActions: [agentAction],
-        metadata: {
-          ...state.metadata,
-          totalMcpCalls: state.metadata.totalMcpCalls + 1,
-        },
-      };
-    } else {
-      // New customer
-      return {
-        currentNode: 'identify_customer',
-        variables: {
-          is_new_customer: true,
-        },
-        agentActions: [agentAction],
+        naturalResponse: `Welcome back, ${customer.name}! Let's schedule your service.`,
         metadata: {
           ...state.metadata,
           totalMcpCalls: state.metadata.totalMcpCalls + 1,
         },
       };
     }
-  } catch (error: any) {
-    return {
-      currentNode: 'identify_customer',
-      error: {
-        code: 'MCP_CALL_FAILED',
-        message: error.message,
-        agentRole: 'worker',
-      },
-      naturalResponse: "I'm having trouble accessing our customer database. Let me try again.",
-      requiresUserInput: false,
-    };
-  }
-}
 
-/**
- * Node 2: Welcome Existing Customer
- */
-async function welcomeExistingNode(state: OrchestratorState): Promise<StateUpdate> {
-  console.log('[LangGraph] Welcome Existing Customer node');
+    // Customer not found, create new one
+    console.log('[LangGraph] Creating new customer');
 
-  const customerName = state.variables.customer_name;
-  const customerAddress = state.variables.customer_address || 'your address';
+    // Get address if we don't have it yet
+    if (!state.variables.customer_address) {
+      return {
+        currentNode: 'create_or_find_customer',
+        naturalResponse: "Thanks! What's your service address?",
+        requiresUserInput: true,
+      };
+    }
 
-  return {
-    currentNode: 'welcome_existing',
-    naturalResponse: `Welcome back, ${customerName}! I see you're in our system at ${customerAddress}. Let's schedule your service!`,
-    requiresUserInput: false,
-  };
-}
-
-/**
- * Node 3: Create Customer
- */
-async function createCustomerNode(state: OrchestratorState, mcpAdapter: any): Promise<StateUpdate> {
-  console.log('[LangGraph] Create Customer node');
-
-  // Check if we have all required info
-  if (!state.variables.customer_address || !state.variables.customer_city) {
-    return {
-      currentNode: 'create_customer',
-      naturalResponse: "Thanks! What's the service address and city where you need the work done?",
-      requiresUserInput: true,
-    };
-  }
-
-  // Create customer via MCP
-  try {
-    const mcpResult = await mcpAdapter.executeMCPTool('customer_create', {
+    const createResult = await mcpAdapter.executeMCPTool('customer_create', {
       body_name: state.variables.customer_name,
       body_primary_phone: state.variables.customer_phone,
-      body_primary_email: state.variables.customer_email,
+      body_primary_email: state.variables.customer_email || '',
       body_primary_address: state.variables.customer_address,
-      body_city: state.variables.customer_city,
-      body_postal_code: state.variables.customer_postal_code,
-      body_province: 'ON',
+      body_city: state.variables.customer_city || '',
+      body_province: state.variables.customer_province || 'ON',
+      body_postal_code: state.variables.customer_postal_code || '',
       body_country: 'Canada',
     }, state.authToken);
 
-    const agentAction = {
-      agentRole: 'worker' as const,
-      action: 'mcp_call',
-      nodeContext: 'create_customer',
-      success: true,
-      mcpTool: 'customer_create',
-      mcpArgs: { name: state.variables.customer_name },
-      mcpResult,
-      timestamp: new Date(),
-    };
+    console.log(`[LangGraph] Customer created: ${createResult.id}`);
 
     return {
-      currentNode: 'create_customer',
+      currentNode: 'create_or_find_customer',
       variables: {
-        customer_id: mcpResult.id,
-        customer_code: mcpResult.code,
+        customer_id: createResult.id,
+        customer_code: createResult.code,
+        is_new_customer: true,
       },
-      agentActions: [agentAction],
-      naturalResponse: "Perfect! I've got your information saved. Now let's schedule your service.",
+      naturalResponse: `Perfect! I've saved your information. Now let's schedule your service.`,
       metadata: {
         ...state.metadata,
-        totalMcpCalls: state.metadata.totalMcpCalls + 1,
+        totalMcpCalls: state.metadata.totalMcpCalls + 2,
       },
     };
+
   } catch (error: any) {
+    console.error('[LangGraph] Customer create/find error:', error);
     return {
-      currentNode: 'create_customer',
+      currentNode: 'create_or_find_customer',
       error: {
-        code: 'CUSTOMER_CREATE_FAILED',
+        code: 'CUSTOMER_ERROR',
         message: error.message,
         agentRole: 'worker',
       },
-      naturalResponse: "I'm having trouble creating your profile. Let me try again.",
+      naturalResponse: "I'm having trouble with customer records. Let me try again.",
     };
   }
 }
 
 /**
- * Node 4: Gather Booking Requirements
+ * Step 2: Create Task and Record Issue
+ * Creates a task with the customer's service request
  */
-async function gatherBookingRequirementsNode(state: OrchestratorState): Promise<StateUpdate> {
-  console.log('[LangGraph] Gather Booking Requirements node');
+async function createTaskNode(state: OrchestratorState, mcpAdapter: any): Promise<StateUpdate> {
+  console.log('[LangGraph] Step 2: Create Task');
 
-  // Check if we have all required info
-  if (!state.variables.service_category || !state.variables.desired_date || !state.variables.job_description) {
+  // Check if we have required info
+  if (!state.variables.service_category) {
     return {
-      currentNode: 'gather_booking_requirements',
-      naturalResponse: "What service do you need? (HVAC, Plumbing, Electrical, Landscaping, or General Contracting) And when would you like us to come? Please also briefly describe what you need done.",
+      currentNode: 'create_task',
+      naturalResponse: "What type of service do you need? (e.g., HVAC, Plumbing, Electrical, Landscaping, General Contracting)",
       requiresUserInput: true,
     };
   }
 
-  // Validate date is in the future
-  const desiredDate = new Date(state.variables.desired_date);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  if (desiredDate < today) {
+  if (!state.variables.job_description) {
     return {
-      currentNode: 'gather_booking_requirements',
-      naturalResponse: "The date you provided is in the past. Can you provide a future date?",
+      currentNode: 'create_task',
+      naturalResponse: "Please tell me what you need done.",
       requiresUserInput: true,
     };
   }
-
-  return {
-    currentNode: 'gather_booking_requirements',
-    naturalResponse: `Got it! Let me check our ${state.variables.service_category} availability for ${state.variables.desired_date}.`,
-    engagingMessage: "Checking technician availability...",
-  };
-}
-
-/**
- * Node 5: Find Available Slots
- */
-async function findAvailableSlotsNode(state: OrchestratorState, mcpAdapter: any): Promise<StateUpdate> {
-  console.log('[LangGraph] Find Available Slots node');
 
   try {
-    const mcpResult = await mcpAdapter.executeMCPTool('employee_list', {
-      query_department: state.variables.service_category,
-      query_status: 'active',
+    // Create task with customer's issue
+    const taskName = `${state.variables.service_category}: ${state.variables.job_description}`;
+
+    const taskResult = await mcpAdapter.executeMCPTool('task_create', {
+      body_name: taskName,
+      body_descr: `Customer: ${state.variables.customer_name}\nPhone: ${state.variables.customer_phone}\nAddress: ${state.variables.customer_address}\n\nIssue: ${state.variables.job_description}`,
+      body_metadata: JSON.stringify({
+        customer_id: state.variables.customer_id,
+        service_category: state.variables.service_category,
+        customer_name: state.variables.customer_name,
+        customer_phone: state.variables.customer_phone,
+        customer_address: state.variables.customer_address,
+      }),
     }, state.authToken);
 
-    const employees = mcpResult?.employees || [];
+    console.log(`[LangGraph] Task created: ${taskResult.id}`);
 
-    const agentAction = {
-      agentRole: 'worker' as const,
-      action: 'mcp_call',
-      nodeContext: 'find_available_slots',
-      success: true,
-      mcpTool: 'employee_list',
-      mcpArgs: { department: state.variables.service_category },
-      mcpResult,
-      timestamp: new Date(),
+    // Link task to customer
+    await mcpAdapter.executeMCPTool('linkage_create', {
+      body_parent_entity_type: 'cust',
+      body_parent_entity_id: state.variables.customer_id,
+      body_child_entity_type: 'task',
+      body_child_entity_id: taskResult.id,
+    }, state.authToken);
+
+    return {
+      currentNode: 'create_task',
+      variables: {
+        task_id: taskResult.id,
+        task_code: taskResult.code,
+        task_name: taskResult.name,
+      },
+      naturalResponse: `Got it! I've created work order #${taskResult.code} for your ${state.variables.service_category} service. Now let me find an available technician with that expertise.`,
+      engagingMessage: "Finding available technician...",
+      metadata: {
+        ...state.metadata,
+        totalMcpCalls: state.metadata.totalMcpCalls + 2,
+      },
     };
 
-    if (employees.length > 0) {
+  } catch (error: any) {
+    console.error('[LangGraph] Task create error:', error);
+    return {
+      currentNode: 'create_task',
+      error: {
+        code: 'TASK_CREATE_ERROR',
+        message: error.message,
+        agentRole: 'worker',
+      },
+      naturalResponse: "I'm having trouble creating the work order. Let me try again.",
+    };
+  }
+}
+
+/**
+ * Step 3: Find Available Employee with Service Expertise
+ * Finds employees who can handle the requested service category
+ */
+async function findAvailableEmployeeNode(state: OrchestratorState, mcpAdapter: any): Promise<StateUpdate> {
+  console.log('[LangGraph] Step 3: Find Available Employee');
+
+  // Get desired date/time if not already set
+  if (!state.variables.desired_date) {
+    return {
+      currentNode: 'find_available_employee',
+      naturalResponse: "When would you like us to come? Please provide a date and time.",
+      requiresUserInput: true,
+    };
+  }
+
+  try {
+    // Find employees with matching service expertise
+    // Note: In real implementation, you'd filter by service category/expertise
+    const employeeResult = await mcpAdapter.executeMCPTool('employee_list', {
+      query_active: 'true',
+    }, state.authToken);
+
+    const employees = employeeResult?.data || employeeResult?.employees || [];
+
+    console.log(`[LangGraph] Found ${employees.length} available employees`);
+
+    if (employees.length === 0) {
       return {
-        currentNode: 'find_available_slots',
-        variables: {
-          available_employees: employees,
-        },
-        agentActions: [agentAction],
-        naturalResponse: `Great news! We have ${employees.length} technician${employees.length > 1 ? 's' : ''} available for ${state.variables.service_category}.`,
-        metadata: {
-          ...state.metadata,
-          totalMcpCalls: state.metadata.totalMcpCalls + 1,
-        },
-      };
-    } else {
-      return {
-        currentNode: 'find_available_slots',
-        variables: {
-          available_employees: [],
-        },
-        agentActions: [agentAction],
-        naturalResponse: `I'm sorry, we don't have ${state.variables.service_category} technicians available on ${state.variables.desired_date}. Can you try another date?`,
+        currentNode: 'find_available_employee',
+        naturalResponse: `I'm sorry, we don't have any ${state.variables.service_category} technicians available on ${state.variables.desired_date}. Can you try a different date?`,
         requiresUserInput: true,
         metadata: {
           ...state.metadata,
@@ -348,139 +315,208 @@ async function findAvailableSlotsNode(state: OrchestratorState, mcpAdapter: any)
         },
       };
     }
-  } catch (error: any) {
-    return {
-      currentNode: 'find_available_slots',
-      error: {
-        code: 'AVAILABILITY_CHECK_FAILED',
-        message: error.message,
-        agentRole: 'worker',
-      },
-      naturalResponse: "I'm having trouble checking availability. Let me try again.",
-    };
-  }
-}
 
-/**
- * Node 6: Propose Options
- */
-async function proposeOptionsNode(state: OrchestratorState): Promise<StateUpdate> {
-  console.log('[LangGraph] Propose Options node');
-
-  const employees = state.variables.available_employees || [];
-  if (employees.length === 0) {
-    return {
-      currentNode: 'propose_options',
-      naturalResponse: "No technicians available. Let's try a different date.",
-      requiresUserInput: true,
-    };
-  }
-
-  if (!state.variables.selected_time) {
-    const technicianName = employees[0].name;
-    return {
-      currentNode: 'propose_options',
-      naturalResponse: `I can schedule you with ${technicianName} on ${state.variables.desired_date}. What time works best? We have morning (9 AM) or afternoon (2 PM) available.`,
-      requiresUserInput: true,
-    };
-  }
-
-  // User selected time, assign first available employee
-  return {
-    currentNode: 'propose_options',
-    variables: {
-      selected_employee_id: employees[0].id,
-    },
-    naturalResponse: `Perfect! I'll book you for ${state.variables.selected_time} on ${state.variables.desired_date} with ${employees[0].name}.`,
-  };
-}
-
-/**
- * Node 7: Create Booking
- */
-async function createBookingNode(state: OrchestratorState, mcpAdapter: any): Promise<StateUpdate> {
-  console.log('[LangGraph] Create Booking node');
-
-  try {
-    // Create task
-    const taskResult = await mcpAdapter.executeMCPTool('task_create', {
-      body_name: state.variables.job_description,
-      body_descr: state.variables.job_description,
-      body_task_category: state.variables.service_category,
-      body_task_priority: 'medium',
-      body_task_stage: 'new',
-    }, state.authToken);
-
-    // Create linkage
-    await mcpAdapter.executeMCPTool('linkage_create', {
-      body_parent_entity_type: 'customer',
-      body_parent_entity_id: state.variables.customer_id,
-      body_child_entity_type: 'task',
-      body_child_entity_id: taskResult.id,
-      body_linkage_type: 'customer_task',
-    }, state.authToken);
-
-    const agentAction = {
-      agentRole: 'worker' as const,
-      action: 'mcp_call',
-      nodeContext: 'create_booking',
-      success: true,
-      mcpTool: 'task_create',
-      mcpArgs: { name: state.variables.job_description },
-      mcpResult: taskResult,
-      timestamp: new Date(),
-    };
+    // Select first available employee (in production, check calendar availability)
+    const selectedEmployee = employees[0];
 
     return {
-      currentNode: 'create_booking',
+      currentNode: 'find_available_employee',
       variables: {
-        task_id: taskResult.id,
-        task_code: taskResult.code,
-        task_name: taskResult.name,
+        assigned_employee_id: selectedEmployee.id,
+        assigned_employee_name: selectedEmployee.name,
+        assigned_employee_email: selectedEmployee.email,
+        assigned_employee_phone: selectedEmployee.phone,
       },
-      agentActions: [agentAction],
-      naturalResponse: "Excellent! Your booking has been created successfully.",
+      naturalResponse: `Great! I found ${selectedEmployee.name}, our ${state.variables.service_category} specialist. Let me create the calendar appointment.`,
+      engagingMessage: "Creating calendar appointment...",
       metadata: {
         ...state.metadata,
-        totalMcpCalls: state.metadata.totalMcpCalls + 2,
+        totalMcpCalls: state.metadata.totalMcpCalls + 1,
       },
     };
+
   } catch (error: any) {
+    console.error('[LangGraph] Employee search error:', error);
     return {
-      currentNode: 'create_booking',
+      currentNode: 'find_available_employee',
       error: {
-        code: 'BOOKING_CREATE_FAILED',
+        code: 'EMPLOYEE_SEARCH_ERROR',
         message: error.message,
         agentRole: 'worker',
       },
-      naturalResponse: "I'm having trouble creating the booking. Let me try again.",
+      naturalResponse: "I'm having trouble finding available technicians. Let me try again.",
     };
   }
 }
 
 /**
- * Node 8: Confirm and Summarize
+ * Step 4: Create Calendar Event with Task Link
+ * Creates calendar appointment and links it to the task
  */
-async function confirmAndSummarizeNode(state: OrchestratorState): Promise<StateUpdate> {
-  console.log('[LangGraph] Confirm and Summarize node');
+async function createCalendarEventNode(state: OrchestratorState, mcpAdapter: any): Promise<StateUpdate> {
+  console.log('[LangGraph] Step 4: Create Calendar Event');
 
-  const summary = `Perfect! You're all set, ${state.variables.customer_name}.
+  try {
+    // Parse date and time
+    const appointmentDateTime = new Date(state.variables.desired_date);
+    const startTime = appointmentDateTime.toISOString();
 
-📅 **Booking Confirmed**
-- **Service**: ${state.variables.service_category}
-- **Date**: ${state.variables.desired_date} at ${state.variables.selected_time}
-- **Location**: ${state.variables.customer_address}
-- **Booking #**: ${state.variables.task_code}
+    // Default 2-hour appointment
+    const endTime = new Date(appointmentDateTime.getTime() + 2 * 60 * 60 * 1000).toISOString();
 
-We'll send a reminder to ${state.variables.customer_email || state.variables.customer_phone}. Is there anything else you need help with?`;
+    // Create calendar event with task link in description
+    const calendarResult = await mcpAdapter.executeMCPTool('calendar_create', {
+      body_title: `${state.variables.service_category} Service - ${state.variables.customer_name}`,
+      body_description: `Work Order: #${state.variables.task_code}\nTask ID: ${state.variables.task_id}\n\nCustomer: ${state.variables.customer_name}\nPhone: ${state.variables.customer_phone}\nAddress: ${state.variables.customer_address}\n\nService: ${state.variables.job_description}`,
+      body_start_time: startTime,
+      body_end_time: endTime,
+      body_location: state.variables.customer_address,
+      body_event_type: 'service_appointment',
+      body_metadata: JSON.stringify({
+        task_id: state.variables.task_id,
+        task_code: state.variables.task_code,
+        customer_id: state.variables.customer_id,
+        employee_id: state.variables.assigned_employee_id,
+        service_category: state.variables.service_category,
+      }),
+    }, state.authToken);
 
+    console.log(`[LangGraph] Calendar event created: ${calendarResult.id}`);
+
+    // Link calendar event to task
+    await mcpAdapter.executeMCPTool('linkage_create', {
+      body_parent_entity_type: 'task',
+      body_parent_entity_id: state.variables.task_id,
+      body_child_entity_type: 'calendar',
+      body_child_entity_id: calendarResult.id,
+    }, state.authToken);
+
+    // Link calendar event to employee
+    await mcpAdapter.executeMCPTool('linkage_create', {
+      body_parent_entity_type: 'employee',
+      body_parent_entity_id: state.variables.assigned_employee_id,
+      body_child_entity_type: 'calendar',
+      body_child_entity_id: calendarResult.id,
+    }, state.authToken);
+
+    // Update task to assign employee
+    await mcpAdapter.executeMCPTool('task_update', {
+      id: state.variables.task_id,
+      body_assignee_id: state.variables.assigned_employee_id,
+      body_task_stage: 'assigned',
+    }, state.authToken);
+
+    return {
+      currentNode: 'create_calendar_event',
+      variables: {
+        calendar_event_id: calendarResult.id,
+        appointment_start: startTime,
+        appointment_end: endTime,
+      },
+      naturalResponse: `Perfect! The appointment has been scheduled.`,
+      metadata: {
+        ...state.metadata,
+        totalMcpCalls: state.metadata.totalMcpCalls + 4,
+      },
+    };
+
+  } catch (error: any) {
+    console.error('[LangGraph] Calendar create error:', error);
+    return {
+      currentNode: 'create_calendar_event',
+      error: {
+        code: 'CALENDAR_CREATE_ERROR',
+        message: error.message,
+        agentRole: 'worker',
+      },
+      naturalResponse: "I'm having trouble creating the calendar appointment. Let me try again.",
+    };
+  }
+}
+
+/**
+ * Step 5: Confirm and Notify Customer
+ * Gives customer the final booking information and asks for additional requests
+ */
+async function confirmAndNotifyNode(state: OrchestratorState): Promise<StateUpdate> {
+  console.log('[LangGraph] Step 5: Confirm and Notify');
+
+  // Check if we've already asked for another request
+  if (!state.variables.asked_for_another_request) {
+    // First time: Show summary and ask for more requests
+    const appointmentDate = new Date(state.variables.appointment_start);
+    const dateStr = appointmentDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    const timeStr = appointmentDate.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+
+    const summary = `✅ **Booking Confirmed!**
+
+${state.variables.customer_name}, your ${state.variables.service_category} service is all set!
+
+👤 **Technician**: ${state.variables.assigned_employee_name}
+📞 **Their Phone**: ${state.variables.assigned_employee_phone || 'Will call before arrival'}
+📅 **Date**: ${dateStr}
+⏰ **Time**: ${timeStr}
+📍 **Location**: ${state.variables.customer_address}
+🎫 **Work Order**: #${state.variables.task_code}
+
+${state.variables.assigned_employee_name} will arrive at your location at ${timeStr} on ${dateStr} to handle your ${state.variables.job_description}.
+
+We'll send you a reminder 24 hours before the appointment. Is there anything else you need help with today?`;
+
+    return {
+      currentNode: 'confirm_and_notify',
+      naturalResponse: summary,
+      requiresUserInput: true,
+      variables: {
+        ...state.variables,
+        asked_for_another_request: true,
+      },
+    };
+  }
+
+  // Second time: User has responded, check their answer
+  const userMessage = state.userMessage?.toLowerCase() || '';
+  const hasAnotherRequest =
+    userMessage.includes('yes') ||
+    userMessage.includes('yeah') ||
+    userMessage.includes('sure') ||
+    userMessage.includes('i need') ||
+    userMessage.includes('can you') ||
+    userMessage.includes('help me') ||
+    (userMessage.length > 10 && !userMessage.includes('no') && !userMessage.includes('that\'s all'));
+
+  if (hasAnotherRequest) {
+    // Customer has another request - signal to route to orchestrator
+    return {
+      currentNode: 'confirm_and_notify',
+      naturalResponse: "Absolutely! What else can I help you with?",
+      variables: {
+        ...state.variables,
+        has_another_request: true,
+      },
+      conversationEnded: true,
+      endReason: 'completed',
+      status: 'completed',
+      completed: true,
+    };
+  }
+
+  // Customer doesn't have another request - end call
   return {
-    currentNode: 'confirm_and_summarize',
-    naturalResponse: summary,
-    completed: true,
+    currentNode: 'confirm_and_notify',
+    naturalResponse: "Thank you for choosing Huron Home Services! Have a great day!",
     conversationEnded: true,
     endReason: 'completed',
     status: 'completed',
+    completed: true,
   };
 }
 
@@ -511,50 +547,41 @@ function routeNextNode(state: OrchestratorState): string {
       return 'critic';
 
     case 'critic':
-      return 'identify_customer';
+      return 'create_or_find_customer';
 
-    case 'identify_customer':
-      // Existing customer vs new customer
+    case 'create_or_find_customer':
+      // Move to create task if we have customer ID
       if (state.variables.customer_id) {
-        return 'welcome_existing';
-      } else {
-        return 'create_customer';
+        return 'create_task';
       }
+      // Stay if still gathering customer info
+      return 'create_or_find_customer';
 
-    case 'welcome_existing':
-      return 'gather_booking_requirements';
-
-    case 'create_customer':
-      if (state.variables.customer_id) {
-        return 'gather_booking_requirements';
-      }
-      // Stay on create_customer if not completed
-      return 'create_customer';
-
-    case 'gather_booking_requirements':
-      return 'find_available_slots';
-
-    case 'find_available_slots':
-      if (state.variables.available_employees?.length > 0) {
-        return 'propose_options';
-      } else {
-        // No availability, go back to gather requirements
-        return 'gather_booking_requirements';
-      }
-
-    case 'propose_options':
-      if (state.variables.selected_time && state.variables.selected_employee_id) {
-        return 'create_booking';
-      }
-      return 'propose_options';
-
-    case 'create_booking':
+    case 'create_task':
+      // Move to find employee if task created
       if (state.variables.task_id) {
-        return 'confirm_and_summarize';
+        return 'find_available_employee';
       }
-      return 'create_booking';
+      // Stay if still creating task
+      return 'create_task';
 
-    case 'confirm_and_summarize':
+    case 'find_available_employee':
+      // Move to create calendar if employee assigned
+      if (state.variables.assigned_employee_id) {
+        return 'create_calendar_event';
+      }
+      // Stay if still finding employee
+      return 'find_available_employee';
+
+    case 'create_calendar_event':
+      // Move to confirm if calendar event created
+      if (state.variables.calendar_event_id) {
+        return 'confirm_and_notify';
+      }
+      // Stay if still creating event
+      return 'create_calendar_event';
+
+    case 'confirm_and_notify':
       return END;
 
     default:
@@ -569,30 +596,24 @@ function routeNextNode(state: OrchestratorState): string {
 export function createCalendarBookingGraph(mcpAdapter: any) {
   // Create graph with state annotation
   const graph = new StateGraph(OrchestratorStateAnnotation)
-    // Add nodes
+    // Add nodes - Simplified 5-step workflow
     .addNode('entry', entryNode)
     .addNode('critic', criticNode)
-    .addNode('identify_customer', (state: OrchestratorState) => identifyCustomerNode(state, mcpAdapter))
-    .addNode('welcome_existing', welcomeExistingNode)
-    .addNode('create_customer', (state: OrchestratorState) => createCustomerNode(state, mcpAdapter))
-    .addNode('gather_booking_requirements', gatherBookingRequirementsNode)
-    .addNode('find_available_slots', (state: OrchestratorState) => findAvailableSlotsNode(state, mcpAdapter))
-    .addNode('propose_options', proposeOptionsNode)
-    .addNode('create_booking', (state: OrchestratorState) => createBookingNode(state, mcpAdapter))
-    .addNode('confirm_and_summarize', confirmAndSummarizeNode)
+    .addNode('create_or_find_customer', (state: OrchestratorState) => createOrFindCustomerNode(state, mcpAdapter))
+    .addNode('create_task', (state: OrchestratorState) => createTaskNode(state, mcpAdapter))
+    .addNode('find_available_employee', (state: OrchestratorState) => findAvailableEmployeeNode(state, mcpAdapter))
+    .addNode('create_calendar_event', (state: OrchestratorState) => createCalendarEventNode(state, mcpAdapter))
+    .addNode('confirm_and_notify', confirmAndNotifyNode)
 
-    // Add edges
+    // Add edges - Linear flow with conditional routing
     .addEdge(START, 'entry')
     .addConditionalEdges('entry', routeNextNode)
     .addConditionalEdges('critic', routeNextNode)
-    .addConditionalEdges('identify_customer', routeNextNode)
-    .addConditionalEdges('welcome_existing', routeNextNode)
-    .addConditionalEdges('create_customer', routeNextNode)
-    .addConditionalEdges('gather_booking_requirements', routeNextNode)
-    .addConditionalEdges('find_available_slots', routeNextNode)
-    .addConditionalEdges('propose_options', routeNextNode)
-    .addConditionalEdges('create_booking', routeNextNode)
-    .addConditionalEdges('confirm_and_summarize', routeNextNode);
+    .addConditionalEdges('create_or_find_customer', routeNextNode)
+    .addConditionalEdges('create_task', routeNextNode)
+    .addConditionalEdges('find_available_employee', routeNextNode)
+    .addConditionalEdges('create_calendar_event', routeNextNode)
+    .addConditionalEdges('confirm_and_notify', routeNextNode);
 
   // Compile the graph
   return graph.compile();

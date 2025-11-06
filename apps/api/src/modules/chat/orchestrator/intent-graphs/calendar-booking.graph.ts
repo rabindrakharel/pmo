@@ -8,9 +8,9 @@ import type { IntentGraph } from '../types/intent-graph.types.js';
 
 export const CalendarBookingGraph: IntentGraph = {
   name: 'CalendarBooking',
-  description: 'Book a service appointment (landscaping, HVAC, plumbing, etc.)',
-  version: 'v1.0',
-  startNode: 'identify_customer',
+  description: 'Book a service appointment (landscaping, HVAC, plumbing, etc.) with simplified 5-step workflow',
+  version: 'v2.0',
+  startNode: 'create_or_find_customer',
 
   boundaries: {
     allowedTopics: [
@@ -25,39 +25,61 @@ export const CalendarBookingGraph: IntentGraph = {
       'contracting',
       'availability',
       'calendar',
-      'time slots'
+      'time slots',
+      'service requests',
+      'technician dispatch',
+      'home services',
+      'repairs',
+      'maintenance'
     ],
     forbiddenTopics: [
       'weather',
       'news',
+      'politics',
       'general knowledge',
       'unrelated services',
-      'other companies'
+      'other companies',
+      'personal advice',
+      'financial advice',
+      'legal advice',
+      'medical advice',
+      'entertainment',
+      'sports',
+      'recipes',
+      'travel recommendations'
     ],
-    maxTurns: 20,
+    maxTurns: 15,
     canPause: true,
     canCancel: true,
+    strictTopicEnforcement: true,
+    offTopicAction: 'redirect_or_end',
     customRules: [
       'Never create booking without explicit user confirmation',
       'Always verify customer identity before proceeding',
-      'Maintain empathetic tone when customer describes issues'
+      'Maintain empathetic tone when customer describes issues',
+      'If customer goes off-topic (non-business), politely redirect once, then end call',
+      'Before ending call, always ask if there are other service requests',
+      'Route additional requests to appropriate intent graphs',
+      'Create task record for EVERY service request',
+      'Link task to calendar event in event description',
+      'Provide complete technician information (name, phone, time) at end'
     ]
   },
 
-  requiredPermissions: ['customer:read', 'customer:write', 'booking:write', 'employee:read'],
+  requiredPermissions: ['customer:read', 'customer:write', 'booking:write', 'employee:read', 'task:write', 'calendar:write'],
 
   nodes: {
     // ========================================
-    // NODE 1: Identify Customer
+    // NODE 1: Create or Find Customer
     // ========================================
-    identify_customer: {
-      id: 'identify_customer',
-      name: 'Identify Customer',
-      description: 'Search for existing customer or identify as new customer',
+    create_or_find_customer: {
+      id: 'create_or_find_customer',
+      name: 'Create or Find Customer',
+      description: 'Search for existing customer by phone or create new customer record with incremental data collection',
       agentRoles: ['worker'],
 
       requiredState: [],
-      producesState: ['customer_id', 'customer_name', 'is_new_customer'],
+      producesState: ['customer_id', 'customer_name', 'customer_phone', 'customer_email', 'customer_address', 'customer_city', 'customer_province', 'customer_postal_code'],
 
       actions: [
         {
@@ -67,14 +89,14 @@ export const CalendarBookingGraph: IntentGraph = {
               key: 'customer_name',
               type: 'string',
               required: true,
-              prompt: 'Can I get your name?'
+              prompt: 'Hi! I\'d be happy to help you schedule a service. Can I get your name?'
             },
             {
               key: 'customer_phone',
               type: 'string',
               required: true,
               prompt: 'And your phone number?',
-              validation: '^[0-9]{10}$|^\\+?1?[0-9]{10}$'
+              validation: '^[0-9]{3}[- ]?[0-9]{3}[- ]?[0-9]{4}$'
             }
           ]
         },
@@ -82,14 +104,69 @@ export const CalendarBookingGraph: IntentGraph = {
           type: 'mcp_call',
           mcpTool: 'customer_list',
           inputMapping: {
-            phone: 'customer_phone'
+            query_search: 'customer_phone'
           },
           outputMapping: {
-            customer_id: 'customers[0].id',
-            customer_name: 'customers[0].name',
-            customer_email: 'customers[0].primary_email',
-            customer_address: 'customers[0].primary_address'
+            customer_id: 'data[0].id',
+            customer_name: 'data[0].name',
+            customer_email: 'data[0].primary_email',
+            customer_address: 'data[0].primary_address',
+            customer_city: 'data[0].city',
+            customer_province: 'data[0].province',
+            customer_postal_code: 'data[0].postal_code'
           }
+        },
+        {
+          type: 'conditional',
+          condition: '!customer_id',
+          actions: [
+            {
+              type: 'collect_data',
+              collectFields: [
+                {
+                  key: 'customer_address',
+                  type: 'string',
+                  required: true,
+                  prompt: 'Thanks! What\'s your service address?'
+                },
+                {
+                  key: 'customer_city',
+                  type: 'string',
+                  required: false,
+                  prompt: 'Which city?'
+                },
+                {
+                  key: 'customer_province',
+                  type: 'string',
+                  required: false,
+                  prompt: 'Province?'
+                },
+                {
+                  key: 'customer_postal_code',
+                  type: 'string',
+                  required: false,
+                  prompt: 'Postal code?'
+                }
+              ]
+            },
+            {
+              type: 'mcp_call',
+              mcpTool: 'customer_create',
+              inputMapping: {
+                body_name: 'customer_name',
+                body_primary_phone: 'customer_phone',
+                body_primary_address: 'customer_address',
+                body_city: 'customer_city',
+                body_province: 'customer_province || "ON"',
+                body_postal_code: 'customer_postal_code',
+                body_country: '"Canada"'
+              },
+              outputMapping: {
+                customer_id: 'id',
+                customer_code: 'code'
+              }
+            }
+          ]
         }
       ],
 
@@ -97,188 +174,55 @@ export const CalendarBookingGraph: IntentGraph = {
         {
           type: 'required_fields',
           fields: ['customer_name', 'customer_phone'],
-          errorMessage: 'Customer name and phone are required to proceed',
-          blocking: true
-        },
-        {
-          type: 'mcp_success',
-          errorMessage: 'Failed to search for customer',
-          blocking: true
-        }
-      ],
-
-      transitions: [
-        {
-          toNode: 'welcome_existing',
-          condition: 'customer_id !== null && customer_id !== undefined',
-          description: 'Existing customer found'
-        },
-        {
-          toNode: 'create_customer',
-          isDefault: true,
-          description: 'New customer, need to create record'
-        }
-      ],
-
-      responseTemplates: [
-        {
-          condition: 'customer_id',
-          template: 'Welcome back, {{customer_name}}! I see you\'re in our system. Let\'s schedule your service.',
-          tone: 'professional'
-        },
-        {
-          template: 'Thanks {{customer_name}}! Let me get you set up in our system.',
-          tone: 'professional'
-        }
-      ]
-    },
-
-    // ========================================
-    // NODE 2: Welcome Existing Customer
-    // ========================================
-    welcome_existing: {
-      id: 'welcome_existing',
-      name: 'Welcome Existing Customer',
-      description: 'Greet returning customer and confirm details',
-      agentRoles: ['orchestrator'],
-
-      requiredState: ['customer_id', 'customer_name'],
-      producesState: [],
-
-      actions: [
-        {
-          type: 'confirm',
-          prompt: 'Welcome back, {{customer_name}}! I see you\'re in our system at {{customer_address}}. Is this still correct?'
-        }
-      ],
-
-      validations: [],
-
-      transitions: [
-        {
-          toNode: 'gather_booking_requirements',
-          isDefault: true,
-          description: 'Proceed to booking requirements'
-        }
-      ],
-
-      responseTemplates: [
-        {
-          template: 'Welcome back, {{customer_name}}! You\'re in good hands. Let\'s schedule your {{service_category}} service.',
-          tone: 'empathetic'
-        }
-      ]
-    },
-
-    // ========================================
-    // NODE 3: Create Customer
-    // ========================================
-    create_customer: {
-      id: 'create_customer',
-      name: 'Create Customer',
-      description: 'Create new customer record with collected information',
-      agentRoles: ['worker'],
-
-      requiredState: ['customer_name', 'customer_phone'],
-      producesState: ['customer_id'],
-
-      actions: [
-        {
-          type: 'collect_data',
-          collectFields: [
-            {
-              key: 'customer_email',
-              type: 'string',
-              required: false,
-              prompt: 'What\'s your email address? (optional)'
-            },
-            {
-              key: 'customer_address',
-              type: 'string',
-              required: true,
-              prompt: 'What\'s the service address?'
-            },
-            {
-              key: 'customer_city',
-              type: 'string',
-              required: true,
-              prompt: 'Which city?'
-            },
-            {
-              key: 'customer_postal_code',
-              type: 'string',
-              required: false,
-              prompt: 'And your postal code?'
-            }
-          ]
-        },
-        {
-          type: 'mcp_call',
-          mcpTool: 'customer_create',
-          inputMapping: {
-            body_name: 'customer_name',
-            body_primary_phone: 'customer_phone',
-            body_primary_email: 'customer_email',
-            body_primary_address: 'customer_address',
-            body_city: 'customer_city',
-            body_postal_code: 'customer_postal_code',
-            body_province: '"ON"',
-            body_country: '"Canada"'
-          },
-          outputMapping: {
-            customer_id: 'id',
-            customer_code: 'code'
-          }
-        }
-      ],
-
-      validations: [
-        {
-          type: 'required_fields',
-          fields: ['customer_address', 'customer_city'],
-          errorMessage: 'Service address and city are required',
-          blocking: true
-        },
-        {
-          type: 'mcp_success',
-          errorMessage: 'Failed to create customer record',
+          errorMessage: 'Customer name and phone are required',
           blocking: true
         },
         {
           type: 'required_fields',
           fields: ['customer_id'],
-          errorMessage: 'Customer ID not returned from creation',
+          errorMessage: 'Customer record not found or created',
           blocking: true
         }
       ],
 
       transitions: [
         {
-          toNode: 'gather_booking_requirements',
+          toNode: 'create_task',
+          condition: 'customer_id',
+          description: 'Customer found/created, proceed to task creation'
+        },
+        {
+          toNode: 'create_or_find_customer',
           isDefault: true,
-          description: 'Customer created, proceed to booking'
+          description: 'Retry if customer not created'
         }
       ],
 
       responseTemplates: [
         {
-          template: 'Perfect! I\'ve got your information saved. Now let\'s schedule your service.',
+          condition: 'customer_id && !is_new_customer',
+          template: 'Welcome back, {{customer_name}}! Let\'s schedule your service.',
+          tone: 'professional'
+        },
+        {
+          condition: 'customer_id && is_new_customer',
+          template: 'Perfect! I\'ve saved your information. Now let\'s schedule your service.',
           tone: 'professional'
         }
       ]
     },
 
     // ========================================
-    // NODE 4: Gather Booking Requirements
+    // NODE 2: Create Task
     // ========================================
-    gather_booking_requirements: {
-      id: 'gather_booking_requirements',
-      name: 'Gather Booking Requirements',
-      description: 'Collect service type, date preferences, and requirements',
-      agentRoles: ['worker', 'orchestrator'],
+    create_task: {
+      id: 'create_task',
+      name: 'Create Task',
+      description: 'Create task record with customer issue/service request and link to customer',
+      agentRoles: ['worker'],
 
       requiredState: ['customer_id'],
-      producesState: ['service_category', 'desired_date', 'desired_time', 'job_description'],
+      producesState: ['task_id', 'task_code', 'service_category', 'job_description'],
 
       actions: [
         {
@@ -288,223 +232,237 @@ export const CalendarBookingGraph: IntentGraph = {
               key: 'service_category',
               type: 'string',
               required: true,
-              prompt: 'What service do you need? (HVAC, Plumbing, Electrical, Landscaping, General Contracting)'
+              prompt: 'What type of service do you need? (e.g., HVAC, Plumbing, Electrical, Landscaping, General Contracting)'
             },
             {
               key: 'job_description',
               type: 'string',
               required: true,
-              prompt: 'Can you briefly describe what you need done?'
-            },
-            {
-              key: 'desired_date',
-              type: 'date',
-              required: true,
-              prompt: 'When would you like us to come? (preferred date)',
-              validation: '^\\d{4}-\\d{2}-\\d{2}$'
-            },
-            {
-              key: 'desired_time',
-              type: 'string',
-              required: false,
-              prompt: 'Do you have a preferred time? (morning, afternoon, or specific time)'
+              prompt: 'Please tell me what you need done.'
             }
           ]
-        }
-      ],
-
-      validations: [
-        {
-          type: 'required_fields',
-          fields: ['service_category', 'desired_date', 'job_description'],
-          errorMessage: 'Service type, date, and description are required',
-          blocking: true
         },
-        {
-          type: 'business_rule',
-          rule: 'desired_date >= today',
-          errorMessage: 'Date must be in the future',
-          blocking: true
-        }
-      ],
-
-      transitions: [
-        {
-          toNode: 'find_available_slots',
-          isDefault: true,
-          description: 'Requirements collected, find availability'
-        }
-      ],
-
-      responseTemplates: [
-        {
-          template: 'That sounds {{issue_severity}}. You\'re in good hands. Let me check our {{service_category}} availability for {{desired_date}}.',
-          tone: 'empathetic'
-        }
-      ]
-    },
-
-    // ========================================
-    // NODE 5: Find Available Slots
-    // ========================================
-    find_available_slots: {
-      id: 'find_available_slots',
-      name: 'Find Available Slots',
-      description: 'Query calendar system for available technicians/slots',
-      agentRoles: ['worker'],
-
-      requiredState: ['service_category', 'desired_date'],
-      producesState: ['available_slots', 'available_employees'],
-
-      actions: [
-        {
-          type: 'mcp_call',
-          mcpTool: 'employee_list',
-          inputMapping: {
-            query_department: 'service_category',
-            query_status: '"active"'
-          },
-          outputMapping: {
-            available_employees: 'employees'
-          }
-        }
-      ],
-
-      validations: [
-        {
-          type: 'mcp_success',
-          errorMessage: 'Failed to check availability',
-          blocking: true
-        },
-        {
-          type: 'business_rule',
-          rule: 'available_employees && available_employees.length > 0',
-          errorMessage: 'No technicians available for this service category',
-          blocking: false
-        }
-      ],
-
-      transitions: [
-        {
-          toNode: 'propose_options',
-          condition: 'available_employees && available_employees.length > 0',
-          description: 'Slots found, present options'
-        },
-        {
-          toNode: 'gather_booking_requirements',
-          condition: '!available_employees || available_employees.length === 0',
-          description: 'No availability, ask for alternative date'
-        }
-      ],
-
-      responseTemplates: [
-        {
-          condition: 'available_employees && available_employees.length > 0',
-          template: 'Great news! We have {{available_employees.length}} technicians available.',
-          tone: 'professional'
-        },
-        {
-          template: 'I\'m sorry, we don\'t have availability on {{desired_date}}. Can you try another date?',
-          tone: 'empathetic'
-        }
-      ]
-    },
-
-    // ========================================
-    // NODE 6: Propose Options
-    // ========================================
-    propose_options: {
-      id: 'propose_options',
-      name: 'Propose Options',
-      description: 'Present 1-3 best time slot options to the user',
-      agentRoles: ['orchestrator'],
-
-      requiredState: ['available_employees', 'desired_date'],
-      producesState: ['selected_employee_id', 'selected_time'],
-
-      actions: [
-        {
-          type: 'present_options',
-          prompt: 'I can schedule you with {{available_employees[0].name}} on {{desired_date}}. What time works best? We have morning (9 AM) or afternoon (2 PM) available.'
-        },
-        {
-          type: 'collect_data',
-          collectFields: [
-            {
-              key: 'selected_time',
-              type: 'string',
-              required: true,
-              prompt: 'Which time slot would you prefer?'
-            }
-          ]
-        }
-      ],
-
-      validations: [
-        {
-          type: 'required_fields',
-          fields: ['selected_time'],
-          errorMessage: 'Please select a time slot',
-          blocking: true
-        }
-      ],
-
-      transitions: [
-        {
-          toNode: 'create_booking',
-          isDefault: true,
-          description: 'User selected time, proceed to create booking'
-        }
-      ],
-
-      requiresUserConfirmation: true,
-
-      responseTemplates: [
-        {
-          template: 'Perfect! I\'ll book you for {{selected_time}} on {{desired_date}} with {{available_employees[0].name}}.',
-          tone: 'professional'
-        }
-      ]
-    },
-
-    // ========================================
-    // NODE 7: Create Booking
-    // ========================================
-    create_booking: {
-      id: 'create_booking',
-      name: 'Create Booking',
-      description: 'Create the actual booking/task in the system',
-      agentRoles: ['worker'],
-
-      requiredState: ['customer_id', 'service_category', 'desired_date', 'selected_time', 'job_description'],
-      producesState: ['booking_id', 'task_id', 'task_code'],
-
-      actions: [
         {
           type: 'mcp_call',
           mcpTool: 'task_create',
           inputMapping: {
-            body_name: 'job_description',
-            body_descr: 'job_description',
-            body_task_category: 'service_category',
-            body_task_priority: '"medium"',
-            body_task_stage: '"new"'
+            body_name: 'service_category + ": " + job_description',
+            body_descr: '"Customer: " + customer_name + "\\nIssue: " + job_description',
+            body_metadata: 'JSON.stringify({ customer_id: customer_id, service_category: service_category })'
           },
           outputMapping: {
             task_id: 'id',
-            task_code: 'code',
-            task_name: 'name'
+            task_code: 'code'
           }
         },
         {
           type: 'mcp_call',
           mcpTool: 'linkage_create',
           inputMapping: {
-            body_parent_entity_type: '"customer"',
+            body_parent_entity_type: '"cust"',
             body_parent_entity_id: 'customer_id',
             body_child_entity_type: '"task"',
-            body_child_entity_id: 'task_id',
-            body_linkage_type: '"customer_task"'
+            body_child_entity_id: 'task_id'
+          },
+          outputMapping: {}
+        }
+      ],
+
+      validations: [
+        {
+          type: 'required_fields',
+          fields: ['service_category', 'job_description'],
+          errorMessage: 'Service type and description are required',
+          blocking: true
+        },
+        {
+          type: 'mcp_success',
+          errorMessage: 'Failed to create task',
+          blocking: true
+        },
+        {
+          type: 'required_fields',
+          fields: ['task_id'],
+          errorMessage: 'Task ID not returned',
+          blocking: true
+        }
+      ],
+
+      transitions: [
+        {
+          toNode: 'find_available_employee',
+          condition: 'task_id',
+          description: 'Task created, find available employee'
+        },
+        {
+          toNode: 'create_task',
+          isDefault: true,
+          description: 'Retry if task not created'
+        }
+      ],
+
+      responseTemplates: [
+        {
+          template: 'Got it! I\'ve created work order #{{task_code}}. Let me find you an available technician.',
+          tone: 'professional'
+        }
+      ]
+    },
+
+    // ========================================
+    // NODE 3: Find Available Employee
+    // ========================================
+    find_available_employee: {
+      id: 'find_available_employee',
+      name: 'Find Available Employee',
+      description: 'Find employee with service expertise matching customer request',
+      agentRoles: ['worker'],
+
+      requiredState: ['task_id', 'service_category'],
+      producesState: ['assigned_employee_id', 'assigned_employee_name', 'assigned_employee_phone', 'desired_date'],
+
+      actions: [
+        {
+          type: 'collect_data',
+          collectFields: [
+            {
+              key: 'desired_date',
+              type: 'string',
+              required: true,
+              prompt: 'When would you like us to come?'
+            }
+          ]
+        },
+        {
+          type: 'mcp_call',
+          mcpTool: 'employee_list',
+          inputMapping: {
+            query_active: '"true"'
+          },
+          outputMapping: {
+            available_employees: 'data'
+          }
+        },
+        {
+          type: 'select_best',
+          description: 'Select employee with matching service expertise',
+          logic: 'Filter employees by service_category expertise, then select first available',
+          outputMapping: {
+            assigned_employee_id: 'selected_employee.id',
+            assigned_employee_name: 'selected_employee.name',
+            assigned_employee_phone: 'selected_employee.phone || selected_employee.primary_phone'
+          }
+        }
+      ],
+
+      validations: [
+        {
+          type: 'required_fields',
+          fields: ['desired_date'],
+          errorMessage: 'Desired date is required',
+          blocking: true
+        },
+        {
+          type: 'mcp_success',
+          errorMessage: 'Failed to fetch employees',
+          blocking: true
+        },
+        {
+          type: 'business_rule',
+          rule: 'available_employees && available_employees.length > 0',
+          errorMessage: 'No technicians available',
+          blocking: true
+        }
+      ],
+
+      transitions: [
+        {
+          toNode: 'create_calendar_event',
+          condition: 'assigned_employee_id',
+          description: 'Employee found, create calendar event'
+        },
+        {
+          toNode: 'find_available_employee',
+          condition: '!assigned_employee_id',
+          description: 'No employees available, ask for different date'
+        }
+      ],
+
+      responseTemplates: [
+        {
+          condition: 'assigned_employee_id',
+          template: 'Great! I found {{assigned_employee_name}}, our {{service_category}} specialist.',
+          tone: 'professional'
+        },
+        {
+          template: 'I\'m sorry, no technicians are available on {{desired_date}}. Can you try another date?',
+          tone: 'empathetic'
+        }
+      ]
+    },
+
+    // ========================================
+    // NODE 4: Create Calendar Event
+    // ========================================
+    create_calendar_event: {
+      id: 'create_calendar_event',
+      name: 'Create Calendar Event',
+      description: 'Create calendar event with task link in description, link to task and employee, assign employee to task',
+      agentRoles: ['worker'],
+
+      requiredState: ['task_id', 'task_code', 'customer_id', 'customer_name', 'assigned_employee_id', 'desired_date', 'service_category'],
+      producesState: ['calendar_event_id'],
+
+      actions: [
+        {
+          type: 'parse_datetime',
+          input: 'desired_date',
+          output: ['start_time', 'end_time'],
+          defaultDuration: '2 hours'
+        },
+        {
+          type: 'mcp_call',
+          mcpTool: 'calendar_create',
+          inputMapping: {
+            body_title: 'service_category + " Service - " + customer_name',
+            body_description: '"Work Order: #" + task_code + "\\nTask ID: " + task_id + "\\nCustomer: " + customer_name + "\\nService: " + service_category + "\\nAddress: " + customer_address',
+            body_start_time: 'start_time',
+            body_end_time: 'end_time',
+            body_metadata: 'JSON.stringify({ task_id: task_id, customer_id: customer_id, employee_id: assigned_employee_id })'
+          },
+          outputMapping: {
+            calendar_event_id: 'id'
+          }
+        },
+        {
+          type: 'mcp_call',
+          mcpTool: 'linkage_create',
+          inputMapping: {
+            body_parent_entity_type: '"task"',
+            body_parent_entity_id: 'task_id',
+            body_child_entity_type: '"calendar"',
+            body_child_entity_id: 'calendar_event_id'
+          },
+          outputMapping: {}
+        },
+        {
+          type: 'mcp_call',
+          mcpTool: 'linkage_create',
+          inputMapping: {
+            body_parent_entity_type: '"employee"',
+            body_parent_entity_id: 'assigned_employee_id',
+            body_child_entity_type: '"calendar"',
+            body_child_entity_id: 'calendar_event_id'
+          },
+          outputMapping: {}
+        },
+        {
+          type: 'mcp_call',
+          mcpTool: 'task_update',
+          inputMapping: {
+            id: 'task_id',
+            body_assignee_id: 'assigned_employee_id',
+            body_task_stage: '"assigned"'
           },
           outputMapping: {}
         }
@@ -513,68 +471,117 @@ export const CalendarBookingGraph: IntentGraph = {
       validations: [
         {
           type: 'mcp_success',
-          errorMessage: 'Failed to create booking',
+          errorMessage: 'Failed to create calendar event',
           blocking: true
         },
         {
           type: 'required_fields',
-          fields: ['task_id'],
-          errorMessage: 'Booking ID not returned',
+          fields: ['calendar_event_id'],
+          errorMessage: 'Calendar event ID not returned',
           blocking: true
         }
       ],
 
       transitions: [
         {
-          toNode: 'confirm_and_summarize',
+          toNode: 'confirm_and_notify',
+          condition: 'calendar_event_id',
+          description: 'Calendar event created, confirm with customer'
+        },
+        {
+          toNode: 'create_calendar_event',
           isDefault: true,
-          description: 'Booking created, confirm with user'
+          description: 'Retry if calendar event not created'
         }
       ],
 
       responseTemplates: [
         {
-          template: 'Excellent! Your booking has been created successfully.',
+          template: 'Perfect! The appointment has been scheduled.',
           tone: 'professional'
         }
       ]
     },
 
     // ========================================
-    // NODE 8: Confirm and Summarize
+    // NODE 5: Confirm and Notify
     // ========================================
-    confirm_and_summarize: {
-      id: 'confirm_and_summarize',
-      name: 'Confirm and Summarize',
-      description: 'Provide final confirmation and summary to the user',
+    confirm_and_notify: {
+      id: 'confirm_and_notify',
+      name: 'Confirm and Notify',
+      description: 'Give customer complete info: technician name, phone, date/time. Ask if there are other requests.',
       agentRoles: ['orchestrator'],
 
-      requiredState: ['task_code', 'customer_name', 'desired_date', 'selected_time', 'service_category', 'customer_address'],
-      producesState: [],
+      requiredState: ['customer_name', 'assigned_employee_name', 'assigned_employee_phone', 'desired_date', 'service_category', 'customer_address', 'task_code'],
+      producesState: ['has_another_request', 'next_intent'],
 
       actions: [
         {
           type: 'summarize',
-          prompt: 'Booking confirmed! Here\'s your summary:'
+          template: `✅ **Booking Confirmed!**
+
+{{customer_name}}, your {{service_category}} service is all set!
+
+👤 **Technician**: {{assigned_employee_name}}
+📞 **Their Phone**: {{assigned_employee_phone}}
+📅 **Date**: {{formatted_date}}
+⏰ **Time**: {{formatted_time}}
+📍 **Location**: {{customer_address}}
+🎫 **Work Order**: #{{task_code}}
+
+{{assigned_employee_name}} will arrive at your location at {{formatted_time}} on {{formatted_date}}.`
+        },
+        {
+          type: 'collect_data',
+          collectFields: [
+            {
+              key: 'has_another_request',
+              type: 'boolean',
+              required: false,
+              prompt: 'Is there anything else you need help with today?'
+            }
+          ]
+        },
+        {
+          type: 'conditional',
+          condition: 'has_another_request === true',
+          actions: [
+            {
+              type: 'route_to_intent',
+              description: 'Route to appropriate intent graph based on user request',
+              outputMapping: {
+                next_intent: 'detected_intent'
+              }
+            }
+          ]
         }
       ],
 
       validations: [],
 
-      transitions: [],
+      transitions: [
+        {
+          toNode: 'END',
+          condition: 'has_another_request === false || !has_another_request',
+          description: 'No other requests, end call'
+        },
+        {
+          toNode: 'ROUTE_TO_INTENT',
+          condition: 'has_another_request === true && next_intent',
+          description: 'Route to next intent graph'
+        }
+      ],
 
       responseTemplates: [
         {
-          template: `Perfect! You're all set, {{customer_name}}.
-
-📅 **Booking Confirmed**
-- **Service**: {{service_category}}
-- **Date**: {{desired_date}} at {{selected_time}}
-- **Location**: {{customer_address}}
-- **Booking #**: {{task_code}}
-
-We'll send a reminder to {{customer_email}} or {{customer_phone}}. Is there anything else you need help with?`,
+          condition: 'has_another_request === false',
+          template: 'Thank you for choosing Huron Home Services! Have a great day!',
           tone: 'professional'
+        },
+        {
+          condition: 'has_another_request === true',
+          template: 'Absolutely! What else can I help you with?',
+          tone: 'helpful'
         }
       ]
     }
