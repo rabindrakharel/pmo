@@ -73,6 +73,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         business_id: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
       }),
       response: {
         200: Type.Object({
@@ -87,8 +88,9 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      active, search, dl__project_stage, business_id, limit = 50, offset = 0
+      active, search, dl__project_stage, business_id, limit = 20, offset: queryOffset, page
     } = request.query as any;
+    const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
     const userId = (request as any).user?.sub;
     if (!userId) {

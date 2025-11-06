@@ -8,6 +8,45 @@ import WebSocket from 'ws';
 import { processVoiceMessage } from './orchestrator/voice-orchestrator.service.js';
 
 /**
+ * Convert raw PCM16 audio to WAV format with proper headers
+ * @param pcmData - Raw PCM16 audio data (16-bit signed integers, mono, 24kHz)
+ * @returns WAV file buffer with RIFF headers
+ */
+function pcm16ToWav(pcmData: Buffer): Buffer {
+  const sampleRate = 24000;
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+  const blockAlign = numChannels * (bitsPerSample / 8);
+  const dataSize = pcmData.length;
+
+  // Create WAV header (44 bytes)
+  const header = Buffer.alloc(44);
+
+  // RIFF chunk descriptor
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + dataSize, 4); // File size - 8
+  header.write('WAVE', 8);
+
+  // fmt sub-chunk
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16); // Subchunk1Size (16 for PCM)
+  header.writeUInt16LE(1, 20); // AudioFormat (1 for PCM)
+  header.writeUInt16LE(numChannels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+
+  // data sub-chunk
+  header.write('data', 36);
+  header.writeUInt32LE(dataSize, 40);
+
+  // Concatenate header + PCM data
+  return Buffer.concat([header, pcmData]);
+}
+
+/**
  * Voice session configuration
  */
 export interface VoiceLangraphSessionConfig {
@@ -71,39 +110,25 @@ export class VoiceLangraphSession {
       console.error(`❌ Client WebSocket error for session ${this.sessionId}:`, error);
     });
 
-    // Send initial greeting
+    // Send initial greeting (simple TTS without LangGraph to avoid loops)
     setTimeout(async () => {
       try {
-        // Import the langraph orchestrator and TTS
-        const { getLangGraphOrchestratorService } = await import('./orchestrator/langgraph/langgraph-orchestrator.service.js');
         const { textToSpeech } = await import('./orchestrator/voice-orchestrator.service.js');
 
-        const orchestrator = getLangGraphOrchestratorService();
-
-        // Send [CALL_STARTED] trigger to orchestrator
-        const greetingResult = await orchestrator.processMessage({
-          sessionId: this.orchestratorSessionId,
-          message: '[CALL_STARTED]',
-          authToken: this.authToken,
-          chatSessionId: this.interactionSessionId
-        });
-
-        this.orchestratorSessionId = greetingResult.sessionId;
+        const greetingText = "Hi! I'm the assistant for Huron Home Services. How can I help you today?";
 
         // Convert greeting text to speech
-        const greetingAudio = await textToSpeech(greetingResult.response, 'nova');
+        const greetingAudio = await textToSpeech(greetingText, 'nova');
 
         // Send greeting audio to client
         this.clientWs.send(JSON.stringify({
           type: 'audio.response',
           audio: greetingAudio.toString('base64'),
-          transcript: greetingResult.response,
-          session_id: this.orchestratorSessionId,
-          intent: greetingResult.intent,
-          current_node: greetingResult.currentNode
+          transcript: greetingText,
+          session_id: this.sessionId
         }));
 
-        console.log(`🎙️ Sent initial greeting for session ${this.sessionId}: "${greetingResult.response}"`);
+        console.log(`🎙️ Sent initial greeting for session ${this.sessionId}`);
       } catch (error) {
         console.error(`Error sending initial greeting:`, error);
       }
@@ -158,11 +183,15 @@ export class VoiceLangraphSession {
     this.isProcessing = true;
 
     try {
-      // Concatenate all audio chunks
-      const fullAudioBuffer = Buffer.concat(this.audioBuffer);
+      // Concatenate all audio chunks (raw PCM16 data)
+      const rawPcmBuffer = Buffer.concat(this.audioBuffer);
       this.audioBuffer = []; // Clear buffer
 
-      console.log(`🎤 Processing audio: ${fullAudioBuffer.length} bytes for session ${this.sessionId}`);
+      console.log(`🎤 Processing audio: ${rawPcmBuffer.length} bytes raw PCM for session ${this.sessionId}`);
+
+      // Convert raw PCM16 to WAV format with headers
+      const wavBuffer = pcm16ToWav(rawPcmBuffer);
+      console.log(`🔄 Converted to WAV: ${wavBuffer.length} bytes (added ${wavBuffer.length - rawPcmBuffer.length} byte header)`);
 
       // Send processing indicator to client
       this.clientWs.send(JSON.stringify({
@@ -172,8 +201,8 @@ export class VoiceLangraphSession {
       // Process through Whisper + Langraph + TTS
       const result = await processVoiceMessage({
         sessionId: this.orchestratorSessionId,
-        audioBuffer: fullAudioBuffer,
-        audioFormat: 'webm',
+        audioBuffer: wavBuffer,
+        audioFormat: 'wav',  // Now it's a proper WAV file
         authToken: this.authToken,
         chatSessionId: this.interactionSessionId,
         voice: 'nova'

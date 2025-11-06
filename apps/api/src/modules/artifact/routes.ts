@@ -85,6 +85,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       querystring: Type.Object({
         limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 20 })),
         offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
         artifact_type: Type.Optional(Type.String()),
         active: Type.Optional(Type.Boolean()),
       }),
@@ -98,20 +99,23 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { limit = 20, offset = 0, artifact_type, active_flag = true } = request.query as any;
+    const { limit = 20, offset: queryOffset, page, artifact_type, active_flag = true } = request.query as any;
+    const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
     try {
-      // Build WHERE conditions
-      const conditions = ['a.active_flag = true'];
-      if (artifact_type) conditions.push(`a.artifact_type = '${artifact_type}'`);
-      
-      const whereClause = conditions.join(' AND ');
+      // Build WHERE conditions using proper SQL template literals
+      const conditions = [];
+      conditions.push(sql`active_flag = true`);
+
+      if (artifact_type) {
+        conditions.push(sql`artifact_type = ${artifact_type}`);
+      }
 
       // Get total count
       const countResult = await db.execute(sql`
-        SELECT COUNT(*) as count 
-        FROM app.d_artifact a 
-        WHERE ${sql.raw(whereClause)}
+        SELECT COUNT(*) as count
+        FROM app.d_artifact
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.count || 0);
 
@@ -123,9 +127,9 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           attachment_object_bucket, attachment_object_key, visibility, security_classification,
           latest_version_flag, version, active_flag,
           from_ts, to_ts, created_ts, updated_ts
-        FROM app.d_artifact a
-        WHERE ${sql.raw(whereClause)}
-        ORDER BY a.created_ts DESC
+        FROM app.d_artifact
+        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        ORDER BY created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 

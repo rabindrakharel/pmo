@@ -38,7 +38,8 @@
     "@tiptap/extension-youtube": "^2.6.6",
     "@tiptap/react": "^2.6.6",
     "@tiptap/starter-kit": "^2.6.6",
-    "lowlight": "^3.1.0"
+    "lowlight": "^3.1.0",
+    "nodemailer": "^7.0.10"
   },
   "packageManager": "pnpm@8.15.1",
   "engines": {

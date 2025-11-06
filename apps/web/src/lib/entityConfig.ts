@@ -2970,7 +2970,21 @@ export const entityConfigs: Record<string, EntityConfig> = {
           { value: 'customer', label: 'Customer' }
         ]
       },
-      { key: 'person_entity_id', label: 'Person ID', type: 'text', required: true },
+      {
+        key: 'person_entity_id',
+        label: 'Person',
+        type: 'select',
+        required: true,
+        loadOptionsFrom: 'employee', // Default to employee, will be overridden by conditional logic
+        conditionalOptions: {
+          dependsOn: 'person_entity_type',
+          mapping: {
+            'employee': 'employee',
+            'client': 'client',
+            'customer': 'cust'
+          }
+        }
+      },
       { key: 'from_ts', label: 'Start Time', type: 'date', required: true },
       { key: 'to_ts', label: 'End Time', type: 'date', required: true },
       { key: 'timezone', label: 'Timezone', type: 'text' },

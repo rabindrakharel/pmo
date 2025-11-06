@@ -214,6 +214,75 @@ output "deployment_summary" {
   }
 }
 
+# ============================================================================
+# SES (Email Service) Outputs
+# ============================================================================
+
+output "ses_domain_identity_arn" {
+  description = "ARN of the SES domain identity"
+  value       = module.ses.domain_identity_arn
+}
+
+output "ses_smtp_endpoint" {
+  description = "SMTP endpoint for sending emails via SES"
+  value       = module.ses.ses_smtp_endpoint
+}
+
+output "ses_configuration_set" {
+  description = "SES configuration set name for tracking"
+  value       = module.ses.configuration_set_name
+}
+
+output "ses_verification_instructions" {
+  description = "Instructions for verifying SES domain"
+  value = <<-EOT
+
+  ============================================================================
+  📧 SES Domain Verification
+  ============================================================================
+
+  Your domain ${var.domain_name} has been configured for SES.
+  ${var.create_dns_records ? "DNS records have been automatically created in Route 53." : "You need to manually add the following DNS records:"}
+
+  ${var.create_dns_records ? "" : "1. TXT Record: _amazonses.${var.domain_name}\n   Value: ${module.ses.domain_identity_verification_token}\n"}
+  ${var.create_dns_records ? "" : "2. DKIM CNAME Records (3 records):\n   ${join("\n   ", [for token in module.ses.dkim_tokens : "${token}._domainkey.${var.domain_name} -> ${token}.dkim.amazonses.com"])}\n"}
+
+  Check verification status:
+  aws ses get-identity-verification-attributes --identities ${var.domain_name}
+
+  ============================================================================
+  EOT
+}
+
+# ============================================================================
+# SNS (SMS Service) Outputs
+# ============================================================================
+
+output "sns_app_notifications_topic_arn" {
+  description = "ARN of SNS topic for application notifications"
+  value       = module.sns.app_notifications_topic_arn
+}
+
+output "sns_sms_delivery_log_group" {
+  description = "CloudWatch log group for SMS delivery logs"
+  value       = module.sns.log_group_name
+}
+
+output "sns_monthly_spend_limit" {
+  description = "Monthly SMS spend limit"
+  value       = module.sns.monthly_sms_spend_limit
+}
+
+output "sns_configuration" {
+  description = "SNS SMS configuration details"
+  value = {
+    monthly_spend_limit = module.sns.monthly_sms_spend_limit
+    default_sms_type    = module.sns.default_sms_type
+    topic_arn           = module.sns.app_notifications_topic_arn
+    log_group           = module.sns.log_group_name
+  }
+}
+
 output "next_steps" {
   description = "Next steps after deployment"
   value = <<-EOT
@@ -239,7 +308,16 @@ output "next_steps" {
      SSH: ssh -i ~/.ssh/id_ed25519 ubuntu@${module.ec2.instance_public_ip}
      Run: sudo /root/setup-ssl.sh
 
-  4️⃣  ACCESS YOUR APPLICATION
+  4️⃣  VERIFY SES DOMAIN (For Email)
+     ${var.create_dns_records ? "DNS records automatically created - wait 10-30 mins for verification" : "Add DNS TXT and CNAME records shown in ses_verification_instructions output"}
+     Check: aws ses get-identity-verification-attributes --identities ${var.domain_name}
+
+  5️⃣  TEST SMS SENDING (Optional)
+     SMS is ready to use via SNS
+     Monthly spend limit: ${module.sns.monthly_sms_spend_limit}
+     Use AWS SDK to publish to phone numbers
+
+  6️⃣  ACCESS YOUR APPLICATION
      Landing Page: https://${var.app_subdomain}.${var.domain_name}
      Signup: https://${var.app_subdomain}.${var.domain_name}/signup
      Login: https://${var.app_subdomain}.${var.domain_name}/login

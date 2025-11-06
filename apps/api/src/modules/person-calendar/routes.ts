@@ -7,6 +7,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { client, db } from '../../db/index.js';
 import type { PersonCalendar, CreatePersonCalendarRequest, UpdatePersonCalendarRequest } from './types.js';
+import { paginateQuery, getPaginationParams } from '../../lib/pagination.js';
 
 /**
  * Register person calendar routes
@@ -20,78 +21,57 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
     Querystring: { availability_flag?: string; page?: number; limit?: number };
   }>('/api/v1/person-calendar', async (request, reply) => {
     try {
-      const { availability_flag, page, limit } = request.query;
+      const { availability_flag } = request.query;
+      const { page, limit, offset } = getPaginationParams(request.query);
 
-      // Build query with optional availability_flag filter
-      let query;
+      // Build base WHERE clause
+      const availabilityFilter = availability_flag !== undefined
+        ? client`AND availability_flag = ${availability_flag === 'true'}`
+        : client``;
 
-      if (availability_flag !== undefined) {
-        const isAvailable = availability_flag === 'true';
-        query = client`
-          SELECT
-            id::text,
-            code,
-            name,
-            descr,
-            person_entity_type,
-            person_entity_id::text,
-            from_ts::text,
-            to_ts::text,
-            timezone,
-            availability_flag,
-            title,
-            appointment_medium,
-            appointment_addr,
-            instructions,
-            event_id::text,
-            metadata,
-            reminder_sent_flag,
-            reminder_sent_ts::text,
-            confirmation_sent_flag,
-            confirmation_sent_ts::text,
-            active_flag,
-            created_ts::text,
-            updated_ts::text,
-            version
-          FROM app.d_entity_person_calendar
-          WHERE active_flag = true
-            AND availability_flag = ${isAvailable}
-          ORDER BY from_ts ASC
-        `;
-      } else {
-        query = client`
-          SELECT
-            id::text,
-            code,
-            name,
-            descr,
-            person_entity_type,
-            person_entity_id::text,
-            from_ts::text,
-            to_ts::text,
-            timezone,
-            availability_flag,
-            title,
-            appointment_medium,
-            appointment_addr,
-            instructions,
-            event_id::text,
-            metadata,
-            reminder_sent_flag,
-            reminder_sent_ts::text,
-            confirmation_sent_flag,
-            confirmation_sent_ts::text,
-            active_flag,
-            created_ts::text,
-            updated_ts::text,
-            version
-          FROM app.d_entity_person_calendar
-          WHERE active_flag = true
-          ORDER BY from_ts ASC
-        `;
-      }
+      // Data query with pagination
+      const dataQuery = client`
+        SELECT
+          id::text,
+          code,
+          name,
+          descr,
+          person_entity_type,
+          person_entity_id::text,
+          from_ts::text,
+          to_ts::text,
+          timezone,
+          availability_flag,
+          title,
+          appointment_medium,
+          appointment_addr,
+          instructions,
+          event_id::text,
+          metadata,
+          reminder_sent_flag,
+          reminder_sent_ts::text,
+          confirmation_sent_flag,
+          confirmation_sent_ts::text,
+          active_flag,
+          created_ts::text,
+          updated_ts::text,
+          version
+        FROM app.d_entity_person_calendar
+        WHERE active_flag = true ${availabilityFilter}
+        ORDER BY from_ts ASC
+        LIMIT ${limit}
+        OFFSET ${offset}
+      `;
 
-      const result = await query;
+      // Count query for total records
+      const countQuery = client`
+        SELECT COUNT(*) as total
+        FROM app.d_entity_person_calendar
+        WHERE active_flag = true ${availabilityFilter}
+      `;
+
+      // Execute paginated query
+      const result = await paginateQuery(dataQuery, countQuery, page, limit);
       reply.code(200).send(result);
     } catch (error) {
       console.error('Error fetching person calendar:', error);

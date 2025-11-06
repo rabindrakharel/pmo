@@ -115,6 +115,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
         is_public: Type.Optional(Type.Boolean()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
         search: Type.Optional(Type.String()),
       }),
       response: {
@@ -136,9 +137,11 @@ export async function reportsRoutes(fastify: FastifyInstance) {
         report_category,
         is_public,
         limit = 20,
-        offset = 0,
+        offset: queryOffset,
+        page,
         search
       } = request.query as any;
+      const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
       // Build where conditions
       const conditions = [];

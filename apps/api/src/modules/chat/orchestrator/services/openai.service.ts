@@ -357,6 +357,74 @@ Respond in JSON format:
       };
     }
   }
+
+  /**
+   * Map customer's problem to available services using GPT-3.5 Turbo
+   */
+  async mapToService(args: {
+    problemDescription: string;
+    availableServices: Array<{ id: string; name: string; description?: string }>;
+    conversationContext?: string;
+  }): Promise<{
+    serviceId: string | null;
+    serviceName: string | null;
+    confidence: number;
+    reasoning: string;
+    tokensUsed: number;
+    costCents: number;
+  }> {
+    const systemPrompt = `You are a service mapping specialist for a home services company.
+
+Available services:
+${args.availableServices.map(s => `- ${s.name} (ID: ${s.id})${s.description ? `: ${s.description}` : ''}`).join('\n')}
+
+${args.conversationContext ? `Context: ${args.conversationContext}` : ''}
+
+Analyze the customer's problem and determine which service best matches their need.
+If no service matches confidently, return null for serviceId.
+
+Respond in JSON format:
+{
+  "service_id": "<service_id or null>",
+  "service_name": "<service_name or null>",
+  "confidence": <0-100>,
+  "reasoning": "<brief explanation of why this service was selected>"
+}`;
+
+    const messages: ChatCompletionMessageParam[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: `Customer's problem: ${args.problemDescription}` },
+    ];
+
+    const response = await this.callAgent({
+      agentType: 'worker',
+      messages,
+      temperature: 0.3,
+      jsonMode: true,
+    });
+
+    try {
+      const result = JSON.parse(response.content);
+      return {
+        serviceId: result.service_id || null,
+        serviceName: result.service_name || null,
+        confidence: result.confidence || 0,
+        reasoning: result.reasoning || 'No reasoning provided',
+        tokensUsed: response.tokensUsed,
+        costCents: response.costCents,
+      };
+    } catch (error) {
+      console.error('[OpenAI] Failed to parse service mapping response:', error);
+      return {
+        serviceId: null,
+        serviceName: null,
+        confidence: 0,
+        reasoning: 'Failed to parse LLM response',
+        tokensUsed: response.tokensUsed,
+        costCents: response.costCents,
+      };
+    }
+  }
 }
 
 /**

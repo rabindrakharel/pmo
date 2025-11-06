@@ -118,6 +118,55 @@ ec2_instance_type = "t3.medium"
 ec2_root_volume_size = 30
 
 # ============================================================================
+# SES (Email Service) Configuration (Optional)
+# ============================================================================
+
+# List of email addresses to verify for testing (useful in sandbox mode)
+# In sandbox mode, you can only send TO verified emails
+# Once you have production access, you can remove this
+ses_verified_emails = [
+  # "test@example.com",
+  # "admin@cohuron.com"
+]
+
+# ============================================================================
+# SNS (SMS Service) Configuration (Optional)
+# ============================================================================
+
+# Monthly spending limit for SMS in USD
+# Helps prevent unexpected charges
+# Example: $10 = ~1,550 SMS messages in US
+sns_monthly_spend_limit = "10.00"
+
+# Default sender ID (alphanumeric name shown to recipients)
+# NOTE: Not supported in US, Canada, and some other regions
+# Leave empty "" for unsupported regions
+sns_default_sender_id = ""
+
+# SMS type: "Transactional" (time-sensitive) or "Promotional" (marketing)
+# Transactional has higher priority and better delivery rates
+sns_default_sms_type = "Transactional"
+
+# Percentage of successful SMS deliveries to log (0-100)
+# 100 = log all successful deliveries (useful for debugging)
+# Lower values reduce CloudWatch costs for high-volume SMS
+sns_delivery_sampling_rate = "100"
+
+# S3 bucket for SMS usage reports (optional)
+# Leave empty "" to disable usage reports
+# If specified, must be an existing S3 bucket name
+sns_usage_report_bucket = ""
+
+# CloudWatch log retention for SMS delivery logs (in days)
+# Options: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653
+sns_log_retention_days = 30
+
+# Email address to receive SNS delivery notifications (optional)
+# Leave empty "" to disable email notifications
+# Useful for monitoring SMS delivery failures
+sns_notification_email = ""
+
+# ============================================================================
 # Resource Tagging (Optional)
 # ============================================================================
 
@@ -136,6 +185,9 @@ global_tags = {
 # Data Transfer:        ~$5-10/month
 # S3 Storage:           ~$1-5/month
 # Route 53 Hosted Zone: ~$0.50/month
+# SES Emails:           ~$0.10 per 1,000 emails (62K free/month from EC2)
+# SNS SMS:              ~$0.00645 per SMS (varies by country)
 # ----------------------------------------
-# TOTAL:                ~$55-65/month
+# TOTAL (without SES/SNS): ~$55-65/month
+# With SES/SNS (moderate use): ~$60-75/month
 # ============================================================================

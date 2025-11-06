@@ -458,6 +458,216 @@ export class CriticAgent {
 
     return false;
   }
+
+  /**
+   * Validate input data for workflow states
+   */
+  async validateInputData(args: {
+    sessionId: string;
+    currentState: string;
+    variables: Record<string, any>;
+  }): Promise<{
+    isValid: boolean;
+    errors: string[];
+    warnings: string[];
+  }> {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // Validate phone number format
+    if (args.variables.customer_phone) {
+      const phoneValidation = this.validatePhone(args.variables.customer_phone);
+      if (!phoneValidation.valid) {
+        errors.push(`Invalid phone number: ${phoneValidation.error}`);
+      }
+    }
+
+    // Validate email format
+    if (args.variables.customer_email) {
+      const emailValidation = this.validateEmail(args.variables.customer_email);
+      if (!emailValidation.valid) {
+        errors.push(`Invalid email: ${emailValidation.error}`);
+      }
+    }
+
+    // Validate date format
+    if (args.variables.desired_date) {
+      const dateValidation = this.validateDate(args.variables.desired_date);
+      if (!dateValidation.valid) {
+        errors.push(`Invalid date: ${dateValidation.error}`);
+      } else if (dateValidation.warning) {
+        warnings.push(dateValidation.warning);
+      }
+    }
+
+    // Validate time format
+    if (args.variables.selected_time) {
+      const timeValidation = this.validateTime(args.variables.selected_time);
+      if (!timeValidation.valid) {
+        errors.push(`Invalid time: ${timeValidation.error}`);
+      }
+    }
+
+    // Validate required fields based on workflow state
+    const stateRequirements = this.getStateRequirements(args.currentState);
+    for (const requiredField of stateRequirements.required) {
+      if (!args.variables[requiredField]) {
+        errors.push(`Missing required field: ${requiredField}`);
+      }
+    }
+
+    // Log validation result
+    await stateManager.logAgentAction({
+      session_id: args.sessionId,
+      agent_role: 'critic',
+      agent_action: 'validate_input_data',
+      node_context: args.currentState,
+      output_data: { errors, warnings },
+      success: errors.length === 0,
+      natural_response: errors.length > 0 ? errors.join('; ') : 'Input validation passed',
+    });
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings,
+    };
+  }
+
+  /**
+   * Validate phone number format
+   */
+  private validatePhone(phone: string): { valid: boolean; error?: string } {
+    // Remove all non-digit characters
+    const digitsOnly = phone.replace(/\D/g, '');
+
+    // Must be exactly 10 digits (North American format)
+    if (digitsOnly.length !== 10) {
+      return {
+        valid: false,
+        error: 'Phone number must be 10 digits',
+      };
+    }
+
+    // First digit can't be 0 or 1
+    if (digitsOnly[0] === '0' || digitsOnly[0] === '1') {
+      return {
+        valid: false,
+        error: 'Phone number cannot start with 0 or 1',
+      };
+    }
+
+    return { valid: true };
+  }
+
+  /**
+   * Validate email format
+   */
+  private validateEmail(email: string): { valid: boolean; error?: string } {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      return {
+        valid: false,
+        error: 'Invalid email format',
+      };
+    }
+
+    return { valid: true };
+  }
+
+  /**
+   * Validate date format and constraints
+   */
+  private validateDate(dateStr: string): { valid: boolean; error?: string; warning?: string } {
+    // Expected format: YYYY-MM-DD
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+    if (!dateRegex.test(dateStr)) {
+      return {
+        valid: false,
+        error: 'Date must be in YYYY-MM-DD format',
+      };
+    }
+
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      return {
+        valid: false,
+        error: 'Invalid date',
+      };
+    }
+
+    // Check if date is in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (date < today) {
+      return {
+        valid: false,
+        error: 'Date cannot be in the past',
+      };
+    }
+
+    // Warn if date is more than 3 months in the future
+    const threeMonthsFromNow = new Date();
+    threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
+    if (date > threeMonthsFromNow) {
+      return {
+        valid: true,
+        warning: 'Date is more than 3 months in the future',
+      };
+    }
+
+    return { valid: true };
+  }
+
+  /**
+   * Validate time format
+   */
+  private validateTime(timeStr: string): { valid: boolean; error?: string } {
+    // Expected formats: "9:00 AM", "14:30", "2:30 PM"
+    const timeRegex12Hour = /^(1[0-2]|0?[1-9]):([0-5][0-9])\s?(AM|PM)$/i;
+    const timeRegex24Hour = /^([01]?[0-9]|2[0-3]):([0-5][0-9])$/;
+
+    if (!timeRegex12Hour.test(timeStr) && !timeRegex24Hour.test(timeStr)) {
+      return {
+        valid: false,
+        error: 'Time must be in format "9:00 AM" or "14:30"',
+      };
+    }
+
+    return { valid: true };
+  }
+
+  /**
+   * Get required fields for a workflow state
+   */
+  private getStateRequirements(state: string): { required: string[]; optional: string[] } {
+    const requirements: Record<string, { required: string[]; optional: string[] }> = {
+      lookup_customer: {
+        required: ['customer_phone'],
+        optional: [],
+      },
+      create_customer: {
+        required: ['customer_phone', 'customer_name'],
+        optional: ['customer_email', 'customer_city', 'customer_address'],
+      },
+      ask_availability: {
+        required: ['customer_id', 'service_category', 'job_description'],
+        optional: [],
+      },
+      create_task: {
+        required: ['customer_id', 'service_category', 'job_description', 'desired_date', 'selected_time'],
+        optional: [],
+      },
+      create_booking: {
+        required: ['customer_id', 'task_id', 'desired_date', 'selected_time'],
+        optional: [],
+      },
+    };
+
+    return requirements[state] || { required: [], optional: [] };
+  }
 }
 
 // Export singleton instance

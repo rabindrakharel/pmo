@@ -70,7 +70,7 @@ export async function textToSpeech(text: string, voice: string = 'alloy'): Promi
     const response = await axios.post(
       `${OPENAI_API_URL}/audio/speech`,
       {
-        model: 'tts-1',  // Can use 'tts-1-hd' for higher quality
+        model: 'gpt-4o-mini-tts',  // Using GPT-4o-mini for TTS
         input: text,
         voice: voice,  // Options: alloy, echo, fable, onyx, nova, shimmer
         response_format: 'mp3',  // Options: mp3, opus, aac, flac
@@ -90,8 +90,28 @@ export async function textToSpeech(text: string, voice: string = 'alloy'): Promi
 
     return Buffer.from(response.data);
   } catch (error: any) {
-    console.error('❌ TTS Error:', error.response?.data || error.message);
-    throw new Error(`Text-to-speech failed: ${error.response?.data?.error?.message || error.message}`);
+    // Decode error buffer if present
+    let errorMessage = error.message;
+    if (error.response?.data) {
+      if (Buffer.isBuffer(error.response.data)) {
+        try {
+          const errorJson = JSON.parse(error.response.data.toString());
+          errorMessage = errorJson.error?.message || errorJson.message || error.message;
+        } catch (e) {
+          errorMessage = error.response.data.toString();
+        }
+      } else if (typeof error.response.data === 'object') {
+        errorMessage = error.response.data.error?.message || error.response.data.message || error.message;
+      }
+    }
+
+    console.error('❌ TTS Error:', {
+      status: error.response?.status,
+      message: errorMessage,
+      text: text.substring(0, 100)
+    });
+
+    throw new Error(`Text-to-speech failed: ${errorMessage}`);
   }
 }
 

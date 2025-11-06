@@ -193,3 +193,42 @@ module "lambda_ssl_renewal" {
 
   depends_on = [module.ec2]
 }
+
+# ============================================================================
+# SES Module - Email Sending Service
+# ============================================================================
+
+module "ses" {
+  source = "./modules/ses"
+
+  project_name              = var.project_name
+  domain_name               = var.domain_name
+  verified_email_addresses  = var.ses_verified_emails
+  hosted_zone_id            = var.create_dns_records ? module.route53[0].hosted_zone_id : ""
+  create_route53_records    = var.create_dns_records
+  ec2_role_name             = module.ec2.ec2_role_name
+  global_tags               = var.global_tags
+
+  depends_on = [module.route53, module.ec2]
+}
+
+# ============================================================================
+# SNS Module - SMS Sending Service
+# ============================================================================
+
+module "sns" {
+  source = "./modules/sns"
+
+  project_name                           = var.project_name
+  monthly_sms_spend_limit                = var.sns_monthly_spend_limit
+  default_sender_id                      = var.sns_default_sender_id
+  default_sms_type                       = var.sns_default_sms_type
+  delivery_status_success_sampling_rate  = var.sns_delivery_sampling_rate
+  usage_report_s3_bucket                 = var.sns_usage_report_bucket
+  log_retention_days                     = var.sns_log_retention_days
+  notification_email                     = var.sns_notification_email
+  ec2_role_name                          = module.ec2.ec2_role_name
+  global_tags                            = var.global_tags
+
+  depends_on = [module.ec2]
+}

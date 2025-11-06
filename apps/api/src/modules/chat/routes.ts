@@ -22,18 +22,14 @@ import type {
 } from './types.js';
 
 import { voiceLangraphRoutes } from './voice-langraph.routes.js';
-import { orchestratorRoutes } from './orchestrator/orchestrator.routes.js';
 import { disconnectVoiceLangraphSession, getActiveVoiceLangraphSessionCount } from './voice-langraph.service.js';
 
 /**
  * Register chat routes
  */
 export async function chatRoutes(fastify: FastifyInstance) {
-  // Register voice WebSocket routes (cost-optimized)
+  // Register voice WebSocket routes
   await voiceLangraphRoutes(fastify);
-
-  // Register orchestrator routes
-  await orchestratorRoutes(fastify);
 
   /**
    * POST /api/v1/chat/session/new
@@ -148,13 +144,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
         authToken: token
       });
 
-      // Add user and assistant messages to conversation
-      const userMessage: ChatMessage = {
-        role: 'user',
-        content: message,
-        timestamp: new Date().toISOString()
-      };
-
+      // Add assistant message to conversation
       const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: orchestratorResult.response,

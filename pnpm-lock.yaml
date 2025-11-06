@@ -50,6 +50,9 @@ importers:
       lowlight:
         specifier: ^3.1.0
         version: 3.3.0
+      nodemailer:
+        specifier: ^7.0.10
+        version: 7.0.10
     devDependencies:
       '@types/node':
         specifier: ^20.11.17

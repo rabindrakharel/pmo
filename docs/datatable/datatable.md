@@ -368,6 +368,43 @@ FIELD_TO_SETTING_MAP = {
 
 **Critical Insight:** Different endpoints for server-side filtering, but response structure and **scrollbar behavior** are **identical**.
 
+### True Backend Pagination (DRY Implementation)
+
+**Location:** `/apps/api/src/lib/pagination.ts`
+
+**Problem Solved:** Large datasets (1000+ calendar slots, events, bookings) loading all records at once, causing performance issues.
+
+**Solution:** Reusable pagination utility following DRY principles:
+
+```typescript
+// Utility functions
+getPaginationParams(query)  // Extract & validate page/limit/offset
+paginateQuery(dataQuery, countQuery, page, limit)  // Execute queries in parallel
+
+// Default values
+page = 1, limit = 20, max = 100
+
+// Standardized response format
+{
+  data: [...],        // Current page records
+  total: 1250,        // Total record count
+  page: 1,            // Current page
+  limit: 20,          // Records per page
+  totalPages: 63      // Total pages
+}
+```
+
+**Applied to Endpoints:**
+- `GET /api/v1/person-calendar?page=1&limit=20&availability_flag=false`
+- `GET /api/v1/event?page=2&limit=50&event_medium=virtual`
+- `GET /api/v1/booking?page=3&limit=10`
+
+**Benefits:**
+- **Performance**: Only 20 records fetched per page (vs 1000+)
+- **Scalability**: Handles unlimited dataset size
+- **Consistency**: Same pattern across all endpoints
+- **DRY**: Single utility used everywhere
+
 ---
 
 ## 4. User Interaction Flow Examples
@@ -725,7 +762,11 @@ When implementing or debugging scrollbar:
 | `/db/setting_datalabel.ddl` | Settings table schema with dl__ prefix |
 | `/db/11-27_d_*.ddl` | Entity tables with dl__ columns |
 | **Backend API** | |
+| `/apps/api/src/lib/pagination.ts` | **🆕 DRY Pagination utility** - Reusable pagination for all endpoints |
 | `/apps/api/src/modules/setting/routes.ts` | Settings API (direct lookup using `?datalabel=`) |
+| `/apps/api/src/modules/person-calendar/routes.ts` | **🆕 Calendar API with pagination** |
+| `/apps/api/src/modules/event/routes.ts` | **🆕 Event API with pagination** |
+| `/apps/api/src/modules/booking/routes.ts` | **🆕 Booking API with pagination** |
 | **Frontend - Base & Extensions** | |
 | `/apps/web/src/components/shared/ui/DataTableBase.tsx` | **Base component** - Common table functionality |
 | `/apps/web/src/components/shared/ui/SettingsDataTable.tsx` | **Settings extension** - Extends base for settings |
@@ -802,6 +843,13 @@ Scrollbar:    🆕 Auto-triggered     ← When > 7 columns
 - **Perfect Alignment**: `dl__project_stage` same everywhere
 - **Convention**: Column name determines rendering + scrollbar trigger
 
-**Last Updated:** 2025-11-04 (v3.1 - Next-Gen Scrollbar Enhancement)
-**Architecture:** OOP Composition, Portal Rendering, Database-Driven, Zero Hardcoding, Perfect 1:1 Alignment, Premium Scrollbar
+### 7. 🆕 True Backend Pagination (v3.2)
+- **DRY Utility**: Single reusable pagination module (`pagination.ts`)
+- **Standardized Response**: `{ data, total, page, limit, totalPages }`
+- **Performance**: 20 records/page (default) vs 1000+ all-at-once
+- **Parallel Queries**: Data + count queries execute simultaneously
+- **Scalability**: Handles unlimited dataset sizes efficiently
+
+**Last Updated:** 2025-11-06 (v3.2 - DRY Backend Pagination)
+**Architecture:** OOP Composition, Portal Rendering, Database-Driven, Zero Hardcoding, Perfect 1:1 Alignment, Premium Scrollbar, True Backend Pagination
 **Status:** ✅ Production Ready

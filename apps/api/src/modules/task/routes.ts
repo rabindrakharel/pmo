@@ -77,6 +77,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         search: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
       }),
       response: {
         200: Type.Object({
@@ -92,8 +93,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const {
       project_id, assigned_to_employee_id, dl__task_stage, task_type, task_category,
-      worksite_id, client_id, active, search, limit = 50, offset = 0
+      worksite_id, client_id, active, search, limit = 20, offset: queryOffset, page
     } = request.query as any;
+
+    // Support both page (new standard) and offset (legacy) - NO fallback to unlimited
+    const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
     const userId = (request as any).user?.sub;
     if (!userId) {

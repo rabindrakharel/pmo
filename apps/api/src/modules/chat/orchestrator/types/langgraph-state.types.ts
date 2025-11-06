@@ -5,7 +5,11 @@
  */
 
 import { Annotation } from '@langchain/langgraph';
-import type { AgentRole } from './intent-graph.types.js';
+
+/**
+ * Agent roles in multi-agent system
+ */
+export type AgentRole = 'planner' | 'worker' | 'critic' | 'summarizer' | 'orchestrator';
 
 /**
  * Orchestrator State

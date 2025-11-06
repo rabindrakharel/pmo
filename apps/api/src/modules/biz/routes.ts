@@ -60,6 +60,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
         parent_id: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
       }),
       response: {
         200: Type.Object({
@@ -75,8 +76,9 @@ export async function bizRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const {
       active_flag, search, dl__business_level, parent_id,
-      limit = 50, offset = 0
+      limit = 20, offset: queryOffset, page
     } = request.query as any;
+    const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
     const userId = (request as any).user?.sub;
 
     if (!userId) {

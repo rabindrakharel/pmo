@@ -14,11 +14,13 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
       querystring: Type.Object({
         limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 20 })),
         offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
         invoice_status: Type.Optional(Type.String()),
       }),
     },
   }, async (request, reply) => {
-    const { limit = 20, offset = 0, invoice_status } = request.query as any;
+    const { limit = 20, offset: queryOffset, page, invoice_status } = request.query as any;
+    const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
     try {
       const conditions = ['1=1'];

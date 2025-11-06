@@ -6,6 +6,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { client, db } from '../../db/index.js';
 import type { Booking, CreateBookingRequest, UpdateBookingRequest } from './types.js';
+import { paginateQuery, getPaginationParams } from '../../lib/pagination.js';
 
 /**
  * Register booking routes
@@ -13,11 +14,15 @@ import type { Booking, CreateBookingRequest, UpdateBookingRequest } from './type
 export async function bookingRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/v1/booking
-   * Get all active bookings
+   * Get all active bookings with pagination
    */
-  fastify.get('/api/v1/booking', async (request, reply) => {
+  fastify.get<{
+    Querystring: { page?: number; limit?: number };
+  }>('/api/v1/booking', async (request, reply) => {
     try {
-      const query = client`
+      const { page, limit, offset } = getPaginationParams(request.query);
+
+      const dataQuery = client`
         SELECT
           id::text,
           code,
@@ -60,10 +65,18 @@ export async function bookingRoutes(fastify: FastifyInstance) {
         FROM app.d_booking
         WHERE active_flag = true
         ORDER BY created_ts DESC
+        LIMIT ${limit}
+        OFFSET ${offset}
       `;
 
-      const result = await query;
-      reply.code(200).send(result.rows);
+      const countQuery = client`
+        SELECT COUNT(*) as total
+        FROM app.d_booking
+        WHERE active_flag = true
+      `;
+
+      const result = await paginateQuery(dataQuery, countQuery, page, limit);
+      reply.code(200).send(result);
     } catch (error) {
       console.error('Error fetching bookings:', error);
       reply.code(500).send({ error: 'Failed to fetch bookings' });

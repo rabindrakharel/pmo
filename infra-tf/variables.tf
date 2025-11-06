@@ -179,3 +179,59 @@ variable "ec2_public_key" {
   description = "SSH public key for EC2 instance access"
   type        = string
 }
+
+# ============================================================================
+# SES (Email) Variables
+# ============================================================================
+
+variable "ses_verified_emails" {
+  description = "List of email addresses to verify for SES (for testing)"
+  type        = list(string)
+  default     = []
+}
+
+# ============================================================================
+# SNS (SMS) Variables
+# ============================================================================
+
+variable "sns_monthly_spend_limit" {
+  description = "Maximum monthly spend for SMS in USD"
+  type        = string
+  default     = "10.00"
+}
+
+variable "sns_default_sender_id" {
+  description = "Default sender ID for SMS (not supported in US)"
+  type        = string
+  default     = ""
+}
+
+variable "sns_default_sms_type" {
+  description = "Default SMS type: Promotional or Transactional"
+  type        = string
+  default     = "Transactional"
+}
+
+variable "sns_delivery_sampling_rate" {
+  description = "Percentage of successful SMS deliveries to log (0-100)"
+  type        = string
+  default     = "100"
+}
+
+variable "sns_usage_report_bucket" {
+  description = "S3 bucket name for SMS usage reports (optional)"
+  type        = string
+  default     = ""
+}
+
+variable "sns_log_retention_days" {
+  description = "Number of days to retain CloudWatch logs for SMS"
+  type        = number
+  default     = 30
+}
+
+variable "sns_notification_email" {
+  description = "Email address for SNS delivery notifications (optional)"
+  type        = string
+  default     = ""
+}

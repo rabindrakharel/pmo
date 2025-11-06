@@ -99,14 +99,19 @@ export class StateManager {
    * Create a new orchestrator session
    */
   async createSession(args: {
+    session_id?: string; // Optional: Use provided ID instead of generating new UUID
     chat_session_id?: string;
     user_id?: string;
     tenant_id?: string;
     auth_metadata?: Record<string, any>;
     initial_intent?: string;
+    current_intent?: string; // Alias for initial_intent
+    current_node?: string; // Initial node
+    status?: 'active' | 'paused' | 'completed' | 'failed';
   }): Promise<OrchestratorSession> {
-    const sessionId = uuidv4();
+    const sessionId = args.session_id || uuidv4();
     const sessionNumber = await this.generateSessionNumber();
+    const intent = args.current_intent || args.initial_intent;
 
     const result = await client`
       INSERT INTO app.orchestrator_session (
@@ -128,10 +133,10 @@ export class StateManager {
         ${args.user_id || null}::uuid,
         ${args.tenant_id || null}::uuid,
         ${JSON.stringify(args.auth_metadata || {})}::jsonb,
-        ${args.initial_intent || null},
-        null,
+        ${intent || null},
+        ${args.current_node || null},
         'v1.0',
-        'active',
+        ${args.status || 'active'},
         '{}'::jsonb
       )
       RETURNING *
@@ -460,6 +465,79 @@ export class StateManager {
         completed_ts = now(),
         updated_ts = now()
       WHERE id = ${sessionId}::uuid
+    `;
+  }
+
+  /**
+   * Get circuit breaker state
+   */
+  async getCircuitBreakerState(
+    sessionId: string,
+    agentType: string
+  ): Promise<any | null> {
+    const result = await client`
+      SELECT * FROM app.orchestrator_circuit_breaker
+      WHERE session_id = ${sessionId}::uuid
+      AND agent_type = ${agentType}
+    `;
+
+    return result.length > 0 ? result[0] : null;
+  }
+
+  /**
+   * Update circuit breaker state
+   */
+  async updateCircuitBreakerState(
+    sessionId: string,
+    agentType: string,
+    state: {
+      circuit_state: string;
+      failure_count: number;
+      last_failure_ts?: Date;
+      opened_ts?: Date;
+      last_success_ts?: Date;
+      consecutive_successes: number;
+      failure_threshold: number;
+      timeout_ms: number;
+    }
+  ): Promise<void> {
+    await client`
+      INSERT INTO app.orchestrator_circuit_breaker (
+        id,
+        session_id,
+        agent_type,
+        circuit_state,
+        failure_count,
+        last_failure_ts,
+        opened_ts,
+        last_success_ts,
+        consecutive_successes,
+        failure_threshold,
+        timeout_ms
+      ) VALUES (
+        ${uuidv4()}::uuid,
+        ${sessionId}::uuid,
+        ${agentType},
+        ${state.circuit_state},
+        ${state.failure_count},
+        ${state.last_failure_ts || null},
+        ${state.opened_ts || null},
+        ${state.last_success_ts || null},
+        ${state.consecutive_successes},
+        ${state.failure_threshold},
+        ${state.timeout_ms}
+      )
+      ON CONFLICT (session_id, agent_type)
+      DO UPDATE SET
+        circuit_state = EXCLUDED.circuit_state,
+        failure_count = EXCLUDED.failure_count,
+        last_failure_ts = EXCLUDED.last_failure_ts,
+        opened_ts = EXCLUDED.opened_ts,
+        last_success_ts = EXCLUDED.last_success_ts,
+        consecutive_successes = EXCLUDED.consecutive_successes,
+        failure_threshold = EXCLUDED.failure_threshold,
+        timeout_ms = EXCLUDED.timeout_ms,
+        updated_ts = now()
     `;
   }
 

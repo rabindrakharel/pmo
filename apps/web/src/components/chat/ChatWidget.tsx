@@ -188,29 +188,66 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
         setVoiceStatus('Connected - Processing audio...');
         console.log('✅ Voice WebSocket connected');
 
-        // Set up audio processing
+        // Set up audio processing with Voice Activity Detection (VAD)
         const source = audioContext.createMediaStreamSource(stream);
         const processor = audioContext.createScriptProcessor(2048, 1, 1);
+
+        let silenceStart: number | null = null;
+        let isSpeaking = false;
+        const SILENCE_THRESHOLD = 0.01; // Volume threshold
+        const SILENCE_DURATION = 1500; // 1.5 seconds of silence triggers commit
 
         processor.onaudioprocess = (e) => {
           if (ws.readyState === WebSocket.OPEN) {
             const inputData = e.inputBuffer.getChannelData(0);
-            // Convert float32 to Int16 PCM
-            const pcm16 = new Int16Array(inputData.length);
+
+            // Calculate volume (RMS)
+            let sum = 0;
             for (let i = 0; i < inputData.length; i++) {
-              const s = Math.max(-1, Math.min(1, inputData[i]));
-              pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+              sum += inputData[i] * inputData[i];
             }
+            const rms = Math.sqrt(sum / inputData.length);
 
-            // Convert to base64
-            const bytes = new Uint8Array(pcm16.buffer);
-            const base64 = btoa(String.fromCharCode(...Array.from(bytes)));
+            // Detect speech/silence
+            if (rms > SILENCE_THRESHOLD) {
+              // Speech detected
+              if (!isSpeaking) {
+                console.log('🎤 Speech detected');
+                isSpeaking = true;
+              }
+              silenceStart = null;
 
-            // Send audio data to backend
-            ws.send(JSON.stringify({
-              type: 'input_audio_buffer.append',
-              audio: base64
-            }));
+              // Convert float32 to Int16 PCM
+              const pcm16 = new Int16Array(inputData.length);
+              for (let i = 0; i < inputData.length; i++) {
+                const s = Math.max(-1, Math.min(1, inputData[i]));
+                pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+              }
+
+              // Convert to base64
+              const bytes = new Uint8Array(pcm16.buffer);
+              const base64 = btoa(String.fromCharCode(...Array.from(bytes)));
+
+              // Send audio chunk to backend
+              ws.send(JSON.stringify({
+                type: 'audio.append',
+                audio: base64
+              }));
+            } else if (isSpeaking) {
+              // Silence detected after speech
+              if (silenceStart === null) {
+                silenceStart = Date.now();
+              } else if (Date.now() - silenceStart > SILENCE_DURATION) {
+                // Silence duration exceeded - commit audio for processing
+                console.log('🔇 Silence detected - committing audio');
+                ws.send(JSON.stringify({
+                  type: 'audio.commit'
+                }));
+                isSpeaking = false;
+                silenceStart = null;
+                setVoiceStatus('Processing...');
+              }
+            }
           }
         };
 
@@ -254,43 +291,59 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
       ws.onmessage = async (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('Voice message type:', data.type);
+          console.log('Voice message:', data.type, data);
 
-          if (data.type === 'session.created') {
-            setVoiceStatus('🎙️ Voice call active - Speak now!');
-          } else if (data.type === 'response.audio.delta' && data.delta) {
-            // Decode and play audio response
+          if (data.type === 'audio.response') {
+            // AI response with audio and transcript
+            console.log('🤖 AI response:', data.transcript);
+            console.log('👤 User said:', data.user_transcript);
+
             setVoiceStatus('🔊 AI is speaking...');
-            try {
-              const binaryString = atob(data.delta);
-              const bytes = new Uint8Array(binaryString.length);
-              for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-              }
-              const pcmData = new Int16Array(bytes.buffer);
 
-              if (!isPlaying) {
-                isPlaying = true;
-                playAudioChunk(pcmData);
-              } else {
-                audioQueue.push(pcmData);
+            // Decode and play audio response (base64 MP3)
+            try {
+              const audioData = atob(data.audio);
+              const audioArray = new Uint8Array(audioData.length);
+              for (let i = 0; i < audioData.length; i++) {
+                audioArray[i] = audioData.charCodeAt(i);
               }
+
+              // Create audio blob and play
+              const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
+              const audioUrl = URL.createObjectURL(audioBlob);
+              const audio = new Audio(audioUrl);
+
+              audio.onended = () => {
+                URL.revokeObjectURL(audioUrl);
+                setVoiceStatus('🎙️ Voice call active - Speak now!');
+
+                // Check if conversation ended
+                if (data.conversation_ended) {
+                  console.log('🔚 Conversation ended:', data.end_reason);
+                  stopVoiceCall();
+                }
+              };
+
+              audio.onerror = (err) => {
+                console.error('Audio playback error:', err);
+                setVoiceStatus('🎙️ Voice call active - Speak now!');
+              };
+
+              await audio.play();
             } catch (err) {
               console.error('Failed to decode audio:', err);
+              setVoiceStatus('🎙️ Voice call active - Speak now!');
             }
-          } else if (data.type === 'response.audio.done') {
-            setVoiceStatus('🎙️ Voice call active - Speak now!');
+          } else if (data.type === 'processing.started') {
+            setVoiceStatus('⏳ Processing your message...');
           } else if (data.type === 'error') {
-            // Handle OpenAI error object properly
-            const errorMessage = data.message ||
-                               (typeof data.error === 'string' ? data.error : data.error?.message) ||
-                               'Voice error occurred';
+            const errorMessage = data.message || data.error || 'Voice error occurred';
+            console.error('Voice error:', errorMessage);
             setVoiceStatus(`Error: ${errorMessage}`);
             setError(errorMessage);
-          } else if (data.type === 'conversation.item.created') {
-            console.log('Transcript:', data.item?.content);
-          } else if (data.type === 'response.done') {
-            console.log('Response completed');
+          } else if (data.type === 'session.disconnected') {
+            console.log('Session disconnected:', data.message);
+            stopVoiceCall();
           }
         } catch (err) {
           console.error('Failed to parse voice message:', err);

@@ -63,6 +63,7 @@ export async function quoteRoutes(fastify: FastifyInstance) {
         dl__quote_stage: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
       }),
       response: {
         200: Type.Object({
@@ -74,7 +75,8 @@ export async function quoteRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { active, search, dl__quote_stage, limit = 50, offset = 0 } = request.query as any;
+    const { active, search, dl__quote_stage, limit = 20, offset: queryOffset, page } = request.query as any;
+    const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
     const userId = (request as any).user?.sub;
 
     if (!userId) {

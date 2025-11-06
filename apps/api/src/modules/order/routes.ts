@@ -13,11 +13,13 @@ export async function orderRoutes(fastify: FastifyInstance) {
       querystring: Type.Object({
         limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 20 })),
         offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
         order_status: Type.Optional(Type.String()),
       }),
     },
   }, async (request, reply) => {
-    const { limit = 20, offset = 0, order_status } = request.query as any;
+    const { limit = 20, offset: queryOffset, page, order_status } = request.query as any;
+    const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
     try {
       const conditions = [];

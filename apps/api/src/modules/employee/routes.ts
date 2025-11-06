@@ -184,6 +184,7 @@ export async function empRoutes(fastify: FastifyInstance) {
         remote_work_eligible: Type.Optional(Type.Boolean()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 10000 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
       }),
       response: {
         200: Type.Object({
@@ -197,7 +198,10 @@ export async function empRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { active_flag, search, employee_type, department, remote_work_eligible, limit = 50, offset = 0 } = request.query as any;
+    const { active_flag, search, employee_type, department, remote_work_eligible, limit = 50, offset: queryOffset, page } = request.query as any;
+
+    // Support both page (new) and offset (legacy) parameters
+    const offset = page ? (page - 1) * limit : (queryOffset || 0);
 
     const userId = (request as any).user?.sub;
     if (!userId) {
@@ -227,7 +231,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       }
 
       if (employee_type) {
-        conditions.push(sql`e.employee_type = ${employee_type}`);
+        conditions.push(sql`e.dl__employee_employment_type = ${employee_type}`);
       }
 
       if (department) {
@@ -264,10 +268,10 @@ export async function empRoutes(fastify: FastifyInstance) {
           e.from_ts, e.to_ts, e.active_flag, e.created_ts, e.updated_ts, e.version,
           e.email, e.phone, e.mobile, e.first_name, e.last_name,
           e.address_line1, e.address_line2, e.city, e.province, e.postal_code, e.country,
-          e.employee_type, e.department, e.title, e.hire_date, e.termination_date,
+          e.dl__employee_employment_type as employee_type, e.department, e.title, e.hire_date, e.termination_date,
           e.salary_band, e.pay_grade, e.manager_employee_id,
           e.emergency_contact_name, e.emergency_contact_phone,
-          e.sin, e.birth_date, e.citizenship, e.security_clearance,
+          e.sin, e.birth_date, e.dl__employee_citizenship_status as citizenship, e.dl__employee_security_clearance as security_clearance,
           e.remote_work_eligible_flag as remote_work_eligible, e.time_zone, e.preferred_language,
           COALESCE(e.metadata, '{}'::jsonb) as metadata
         FROM app.d_employee e
@@ -349,10 +353,10 @@ export async function empRoutes(fastify: FastifyInstance) {
           from_ts, to_ts, active_flag, created_ts, updated_ts, version,
           email, phone, mobile, first_name, last_name,
           address_line1, address_line2, city, province, postal_code, country,
-          employee_type, department, title, hire_date, termination_date,
+          dl__employee_employment_type as employee_type, department, title, hire_date, termination_date,
           salary_band, pay_grade, manager_employee_id,
           emergency_contact_name, emergency_contact_phone,
-          sin, birth_date, citizenship, security_clearance,
+          sin, birth_date, dl__employee_citizenship_status as citizenship, dl__employee_security_clearance as security_clearance,
           remote_work_eligible_flag as remote_work_eligible, time_zone, preferred_language,
           COALESCE(metadata, '{}'::jsonb) as metadata
         FROM app.d_employee
@@ -452,7 +456,7 @@ export async function empRoutes(fastify: FastifyInstance) {
         INSERT INTO app.d_employee (
           code, name, "descr", email, phone,
           first_name, last_name, title, department,
-          hire_date, termination_date, employee_type,
+          hire_date, termination_date, dl__employee_employment_type,
           manager_employee_id,
           metadata, active_flag
         )
@@ -549,7 +553,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       if (data.country !== undefined) updateFields.push(sql`country = ${data.country}`);
 
       // Employment details
-      if (data.employee_type !== undefined) updateFields.push(sql`employee_type = ${data.employee_type}`);
+      if (data.employee_type !== undefined) updateFields.push(sql`dl__employee_employment_type = ${data.employee_type}`);
       if (data.department !== undefined) updateFields.push(sql`department = ${data.department}`);
       if (data.title !== undefined) updateFields.push(sql`title = ${data.title}`);
       if (data.hire_date !== undefined) updateFields.push(sql`hire_date = ${data.hire_date}`);
@@ -563,8 +567,8 @@ export async function empRoutes(fastify: FastifyInstance) {
       // Compliance and tracking
       if (data.sin !== undefined) updateFields.push(sql`sin = ${data.sin}`);
       if (data.birth_date !== undefined) updateFields.push(sql`birth_date = ${data.birth_date}`);
-      if (data.citizenship !== undefined) updateFields.push(sql`citizenship = ${data.citizenship}`);
-      if (data.security_clearance !== undefined) updateFields.push(sql`security_clearance = ${data.security_clearance}`);
+      if (data.citizenship !== undefined) updateFields.push(sql`dl__employee_citizenship_status = ${data.citizenship}`);
+      if (data.security_clearance !== undefined) updateFields.push(sql`dl__employee_security_clearance = ${data.security_clearance}`);
 
       // Work preferences
       if (data.remote_work_eligible !== undefined) updateFields.push(sql`remote_work_eligible_flag = ${data.remote_work_eligible}`);

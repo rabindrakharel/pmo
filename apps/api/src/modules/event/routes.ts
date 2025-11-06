@@ -12,6 +12,7 @@ import {
   sendEventInviteToEmployee,
   sendEventInviteToCustomer
 } from '../email/email.service.js';
+import { paginateQuery, getPaginationParams } from '../../lib/pagination.js';
 
 /**
  * Event creation request
@@ -74,6 +75,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
   }>('/api/v1/event', async (request, reply) => {
     try {
       const { event_medium, event_entity_action } = request.query;
+      const { page, limit, offset } = getPaginationParams(request.query);
 
       let whereConditions = client`WHERE active_flag = true`;
 
@@ -85,7 +87,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
         whereConditions = client`${whereConditions} AND event_entity_action = ${event_entity_action}`;
       }
 
-      const query = client`
+      const dataQuery = client`
         SELECT
           id::text,
           code,
@@ -108,9 +110,17 @@ export async function eventRoutes(fastify: FastifyInstance) {
         FROM app.d_event
         ${whereConditions}
         ORDER BY created_ts DESC
+        LIMIT ${limit}
+        OFFSET ${offset}
       `;
 
-      const result = await query;
+      const countQuery = client`
+        SELECT COUNT(*) as total
+        FROM app.d_event
+        ${whereConditions}
+      `;
+
+      const result = await paginateQuery(dataQuery, countQuery, page, limit);
       reply.code(200).send(result);
     } catch (error) {
       console.error('Error fetching events:', error);
