@@ -61,7 +61,7 @@ The PMO platform now supports automatic calendar event email invites with full c
   "timezone": "America/Toronto",
   "send_invites": true,
   "organizer_name": "Huron Home Services",
-  "organizer_email": "scheduling@huronhome.ca"
+  "organizer_email": "solutions@cohuron.com"
 }
 ```
 
@@ -189,9 +189,9 @@ Configure in `.env` file:
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_SECURE=false
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-SMTP_FROM=noreply@huronhome.ca
+SMTP_USER=solutions@cohuron.com
+SMTP_PASS=your-gmail-app-password
+SMTP_FROM=solutions@cohuron.com
 ```
 
 ### Gmail Setup
@@ -293,7 +293,7 @@ curl -X POST http://localhost:4000/api/v1/event \
     "timezone": "America/Toronto",
     "send_invites": true,
     "organizer_name": "Huron Home Services",
-    "organizer_email": "service@huronhome.ca"
+    "organizer_email": "solutions@cohuron.com"
   }'
 ```
 
@@ -331,7 +331,7 @@ curl -X POST http://localhost:4000/api/v1/event/event-uuid-here/send-invites \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{
     "organizer_name": "Huron Home Services",
-    "organizer_email": "scheduling@huronhome.ca"
+    "organizer_email": "solutions@cohuron.com"
   }'
 ```
 
