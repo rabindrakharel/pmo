@@ -31,6 +31,7 @@ export interface PersonCalendar {
   appointment_medium?: 'onsite' | 'virtual';
   appointment_addr?: string;
   instructions?: string;
+  event_id?: string;
 
   // Notifications
   reminder_sent_flag?: boolean;
@@ -53,6 +54,7 @@ export interface CreatePersonCalendarRequest {
   appointment_medium?: 'onsite' | 'virtual';
   appointment_addr?: string;
   instructions?: string;
+  event_id?: string;
   metadata?: Record<string, any>;
 }
 
@@ -64,6 +66,7 @@ export interface UpdatePersonCalendarRequest {
   appointment_medium?: 'onsite' | 'virtual';
   appointment_addr?: string;
   instructions?: string;
+  event_id?: string;
   metadata?: Record<string, any>;
   reminder_sent_flag?: boolean;
   confirmation_sent_flag?: boolean;

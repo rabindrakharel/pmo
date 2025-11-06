@@ -13,6 +13,7 @@ Multi-person availability and booking management system for PMO platform.
 - Database/API/UI mapping
 - User interaction flows
 - Developer guide & critical considerations
+- **Email invite system** (Outlook/Gmail/iCloud compatible .ics attachments)
 
 ### Supporting Documentation
 
@@ -20,6 +21,8 @@ Multi-person availability and booking management system for PMO platform.
 - Files requiring updates
 - Specific changes needed
 - Integration checklist
+
+**Note:** All calendar documentation including email invite system is consolidated into CALENDAR_SYSTEM.md
 
 ---
 
