@@ -306,50 +306,50 @@ export function DevelopersPage() {
               href={link.link}
               target={link.external ? '_blank' : '_self'}
               rel={link.external ? 'noopener noreferrer' : ''}
-              className="flex items-start p-4 bg-dark-100 border border-dark-300 rounded-xl hover:border-purple-400 hover:shadow-sm transition-all group"
+              className="flex items-start p-4 bg-white border border-gray-200 rounded-xl hover:border-blue-400 hover:shadow-sm transition-all group"
             >
-              <div className="h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
-                <link.icon className="h-5 w-5 text-purple-600" />
+              <div className="h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+                <link.icon className="h-5 w-5 text-blue-600" />
               </div>
               <div className="flex-1">
-                <h3 className="text-sm font-medium text-dark-700 group-hover:text-purple-600 transition-colors">
+                <h3 className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
                   {link.title}
                 </h3>
-                <p className="text-xs text-dark-600 mt-1">{link.description}</p>
+                <p className="text-xs text-gray-600 mt-1">{link.description}</p>
               </div>
               {link.external && (
-                <ExternalLink className="h-4 w-4 text-dark-600 group-hover:text-purple-600 transition-colors ml-2" />
+                <ExternalLink className="h-4 w-4 text-gray-600 group-hover:text-blue-600 transition-colors ml-2" />
               )}
             </a>
           ))}
         </div>
 
         {/* Technology Stack */}
-        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border border-purple-200 p-6">
-          <h2 className="text-lg font-medium text-dark-700 mb-4 flex items-center">
-            <Package className="h-5 w-5 mr-2 text-purple-600" />
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+            <Package className="h-5 w-5 mr-2 text-blue-600" />
             Technology Stack
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-lg p-4 border border-purple-200">
-              <div className="text-xs text-dark-600 mb-1">Frontend</div>
-              <div className="text-sm font-medium text-dark-700">React 19</div>
-              <div className="text-xs text-dark-600 mt-1">TypeScript, Vite, Tailwind CSS v4</div>
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <div className="text-xs text-gray-600 mb-1">Frontend</div>
+              <div className="text-sm font-medium text-gray-900">React 19</div>
+              <div className="text-xs text-gray-600 mt-1">TypeScript, Vite, Tailwind CSS v4</div>
             </div>
-            <div className="bg-white rounded-lg p-4 border border-purple-200">
-              <div className="text-xs text-dark-600 mb-1">Backend</div>
-              <div className="text-sm font-medium text-dark-700">Fastify v5</div>
-              <div className="text-xs text-dark-600 mt-1">TypeScript (ESM), JWT Auth</div>
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <div className="text-xs text-gray-600 mb-1">Backend</div>
+              <div className="text-sm font-medium text-gray-900">Fastify v5</div>
+              <div className="text-xs text-gray-600 mt-1">TypeScript (ESM), JWT Auth</div>
             </div>
-            <div className="bg-white rounded-lg p-4 border border-purple-200">
-              <div className="text-xs text-dark-600 mb-1">Database</div>
-              <div className="text-sm font-medium text-dark-700">PostgreSQL 14+</div>
-              <div className="text-xs text-dark-600 mt-1">52 DDL files, RBAC model</div>
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <div className="text-xs text-gray-600 mb-1">Database</div>
+              <div className="text-sm font-medium text-gray-900">PostgreSQL 14+</div>
+              <div className="text-xs text-gray-600 mt-1">52 DDL files, RBAC model</div>
             </div>
-            <div className="bg-white rounded-lg p-4 border border-purple-200">
-              <div className="text-xs text-dark-600 mb-1">Infrastructure</div>
-              <div className="text-sm font-medium text-dark-700">AWS</div>
-              <div className="text-xs text-dark-600 mt-1">EC2, S3, Lambda, Terraform</div>
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <div className="text-xs text-gray-600 mb-1">Infrastructure</div>
+              <div className="text-sm font-medium text-gray-900">AWS</div>
+              <div className="text-xs text-gray-600 mt-1">EC2, S3, Lambda, Terraform</div>
             </div>
           </div>
         </div>
@@ -357,21 +357,21 @@ export function DevelopersPage() {
         {/* Developer Sections */}
         <div className="space-y-6">
           {devSections.map((section) => (
-            <div key={section.id} className="bg-dark-100 rounded-xl border border-dark-300 p-6">
+            <div key={section.id} className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center mb-4">
-                <div className="h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
-                  <section.icon className="h-5 w-5 text-purple-600" />
+                <div className="h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center mr-3">
+                  <section.icon className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-medium text-dark-700">{section.title}</h2>
-                  <p className="text-sm text-dark-600">{section.description}</p>
+                  <h2 className="text-lg font-medium text-gray-900">{section.title}</h2>
+                  <p className="text-sm text-gray-600">{section.description}</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {section.items.map((item, idx) => (
                   <div
                     key={idx}
-                    className="p-4 bg-dark-100 border border-dark-300 rounded-lg hover:border-purple-400 hover:shadow-sm transition-all cursor-pointer group"
+                    className="p-4 bg-gray-50 border border-gray-200 rounded-lg hover:border-blue-400 hover:shadow-sm transition-all cursor-pointer group"
                     onClick={() => {
                       if (item.link) window.location.href = item.link;
                     }}
@@ -379,18 +379,18 @@ export function DevelopersPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center">
-                          <h3 className="text-sm font-medium text-dark-700 group-hover:text-purple-600 transition-colors">
+                          <h3 className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
                             {item.title}
                           </h3>
                           {item.badge && (
-                            <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">
+                            <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
                               {item.badge}
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-dark-600 mt-1">{item.description}</p>
+                        <p className="text-xs text-gray-600 mt-1">{item.description}</p>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-dark-600 flex-shrink-0 ml-2 group-hover:text-purple-600 transition-colors" />
+                      <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0 ml-2 group-hover:text-blue-600 transition-colors" />
                     </div>
                   </div>
                 ))}
@@ -443,10 +443,10 @@ export function DevelopersPage() {
         </div>
 
         {/* Contributing */}
-        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border border-purple-200 p-6 text-center">
-          <Zap className="h-12 w-12 text-purple-600 mx-auto mb-4" />
-          <h2 className="text-lg font-medium text-dark-700 mb-2">Start Building</h2>
-          <p className="text-sm text-dark-600 mb-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
+          <Zap className="h-12 w-12 text-blue-600 mx-auto mb-4" />
+          <h2 className="text-lg font-medium text-gray-900 mb-2">Start Building</h2>
+          <p className="text-sm text-gray-600 mb-4">
             Follow DRY principles, use TypeScript best practices, and refer to the documentation for architecture guidance.
           </p>
           <div className="flex items-center justify-center space-x-3">
@@ -454,7 +454,7 @@ export function DevelopersPage() {
               href="http://localhost:4000/docs"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              className="inline-flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Book className="h-4 w-4 mr-2" />
               View API Docs

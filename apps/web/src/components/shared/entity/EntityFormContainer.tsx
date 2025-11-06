@@ -588,7 +588,7 @@ export function EntityFormContainer({
   const visibleFields = config.fields.filter(f => !excludedFields.includes(f.key));
 
   return (
-    <div className="bg-gradient-to-br from-dark-100 via-dark-100 to-dark-200/30 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.03),0_8px_24px_-8px_rgba(0,0,0,0.04)] overflow-hidden backdrop-blur-sm border border-dark-300/50">
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200">
       <div className="p-6">
         <div className="space-y-0">
           {visibleFields.map((field, index) => {
@@ -633,10 +633,10 @@ export function EntityFormContainer({
                     relative break-words rounded-md px-3 py-2 -ml-3
                     transition-all duration-300 ease-out
                     ${isEditing
-                      ? 'bg-gradient-to-br from-dark-100/50 via-dark-100/50 to-dark-200/30 hover:from-dark-50/40 hover:via-dark-100/70 hover:to-dark-50/20 hover:shadow-[0_0_0_1px_rgba(139,115,85,0.1),0_2px_8px_-2px_rgba(139,115,85,0.08)] focus-within:from-dark-100 focus-within:via-dark-100 focus-within:to-dark-200/20 focus-within:shadow-[0_0_0_1px_rgba(139,115,85,0.25),0_4px_16px_-4px_rgba(139,115,85,0.15),0_0_24px_-8px_rgba(168,144,120,0.2)] focus-within:scale-[1.002]'
-                      : 'hover:bg-gradient-to-br hover:from-dark-50/40 hover:via-dark-100/20 hover:to-dark-50/30'
+                      ? 'bg-gray-50 hover:bg-gray-100 hover:shadow-sm focus-within:bg-white focus-within:shadow-md focus-within:border focus-within:border-blue-200'
+                      : 'hover:bg-gray-50'
                     }
-                    text-sm text-dark-700 tracking-tight leading-normal
+                    text-sm text-gray-700 tracking-tight leading-normal
                   `}
                 >
                   {renderField(field)}
