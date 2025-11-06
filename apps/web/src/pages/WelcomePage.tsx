@@ -54,6 +54,7 @@ interface EntityGuide {
 export function WelcomePage() {
   const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [activeGuide, setActiveGuide] = useState<'user' | 'developer'>('user');
 
   // Comprehensive entity documentation extracted from DDL semantics
   const entityGuides: EntityGuide[] = [
@@ -509,7 +510,7 @@ export function WelcomePage() {
 
   return (
     <Layout>
-      <div className="p-6 space-y-8">
+      <div className="p-6 space-y-6">
         {/* Hero Welcome Section */}
         <div className="bg-gradient-to-br from-slate-700 via-slate-800 to-dark-900 rounded-xl p-8 text-white shadow-xl border border-slate-600">
           <div className="flex items-start justify-between">
@@ -524,9 +525,8 @@ export function WelcomePage() {
                 </div>
               </div>
               <p className="text-slate-200 text-lg max-w-3xl leading-relaxed">
-                You're now connected to the <strong>Huron PMO Platform</strong> — a comprehensive,
-                enterprise-grade project and operations management system built specifically for Canadian home services.
-                Manage 21+ entity types, track financials, coordinate teams, and deliver exceptional customer service.
+                Welcome to <strong>Huron PMO</strong> — your complete platform for managing projects,
+                teams, customers, and operations. Everything you need to run your home services business efficiently.
               </p>
             </div>
             <Link
@@ -539,273 +539,428 @@ export function WelcomePage() {
           </div>
         </div>
 
-        {/* Key Statistics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-dark-100 rounded-lg p-6 border border-dark-300">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                <Database className="h-5 w-5 text-blue-600" />
+        {/* Guide Selector */}
+        <div className="bg-dark-100 rounded-xl border border-dark-300 overflow-hidden">
+          <div className="flex border-b border-dark-300">
+            <button
+              onClick={() => setActiveGuide('user')}
+              className={`flex-1 px-6 py-4 font-semibold text-lg transition-all ${
+                activeGuide === 'user'
+                  ? 'bg-slate-600 text-white border-b-2 border-slate-400'
+                  : 'bg-dark-100 text-dark-700 hover:bg-dark-200'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <Users className="h-5 w-5" />
+                User Guide
               </div>
-              <div>
-                <div className="text-2xl font-bold text-dark-600">21+</div>
-                <div className="text-sm text-dark-700">Entity Types</div>
+            </button>
+            <button
+              onClick={() => setActiveGuide('developer')}
+              className={`flex-1 px-6 py-4 font-semibold text-lg transition-all ${
+                activeGuide === 'developer'
+                  ? 'bg-slate-600 text-white border-b-2 border-slate-400'
+                  : 'bg-dark-100 text-dark-700 hover:bg-dark-200'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <Settings className="h-5 w-5" />
+                Developer Guide
               </div>
-            </div>
-          </div>
-          <div className="bg-dark-100 rounded-lg p-6 border border-dark-300">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                <Shield className="h-5 w-5 text-purple-600" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-dark-600">Granular</div>
-                <div className="text-sm text-dark-700">RBAC Permissions</div>
-              </div>
-            </div>
-          </div>
-          <div className="bg-dark-100 rounded-lg p-6 border border-dark-300">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-green-500/10 rounded-lg flex items-center justify-center">
-                <Zap className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-dark-600">DRY</div>
-                <div className="text-sm text-dark-700">Config-Driven UI</div>
-              </div>
-            </div>
-          </div>
-          <div className="bg-dark-100 rounded-lg p-6 border border-dark-300">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
-                <Globe className="h-5 w-5 text-orange-600" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-dark-600">Canadian</div>
-                <div className="text-sm text-dark-700">Home Services</div>
-              </div>
-            </div>
+            </button>
           </div>
         </div>
 
-        {/* System Architecture Highlights */}
-        <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
-          <h2 className="text-2xl font-bold text-dark-600 mb-4 flex items-center gap-2">
-            <Network className="h-6 w-6 text-slate-600" />
-            Platform Architecture & Design Principles
-          </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {systemArchitecture.map((item, idx) => (
-              <div key={idx} className="bg-dark-100 rounded-lg p-4 border border-dark-300 hover:border-dark-400 transition-all">
-                <div className="flex items-start gap-3">
-                  <div className={`${item.color} mt-1`}>
-                    <item.icon className="h-5 w-5" />
+        {/* Conditional Content Based on Active Guide */}
+        {activeGuide === 'user' && (
+          <>
+            {/* Getting Started Section */}
+            <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
+              <h2 className="text-2xl font-bold text-dark-600 mb-4 flex items-center gap-2">
+                <Lightbulb className="h-6 w-6 text-yellow-600" />
+                Getting Started with Huron PMO
+              </h2>
+              <p className="text-dark-700 mb-6 leading-relaxed">
+                Huron PMO helps you manage every aspect of your home services business. Whether you're tracking projects,
+                managing teams, serving customers, or analyzing finances, this platform has everything you need in one place.
+                Let's get you started!
+              </p>
+
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="bg-dark-100 rounded-lg p-4 border border-dark-300">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="h-5 w-5 text-blue-600" />
+                    <h3 className="font-semibold text-dark-600">5 Minutes</h3>
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-dark-600 mb-1">{item.title}</h3>
-                    <p className="text-sm text-dark-700 leading-relaxed">{item.description}</p>
+                  <p className="text-sm text-dark-700">
+                    Complete setup and create your first project in just 5 minutes
+                  </p>
+                </div>
+                <div className="bg-dark-100 rounded-lg p-4 border border-dark-300">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="h-5 w-5 text-green-600" />
+                    <h3 className="font-semibold text-dark-600">Team Ready</h3>
                   </div>
+                  <p className="text-sm text-dark-700">
+                    Invite your team members and assign roles immediately
+                  </p>
+                </div>
+                <div className="bg-dark-100 rounded-lg p-4 border border-dark-300">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Bot className="h-5 w-5 text-purple-600" />
+                    <h3 className="font-semibold text-dark-600">AI Powered</h3>
+                  </div>
+                  <p className="text-sm text-dark-700">
+                    Get instant help from our AI assistant anytime you need it
+                  </p>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        {/* Quick Start Guides */}
-        <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
-          <h2 className="text-2xl font-bold text-dark-600 mb-4 flex items-center gap-2">
-            <Target className="h-6 w-6 text-green-600" />
-            Quick Start Guides
-          </h2>
-          <div className="grid md:grid-cols-2 gap-4">
-            {quickStartGuides.map((guide, idx) => (
-              <div key={idx} className="bg-dark-100 rounded-lg p-5 border border-dark-300 hover:border-dark-400 transition-all">
-                <div className="flex items-start gap-4">
-                  <div className="h-12 w-12 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <guide.icon className="h-6 w-6 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-bold text-dark-600 mb-1">{guide.title}</h3>
-                    <p className="text-sm text-dark-700 mb-3">{guide.description}</p>
-                    <ol className="text-sm text-dark-700 space-y-1 mb-3">
-                      {guide.steps.map((step, stepIdx) => (
-                        <li key={stepIdx} className="flex items-start gap-2">
-                          <span className="text-slate-600 font-medium">{stepIdx + 1}.</span>
-                          <span>{step}</span>
-                        </li>
-                      ))}
-                    </ol>
-                    <Link
-                      to={guide.link}
-                      className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-700 transition-colors"
-                    >
-                      Get Started
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Entity Documentation */}
-        <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-dark-600 mb-2 flex items-center gap-2">
-              <BookOpen className="h-6 w-6 text-blue-600" />
-              Entity System Documentation
-            </h2>
-            <p className="text-dark-700">
-              Comprehensive guide to all 21+ entity types, their business value, relationships, and common workflows.
-            </p>
-          </div>
-
-          {/* Category Filter */}
-          <div className="flex flex-wrap gap-2 mb-6">
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                  selectedCategory === cat.id
-                    ? 'bg-slate-600 text-white shadow-md'
-                    : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
-                }`}
-              >
-                <cat.icon className="h-4 w-4" />
-                {cat.name}
-              </button>
-            ))}
-          </div>
-
-          {/* Entity Cards */}
-          <div className="grid md:grid-cols-2 gap-4">
-            {getFilteredEntities().map((entity) => (
-              <div
-                key={entity.name}
-                className="bg-dark-100 rounded-lg border border-dark-300 hover:border-dark-400 transition-all overflow-hidden"
-              >
-                <div className={`h-2 bg-gradient-to-r ${entity.colorClass}`} />
-                <div className="p-5">
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className={`h-12 w-12 bg-gradient-to-br ${entity.colorClass} rounded-lg flex items-center justify-center flex-shrink-0 shadow-md`}>
-                      <entity.icon className="h-6 w-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold text-dark-600 mb-1">{entity.displayName}</h3>
-                      <p className="text-sm text-dark-700">{entity.description}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <div className="text-xs font-semibold text-dark-700 uppercase tracking-wide mb-1">Business Value</div>
-                      <p className="text-sm text-dark-700 leading-relaxed">{entity.businessValue}</p>
-                    </div>
-
-                    <div>
-                      <div className="text-xs font-semibold text-dark-700 uppercase tracking-wide mb-2">Relationships</div>
-                      <div className="flex flex-wrap gap-1">
-                        {entity.relationships.map((rel) => (
-                          <span
-                            key={rel}
-                            className="px-2 py-1 bg-dark-100 text-dark-600 text-xs rounded border border-dark-300"
-                          >
-                            {rel}
-                          </span>
-                        ))}
+            {/* Quick Start Actions */}
+            <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
+              <h2 className="text-2xl font-bold text-dark-600 mb-4 flex items-center gap-2">
+                <Target className="h-6 w-6 text-green-600" />
+                What Would You Like to Do?
+              </h2>
+              <div className="grid md:grid-cols-2 gap-4">
+                {quickStartGuides.map((guide, idx) => (
+                  <Link
+                    key={idx}
+                    to={guide.link}
+                    className="bg-dark-100 rounded-lg p-5 border border-dark-300 hover:border-slate-500 hover:shadow-md transition-all group"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="h-12 w-12 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                        <guide.icon className="h-6 w-6 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-bold text-dark-600 mb-1 group-hover:text-slate-700">{guide.title}</h3>
+                        <p className="text-sm text-dark-700 mb-3">{guide.description}</p>
+                        <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 group-hover:gap-3 transition-all">
+                          Get Started
+                          <ArrowRight className="h-4 w-4" />
+                        </div>
                       </div>
                     </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
 
-                    <div className="pt-3 border-t border-dark-300 flex flex-wrap gap-2">
-                      {entity.commonActions.map((action, idx) => (
-                        <Link
-                          key={idx}
-                          to={action.path}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-dark-100 hover:bg-dark-200 text-dark-600 text-sm font-medium rounded border border-dark-300 hover:border-dark-400 transition-all"
-                        >
-                          {action.label}
-                          <ChevronRight className="h-3 w-3" />
-                        </Link>
-                      ))}
+            {/* Explore Platform Features */}
+            <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-dark-600 mb-2 flex items-center gap-2">
+                  <BookOpen className="h-6 w-6 text-blue-600" />
+                  Explore What You Can Do
+                </h2>
+                <p className="text-dark-700">
+                  Discover all the features available to help you run your business more effectively.
+                </p>
+              </div>
+
+              {/* Category Filter */}
+              <div className="flex flex-wrap gap-2 mb-6">
+                {categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                      selectedCategory === cat.id
+                        ? 'bg-slate-600 text-white shadow-md'
+                        : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                    }`}
+                  >
+                    <cat.icon className="h-4 w-4" />
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Simplified Entity Cards */}
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {getFilteredEntities().map((entity) => (
+                  <Link
+                    key={entity.name}
+                    to={entity.path}
+                    className="bg-dark-100 rounded-lg border border-dark-300 hover:border-slate-500 hover:shadow-md transition-all overflow-hidden group"
+                  >
+                    <div className={`h-2 bg-gradient-to-r ${entity.colorClass}`} />
+                    <div className="p-4">
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className={`h-10 w-10 bg-gradient-to-br ${entity.colorClass} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                          <entity.icon className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-dark-600 mb-1 group-hover:text-slate-700">{entity.displayName}</h3>
+                          <p className="text-xs text-dark-700">{entity.description}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs font-medium text-slate-600 group-hover:gap-2 transition-all">
+                        <span>Explore</span>
+                        <ArrowRight className="h-3 w-3" />
+                      </div>
                     </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* Help & Support */}
+            <div className="bg-gradient-to-r from-slate-700 to-dark-900 rounded-xl p-8 text-center text-white">
+              <h2 className="text-2xl font-bold mb-2">Need Help Getting Started?</h2>
+              <p className="text-slate-200 mb-6 max-w-2xl mx-auto">
+                Our AI assistant is here to help you navigate the platform and answer any questions you might have.
+              </p>
+              <div className="flex flex-wrap gap-4 justify-center">
+                <Link
+                  to="/chat"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-700 font-semibold rounded-lg hover:bg-slate-100 transition-all shadow-lg"
+                >
+                  <Bot className="h-5 w-5" />
+                  Ask AI Assistant
+                </Link>
+                <Link
+                  to="/project/new"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 text-white font-semibold rounded-lg hover:bg-white/20 transition-all border border-white/20"
+                >
+                  <FolderKanban className="h-5 w-5" />
+                  Create First Project
+                </Link>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Developer Guide Content */}
+        {activeGuide === 'developer' && (
+          <>
+            {/* Technical Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-dark-100 rounded-lg p-6 border border-dark-300">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                    <Database className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-dark-600">21+</div>
+                    <div className="text-sm text-dark-700">Entity Types</div>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+              <div className="bg-dark-100 rounded-lg p-6 border border-dark-300">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                    <Shield className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-dark-600">Granular</div>
+                    <div className="text-sm text-dark-700">RBAC Permissions</div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-dark-100 rounded-lg p-6 border border-dark-300">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-green-500/10 rounded-lg flex items-center justify-center">
+                    <Zap className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-dark-600">DRY</div>
+                    <div className="text-sm text-dark-700">Config-Driven UI</div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-dark-100 rounded-lg p-6 border border-dark-300">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
+                    <Globe className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-dark-600">Canadian</div>
+                    <div className="text-sm text-dark-700">Home Services</div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-        {/* Entity Relationship Flow */}
-        <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
-          <h2 className="text-2xl font-bold text-dark-600 mb-4 flex items-center gap-2">
-            <GitBranch className="h-6 w-6 text-indigo-600" />
-            Entity Relationship Hierarchy
-          </h2>
-          <div className="bg-dark-100 rounded-lg p-6 border border-dark-300 font-mono text-sm text-dark-600 space-y-1 overflow-x-auto">
-            <div><strong className="text-blue-600">office</strong></div>
-            <div className="ml-4">├─ <strong className="text-indigo-600">business</strong> (Business Units)</div>
-            <div className="ml-8">│  └─ <strong className="text-blue-600">project</strong> (Projects)</div>
-            <div className="ml-12">│      ├─ <strong className="text-green-600">task</strong> (Tasks)</div>
-            <div className="ml-16">│      │  ├─ <strong className="text-gray-600">artifact</strong> (Files)</div>
-            <div className="ml-16">│      │  ├─ <strong className="text-indigo-500">form</strong> (Forms)</div>
-            <div className="ml-16">│      │  └─ <strong className="text-purple-600">employee</strong> (Assignees)</div>
-            <div className="ml-12">│      ├─ <strong className="text-gray-600">artifact</strong></div>
-            <div className="ml-12">│      ├─ <strong className="text-yellow-600">wiki</strong> (Documentation)</div>
-            <div className="ml-12">│      └─ <strong className="text-indigo-500">form</strong></div>
-            <div className="ml-4">└─ <strong className="text-green-600">task</strong> (Office-level tasks)</div>
-            <div className="mt-2"><strong className="text-teal-600">customer</strong></div>
-            <div className="ml-4">├─ <strong className="text-blue-600">project</strong></div>
-            <div className="ml-4">├─ <strong className="text-emerald-600">worksite</strong> (Service Locations)</div>
-            <div className="ml-4">├─ <strong className="text-violet-600">quote</strong> → <strong className="text-pink-600">work_order</strong> → <strong className="text-sky-600">invoice</strong></div>
-            <div className="ml-4">├─ <strong className="text-fuchsia-600">order</strong> → <strong className="text-blue-500">shipment</strong></div>
-            <div className="ml-4">└─ <strong className="text-gray-600">artifact</strong></div>
-            <div className="mt-2"><strong className="text-orange-600">product</strong> / <strong className="text-cyan-600">service</strong></div>
-            <div className="ml-4">├─ <strong className="text-lime-600">inventory</strong> (Stock Levels)</div>
-            <div className="ml-4">├─ <strong className="text-violet-600">quote</strong> (Line Items)</div>
-            <div className="ml-4">└─ <strong className="text-green-500">revenue</strong> (Revenue Streams)</div>
-            <div className="mt-2"><strong className="text-purple-600">employee</strong></div>
-            <div className="ml-4">├─ <strong className="text-amber-600">role</strong> (Job Function)</div>
-            <div className="ml-4">├─ <strong className="text-rose-600">position</strong> (Hierarchy Level)</div>
-            <div className="ml-4">├─ <strong className="text-green-600">task</strong> (Assignments)</div>
-            <div className="ml-4">└─ <strong className="text-red-600">cost</strong> (Expenses)</div>
-          </div>
-          <p className="text-sm text-dark-700 mt-4">
-            <strong>Note:</strong> All relationships are managed via the <code className="px-2 py-1 bg-dark-100 rounded text-dark-600 border border-dark-300">d_entity_id_map</code> table
-            (NO FOREIGN KEYS). This enables flexible, temporal, and cross-schema relationships without database constraints.
-          </p>
-        </div>
+            {/* System Architecture Highlights */}
+            <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
+              <h2 className="text-2xl font-bold text-dark-600 mb-4 flex items-center gap-2">
+                <Network className="h-6 w-6 text-slate-600" />
+                Platform Architecture & Design Principles
+              </h2>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {systemArchitecture.map((item, idx) => (
+                  <div key={idx} className="bg-dark-100 rounded-lg p-4 border border-dark-300 hover:border-dark-400 transition-all">
+                    <div className="flex items-start gap-3">
+                      <div className={`${item.color} mt-1`}>
+                        <item.icon className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-dark-600 mb-1">{item.title}</h3>
+                        <p className="text-sm text-dark-700 leading-relaxed">{item.description}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-        {/* Footer CTA */}
-        <div className="bg-gradient-to-r from-slate-700 to-dark-900 rounded-xl p-8 text-center text-white">
-          <h2 className="text-2xl font-bold mb-2">Ready to Get Started?</h2>
-          <p className="text-slate-200 mb-6 max-w-2xl mx-auto">
-            Jump into your first project or explore the comprehensive entity system. Need help? Check out the documentation or ask the AI assistant.
-          </p>
-          <div className="flex flex-wrap gap-4 justify-center">
-            <Link
-              to="/project/new"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-700 font-semibold rounded-lg hover:bg-slate-100 transition-all shadow-lg"
-            >
-              <FolderKanban className="h-5 w-5" />
-              Create Your First Project
-            </Link>
-            <Link
-              to="/task"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 text-white font-semibold rounded-lg hover:bg-white/20 transition-all border border-white/20"
-            >
-              <CheckSquare className="h-5 w-5" />
-              View Task Board
-            </Link>
-            <Link
-              to="/chat"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 text-white font-semibold rounded-lg hover:bg-white/20 transition-all border border-white/20"
-            >
-              <Bot className="h-5 w-5" />
-              Ask AI Assistant
-            </Link>
-          </div>
-        </div>
+            {/* Entity Documentation */}
+            <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-dark-600 mb-2 flex items-center gap-2">
+                  <BookOpen className="h-6 w-6 text-blue-600" />
+                  Entity System Documentation
+                </h2>
+                <p className="text-dark-700">
+                  Comprehensive technical guide to all 21+ entity types, their business value, relationships, and common workflows.
+                </p>
+              </div>
+
+              {/* Category Filter */}
+              <div className="flex flex-wrap gap-2 mb-6">
+                {categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                      selectedCategory === cat.id
+                        ? 'bg-slate-600 text-white shadow-md'
+                        : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                    }`}
+                  >
+                    <cat.icon className="h-4 w-4" />
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Entity Cards */}
+              <div className="grid md:grid-cols-2 gap-4">
+                {getFilteredEntities().map((entity) => (
+                  <div
+                    key={entity.name}
+                    className="bg-dark-100 rounded-lg border border-dark-300 hover:border-dark-400 transition-all overflow-hidden"
+                  >
+                    <div className={`h-2 bg-gradient-to-r ${entity.colorClass}`} />
+                    <div className="p-5">
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className={`h-12 w-12 bg-gradient-to-br ${entity.colorClass} rounded-lg flex items-center justify-center flex-shrink-0 shadow-md`}>
+                          <entity.icon className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold text-dark-600 mb-1">{entity.displayName}</h3>
+                          <p className="text-sm text-dark-700">{entity.description}</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <div className="text-xs font-semibold text-dark-700 uppercase tracking-wide mb-1">Business Value</div>
+                          <p className="text-sm text-dark-700 leading-relaxed">{entity.businessValue}</p>
+                        </div>
+
+                        <div>
+                          <div className="text-xs font-semibold text-dark-700 uppercase tracking-wide mb-2">Relationships</div>
+                          <div className="flex flex-wrap gap-1">
+                            {entity.relationships.map((rel) => (
+                              <span
+                                key={rel}
+                                className="px-2 py-1 bg-dark-100 text-dark-600 text-xs rounded border border-dark-300"
+                              >
+                                {rel}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-dark-300 flex flex-wrap gap-2">
+                          {entity.commonActions.map((action, idx) => (
+                            <Link
+                              key={idx}
+                              to={action.path}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-dark-100 hover:bg-dark-200 text-dark-600 text-sm font-medium rounded border border-dark-300 hover:border-dark-400 transition-all"
+                            >
+                              {action.label}
+                              <ChevronRight className="h-3 w-3" />
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Entity Relationship Flow */}
+            <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
+              <h2 className="text-2xl font-bold text-dark-600 mb-4 flex items-center gap-2">
+                <GitBranch className="h-6 w-6 text-indigo-600" />
+                Entity Relationship Hierarchy
+              </h2>
+              <div className="bg-dark-100 rounded-lg p-6 border border-dark-300 font-mono text-sm text-dark-600 space-y-1 overflow-x-auto">
+                <div><strong className="text-blue-600">office</strong></div>
+                <div className="ml-4">├─ <strong className="text-indigo-600">business</strong> (Business Units)</div>
+                <div className="ml-8">│  └─ <strong className="text-blue-600">project</strong> (Projects)</div>
+                <div className="ml-12">│      ├─ <strong className="text-green-600">task</strong> (Tasks)</div>
+                <div className="ml-16">│      │  ├─ <strong className="text-gray-600">artifact</strong> (Files)</div>
+                <div className="ml-16">│      │  ├─ <strong className="text-indigo-500">form</strong> (Forms)</div>
+                <div className="ml-16">│      │  └─ <strong className="text-purple-600">employee</strong> (Assignees)</div>
+                <div className="ml-12">│      ├─ <strong className="text-gray-600">artifact</strong></div>
+                <div className="ml-12">│      ├─ <strong className="text-yellow-600">wiki</strong> (Documentation)</div>
+                <div className="ml-12">│      └─ <strong className="text-indigo-500">form</strong></div>
+                <div className="ml-4">└─ <strong className="text-green-600">task</strong> (Office-level tasks)</div>
+                <div className="mt-2"><strong className="text-teal-600">customer</strong></div>
+                <div className="ml-4">├─ <strong className="text-blue-600">project</strong></div>
+                <div className="ml-4">├─ <strong className="text-emerald-600">worksite</strong> (Service Locations)</div>
+                <div className="ml-4">├─ <strong className="text-violet-600">quote</strong> → <strong className="text-pink-600">work_order</strong> → <strong className="text-sky-600">invoice</strong></div>
+                <div className="ml-4">├─ <strong className="text-fuchsia-600">order</strong> → <strong className="text-blue-500">shipment</strong></div>
+                <div className="ml-4">└─ <strong className="text-gray-600">artifact</strong></div>
+                <div className="mt-2"><strong className="text-orange-600">product</strong> / <strong className="text-cyan-600">service</strong></div>
+                <div className="ml-4">├─ <strong className="text-lime-600">inventory</strong> (Stock Levels)</div>
+                <div className="ml-4">├─ <strong className="text-violet-600">quote</strong> (Line Items)</div>
+                <div className="ml-4">└─ <strong className="text-green-500">revenue</strong> (Revenue Streams)</div>
+                <div className="mt-2"><strong className="text-purple-600">employee</strong></div>
+                <div className="ml-4">├─ <strong className="text-amber-600">role</strong> (Job Function)</div>
+                <div className="ml-4">├─ <strong className="text-rose-600">position</strong> (Hierarchy Level)</div>
+                <div className="ml-4">├─ <strong className="text-green-600">task</strong> (Assignments)</div>
+                <div className="ml-4">└─ <strong className="text-red-600">cost</strong> (Expenses)</div>
+              </div>
+              <p className="text-sm text-dark-700 mt-4">
+                <strong>Note:</strong> All relationships are managed via the <code className="px-2 py-1 bg-dark-100 rounded text-dark-600 border border-dark-300">d_entity_id_map</code> table
+                (NO FOREIGN KEYS). This enables flexible, temporal, and cross-schema relationships without database constraints.
+              </p>
+            </div>
+
+            {/* Developer Resources */}
+            <div className="bg-gradient-to-r from-slate-700 to-dark-900 rounded-xl p-8 text-white">
+              <h2 className="text-2xl font-bold mb-2">Developer Resources</h2>
+              <p className="text-slate-200 mb-6 max-w-2xl mx-auto">
+                Explore the comprehensive documentation and technical guides for building on the Huron PMO platform.
+              </p>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="bg-white/10 rounded-lg p-4 backdrop-blur-sm border border-white/20">
+                  <Database className="h-8 w-8 mb-2" />
+                  <h3 className="font-semibold mb-1">Database Schema</h3>
+                  <p className="text-sm text-slate-200">52 DDL files with complete entity definitions</p>
+                </div>
+                <div className="bg-white/10 rounded-lg p-4 backdrop-blur-sm border border-white/20">
+                  <Settings className="h-8 w-8 mb-2" />
+                  <h3 className="font-semibold mb-1">API Documentation</h3>
+                  <p className="text-sm text-slate-200">31+ modules with 125+ RESTful endpoints</p>
+                </div>
+                <div className="bg-white/10 rounded-lg p-4 backdrop-blur-sm border border-white/20">
+                  <Network className="h-8 w-8 mb-2" />
+                  <h3 className="font-semibold mb-1">Architecture Guide</h3>
+                  <p className="text-sm text-slate-200">DRY-first, config-driven design patterns</p>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </Layout>
   );
