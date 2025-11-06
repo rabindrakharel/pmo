@@ -97,7 +97,11 @@
       "Bash(tac:*)",
       "Bash(/tmp/full-api-logs.txt echo '📊 Full Voice Call Interaction Analysis' echo ======================================== echo echo '🎙️ CONVERSATION TRANSCRIPT:' echo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ grep -E \"🎤|🤖\" /tmp/full-api-logs.txt)",
       "Bash(/tmp/extract-voice-logs.sh)",
-      "Bash(/tmp/test-dynamic-update.sh)"
+      "Bash(/tmp/test-dynamic-update.sh)",
+      "Bash(/tmp/test-calendar-booking-workflow.sh)",
+      "Bash(terraform output:*)",
+      "Bash(/tmp/simple-booking-test.sh:*)",
+      "Bash(./infra-tf/deploy-code.sh:*)"
     ],
     "deny": [],
     "ask": [],

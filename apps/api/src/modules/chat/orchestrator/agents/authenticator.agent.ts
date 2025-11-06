@@ -186,10 +186,9 @@ export class AuthenticatorAgent {
       const userResult = await client`
         SELECT
           id,
-          primary_email as email,
-          name,
-          tenant_id
-        FROM app.d_person_employee
+          email,
+          name
+        FROM app.d_employee
         WHERE id = ${userId}::uuid
         LIMIT 1
       `;
@@ -202,11 +201,11 @@ export class AuthenticatorAgent {
       // For now, return basic context
       return {
         user_id: user.id,
-        tenant_id: user.tenant_id,
+        tenant_id: null, // d_employee table doesn't have tenant_id
         email: user.email,
         name: user.name,
         roles: ['user'], // TODO: Fetch from RBAC tables
-        permissions: ['customer:read', 'customer:write', 'booking:write', 'employee:read']
+        permissions: ['customer:read', 'customer:write', 'booking:write', 'employee:read', 'task:write', 'calendar:write']
       };
     } catch (error) {
       console.error('Token validation error:', error);

@@ -59,3 +59,51 @@ COMMENT ON COLUMN app.orchestrator_session.current_intent IS 'Selected intent gr
 COMMENT ON COLUMN app.orchestrator_session.current_node IS 'Current step/node in the intent graph workflow';
 COMMENT ON COLUMN app.orchestrator_session.session_context IS 'Key entities and state variables for the session';
 COMMENT ON COLUMN app.orchestrator_session.conversation_summary IS 'LLM-generated summary to maintain context with small models';
+
+-- =====================================================
+-- Orchestrator Agent Log Table
+-- Logs individual agent actions and MCP tool calls
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS app.orchestrator_agent_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id uuid REFERENCES app.orchestrator_session(id) ON DELETE CASCADE,
+  agent_role varchar(50),           -- 'orchestrator', 'worker', 'evaluator', 'critic'
+  agent_action varchar(100),        -- 'process_message', 'execute_task', 'evaluate_result'
+  node_context varchar(100),        -- Current workflow node
+
+  -- Agent I/O
+  input_data jsonb,
+  output_data jsonb,
+
+  -- LLM usage metrics
+  model_used varchar(100),          -- e.g., 'gpt-3.5-turbo', 'gpt-4'
+  tokens_used integer,
+  cost_cents integer,
+
+  -- MCP tool call details
+  mcp_tool_name varchar(100),       -- e.g., 'customer_create', 'task_update'
+  mcp_tool_args jsonb,
+  mcp_tool_result jsonb,
+  mcp_success boolean,
+
+  -- Execution results
+  success boolean,
+  error_message text,
+  natural_response text,
+  duration_ms integer,
+
+  -- Timestamp
+  created_ts timestamptz DEFAULT now()
+);
+
+-- Indexes for agent log
+CREATE INDEX idx_orchestrator_agent_log_session ON app.orchestrator_agent_log(session_id);
+CREATE INDEX idx_orchestrator_agent_log_role ON app.orchestrator_agent_log(agent_role);
+CREATE INDEX idx_orchestrator_agent_log_created ON app.orchestrator_agent_log(created_ts);
+
+-- Comments
+COMMENT ON TABLE app.orchestrator_agent_log IS 'Detailed log of agent actions, LLM calls, and MCP tool executions';
+COMMENT ON COLUMN app.orchestrator_agent_log.agent_role IS 'Type of agent: orchestrator, worker, evaluator, or critic';
+COMMENT ON COLUMN app.orchestrator_agent_log.mcp_tool_name IS 'Name of MCP tool called (customer_create, task_update, etc.)';
+COMMENT ON COLUMN app.orchestrator_agent_log.duration_ms IS 'Execution time in milliseconds';

@@ -180,6 +180,7 @@ validate_all_ddls() {
         "41_f_interaction.ddl"
         "45_d_event.ddl"
         "44_d_entity_person_calendar.ddl"
+        "60_orchestrator_session.ddl"
     )
 
     for file in "${ddl_files[@]}"; do
@@ -270,6 +271,9 @@ import_ddls() {
     # Event and calendar system - Events first, then calendar slots that reference events
     execute_sql "$DB_PATH/45_d_event.ddl" "Event entities (meetings, appointments, service calls)"
     execute_sql "$DB_PATH/44_d_entity_person_calendar.ddl" "Universal person calendar (employee/customer availability slots)"
+
+    # AI Orchestrator session management
+    execute_sql "$DB_PATH/60_orchestrator_session.ddl" "AI orchestrator session state management"
 
     # Marketing entities - Email templates
     execute_sql "$DB_PATH/35_d_email_template.ddl" "Email template entities"
