@@ -220,6 +220,68 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
   {"id": 2, "name": "Electrical", "descr": "Electrical installation, wiring, and repair services", "parent_ids": [], "color_code": "yellow"},
   {"id": 3, "name": "Landscaping", "descr": "Landscaping, lawn care, and outdoor maintenance services", "parent_ids": [], "color_code": "green"},
   {"id": 4, "name": "General Contracting", "descr": "General contracting, renovation, and construction services", "parent_ids": [], "color_code": "orange"}
+]'::jsonb),
+
+-- Employee Labels
+('dl__employee_employment_type', 'Employment Types', 'Briefcase', '[
+  {"id": 0, "name": "Full-time", "descr": "Full-time permanent employee", "parent_ids": [], "color_code": "green"},
+  {"id": 1, "name": "Part-time", "descr": "Part-time employee with regular schedule", "parent_ids": [], "color_code": "blue"},
+  {"id": 2, "name": "Contract", "descr": "Fixed-term contract employee", "parent_ids": [], "color_code": "purple"},
+  {"id": 3, "name": "Temporary", "descr": "Temporary employee for specific projects", "parent_ids": [], "color_code": "yellow"},
+  {"id": 4, "name": "Intern", "descr": "Student or intern position", "parent_ids": [], "color_code": "cyan"},
+  {"id": 5, "name": "Seasonal", "descr": "Seasonal worker for specific periods", "parent_ids": [], "color_code": "orange"}
+]'::jsonb),
+
+('dl__employee_security_clearance', 'Security Clearance Levels', 'Shield', '[
+  {"id": 0, "name": "None", "descr": "No security clearance required", "parent_ids": [], "color_code": "gray"},
+  {"id": 1, "name": "Basic", "descr": "Basic security screening completed", "parent_ids": [], "color_code": "blue"},
+  {"id": 2, "name": "Standard", "descr": "Standard background check and clearance", "parent_ids": [], "color_code": "cyan"},
+  {"id": 3, "name": "Enhanced", "descr": "Enhanced security clearance with detailed verification", "parent_ids": [], "color_code": "green"},
+  {"id": 4, "name": "Top Secret", "descr": "Top secret clearance for sensitive operations", "parent_ids": [], "color_code": "red"},
+  {"id": 5, "name": "Confidential", "descr": "Confidential level security clearance", "parent_ids": [], "color_code": "purple"}
+]'::jsonb),
+
+('dl__employee_citizenship_status', 'Citizenship Status', 'Globe', '[
+  {"id": 0, "name": "Canadian Citizen", "descr": "Canadian citizen by birth or naturalization", "parent_ids": [], "color_code": "green"},
+  {"id": 1, "name": "Permanent Resident", "descr": "Canadian permanent resident", "parent_ids": [], "color_code": "blue"},
+  {"id": 2, "name": "Work Permit", "descr": "Work permit holder", "parent_ids": [], "color_code": "yellow"},
+  {"id": 3, "name": "Temporary Foreign Worker", "descr": "Temporary foreign worker program participant", "parent_ids": [], "color_code": "orange"},
+  {"id": 4, "name": "Dual Citizen", "descr": "Dual citizenship (Canada and another country)", "parent_ids": [], "color_code": "purple"}
+]'::jsonb),
+
+-- Worksite Labels
+('dl__worksite_safety_rating', 'Safety Ratings', 'ShieldCheck', '[
+  {"id": 0, "name": "Excellent", "descr": "Excellent safety record with no incidents", "parent_ids": [], "color_code": "green"},
+  {"id": 1, "name": "Very Good", "descr": "Very good safety practices maintained", "parent_ids": [], "color_code": "blue"},
+  {"id": 2, "name": "Good", "descr": "Good safety standards with minor issues", "parent_ids": [], "color_code": "cyan"},
+  {"id": 3, "name": "Satisfactory", "descr": "Satisfactory but needs improvement", "parent_ids": [], "color_code": "yellow"},
+  {"id": 4, "name": "Needs Improvement", "descr": "Safety practices need significant improvement", "parent_ids": [], "color_code": "orange"},
+  {"id": 5, "name": "Unsatisfactory", "descr": "Unsatisfactory safety conditions", "parent_ids": [], "color_code": "red"},
+  {"id": 6, "name": "Critical", "descr": "Critical safety issues requiring immediate attention", "parent_ids": [], "color_code": "red"}
+]'::jsonb),
+
+-- Artifact Labels
+('dl__artifact_type', 'Artifact Types', 'FileText', '[
+  {"id": 0, "name": "Document", "descr": "General document or report", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Template", "descr": "Reusable template document", "parent_ids": [], "color_code": "purple"},
+  {"id": 2, "name": "Image", "descr": "Image or photo file", "parent_ids": [], "color_code": "cyan"},
+  {"id": 3, "name": "Video", "descr": "Video file or recording", "parent_ids": [], "color_code": "pink"},
+  {"id": 4, "name": "Spreadsheet", "descr": "Spreadsheet or data file", "parent_ids": [], "color_code": "green"},
+  {"id": 5, "name": "Presentation", "descr": "Presentation or slide deck", "parent_ids": [], "color_code": "orange"},
+  {"id": 6, "name": "Drawing", "descr": "Technical drawing or CAD file", "parent_ids": [], "color_code": "indigo"},
+  {"id": 7, "name": "Specification", "descr": "Technical specification document", "parent_ids": [], "color_code": "yellow"},
+  {"id": 8, "name": "Report", "descr": "Formal report or analysis", "parent_ids": [], "color_code": "blue"},
+  {"id": 9, "name": "Contract", "descr": "Legal contract or agreement", "parent_ids": [], "color_code": "red"},
+  {"id": 10, "name": "Training Material", "descr": "Training documentation or materials", "parent_ids": [], "color_code": "cyan"}
+]'::jsonb),
+
+('dl__artifact_security_classification', 'Security Classifications', 'Lock', '[
+  {"id": 0, "name": "General", "descr": "General information, no restrictions", "parent_ids": [], "color_code": "gray"},
+  {"id": 1, "name": "Confidential", "descr": "Confidential company information", "parent_ids": [], "color_code": "yellow"},
+  {"id": 2, "name": "Restricted", "descr": "Restricted access, authorized personnel only", "parent_ids": [], "color_code": "orange"},
+  {"id": 3, "name": "Secret", "descr": "Secret classification, limited distribution", "parent_ids": [], "color_code": "red"},
+  {"id": 4, "name": "Top Secret", "descr": "Top secret, highest level of restriction", "parent_ids": [], "color_code": "red"},
+  {"id": 5, "name": "Company Confidential", "descr": "Internal company confidential information", "parent_ids": [], "color_code": "purple"}
 ]'::jsonb);
 
 COMMENT ON TABLE app.setting_datalabel IS 'Unified data label table for all entity labels (stages, statuses, priorities, etc.)';

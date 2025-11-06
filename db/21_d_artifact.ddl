@@ -43,7 +43,7 @@ CREATE TABLE app.d_artifact (
     version integer DEFAULT 1,
 
     -- Artifact-specific fields
-    artifact_type text,
+    dl__artifact_type text, -- References app.setting_datalabel (datalabel_name='dl__artifact_type')
     attachment_format text,
     attachment_size_bytes bigint,
     attachment_object_bucket text,
@@ -52,7 +52,7 @@ CREATE TABLE app.d_artifact (
     entity_type text,
     entity_id uuid,
     visibility text,
-    security_classification text,
+    dl__artifact_security_classification text, -- References app.setting_datalabel (datalabel_name='dl__artifact_security_classification')
     latest_version_flag boolean DEFAULT true
 );
 
@@ -66,7 +66,7 @@ INSERT INTO app.d_artifact (
     name,
     descr,
     metadata,
-    artifact_type,
+    dl__artifact_type,
     attachment_format,
     attachment_size_bytes,
     attachment_object_bucket,
@@ -75,7 +75,7 @@ INSERT INTO app.d_artifact (
     entity_type,
     entity_id,
     visibility,
-    security_classification,
+    dl__artifact_security_classification,
     latest_version_flag
 ) VALUES (
     '33a33333-3333-3333-3333-333333333333',
@@ -83,7 +83,7 @@ INSERT INTO app.d_artifact (
     'Client Service Agreement Template',
     'Legal service agreement template for fall landscaping contracts. Includes terms of service, payment terms, liability clauses, and cancellation policies compliant with Ontario regulations.',
     '{"created_by": "James Miller", "legal_review_date": "2024-07-15", "reviewed_by": "Legal Department", "jurisdiction": "Ontario", "version": "2024.1"}'::jsonb,
-    'template',
+    'Template',
     'docx',
     92000,
     'pmo-attachments',
@@ -92,7 +92,7 @@ INSERT INTO app.d_artifact (
     'project',
     '84215ccb-313d-48f8-9c37-4398f28c0b1f',
     'internal',
-    'confidential',
+    'Confidential',
     true
 );
 
@@ -103,7 +103,7 @@ INSERT INTO app.d_artifact (
     name,
     descr,
     metadata,
-    artifact_type,
+    dl__artifact_type,
     attachment_format,
     attachment_size_bytes,
     attachment_object_bucket,
@@ -112,26 +112,24 @@ INSERT INTO app.d_artifact (
     entity_type,
     entity_id,
     visibility,
-    security_classification,
+    dl__artifact_security_classification,
     latest_version_flag
 ) VALUES (
     '44a44444-4444-4444-4444-444444444444',
     'ART-FLC-004',
     'Training Video - Aeration Techniques',
     'Comprehensive training video demonstrating proper aeration techniques for different soil types and lawn conditions. Covers equipment setup, operation, and safety procedures.',
-    '{"created_by": "James Miller", "duration_minutes": 18, "resolution": "1080p", "language": "English", "subtitles":,
-    '{"created_by": "James Miller", "photo_count": 45, "total_size_mb": 125, "usage_rights": "company_owned", "locations":,
-    '{"created_by": "James Miller", "formula_version": "2024.2", "includes_macros": true, "update_frequency": "quarterly", "currency": "CAD"}'::jsonb,
-    'document',
-    'xlsx',
+    '{"created_by": "James Miller", "duration_minutes": 18, "resolution": "1080p", "language": "English", "subtitles": ["en", "fr"]}'::jsonb,
+    'Video',
+    'mp4',
     487000,
     'pmo-attachments',
-    'artifacts/66a66666-6666-6666-6666-666666666666/file.xlsx',
-    's3://pmo-attachments/artifacts/66a66666-6666-6666-6666-666666666666/file.xlsx',
+    'artifacts/44a44444-4444-4444-4444-444444444444/file.mp4',
+    's3://pmo-attachments/artifacts/44a44444-4444-4444-4444-444444444444/file.mp4',
     'project',
     '84215ccb-313d-48f8-9c37-4398f28c0b1f',
     'restricted',
-    'confidential',
+    'General',
     true
 );
 
@@ -142,7 +140,7 @@ INSERT INTO app.d_artifact (
     name,
     descr,
     metadata,
-    artifact_type,
+    dl__artifact_type,
     attachment_format,
     attachment_size_bytes,
     attachment_object_bucket,
@@ -151,7 +149,7 @@ INSERT INTO app.d_artifact (
     entity_type,
     entity_id,
     visibility,
-    security_classification,
+    dl__artifact_security_classification,
     latest_version_flag
 ) VALUES (
     '77a77777-7777-7777-7777-777777777777',
@@ -159,7 +157,7 @@ INSERT INTO app.d_artifact (
     'Safety Incident Report Template',
     'Official template for reporting workplace safety incidents and near-misses. Compliant with WSIB requirements and company safety protocols. Includes investigation and corrective action sections.',
     '{"created_by": "James Miller", "compliance_standard": "WSIB Ontario", "legal_review": "2024-06-01", "mandatory_fields": 15, "confidentiality": "high"}'::jsonb,
-    'template',
+    'Template',
     'pdf',
     245000,
     'pmo-attachments',
@@ -168,7 +166,7 @@ INSERT INTO app.d_artifact (
     'project',
     '84215ccb-313d-48f8-9c37-4398f28c0b1f',
     'internal',
-    'confidential',
+    'Confidential',
     true
 );-- =====================================================
 -- COMPREHENSIVE ARTIFACT DATA (50+ Artifacts)
@@ -206,25 +204,23 @@ FROM (VALUES
 ) AS t(name, descr);
 
 -- Marketing and Sales Materials
-INSERT INTO app.d_artifact (, code, name, descr, metadata,
-    artifact_type, attachment_format, attachment_size_bytes,
+INSERT INTO app.d_artifact (code, name, descr, metadata,
+    dl__artifact_type, attachment_format, attachment_size_bytes,
     entity_type, entity_id,
-    visibility, security_classification, is_latest_version
+    visibility, dl__artifact_security_classification, latest_version_flag
 )
 SELECT
-    'marketing-' || lower(replace(name, ' ', '-')),
-    'ART-MKT-' || lpad(row_number() OVER ()::text, 3, '0'),
+    'ART-DOC-' || lpad(row_number() OVER ()::text, 3, '0'),
     name,
     descr,
-    '{"brand_approved": true, "languages":,
     '{"technical_review": true, "revision_date": current_date, "approved_by": "Engineering"}'::jsonb,
-    'document',
+    'Document',
     'pdf',
     400000 + floor(random() * 1600000)::bigint,
     'project',
     (SELECT id FROM app.d_project WHERE active_flag = true ORDER BY random() LIMIT 1),
     'internal',
-    'confidential',
+    'Confidential',
     true
 FROM (VALUES
     ('HVAC System Design Specifications', 'Technical specifications for HVAC system installations'),
@@ -235,13 +231,12 @@ FROM (VALUES
 ) AS t(name, descr);
 
 -- Training Videos
-INSERT INTO app.d_artifact (, code, name, descr, metadata,
-    artifact_type, attachment_format, attachment_size_bytes,
+INSERT INTO app.d_artifact (code, name, descr, metadata,
+    dl__artifact_type, attachment_format, attachment_size_bytes,
     entity_type, entity_id,
-    visibility, security_classification, is_latest_version
+    visibility, dl__artifact_security_classification, latest_version_flag
 )
 SELECT
-    'training-video-' || lower(replace(name, ' ', '-')),
     'ART-VID-' || lpad(row_number() OVER ()::text, 3, '0'),
     name,
     descr,
@@ -252,13 +247,13 @@ SELECT
         'subtitles', ARRAY['en', 'fr'],
         'training_category', category
     ),
-    'video',
+    'Video',
     'mp4',
     duration * 1000000 * 8::bigint, -- ~8MB per minute
     'office',
     (SELECT id FROM app.d_office WHERE active_flag = true ORDER BY random() LIMIT 1),
     'internal',
-    'general',
+    'General',
     true
 FROM (VALUES
     ('New Employee Orientation', 'Welcome and introduction for new team members', 25, 'onboarding'),
@@ -306,21 +301,21 @@ SET entity_name = EXCLUDED.entity_name,
 
 -- Show artifact summary by type
 SELECT
-    artifact_type,
+    dl__artifact_type,
     COUNT(*) as artifact_count,
-    SUM(file_size_bytes) as total_size_bytes,
-    AVG(file_size_bytes) as avg_size_bytes,
-    MAX(file_size_bytes) as max_size_bytes
+    SUM(attachment_size_bytes) as total_size_bytes,
+    AVG(attachment_size_bytes) as avg_size_bytes,
+    MAX(attachment_size_bytes) as max_size_bytes
 FROM app.d_artifact
 WHERE active_flag = true
-GROUP BY artifact_type
+GROUP BY dl__artifact_type
 ORDER BY artifact_count DESC;
 
 -- Show artifact distribution by entity type
 SELECT
     entity_type,
     COUNT(*) as artifact_count,
-    array_agg(DISTINCT artifact_type) as artifact_types
+    array_agg(DISTINCT dl__artifact_type) as artifact_types
 FROM app.d_artifact
 WHERE active_flag = true
   AND entity_type IS NOT NULL
@@ -330,11 +325,11 @@ ORDER BY artifact_count DESC;
 -- Show visibility and security distribution
 SELECT
     visibility,
-    security_classification,
+    dl__artifact_security_classification,
     COUNT(*) as artifact_count
 FROM app.d_artifact
 WHERE active_flag = true
-GROUP BY visibility, security_classification
-ORDER BY visibility, security_classification;
+GROUP BY visibility, dl__artifact_security_classification
+ORDER BY visibility, dl__artifact_security_classification;
 
 COMMENT ON TABLE app.d_artifact IS 'Artifact table with 50+ curated documents, images, videos, and files across entities';
