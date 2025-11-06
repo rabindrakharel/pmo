@@ -269,7 +269,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       const projects = await db.execute(sql`
         SELECT
           p.id, p.code, p.name, p.descr, p.metadata,
-          p.project_stage,
+          p.dl__project_stage,
           p.budget_allocated_amt, p.budget_spent_amt,
           p.planned_start_date, p.planned_end_date,
           p.actual_start_date, p.actual_end_date,
@@ -353,11 +353,16 @@ export async function bizRoutes(fastify: FastifyInstance) {
       // Get action summaries for this business unit
       const actionSummaries = [];
 
-      // Count projects
+      // Count projects (via entity_id_map as projects don't have direct business_id FK)
       const projectCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_project p
-        WHERE p.business_id = ${bizId} AND p.active_flag = true
+        INNER JOIN app.entity_id_map eim ON eim.child_entity_id = p.id::text
+        WHERE eim.parent_entity_id = ${bizId}
+          AND eim.parent_entity_type = 'business'
+          AND eim.child_entity_type = 'project'
+          AND eim.active_flag = true
+          AND p.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'project',
@@ -366,12 +371,21 @@ export async function bizRoutes(fastify: FastifyInstance) {
         icon: 'FolderOpen'
       });
 
-      // Count tasks (via projects)
+      // Count tasks (via entity_id_map linkage to projects, then to business)
       const taskCount = await db.execute(sql`
         SELECT COUNT(DISTINCT t.id) as count
         FROM app.d_task t
-        INNER JOIN app.d_project p ON t.project_id = p.id
-        WHERE p.business_id = ${bizId} AND t.active_flag = true
+        INNER JOIN app.entity_id_map eim_task ON eim_task.child_entity_id = t.id::text
+        INNER JOIN app.d_project p ON p.id::text = eim_task.parent_entity_id
+        INNER JOIN app.entity_id_map eim_proj ON eim_proj.child_entity_id = p.id::text
+        WHERE eim_proj.parent_entity_id = ${bizId}
+          AND eim_proj.parent_entity_type = 'business'
+          AND eim_proj.child_entity_type = 'project'
+          AND eim_task.parent_entity_type = 'project'
+          AND eim_task.child_entity_type = 'task'
+          AND eim_task.active_flag = true
+          AND eim_proj.active_flag = true
+          AND t.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'task',
@@ -380,12 +394,15 @@ export async function bizRoutes(fastify: FastifyInstance) {
         icon: 'CheckSquare'
       });
 
-      // Count artifacts (via entity mapping with biz)
+      // Count artifacts (via entity_id_map linkage to business)
       const artifactCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_artifact a
-        WHERE a.primary_entity_type = 'biz'
-          AND a.primary_entity_id = ${bizId}
+        INNER JOIN app.entity_id_map eim ON eim.child_entity_id = a.id::text
+        WHERE eim.parent_entity_id = ${bizId}
+          AND eim.parent_entity_type = 'business'
+          AND eim.child_entity_type = 'artifact'
+          AND eim.active_flag = true
           AND a.active_flag = true
       `);
       actionSummaries.push({
@@ -395,12 +412,15 @@ export async function bizRoutes(fastify: FastifyInstance) {
         icon: 'FileText'
       });
 
-      // Count wiki entries (via entity mapping with biz)
+      // Count wiki entries (via entity_id_map linkage to business)
       const wikiCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_wiki w
-        WHERE w.primary_entity_type = 'biz'
-          AND w.primary_entity_id = ${bizId}
+        INNER JOIN app.entity_id_map eim ON eim.child_entity_id = w.id::text
+        WHERE eim.parent_entity_id = ${bizId}
+          AND eim.parent_entity_type = 'business'
+          AND eim.child_entity_type = 'wiki'
+          AND eim.active_flag = true
           AND w.active_flag = true
       `);
       actionSummaries.push({
