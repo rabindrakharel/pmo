@@ -7,11 +7,14 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { orchestratorService } from './orchestrator.service.js';
 import type { OrchestratedMessageRequest, OrchestratedMessageResponse } from './orchestrator.service.js';
+import { voiceOrchestratorRoutes } from './voice-orchestrator.routes.js';
 
 /**
  * Register orchestrator routes
  */
 export async function orchestratorRoutes(fastify: FastifyInstance) {
+  // Register voice routes
+  await voiceOrchestratorRoutes(fastify);
   /**
    * POST /api/v1/chat/orchestrator/message
    * Send a message through the multi-agent orchestrator
