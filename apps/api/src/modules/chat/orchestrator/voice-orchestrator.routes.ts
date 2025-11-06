@@ -6,20 +6,12 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { processVoiceMessage, speechToText, textToSpeech, getAvailableVoices } from './voice-orchestrator.service.js';
-import multipart from '@fastify/multipart';
 
 /**
  * Register voice orchestrator routes
+ * Note: Multipart support is already registered globally in server.ts
  */
 export async function voiceOrchestratorRoutes(fastify: FastifyInstance) {
-  // Register multipart support for file uploads
-  await fastify.register(multipart, {
-    limits: {
-      fileSize: 25 * 1024 * 1024, // 25MB max file size
-      files: 1 // Only one file at a time
-    }
-  });
-
   /**
    * POST /api/v1/chat/orchestrator/voice
    * Complete voice processing: STT → Orchestrator → TTS

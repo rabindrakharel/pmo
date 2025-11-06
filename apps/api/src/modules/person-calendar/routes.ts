@@ -14,43 +14,85 @@ import type { PersonCalendar, CreatePersonCalendarRequest, UpdatePersonCalendarR
 export async function personCalendarRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/v1/person-calendar
-   * Get all active calendar slots
+   * Get all active calendar slots with optional availability filter
    */
-  fastify.get('/api/v1/person-calendar', async (request, reply) => {
+  fastify.get<{
+    Querystring: { availability_flag?: string; page?: number; limit?: number };
+  }>('/api/v1/person-calendar', async (request, reply) => {
     try {
-      const query = client`
-        SELECT
-          id::text,
-          code,
-          name,
-          descr,
-          person_entity_type,
-          person_entity_id::text,
-          from_ts::text,
-          to_ts::text,
-          timezone,
-          availability_flag,
-          title,
-          appointment_medium,
-          appointment_addr,
-          instructions,
-          event_id::text,
-          metadata,
-          reminder_sent_flag,
-          reminder_sent_ts::text,
-          confirmation_sent_flag,
-          confirmation_sent_ts::text,
-          active_flag,
-          created_ts::text,
-          updated_ts::text,
-          version
-        FROM app.d_entity_person_calendar
-        WHERE active_flag = true
-        ORDER BY from_ts ASC
-      `;
+      const { availability_flag, page, limit } = request.query;
+
+      // Build query with optional availability_flag filter
+      let query;
+
+      if (availability_flag !== undefined) {
+        const isAvailable = availability_flag === 'true';
+        query = client`
+          SELECT
+            id::text,
+            code,
+            name,
+            descr,
+            person_entity_type,
+            person_entity_id::text,
+            from_ts::text,
+            to_ts::text,
+            timezone,
+            availability_flag,
+            title,
+            appointment_medium,
+            appointment_addr,
+            instructions,
+            event_id::text,
+            metadata,
+            reminder_sent_flag,
+            reminder_sent_ts::text,
+            confirmation_sent_flag,
+            confirmation_sent_ts::text,
+            active_flag,
+            created_ts::text,
+            updated_ts::text,
+            version
+          FROM app.d_entity_person_calendar
+          WHERE active_flag = true
+            AND availability_flag = ${isAvailable}
+          ORDER BY from_ts ASC
+        `;
+      } else {
+        query = client`
+          SELECT
+            id::text,
+            code,
+            name,
+            descr,
+            person_entity_type,
+            person_entity_id::text,
+            from_ts::text,
+            to_ts::text,
+            timezone,
+            availability_flag,
+            title,
+            appointment_medium,
+            appointment_addr,
+            instructions,
+            event_id::text,
+            metadata,
+            reminder_sent_flag,
+            reminder_sent_ts::text,
+            confirmation_sent_flag,
+            confirmation_sent_ts::text,
+            active_flag,
+            created_ts::text,
+            updated_ts::text,
+            version
+          FROM app.d_entity_person_calendar
+          WHERE active_flag = true
+          ORDER BY from_ts ASC
+        `;
+      }
 
       const result = await query;
-      reply.code(200).send(result.rows);
+      reply.code(200).send(result);
     } catch (error) {
       console.error('Error fetching person calendar:', error);
       reply.code(500).send({ error: 'Failed to fetch person calendar' });
@@ -99,11 +141,11 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
 
       const result = await query;
 
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return reply.code(404).send({ error: 'Calendar slot not found' });
       }
 
-      reply.code(200).send(result.rows[0]);
+      reply.code(200).send(result[0]);
     } catch (error) {
       console.error('Error fetching calendar slot:', error);
       reply.code(500).send({ error: 'Failed to fetch calendar slot' });
@@ -162,7 +204,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
       `;
 
       const result = await query;
-      reply.code(200).send(result.rows);
+      reply.code(200).send(result);
     } catch (error) {
       console.error('Error fetching available slots:', error);
       reply.code(500).send({ error: 'Failed to fetch available slots' });
@@ -278,7 +320,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
       `;
 
       const result = await query;
-      reply.code(200).send(result.rows);
+      reply.code(200).send(result);
     } catch (error) {
       console.error('Error fetching booked slots:', error);
       reply.code(500).send({ error: 'Failed to fetch booked slots' });
@@ -333,7 +375,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
       `;
 
       const result = await insertQuery;
-      const newSlot = result.rows[0];
+      const newSlot = result[0];
 
       // Register in entity_instance_id
       await client`
@@ -390,13 +432,13 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
 
       const result = await updateQuery;
 
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return reply.code(404).send({ error: 'Calendar slot not found' });
       }
 
-      console.log(`✅ Updated calendar slot: ${result.rows[0].code}`);
+      console.log(`✅ Updated calendar slot: ${result[0].code}`);
 
-      reply.code(200).send(result.rows[0]);
+      reply.code(200).send(result[0]);
     } catch (error) {
       console.error('Error updating calendar slot:', error);
       reply.code(500).send({ error: 'Failed to update calendar slot' });
@@ -441,16 +483,16 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
 
       const result = await bookQuery;
 
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return reply.code(404).send({ error: 'No available slots found to book' });
       }
 
-      console.log(`✅ Booked ${result.rows.length} calendar slots: ${title}`);
+      console.log(`✅ Booked ${result.length} calendar slots: ${title}`);
 
       reply.code(200).send({
         success: true,
-        booked_slots: result.rows.length,
-        slots: result.rows
+        booked_slots: result.length,
+        slots: result
       });
     } catch (error) {
       console.error('Error booking slots:', error);
@@ -490,16 +532,16 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
 
       const result = await cancelQuery;
 
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return reply.code(404).send({ error: 'No booked slots found to cancel' });
       }
 
-      console.log(`✅ Cancelled ${result.rows.length} calendar slots`);
+      console.log(`✅ Cancelled ${result.length} calendar slots`);
 
       reply.code(200).send({
         success: true,
-        cancelled_slots: result.rows.length,
-        slots: result.rows
+        cancelled_slots: result.length,
+        slots: result
       });
     } catch (error) {
       console.error('Error cancelling slots:', error);
@@ -528,11 +570,11 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
 
       const result = await deleteQuery;
 
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return reply.code(404).send({ error: 'Calendar slot not found' });
       }
 
-      console.log(`✅ Deleted calendar slot: ${result.rows[0].code}`);
+      console.log(`✅ Deleted calendar slot: ${result[0].code}`);
 
       reply.code(200).send({ success: true, message: 'Calendar slot deleted successfully' });
     } catch (error) {

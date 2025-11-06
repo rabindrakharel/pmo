@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, MapPin, Video, User, Save } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, Video, User, Save, Users } from 'lucide-react';
+import { SearchableMultiSelect } from './SearchableMultiSelect';
 
 /**
  * CalendarEventModal Component
@@ -44,6 +45,8 @@ export interface EventFormData {
   appointment_medium?: 'onsite' | 'virtual';
   appointment_addr?: string;
   instructions?: string;
+  employee_ids?: string[]; // Multiple employees
+  attendee_ids?: string[]; // Multiple attendees (all types)
 }
 
 interface PersonEntity {
@@ -72,7 +75,9 @@ export function CalendarEventModal({
     title: '',
     appointment_medium: 'onsite',
     appointment_addr: '',
-    instructions: ''
+    instructions: '',
+    employee_ids: [],
+    attendee_ids: []
   });
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -89,7 +94,9 @@ export function CalendarEventModal({
         title: initialData.title || '',
         appointment_medium: initialData.appointment_medium || 'onsite',
         appointment_addr: initialData.appointment_addr || '',
-        instructions: initialData.instructions || ''
+        instructions: initialData.instructions || '',
+        employee_ids: initialData.metadata?.employee_ids || [],
+        attendee_ids: initialData.metadata?.attendee_ids || []
       });
     }
   }, [initialData]);
@@ -110,8 +117,16 @@ export function CalendarEventModal({
     const newErrors: Record<string, string> = {};
 
     if (!formData.person_entity_id) {
-      newErrors.person_entity_id = 'Please select a person';
+      newErrors.person_entity_id = 'Please select a primary person';
     }
+
+    // Require at least one attendee (employee or other)
+    const hasEmployees = formData.employee_ids && formData.employee_ids.length > 0;
+    const hasAttendees = formData.attendee_ids && formData.attendee_ids.length > 0;
+    if (!hasEmployees && !hasAttendees) {
+      newErrors.attendee_ids = 'Please select at least one employee or attendee';
+    }
+
     if (!formData.from_ts) {
       newErrors.from_ts = 'Start time is required';
     }
@@ -150,6 +165,27 @@ export function CalendarEventModal({
 
   const getPeople = () => {
     return formData.person_entity_type === 'employee' ? employees : customers;
+  };
+
+  // Get employee options for multi-select
+  const getEmployeeOptions = () => {
+    return employees.map(emp => ({
+      value: emp.id,
+      label: `${emp.name}${emp.email ? ' - ' + emp.email : ''}`
+    }));
+  };
+
+  // Get all people (employees + customers) as options for multi-select
+  const getAllPeopleOptions = () => {
+    const employeeOptions = employees.map(emp => ({
+      value: emp.id,
+      label: `${emp.name} (Employee)${emp.email ? ' - ' + emp.email : ''}`
+    }));
+    const customerOptions = customers.map(cust => ({
+      value: cust.id,
+      label: `${cust.name} (Customer)${cust.email ? ' - ' + cust.email : ''}`
+    }));
+    return [...employeeOptions, ...customerOptions];
   };
 
   if (!isOpen) return null;
@@ -209,10 +245,11 @@ export function CalendarEventModal({
             </div>
           </div>
 
-          {/* Person Selection */}
+          {/* Primary Person Selection */}
           <div>
             <label className="block text-sm font-medium text-dark-600 mb-2">
-              Select Person *
+              <User className="inline h-4 w-4 mr-1" />
+              Primary Person *
             </label>
             <select
               value={formData.person_entity_id}
@@ -231,6 +268,43 @@ export function CalendarEventModal({
             {errors.person_entity_id && (
               <p className="text-red-600 text-xs mt-1">{errors.person_entity_id}</p>
             )}
+          </div>
+
+          {/* Multi-Select Employees */}
+          <div>
+            <label className="block text-sm font-medium text-dark-600 mb-2">
+              <Users className="inline h-4 w-4 mr-1 text-blue-600" />
+              Employees
+            </label>
+            <SearchableMultiSelect
+              options={getEmployeeOptions()}
+              value={formData.employee_ids || []}
+              onChange={(value) => handleChange('employee_ids', value)}
+              placeholder="Search and select employees..."
+            />
+            <p className="text-xs text-dark-600 mt-1">
+              Select multiple employees to attend this event
+            </p>
+          </div>
+
+          {/* Multi-Select All Attendees */}
+          <div>
+            <label className="block text-sm font-medium text-dark-600 mb-2">
+              <Users className="inline h-4 w-4 mr-1 text-purple-600" />
+              Other Attendees (Employees & Customers)
+            </label>
+            <SearchableMultiSelect
+              options={getAllPeopleOptions()}
+              value={formData.attendee_ids || []}
+              onChange={(value) => handleChange('attendee_ids', value)}
+              placeholder="Search and select attendees..."
+            />
+            {errors.attendee_ids && (
+              <p className="text-red-600 text-xs mt-1">{errors.attendee_ids}</p>
+            )}
+            <p className="text-xs text-dark-600 mt-1">
+              Select additional employees and/or customers to attend this event
+            </p>
           </div>
 
           {/* Time Range */}

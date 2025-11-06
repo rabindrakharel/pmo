@@ -277,5 +277,15 @@ export function getEndpointStats(): Record<string, number> {
   return stats;
 }
 
+/**
+ * MCP Adapter Service Class
+ * Wrapper class for legacy code compatibility
+ */
+export class MCPAdapterService {
+  async executeMCPTool(toolName: string, args: Record<string, any>, authToken?: string): Promise<any> {
+    return executeMCPTool(toolName, args, authToken || '');
+  }
+}
+
 // Export manifest for reference
 export { API_MANIFEST };

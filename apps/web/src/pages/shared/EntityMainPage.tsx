@@ -207,13 +207,16 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
 
     // CALENDAR VIEW - Employee-filterable calendar grid
     if (view === 'calendar') {
+      // Filter to show only booked events (availability_flag = false)
+      const bookedEvents = data.filter((item: any) => item.availability_flag === false);
+
       return (
         <div className="bg-dark-100 rounded-lg shadow p-6">
           <CalendarView
             config={config}
-            data={data}
+            data={bookedEvents}
             onSlotClick={handleRowClick}
-            emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
+            emptyMessage={`No booked ${config.pluralName.toLowerCase()} found`}
           />
         </div>
       );

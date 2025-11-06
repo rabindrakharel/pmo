@@ -29,8 +29,9 @@ import { WorkflowDetailPage } from './pages/workflow';
 // Marketing Pages
 import { EmailDesignerPage } from './pages/marketing/EmailDesignerPage';
 
-// Chat Page
+// Chat Pages
 import { ChatPage } from './pages/ChatPage';
+import { VoiceChatPage } from './pages/VoiceChatPage';
 
 // Profile & Settings Pages
 import { ProfilePage } from './pages/profile';
@@ -190,6 +191,7 @@ function AppRoutes() {
 
       {/* Special Routes - Chat (AI Assistant Widget) */}
       <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+      <Route path="/voice-chat" element={<ProtectedRoute><VoiceChatPage /></ProtectedRoute>} />
 
       {/* Profile Navigation Pages */}
       <Route

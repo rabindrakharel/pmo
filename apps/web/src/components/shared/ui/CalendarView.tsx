@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronDown, ChevronUp, User, Users, Building } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronDown, ChevronUp, User, Users, Building, Search } from 'lucide-react';
 import type { EntityConfig } from '../../../lib/entityConfig';
 import { CalendarEventModal, type CalendarEvent, type EventFormData } from './CalendarEventModal';
 import { CalendarEventPopover } from './CalendarEventPopover';
@@ -72,6 +72,8 @@ export function CalendarView({
   const [loading, setLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['employee']));
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
+  const [customerSearchTerm, setCustomerSearchTerm] = useState('');
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -521,9 +523,19 @@ export function CalendarView({
         ? `${eventData.person_entity_type.toUpperCase().slice(0, 3)}-CAL-${Date.now()}`
         : undefined;
 
+      // Prepare metadata with employee_ids and attendee_ids
+      const metadata = {
+        ...(eventData.metadata || {}),
+        employee_ids: eventData.employee_ids || [],
+        attendee_ids: eventData.attendee_ids || []
+      };
+
+      // Remove employee_ids and attendee_ids from top-level as they should be in metadata
+      const { employee_ids, attendee_ids, ...eventDataWithoutAttendees } = eventData;
+
       const body = modalMode === 'create'
-        ? { ...eventData, code, name: eventData.title || 'Calendar Slot' }
-        : eventData;
+        ? { ...eventDataWithoutAttendees, code, name: eventData.title || 'Calendar Slot', metadata }
+        : { ...eventDataWithoutAttendees, metadata };
 
       const response = await fetch(url, {
         method,
@@ -614,27 +626,64 @@ export function CalendarView({
                 </button>
 
                 {expandedSections.has('employee') && (
-                  <div className="px-3 py-2 space-y-1">
+                  <div className="px-3 py-2 space-y-2">
+                    {/* Search Input */}
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-dark-600" />
+                      <input
+                        type="text"
+                        value={employeeSearchTerm}
+                        onChange={(e) => setEmployeeSearchTerm(e.target.value)}
+                        placeholder="Search employees..."
+                        className="w-full pl-7 pr-2 py-1.5 text-xs border border-dark-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+
+                    {/* Select All */}
                     <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-dark-50 rounded cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={peopleByType.employee.every(p => selectedPersonIds.has(p.id))}
-                        onChange={() => toggleAllType('employee')}
+                        checked={peopleByType.employee.filter(p =>
+                          p.name.toLowerCase().includes(employeeSearchTerm.toLowerCase())
+                        ).every(p => selectedPersonIds.has(p.id))}
+                        onChange={() => {
+                          const filtered = peopleByType.employee.filter(p =>
+                            p.name.toLowerCase().includes(employeeSearchTerm.toLowerCase())
+                          );
+                          const allSelected = filtered.every(p => selectedPersonIds.has(p.id));
+                          filtered.forEach(p => {
+                            if (allSelected) {
+                              selectedPersonIds.delete(p.id);
+                            } else {
+                              selectedPersonIds.add(p.id);
+                            }
+                          });
+                          setSelectedPersonIds(new Set(selectedPersonIds));
+                        }}
                         className="rounded border-dark-400 text-blue-600 focus:ring-blue-500"
                       />
                       <span className="text-xs font-medium text-dark-600">Select All</span>
                     </label>
-                    {peopleByType.employee.map(person => (
-                      <label key={person.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-dark-50 rounded cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedPersonIds.has(person.id)}
-                          onChange={() => togglePerson(person.id)}
-                          className="rounded border-dark-400 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-xs text-dark-600 truncate flex-1">{person.name}</span>
-                      </label>
-                    ))}
+
+                    {/* Filtered Employee List */}
+                    <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                      {peopleByType.employee
+                        .filter(person => person.name.toLowerCase().includes(employeeSearchTerm.toLowerCase()))
+                        .map(person => (
+                          <label key={person.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-dark-50 rounded cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedPersonIds.has(person.id)}
+                              onChange={() => togglePerson(person.id)}
+                              className="rounded border-dark-400 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="text-xs text-dark-600 truncate flex-1">{person.name}</span>
+                          </label>
+                        ))}
+                      {peopleByType.employee.filter(p => p.name.toLowerCase().includes(employeeSearchTerm.toLowerCase())).length === 0 && (
+                        <p className="text-xs text-dark-600 text-center py-2">No employees found</p>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

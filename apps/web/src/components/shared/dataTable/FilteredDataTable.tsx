@@ -142,8 +142,15 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
       // Properly handle query parameters
       const separator = endpoint.includes('?') ? '&' : '?';
+
+      // For person-calendar, only show booked events (availability_flag = false)
+      let queryParams = `page=${currentPage}&limit=${pageSize}`;
+      if (entityType === 'person-calendar') {
+        queryParams += '&availability_flag=false';
+      }
+
       const response = await fetch(
-        `${API_BASE_URL}${endpoint}${separator}page=${currentPage}&limit=${pageSize}`,
+        `${API_BASE_URL}${endpoint}${separator}${queryParams}`,
         { headers }
       );
 

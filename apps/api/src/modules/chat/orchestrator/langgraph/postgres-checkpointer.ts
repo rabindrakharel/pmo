@@ -7,7 +7,7 @@
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { Checkpoint, CheckpointMetadata, CheckpointTuple } from '@langchain/langgraph-checkpoint';
 import type { OrchestratorState } from '../types/langgraph-state.types.js';
-import { StateManagerService } from '../state/state-manager.service.js';
+import { StateManager } from '../state/state-manager.service.js';
 
 /**
  * PostgreSQL Checkpointer
@@ -15,9 +15,9 @@ import { StateManagerService } from '../state/state-manager.service.js';
  * Uses existing orchestrator_session and orchestrator_state tables
  */
 export class PostgresCheckpointer implements Partial<BaseCheckpointSaver> {
-  private stateManager: StateManagerService;
+  private stateManager: StateManager;
 
-  constructor(stateManager: StateManagerService) {
+  constructor(stateManager: StateManager) {
     this.stateManager = stateManager;
   }
 

@@ -7,7 +7,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { OrchestratorState } from '../types/langgraph-state.types.js';
 import { createCalendarBookingGraph } from './calendar-booking.langgraph.js';
-import { StateManagerService } from '../state/state-manager.service.js';
+import { StateManager } from '../state/state-manager.service.js';
 import { createPostgresCheckpointer } from './postgres-checkpointer.js';
 import { MCPAdapterService } from '../../mcp-adapter.service.js';
 
@@ -15,13 +15,13 @@ import { MCPAdapterService } from '../../mcp-adapter.service.js';
  * LangGraph Orchestrator Service
  */
 export class LangGraphOrchestratorService {
-  private stateManager: StateManagerService;
+  private stateManager: StateManager;
   private mcpAdapter: MCPAdapterService;
   private checkpointer: any;
   private graphs: Map<string, any> = new Map();
 
   constructor() {
-    this.stateManager = new StateManagerService();
+    this.stateManager = new StateManager();
     this.mcpAdapter = new MCPAdapterService();
     this.checkpointer = createPostgresCheckpointer(this.stateManager);
 

@@ -86,7 +86,14 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(timeout 2 ./tools/logs-api.sh:*)",
-      "Bash(./tools/monitor-voice-chat.sh:*)"
+      "Bash(./tools/monitor-voice-chat.sh:*)",
+      "Bash(find:*)",
+      "Bash(pstree:*)",
+      "Bash(/home/rabin/projects/pmo/tools/restart-api.sh:*)",
+      "Bash(SESSION_ID=\"c4ecc07c-1c5e-4d9a-99bd-bd4b325788af\" curl:*)",
+      "Bash(/home/rabin/projects/pmo/tools/test-voice-orchestrator.sh:*)",
+      "Bash(node -e:*)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": [],
