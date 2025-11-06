@@ -1,48 +1,31 @@
 -- =====================================================
--- PROJECT ENTITY (d_project) - CORE ENTITY
--- Project management with budget tracking, timelines, and team assignments
+-- PROJECT ENTITY (d_project) - CORE WORK CONTAINER
 -- =====================================================
 --
 -- SEMANTICS:
--- Projects are primary work containers tracking budgets, schedules, and teams.
--- Each project has a stable UUID that never changes, preserving relationships to child entities.
--- Updates are in-place (same ID, version++), NOT Type-2 SCD archival.
+-- • Primary work containers with budget, schedule, and team tracking
+-- • Stable UUID preserves child relationships, in-place updates (version++)
+-- • Workflow stages drive Kanban view and colored badges
 --
--- DATABASE BEHAVIOR:
--- • CREATE: INSERT with version=1, active_flag=true, created_ts=now()
---   Example: INSERT INTO d_project (id, code, name, dl__project_stage, budget_allocated_amt)
---            VALUES ('93106ffb-...', 'DT-2024-001', 'Digital Transformation', 'In Progress', 750000.00)
---
--- • UPDATE: Same ID persists, version increments, updated_ts refreshes
---   Example: UPDATE d_project SET dl__project_stage='Execution', version=version+1, updated_ts=now()
---            WHERE id='93106ffb-...'
---
--- • SOFT DELETE: active_flag=false, to_ts=now(), preserves all child relationships
---   Example: UPDATE d_project SET active_flag=false, to_ts=now() WHERE id='93106ffb-...'
---
--- • QUERY: Filter by stage, business, office with RBAC enforcement
---   Example: SELECT * FROM d_project WHERE active_flag=true AND dl__project_stage='Planning'
+-- OPERATIONS:
+-- • CREATE: INSERT with version=1, active_flag=true
+-- • UPDATE: Same ID, version++, updated_ts refreshes
+-- • DELETE: active_flag=false, to_ts=now() (preserves children)
+-- • QUERY: Filter by dl__project_stage, business, RBAC enforced
 --
 -- KEY FIELDS:
--- • id: uuid PRIMARY KEY (stable, never changes)
--- • code: varchar(50) UNIQUE NOT NULL (business identifier: 'DT-2024-001')
--- • dl__project_stage: text (references setting_datalabel: 'Initiation', 'Planning', 'Execution', ...)
--- • budget_allocated_amt, budget_spent_amt: decimal(15,2) (financial tracking)
--- • planned_start_date, actual_start_date: date (timeline management)
--- • manager_employee_id, sponsor_employee_id: uuid (team assignments)
--- • stakeholder_employee_ids: uuid[] (array of stakeholder IDs)
--- • version: integer DEFAULT 1 (increments on updates)
--- • active_flag: boolean DEFAULT true (soft delete control)
+-- • id: uuid PRIMARY KEY (stable)
+-- • code: varchar(50) UNIQUE ('DT-2024-001')
+-- • dl__project_stage: text (Initiation→Planning→Execution→Closure)
+-- • budget_allocated_amt, budget_spent_amt: decimal(15,2)
+-- • planned_start_date, actual_start_date: date
+-- • manager_employee_id, sponsor_employee_id: uuid
+-- • stakeholder_employee_ids: uuid[]
 --
--- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: business (via metadata.business_id or d_entity_id_map)
--- • Children: task, artifact, wiki, form (via d_entity_id_map)
--- • RBAC: entity_id_rbac_map (empid → project permissions)
---
--- DATALABEL INTEGRATION:
--- • dl__project_stage loaded from: setting_datalabel WHERE datalabel_name='dl__project_stage'
--- • Frontend renders colored badges: Planning (purple), Execution (yellow), Closure (green)
--- • Kanban columns driven by dl__project_stage values
+-- RELATIONSHIPS:
+-- • Parent: business (via d_entity_id_map)
+-- • Children: task, artifact, wiki, form, cost, revenue
+-- • RBAC: entity_id_rbac_map
 --
 -- =====================================================
 

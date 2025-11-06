@@ -1,62 +1,35 @@
 -- =====================================================
--- EMPLOYEE ENTITY (d_employee) - CORE PERSONNEL & AUTH ENTITY
--- User accounts, authentication, RBAC identity, and HR management
+-- EMPLOYEE ENTITY (d_employee) - PERSONNEL & AUTH
 -- =====================================================
 --
 -- SEMANTICS:
--- Employees are the RBAC identity foundation: every permission in entity_id_rbac_map references employee.id.
--- Manages authentication (email/password_hash), organizational structure (manager_employee_id), and HR data.
--- Login generates JWT with {sub: employee.id}, which is used for all RBAC permission checks.
--- In-place updates (same ID, version++), soft delete for terminations preserving audit trail.
+-- • RBAC identity foundation: every permission references employee.id
+-- • Authentication via email/password_hash (bcrypt), JWT {sub: employee.id}
+-- • In-place updates (same ID, version++), soft delete preserves audit trail
 --
--- DATABASE BEHAVIOR:
+-- OPERATIONS:
 -- • CREATE: INSERT with bcrypt password_hash, version=1, active_flag=true
---   Example: INSERT INTO d_employee (id, code, email, password_hash, name, employee_type, title)
---            VALUES ('8260b1b0-...', 'EMP-001', 'james.miller@huronhome.ca',
---                    '$2b$12$xaFJV661...', 'James Miller', 'full-time', 'CEO')
---
--- • LOGIN: Query by email, verify password_hash with bcrypt.compare()
---   Example: SELECT id, email, password_hash, name FROM d_employee
---            WHERE email='james.miller@huronhome.ca' AND active_flag=true
---
+-- • LOGIN: Query by email, verify with bcrypt.compare(), generate JWT
 -- • UPDATE: Same ID, version++, updated_ts refreshes
---   Example: UPDATE d_employee SET title='Senior Manager', department='Operations', version=version+1
---            WHERE id='8260b1b0-...'
---
--- • SOFT DELETE: active_flag=false, termination_date=now(), to_ts=now()
---   Example: UPDATE d_employee SET active_flag=false, termination_date=now(), to_ts=now()
---            WHERE id='8260b1b0-...'
+-- • DELETE: active_flag=false, termination_date=now(), to_ts=now()
 --
 -- KEY FIELDS:
--- • id: uuid PRIMARY KEY (RBAC identity, stable forever)
--- • code: varchar(50) UNIQUE NOT NULL ('EMP-001')
--- • email: varchar(255) UNIQUE NOT NULL (login username: 'james.miller@huronhome.ca')
--- • password_hash: varchar(255) (bcrypt hashed, NEVER returned by API)
--- • employee_type: varchar(50) ('full-time', 'part-time', 'contract', 'temporary', 'intern')
--- • department: varchar(100) ('Executive', 'Operations', 'Finance', 'IT', ...)
--- • title: varchar(200) ('CEO', 'Project Manager', 'Field Technician', ...)
--- • manager_employee_id: uuid (self-reference for org chart reporting structure)
--- • hire_date, termination_date: date (employment lifecycle)
--- • last_login_ts: timestamptz (session tracking)
--- • failed_login_attempts: integer (security lockout: 5 attempts triggers 30-min lock)
--- • skills_service_categories: text[] (service categories employee is skilled in: ['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting'])
+-- • id: uuid PRIMARY KEY (RBAC identity, stable)
+-- • code: varchar(50) UNIQUE ('EMP-001')
+-- • email: varchar(255) UNIQUE (login username)
+-- • password_hash: varchar(255) (bcrypt cost=12, never returned by API)
+-- • employee_type: varchar(50) (full-time, part-time, contract)
+-- • department, title: varchar (org structure)
+-- • manager_employee_id: uuid (self-ref for hierarchy)
+-- • skills_service_categories: text[] (HVAC, Plumbing, Electrical, etc.)
 --
--- AUTHENTICATION FLOW:
--- 1. POST /api/v1/auth/login with {email, password}
--- 2. Query d_employee WHERE email=$1 AND active_flag=true
--- 3. Verify bcrypt.compare(password, password_hash)
--- 4. Generate JWT: {sub: employee.id, email, name}
--- 5. All API requests → middleware extracts employee.id from JWT
--- 6. RBAC checks: SELECT FROM entity_id_rbac_map WHERE empid={JWT.sub}
---
--- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Self-reference: manager_employee_id → d_employee.id (org chart hierarchy)
--- • RBAC: empid ← entity_id_rbac_map (all permissions reference employee.id)
--- • Assignments: d_project.manager_employee_id, d_task assignees (via d_entity_id_map)
+-- RELATIONSHIPS:
+-- • Parent: role (via d_entity_id_map)
+-- • Self: manager_employee_id → d_employee.id
+-- • RBAC: entity_id_rbac_map.empid
 --
 -- SECURITY:
--- • password_hash: bcrypt with cost=12 (password123 hash: $2b$12$xaFJV661...)
--- • Account lockout: 5 failed attempts → locked for 30 minutes
+-- • Account lockout: 5 failed attempts → 30 min lock
 -- • Password reset: token expires in 1 hour
 --
 -- =====================================================

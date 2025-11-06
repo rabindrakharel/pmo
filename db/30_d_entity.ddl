@@ -1,82 +1,35 @@
 -- =====================================================
--- ENTITY TYPE METADATA TABLE (d_entity)
--- Stores entity TYPE definitions with parent-child relationships and icons
+-- ENTITY TYPE METADATA (d_entity)
 -- =====================================================
 --
--- BUSINESS PURPOSE:
--- Maintains metadata for all entity TYPES in the system including parent-child relationships,
--- icons, labels, and hierarchical structures. This is the single source of truth for entity
--- type definitions and their relationships, used for dynamic UI generation (tabs, navigation).
+-- SEMANTICS:
+-- • Single source of truth for entity TYPE definitions (not instances)
+-- • Defines parent-child relationships, UI icons, labels for dynamic UI
+-- • Powers tab generation, navigation menus, entity pickers
 --
--- RELATIONSHIP TO d_entity_instance_id:
--- • d_entity: Stores entity TYPE metadata (what types exist, their relationships, icons)
--- • d_entity_instance_id: Stores entity INSTANCE data (actual UUIDs, names of specific entities)
---
--- Example:
--- • d_entity has ONE row for "project" type with child_entities=[task, wiki, artifact, form]
--- • d_entity_instance_id has MANY rows for each project instance (Project A, Project B, etc.)
---
--- API SEMANTICS & LIFECYCLE:
---
--- 1. GET ENTITY TYPE METADATA
---    • Endpoint: GET /api/v1/entity/type/:code
---    • Database: SELECT * FROM d_entity WHERE code=$1
---    • Returns: Entity type with icon, label, child_entities array
---    • Frontend: Used for dynamic tab generation, navigation
---
--- 2. GET ALL ENTITY TYPES
---    • Endpoint: GET /api/v1/entity/types
---    • Database: SELECT * FROM d_entity ORDER BY display_order
---    • Returns: All entity types with metadata
---    • Frontend: Used for entity type pickers, navigation menus
---
--- 3. GET CHILD ENTITY TYPES FOR PARENT
---    • Endpoint: GET /api/v1/entity/type/:code/children
---    • Database: SELECT child_entities FROM d_entity WHERE code=$1
---    • Returns: Array of child entity metadata with icons and labels
---    • Frontend: DynamicChildEntityTabs component
---
--- PARENT-CHILD ENTITY TYPE MAPPING:
---   This table stores the canonical parent-child relationships for entity types.
---
---   PARENT ENTITY TYPE → CHILD ENTITY TYPES
---   =====================================================
---   office             → task, artifact, wiki, form
---   business           → project
---   project            → task, wiki, artifact, form
---   task               → form, artifact
---   cust               → project, artifact, form
---   role               → employee
---   form               → artifact
---   order              → invoice, shipment
---   quote              → work_order
---   employee           → (no children - leaf node)
---   wiki               → (no children - leaf node)
---   artifact           → (no children - leaf node)
---   worksite           → (no children - leaf node)
---   position           → (no children - leaf node)
---   reports            → (no children - leaf node)
---   service            → (no children - leaf node)
---   product            → (no children - leaf node)
---   inventory          → (no children - leaf node)
---   invoice            → (no children - leaf node)
---   shipment           → (no children - leaf node)
---   work_order         → (no children - leaf node)
+-- OPERATIONS:
+-- • GET TYPE: GET /api/v1/entity/type/:code
+-- • GET ALL: GET /api/v1/entity/types ORDER BY display_order
+-- • GET CHILDREN: SELECT child_entities WHERE code=$1
+-- • UPSERT: INSERT ... ON CONFLICT (code) DO UPDATE
 --
 -- KEY FIELDS:
--- • code: Entity type identifier ('office', 'business', 'project', 'task', etc.)
--- • name: Display name for the entity type (Office, Business, Project, Task, etc.)
--- • ui_label: UI display label for the entity type plural (Offices, Businesses, Projects, Tasks, etc.)
--- • ui_icon: Lucide icon name (e.g., 'FolderOpen', 'CheckSquare', 'Users')
--- • child_entities: JSONB array of child entity metadata
---   Format: [{"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1}, ...]
--- • display_order: Order for UI display (sidebar, menus, etc.)
--- • active_flag: Whether this entity type is currently active in the system
+-- • code: varchar(50) PRIMARY KEY ('office', 'project', 'task')
+-- • name: varchar(100) (Office, Project, Task)
+-- • ui_label: varchar(100) (Offices, Projects, Tasks)
+-- • ui_icon: varchar(50) (Lucide icon: FolderOpen, CheckSquare)
+-- • child_entities: jsonb ([{"entity":"task", "ui_icon":"CheckSquare", "ui_label":"Tasks"}])
+-- • display_order: int4 (sidebar/menu order)
 --
--- RELATIONSHIPS:
--- • This table defines the schema for d_entity_instance_id instances
--- • child_entities defines valid parent-child types in d_entity_id_map
--- • Used by frontend for dynamic component generation
+-- PARENT-CHILD MAPPING:
+-- • office → task, artifact, wiki, form, cost, revenue
+-- • business → project, cost, revenue
+-- • project → task, wiki, artifact, form, cost, revenue
+-- • task → form, artifact, cost, revenue, employee (assignees)
+-- • cust → project, artifact, form, cost, revenue
+-- • role → employee
+-- • form, quote, order → (have children per child_entities JSONB)
+-- • Leaf nodes: employee, wiki, artifact, worksite, position, reports, service, product, etc.
 --
 -- =====================================================
 
