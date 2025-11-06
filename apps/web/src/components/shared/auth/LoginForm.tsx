@@ -40,99 +40,177 @@ export function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-dark-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex bg-dark-100">
+      {/* Left Side - Brand & Welcome */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-700 via-slate-800 to-dark-900 p-12 flex-col justify-between">
         <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center bg-dark-700 rounded-full">
-            <LogIn className="h-6 w-6 text-white" />
+          <div className="flex items-center gap-3 mb-8">
+            <div className="h-12 w-12 bg-white/10 rounded-lg flex items-center justify-center backdrop-blur-sm">
+              <LogIn className="h-7 w-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-white">Huron PMO</h1>
+              <p className="text-slate-300 text-sm">Home Services Management</p>
+            </div>
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-dark-600">
-            Sign in to your account
-          </h2>
-          <p className="mt-2 text-center text-sm text-dark-700">
-            PMO Task Management Platform
-          </p>
+
+          <div className="space-y-6 text-white">
+            <h2 className="text-4xl font-bold leading-tight">
+              Welcome Back to<br />Your Command Center
+            </h2>
+            <p className="text-slate-200 text-lg">
+              Manage projects, teams, customers, and operations all in one powerful platform
+              designed specifically for Canadian home services businesses.
+            </p>
+
+            <div className="space-y-4 pt-8">
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 bg-white/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
+                  <Eye className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-1">Complete Visibility</h3>
+                  <p className="text-sm text-slate-300">Track every project, task, and team member in real-time</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 bg-white/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
+                  <LogIn className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-1">Secure & Reliable</h3>
+                  <p className="text-sm text-slate-300">Enterprise-grade security with role-based access control</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 bg-white/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
+                  <EyeOff className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-1">AI-Powered</h3>
+                  <p className="text-sm text-slate-300">Get instant help and insights from our AI assistant</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-4">
-              <div className="text-sm text-red-800">{error}</div>
-            </div>
-          )}
+        <div className="text-sm text-slate-400">
+          <p>&copy; 2025 Huron Home Services. All rights reserved.</p>
+        </div>
+      </div>
 
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-normal text-dark-600">
-                Email address
-              </label>
-              <input
-                {...register('email')}
-                type="email"
-                autoComplete="email"
-                required
-                className="mt-1 block w-full px-3 py-2 border border-dark-400 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-dark-7000 focus:border-dark-3000"
-                placeholder="Enter your email"
-              />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-              )}
+      {/* Right Side - Login Form */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="max-w-md w-full space-y-8">
+          <div className="text-center lg:text-left">
+            <div className="lg:hidden mx-auto h-12 w-12 flex items-center justify-center bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl mb-6">
+              <LogIn className="h-6 w-6 text-white" />
             </div>
+            <h2 className="text-3xl font-extrabold text-dark-600">
+              Sign in to your account
+            </h2>
+            <p className="mt-2 text-dark-700">
+              Enter your credentials to access the platform
+            </p>
+          </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-normal text-dark-600">
-                Password
-              </label>
-              <div className="mt-1 relative">
-                <input
-                  {...register('password')}
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  required
-                  className="block w-full px-3 py-2 pr-10 border border-dark-400 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-dark-7000 focus:border-dark-3000"
-                  placeholder="Enter your password"
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-dark-600" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-dark-600" />
-                  )}
-                </button>
+          <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="text-sm text-red-800">{error}</div>
               </div>
-              {errors.password && (
-                <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-              )}
-            </div>
-          </div>
+            )}
 
-          <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-normal rounded-md text-white bg-dark-700 hover:bg-dark-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-7000 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                'Sign in'
-              )}
-            </button>
-          </div>
+            <div className="space-y-5">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-dark-600 mb-2">
+                  Email address
+                </label>
+                <input
+                  {...register('email')}
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className="block w-full px-4 py-3 border border-dark-400 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-slate-600 transition-all"
+                  placeholder="Enter your email"
+                />
+                {errors.email && (
+                  <p className="mt-2 text-sm text-red-600">{errors.email.message}</p>
+                )}
+              </div>
 
-          <div className="text-center">
-            <div className="text-sm text-dark-700">
-              Demo credentials:
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-dark-600 mb-2">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    {...register('password')}
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    required
+                    className="block w-full px-4 py-3 pr-11 border border-dark-400 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-slate-600 transition-all"
+                    placeholder="Enter your password"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center hover:bg-dark-100 rounded-r-lg transition-colors"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5 text-dark-600" />
+                    ) : (
+                      <Eye className="h-5 w-5 text-dark-600" />
+                    )}
+                  </button>
+                </div>
+                {errors.password && (
+                  <p className="mt-2 text-sm text-red-600">{errors.password.message}</p>
+                )}
+              </div>
             </div>
-            <div className="text-xs text-dark-700 mt-1">
-              <div>james.miller@huronhome.ca / password123</div>
+
+            <div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Signing in...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="h-4 w-4" />
+                    <span>Sign in</span>
+                  </>
+                )}
+              </button>
             </div>
-          </div>
-        </form>
+
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <div className="text-sm font-medium text-dark-600 mb-2">
+                Demo Account
+              </div>
+              <div className="text-xs text-dark-700 space-y-1">
+                <div><strong>Email:</strong> james.miller@huronhome.ca</div>
+                <div><strong>Password:</strong> password123</div>
+              </div>
+            </div>
+
+            <div className="text-center pt-4">
+              <p className="text-sm text-dark-700">
+                Don't have an account?{' '}
+                <a href="/signup" className="font-semibold text-slate-600 hover:text-slate-700 transition-colors">
+                  Sign up for free
+                </a>
+              </p>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

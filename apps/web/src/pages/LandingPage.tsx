@@ -174,20 +174,21 @@ export function LandingPage() {
       <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-dark-100 via-dark-100 to-dark-200">
         <div className="max-w-7xl mx-auto">
           <div className="text-center">
-            <div className="inline-flex items-center px-4 py-2 bg-dark-100 rounded-full text-dark-700 text-sm font-medium mb-6">
-              <Zap className="h-4 w-4 mr-2" />
-              Built for Canadian Home Services
+            <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-slate-100 to-dark-50 rounded-full text-slate-700 text-sm font-medium mb-6 border border-slate-200">
+              <Zap className="h-4 w-4 mr-2 text-slate-600" />
+              Trusted by Canadian Home Service Professionals
             </div>
-            <h1 className="text-5xl md:text-6xl font-bold text-dark-600 mb-6">
-              Streamline Your PMO
+            <h1 className="text-5xl md:text-6xl font-bold text-dark-600 mb-6 leading-tight">
+              Run Your Home Services
               <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-600 to-dark-700">
-                With Enterprise-Grade Tools
+              Business{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-600 to-slate-800">
+                Like a Pro
               </span>
             </h1>
-            <p className="text-xl text-dark-700 mb-10 max-w-3xl mx-auto">
-              Complete project and operations management platform designed for home services companies.
-              Track projects, manage teams, and deliver exceptional results.
+            <p className="text-xl text-dark-700 mb-10 max-w-3xl mx-auto leading-relaxed">
+              Everything you need to manage projects, teams, customers, and operations in one powerful platform.
+              No more juggling between spreadsheets, emails, and sticky notes.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
@@ -204,18 +205,18 @@ export function LandingPage() {
                 Learn More
               </a>
             </div>
-            <div className="mt-12 flex items-center justify-center gap-8 text-sm text-dark-700">
-              <div className="flex items-center">
+            <div className="mt-12 flex flex-wrap items-center justify-center gap-6 text-sm text-dark-700">
+              <div className="flex items-center bg-white/50 px-4 py-2 rounded-lg border border-dark-200">
                 <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                14-day free trial
+                <span className="font-medium">14-day free trial</span>
               </div>
-              <div className="flex items-center">
+              <div className="flex items-center bg-white/50 px-4 py-2 rounded-lg border border-dark-200">
                 <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                No credit card required
+                <span className="font-medium">No credit card required</span>
               </div>
-              <div className="flex items-center">
+              <div className="flex items-center bg-white/50 px-4 py-2 rounded-lg border border-dark-200">
                 <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                Cancel anytime
+                <span className="font-medium">Setup in 5 minutes</span>
               </div>
             </div>
           </div>
@@ -251,10 +252,11 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-dark-600 mb-4">
-              Everything You Need to Succeed
+              Everything You Need in One Place
             </h2>
             <p className="text-xl text-dark-700 max-w-2xl mx-auto">
-              Comprehensive tools designed for Canadian home services operations and project management.
+              From project planning to customer invoicing, Huron PMO brings all your business operations
+              together in one intuitive platform.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -279,10 +281,11 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-dark-600 mb-4">
-              Simple, Transparent Pricing
+              Pricing That Grows With You
             </h2>
             <p className="text-xl text-dark-700 max-w-2xl mx-auto">
-              Choose the plan that fits your organization's needs. All plans include a 14-day free trial.
+              Start free and scale as you grow. No hidden fees, no surprises.
+              Cancel anytime with no questions asked.
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
@@ -339,10 +342,11 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-dark-600 mb-4">
-              Trusted by Industry Leaders
+              Loved by Home Service Professionals
             </h2>
             <p className="text-xl text-dark-700 max-w-2xl mx-auto">
-              See what our customers have to say about their experience with Huron PMO.
+              Don't just take our word for it. Here's what real customers say about using Huron PMO
+              to transform their business operations.
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
