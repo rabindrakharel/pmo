@@ -85,7 +85,8 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(timeout 2 ./tools/logs-api.sh:*)"
+      "Bash(timeout 2 ./tools/logs-api.sh:*)",
+      "Bash(./tools/monitor-voice-chat.sh:*)"
     ],
     "deny": [],
     "ask": [],

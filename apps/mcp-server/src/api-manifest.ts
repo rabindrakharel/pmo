@@ -683,9 +683,26 @@ export const API_MANIFEST: APIEndpoint[] = [
     name: 'customer_create',
     method: 'POST',
     path: '/api/v1/cust',
-    description: 'Create new customer',
+    description: 'Create new customer profile with contact info',
     requiresAuth: true,
-    category: 'Customer'
+    category: 'Customer',
+    parameters: {
+      body: {
+        name: 'Customer full name (required)',
+        code: 'Customer code (auto-generate from name if not provided)',
+        cust_number: 'Customer number (auto-generate from phone if not provided)',
+        primary_contact_name: 'Primary contact name',
+        primary_phone: 'Primary phone number',
+        primary_email: 'Primary email address',
+        primary_address: 'Primary street address',
+        city: 'City',
+        province: 'Province (default: ON)',
+        postal_code: 'Postal code',
+        country: 'Country (default: Canada)',
+        cust_type: 'Customer type: residential, commercial, government (default: residential)',
+        cust_status: 'Customer status (default: active)'
+      }
+    }
   },
   {
     name: 'customer_update',

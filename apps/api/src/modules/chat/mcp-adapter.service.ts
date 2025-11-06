@@ -146,6 +146,36 @@ export async function executeMCPTool(
     }
   }
 
+  // Special handling for customer_create - auto-generate required fields
+  if (toolName === 'customer_create' && body) {
+    // Auto-generate code from name if not provided
+    if (!body.code && body.name) {
+      body.code = body.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    }
+
+    // Auto-generate cust_number from phone if not provided
+    if (!body.cust_number) {
+      if (body.primary_phone) {
+        // Use phone number as cust_number (remove non-digits)
+        body.cust_number = body.primary_phone.replace(/\D/g, '');
+      } else {
+        // Generate from timestamp if no phone
+        body.cust_number = `CUST-${Date.now()}`;
+      }
+    }
+
+    // Set primary_contact_name from name if not provided
+    if (!body.primary_contact_name && body.name) {
+      body.primary_contact_name = body.name;
+    }
+
+    // Set defaults
+    body.cust_type = body.cust_type || 'residential';
+    body.cust_status = body.cust_status || 'active';
+    body.province = body.province || 'ON';
+    body.country = body.country || 'Canada';
+  }
+
   // Make API request
   try {
     const response = await axios({
