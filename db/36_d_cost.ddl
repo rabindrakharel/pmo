@@ -1,28 +1,29 @@
 -- =====================================================
--- COST FACT TABLE (f_cost) - FACT TABLE
--- Cost tracking with budget management, invoicing, and multi-currency support
+-- COST FACT TABLE (f_cost) - FINANCIAL TRACKING
 -- =====================================================
 --
--- BUSINESS PURPOSE:
--- Tracks costs associated with projects, tasks, customers, businesses, and offices.
--- Supports budget tracking, invoice management, multi-currency transactions, and
--- S3-based invoice attachment storage. Primary financial tracking entity for cost analysis.
+-- SEMANTICS:
+-- • Cost tracking: projects, tasks, customers, businesses, offices
+-- • Budget management, invoice tracking, multi-currency support
+-- • S3-based invoice attachments, auto-links to parents via d_entity_id_map
 --
--- API SEMANTICS & LIFECYCLE:
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/cost, creates entity_id_map entries to parents
+-- • UPDATE: PUT /api/v1/cost/{id}, version++, adjust amounts/invoices
+-- • DELETE: active_flag=false, to_ts=now()
+-- • AGGREGATE: SUM by project_id, customer_id, business_id for reports
 --
--- 1. CREATE COST ENTRY
---    • Endpoint: POST /api/v1/cost
---    • Body: {cost_code, descr, customer_id, business_id, project_id, task_id, office_id, cost_amt_lcl, cost_amt_invoice, invoice_currency, exch_rate, cust_budgeted_amt_lcl, invoice_attachment}
---    • Returns: {id: "new-uuid", version: 1, ...}
---    • Database: INSERT with version=1, active_flag=true, created_ts=now()
---    • RBAC: Requires permission 4 (create) on entity='cost', entity_id='all'
---    • Business Rule: Creates entity_id_map entries for parent relationships (project/task/customer/business/office)
---    • S3 Integration: invoice_attachment stores S3 URI from S3_ATTACHMENT_SERVICE
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY
+-- • cost_code: varchar (invoice number)
+-- • cost_amt, invoice_amt, budgeted_amt: numeric(15,2)
+-- • invoice_currency_code: varchar(3) (CAD, USD)
+-- • exchange_rate: numeric(10,6)
+-- • attachment_url: text (S3 URI)
 --
--- 2. UPDATE COST ENTRY (Invoice Updates, Amount Adjustments)
---    • Endpoint: PUT /api/v1/cost/{id}
---    • Body: {cost_amt_lcl, cost_amt_invoice, invoice_attachment, cust_budgeted_amt_lcl}
---    • Returns: {id: "same-uuid", version: 2, updated_ts: "new-timestamp"}
+-- RELATIONSHIPS:
+-- • Parents: project, task, customer, business, office (via d_entity_id_map)
+-- • RBAC: entity_id_rbac_map
 --
 -- =====================================================
 

@@ -1,6 +1,20 @@
 -- =====================================================
--- WIKI DATA (d_wiki_data) - DATA TABLE
--- Wiki content with markdown/HTML and change tracking
+-- WIKI DATA (d_wiki_data) - WIKI CONTENT
+-- =====================================================
+--
+-- SEMANTICS:
+-- • Wiki content storage: markdown, HTML, metadata
+-- • Change tracking, content analysis (word count, reading time)
+-- • Links tracking (internal wiki pages, external URLs)
+--
+-- KEY FIELDS:
+-- • wiki_id: uuid (FK with CASCADE)
+-- • content_markdown, content_html: text
+-- • stage: varchar (draft, saved)
+-- • update_type: varchar (content_edit, structure_change, metadata_update)
+-- • word_count, reading_time_minutes: integer
+-- • internal_links, external_links: varchar[]
+--
 -- =====================================================
 
 CREATE TABLE app.d_wiki_data (

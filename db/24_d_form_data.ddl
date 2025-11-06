@@ -1,33 +1,22 @@
 -- =====================================================
--- FORM DATA (d_form_data) - DATA TABLE
--- Form submissions with approval workflow
+-- FORM DATA (d_form_data) - FORM SUBMISSIONS
 -- =====================================================
 --
--- SUBMISSION DATA STRUCTURE (submission_data JSONB):
--- All form field values are stored as flat key-value pairs in submission_data.
+-- SEMANTICS:
+-- • Form submissions with approval workflow and flattened JSONB data
+-- • Simple fields: {"email_123": "user@example.com"}
+-- • DataTable fields: {"inventory__col1_1": "Item A"} (pattern: tableName__col_row)
+-- • Flattened for efficient querying and partial updates
 --
--- SIMPLE FIELDS: Stored with field name as key
---   {
---     "email_123": "user@example.com",
---     "textarea_456": "Some text content",
---     "select_789": "Option 2"
---   }
+-- KEY FIELDS:
+-- • form_id: uuid (FK to d_form_head)
+-- • submission_data: jsonb (flat key-value pairs)
+-- • dl__form_submission_status: text (submitted, under_review, approved, rejected)
+-- • dl__form_approval_status: text (pending, approved, rejected)
+-- • submitted_by: varchar (email or user identifier)
+-- • reviewed_by_empid, approved_by_empid: uuid
 --
--- DATATABLE FIELDS: Flattened with pattern tableName__columnName_rowNumber
---   Example: DataTable field with dataTableName="inventory" and 3 columns × 2 rows:
---   {
---     "inventory__col1_1": "Item A",    "inventory__col2_1": "10",     "inventory__col3_1": "$5.00",
---     "inventory__col1_2": "Item B",    "inventory__col2_2": "25",     "inventory__col3_2": "$3.50"
---   }
---
---   Pattern: {dataTableName}__{columnName}_{rowNumber}
---   - dataTableName: Configured in form field (e.g., "inventory", "schedule", "employees")
---   - columnName: Column identifier from dataTableColumns (e.g., "col1", "item_name", "quantity")
---   - rowNumber: 1-indexed row position (1, 2, 3...)
---
--- WHY FLATTENED?
---   1. Simplifies querying individual cells via JSONB operators
---   2. Makes partial updates efficient (update single cell without rebuilding array)
+-- =====================================================
 --   3. Consistent key-value structure across all field types
 --   4. Easy to extract/filter rows or columns using key patterns
 --

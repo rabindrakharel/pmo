@@ -1,57 +1,35 @@
 -- =====================================================
--- WIKI ENTITY (d_wiki) - CONTENT ENTITY
--- Knowledge base with hierarchical page structure and publication workflow
+-- WIKI ENTITY (d_wiki) - KNOWLEDGE BASE
 -- =====================================================
 --
--- BUSINESS PURPOSE:
--- Manages organizational knowledge base with wiki pages, templates, workflows, guides, and policies.
--- Supports hierarchical page structure, version tracking, publication workflow, and visibility controls.
--- Wiki pages can be linked to projects, tasks, or standalone knowledge repositories.
+-- SEMANTICS:
+-- • Organizational knowledge base with hierarchical pages, templates, guides, policies
+-- • Publication workflow (draft→published→archived), version tracking, visibility controls
+-- • Content stored in d_wiki_data; this table tracks metadata
 --
--- API SEMANTICS & LIFECYCLE:
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/wiki, INSERT with publication_status='draft', version=1
+-- • UPDATE: PUT /api/v1/wiki/{id}, same ID, version++, in-place
+-- • PUBLISH: Update publication_status='published', sets published_ts
+-- • ARCHIVE: Update publication_status='archived', hides from searches
+-- • DELETE: active_flag=false, to_ts=now(), preserves d_wiki_data
+-- • LIST: Filter by publication_status, wiki_type, entity, RBAC enforced
 --
--- 1. CREATE WIKI PAGE
---    • Endpoint: POST /api/v1/wiki
---    • Body: {name, code, wiki_type, category, page_path, parent_wiki_id, primary_entity_type, primary_entity_id}
---    • Returns: {id: "new-uuid", version: 1, publication_status: "draft", ...}
---    • Database: INSERT with version=1, active_flag=true, publication_status='draft', created_ts=now()
---    • RBAC: Requires permission 4 (create) on entity='wiki', entity_id='all'
---    • Business Rule: New pages default to 'draft' status; must be published explicitly
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY (stable)
+-- • code, page_path: varchar (unique page identifier)
+-- • wiki_type, category: varchar (type classification)
+-- • dl__wiki_publication_status: text (draft, review, published, archived, deprecated)
+-- • parent_wiki_id: uuid (hierarchical structure)
+-- • entity_type, entity_id: text, uuid (parent entity link)
+-- • visibility: text (public, internal, restricted)
+-- • published_ts, published_by_empid: timestamptz, uuid
 --
--- 2. UPDATE WIKI PAGE (Content Editing, Draft Revisions)
---    • Endpoint: PUT /api/v1/wiki/{id}
---    • Body: {name, descr, metadata, publication_status, visibility}
---    • Returns: {id: "same-uuid", version: 2, updated_ts: "new-timestamp"}
---    • Database: UPDATE SET [fields], version=version+1, updated_ts=now() WHERE id=$1
---    • SCD Behavior: IN-PLACE UPDATE
---      - Same ID (preserves page path and entity relationships)
---      - version increments (audit trail of content changes)
---      - updated_ts refreshed
---      - NO archival (publication_status can change: draft → published → archived)
---    • RBAC: Requires permission 1 (edit) on entity='wiki', entity_id={id} OR 'all'
---    • Business Rule: Content changes increment version; actual content stored in d_wiki_data
---
--- 3. PUBLISH WIKI PAGE
---    • Frontend Action: User clicks "Publish" button on draft page
---    • Endpoint: PUT /api/v1/wiki/{id}
---    • Body: {publication_status: "published"}
---    • Database: UPDATE SET publication_status='published', published_ts=now(), published_by_empid=$user_id, version=version+1 WHERE id=$1
---    • Business Rule: Publishes page to intended audience based on visibility setting
---
--- 4. ARCHIVE/DEPRECATE WIKI PAGE
---    • Endpoint: PUT /api/v1/wiki/{id}
---    • Body: {publication_status: "archived"}
---    • Database: UPDATE SET publication_status='archived', updated_ts=now(), version=version+1 WHERE id=$1
---    • Business Rule: Hides from active searches; preserves for historical reference
---
--- 5. SOFT DELETE WIKI PAGE
---    • Endpoint: DELETE /api/v1/wiki/{id}
---    • Database: UPDATE SET active_flag=false, to_ts=now() WHERE id=$1
---    • RBAC: Requires permission 3 (delete)
---    • Business Rule: Removes from all views; preserves content in d_wiki_data
---
--- 6. LIST WIKI PAGES (Filtered by Status, Type, Entity)
---    • Endpoint: GET /api/v1/wiki?publication_status=published&wiki_type=guide&limit=50
+-- RELATIONSHIPS:
+-- • Parent: project, task (via entity_type/entity_id)
+-- • Self: parent_wiki_id → d_wiki.id (hierarchical pages)
+-- • Data: d_wiki_data (actual content)
+-- • RBAC: entity_id_rbac_map
 --    • Database:
 --      SELECT w.* FROM d_wiki w
 --      WHERE w.active_flag=true

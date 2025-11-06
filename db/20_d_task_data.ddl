@@ -1,6 +1,18 @@
 -- =====================================================
--- TASK DATA (d_task_data) - DATA TABLE
--- Task updates, comments, and attachments
+-- TASK DATA (d_task_data) - UPDATES/COMMENTS
+-- =====================================================
+--
+-- SEMANTICS:
+-- • Task updates, comments, attachments in Quill Delta format
+-- • Rich content: text formatting, links, lists, headers, mentions, attachments
+-- • References task_id, project_id for filtering
+--
+-- KEY FIELDS:
+-- • task_id, project_id: uuid (FKs with CASCADE)
+-- • stage: varchar (draft, saved)
+-- • update_content: jsonb (Quill Delta format)
+-- • updated_by_empid: uuid
+--
 -- =====================================================
 
 CREATE TABLE app.d_task_data (

@@ -1,161 +1,38 @@
 -- ============================================================================
--- CUSTOMER ENTITY (d_cust) - CORE ENTITY
--- Customer relationship management across residential, commercial, municipal, industrial sectors
+-- CUSTOMER ENTITY (d_cust) - CRM
 -- ============================================================================
 --
--- BUSINESS PURPOSE:
--- Manages customer entities representing service recipients across all sectors (residential,
--- commercial, municipal, industrial). Provides foundation for relationship management, service
--- delivery, contract tracking, and revenue attribution. Customers own projects and receive services.
+-- SEMANTICS:
+-- • Customer entities across sectors (residential, commercial, municipal, industrial)
+-- • CRM foundation: relationship management, service delivery, revenue tracking
+-- • Sales funnel progression, tier management, app user authentication
 --
--- API SEMANTICS & LIFECYCLE:
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/cust, INSERT with version=1, active_flag=true
+-- • SIGNUP: POST /api/v1/auth/customer/signup (creates account with password_hash)
+-- • SIGNIN: POST /api/v1/auth/customer/signin (JWT auth, updates last_login_ts)
+-- • UPDATE: PUT /api/v1/cust/{id}, same ID, version++, in-place
+-- • DELETE: active_flag=false, to_ts=now(), cust_status='inactive'
+-- • LIST: Filter by type/tier/funnel, RBAC enforced
+-- • REVENUE: Aggregates project budgets, lifetime_value analytics
 --
--- 1. CREATE CUSTOMER
---    • Endpoint: POST /api/v1/cust
---    • Body: {name, code, cust_number, cust_type, cust_status, primary_contact_name, primary_email, primary_phone, primary_address, city, province}
---    • Returns: {id: "new-uuid", version: 1, ...}
---    • Database: INSERT with version=1, active_flag=true, created_ts=now()
---    • RBAC: Requires permission 4 (create) on entity='cust', entity_id='all'
---    • Business Rule: cust_number must be unique; cust_type validates against ('residential', 'commercial', 'municipal', 'industrial')
---
--- 2. UPDATE CUSTOMER (Contact Changes, Status Updates, Relationship Upgrades)
---    • Endpoint: PUT /api/v1/cust/{id}
---    • Body: {primary_contact_name, primary_email, cust_status, opportunity_funnel_stage_name, customer_tier_name}
---    • Returns: {id: "same-uuid", version: 2, updated_ts: "new-timestamp"}
---    • Database: UPDATE SET [fields], version=version+1, updated_ts=now() WHERE id=$1
---    • SCD Behavior: IN-PLACE UPDATE
---      - Same ID (preserves all project relationships and service history)
---      - version increments (audit trail)
---      - updated_ts refreshed
---      - NO archival (customer tier can change: Lead → Prospect → Active Customer)
---    • RBAC: Requires permission 1 (edit) on entity='cust', entity_id={id} OR 'all'
---    • Business Rule: Changing dl__customer_opportunity_funnel reflects sales pipeline progress
---
--- 3. SOFT DELETE CUSTOMER (Account Closure)
---    • Endpoint: DELETE /api/v1/cust/{id}
---    • Database: UPDATE SET active_flag=false, to_ts=now(), cust_status='inactive' WHERE id=$1
---    • RBAC: Requires permission 3 (delete)
---    • Business Rule: Preserves all historical projects and service records; customer hidden from active lists
---
--- 4. LIST CUSTOMERS (Filtered by Type, Status, Tier)
---    • Endpoint: GET /api/v1/cust?cust_type=commercial&customer_tier_name=Enterprise&limit=50
---    • Database:
---      SELECT c.* FROM d_cust c
---      WHERE c.active_flag=true
---        AND EXISTS (
---          SELECT 1 FROM entity_id_rbac_map rbac
---          WHERE rbac.empid=$user_id
---            AND rbac.entity='cust'
---            AND (rbac.entity_id=c.id::text OR rbac.entity_id='all')
---            AND 0=ANY(rbac.permission)  -- View permission
---        )
---      ORDER BY c.dl__customer_tier DESC, c.name ASC
---      LIMIT $1 OFFSET $2
---    • RBAC: User sees ONLY customers they have view access to
---    • Frontend: Renders in EntityMainPage with table view + advanced filtering
---
--- 5. GET SINGLE CUSTOMER
---    • Endpoint: GET /api/v1/cust/{id}
---    • Database: SELECT * FROM d_cust WHERE id=$1 AND active_flag=true
---    • RBAC: Checks entity_id_rbac_map for view permission
---    • Frontend: EntityDetailPage renders fields + tabs for projects/tasks/forms
---
--- 6. GET CUSTOMER PROJECTS
---    • Endpoint: GET /api/v1/cust/{id}/project?project_stage=Execution&limit=20
---    • Database:
---      SELECT p.* FROM d_project p
---      INNER JOIN entity_id_map eim ON eim.child_entity_id=p.id
---      WHERE eim.parent_entity_id=$1
---        AND eim.parent_entity_type='cust'
---        AND eim.child_entity_type='project'
---        AND p.active_flag=true
---      ORDER BY p.created_ts DESC
---    • Relationship: Via entity_id_map (flexible customer-project relationships)
---    • Frontend: Renders in DynamicChildEntityTabs component
---
--- 7. GET CUSTOMER REVENUE SUMMARY
---    • Endpoint: GET /api/v1/cust/{id}/revenue-summary
---    • Database: Aggregates project budgets and metadata fields
---      SELECT
---        c.metadata->>'lifetime_value' AS lifetime_value,
---        c.metadata->>'annual_contract_value' AS annual_contract_value,
---        COUNT(p.id) AS project_count,
---        SUM(p.budget_spent) AS total_project_spending
---      FROM d_cust c
---      LEFT JOIN entity_id_map eim ON eim.parent_entity_id=c.id AND eim.parent_entity_type='cust'
---      LEFT JOIN d_project p ON p.id=eim.child_entity_id AND p.active_flag=true
---      WHERE c.id=$1
---      GROUP BY c.id
---    • Business Rule: Provides customer lifetime value and project spending analytics
---
--- 8. SALES PIPELINE MOVEMENT (Opportunity Funnel)
---    • Frontend Action: User moves customer from "Lead" to "Qualified" in pipeline view
---    • Endpoint: PUT /api/v1/cust/{id}
---    • Body: {opportunity_funnel_stage_name: "Qualified"}
---    • Database: UPDATE SET opportunity_funnel_stage_name=$1, updated_ts=now(), version=version+1 WHERE id=$2
---    • Business Rule: dl__customer_opportunity_funnel loads from app.setting_datalabel (datalabel_name='opportunity__funnel_stage')
---
--- 9. APP USER SIGNUP (New User Registration)
---    • Endpoint: POST /api/v1/auth/customer/signup
---    • Body: {name, primary_email, password, cust_type}
---    • Database: INSERT with password_hash=bcrypt.hash(password), entities=[], cust_status='active'
---    • Returns: {id, token (JWT)}
---    • Business Rule: Auto-generated cust_number, redirects to entity configuration page
---
--- 10. APP USER SIGNIN (Authentication)
---     • Endpoint: POST /api/v1/auth/customer/signin
---     • Body: {email, password}
---     • Database: SELECT * FROM d_cust WHERE primary_email=$1 AND active_flag=true
---     • Verification: bcrypt.compare(password, password_hash)
---     • Returns: {token (JWT), user: {id, name, email, entities}}
---     • Business Rule: Updates last_login_ts, resets failed_login_attempts
---
--- 11. ENTITY CONFIGURATION (First-Time Setup)
---     • Endpoint: PUT /api/v1/cust/{id}/configure
---     • Body: {entities: ["project", "task", "wiki", "form"]}
---     • Database: UPDATE SET entities=$1, updated_ts=now() WHERE id=$2
---     • Business Rule: Updates user's activated entities, filters sidebar navigation
---     • Frontend: Sidebar only shows entities present in user's entities array
---
--- KEY SCD FIELDS:
--- • id: Stable UUID (never changes, preserves project relationships and service history)
--- • version: Increments on updates (audit trail of contact changes, tier upgrades)
--- • from_ts: Customer acquisition date (never modified)
--- • to_ts: Account closure timestamp (NULL=active, timestamptz=closed)
--- • active_flag: Account status (true=active, false=closed/archived)
--- • created_ts: Original creation time (never modified)
--- • updated_ts: Last modification time (refreshed on UPDATE)
---
--- KEY BUSINESS FIELDS:
--- • cust_number: Unique customer identifier (e.g., CL-RES-001, CL-COM-002)
--- • cust_type: Sector classification ('residential', 'commercial', 'municipal', 'industrial')
--- • cust_status: Account status ('active', 'inactive', 'prospect', 'former')
--- • dl__customer_opportunity_funnel: Sales pipeline stage (Lead, Qualified, Proposal, Closed Won)
---   - Loaded from app.setting_datalabel table (datalabel_name='opportunity__funnel_stage') via GET /api/v1/setting?category=opportunity__funnel_stage
--- • dl__customer_tier: Service tier ('Bronze', 'Silver', 'Gold', 'Platinum')
---   - Loaded from app.setting_datalabel table (datalabel_name='customer__tier') via GET /api/v1/setting?category=customer__tier
--- • dl__industry_sector: Industry classification (Residential, Commercial, Industrial, Government)
---   - Loaded from app.setting_datalabel table (datalabel_name='industry__sector') via GET /api/v1/setting?category=industry__sector
--- • dl__acquisition_channel: How client was acquired (Referral, Organic Search, Direct, Partnership)
---   - Loaded from app.setting_datalabel table (datalabel_name='acquisition__channel') via GET /api/v1/setting?category=acquisition__channel
--- • primary_contact_name, primary_email, primary_phone: Main contact details
--- • metadata: JSONB field storing lifetime_value, annual_contract_value, service_categories, payment_terms
---
--- AUTHENTICATION FIELDS (for app user accounts):
--- • password_hash: bcrypt hashed password (never returned by API, only for app users)
--- • last_login_ts: Session tracking for app users
--- • failed_login_attempts: Security lockout mechanism
--- • account_locked_until: Temporary account lock timestamp
--- • entities: Array of activated entity types (e.g., ['project', 'task', 'wiki'])
---   - Controls which entities appear in sidebar navigation
---   - Configured on first-time login or via settings
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY (stable)
+-- • code, cust_number: varchar UNIQUE ('CL-RES-001')
+-- • cust_type: varchar (residential, commercial, municipal, industrial)
+-- • cust_status: varchar (active, inactive, prospect, former)
+-- • dl__customer_opportunity_funnel: text (Lead→Qualified→Proposal→Closed Won)
+-- • dl__customer_tier: text (Bronze, Silver, Gold, Platinum)
+-- • dl__industry_sector, dl__acquisition_channel: text (from setting_datalabel)
+-- • primary_contact_name, primary_email, primary_phone: varchar
+-- • password_hash: varchar(255) (bcrypt, for app user login, never returned)
+-- • entities: text[] (configured entities for sidebar: ['project', 'task', 'wiki'])
+-- • metadata: jsonb (lifetime_value, annual_contract_value, payment_terms)
 --
 -- RELATIONSHIPS:
--- • cust_id ← entity_id_map (projects/tasks/forms linked to customers via mapping table)
--- • NO direct foreign keys (follows flexible relationship model)
+-- • Children: project, artifact, form, cost, revenue (via d_entity_id_map)
+-- • RBAC: entity_id_rbac_map
 --
--- ============================================================================
--- DDL:
 -- ============================================================================
 
 CREATE TABLE app.d_cust (

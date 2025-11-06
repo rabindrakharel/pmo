@@ -1,73 +1,37 @@
 -- ============================================================================
--- ENTITY ID RBAC MAP - PERMISSION CONTROL SYSTEM
+-- ENTITY ID RBAC MAP - ROW-LEVEL PERMISSIONS
 -- ============================================================================
 --
 -- SEMANTICS:
--- Row-level RBAC system controlling employee access to entity instances using permission arrays.
--- Supports type-level ('all') and instance-level (specific UUID) permissions with temporal expiration.
--- Foundation for API authorization: every request checks empid permissions against entity/entity_id.
+-- • Row-level RBAC controlling employee access using permission arrays
+-- • Type-level ('all') vs instance-level (specific UUID) permissions
+-- • Permission array: [0=View, 1=Edit, 2=Share, 3=Delete, 4=Create]
 --
--- PERMISSION ARRAY MODEL:
---   [0] = View:   Read access to entity data
---   [1] = Edit:   Modify existing entity
---   [2] = Share:  Share entity with others
---   [3] = Delete: Soft delete entity
---   [4] = Create: Create new entities (requires entity_id='all')
---
--- DATABASE BEHAVIOR:
--- • GRANT TYPE-LEVEL PERMISSION: entity_id='all' grants access to ALL instances
---   Example: INSERT INTO entity_id_rbac_map (empid, entity, entity_id, permission)
---            VALUES ('8260b1b0-...', 'project', 'all', ARRAY[0,1,2,3,4])
---            → James Miller can view/edit/share/delete/create ALL projects
---
--- • GRANT INSTANCE-LEVEL PERMISSION: entity_id={uuid} grants access to specific instance
---   Example: INSERT INTO entity_id_rbac_map (empid, entity, entity_id, permission)
---            VALUES ('john-uuid', 'project', '93106ffb-...', ARRAY[0,1])
---            → John can view/edit ONLY project 93106ffb-...
---
--- • CHECK PERMISSION: Query for empid + entity, matching 'all' OR specific entity_id
---   Example: SELECT * FROM entity_id_rbac_map
---            WHERE empid = '8260b1b0-...' AND entity = 'project'
---              AND (entity_id = 'all' OR entity_id = '93106ffb-...')
---              AND 0 = ANY(permission)  -- Check View permission
---
--- • REVOKE PERMISSION: Soft delete or UPDATE active_flag=false
---   Example: UPDATE entity_id_rbac_map SET active_flag = false
---            WHERE empid = 'john-uuid' AND entity_id = '93106ffb-...'
---
--- KEY FIELDS:
--- • id: uuid PRIMARY KEY
--- • empid: uuid NOT NULL (references d_employee.id - RBAC identity)
--- • entity: varchar(50) NOT NULL ('project', 'task', 'employee', 'biz', 'office', ...)
--- • entity_id: text NOT NULL ('all' for type-level OR specific UUID for instance-level)
--- • permission: integer[] NOT NULL (array: [0,1,2,3,4] or subset like [0,1])
--- • granted_by_empid: uuid (delegation tracking)
--- • expires_ts: timestamptz (optional expiration for temporary permissions)
--- • active_flag: boolean DEFAULT true
---
--- PERMISSION PATTERNS:
--- • Create Project: entity='project', entity_id='all', permission contains 4
--- • Edit Specific Task: entity='task', entity_id={task_uuid}, permission contains 1
--- • Assign Task to Project: entity='project', entity_id={project_uuid}, permission contains 1
---                            AND entity='task', entity_id='all', permission contains 4
+-- OPERATIONS:
+-- • GRANT TYPE: entity_id='all' grants access to ALL instances
+-- • GRANT INSTANCE: entity_id={uuid} grants access to specific instance
+-- • CHECK: Query (entity_id='all' OR entity_id={uuid}) AND perm=ANY(permission)
+-- • REVOKE: Update active_flag=false
 --
 -- AUTHORIZATION FLOW:
--- 1. User requests API operation (e.g., PUT /api/v1/project/{id})
--- 2. Middleware extracts empid from JWT (sub claim)
--- 3. API checks entity_id_rbac_map:
---    WHERE empid={JWT.sub} AND entity='project' AND (entity_id='all' OR entity_id={id})
--- 4. Verify required permission (1=Edit) exists in permission array
--- 5. Allow/deny based on result
+-- 1. Extract empid from JWT
+-- 2. Check entity_id_rbac_map: empid + entity + (entity_id='all' OR entity_id={id})
+-- 3. Verify required permission in array
+-- 4. Allow/deny
 --
--- PARENT-CHILD PERMISSION NOTES:
--- • Creating child requires: parent edit (1) + child create (4)
--- • Example: Create task under project needs:
---   - entity='project', entity_id={project_uuid}, permission contains 1
---   - entity='task', entity_id='all', permission contains 4
+-- KEY FIELDS:
+-- • empid: uuid (d_employee.id)
+-- • entity: varchar(50) ('project', 'task', etc.)
+-- • entity_id: text ('all' or specific UUID)
+-- • permission: integer[] ([0,1,2,3,4] or subset)
+-- • granted_by_empid: uuid (delegation tracking)
+-- • expires_ts: timestamptz (optional expiration)
+--
+-- PERMISSION PATTERNS:
+-- • Create requires: entity_id='all', 4 in permission
+-- • Child create requires: parent edit (1) + child create (4)
 -- • Permissions do NOT cascade automatically
 --
--- ============================================================================
--- DDL:
 -- ============================================================================
 
 CREATE TABLE app.entity_id_rbac_map (

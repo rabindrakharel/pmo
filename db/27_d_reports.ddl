@@ -1,59 +1,34 @@
 -- =====================================================
--- REPORTS ENTITY (d_reports) - ANALYTICS ENTITY
--- Report definitions with data source configuration and visualization settings
+-- REPORTS ENTITY (d_reports) - ANALYTICS
 -- =====================================================
 --
--- BUSINESS PURPOSE:
--- Manages report definitions for dashboards, charts, tables, summaries, and KPIs. Reports are
--- configuration objects that define data sources, queries, refresh schedules, and visualization settings.
--- Actual report data/results stored in d_report_data; this table tracks metadata and configuration.
+-- SEMANTICS:
+-- • Report definitions for dashboards, charts, tables, KPIs
+-- • Configuration objects: data sources, queries, refresh schedules, visualizations
+-- • Actual data/results stored in d_report_data; this table tracks config
 --
--- API SEMANTICS & LIFECYCLE:
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/reports, INSERT with auto_refresh_enabled=true, schedules execution
+-- • UPDATE: PUT /api/v1/reports/{id}, same ID, version++, invalidates cached results
+-- • EXECUTE: POST /api/v1/reports/{id}/execute, runs query, stores in d_report_data
+-- • DISABLE: Update auto_refresh_enabled=false, stops scheduled execution
+-- • DELETE: active_flag=false, to_ts=now(), stops execution, preserves d_report_data
+-- • LIST: Filter by category/type, RBAC enforced
 --
--- 1. CREATE REPORT
---    • Endpoint: POST /api/v1/reports
---    • Body: {name, code, report_type, report_category, data_source_config, query_definition, chart_type, refresh_frequency}
---    • Returns: {id: "new-uuid", version: 1, auto_refresh_enabled: true, ...}
---    • Database: INSERT with version=1, active_flag=true, auto_refresh_enabled=true, created_ts=now()
---    • RBAC: Requires permission 4 (create) on entity='reports', entity_id='all'
---    • Business Rule: Report scheduled for execution based on refresh_frequency
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY (stable)
+-- • code: varchar, report_type, report_category: varchar
+-- • data_source_config, query_definition: jsonb (SQL/query configuration)
+-- • visualization_config: jsonb (chart type, axes, filters)
+-- • chart_type: varchar (line, bar, pie, table, kpi)
+-- • refresh_frequency: varchar (hourly, daily, weekly, manual)
+-- • auto_refresh_enabled: boolean
+-- • last_execution_ts: timestamptz
+-- • email_subscribers: text[] (notification list)
 --
--- 2. UPDATE REPORT CONFIGURATION (Query Changes, Visualization Updates)
---    • Endpoint: PUT /api/v1/reports/{id}
---    • Body: {name, query_definition, visualization_config, refresh_frequency, email_subscribers}
---    • Returns: {id: "same-uuid", version: 2, updated_ts: "new-timestamp"}
---    • Database: UPDATE SET [fields], version=version+1, updated_ts=now() WHERE id=$1
---    • SCD Behavior: IN-PLACE UPDATE
---      - Same ID (preserves report URL and entity relationships)
---      - version increments (audit trail of configuration changes)
---      - updated_ts refreshed
---      - Query changes trigger re-execution on next refresh cycle
---    • RBAC: Requires permission 1 (edit) on entity='reports', entity_id={id} OR 'all'
---    • Business Rule: Configuration updates invalidate cached results; next execution uses new config
---
--- 3. EXECUTE REPORT (Manual Refresh)
---    • Endpoint: POST /api/v1/reports/{id}/execute
---    • Database:
---      - Runs query_definition against data_source_config
---      - Stores results in d_report_data
---      - UPDATE SET last_execution_ts=now(), execution_duration_ms=$1 WHERE id=$2
---    • RBAC: Requires permission 0 (view) on entity='reports', entity_id={id}
---    • Business Rule: Manual execution bypasses refresh_frequency schedule
---
--- 4. DISABLE/ENABLE AUTO-REFRESH
---    • Endpoint: PUT /api/v1/reports/{id}
---    • Body: {auto_refresh_enabled: false}
---    • Database: UPDATE SET auto_refresh_enabled=$1, updated_ts=now() WHERE id=$2
---    • Business Rule: Disables scheduled execution; manual execution still available
---
--- 5. SOFT DELETE REPORT
---    • Endpoint: DELETE /api/v1/reports/{id}
---    • Database: UPDATE SET active_flag=false, to_ts=now(), auto_refresh_enabled=false WHERE id=$1
---    • RBAC: Requires permission 3 (delete)
---    • Business Rule: Stops scheduled execution; preserves report data in d_report_data
---
--- 6. LIST REPORTS (Filtered by Category, Type)
---    • Endpoint: GET /api/v1/reports?report_category=operational&limit=50
+-- RELATIONSHIPS:
+-- • Data: d_report_data (execution results)
+-- • RBAC: entity_id_rbac_map
 --    • Database:
 --      SELECT r.* FROM d_reports r
 --      WHERE r.active_flag=true

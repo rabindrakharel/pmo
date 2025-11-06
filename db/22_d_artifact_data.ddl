@@ -1,6 +1,18 @@
 -- =====================================================
--- ARTIFACT DATA (d_artifact_data) - DATA TABLE
--- Artifact content storage with binary and text support
+-- ARTIFACT DATA (d_artifact_data) - CONTENT STORAGE
+-- =====================================================
+--
+-- SEMANTICS:
+-- • Artifact content: text, binary, or external URLs
+-- • Supports versioning, file integrity (SHA-256), compression
+--
+-- KEY FIELDS:
+-- • artifact_id: uuid (FK with CASCADE)
+-- • content_text, content_binary, content_url: storage options
+-- • file_hash: varchar(64) (SHA-256)
+-- • compression_type: varchar (gzip, none)
+-- • update_type: varchar (content_update, metadata_update, version_update)
+--
 -- =====================================================
 
 CREATE TABLE app.d_artifact_data (

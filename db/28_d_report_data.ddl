@@ -1,6 +1,20 @@
 -- =====================================================
--- REPORT DATA (d_report_data) - DATA TABLE
--- Report execution data with performance metrics
+-- REPORT DATA (d_report_data) - EXECUTION RESULTS
+-- =====================================================
+--
+-- SEMANTICS:
+-- • Report execution data with performance/quality metrics
+-- • Stores snapshots, timestamps, execution metadata
+-- • Tracks data freshness, completeness, accuracy scores
+--
+-- KEY FIELDS:
+-- • report_id: uuid (FK with CASCADE)
+-- • report_data: jsonb (execution results snapshot)
+-- • execution_timestamp: timestamptz
+-- • execution_trigger: varchar (manual, scheduled, api, event)
+-- • data_freshness_hours, data_completeness_percent, data_accuracy_score: decimal
+-- • query_execution_time_ms, data_processing_time_ms: integer
+--
 -- =====================================================
 
 CREATE TABLE app.d_report_data (

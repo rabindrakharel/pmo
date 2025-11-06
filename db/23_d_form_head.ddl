@@ -1,56 +1,31 @@
 -- =====================================================
--- FORM ENTITY (d_form_head) - HEAD TABLE
--- Multi-step form definitions with JSONB schemas and public/internal URLs
+-- FORM ENTITY (d_form_head) - DYNAMIC FORMS
 -- =====================================================
 --
 -- SEMANTICS:
--- Forms are dynamic data collection templates with multi-step JSONB schemas.
--- Each form has stable UUID and TWO URLs: internal (auth required) and shared (public, 8-char code).
--- Updates are in-place (same ID, version++), enabling stable URLs while tracking schema evolution.
--- Submissions (d_form_data) reference form_id; old submissions preserve original schema structure.
+-- • Dynamic multi-step forms with JSONB schemas, supports public/internal URLs
+-- • Stable UUID with TWO URLs: internal (/form/{uuid}, auth), shared (/form/{8-char}, public)
+-- • In-place schema updates (version++), old submissions preserve original schema
 --
--- DATABASE BEHAVIOR:
+-- OPERATIONS:
 -- • CREATE: INSERT with version=1, generates internal + shared URLs
---   Example: INSERT INTO d_form_head (id, name, internal_url, shared_url, form_schema)
---            VALUES ('ee8a6cfd-...', 'Landscapingform', '/form/ee8a6cfd-...', '/form/aB3xK9mZ',
---                    '{"steps": [{"id": "step-1", "fields": [...]}]}'::jsonb)
---
--- • UPDATE: Same ID, version++, form_schema overwritten (NO archival)
---   Example: UPDATE d_form_head SET form_schema='{"steps": [...]}'::jsonb, version=version+1
---            WHERE id='ee8a6cfd-...'
---
--- • SOFT DELETE: active_flag=false, to_ts=now(), disables both URLs
---   Example: UPDATE d_form_head SET active_flag=false, to_ts=now() WHERE id='ee8a6cfd-...'
+-- • UPDATE: Same ID, version++, form_schema overwritten (no archival)
+-- • DELETE: active_flag=false, to_ts=now(), disables both URLs
+-- • SUBMIT: POST to shared_url creates d_form_data entry
 --
 -- KEY FIELDS:
--- • id: uuid PRIMARY KEY (stable, never changes - critical for URL permanence)
--- • slug, code: varchar(50/100) (NO unique constraint - reusable identifiers)
--- • internal_url: varchar(500) (/form/{uuid} - auth required for editing)
--- • shared_url: varchar(500) (/form/{8-char-random} - public presigned URL, no auth)
--- • form_schema: jsonb (multi-step structure: {"steps": [{"id", "name", "fields": [...]}]})
--- • form_type: varchar(50) DEFAULT 'multi_step'
--- • version: integer DEFAULT 1 (increments on schema updates)
+-- • id: uuid PRIMARY KEY (stable, critical for URL permanence)
+-- • slug, code: varchar (NO unique constraint)
+-- • internal_url: varchar (/form/{uuid}, auth required)
+-- • shared_url: varchar (/form/{8-char}, public, no auth)
+-- • form_schema: jsonb ({"steps": [{"id", "fields": [...]}]})
+-- • form_type: varchar (multi_step, single_page, wizard)
+-- • entity_type, entity_id: text, uuid (parent link)
 --
--- FORM SCHEMA STRUCTURE:
--- {
---   "steps": [
---     {
---       "id": "step-1", "name": "step_1", "title": "General Information",
---       "fields": [
---         {"name": "text_1760648879230", "label": "Text Input", "type": "text", "required": false},
---         {"name": "datatable_1760648887217", "type": "datatable", "dataTableColumns": [...]}
---       ]
---     }
---   ]
--- }
---
--- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: project (via metadata.primary_entity_id or d_entity_id_map)
+-- RELATIONSHIPS:
+-- • Parent: project, task (via entity_type/entity_id)
 -- • Children: d_form_data (submissions), artifact (attachments)
---
--- URL ACCESS MODES:
--- • Internal URL (/form/{uuid}): Requires authentication, enables editing/management
--- • Shared URL (/form/{8-char-code}): Public presigned URL, anyone can submit, no auth
+-- • RBAC: entity_id_rbac_map
 --
 -- =====================================================
 

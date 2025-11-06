@@ -1,83 +1,28 @@
 -- =====================================================
--- ENTITY INSTANCE REGISTRY TABLE (d_entity_instance_id)
--- Central registry of all entity INSTANCES with their IDs and metadata
+-- ENTITY INSTANCE REGISTRY (d_entity_instance_id)
 -- =====================================================
 --
--- BUSINESS PURPOSE:
--- Maintains a central registry of all entity instances across the system for unified operations,
--- global search, cross-entity relationships, and dashboard statistics. Acts as the authoritative
--- source of truth for entity instance existence, metadata, and active status.
+-- SEMANTICS:
+-- • Central registry of all entity INSTANCES (not types - see d_entity for types)
+-- • Auto-maintained via triggers: INSERT/UPDATE/DELETE on entity tables
+-- • Powers global search, entity pickers, dashboard stats
 --
--- API SEMANTICS & LIFECYCLE:
---
--- 1. REGISTER ENTITY INSTANCE (Auto-created on Entity Creation)
---    • Trigger: When any entity is created (INSERT into d_project, d_task, d_employee, etc.)
---    • Database: INSERT INTO d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
---    • Returns: Registry confirmation
---    • Business Rule: Automatic registration via database triggers on entity table INSERTs
---    • RBAC: Inherits from source entity creation permissions
---
--- 2. UPDATE ENTITY INSTANCE METADATA (Auto-synced on Entity Update)
---    • Trigger: When source entity is updated (UPDATE d_project.name, etc.)
---    • Database: UPDATE d_entity_instance_id SET entity_name=$1, entity_code=$2, updated_ts=now() WHERE entity_type=$3 AND entity_id=$4
---    • SCD Behavior: IN-PLACE UPDATE
---      - Synchronizes name and code changes from source entity
---      - Maintains referential consistency across entity_id_map and entity_id_rbac_map
---    • Business Rule: Automatic sync via database triggers on entity table UPDATEs
---
--- 3. DEACTIVATE ENTITY INSTANCE (Auto-synced on Soft Delete)
---    • Trigger: When source entity is soft deleted (UPDATE d_project.active_flag=false)
---    • Database: UPDATE d_entity_instance_id SET active_flag=false, updated_ts=now() WHERE entity_type=$1 AND entity_id=$2
---    • Business Rule: Maintains referential integrity; preserves registry for audit
---    • Cascade Effect: Does NOT cascade delete (preserves entity_id_map and RBAC entries)
---
--- 4. GLOBAL SEARCH ACROSS ENTITY INSTANCES
---    • Endpoint: GET /api/v1/search?q=landscaping&entity_type=project,task&limit=20
---    • Database:
---      SELECT e.* FROM d_entity_instance_id e
---      WHERE e.active_flag=true
---        AND e.entity_type = ANY($entity_types)
---        AND to_tsvector('english', e.entity_name) @@ plainto_tsquery('english', $query)
---      ORDER BY ts_rank(to_tsvector('english', e.entity_name), plainto_tsquery('english', $query)) DESC
---      LIMIT $1
---    • RBAC: Post-filters results against entity_id_rbac_map for current user
---    • Frontend: GlobalSearchBar renders unified results across entity types
---
--- 5. LIST ENTITY INSTANCES BY TYPE
---    • Endpoint: GET /api/v1/entity?entity_type=project&active_flag=true&limit=50
---    • Database:
---      SELECT e.* FROM d_entity_instance_id e
---      WHERE e.entity_type=$1
---        AND e.active_flag=$2
---      ORDER BY e.updated_ts DESC
---      LIMIT $3 OFFSET $4
---    • Business Rule: Used for entity pickers, dropdown lists, and reference lookups
---
--- 6. VALIDATE ENTITY INSTANCE EXISTENCE
---    • Endpoint: GET /api/v1/entity/:entity_type/:entity_id/exists
---    • Database: SELECT EXISTS(SELECT 1 FROM d_entity_instance_id WHERE entity_type=$1 AND entity_id=$2 AND active_flag=true)
---    • Business Rule: Used before creating entity_id_map relationships to ensure referential integrity
---    • Example: Before linking task to project, validate project exists in d_entity_instance_id
---
--- 7. GET ENTITY INSTANCE TYPE COUNTS (Dashboard Stats)
---    • Endpoint: GET /api/v1/entity/stats
---    • Database:
---      SELECT entity_type, COUNT(*) AS count
---      FROM d_entity_instance_id
---      WHERE active_flag=true
---      GROUP BY entity_type
---      ORDER BY count DESC
---    • Business Rule: Powers dashboard statistics and system health monitoring
---    • Frontend: DashboardStatCard displays entity counts
---
--- NOTE: For parent-child entity TYPE relationships and metadata (icons, labels),
---       see d_entity.ddl which stores entity TYPE definitions
+-- OPERATIONS:
+-- • REGISTER: Auto INSERT on entity creation (triggered)
+-- • UPDATE: Auto sync entity_name/entity_code on source entity update (triggered)
+-- • DEACTIVATE: Auto active_flag=false on source soft delete (triggered)
+-- • SEARCH: GET /api/v1/search, full-text search across entity_name
+-- • LIST: GET /api/v1/entity?entity_type=project, used for dropdowns/pickers
+-- • VALIDATE: Check EXISTS before creating entity_id_map relationships
+-- • STATS: Aggregate counts by entity_type for dashboard
 --
 -- KEY FIELDS:
--- • entity_type: Entity classification ('office', 'business', 'project', 'task', 'employee', etc.)
--- • entity_id: UUID from source entity table (d_project.id, d_task.id, etc.)
--- • entity_name: Display name (synchronized from source entity)
--- • entity_code: Business code/number (synchronized from source entity)
+-- • entity_type: varchar(50) ('project', 'task', 'employee', etc.)
+-- • entity_id: text (UUID from source: d_project.id, d_task.id)
+-- • entity_name, entity_code: text (synced from source)
+-- • active_flag: boolean (synced from source)
+--
+-- =====================================================
 -- • active_flag: Operational status (synchronized from source entity soft delete)
 -- • created_ts: Registry creation timestamp (never modified)
 -- • updated_ts: Last synchronization timestamp (refreshed on UPDATE)
