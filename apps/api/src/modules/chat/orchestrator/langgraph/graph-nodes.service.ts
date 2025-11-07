@@ -63,6 +63,9 @@ export interface AgentState {
   // Progressive Customer Context (built throughout conversation)
   context: Partial<CustomerContext>;
 
+  // Progress flags (track completed steps to prevent re-execution)
+  progress_flags?: Record<string, boolean>;
+
   // Legacy fields (for backward compatibility)
   original_request?: string;
   issue?: string;
@@ -160,9 +163,16 @@ export async function greetCustomerNode(state: AgentState): Promise<Partial<Agen
     matching_service_catalog: '', // Initialize empty
   };
 
+  // Set progress flag to prevent re-greeting
+  const updatedProgressFlags = {
+    ...state.progress_flags,
+    greeted: true,
+  };
+
   return {
     messages: [...state.messages, { role: 'assistant', content: greeting }],
     context,
+    progress_flags: updatedProgressFlags,
   };
 }
 
@@ -198,9 +208,16 @@ export async function askAboutNeedNode(state: AgentState): Promise<Partial<Agent
     conversation_stage: 'asking_about_need' as const,
   };
 
+  // Set progress flag to prevent re-asking
+  const updatedProgressFlags = {
+    ...state.progress_flags,
+    asked_need: true,
+  };
+
   return {
     messages: [...state.messages, { role: 'assistant', content: askMessage }],
     context: updatedContext,
+    progress_flags: updatedProgressFlags,
   };
 }
 
@@ -208,16 +225,28 @@ export async function askAboutNeedNode(state: AgentState): Promise<Partial<Agent
  * NODE 3: IDENTIFY_ISSUE
  * Parse customer's need and structure into context JSON
  * ✅ CONTEXT IS PASSED TO LLM
+ * ✅ SKIPS RE-EXTRACTION IF ALREADY IDENTIFIED (uses progress_flags)
  */
 export async function identifyIssueNode(
   state: AgentState,
   mcpAdapter: MCPAdapterService,
   authToken: string
 ): Promise<Partial<AgentState>> {
+  console.log(`\n🎯 [III. IDENTIFY_ISSUE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+
+  // Check if issue already identified using progress flags
+  const alreadyIdentified = state.progress_flags?.issue_identified || false;
+  if (alreadyIdentified && state.context?.customers_main_ask) {
+    console.log(`⏭️  Issue already identified: "${state.context.customers_main_ask}"`);
+    console.log(`   Service: "${state.context.matching_service_catalog}"`);
+    console.log(`   Skipping re-extraction (preserving context)`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+    return {}; // Return empty update - context is preserved
+  }
+
   const lastMessage = state.messages[state.messages.length - 1];
   const customerMessage = lastMessage?.role === 'user' ? lastMessage.content : '';
 
-  console.log(`\n🎯 [III. IDENTIFY_ISSUE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   console.log(`💬 Customer Message: "${customerMessage}"`);
 
   // If no customer message yet (initial flow), skip extraction and wait for user input
@@ -229,9 +258,6 @@ export async function identifyIssueNode(
       context: {
         ...state.context,
         conversation_stage: 'identifying_issue' as const,
-        customers_main_ask: '',
-        matching_service_catalog: '',
-        related_entities: [],
       },
     };
   }
@@ -318,23 +344,30 @@ Parse and return JSON.`;
     };
   }
 
-  // Merge into context
+  // Merge into context (non-destructive: preserve existing values if new ones are empty)
   const updatedContext: Partial<CustomerContext> = {
     ...state.context,
     customer_name: parsedData.customer_name || state.context?.customer_name,
     customer_phone_number: parsedData.customer_phone_number || state.context?.customer_phone_number,
     customer_email: parsedData.customer_email || state.context?.customer_email,
-    customers_main_ask: parsedData.customers_main_ask,
-    matching_service_catalog: parsedData.matching_service_catalog,
-    related_entities: parsedData.related_entities || [],
+    customers_main_ask: parsedData.customers_main_ask || state.context?.customers_main_ask,
+    matching_service_catalog: parsedData.matching_service_catalog || state.context?.matching_service_catalog,
+    related_entities: parsedData.related_entities || state.context?.related_entities || [],
     conversation_stage: 'identifying_issue',
   };
 
   console.log(`📌 Updated Context:`, buildContextString(updatedContext));
   console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
+  // Set progress flag to prevent re-extraction
+  const updatedProgressFlags = {
+    ...state.progress_flags,
+    issue_identified: true,
+  };
+
   return {
     context: updatedContext,
+    progress_flags: updatedProgressFlags,
     issue: parsedData.customers_main_ask,
     service: parsedData.matching_service_catalog,
   };
@@ -361,9 +394,16 @@ export async function empathizeNode(state: AgentState): Promise<Partial<AgentSta
     conversation_stage: 'empathizing' as const,
   };
 
+  // Set progress flag
+  const updatedProgressFlags = {
+    ...state.progress_flags,
+    empathized: true,
+  };
+
   return {
     messages: [...state.messages, { role: 'assistant', content: empathyMessage }],
     context: updatedContext,
+    progress_flags: updatedProgressFlags,
   };
 }
 
@@ -386,32 +426,151 @@ export async function buildRapportNode(state: AgentState): Promise<Partial<Agent
     conversation_stage: 'building_rapport' as const,
   };
 
+  // Set progress flag
+  const updatedProgressFlags = {
+    ...state.progress_flags,
+    rapport_built: true,
+  };
+
   return {
     messages: [...state.messages, { role: 'assistant', content: rapportMessage }],
     context: updatedContext,
+    progress_flags: updatedProgressFlags,
   };
 }
 
 /**
  * NODE 6: GATHER_CUSTOMER_DATA
  * Progressively ask for missing customer information (one field at a time)
+ * ✅ EXTRACTS SPECIFIC FIELDS FROM LATEST MESSAGE USING LLM
  */
 export async function gatherCustomerDataNode(state: AgentState): Promise<Partial<AgentState>> {
   console.log(`\n🎯 [VI. GATHER_CUSTOMER_DATA] ━━━━━━━━━━━━━━━━━━━━━━━━`);
 
   const context = state.context || {};
+  const progressFlags = state.progress_flags || {};
   console.log(`📊 Current Context:`, buildContextString(context));
 
-  // Check what's missing (priority order: phone, name, email, address)
+  // Check if we have a user message to extract from
+  const lastMessage = state.messages[state.messages.length - 1];
+  const hasUserMessage = lastMessage?.role === 'user';
+
+  // If we have a user message, try to extract data from it
+  if (hasUserMessage) {
+    const userMessage = lastMessage.content;
+    console.log(`💬 Extracting data from message: "${userMessage}"`);
+
+    // Use LLM to extract specific fields
+    const extractionPrompt = `Extract customer information from the message: "${userMessage}"
+
+Return JSON with these fields (only include if found):
+- phone: phone number (if present)
+- name: full name (if present)
+- email: email address (if present)
+- address: physical address (if present)
+
+If a field is not present in the message, omit it from the response.
+
+Examples:
+Message: "Sure, my phone number is 647-555-9876"
+Response: {"phone": "647-555-9876"}
+
+Message: "My name is Sarah Johnson"
+Response: {"name": "Sarah Johnson"}
+
+Message: "123 Main Street, Toronto"
+Response: {"address": "123 Main Street, Toronto"}`;
+
+    const openaiService = getOpenAIService();
+    const result = await openaiService.callAgent({
+      agentType: 'worker',
+      messages: [
+        { role: 'system', content: 'You are a data extraction assistant. Extract customer information and return JSON.' },
+        { role: 'user', content: extractionPrompt },
+      ],
+      temperature: 0.1,
+      jsonMode: true,
+    });
+
+    let extractedData: any = {};
+    try {
+      extractedData = JSON.parse(result.content);
+      console.log(`✅ Extracted data:`, extractedData);
+    } catch (error) {
+      console.error(`❌ Failed to parse extraction result`);
+    }
+
+    // Update context and progress flags based on extracted data
+    const updatedContext = { ...context };
+    const updatedProgressFlags = { ...progressFlags };
+
+    if (extractedData.phone) {
+      updatedContext.customer_phone_number = extractedData.phone;
+      updatedProgressFlags.phone_collected = true;
+      console.log(`✅ Phone collected: ${extractedData.phone}`);
+    }
+    if (extractedData.name) {
+      updatedContext.customer_name = extractedData.name;
+      updatedProgressFlags.name_collected = true;
+      console.log(`✅ Name collected: ${extractedData.name}`);
+    }
+    if (extractedData.email) {
+      updatedContext.customer_email = extractedData.email;
+      updatedProgressFlags.email_collected = true;
+      console.log(`✅ Email collected: ${extractedData.email}`);
+    }
+    if (extractedData.address) {
+      updatedContext.customer_address = extractedData.address;
+      updatedProgressFlags.address_collected = true;
+      console.log(`✅ Address collected: ${extractedData.address}`);
+    }
+
+    // Update state with extracted data
+    if (Object.keys(extractedData).length > 0) {
+      updatedContext.conversation_stage = 'gathering_data';
+
+      // Check what's still missing and ask for next field
+      let questionToAsk = '';
+
+      if (!updatedProgressFlags.phone_collected) {
+        questionToAsk = "May I have your phone number so I can better assist you?";
+      } else if (!updatedProgressFlags.name_collected) {
+        questionToAsk = "Could I get your full name, please?";
+      } else if (!updatedProgressFlags.email_collected) {
+        questionToAsk = "What's the best email address to reach you? (Optional)";
+      } else if (!updatedProgressFlags.address_collected) {
+        questionToAsk = "What's the address where you need service?";
+      } else {
+        // All data collected
+        console.log(`✅ All required customer data collected`);
+        console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+        return {
+          context: updatedContext,
+          progress_flags: updatedProgressFlags,
+        };
+      }
+
+      console.log(`❓ Next question: "${questionToAsk}"`);
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+
+      return {
+        messages: [...state.messages, { role: 'assistant', content: questionToAsk }],
+        context: updatedContext,
+        progress_flags: updatedProgressFlags,
+      };
+    }
+  }
+
+  // No user message or no data extracted - ask for next missing field
   let questionToAsk = '';
 
-  if (!context.customer_phone_number) {
+  if (!progressFlags.phone_collected) {
     questionToAsk = "May I have your phone number so I can better assist you?";
-  } else if (!context.customer_name) {
+  } else if (!progressFlags.name_collected) {
     questionToAsk = "Could I get your full name, please?";
-  } else if (!context.customer_email) {
+  } else if (!progressFlags.email_collected) {
     questionToAsk = "What's the best email address to reach you? (Optional)";
-  } else if (!context.customer_address) {
+  } else if (!progressFlags.address_collected) {
     questionToAsk = "What's the address where you need service?";
   } else {
     // All data collected
@@ -490,10 +649,17 @@ export async function checkExistingCustomerNode(
       console.log(`📌 Updated Context:`, buildContextString(updatedContext));
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
+      // Set progress flag
+      const updatedProgressFlags = {
+        ...state.progress_flags,
+        customer_checked: true,
+      };
+
       return {
         messages: [...state.messages, { role: 'assistant', content: welcomeMessage }],
         context: updatedContext,
         customer_exists: true,
+        progress_flags: updatedProgressFlags,
       };
     } else {
       // Customer doesn't exist - create new
@@ -522,10 +688,17 @@ export async function checkExistingCustomerNode(
       console.log(`📌 Updated Context:`, buildContextString(updatedContext));
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
+      // Set progress flag
+      const updatedProgressFlags = {
+        ...state.progress_flags,
+        customer_checked: true,
+      };
+
       return {
         messages: [...state.messages, { role: 'assistant', content: welcomeMessage }],
         context: updatedContext,
         customer_exists: false,
+        progress_flags: updatedProgressFlags,
       };
     }
   } catch (error: any) {
@@ -625,8 +798,15 @@ Create a step-by-step plan and return JSON with next_steps_plan array.`;
   console.log(`📌 Plan Steps:`, planData.next_steps_plan);
   console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
+  // Set progress flag
+  const updatedProgressFlags = {
+    ...state.progress_flags,
+    plan_created: true,
+  };
+
   return {
     context: updatedContext,
+    progress_flags: updatedProgressFlags,
   };
 }
 
@@ -687,9 +867,16 @@ Communicate this plan clearly and ask for approval.`;
     conversation_stage: 'communicating_plan' as const,
   };
 
+  // Set progress flag
+  const updatedProgressFlags = {
+    ...state.progress_flags,
+    plan_communicated: true,
+  };
+
   return {
     messages: [...state.messages, { role: 'assistant', content: result.content }],
     context: updatedContext,
+    progress_flags: updatedProgressFlags,
   };
 }
 
@@ -730,9 +917,16 @@ export async function executePlanNode(
       conversation_stage: 'executing' as const,
     };
 
+    // Set progress flag
+    const updatedProgressFlags = {
+      ...state.progress_flags,
+      plan_executed: true,
+    };
+
     return {
       context: updatedContext,
       executed_actions: executedActions,
+      progress_flags: updatedProgressFlags,
     };
   } catch (error: any) {
     console.error(`❌ Error executing plan:`, error.message);
@@ -802,9 +996,16 @@ Communicate what was done clearly and ask if they need anything else.`;
     conversation_stage: 'confirming_execution' as const,
   };
 
+  // Set progress flag
+  const updatedProgressFlags = {
+    ...state.progress_flags,
+    execution_communicated: true,
+  };
+
   return {
     messages: [...state.messages, { role: 'assistant', content: result.content }],
     context: updatedContext,
+    progress_flags: updatedProgressFlags,
   };
 }
 

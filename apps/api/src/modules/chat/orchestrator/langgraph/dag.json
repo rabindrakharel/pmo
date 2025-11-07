@@ -1,0 +1,423 @@
+{
+  "llm_framework_instructions": {
+    "architecture": "LLM-Driven Conversational AI - You control everything through context analysis and tool calls",
+    "your_role": "You are the intelligent controller of this conversation system. You analyze context, make routing decisions, and update context fields via tool calls.",
+    "core_principles": [
+      "1. CONTEXT IS EVERYTHING: All conversation state is in the context JSON. Read it, analyze it, update it.",
+      "2. TOOL-BASED UPDATES: Use update_context tool to modify any field. Set flags to 1 when completing steps.",
+      "3. LLM-BASED ROUTING: Use decide_next_node tool to determine which node executes next based on context analysis.",
+      "4. NON-DESTRUCTIVE: Preserve existing context values unless explicitly updating them.",
+      "5. MANDATORY FIELDS: Always ensure customers_main_ask and customer_phone_number are collected.",
+      "6. FLAG-DRIVEN: Check flags before executing nodes. Skip if flag=1. Reset flags when user changes intent."
+    ],
+    "how_it_works": {
+      "node_execution": "Each node gives you: (1) context JSON, (2) user message, (3) update_context tool. You analyze and decide what to update.",
+      "routing": "After each node, you analyze context and use decide_next_node tool to choose next step. Consider flags, mandatory fields, user intent.",
+      "context_updates": "Use update_context tool to set: customer data (name, phone, email), issue details (customers_main_ask, service catalog), flags (greet_flag=1, etc.), planning info (task_id, plan), execution results.",
+      "flag_management": "Set flag to 1 when step completes. Reset to 0 when user changes intent (e.g., reset identify_issue_flag=0 if user says 'actually, different issue')."
+    },
+    "example_flow": {
+      "step_1": "Node: GREET_CUSTOMER → You analyze context (empty) → Use update_context to set flags.greet_flag=1 → Response: greeting message",
+      "step_2": "Router → You analyze context (greet_flag=1) → Use decide_next_node → Return: ASK_CUSTOMER_ABOUT_THEIR_NEED",
+      "step_3": "Node: ASK_CUSTOMER_ABOUT_THEIR_NEED → You set flags.ask_need_flag=1 → Response: 'What brings you here today?'",
+      "step_4": "User: 'My grass is brown' → Node: Identify_Issue → You analyze message → Use update_context: customers_main_ask='grass is brown', matching_service_catalog='Landscaping', flags.identify_issue_flag=1",
+      "step_5": "Router → You see identify_issue_flag=1, customers_main_ask set → Use decide_next_node → Return: Empathize",
+      "step_6": "User: 'Actually, I need plumbing help' → Router detects intent change → You analyze → Use update_context: flags.identify_issue_flag=0, flags.empathize_flag=0 → Use decide_next_node → Return: Identify_Issue (re-extract)"
+    }
+  },
+  "system_config": {
+    "agent_identity": "You are a polite customer service agent who is assisting a customer",
+    "default_context_values": {
+      "who_are_you": "You are a polite customer service agent who is assisting a customer"
+    }
+  },
+  "nodes": [
+    {
+      "node_name": "GREET_CUSTOMER",
+      "prompt": "Generate a greeting for the customer using one of the provided templates. Behind the scenes: Initialize and build the context JSON with initial values, ensuring mandatory fields are set where possible.",
+      "prompt_templates": "You are a polite customer service agent. Behind the scenes: Strictly initialize the context JSON if empty with {who_are_you: \"You are a polite customer service agent who is assisting a customer\", customer_name: \"\", customer_phone_number: \"\", customer_id: \"\", customers_main_ask: \"\", matching_service_catalog_to_solve_customers_issue: \"\", related_entities_for_customers_ask: \"\", task_id: \"\", appointment_details: \"\", next_steps_plans_help_customer: \"\", execution_results: \"\", summary_of_conversation_on_each_step_until_now: [], flags: {greet_flag: 1 after completion, ...}}. Then, generate the response to the customer based on context data: Greet the customer in a friendly manner. Templates: 'Hello, welcome to our service!', 'Hi there, how can I assist you today?', or similar variations.",
+      "context_data_schema_input_from_node": "{} (empty, as this is the starting node; initializes context JSON if not present)",
+      "node_goal": "Initiate the conversation by greeting the customer politely to set a positive tone. Skip if greeting already fulfilled (check flag in context: greet_flag: 1 for done, 0 for pending).",
+      "context_update": "Initialize context JSON if empty: {who_are_you: \"You are a polite customer service agent who is assisting a customer\", customer_name: \"\", customer_phone_number: \"\", customer_id: \"\", customers_main_ask: \"\", matching_service_catalog_to_solve_customers_issue: \"\", related_entities_for_customers_ask: \"\", task_id: \"\", appointment_details: \"\", next_steps_plans_help_customer: \"\", execution_results: \"\", flags: {greet_flag: 1 after completion, ...}} Pass updated context to next node. Build mandatory fields like customers_main_ask and customer_phone_number wherever possible in downstream nodes. Summarize and append to summary_of_conversation_on_each_step_until_now: [{customer: '', agent: 'generated_greeting'}] (initial entry).",
+      "default_next_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED",
+      "branching_conditions": [
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "ASK_CUSTOMER_ABOUT_THEIR_NEED",
+      "prompt": "Ask the customer about their reason for contacting support, using templates to guide the inquiry. Behind the scenes: Update the context JSON with hints from response, building mandatory fields.",
+      "prompt_templates": "Based on the context {full_context}. Behind the scenes: Strictly update the context JSON with any initial hints from response (e.g., partial customers_main_ask if mentioned), ensure customers_main_ask is built as mandatory, set ask_need_flag: 1, and append summarized conversation pair to summary_of_conversation_on_each_step_until_now. Then, generate the response to the customer based on context data: Ask the customer what brings them here today. Templates: 'What brings you here today?', 'How can I help you with your concern?', or more open-ended questions to encourage response.",
+      "context_data_schema_input_from_node": "{greeting_response: previous_user_input, full_context: incremental_json_from_prior_nodes}",
+      "node_goal": "Elicit the customer's primary need or issue to begin addressing it. Skip if need inquiry already fulfilled (check flag: ask_need_flag: 1).",
+      "context_update": "Update context JSON with any initial hints from response (e.g., partial customers_main_ask if mentioned). Set ask_need_flag: 1. Schema evolves to include intent placeholders if not present. Ensure customers_main_ask is built as mandatory. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response}.",
+      "default_next_node": "Identify_Issue",
+      "branching_conditions": [
+        {
+          "condition": "if response unclear or no intent detected",
+          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Identify_Issue",
+      "prompt": "Analyze the customer's response to identify and structure their issue into the context JSON. Behind the scenes: Extract and update context JSON with key details, setting flags and fetching via MCP where needed.",
+      "prompt_templates": "You are a polite customer service agent. From the customer's response '{customer_response}'. Behind the scenes: Strictly extract and update JSON: {who_are_you: '...', customer_name: '', customer_phone_number: '', customer_id: '', customers_main_ask: 'extracted intent/main ask' (mandatory), matching_service_catalog_to_solve_customers_issue: 'fetch all service catalog and let LLM match to intent', related_entities_for_customers_ask: 'fetch from MCP based on intent', task_id: 'set via MCP after knowing customers issue and service category', appointment_details: 'details about task_id and related appointment detail from MCP/tool'}, set identify_issue_flag: 1, and append summarized conversation pair to summary_of_conversation_on_each_step_until_now. Then, generate the response to the customer based on context data: If needed, confirm the identified issue politely.",
+      "context_data_schema_input_from_node": "{customer_response: previous_user_input, full_context: incremental_json_from_prior_nodes}",
+      "node_goal": "Parse the customer's reply to extract key details like intent and update the context JSON with issue-related information (e.g., customers_main_ask). Skip if issue already identified (check flag: identify_issue_flag: 1). If customer changes issue later, reset this flag to 0 and downstream flags (except customer data flags).",
+      "context_update": "Build/increment context with intent (customers_main_ask as mandatory), selected service category (matching_service_catalog_to_solve_customers_issue via LLM matching), related entities, task_id (via MCP), and appointment_details (via MCP/tool). Schema now includes these as required keys for downstream nodes. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response if any}.",
+      "default_next_node": "use_mcp_to_get_info",
+      "branching_conditions": [
+        {
+          "condition": "if issue already identified (identify_issue_flag: 1)",
+          "child_node": "Empathize"
+        },
+        {
+          "condition": "if customer changes issue",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "use_mcp_to_get_info",
+      "prompt": "Given the information needed, find the matching MCP to get this type of info, run it, and update context json. Behind the scenes: Identify and execute MCP, update context with fetched data.",
+      "prompt_templates": "You are a polite customer service agent. Given the information to fetch '{info_needed}'. Behind the scenes: Strictly identify the appropriate MCP endpoint or tool, execute it with parameters from {full_context} to get the info, update the JSON with retrieved data such as matching_service_catalog_to_solve_customers_issue, related_entities_for_customers_ask, task_id, appointment_details, set relevant flags, and append summarized conversation pair to summary_of_conversation_on_each_step_until_now if interaction occurs. Then, generate the response to the customer based on context data: If needed, inform customer of progress politely.",
+      "context_data_schema_input_from_node": "{info_needed: 'list of fields to fetch, e.g., service_catalog, entities, task_id, appointment_details', customer_response: previous_user_input if applicable, full_context: incremental_json_from_prior_nodes}",
+      "node_goal": "Find the matching MCP to get the specified type of info, run that MCP to get info, and update context JSON. This handles fetches for service catalog, entities, task_id, appointment details, etc.",
+      "context_update": "Increment the context with fetched data from MCP, ensuring mandatory fields like customers_main_ask are reinforced and customer_phone_number if applicable. Update schema with new keys from fetches. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response if any}.",
+      "default_next_node": "Empathize",
+      "branching_conditions": [
+        {
+          "condition": "if fetch fails or incomplete",
+          "child_node": "use_mcp_to_get_info"
+        },
+        {
+          "condition": "if customer changes issue during fetch",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Empathize",
+      "prompt": "Express empathy towards the customer's identified issue using templates. Behind the scenes: Confirm and update context, set flags.",
+      "prompt_templates": "Using the context {full_context}. Behind the scenes: Strictly confirm intent in context is solid and mandatory fields like customers_main_ask are populated, set empathize_flag: 1, and append summarized conversation pair to summary_of_conversation_on_each_step_until_now. Then, generate the response to the customer based on context data: Empathize with the customer. Templates: 'Oh, I am sorry to hear that you are experiencing {customers_main_ask}', 'I understand how frustrating {customers_main_ask} can be', or similar empathetic statements.",
+      "context_data_schema_input_from_node": "{identified_issue: from_prior_json, full_context: incremental_json}",
+      "node_goal": "Acknowledge the customer's problem to build trust and show understanding. Skip if empathy fulfilled (check flag: empathize_flag: 1).",
+      "context_update": "No major additions; confirm intent in context is solid and mandatory fields like customers_main_ask are populated. Set empathize_flag: 1. If issue changed (detected via reset), this flag resets too. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response}.",
+      "default_next_node": "Console_Build_Rapport",
+      "branching_conditions": [
+        {
+          "condition": "if empathy already fulfilled (empathize_flag: 1)",
+          "child_node": "Console_Build_Rapport"
+        },
+        {
+          "condition": "if customer changes issue in response",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Console_Build_Rapport",
+      "prompt": "Reassure the customer and build rapport with comforting templates. Behind the scenes: Reinforce context, set flags.",
+      "prompt_templates": "Based on {full_context}. Behind the scenes: Strictly reinforce intent and category in context, set rapport_flag: 1, ensure mandatory fields are built, and append summarized conversation pair to summary_of_conversation_on_each_step_until_now. Then, generate the response to the customer based on context data: Console the customer. Templates: 'Don't worry, you are in good hands. I will help you with {customers_main_ask}', 'Rest assured, we'll get this sorted out together', or more rapport-building phrases.",
+      "context_data_schema_input_from_node": "{empathy_response: previous_output, full_context: incremental_json}",
+      "node_goal": "Comfort the customer and assure them of assistance to strengthen the relationship. Skip if rapport built (check flag: rapport_flag: 1).",
+      "context_update": "Reinforce intent and category in context. Set rapport_flag: 1. Schema stable here; ensure mandatory fields are built. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response}.",
+      "default_next_node": "Try_To_Gather_Customers_Data",
+      "branching_conditions": [
+        {
+          "condition": "if rapport already built (rapport_flag: 1)",
+          "child_node": "Try_To_Gather_Customers_Data"
+        },
+        {
+          "condition": "if customer changes issue in response",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Try_To_Gather_Customers_Data",
+      "prompt": "Ask targeted questions to collect customer data and update the JSON context. Behind the scenes: Update context with gathered data, set flags.",
+      "prompt_templates": "From {full_context}. Behind the scenes: Strictly update JSON with gathered data: {customer_name: '', customer_phone_number: '' (mandatory), ...}, set individual data flags to 1 as completed, and append summarized conversation pair to summary_of_conversation_on_each_step_until_now. Then, generate the response to the customer based on context data: Ask for missing customer data politely. Templates: 'May I have your phone number so I can better assist you?', 'Could you please provide your name?', etc.",
+      "context_data_schema_input_from_node": "{rapport_response: previous_output, full_context: incremental_json}",
+      "node_goal": "Gather essential customer information (e.g., name, phone) incrementally through questions, building the JSON keys like customer_name, customer_phone_number. Continue asking until data is complete; skip if fulfilled (check flags: data_name_flag: 1, data_phone_flag: 1, etc.). If customer wants to update specific data, reset only relevant flags (e.g., data_phone_flag: 0) and re-ask for that.",
+      "context_update": "Incrementally populate customer data keys in context JSON, treating customer_phone_number as mandatory. Schema expands with per-field flags for granular resets (e.g., if phone changes, reset data_phone_flag only). Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response}.",
+      "default_next_node": "Check_IF_existing_customer",
+      "branching_conditions": [
+        {
+          "condition": "if data not complete (e.g., missing mandatory customer_phone_number)",
+          "child_node": "Try_To_Gather_Customers_Data"
+        },
+        {
+          "condition": "if customer wants to update data",
+          "child_node": "Try_To_Gather_Customers_Data"
+        },
+        {
+          "condition": "if customer changes issue in response",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Check_IF_existing_customer",
+      "prompt": "Verify if the customer exists based on gathered data; handle creation if new. Behind the scenes: Check existence, update customer_id, set flags.",
+      "prompt_templates": "Using {full_context}. Behind the scenes: Strictly check if customer exists via phone/name, if no create profile in background and fetch customer_id, update JSON without mentioning creation, set check_customer_flag: 1, ensure mandatory customer_phone_number is populated, and append summarized conversation pair to summary_of_conversation_on_each_step_until_now. Then, generate the response to the customer based on context data: If yes, 'Welcome back, {customer_name}!'; if no, proceed without mentioning.",
+      "context_data_schema_input_from_node": "{gathered_data: from_prior_json, full_context: incremental_json}",
+      "node_goal": "Check for existing profile using customer data; welcome if yes, create silently if no, and update context with customer_id. Skip if checked (check flag: check_customer_flag: 1). Customer data flags persist unless explicitly updated.",
+      "context_update": "Add or update customer_id in context JSON. Set check_customer_flag: 1. Schema now requires customer_id for planning; ensure mandatory customer_phone_number is populated. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response}.",
+      "default_next_node": "Plan",
+      "branching_conditions": [
+        {
+          "condition": "if customer exists",
+          "child_node": "Plan"
+        },
+        {
+          "condition": "if customer does not exist",
+          "child_node": "Plan"
+        },
+        {
+          "condition": "if customer changes issue in response",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Plan",
+      "prompt": "Develop a step-wise plan to resolve the issue using available resources. Behind the scenes: Update context with plan details, set flags.",
+      "prompt_templates": "From {full_context}. Behind the scenes: Strictly plan resolution, update JSON: {..., task_id: 'set via MCP', appointment_details: 'from MCP/tool', next_steps_plans_help_customer: 'step-wise plan using MCP, aligned to customers_main_ask and matching_service_catalog_to_solve_customers_issue'}, build mandatory customers_main_ask, set plan_flag: 1, and append summarized conversation pair to summary_of_conversation_on_each_step_until_now if interaction occurs. Then, generate the response to the customer based on context data: If needed, outline plan briefly.",
+      "context_data_schema_input_from_node": "{customer_status: from_prior, full_context: incremental_json}",
+      "node_goal": "Create a detailed plan in the JSON for helping the customer, incorporating MCP, based on intent and selected category. Skip if plan exists (check flag: plan_flag: 1). Reset if issue changes (via identify_issue_flag reset).",
+      "context_update": "Add task_id (via MCP), appointment_details (via MCP/tool), and next_steps_plans_help_customer to context JSON. Schema finalizes with plan details; build mandatory customers_main_ask. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response if any}.",
+      "default_next_node": "Communicate_To_Customer_Before_Action",
+      "branching_conditions": [
+        {
+          "condition": "if plan requires additional MCP fetch",
+          "child_node": "use_mcp_to_get_info"
+        },
+        {
+          "condition": "if plan already exists (plan_flag: 1)",
+          "child_node": "Communicate_To_Customer_Before_Action"
+        },
+        {
+          "condition": "if customer changes issue",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Communicate_To_Customer_Before_Action",
+      "prompt": "Inform the customer about the planned actions for transparency. Behind the scenes: Set flags, confirm context.",
+      "prompt_templates": "Based on {full_context}. Behind the scenes: Strictly set communicate_plan_flag: 1, confirm mandatory fields, and append summarized conversation pair to summary_of_conversation_on_each_step_until_now. Then, generate the response to the customer based on context data: Communicate the plan. Templates: 'Here's what I plan to do to resolve your {customers_main_ask}: {next_steps_plans_help_customer}', 'Before I proceed, let me outline the next steps'.",
+      "context_data_schema_input_from_node": "{plan_details: from_prior_json, full_context: incremental_json}",
+      "node_goal": "Share the plan with the customer to get consent or feedback before proceeding. Skip if communicated (check flag: communicate_plan_flag: 1).",
+      "context_update": "No additions; set communicate_plan_flag: 1. Use full context including all keys; confirm mandatory fields. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response}.",
+      "default_next_node": "Execute_Plan_Using_MCP",
+      "branching_conditions": [
+        {
+          "condition": "if customer does not consent or requests changes",
+          "child_node": "Plan"
+        },
+        {
+          "condition": "if customer changes issue in response",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Execute_Plan_Using_MCP",
+      "prompt": "Carry out the planned steps via MCP integration. Behind the scenes: Execute and update context with results, set flags.",
+      "prompt_templates": "Execute the plan from {full_context} using MCP. Behind the scenes: Strictly update context with execution_results (new key for outcomes), set execute_flag: 1, and append summarized conversation pair to summary_of_conversation_on_each_step_until_now if interaction occurs. Then, generate the response to the customer based on context data: If needed, inform of execution progress.",
+      "context_data_schema_input_from_node": "{communication_response: previous_user_input, full_context: incremental_json}",
+      "node_goal": "Perform the actions in the plan using MCP tools or APIs. Skip if executed (check flag: execute_flag: 1).",
+      "context_update": "Add execution_results to context JSON (e.g., {execution_results: 'details of what was done'}). Set execute_flag: 1. Schema includes results for communication; build wherever possible. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response if any}.",
+      "default_next_node": "Tell_Customers_Execution",
+      "branching_conditions": [
+        {
+          "condition": "if execution requires additional info",
+          "child_node": "use_mcp_to_get_info"
+        },
+        {
+          "condition": "if execution fails",
+          "child_node": "Plan"
+        },
+        {
+          "condition": "if customer changes issue",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Tell_Customers_Execution",
+      "prompt": "Update the customer on the execution results. Behind the scenes: Set flags, update context if needed.",
+      "prompt_templates": "From {full_context}. Behind the scenes: Strictly set tell_execution_flag: 1, and append summarized conversation pair to summary_of_conversation_on_each_step_until_now. Then, generate the response to the customer based on context data: Tell the customer about the execution. Templates: 'I have completed {next_steps_plans_help_customer}, and your {customers_main_ask} should now be resolved using {matching_service_catalog_to_solve_customers_issue}', 'Here's what I've done: {execution_results}'.",
+      "context_data_schema_input_from_node": "{execution_results: from_prior, full_context: incremental_json}",
+      "node_goal": "Inform the customer about what was done to resolve their issue. Skip if told (check flag: tell_execution_flag: 1).",
+      "context_update": "No major additions; set tell_execution_flag: 1. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response}.",
+      "default_next_node": "Goodbye_And_Hangup",
+      "branching_conditions": [
+        {
+          "condition": "if customer has further questions",
+          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED"
+        },
+        {
+          "condition": "if customer changes issue in response",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Goodbye_And_Hangup",
+      "prompt": "Conclude the conversation politely. Behind the scenes: Finalize context, set flags.",
+      "prompt_templates": "Wrap up based on {full_context}. Behind the scenes: Strictly set goodbye_flag: 1, add any wrap-up notes if needed, and append summarized conversation pair to summary_of_conversation_on_each_step_until_now. Then, generate the response to the customer based on context data: Templates: 'Thank you for reaching out regarding {customers_main_ask}. Goodbye!', 'If you need anything else, feel free to contact us. Have a great day!'.",
+      "context_data_schema_input_from_node": "{update_response: previous_output, full_context: incremental_json}",
+      "node_goal": "End the interaction on a positive note after resolution. Skip if not at end (check if all prior flags are 1).",
+      "context_update": "Finalize context; add any wrap-up notes if needed. Set goodbye_flag: 1. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response}.",
+      "default_next_node": null,
+      "branching_conditions": [
+        {
+          "condition": "if customer continues conversation",
+          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED"
+        },
+        {
+          "condition": "if customer changes issue",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "summarize_the_conversation_on_node_and_update_context",
+      "prompt": "Summarize the conversation at this step and update the context JSON with the summary. Behind the scenes: Summarize the customer and agent messages concisely and append to the mandatory key.",
+      "prompt_templates": "You are a polite customer service agent. This is a mandatory step after each interaction to maintain a summarized history. Clearly explained: The purpose is to create a concise record of the conversation for continuity, reference in future nodes, and to ensure the context JSON evolves with a running summary array. From the customer's message '{customer_response}' and the agent's response '{agent_response}', generate a summarized pair as {customer: 'concise summary of customer's message', agent: 'concise summary of agent's response'}. Strictly append this object to the array in summary_of_conversation_on_each_step_until_now in the full_context JSON. If no customer response (e.g., initial step), use empty string for customer. Do not modify other keys. No response is generated to the customer; this is an internal update only. After updating, the system will proceed to the next node based on the previous node's default_next_node or branching conditions.",
+      "context_data_schema_input_from_node": "{customer_response: previous_user_input, agent_response: previous_output, full_context: incremental_json_from_prior_nodes}",
+      "node_goal": "Summarize and append the conversation pair to the mandatory summary_of_conversation_on_each_step_until_now key in context after each step, ensuring a clear, evolving history without interacting with the customer.",
+      "context_update": "Append the summarized {customer, agent} object to the array in summary_of_conversation_on_each_step_until_now. This is mandatory for each interactive step.",
+      "default_next_node": null,
+      "branching_conditions": []
+    }
+  ],
+  "global_context_schema": {
+    "description": "The context JSON is a single, evolving object passed to every node/LLM call. It starts minimal and builds incrementally. Flags control skipping/resets. If issue changes, reset identify_issue_flag and downstream (plan, execute, etc.) to 0, but preserve customer data keys/flags unless update requested. Context data must be built wherever possible; customers_main_ask and customer_phone_number are mandatory fields. The summarize_the_conversation_on_node_and_update_context node is called after each interactive step to make summary_of_conversation_on_each_step_until_now updates mandatory.",
+    "core_keys": {
+      "who_are_you": "string",
+      "customer_name": "string",
+      "customer_phone_number": "string (mandatory)",
+      "customer_id": "string",
+      "customers_main_ask": "string (intent, mandatory)",
+      "matching_service_catalog_to_solve_customers_issue": "string (selected category via LLM/MCP)",
+      "related_entities_for_customers_ask": "array/string (from MCP)",
+      "task_id": "string (task id to serve customers request, this is set via MCP after knowing customers issue and service category)",
+      "appointment_details": "string (details about task_id and related appointment detail of service to be provided to customer to address customer's need, this is found via MCP/tool)",
+      "next_steps_plans_help_customer": "string (plan)",
+      "execution_results": "string (outcomes)",
+      "summary_of_conversation_on_each_step_until_now": "array of objects (e.g., [{customer: 'msg', agent: 'resp'}, ...], summarized and appended in each step via mandatory summarization node)",
+      "flags": "object (e.g., {greet_flag: 0/1, ..., identify_issue_flag: 0/1, data_name_flag: 0/1, ...})"
+    }
+  },
+  "routing_config": {
+    "description": "LLM-driven routing: LLM analyzes context and decides next node via tool calls",
+    "llm_routing_instructions": "Use the decide_next_node tool to analyze context and determine which node should execute next. Consider: (1) flags to skip completed steps, (2) mandatory fields that must be collected, (3) user intent changes that require re-routing, (4) logical conversation flow progression.",
+    "llm_context_update_instructions": "Use the update_context tool to modify any field in the context JSON. Always set flags to 1 when completing a step. Update customer data, issue details, plan, execution results, etc. as needed based on conversation analysis.",
+    "routing_hints": {
+      "issue_change_indicators": "User says 'actually', 'instead', 'wait', 'different issue', 'new problem', 'forget that', 'never mind', 'I meant', 'let me change' → reset identify_issue_flag, empathize_flag, plan_flag to 0 and route to Identify_Issue",
+      "data_update_indicators": "User says 'change phone', 'update email', 'new address' → reset specific data flag (data_phone_flag, data_email_flag, etc.) to 0 and route to Try_To_Gather_Customers_Data",
+      "consent_approval": "User says 'yes', 'proceed', 'go ahead', 'sounds good' → route to next step in flow",
+      "consent_denial": "User says 'no', 'cancel', 'stop', 'don't' → re-route to planning or ask for clarification",
+      "conversation_continuation": "User says 'yes', 'also', 'another', 'help me with', 'I need' after completion → route to ASK_CUSTOMER_ABOUT_THEIR_NEED",
+      "conversation_end": "User says 'that's all', 'nothing else', 'goodbye', 'bye', 'thanks' → route to Goodbye_And_Hangup"
+    },
+    "variables": {
+      "issue_change_keywords": ["actually", "instead", "wait", "change", "different issue", "new problem", "forget that", "never mind", "i meant", "let me change"],
+      "data_update_keywords": ["change phone", "update phone", "new phone", "change name", "update name", "change email", "update email", "change address", "update address"],
+      "consent_yes_keywords": ["yes", "yeah", "yep", "sure", "ok", "okay", "proceed", "go ahead", "sounds good"],
+      "consent_no_keywords": ["no", "nope", "nah", "not now", "cancel", "stop", "don't"],
+      "continue_conversation_keywords": ["yes", "yeah", "help me", "i need", "can you", "also", "another"],
+      "end_conversation_keywords": ["no", "that's all", "nothing else", "goodbye", "bye", "thank you", "thanks"]
+    },
+    "flag_definitions": {
+      "greet_flag": {"type": "boolean", "description": "Greeting completed", "reset_on": []},
+      "ask_need_flag": {"type": "boolean", "description": "Asked about need", "reset_on": []},
+      "identify_issue_flag": {"type": "boolean", "description": "Issue identified", "reset_on": ["issue_change"]},
+      "empathize_flag": {"type": "boolean", "description": "Empathy shown", "reset_on": ["issue_change"]},
+      "rapport_flag": {"type": "boolean", "description": "Rapport built", "reset_on": ["issue_change"]},
+      "data_name_flag": {"type": "boolean", "description": "Customer name collected", "reset_on": ["data_name_update"]},
+      "data_phone_flag": {"type": "boolean", "description": "Customer phone collected", "reset_on": ["data_phone_update"]},
+      "data_email_flag": {"type": "boolean", "description": "Customer email collected", "reset_on": ["data_email_update"]},
+      "data_address_flag": {"type": "boolean", "description": "Customer address collected", "reset_on": ["data_address_update"]},
+      "check_customer_flag": {"type": "boolean", "description": "Customer profile checked/created", "reset_on": []},
+      "plan_flag": {"type": "boolean", "description": "Plan created", "reset_on": ["issue_change"]},
+      "communicate_plan_flag": {"type": "boolean", "description": "Plan communicated", "reset_on": ["issue_change", "plan_change"]},
+      "execute_flag": {"type": "boolean", "description": "Plan executed", "reset_on": ["issue_change", "plan_change"]},
+      "tell_execution_flag": {"type": "boolean", "description": "Execution communicated", "reset_on": ["issue_change"]},
+      "goodbye_flag": {"type": "boolean", "description": "Goodbye said", "reset_on": []}
+    },
+    "branching_logic": {
+      "check_flag": "state.flags[flag_name] === 1",
+      "check_mandatory_field": "!!state[field_name] && state[field_name] !== ''",
+      "detect_issue_change": "message matches any of issue_change_keywords",
+      "detect_data_update": "message matches any of data_update_keywords for specific field",
+      "detect_consent": "message matches consent_yes_keywords or consent_no_keywords",
+      "check_data_complete": "all mandatory data flags are 1"
+    }
+  },
+  "graph_config": {
+    "entry_node": "GREET_CUSTOMER",
+    "end_nodes": ["Goodbye_And_Hangup"],
+    "mandatory_fields": ["customers_main_ask", "customer_phone_number"],
+    "summarization": {
+      "enabled": true,
+      "node_name": "summarize_the_conversation_on_node_and_update_context",
+      "trigger": "after_each_interactive_node"
+    }
+  }
+}
