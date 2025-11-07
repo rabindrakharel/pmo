@@ -107,7 +107,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
 
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${apiBaseUrl}/api/v1/chat/langgraph/message`, {
+      const response = await fetch(`${apiBaseUrl}/api/v1/chat/message`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
