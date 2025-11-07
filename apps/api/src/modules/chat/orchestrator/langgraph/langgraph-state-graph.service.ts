@@ -4,10 +4,12 @@
  * @module orchestrator/langgraph/langgraph-state-graph
  */
 
-import { StateGraph, Annotation, START, END, MemorySaver } from '@langchain/langgraph';
+import { StateGraph, Annotation, START, END } from '@langchain/langgraph';
+import { PostgresSaver } from '@langchain/langgraph-checkpoint-postgres';
 import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
 import type { CustomerContext, StepCompletionTracker } from './prompts.config.js';
 import type { MCPAdapterService } from '../../mcp-adapter.service.js';
+import { config } from '../../../../lib/config.js';
 import {
   greetCustomerNode,
   askAboutNeedNode,
@@ -104,12 +106,43 @@ export type LangGraphState = typeof GraphState.State;
 export class LangGraphStateGraphService {
   private mcpAdapter: MCPAdapterService;
   private graph: any;
-  private checkpointer: MemorySaver;
+  private checkpointer: PostgresSaver;
+  private initPromise: Promise<void>;
 
   constructor(mcpAdapter: MCPAdapterService) {
     this.mcpAdapter = mcpAdapter;
-    this.checkpointer = new MemorySaver();
-    this.graph = this.buildGraph();
+
+    // Initialize asynchronously
+    this.initPromise = this.initialize();
+  }
+
+  private async initialize(): Promise<void> {
+    try {
+      console.log('[LangGraph] 🔌 Initializing PostgreSQL checkpointer...');
+
+      // Initialize PostgreSQL checkpointer
+      this.checkpointer = await PostgresSaver.fromConnString(config.DATABASE_URL);
+
+      // Setup checkpoint table if needed
+      await this.checkpointer.setup();
+
+      console.log('[LangGraph] ✅ PostgreSQL checkpointer initialized');
+
+      // Build the graph after checkpointer is ready
+      this.graph = this.buildGraph();
+
+      console.log('[LangGraph] ✅ Graph compiled with persistent checkpointing');
+    } catch (error) {
+      console.error('[LangGraph] ❌ Failed to initialize PostgreSQL checkpointer:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Wait for service to be fully initialized
+   */
+  private async ensureInitialized(): Promise<void> {
+    await this.initPromise;
   }
 
   /**
@@ -679,6 +712,9 @@ export class LangGraphStateGraphService {
     authToken: string,
     existingState?: Partial<LangGraphState>
   ): Promise<LangGraphState> {
+    // Ensure service is fully initialized
+    await this.ensureInitialized();
+
     console.log(`\n[LangGraph] ====== Processing Message (14-Step Flow) ======`);
     console.log(`[LangGraph] Session: ${sessionId}`);
     console.log(`[LangGraph] User message: "${userMessage}"`);
@@ -736,6 +772,9 @@ export class LangGraphStateGraphService {
    */
   async getConversationHistory(sessionId: string): Promise<LangGraphState | null> {
     try {
+      // Ensure service is fully initialized
+      await this.ensureInitialized();
+
       const state = await this.graph.getState({
         configurable: { thread_id: sessionId },
       });

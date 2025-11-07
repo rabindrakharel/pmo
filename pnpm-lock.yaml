@@ -108,6 +108,9 @@ importers:
       '@langchain/langgraph':
         specifier: ^1.0.1
         version: 1.0.1(@langchain/core@1.0.3)(react-dom@19.2.0)(react@19.2.0)(zod@3.25.76)
+      '@langchain/langgraph-checkpoint-postgres':
+        specifier: ^1.0.0
+        version: 1.0.0(@langchain/core@1.0.3)(@langchain/langgraph-checkpoint@1.0.0)
       '@langchain/openai':
         specifier: ^1.0.0
         version: 1.0.0(@langchain/core@1.0.3)(ws@8.18.3)
@@ -3140,6 +3143,20 @@ packages:
       - '@opentelemetry/exporter-trace-otlp-proto'
       - '@opentelemetry/sdk-trace-base'
       - openai
+    dev: false
+
+  /@langchain/langgraph-checkpoint-postgres@1.0.0(@langchain/core@1.0.3)(@langchain/langgraph-checkpoint@1.0.0):
+    resolution: {integrity: sha512-oTHCbQ9N1Zki2J0B/ulq9g/t2DRPePeQqTTJQdMYkdhpHEuWBbEPhpybSTbtXHD/6iT/UImBkUaum+nmPCIJZw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@langchain/core': ^1.0.1
+      '@langchain/langgraph-checkpoint': ^1.0.0
+    dependencies:
+      '@langchain/core': 1.0.3(openai@6.8.1)
+      '@langchain/langgraph-checkpoint': 1.0.0(@langchain/core@1.0.3)
+      pg: 8.16.3
+    transitivePeerDependencies:
+      - pg-native
     dev: false
 
   /@langchain/langgraph-checkpoint@1.0.0(@langchain/core@1.0.3):

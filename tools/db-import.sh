@@ -181,6 +181,9 @@ validate_all_ddls() {
         "45_d_event.ddl"
         "44_d_entity_person_calendar.ddl"
         "60_orchestrator_session.ddl"
+        "61_orchestrator_state.ddl"
+        "62_orchestrator_agent_log.ddl"
+        "63_orchestrator_summary.ddl"
         "40_orchestrator_agents.ddl"
     )
 
@@ -273,8 +276,11 @@ import_ddls() {
     execute_sql "$DB_PATH/45_d_event.ddl" "Event entities (meetings, appointments, service calls)"
     execute_sql "$DB_PATH/44_d_entity_person_calendar.ddl" "Universal person calendar (employee/customer availability slots)"
 
-    # AI Orchestrator session management
+    # AI Orchestrator session management (order matters - session first, then dependent tables)
     execute_sql "$DB_PATH/60_orchestrator_session.ddl" "AI orchestrator session state management"
+    execute_sql "$DB_PATH/61_orchestrator_state.ddl" "AI orchestrator state key-value store"
+    execute_sql "$DB_PATH/62_orchestrator_agent_log.ddl" "AI orchestrator agent execution logs"
+    execute_sql "$DB_PATH/63_orchestrator_summary.ddl" "AI orchestrator conversation summaries"
     execute_sql "$DB_PATH/40_orchestrator_agents.ddl" "Multi-agent orchestrator (circuit breaker, agent execution, checkpoints)"
 
     # Marketing entities - Email templates
