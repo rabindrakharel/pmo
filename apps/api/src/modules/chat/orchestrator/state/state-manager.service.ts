@@ -112,39 +112,57 @@ export class StateManager {
     status?: 'active' | 'paused' | 'completed' | 'failed';
   }): Promise<OrchestratorSession> {
     const sessionId = args.session_id || uuidv4();
-    const sessionNumber = await this.generateSessionNumber();
     const intent = args.current_intent || args.initial_intent;
 
-    const result = await client`
-      INSERT INTO app.orchestrator_session (
-        id,
-        session_number,
-        chat_session_id,
-        user_id,
-        tenant_id,
-        auth_metadata,
-        current_intent,
-        current_node,
-        intent_graph_version,
-        status,
-        session_context
-      ) VALUES (
-        ${sessionId}::uuid,
-        ${sessionNumber},
-        ${args.chat_session_id || null}::uuid,
-        ${args.user_id || null}::uuid,
-        ${args.tenant_id || null}::uuid,
-        ${JSON.stringify(args.auth_metadata || {})}::jsonb,
-        ${intent || null},
-        ${args.current_node || null},
-        'v1.0',
-        ${args.status || 'active'},
-        '{}'::jsonb
-      )
-      RETURNING *
-    `;
+    // Retry logic for session number conflicts
+    let lastError: any;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const sessionNumber = await this.generateSessionNumber();
 
-    return this.mapSession(result[0]);
+        const result = await client`
+          INSERT INTO app.orchestrator_session (
+            id,
+            session_number,
+            chat_session_id,
+            user_id,
+            tenant_id,
+            auth_metadata,
+            current_intent,
+            current_node,
+            intent_graph_version,
+            status,
+            session_context
+          ) VALUES (
+            ${sessionId}::uuid,
+            ${sessionNumber},
+            ${args.chat_session_id || null}::uuid,
+            ${args.user_id || null}::uuid,
+            ${args.tenant_id || null}::uuid,
+            ${JSON.stringify(args.auth_metadata || {})}::jsonb,
+            ${intent || null},
+            ${args.current_node || null},
+            'v1.0',
+            ${args.status || 'active'},
+            '{}'::jsonb
+          )
+          RETURNING *
+        `;
+
+        return this.mapSession(result[0]);
+      } catch (error: any) {
+        // If it's a unique constraint violation on session_number, retry
+        if (error.code === '23505' && error.constraint_name === 'orchestrator_session_session_number_key') {
+          lastError = error;
+          console.log(`[StateManager] Session number conflict (attempt ${attempt + 1}/5), retrying...`);
+          await new Promise(resolve => setTimeout(resolve, 50 * (attempt + 1))); // Exponential backoff
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw new Error(`Failed to create session after 5 attempts: ${lastError?.message}`);
   }
 
   /**
