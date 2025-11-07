@@ -1,0 +1,316 @@
+{
+  "test_scenarios": [
+    {
+      "name": "Happy Path - Lawn Care Service",
+      "description": "Customer successfully books lawn care service",
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "",
+          "expected_node": "GREET_CUSTOMER",
+          "expected_response_contains": ["welcome", "hello", "hi"]
+        },
+        {
+          "turn": 2,
+          "user": "I need help with my lawn. It's turning brown and has patches.",
+          "expected_node": "Identify_Issue",
+          "expected_context": {
+            "customers_main_ask": "lawn brown patches"
+          }
+        },
+        {
+          "turn": 3,
+          "user": "My name is Sarah Johnson",
+          "expected_node": "Try_To_Gather_Customers_Data",
+          "expected_context": {
+            "customer_name": "Sarah Johnson"
+          }
+        },
+        {
+          "turn": 4,
+          "user": "My phone number is 416-555-0123",
+          "expected_node": "Try_To_Gather_Customers_Data",
+          "expected_context": {
+            "customer_phone_number": "416-555-0123"
+          }
+        },
+        {
+          "turn": 5,
+          "user": "Yes, please go ahead with the service",
+          "expected_node": "Execute_Plan_Using_MCP",
+          "expected_context": {
+            "plan_approved": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Intent Change - Lawn to Plumbing",
+      "description": "Customer changes their mind from lawn care to plumbing",
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "",
+          "expected_node": "GREET_CUSTOMER"
+        },
+        {
+          "turn": 2,
+          "user": "I need lawn care service",
+          "expected_node": "Identify_Issue",
+          "expected_context": {
+            "customers_main_ask": "lawn care"
+          }
+        },
+        {
+          "turn": 3,
+          "user": "Actually, forget about the lawn. I have a plumbing emergency - my sink is leaking!",
+          "expected_node": "Identify_Issue",
+          "expected_context": {
+            "customers_main_ask": "sink leaking",
+            "intent_changed": true
+          },
+          "expected_flags_reset": ["identify_issue_flag", "empathize_flag"]
+        }
+      ]
+    },
+    {
+      "name": "Data Update Request",
+      "description": "Customer updates their phone number mid-conversation",
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "",
+          "expected_node": "GREET_CUSTOMER"
+        },
+        {
+          "turn": 2,
+          "user": "I need electrical work done",
+          "expected_node": "Identify_Issue"
+        },
+        {
+          "turn": 3,
+          "user": "My phone is 416-555-1111",
+          "expected_context": {
+            "customer_phone_number": "416-555-1111"
+          }
+        },
+        {
+          "turn": 4,
+          "user": "Wait, I gave you the wrong number. My phone is actually 416-555-2222",
+          "expected_node": "Try_To_Gather_Customers_Data",
+          "expected_context": {
+            "customer_phone_number": "416-555-2222"
+          },
+          "expected_flags_reset": ["data_phone_flag"]
+        }
+      ]
+    },
+    {
+      "name": "No Consent - Plan Rejected",
+      "description": "Customer rejects the proposed plan",
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "",
+          "expected_node": "GREET_CUSTOMER"
+        },
+        {
+          "turn": 2,
+          "user": "My HVAC system isn't working",
+          "expected_node": "Identify_Issue"
+        },
+        {
+          "turn": 3,
+          "user": "John Doe, phone is 416-555-3333",
+          "expected_context": {
+            "customer_name": "John Doe",
+            "customer_phone_number": "416-555-3333"
+          }
+        },
+        {
+          "turn": 4,
+          "user": "No, I don't agree with that plan. Can we do something else?",
+          "expected_node": "Plan",
+          "expected_context": {
+            "plan_rejected": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Multiple Issues - Another Request",
+      "description": "Customer has another issue after completing first one",
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "",
+          "expected_node": "GREET_CUSTOMER"
+        },
+        {
+          "turn": 2,
+          "user": "I need my roof inspected",
+          "expected_node": "Identify_Issue"
+        },
+        {
+          "turn": 3,
+          "user": "Thanks for handling that!",
+          "expected_node": "Tell_Customers_Execution"
+        },
+        {
+          "turn": 4,
+          "user": "Actually, I also need help with my gutters",
+          "expected_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED",
+          "expected_context": {
+            "multiple_issues": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Conversation End - Goodbye",
+      "description": "Customer ends conversation naturally",
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "",
+          "expected_node": "GREET_CUSTOMER"
+        },
+        {
+          "turn": 2,
+          "user": "I need painting service",
+          "expected_node": "Identify_Issue"
+        },
+        {
+          "turn": 3,
+          "user": "That's all I needed, thank you!",
+          "expected_node": "Goodbye_And_Hangup",
+          "expected_context": {
+            "conversation_complete": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "MCP Tool Execution - Service Catalog",
+      "description": "Tests MCP tool selection for fetching service catalog",
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "",
+          "expected_node": "GREET_CUSTOMER"
+        },
+        {
+          "turn": 2,
+          "user": "I need landscaping work done on my property",
+          "expected_node": "Identify_Issue",
+          "expected_context": {
+            "customers_main_ask": "landscaping"
+          }
+        },
+        {
+          "turn": 3,
+          "user": "Yes, tell me more about the service",
+          "expected_node": "use_mcp_to_get_info",
+          "expected_mcp_tool": "service_catalog_fetch",
+          "expected_context": {
+            "matching_service_catalog_to_solve_customers_issue": "Landscaping"
+          }
+        }
+      ]
+    },
+    {
+      "name": "MCP Tool Execution - Task Creation",
+      "description": "Tests MCP tool selection for creating a task",
+      "conversation": [
+        {
+          "turn": 1,
+          "user": "",
+          "expected_node": "GREET_CUSTOMER"
+        },
+        {
+          "turn": 2,
+          "user": "My basement is flooded",
+          "expected_node": "Identify_Issue"
+        },
+        {
+          "turn": 3,
+          "user": "Michael Brown, 416-555-4444",
+          "expected_context": {
+            "customer_name": "Michael Brown",
+            "customer_phone_number": "416-555-4444"
+          }
+        },
+        {
+          "turn": 4,
+          "user": "Yes, please create the service request",
+          "expected_node": "use_mcp_to_get_info",
+          "expected_mcp_tool": "task_create",
+          "expected_context": {
+            "task_id": "<uuid>"
+          }
+        }
+      ]
+    }
+  ],
+  "edge_cases": [
+    {
+      "name": "Empty Messages",
+      "user_input": "",
+      "expected_behavior": "Should handle gracefully, possibly ask for clarification"
+    },
+    {
+      "name": "Very Long Message",
+      "user_input": "I need help with my house and it's a really long story that goes on and on about all the different issues I'm having including the roof, the plumbing, the electrical, the HVAC, the lawn, and basically everything else you can think of and I don't even know where to start because there are so many problems...",
+      "expected_behavior": "Should extract main intent and handle appropriately"
+    },
+    {
+      "name": "Multiple Pieces of Info at Once",
+      "user_input": "Hi, I'm Jane Smith, my phone is 416-555-7777, and I need help with my roof",
+      "expected_behavior": "Should extract all info: name, phone, issue"
+    },
+    {
+      "name": "Unclear Intent",
+      "user_input": "I don't know what's wrong but something is broken",
+      "expected_behavior": "Should ask clarifying questions"
+    },
+    {
+      "name": "Offensive Language",
+      "user_input": "This is terrible service!",
+      "expected_behavior": "Should remain professional and empathetic"
+    }
+  ],
+  "validation_checks": {
+    "mandatory_fields": [
+      "customers_main_ask",
+      "customer_phone_number"
+    ],
+    "flag_progression": [
+      "greet_flag",
+      "ask_need_flag",
+      "identify_issue_flag",
+      "empathize_flag",
+      "data_phone_flag",
+      "check_customer_flag",
+      "plan_flag",
+      "communicate_plan_flag",
+      "execute_flag",
+      "tell_execution_flag",
+      "goodbye_flag"
+    ],
+    "node_sequence_examples": [
+      [
+        "GREET_CUSTOMER",
+        "ASK_CUSTOMER_ABOUT_THEIR_NEED",
+        "Identify_Issue",
+        "Empathize",
+        "Try_To_Gather_Customers_Data",
+        "Check_IF_existing_customer",
+        "Plan",
+        "Communicate_To_Customer_Before_Action",
+        "Execute_Plan_Using_MCP",
+        "Tell_Customers_Execution",
+        "Goodbye_And_Hangup"
+      ]
+    ]
+  }
+}
