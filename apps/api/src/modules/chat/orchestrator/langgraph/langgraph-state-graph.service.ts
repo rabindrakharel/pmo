@@ -471,8 +471,16 @@ export class LangGraphStateGraphService {
     // Normal flow routing
     switch (currentNode) {
       case NODES.ASK_NEED:
-        // After asking "What brings you here?", wait for user response
-        return END;
+        // Check if we have a user message after asking
+        const lastMsgAfterAsk = state.messages[state.messages.length - 1];
+        const hasUserResponse = lastMsgAfterAsk?._getType() === 'human';
+
+        if (!hasUserResponse) {
+          // Just asked the question, wait for user response
+          return END;
+        }
+        // User responded, proceed to identify issue
+        return NODES.IDENTIFY;
 
       case NODES.IDENTIFY:
         // After identifying issue, check if we have data
