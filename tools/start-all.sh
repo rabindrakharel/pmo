@@ -60,106 +60,14 @@ echo -e "${YELLOW}🗑️  Dropping all tables and recreating from DDL files...$
 # Start API server
 echo -e "${BLUE}4️⃣ Starting API server...${NC}"
 
-API_PORT=4000
-API_PID_FILE=".pids/api.pid"
-API_LOG_FILE="logs/api.log"
-
-# Create directories if they don't exist
-mkdir -p .pids logs
-
-# Check if API server is already running
-if [[ -f "$API_PID_FILE" ]]; then
-    OLD_PID=$(cat "$API_PID_FILE")
-    if kill -0 "$OLD_PID" 2>/dev/null; then
-        echo -e "${YELLOW}⚠️  API server is already running (PID: $OLD_PID)${NC}"
-        echo -e "${YELLOW}🔄 Stopping existing API server...${NC}"
-        kill "$OLD_PID" 2>/dev/null || true
-        sleep 2
-        
-        # Force kill if still running
-        if kill -0 "$OLD_PID" 2>/dev/null; then
-            echo -e "${RED}💀 Force killing existing API server...${NC}"
-            kill -9 "$OLD_PID" 2>/dev/null || true
-            sleep 1
-        fi
-        
-        rm -f "$API_PID_FILE"
-        echo -e "${GREEN}✅ Stopped existing API server${NC}"
-    else
-        # PID file exists but process is not running, clean up
-        rm -f "$API_PID_FILE"
-    fi
-fi
-
-# Check if port is in use by another process and kill it
-if lsof -Pi :$API_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
-    echo -e "${YELLOW}⚠️  Port $API_PORT is in use by another process${NC}"
-    echo "Processes using port $API_PORT:"
-    lsof -Pi :$API_PORT -sTCP:LISTEN
-    
-    echo -e "${YELLOW}🔄 Killing processes using port $API_PORT...${NC}"
-    PIDS=$(lsof -Pi :$API_PORT -sTCP:LISTEN -t)
-    for pid in $PIDS; do
-        echo -e "${YELLOW}   Killing PID: $pid${NC}"
-        kill "$pid" 2>/dev/null || true
-    done
-    
-    sleep 2
-    
-    # Force kill if still running
-    if lsof -Pi :$API_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
-        echo -e "${RED}💀 Force killing remaining processes...${NC}"
-        PIDS=$(lsof -Pi :$API_PORT -sTCP:LISTEN -t)
-        for pid in $PIDS; do
-            echo -e "${RED}   Force killing PID: $pid${NC}"
-            kill -9 "$pid" 2>/dev/null || true
-        done
-        sleep 1
-    fi
-    
-    echo -e "${GREEN}✅ Cleared port $API_PORT${NC}"
-fi
-
-# Check if dependencies are installed
-if [[ ! -d "node_modules" ]] || [[ ! -d "apps/api/node_modules" ]]; then
-    echo -e "${YELLOW}📦 Installing dependencies...${NC}"
-    pnpm install
-fi
-
-echo -e "${BLUE}🔧 Starting API development server on port $API_PORT...${NC}"
-
-# Set environment variables for API
-export DATABASE_URL="postgresql://app:app@localhost:5434/app"
-export REDIS_URL="redis://localhost:6379"  
-export JWT_SECRET="your-super-secret-jwt-key-change-in-production"
-# DEV_BYPASS_OIDC removed - using production-grade auth only
-
-# Start the API server in background and capture PID
-cd apps/api
-nohup pnpm dev > "../../$API_LOG_FILE" 2>&1 &
-API_PID=$!
-
-# Save PID to file
-echo "$API_PID" > "../../$API_PID_FILE"
-
-# Go back to project root
-cd ../..
-
-# Wait a moment and check if the API process is still running
-sleep 5
-if kill -0 "$API_PID" 2>/dev/null; then
-    echo -e "${GREEN}✅ API server started successfully${NC}"
-    echo -e "${GREEN}   PID: $API_PID${NC}"
-    echo -e "${GREEN}   Port: $API_PORT${NC}" 
-    echo -e "${GREEN}   Logs: $API_LOG_FILE${NC}"
-    echo -e "${GREEN}   URL: http://localhost:$API_PORT${NC}"
+# Use the dedicated restart-api.sh script for DRY principle
+if "$SCRIPT_DIR/restart-api.sh"; then
     API_STATUS="✅ Running"
     sleep 3
 else
-    echo -e "${YELLOW}⚠️  API server failed to start, check logs: $API_LOG_FILE${NC}"
+    echo -e "${YELLOW}⚠️  API server failed to start, check logs: logs/api.log${NC}"
     echo -e "${YELLOW}⚠️  Continuing with web server...${NC}"
     API_STATUS="❌ Failed"
-    rm -f "$API_PID_FILE"
 fi
 
 # Start web server  

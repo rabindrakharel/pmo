@@ -48,8 +48,8 @@ import { personCalendarRoutes } from './person-calendar/routes.js';
 import { interactionRoutes } from './interaction/routes.js';
 import { eventRoutes } from './event/routes.js';
 
-// LangGraph Orchestrator API module
-import { registerLangGraphOrchestratorRoutes } from './chat/orchestrator/langgraph/langgraph-orchestrator.routes.js';
+// Pure Agent Orchestrator API module (No LangGraph)
+import { registerAgentOrchestratorRoutes } from './chat/orchestrator/agents/agent-orchestrator.routes.js';
 
 // Collaborative Editing API module
 import { collabRoutes } from './collab/routes.js';
@@ -148,8 +148,8 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   // AI Chat Widget routes
   await fastify.register(chatRoutes, { prefix: '/api/v1/chat' });
 
-  // LangGraph Orchestrator routes (multi-agent workflows)
-  await registerLangGraphOrchestratorRoutes(fastify);
+  // Pure Agent Orchestrator routes (No LangGraph - pure agent-based system)
+  await registerAgentOrchestratorRoutes(fastify);
 
   // Booking routes (service appointments)
   await bookingRoutes(fastify);

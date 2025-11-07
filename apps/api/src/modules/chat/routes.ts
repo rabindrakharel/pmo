@@ -118,7 +118,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
       const conversationHistory = [...session.conversation_history, userMessage];
 
-      // Use LangGraph orchestrator for text chat (same as voice)
+      // Use agent orchestrator for text chat (same as voice)
       const token = request.headers.authorization?.replace('Bearer ', '') || '';
 
       // Log token status for debugging
@@ -128,14 +128,14 @@ export async function chatRoutes(fastify: FastifyInstance) {
         console.log(`🔐 Chat session ${session_id} using authenticated MCP tools`);
       }
 
-      // Import LangGraph orchestrator
-      const { getLangGraphOrchestratorService } = await import('./orchestrator/langgraph/langgraph-orchestrator.service.js');
-      const orchestrator = getLangGraphOrchestratorService();
+      // Import agent orchestrator
+      const { getAgentOrchestratorService } = await import('./orchestrator/agents/agent-orchestrator.service.js');
+      const orchestrator = getAgentOrchestratorService();
 
       // Get or create orchestrator session
       const orchestratorSessionId = session.metadata?.orchestrator_session_id;
 
-      // Process message through LangGraph orchestrator
+      // Process message through agent orchestrator
       const orchestratorResult = await orchestrator.processMessage({
         sessionId: orchestratorSessionId,
         message,
@@ -182,7 +182,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
       reply.code(200).send(response);
 
-      console.log(`✅ Message processed for session ${session_id} via LangGraph (intent: ${orchestratorResult.intent}, node: ${orchestratorResult.currentNode})`);
+      console.log(`✅ Message processed for session ${session_id} via Agent Orchestrator (intent: ${orchestratorResult.intent}, node: ${orchestratorResult.currentNode})`);
     } catch (error) {
       console.error('Error processing message:', error);
       reply.code(500).send({

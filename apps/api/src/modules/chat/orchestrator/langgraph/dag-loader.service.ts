@@ -45,7 +45,8 @@ export class DAGLoaderService {
     try {
       console.log('[DAG Loader] 📂 Loading DAG configuration from dag.json...');
 
-      const dagJsonPath = join(__dirname, 'dag.json');
+      // dag.json is now at orchestrator root level (moved from agents/)
+      const dagJsonPath = join(__dirname, '../dag.json');
       const dagJsonContent = await fs.readFile(dagJsonPath, 'utf-8');
       const config = JSON.parse(dagJsonContent) as DAGConfiguration;
 

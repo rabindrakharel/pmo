@@ -86,9 +86,50 @@ export interface GraphConfig {
 }
 
 /**
+ * LLM Framework Instructions
+ */
+export interface LLMFrameworkInstructions {
+  architecture: string;
+  your_role: string;
+  core_principles: string[];
+  how_it_works: Record<string, string>;
+  example_flow: Record<string, string>;
+}
+
+/**
+ * Agent Profile Definition
+ */
+export interface AgentProfile {
+  description?: string;
+  workflow?: string;
+  node_navigator_agent?: {
+    role: string;
+    responsibilities?: string[];
+    decision_inputs?: string;
+    decision_outputs?: string;
+  };
+  worker_agent?: {
+    role: string;
+    responsibilities?: string[];
+    decision_inputs?: string;
+    decision_outputs?: string;
+  };
+  guider_agent?: {
+    role: string;
+    responsibilities?: string[];
+    decision_inputs?: string;
+    decision_outputs?: string;
+  };
+  collaboration_flow?: Record<string, string>;
+  key_principle?: string;
+}
+
+/**
  * Complete DAG Configuration
  */
 export interface DAGConfiguration {
+  llm_framework_instructions?: LLMFrameworkInstructions;
+  AGENT_PROFILE?: AgentProfile;
   system_config?: SystemConfig;
   nodes: DAGNode[];
   global_context_schema: GlobalContextSchema;
@@ -111,6 +152,9 @@ export interface DAGContext {
   task_id?: string;
   appointment_details?: string;
   next_steps_plans_help_customer?: string;
+  next_course_of_action?: string;
+  next_node_to_go_to?: string;
+  node_traversal_path?: string[];
   execution_results?: string;
   summary_of_conversation_on_each_step_until_now?: ConversationSummary[];
   flags?: Record<string, number>;

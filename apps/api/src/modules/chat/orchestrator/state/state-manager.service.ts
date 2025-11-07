@@ -7,7 +7,9 @@
 
 import { client } from '../../../../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
-import type { AgentRole } from '../types/intent-graph.types.js';
+
+// Type definition for agent roles (formerly in intent-graph.types.ts)
+type AgentRole = 'worker' | 'navigator' | 'guider' | 'planner';
 
 /**
  * Orchestrator Session

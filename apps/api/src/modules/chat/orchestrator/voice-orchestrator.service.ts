@@ -4,7 +4,7 @@
  * @module orchestrator/voice-orchestrator
  */
 
-import { getLangGraphOrchestratorService } from './langgraph/langgraph-orchestrator.service.js';
+import { getAgentOrchestratorService } from './agents/agent-orchestrator.service.js';
 import FormData from 'form-data';
 import axios from 'axios';
 import { PassThrough } from 'stream';
@@ -149,9 +149,9 @@ export async function processVoiceMessage(args: {
       throw new Error('No speech detected in audio');
     }
 
-    // Step 2: Process through LangGraph orchestrator
-    console.log('🎯 Step 2: Processing through LangGraph orchestrator...');
-    const orchestrator = getLangGraphOrchestratorService();
+    // Step 2: Process through agent orchestrator
+    console.log('🎯 Step 2: Processing through agent orchestrator...');
+    const orchestrator = getAgentOrchestratorService();
     const orchestratorResult = await orchestrator.processMessage({
       sessionId: args.sessionId,
       message: transcript,
