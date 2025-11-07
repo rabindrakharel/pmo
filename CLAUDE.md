@@ -106,29 +106,46 @@ d_entity_id_map: {
 - Support "Add Row" button with pre-filled parent context
 - Auto-populate parent dropdown in child form
 
-### 3. Default-Editable Pattern
+### 3. Default-Editable Pattern with Centralized Field Formatting
 
-**Pattern:** All fields editable by default unless explicitly readonly
+**Pattern:** All fields editable by default with automatic type detection and formatting
 
 ```typescript
-// ✅ CORRECT: Fields editable in tables
+// ✅ CORRECT: Centralized field formatting via data_transform_render.tsx
 <FilteredDataTable
   inlineEdit={true}                    // Default: enabled
   columns={[
-    { accessorKey: 'name', editable: true },      // Default
-    { accessorKey: 'status', editable: true },    // Default
+    { accessorKey: 'name', editable: true },      // Auto-detects text input
+    { accessorKey: 'status', editable: true },    // Auto-detects dropdown (from settings)
+    { accessorKey: 'tags', editable: true },      // Auto-detects tags input (array ↔ string)
+    { accessorKey: 'created_ts', editable: false }, // Auto-formats timestamps
     { accessorKey: 'id', editable: false }        // Explicitly readonly
   ]}
 />
 
+// Centralized middleware automatically handles:
+// 1. Field capability detection (getFieldCapability)
+// 2. Data transformation API ↔ Frontend (transformForApi, transformForDisplay)
+// 3. Display formatting (formatRelativeTime, formatDate)
+// 4. Smart input types (text, select, tags, date, file)
+
 // ❌ WRONG: Making everything readonly by default
 inlineEdit={false}  // NO! Only disable for readonly entities
+
+// ❌ WRONG: Manual field formatting in components
+const formattedDate = new Date(row.created_ts).toLocaleDateString(); // NO!
+// Use: formatRelativeTime(row.created_ts) from data_transform_render.tsx
 ```
 
 **Standard:**
 - Enable inline editing for all data tables
-- Only mark system fields as readonly (id, created_at, etc.)
-- Use smart input detection (dropdowns for foreign keys, text for strings)
+- Only mark system fields as readonly (id, created_ts, updated_ts, etc.)
+- Use centralized field formatting from `data_transform_render.tsx`:
+  - **transformForApi()** - Converts frontend data to API format (tags: string → array)
+  - **transformForDisplay()** - Converts API data to display format (timestamps → "3 days ago")
+  - **getFieldCapability()** - Auto-detects field type by name pattern
+  - **formatRelativeTime()** - Formats timestamps as relative time
+- Never hardcode field formatting logic in components
 
 ### 4. Column Consistency Pattern
 
@@ -164,10 +181,10 @@ const columns = [
 GET /api/v1/entity/project/options
 // Returns: { status: [...], priority: [...], type: [...] }
 
-// Settings tables:
-app.datalabel_type_category           // Dropdown categories
-app.datalabel_type_status             // Status workflows
-app.datalabel_type_priority           // Priority levels
+// Settings tables (entity-specific):
+app.datalabel_{entity}_category       // Dropdown categories per entity
+app.datalabel_{entity}_status         // Status workflows per entity
+app.datalabel_{entity}_priority       // Priority levels per entity
 
 // ❌ WRONG: Hardcoded options in frontend
 const statuses = ['Open', 'In Progress', 'Done']  // NO!
@@ -177,6 +194,85 @@ const statuses = ['Open', 'In Progress', 'Done']  // NO!
 - Never hardcode dropdown values
 - Use `/api/v1/entity/:type/options` for all selects
 - Add new options via settings tables, not code
+
+### 6. Factory Pattern (DRY Route & API Generation)
+
+**Pattern:** Generate repetitive routes and API calls dynamically using factory functions
+
+```typescript
+// ============================================================================
+// BACKEND FACTORIES (API Route Generation)
+// ============================================================================
+
+// 1. Child Entity Route Factory
+// Creates GET /api/v1/{parent}/:id/{child} endpoints automatically
+import { createChildEntityEndpoint } from '@/lib/child-entity-route-factory.js';
+
+// ✅ CORRECT: Use factory to generate routes
+createChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
+createChildEntityEndpoint(fastify, 'project', 'form', 'd_form_head');
+createChildEntityEndpoint(fastify, 'project', 'artifact', 'd_artifact');
+
+// ❌ WRONG: Manual route duplication (300+ lines of duplicate code)
+fastify.get('/api/v1/project/:id/task', async (req, reply) => {
+  // Repeated RBAC check, pagination, joins...
+});
+
+// 2. Entity Delete Route Factory
+// Creates DELETE /api/v1/{entity}/:id with cascading cleanup
+import { createEntityDeleteEndpoint } from '@/lib/entity-delete-route-factory.js';
+
+// ✅ CORRECT: Automatic cascading delete (entity + linkages + registry)
+createEntityDeleteEndpoint(fastify, 'task');
+createEntityDeleteEndpoint(fastify, 'project');
+
+// Automatically soft-deletes:
+// 1. Main entity table (d_task, d_project)
+// 2. Entity instance registry (d_entity_instance_id)
+// 3. Parent-child linkages (d_entity_id_map)
+
+// ============================================================================
+// FRONTEND FACTORIES (Type-Safe API Calls)
+// ============================================================================
+
+// 3. API Factory Pattern
+// Eliminates unsafe dynamic API calls with type-safe factory
+import { APIFactory } from '@/lib/api-factory';
+
+// ✅ CORRECT: Type-safe API calls
+const taskApi = APIFactory.getAPI('task');
+const tasks = await taskApi.list({ page: 1, limit: 20 });
+const task = await taskApi.get(taskId);
+await taskApi.update(taskId, { status: 'COMPLETED' });
+
+// ❌ WRONG: Unsafe dynamic access (no type checking)
+const apiModule = (api as any)[`${entityType}Api`]; // NO!
+const response = await apiModule.list({ page: 1 });
+
+// 4. Entity API Interface
+// All entity APIs implement the same interface for consistency
+interface EntityAPI {
+  list(params?: ListParams): Promise<PaginatedResponse<any>>;
+  get(id: string): Promise<any>;
+  create(data: any): Promise<any>;
+  update(id: string, data: any): Promise<any>;
+  delete(id: string): Promise<void>;
+}
+```
+
+**Factory Pattern Benefits:**
+1. **DRY Principle**: 1 factory function replaces 300+ lines of duplicate code
+2. **Consistency**: All routes follow the same RBAC, pagination, error handling patterns
+3. **Type Safety**: Compile-time checks prevent runtime errors
+4. **Maintainability**: Fix bugs in one place, affects all entities
+5. **Cascading Operations**: Automatic cleanup of related data (linkages, registry)
+
+**Standard:**
+- Always use factory functions for new entity routes (backend)
+- Use `createChildEntityEndpoint()` for parent-child relationships
+- Use `createEntityDeleteEndpoint()` for delete operations with cascading cleanup
+- Use `APIFactory.getAPI()` for type-safe frontend API calls (frontend)
+- Never duplicate route logic across multiple entity modules
 
 ---
 
@@ -343,6 +439,8 @@ Database (PostgreSQL, 52 tables)
 5. **Enable inline editing by default** - only disable for readonly fields
 6. **Keep columns consistent** - same columns in all contexts
 7. **Follow create-then-link pattern** - auto-populate parent context
+8. **Use factory functions** - never duplicate route/API logic across entities
+9. **Centralize field formatting** - use data_transform_render.tsx middleware
 
 ---
 
