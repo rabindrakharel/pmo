@@ -471,9 +471,16 @@ export class LangGraphStateGraphService {
     // Normal flow routing
     switch (currentNode) {
       case NODES.ASK_NEED:
-        return NODES.IDENTIFY;
+        // After asking "What brings you here?", wait for user response
+        return END;
 
       case NODES.IDENTIFY:
+        // After identifying issue, check if we have data
+        const hasIssue = !!state.context?.customers_main_ask;
+        if (!hasIssue) {
+          // No issue identified yet, wait for user input
+          return END;
+        }
         return NODES.EMPATHIZE;
 
       case NODES.GATHER:
@@ -699,6 +706,11 @@ export class LangGraphStateGraphService {
     try {
       const state = await this.graph.getState({
         configurable: { thread_id: sessionId },
+      });
+      console.log(`[LangGraph] 📖 Retrieved state for session ${sessionId}:`, {
+        hasValues: !!state.values,
+        messages: state.values?.messages?.length || 0,
+        currentNode: state.values?.current_node,
       });
       return state.values as LangGraphState;
     } catch (error) {

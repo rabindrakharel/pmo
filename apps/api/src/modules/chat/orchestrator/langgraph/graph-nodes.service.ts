@@ -199,6 +199,22 @@ export async function identifyIssueNode(
   console.log(`\n🎯 [III. IDENTIFY_ISSUE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   console.log(`💬 Customer Message: "${customerMessage}"`);
 
+  // If no customer message yet (initial flow), skip extraction and wait for user input
+  if (!customerMessage || customerMessage.trim() === '') {
+    console.log(`⏭️  No customer message yet, skipping extraction (waiting for user input)`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+
+    return {
+      context: {
+        ...state.context,
+        conversation_stage: 'identifying_issue' as const,
+        customers_main_ask: '',
+        matching_service_catalog: '',
+        related_entities: [],
+      },
+    };
+  }
+
   // Fetch service catalog from MCP
   let serviceCatalog = '';
   try {
