@@ -581,6 +581,7 @@ export class LangGraphStateGraphService {
 
   /**
    * Reset steps from a given point onwards
+   * IMPORTANT: Also resets progress_flags to allow nodes to re-execute
    */
   private resetStepsFrom(
     startStep: keyof StepCompletionTracker,
@@ -589,6 +590,7 @@ export class LangGraphStateGraphService {
   ): void {
     const context = state.context || {};
     const stepsCompleted = context.steps_completed || {};
+    const progressFlags = state.progress_flags || {};
 
     const stepOrder: (keyof StepCompletionTracker)[] = [
       'I_greet',
@@ -604,12 +606,42 @@ export class LangGraphStateGraphService {
       'XI_communicate_execution',
     ];
 
+    // Map steps to progress flag names
+    const stepToFlagMap: Record<string, string> = {
+      'I_greet': 'greeted',
+      'II_ask_need': 'asked_need',
+      'III_identify_issue': 'issue_identified',
+      'IV_empathize': 'empathized',
+      'V_build_rapport': 'rapport_built',
+      'VI_gather_data': 'phone_collected,name_collected', // Multiple flags
+      'VII_check_customer': 'customer_checked',
+      'VIII_plan_actions': 'plan_created',
+      'IX_communicate_plan': 'plan_communicated',
+      'X_execute_plan': 'plan_executed',
+      'XI_communicate_execution': 'execution_communicated',
+    };
+
     const startIndex = stepOrder.indexOf(startStep);
     if (startIndex === -1) return;
 
+    // Reset both steps_completed and progress_flags
     for (let i = startIndex; i < stepOrder.length; i++) {
-      stepsCompleted[stepOrder[i]] = false;
+      const step = stepOrder[i];
+
+      // Reset steps_completed
+      stepsCompleted[step] = false;
+
+      // Reset corresponding progress_flags
+      const flagNames = stepToFlagMap[step];
+      if (flagNames) {
+        flagNames.split(',').forEach(flagName => {
+          progressFlags[flagName.trim()] = false;
+        });
+      }
     }
+
+    // Update state.progress_flags directly (mutable update for LangGraph)
+    Object.assign(state.progress_flags || {}, progressFlags);
 
     if (!preserveCustomerData || startStep === 'III_identify_issue') {
       context.customers_main_ask = '';
@@ -620,6 +652,9 @@ export class LangGraphStateGraphService {
 
     console.log(
       `[LangGraph] 🔄 Reset steps from ${startStep} onwards (preserveCustomerData: ${preserveCustomerData})`
+    );
+    console.log(`[LangGraph] 🔄 Reset progress flags:`,
+      Object.keys(progressFlags).filter(k => progressFlags[k] === false).join(', ')
     );
   }
 
