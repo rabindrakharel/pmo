@@ -55,16 +55,15 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
       setError(null);
 
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${apiBaseUrl}/api/v1/chat/session/new`, {
+      // Send initial message to LangGraph to start conversation
+      const response = await fetch(`${apiBaseUrl}/api/v1/chat/langgraph/message`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          customer_id: user?.id,
-          customer_email: user?.email,
-          customer_name: user?.name || user?.email
+          message: 'Hello'
         })
       });
 
@@ -73,11 +72,11 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
       }
 
       const data = await response.json();
-      setSessionId(data.session_id);
+      setSessionId(data.sessionId);
       setMessages([{
         role: 'assistant',
-        content: data.greeting,
-        timestamp: data.timestamp
+        content: data.response,
+        timestamp: new Date().toISOString()
       }]);
     } catch (err) {
       console.error('Failed to initialize session:', err);
@@ -107,7 +106,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
 
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${apiBaseUrl}/api/v1/chat/message`, {
+      const response = await fetch(`${apiBaseUrl}/api/v1/chat/langgraph/message`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -478,7 +477,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
         }`}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="bg-slate-700 text-white px-4 py-3 flex items-center justify-between flex-shrink-0 shadow-md">
           <div className="flex items-center gap-3">
             <MessageSquare className="w-5 h-5" />
             <div>
@@ -570,7 +569,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
 
             {/* Voice Call Initial Screen - Only when not active */}
             {showVoiceCall && !isVoiceActive && (
-              <div className="bg-gradient-to-b from-purple-50 to-indigo-50 p-6 flex flex-col items-center justify-center border-b border-gray-200">
+              <div className="bg-slate-50 p-6 flex flex-col items-center justify-center border-b border-gray-200">
                 <div className="text-center space-y-4">
                   <div className="w-16 h-16 mx-auto rounded-full bg-gray-300 flex items-center justify-center">
                     <Mic className="w-8 h-8 text-gray-600" />
@@ -668,12 +667,12 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
                   onChange={(e) => setInputValue(e.target.value)}
                   placeholder="Type your message..."
                   disabled={isLoading}
-                  className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100"
+                  className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent disabled:bg-gray-100"
                 />
                 <button
                   type="submit"
                   disabled={isLoading || !inputValue.trim()}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full p-2 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="bg-slate-600 hover:bg-slate-700 text-white rounded-full p-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
                 >
                   <Send className="w-5 h-5" />
                 </button>
