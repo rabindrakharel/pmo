@@ -55,8 +55,8 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
       setError(null);
 
       const token = localStorage.getItem('auth_token');
-      // Send initial message to LangGraph to start conversation
-      const response = await fetch(`${apiBaseUrl}/api/v1/chat/langgraph/message`, {
+      // Send initial message to agent orchestrator to start conversation
+      const response = await fetch(`${apiBaseUrl}/api/v1/chat/agent/message`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -106,7 +106,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
 
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${apiBaseUrl}/api/v1/chat/langgraph/message`, {
+      const response = await fetch(`${apiBaseUrl}/api/v1/chat/agent/message`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
