@@ -92,8 +92,10 @@ current_node=""
 navigator_decision=""
 navigator_next_node=""
 navigator_reason=""
+navigator_llm_output=""
 last_user_message=""
 last_ai_message=""
+worker_llm_output=""
 declare -a conversation_summary=()
 
 # Function to format session/timestamp header
@@ -206,78 +208,65 @@ EOF
   echo -e "${DIM}💾 JSON dumped to: ${json_file}${NC}"
 }
 
-# Function to dump complete state at iteration end
+# Function to dump complete state at iteration end (MINIMAL JSON FORMAT)
 dump_complete_state() {
   # Dump to JSON file first
   dump_state_to_json
 
-  echo -e "\n${PURPLE}${BOLD}╔══════════════════════════════════════════════════════════════════╗${NC}"
-  echo -e "${PURPLE}${BOLD}║           📊 COMPLETE STATE DUMP - ITERATION $current_iteration           ║${NC}"
-  echo -e "${PURPLE}${BOLD}╚══════════════════════════════════════════════════════════════════╝${NC}"
+  # Build minimal JSON output
+  echo -e "\n${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+  echo -e "${CYAN}${BOLD}📊 ITERATION $current_iteration DUMP - ${current_node}${NC}"
+  echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
-  # Session Info
-  if [ -n "$current_tracked_session" ]; then
-    echo -e "\n${CYAN}${BOLD}🔑 SESSION:${NC} ${current_tracked_session:0:8}..."
-  fi
-
-  # Current Node
-  if [ -n "$current_node" ]; then
-    echo -e "${YELLOW}${BOLD}🎯 CURRENT NODE:${NC} $current_node"
-  fi
-
-  # Navigator State
-  if [ -n "$navigator_next_node" ] || [ -n "$navigator_reason" ]; then
-    echo -e "\n${MAGENTA}${BOLD}🧭 NAVIGATOR DECISIONS:${NC}"
-    [ -n "$navigator_decision" ] && echo -e "  ${DIM}Decision:${NC} $navigator_decision"
-    [ -n "$navigator_next_node" ] && echo -e "  ${DIM}Next Node:${NC} $navigator_next_node"
-    [ -n "$navigator_reason" ] && echo -e "  ${DIM}Reason:${NC} $navigator_reason"
-  fi
-
-  # Conversation Summary
-  if [ -n "$last_user_message" ] || [ -n "$last_ai_message" ]; then
-    echo -e "\n${GREEN}${BOLD}💬 CONVERSATION:${NC}"
-    [ -n "$last_user_message" ] && echo -e "  ${GREEN}👤 User:${NC} $last_user_message"
-    [ -n "$last_ai_message" ] && echo -e "  ${BLUE}🤖 AI:${NC} $last_ai_message"
-  fi
-
-  # Full Context Data
-  if [ ${#context_state[@]} -gt 0 ]; then
-    echo -e "\n${CYAN}${BOLD}📋 ACCUMULATED CONTEXT DATA:${NC}"
-
-    # Core fields first
-    for key in agent_session_id customer_name customer_phone_number customer_id customers_main_ask matching_service_catalog task_id appointment_details next_course_of_action next_node_to_go_to; do
-      if [ -n "${context_state[$key]}" ]; then
-        echo -e "  ${DIM}$key:${NC} ${BOLD}${context_state[$key]}${NC}"
-      fi
-    done
-
-    # Other fields
-    for key in "${!context_state[@]}"; do
-      case "$key" in
-        agent_session_id|customer_name|customer_phone_number|customer_id|customers_main_ask|matching_service_catalog|task_id|appointment_details|next_course_of_action|next_node_to_go_to)
-          # Already shown above
-          ;;
-        *)
-          if [ -n "${context_state[$key]}" ]; then
-            echo -e "  ${DIM}$key:${NC} ${context_state[$key]}"
-          fi
-          ;;
-      esac
-    done
-  fi
-
-  # Flags State
-  echo -e "\n${PURPLE}${BOLD}🚩 FLAGS:${NC}"
-  local flags_found=false
-  for key in "${!context_state[@]}"; do
-    if [[ $key =~ _flag$ ]]; then
-      echo -e "  ${DIM}$key:${NC} ${context_state[$key]}"
-      flags_found=true
+  # Build context JSON
+  local ctx_json="{"
+  local first=true
+  for key in agent_session_id customer_name customer_phone_number customer_id customers_main_ask matching_service_catalog task_id appointment_details next_course_of_action next_node_to_go_to; do
+    if [ -n "${context_state[$key]}" ] && [[ ! $key =~ _flag$ ]]; then
+      [ "$first" = false ] && ctx_json+=","
+      ctx_json+="\"$key\":\"${context_state[$key]//\"/\\\"}\""
+      first=false
     fi
   done
-  [ "$flags_found" = false ] && echo -e "  ${DIM}(No flags set yet)${NC}"
+  ctx_json+="}"
 
-  echo -e "\n${PURPLE}${BOLD}═════════════════════════════════════════════════════════════════${NC}\n"
+  # Build flags JSON
+  local flags_json="{"
+  first=true
+  for key in "${!context_state[@]}"; do
+    if [[ $key =~ _flag$ ]]; then
+      [ "$first" = false ] && flags_json+=","
+      flags_json+="\"$key\":${context_state[$key]}"
+      first=false
+    fi
+  done
+  flags_json+="}"
+
+  # Print consolidated JSON
+  cat <<EOJSON
+{
+  "iteration": ${current_iteration:-0},
+  "session": "${current_tracked_session:0:8}",
+  "node": "$current_node",
+  "context": $ctx_json,
+  "flags": $flags_json,
+  "navigator": {
+    "decision": "$navigator_decision",
+    "next_node": "$navigator_next_node",
+    "reason": "${navigator_reason//\"/\\\"}",
+    "llm_output": "${navigator_llm_output//\"/\\\"}"
+  },
+  "worker": {
+    "llm_output": "${worker_llm_output//\"/\\\"}"
+  },
+  "conversation": {
+    "user": "${last_user_message//\"/\\\"}",
+    "ai": "${last_ai_message//\"/\\\"}"
+  }
+}
+EOJSON
+
+  echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 }
 
 # Track current session from "State saved for session" messages
@@ -333,6 +322,8 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
     navigator_decision=""
     navigator_next_node=""
     navigator_reason=""
+    navigator_llm_output=""
+    worker_llm_output=""
 
     session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
     echo -e "\n${YELLOW}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -372,74 +363,65 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   # CONTEXT DATA - FULL EXPOSURE WITH INCREMENTAL TRACKING
   # ========================================
 
-  # Context updates
-  if [[ $line =~ "updateContext" ]] || [[ $line =~ "Context updated" ]]; then
-    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
-    echo -e "\n${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${CYAN}${BOLD}📝 CONTEXT UPDATE${NC}"
-    [ -n "$session_header" ] && echo -e "$session_header"
-    echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${CYAN}Building context incrementally:${NC}"
-  fi
+  # Context updates (suppress - will show in consolidated dump)
+  # if [[ $line =~ "updateContext" ]] || [[ $line =~ "Context updated" ]]; then
+  #   session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
+  #   echo -e "\n${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+  #   echo -e "${CYAN}${BOLD}📝 CONTEXT UPDATE${NC}"
+  #   [ -n "$session_header" ] && echo -e "$session_header"
+  #   echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+  #   echo -e "${CYAN}Building context incrementally:${NC}"
+  # fi
 
-  # Agent session ID
+  # Track context fields silently (suppress individual output - will show in consolidated dump)
   if [[ $line =~ "agent_session_id" ]]; then
     session_id=$(extract_context_field "$line" "agent_session_id")
-    track_context_change "agent_session_id" "$session_id" "🔑 agent_session_id" "${BLUE}"
+    [ -n "$session_id" ] && context_state["agent_session_id"]="$session_id"
   fi
 
-  # Customer name
   if [[ $line =~ "customer_name" ]]; then
     customer_name=$(extract_context_field "$line" "customer_name")
-    track_context_change "customer_name" "$customer_name" "👤 customer_name" "${GREEN}"
+    [ -n "$customer_name" ] && context_state["customer_name"]="$customer_name"
   fi
 
-  # Customer phone (MANDATORY)
   if [[ $line =~ "customer_phone_number" ]]; then
     phone=$(extract_context_field "$line" "customer_phone_number")
-    track_context_change "customer_phone_number" "$phone" "📞 customer_phone_number (MANDATORY)" "${GREEN}"
+    [ -n "$phone" ] && context_state["customer_phone_number"]="$phone"
   fi
 
-  # Customer ID
   if [[ $line =~ "customer_id" ]]; then
     cust_id=$(extract_context_field "$line" "customer_id")
-    track_context_change "customer_id" "$cust_id" "🆔 customer_id" "${BLUE}"
+    [ -n "$cust_id" ] && context_state["customer_id"]="$cust_id"
   fi
 
-  # Customer's main ask (MANDATORY)
   if [[ $line =~ "customers_main_ask" ]]; then
     main_ask=$(extract_context_field "$line" "customers_main_ask")
-    track_context_change "customers_main_ask" "$main_ask" "❓ customers_main_ask (MANDATORY)" "${YELLOW}"
+    [ -n "$main_ask" ] && context_state["customers_main_ask"]="$main_ask"
   fi
 
-  # Service catalog matching
   if [[ $line =~ "matching_service_catalog" ]]; then
     service=$(extract_context_field "$line" "matching_service_catalog_to_solve_customers_issue")
-    track_context_change "matching_service_catalog" "$service" "🔧 matching_service_catalog" "${CYAN}"
+    [ -n "$service" ] && context_state["matching_service_catalog"]="$service"
   fi
 
-  # Task ID
   if [[ $line =~ "task_id" ]] && [[ ! $line =~ "orchestrator" ]]; then
     task_id=$(extract_context_field "$line" "task_id")
-    track_context_change "task_id" "$task_id" "📋 task_id" "${PURPLE}"
+    [ -n "$task_id" ] && context_state["task_id"]="$task_id"
   fi
 
-  # Appointment details
   if [[ $line =~ "appointment_details" ]]; then
     appt=$(extract_context_field "$line" "appointment_details")
-    track_context_change "appointment_details" "$appt" "📅 appointment_details" "${MAGENTA}"
+    [ -n "$appt" ] && context_state["appointment_details"]="$appt"
   fi
 
-  # Next course of action
   if [[ $line =~ "next_course_of_action" ]]; then
     action=$(extract_context_field "$line" "next_course_of_action")
-    track_context_change "next_course_of_action" "$action" "📝 next_course_of_action" "${YELLOW}"
+    [ -n "$action" ] && context_state["next_course_of_action"]="$action"
   fi
 
-  # Next node to go to
   if [[ $line =~ "next_node_to_go_to" ]]; then
     next_node=$(extract_context_field "$line" "next_node_to_go_to")
-    track_context_change "next_node_to_go_to" "$next_node" "🔀 next_node_to_go_to" "${CYAN}"
+    [ -n "$next_node" ] && context_state["next_node_to_go_to"]="$next_node"
   fi
 
   # Node traversal path
@@ -447,15 +429,16 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
     echo -e "${BLUE}🗺️  node_traversal_path: $line${NC}"
   fi
 
-  # Flags (show all flag updates)
+  # Flags (track but don't show individually - will show in consolidated dump)
   if [[ $line =~ "\"flags\":" ]] || [[ $line =~ "_flag" ]]; then
     # Track flag updates
     if [[ $line =~ "Set flag:"[[:space:]]([a-z_]+)[[:space:]]=[[:space:]]([0-9]+) ]]; then
       context_state["${BASH_REMATCH[1]}"]="${BASH_REMATCH[2]}"
     fi
 
-    echo -e "\n${PURPLE}${BOLD}🚩 FLAGS STATE:${NC}"
-    echo -e "${PURPLE}$line${NC}"
+    # Suppress individual flag output
+    # echo -e "\n${PURPLE}${BOLD}🚩 FLAGS STATE:${NC}"
+    # echo -e "${PURPLE}$line${NC}"
   fi
 
   # Summary array
@@ -489,12 +472,15 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
       navigator_reason="${BASH_REMATCH[1]}"
     elif [[ $line =~ "✅ Validation:"[[:space:]](.+)$ ]]; then
       navigator_decision="${BASH_REMATCH[1]}"
+    elif [[ $line =~ "🤖 Response:"[[:space:]](.+)$ ]]; then
+      navigator_llm_output="${BASH_REMATCH[1]}"
     fi
 
-    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
-    echo -e "\n${MAGENTA}${BOLD}🧭 NAVIGATOR DECISION${NC}"
-    [ -n "$session_header" ] && echo -e "$session_header"
-    echo -e "${MAGENTA}$line${NC}"
+    # Suppress individual navigator output (will show in consolidated dump)
+    # session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
+    # echo -e "\n${MAGENTA}${BOLD}🧭 NAVIGATOR DECISION${NC}"
+    # [ -n "$session_header" ] && echo -e "$session_header"
+    # echo -e "${MAGENTA}$line${NC}"
   fi
 
   # Validation status
@@ -511,15 +497,18 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   # WORKER AGENT EXECUTION
   # ========================================
   if [[ $line =~ "👷" ]] || [[ $line =~ "WorkerAgent" ]]; then
-    # Track AI response
+    # Track AI response and LLM output
     if [[ $line =~ "✅ Generated response"[[:space:]]\(([0-9]+)[[:space:]]chars\) ]]; then
       last_ai_message="Generated response (${BASH_REMATCH[1]} chars)"
+    elif [[ $line =~ "🤖 Response:"[[:space:]](.+)$ ]]; then
+      worker_llm_output="${BASH_REMATCH[1]}"
     fi
 
-    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
-    echo -e "\n${GREEN}${BOLD}👷 WORKER AGENT${NC}"
-    [ -n "$session_header" ] && echo -e "$session_header"
-    echo -e "${GREEN}$line${NC}"
+    # Suppress individual worker output (will show in consolidated dump)
+    # session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
+    # echo -e "\n${GREEN}${BOLD}👷 WORKER AGENT${NC}"
+    # [ -n "$session_header" ] && echo -e "$session_header"
+    # echo -e "${GREEN}$line${NC}"
   fi
 
   # ========================================
