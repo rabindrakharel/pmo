@@ -82,6 +82,16 @@ extract_context_field() {
 declare -A context_state
 declare -A previous_context_state
 
+# Track iteration state for comprehensive dumps
+current_iteration=""
+current_node=""
+navigator_decision=""
+navigator_next_node=""
+navigator_reason=""
+last_user_message=""
+last_ai_message=""
+declare -a conversation_summary=()
+
 # Function to format session/timestamp header
 format_session_header() {
   local session="$1"
@@ -126,6 +136,77 @@ track_context_change() {
   fi
 }
 
+# Function to dump complete state at iteration end
+dump_complete_state() {
+  echo -e "\n${PURPLE}${BOLD}╔══════════════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${PURPLE}${BOLD}║           📊 COMPLETE STATE DUMP - ITERATION $current_iteration           ║${NC}"
+  echo -e "${PURPLE}${BOLD}╚══════════════════════════════════════════════════════════════════╝${NC}"
+
+  # Session Info
+  if [ -n "$current_tracked_session" ]; then
+    echo -e "\n${CYAN}${BOLD}🔑 SESSION:${NC} ${current_tracked_session:0:8}..."
+  fi
+
+  # Current Node
+  if [ -n "$current_node" ]; then
+    echo -e "${YELLOW}${BOLD}🎯 CURRENT NODE:${NC} $current_node"
+  fi
+
+  # Navigator State
+  if [ -n "$navigator_next_node" ] || [ -n "$navigator_reason" ]; then
+    echo -e "\n${MAGENTA}${BOLD}🧭 NAVIGATOR DECISIONS:${NC}"
+    [ -n "$navigator_decision" ] && echo -e "  ${DIM}Decision:${NC} $navigator_decision"
+    [ -n "$navigator_next_node" ] && echo -e "  ${DIM}Next Node:${NC} $navigator_next_node"
+    [ -n "$navigator_reason" ] && echo -e "  ${DIM}Reason:${NC} $navigator_reason"
+  fi
+
+  # Conversation Summary
+  if [ -n "$last_user_message" ] || [ -n "$last_ai_message" ]; then
+    echo -e "\n${GREEN}${BOLD}💬 CONVERSATION:${NC}"
+    [ -n "$last_user_message" ] && echo -e "  ${GREEN}👤 User:${NC} $last_user_message"
+    [ -n "$last_ai_message" ] && echo -e "  ${BLUE}🤖 AI:${NC} $last_ai_message"
+  fi
+
+  # Full Context Data
+  if [ ${#context_state[@]} -gt 0 ]; then
+    echo -e "\n${CYAN}${BOLD}📋 ACCUMULATED CONTEXT DATA:${NC}"
+
+    # Core fields first
+    for key in agent_session_id customer_name customer_phone_number customer_id customers_main_ask matching_service_catalog task_id appointment_details next_course_of_action next_node_to_go_to; do
+      if [ -n "${context_state[$key]}" ]; then
+        echo -e "  ${DIM}$key:${NC} ${BOLD}${context_state[$key]}${NC}"
+      fi
+    done
+
+    # Other fields
+    for key in "${!context_state[@]}"; do
+      case "$key" in
+        agent_session_id|customer_name|customer_phone_number|customer_id|customers_main_ask|matching_service_catalog|task_id|appointment_details|next_course_of_action|next_node_to_go_to)
+          # Already shown above
+          ;;
+        *)
+          if [ -n "${context_state[$key]}" ]; then
+            echo -e "  ${DIM}$key:${NC} ${context_state[$key]}"
+          fi
+          ;;
+      esac
+    done
+  fi
+
+  # Flags State
+  echo -e "\n${PURPLE}${BOLD}🚩 FLAGS:${NC}"
+  local flags_found=false
+  for key in "${!context_state[@]}"; do
+    if [[ $key =~ _flag$ ]]; then
+      echo -e "  ${DIM}$key:${NC} ${context_state[$key]}"
+      flags_found=true
+    fi
+  done
+  [ "$flags_found" = false ] && echo -e "  ${DIM}(No flags set yet)${NC}"
+
+  echo -e "\n${PURPLE}${BOLD}═════════════════════════════════════════════════════════════════${NC}\n"
+}
+
 # Track current session from "State saved for session" messages
 current_tracked_session=""
 
@@ -164,6 +245,22 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   # ITERATION/TURN MARKERS
   # ========================================
   if [[ $line =~ "ITERATION" ]] || [[ $line =~ "🔄 ITERATION" ]]; then
+    # Dump state from previous iteration before starting new one
+    if [ -n "$current_iteration" ]; then
+      dump_complete_state
+    fi
+
+    # Extract iteration number and node
+    if [[ $line =~ ITERATION[[:space:]]([0-9]+)[[:space:]]-[[:space:]]Current[[:space:]]Node:[[:space:]]([A-Za-z_]+) ]]; then
+      current_iteration="${BASH_REMATCH[1]}"
+      current_node="${BASH_REMATCH[2]}"
+    fi
+
+    # Reset per-iteration tracking
+    navigator_decision=""
+    navigator_next_node=""
+    navigator_reason=""
+
     session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
     echo -e "\n${YELLOW}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${YELLOW}${BOLD}$line${NC}"
@@ -175,6 +272,13 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   # USER MESSAGES
   # ========================================
   if [[ $line =~ "User message:" ]] || [[ $line =~ "💬" ]]; then
+    # Extract user message content
+    if [[ $line =~ "User message:"[[:space:]](.+)$ ]]; then
+      last_user_message="${BASH_REMATCH[1]}"
+    elif [[ $line =~ 💬[[:space:]](.+)$ ]]; then
+      last_user_message="${BASH_REMATCH[1]}"
+    fi
+
     session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
     echo -e "\n${GREEN}${BOLD}👤 USER MESSAGE${NC}"
     [ -n "$session_header" ] && echo -e "$session_header"
@@ -272,6 +376,11 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
 
   # Flags (show all flag updates)
   if [[ $line =~ "\"flags\":" ]] || [[ $line =~ "_flag" ]]; then
+    # Track flag updates
+    if [[ $line =~ "Set flag:"[[:space:]]([a-z_]+)[[:space:]]=[[:space:]]([0-9]+) ]]; then
+      context_state["${BASH_REMATCH[1]}"]="${BASH_REMATCH[2]}"
+    fi
+
     echo -e "\n${PURPLE}${BOLD}🚩 FLAGS STATE:${NC}"
     echo -e "${PURPLE}$line${NC}"
   fi
@@ -300,6 +409,15 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   # NAVIGATOR DECISIONS
   # ========================================
   if [[ $line =~ "🧭" ]] || [[ $line =~ "Navigator" ]]; then
+    # Track navigator decisions
+    if [[ $line =~ "✅ Next node:"[[:space:]]([A-Za-z_]+) ]]; then
+      navigator_next_node="${BASH_REMATCH[1]}"
+    elif [[ $line =~ "💭 Routing reason:"[[:space:]](.+)$ ]]; then
+      navigator_reason="${BASH_REMATCH[1]}"
+    elif [[ $line =~ "✅ Validation:"[[:space:]](.+)$ ]]; then
+      navigator_decision="${BASH_REMATCH[1]}"
+    fi
+
     session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
     echo -e "\n${MAGENTA}${BOLD}🧭 NAVIGATOR DECISION${NC}"
     [ -n "$session_header" ] && echo -e "$session_header"
@@ -320,6 +438,11 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   # WORKER AGENT EXECUTION
   # ========================================
   if [[ $line =~ "👷" ]] || [[ $line =~ "WorkerAgent" ]]; then
+    # Track AI response
+    if [[ $line =~ "✅ Generated response"[[:space:]]\(([0-9]+)[[:space:]]chars\) ]]; then
+      last_ai_message="Generated response (${BASH_REMATCH[1]} chars)"
+    fi
+
     session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
     echo -e "\n${GREEN}${BOLD}👷 WORKER AGENT${NC}"
     [ -n "$session_header" ] && echo -e "$session_header"
@@ -348,6 +471,11 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   # STATE MANAGEMENT
   # ========================================
   if [[ $line =~ "💾 State saved" ]] || [[ $line =~ "📦 Loaded state" ]]; then
+    # Dump state when saved
+    if [[ $line =~ "💾 State saved" ]] && [ -n "$current_iteration" ]; then
+      dump_complete_state
+    fi
+
     session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
     if [ -n "$session_header" ]; then
       echo -e "${CYAN}$line ${DIM}[$session_header]${NC}"
