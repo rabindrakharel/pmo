@@ -388,7 +388,7 @@ export function LandingPage() {
             </h2>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center p-8 bg-dark-100 rounded-xl border border-dark-300 hover:border-blue-400 transition-all">
+            <div className="text-center p-8 bg-dark-100 rounded-xl border border-dark-300 hover:border-slate-400 transition-all">
               <div className="inline-flex h-16 w-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full items-center justify-center mb-6">
                 <Cpu className="h-8 w-8 text-white" />
               </div>
@@ -433,7 +433,7 @@ export function LandingPage() {
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-dark-100 p-6 rounded-xl border border-dark-300 hover:border-blue-400 transition-all text-center">
+            <div className="bg-dark-100 p-6 rounded-xl border border-dark-300 hover:border-slate-400 transition-all text-center">
               <UserCircle className="h-12 w-12 text-blue-600 mx-auto mb-4" />
               <h3 className="text-lg font-bold text-dark-600 mb-2">Customer Service Teams</h3>
               <p className="text-sm text-dark-700">Transform service ops with autonomous workflows and AI insights.</p>

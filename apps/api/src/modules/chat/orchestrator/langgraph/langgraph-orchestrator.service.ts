@@ -82,7 +82,7 @@ export class LangGraphOrchestratorService {
         existingState = (await this.langGraphService.getConversationHistory(sessionId)) || undefined;
       }
 
-      // Process through LangGraph
+      // Process through LangGraph (nodes are state-aware and handle their own logic)
       const result = await this.langGraphService.processMessage(
         sessionId,
         args.message,

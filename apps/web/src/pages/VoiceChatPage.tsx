@@ -33,7 +33,7 @@ export function VoiceChatPage() {
       </div>
 
       {/* Info Banner */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 px-6 flex-shrink-0 shadow-lg">
+      <div className="bg-slate-700 text-white py-3 px-6 flex-shrink-0 shadow-lg">
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-8 text-sm">
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4" />

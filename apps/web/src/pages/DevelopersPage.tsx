@@ -306,7 +306,7 @@ export function DevelopersPage() {
               href={link.link}
               target={link.external ? '_blank' : '_self'}
               rel={link.external ? 'noopener noreferrer' : ''}
-              className="flex items-start p-4 bg-white border border-gray-200 rounded-xl hover:border-blue-400 hover:shadow-sm transition-all group"
+              className="flex items-start p-4 bg-white border border-gray-200 rounded-xl hover:border-slate-400 hover:shadow-sm transition-all group"
             >
               <div className="h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
                 <link.icon className="h-5 w-5 text-blue-600" />
@@ -371,7 +371,7 @@ export function DevelopersPage() {
                 {section.items.map((item, idx) => (
                   <div
                     key={idx}
-                    className="p-4 bg-gray-50 border border-gray-200 rounded-lg hover:border-blue-400 hover:shadow-sm transition-all cursor-pointer group"
+                    className="p-4 bg-gray-50 border border-gray-200 rounded-lg hover:border-slate-400 hover:shadow-sm transition-all cursor-pointer group"
                     onClick={() => {
                       if (item.link) window.location.href = item.link;
                     }}
@@ -454,9 +454,9 @@ export function DevelopersPage() {
               href="http://localhost:4000/docs"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 font-semibold bg-slate-600 text-white rounded-lg hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-600 transition-all shadow-md hover:shadow-lg"
             >
-              <Book className="h-4 w-4 mr-2" />
+              <Book className="h-4 w-4" />
               View API Docs
             </a>
           </div>

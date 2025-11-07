@@ -136,6 +136,14 @@ ${basePrompt}`;
 export async function greetCustomerNode(state: AgentState): Promise<Partial<AgentState>> {
   console.log(`\n🎯 [I. GREET_CUSTOMER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
+  // LangChain-native: Check if we've already greeted (any AI messages exist)
+  const hasAIMessages = state.messages?.some(m => m.role === 'assistant');
+  if (hasAIMessages) {
+    console.log(`⏭️  Already greeted customer, skipping`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+    return {}; // LangChain pattern: return empty update
+  }
+
   // Use random greeting template (no LLM call needed)
   const greeting = getRandomGreeting();
 
@@ -161,9 +169,22 @@ export async function greetCustomerNode(state: AgentState): Promise<Partial<Agen
 /**
  * NODE 2: ASK_ABOUT_NEED
  * Open-ended question to understand customer's reason for contact
+ * STATE-AWARE: Only asks if we haven't already asked this question
  */
 export async function askAboutNeedNode(state: AgentState): Promise<Partial<AgentState>> {
   console.log(`\n🎯 [II. ASK_ABOUT_NEED] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+
+  // LangChain-native: Check if we've already asked this question
+  // Look for this specific question in AI message history
+  const alreadyAsked = state.messages?.some(
+    m => m.role === 'assistant' && m.content.includes('What brings you here today?')
+  );
+
+  if (alreadyAsked) {
+    console.log(`⏭️  Already asked about customer's need, skipping`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+    return {}; // LangChain pattern: return empty update
+  }
 
   const askMessage = "What brings you here today?";
 

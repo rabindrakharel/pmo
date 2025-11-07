@@ -64,7 +64,7 @@ export function ChatPage() {
 
           {/* Instructions */}
           <div className="bg-white rounded-lg border border-gray-300 p-8 text-center">
-            <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-slate-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <MessageSquare className="w-8 h-8 text-white" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-3">
@@ -72,7 +72,7 @@ export function ChatPage() {
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto mb-6">
               Our AI assistant can help you find available services, check employee schedules,
-              and book appointments. Click the blue chat button in the bottom-right corner to start a conversation.
+              and book appointments. Click the chat button in the bottom-right corner to start a conversation.
             </p>
             <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
               <div className="flex items-center gap-1">
@@ -90,16 +90,16 @@ export function ChatPage() {
           <div className="mt-8">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Try asking:</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-blue-400 transition-colors cursor-pointer">
+              <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-slate-400 transition-colors cursor-pointer">
                 <p className="text-sm text-gray-700">"What services are available?"</p>
               </div>
-              <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-blue-400 transition-colors cursor-pointer">
+              <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-slate-400 transition-colors cursor-pointer">
                 <p className="text-sm text-gray-700">"Which employees are available today?"</p>
               </div>
-              <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-blue-400 transition-colors cursor-pointer">
+              <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-slate-400 transition-colors cursor-pointer">
                 <p className="text-sm text-gray-700">"I need to book a plumbing service"</p>
               </div>
-              <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-blue-400 transition-colors cursor-pointer">
+              <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-slate-400 transition-colors cursor-pointer">
                 <p className="text-sm text-gray-700">"Show me available time slots for next week"</p>
               </div>
             </div>

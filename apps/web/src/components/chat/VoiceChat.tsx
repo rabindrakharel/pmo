@@ -223,12 +223,12 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-purple-50 to-indigo-50">
+    <div className="flex flex-col h-full bg-slate-50">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-4 flex items-center justify-between flex-shrink-0 shadow-lg">
+      <div className="bg-slate-700 text-white px-6 py-4 flex items-center justify-between flex-shrink-0 shadow-lg">
         <div>
           <h2 className="text-xl font-bold">Voice Assistant</h2>
-          <p className="text-sm text-purple-100">Orchestrator-powered voice chat</p>
+          <p className="text-sm text-slate-200">Orchestrator-powered voice chat</p>
         </div>
         <div className="flex items-center gap-2">
           <select

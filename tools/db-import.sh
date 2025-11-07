@@ -420,6 +420,7 @@ print_summary() {
     print_status $CYAN "• Entity mapping framework for parent-child relationships"
     print_status $CYAN "• RBAC permission system"
     print_status $CYAN "• Full content management (Tasks, Artifacts, Forms, Wiki, Reports)"
+    print_status $CYAN "• AI Orchestrator (LangGraph checkpoints auto-created by library)"
     print_status $CYAN "• Canadian business context data"
     print_status $PURPLE "=================="
     print_status $GREEN "🎉 Database import completed successfully!"

@@ -224,20 +224,11 @@ export class LangGraphStateGraphService {
     return async (state: LangGraphState): Promise<Partial<LangGraphState>> => {
       console.log(`\n[LangGraph] 🎯 Executing: ${nodeName}`);
 
-      // Check if should skip
-      if (this.shouldSkipStep(nodeName, state)) {
-        console.log(`[LangGraph] ⏭️  Skipping ${nodeName} (already completed)`);
-        return {};
-      }
-
       // Convert LangGraph state to our original state format
       const originalState = this.toOriginalState(state);
 
-      // Execute the node
+      // Execute the node - node decides internally if it needs to act
       const result = await nodeFunc(originalState);
-
-      // Mark as completed
-      this.markStepCompleted(nodeName, state);
 
       // Convert result back to LangGraph format
       return this.toLangGraphUpdate(result);
@@ -258,15 +249,8 @@ export class LangGraphStateGraphService {
     return async (state: LangGraphState): Promise<Partial<LangGraphState>> => {
       console.log(`\n[LangGraph] 🎯 Executing: ${nodeName}`);
 
-      if (this.shouldSkipStep(nodeName, state)) {
-        console.log(`[LangGraph] ⏭️  Skipping ${nodeName} (already completed)`);
-        return {};
-      }
-
       const originalState = this.toOriginalState(state);
       const result = await nodeFunc(originalState, this.mcpAdapter, state._authToken || '');
-
-      this.markStepCompleted(nodeName, state);
 
       return this.toLangGraphUpdate(result);
     };
@@ -282,15 +266,8 @@ export class LangGraphStateGraphService {
     return async (state: LangGraphState): Promise<Partial<LangGraphState>> => {
       console.log(`\n[LangGraph] 🎯 Executing: ${nodeName}`);
 
-      if (this.shouldSkipStep(nodeName, state)) {
-        console.log(`[LangGraph] ⏭️  Skipping ${nodeName} (already completed)`);
-        return {};
-      }
-
       const originalState = this.toOriginalState(state);
       const result = await nodeFunc(originalState, this.mcpAdapter);
-
-      this.markStepCompleted(nodeName, state);
 
       return this.toLangGraphUpdate(result);
     };
@@ -411,73 +388,6 @@ export class LangGraphStateGraphService {
     }
 
     return update;
-  }
-
-  /**
-   * Check if a step should be skipped (already completed with valid data)
-   */
-  private shouldSkipStep(nodeName: NodeName, state: LangGraphState): boolean {
-    const context = state.context || {};
-    const stepsCompleted = context.steps_completed || {};
-
-    const stepMap: Record<string, keyof StepCompletionTracker> = {
-      [NODES.GREET]: 'I_greet',
-      [NODES.ASK_NEED]: 'II_ask_need',
-      [NODES.IDENTIFY]: 'III_identify_issue',
-      [NODES.EMPATHIZE]: 'IV_empathize',
-      [NODES.RAPPORT]: 'V_build_rapport',
-      [NODES.GATHER]: 'VI_gather_data',
-      [NODES.CHECK]: 'VII_check_customer',
-      [NODES.PLAN]: 'VIII_plan_actions',
-      [NODES.COMMUNICATE_PLAN]: 'IX_communicate_plan',
-      [NODES.EXECUTE]: 'X_execute_plan',
-      [NODES.COMMUNICATE_EXEC]: 'XI_communicate_execution',
-    };
-
-    const stepKey = stepMap[nodeName];
-    if (!stepKey) return false;
-
-    const isCompleted = stepsCompleted[stepKey] === true;
-
-    // Additional validation for GATHER step
-    if (nodeName === NODES.GATHER && isCompleted) {
-      const hasPhone = !!context.customer_phone_number;
-      const hasName = !!context.customer_name;
-      if (!hasPhone || !hasName) {
-        console.log(`[LangGraph] ⚠️  GATHER step marked complete but missing data, re-executing`);
-        return false;
-      }
-    }
-
-    return isCompleted;
-  }
-
-  /**
-   * Mark a step as completed
-   */
-  private markStepCompleted(nodeName: NodeName, state: LangGraphState): void {
-    const context = state.context || {};
-    const stepsCompleted = context.steps_completed || {};
-
-    const stepMap: Record<string, keyof StepCompletionTracker> = {
-      [NODES.GREET]: 'I_greet',
-      [NODES.ASK_NEED]: 'II_ask_need',
-      [NODES.IDENTIFY]: 'III_identify_issue',
-      [NODES.EMPATHIZE]: 'IV_empathize',
-      [NODES.RAPPORT]: 'V_build_rapport',
-      [NODES.GATHER]: 'VI_gather_data',
-      [NODES.CHECK]: 'VII_check_customer',
-      [NODES.PLAN]: 'VIII_plan_actions',
-      [NODES.COMMUNICATE_PLAN]: 'IX_communicate_plan',
-      [NODES.EXECUTE]: 'X_execute_plan',
-      [NODES.COMMUNICATE_EXEC]: 'XI_communicate_execution',
-    };
-
-    const stepKey = stepMap[nodeName];
-    if (stepKey) {
-      stepsCompleted[stepKey] = true;
-      console.log(`[LangGraph] ✅ Marked ${nodeName} as completed`);
-    }
   }
 
   /**

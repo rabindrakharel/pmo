@@ -133,7 +133,11 @@
       "Bash(timeout 20 pnpm run type-check:api:*)",
       "mcp__ide__getDiagnostics",
       "Bash(npx tsc:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(wc:*)",
+      "Bash(timeout 60 ./tools/db-import.sh:*)",
+      "Bash(comm:*)",
+      "Bash(timeout 10 tail:*)"
     ],
     "deny": [],
     "ask": [],
