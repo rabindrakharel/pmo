@@ -87,8 +87,8 @@ export function DynamicChildEntityTabs({
   return (
     <div className={`bg-dark-100 ${className}`}>
       {/* Tab Navigation */}
-      <div className="px-6 py-1.5">
-        <nav className="flex items-center gap-6" aria-label="Tabs">
+      <div className="px-6 py-4">
+        <nav className="flex flex-wrap gap-2" aria-label="Tabs">
           {tabs.map((tab) => {
             const isActive = activeTab?.id === tab.id;
             const IconComponent = tab.icon || getEntityIcon(tab.id);
@@ -100,23 +100,23 @@ export function DynamicChildEntityTabs({
                 disabled={tab.disabled}
                 title={tab.tooltip}
                 className={[
-                  'group inline-flex items-center gap-1.5 px-1 py-1.5 border-b-2 font-normal text-xs transition-all duration-200',
+                  'flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all',
                   isActive
-                    ? 'border-dark-400 text-dark-600'
+                    ? 'bg-slate-600 text-white shadow-md'
                     : tab.disabled
-                    ? 'border-transparent text-dark-600 cursor-not-allowed'
-                    : 'border-transparent text-dark-700 hover:border-dark-400 cursor-pointer'
+                    ? 'bg-dark-100 text-dark-500 border border-dark-300 cursor-not-allowed opacity-50'
+                    : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400 cursor-pointer'
                 ].join(' ')}
               >
                 {/* Icon */}
-                <IconComponent className="h-3.5 w-3.5 stroke-[1.5]" />
+                <IconComponent className="h-4 w-4" aria-hidden="true" />
 
                 {/* Label */}
                 <span>{tab.label}</span>
 
                 {/* Count badge */}
                 {tab.count !== undefined && (
-                  <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full text-[10px] font-normal bg-dark-100 text-dark-700">
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-[10px] font-medium bg-white/20 text-current">
                     {tab.count}
                   </span>
                 )}
@@ -125,9 +125,6 @@ export function DynamicChildEntityTabs({
           })}
         </nav>
       </div>
-
-      {/* Bottom border */}
-      <div className="h-px bg-dark-200" />
     </div>
   );
 }

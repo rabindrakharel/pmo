@@ -1316,12 +1316,12 @@ export const API_MANIFEST: APIEndpoint[] = [
     name: 'setting_list',
     method: 'GET',
     path: '/api/v1/setting',
-    description: 'List all settings with optional category filter',
+    description: 'Get service catalog and other settings. Use datalabel=dl__service_category to fetch available service types.',
     requiresAuth: true,
     category: 'Settings',
     parameters: {
       query: {
-        category: 'Settings category filter'
+        datalabel: 'Service catalog identifier. Use "dl__service_category" to get list of available services (internet_support, mobile_support, billing_support, etc.)'
       }
     }
   },

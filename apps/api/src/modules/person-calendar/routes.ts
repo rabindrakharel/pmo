@@ -391,19 +391,19 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
       const updateQuery = client`
         UPDATE app.d_entity_person_calendar
         SET
-          name = COALESCE(${updates.name || null}, name),
-          descr = COALESCE(${updates.descr || null}, descr),
+          name = COALESCE(${updates.name !== undefined ? updates.name : null}, name),
+          descr = COALESCE(${updates.descr !== undefined ? updates.descr : null}, descr),
           availability_flag = COALESCE(${updates.availability_flag !== undefined ? updates.availability_flag : null}, availability_flag),
-          title = COALESCE(${updates.title || null}, title),
-          appointment_medium = COALESCE(${updates.appointment_medium || null}, appointment_medium),
-          appointment_addr = COALESCE(${updates.appointment_addr || null}, appointment_addr),
-          instructions = COALESCE(${updates.instructions || null}, instructions),
-          event_id = COALESCE(${updates.event_id || null}, event_id),
+          title = COALESCE(${updates.title !== undefined ? updates.title : null}, title),
+          appointment_medium = COALESCE(${updates.appointment_medium !== undefined ? updates.appointment_medium : null}, appointment_medium),
+          appointment_addr = COALESCE(${updates.appointment_addr !== undefined ? updates.appointment_addr : null}, appointment_addr),
+          instructions = COALESCE(${updates.instructions !== undefined ? updates.instructions : null}, instructions),
+          event_id = COALESCE(${updates.event_id !== undefined ? updates.event_id : null}, event_id),
           metadata = COALESCE(${updates.metadata ? JSON.stringify(updates.metadata) : null}::jsonb, metadata),
           reminder_sent_flag = COALESCE(${updates.reminder_sent_flag !== undefined ? updates.reminder_sent_flag : null}, reminder_sent_flag),
-          reminder_sent_ts = CASE WHEN ${updates.reminder_sent_flag} = true THEN now() ELSE reminder_sent_ts END,
+          reminder_sent_ts = CASE WHEN ${updates.reminder_sent_flag !== undefined ? updates.reminder_sent_flag : false} = true THEN now() ELSE reminder_sent_ts END,
           confirmation_sent_flag = COALESCE(${updates.confirmation_sent_flag !== undefined ? updates.confirmation_sent_flag : null}, confirmation_sent_flag),
-          confirmation_sent_ts = CASE WHEN ${updates.confirmation_sent_flag} = true THEN now() ELSE confirmation_sent_ts END,
+          confirmation_sent_ts = CASE WHEN ${updates.confirmation_sent_flag !== undefined ? updates.confirmation_sent_flag : false} = true THEN now() ELSE confirmation_sent_ts END,
           updated_ts = now(),
           version = version + 1
         WHERE id = ${id}::uuid AND active_flag = true

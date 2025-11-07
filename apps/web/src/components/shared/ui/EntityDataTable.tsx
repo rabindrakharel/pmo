@@ -471,33 +471,45 @@ export function EntityDataTable<T = any>({
     }
   }, [initialColumns, columnCapabilities, filterable, inlineEditable]);
 
-  // Selection functionality - only one row at a time (radio behavior)
-  const handleSelectAll = (checked: boolean) => {
-    if (!onSelectionChange) return;
-    // Clear selection when "select all" is unchecked
-    onSelectionChange([]);
-  };
-
-  const handleSelectRow = (rowKey: string, checked: boolean) => {
-    if (!onSelectionChange) return;
-
-    // Only allow one selection at a time (radio button behavior)
-    if (checked) {
-      onSelectionChange([rowKey]);
-    } else {
-      onSelectionChange([]);
-    }
-  };
-
-  const isAllSelected = false; // Disabled "select all" for single-selection mode
-  const isIndeterminate = false;
-
+  // Helper to get row key
   const getRowKey = (record: T, index: number): string => {
     if (typeof rowKey === 'function') {
       return rowKey(record);
     }
     return (record as any)[rowKey] || index.toString();
   };
+
+  // Calculate filtered and sorted data BEFORE using it
+  const filteredAndSortedData = useMemo(() => {
+    let result = [...data];
+
+    if (filterable) {
+      // Handle dropdown filters
+      Object.entries(dropdownFilters).forEach(([key, selectedValues]) => {
+        if (selectedValues.length > 0) {
+          result = result.filter(record => {
+            const value = (record as any)[key]?.toString();
+            return selectedValues.includes(value);
+          });
+        }
+      });
+    }
+
+    if (sortField) {
+      result.sort((a, b) => {
+        const aValue = (a as any)[sortField];
+        const bValue = (b as any)[sortField];
+
+        if (aValue === bValue) return 0;
+
+        const comparison = aValue < bValue ? -1 : 1;
+        return sortDirection === 'asc' ? comparison : -comparison;
+      });
+    }
+
+    return result;
+  }, [data, dropdownFilters, sortField, sortDirection, filterable]);
+
 
   // Get unique values for each filterable column
   const getColumnOptions = (columnKey: string) => {
@@ -576,31 +588,6 @@ export function EntityDataTable<T = any>({
   const columns = useMemo(() => {
     let processedColumns = initialColumns.filter(col => visibleColumns.has(col.key));
 
-    // Add selection column if selectable
-    if (selectable) {
-      const selectionColumn: Column<T> = {
-        key: '_selection',
-        title: '',
-        width: 50,
-        align: 'center',
-        render: (_, record) => {
-          const recordId = getRowKey(record, 0);
-          const isSelected = selectedRows.includes(recordId);
-          return (
-            <input
-              type="radio"
-              checked={isSelected}
-              onChange={(e) => handleSelectRow(recordId, e.target.checked)}
-              className="h-4 w-4 text-dark-700 border-dark-400 focus:ring-gray-500 cursor-pointer"
-              onClick={(e) => e.stopPropagation()}
-              name="row-selection"
-            />
-          );
-        },
-      };
-      processedColumns = [selectionColumn, ...processedColumns];
-    }
-
     // Add actions column if there are any actions
     if (allActions.length > 0) {
       const actionsColumn: Column<T> = {
@@ -650,37 +637,7 @@ export function EntityDataTable<T = any>({
     }
 
     return processedColumns;
-  }, [initialColumns, visibleColumns, allActions, selectable, selectedRows, handleSelectRow, handleSelectAll, isAllSelected, isIndeterminate]);
-
-  const filteredAndSortedData = useMemo(() => {
-    let result = [...data];
-
-    if (filterable) {
-      // Handle dropdown filters
-      Object.entries(dropdownFilters).forEach(([key, selectedValues]) => {
-        if (selectedValues.length > 0) {
-          result = result.filter(record => {
-            const value = (record as any)[key]?.toString();
-            return selectedValues.includes(value);
-          });
-        }
-      });
-    }
-
-    if (sortField) {
-      result.sort((a, b) => {
-        const aValue = (a as any)[sortField];
-        const bValue = (b as any)[sortField];
-        
-        if (aValue === bValue) return 0;
-        
-        const comparison = aValue < bValue ? -1 : 1;
-        return sortDirection === 'asc' ? comparison : -comparison;
-      });
-    }
-
-    return result;
-  }, [data, dropdownFilters, sortField, sortDirection, filterable]);
+  }, [initialColumns, visibleColumns, allActions]);
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -943,7 +900,10 @@ export function EntityDataTable<T = any>({
           {showSizeChanger && (
             <select
               value={pageSize}
-              onChange={(e) => onChange?.(1, Number(e.target.value))}
+              onChange={(e) => {
+                e.preventDefault();
+                onChange?.(1, Number(e.target.value));
+              }}
               className="ml-6 px-3 py-1.5 border border-dark-300 rounded-lg text-sm bg-dark-100 focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 transition-all duration-200"
             >
               {pageSizeOptions.map(size => (
@@ -955,7 +915,11 @@ export function EntityDataTable<T = any>({
         
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => onChange?.(current - 1, pageSize)}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onChange?.(current - 1, pageSize);
+            }}
             disabled={current <= 1 || actualTotal === 0}
             className="p-2 border border-dark-300 rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-100 hover:border-dark-400 hover:shadow-sm transition-all duration-200 bg-dark-100/50"
           >
@@ -977,8 +941,12 @@ export function EntityDataTable<T = any>({
 
               return (
                 <button
+                  type="button"
                   key={pageNum}
-                  onClick={() => onChange?.(pageNum, pageSize)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onChange?.(pageNum, pageSize);
+                  }}
                   className={`px-3 py-1.5 text-sm border rounded-lg font-normal transition-all duration-200 ${
                     current === pageNum
                       ? 'bg-dark-100 text-dark-600 border-dark-400 shadow-sm'
@@ -992,7 +960,11 @@ export function EntityDataTable<T = any>({
           </div>
           
           <button
-            onClick={() => onChange?.(current + 1, pageSize)}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onChange?.(current + 1, pageSize);
+            }}
             disabled={current >= totalPages || actualTotal === 0}
             className="p-2 border border-dark-300 rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-100 hover:border-dark-400 hover:shadow-sm transition-all duration-200 bg-dark-100/50"
           >
@@ -1083,11 +1055,17 @@ export function EntityDataTable<T = any>({
                                 <label
                                   key={option}
                                   className="flex items-center px-3 py-2 hover:bg-dark-100 rounded-lg cursor-pointer transition-colors group"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const isCurrentlyChecked = (dropdownFilters[selectedFilterColumn] || []).includes(option);
+                                    handleDropdownFilter(selectedFilterColumn, option, !isCurrentlyChecked);
+                                  }}
                                 >
                                   <input
                                     type="checkbox"
                                     checked={(dropdownFilters[selectedFilterColumn] || []).includes(option)}
-                                    onChange={(e) => handleDropdownFilter(selectedFilterColumn, option, e.target.checked)}
+                                    onChange={() => {}} // Controlled by label onClick
+                                    onClick={(e) => e.stopPropagation()}
                                     className="mr-3 text-dark-700 rounded focus:ring-gray-500 focus:ring-offset-0 flex-shrink-0"
                                   />
                                   <div className="flex-1 min-w-0">
@@ -1281,22 +1259,16 @@ export function EntityDataTable<T = any>({
                     }}
                     onClick={() => column.sortable && handleSort(column.key)}
                   >
-                    {column.key === '_selection' ? (
-                      <div className="flex items-center justify-center">
-                        {/* Empty header for single-selection mode */}
+                    <div className="flex items-center justify-start">
+                      <span className="select-none">{column.title}</span>
+                      <div className="flex items-center ml-3 space-x-1">
+                        {column.sortable && (
+                          <div className="text-dark-600 hover:text-dark-700 transition-colors">
+                            {renderSortIcon(column.key)}
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <div className="flex items-center justify-start">
-                        <span className="select-none">{column.title}</span>
-                        <div className="flex items-center ml-3 space-x-1">
-                          {column.sortable && (
-                            <div className="text-dark-600 hover:text-dark-700 transition-colors">
-                              {renderSortIcon(column.key)}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                    </div>
                   </th>
                 ))}
               </tr>
@@ -1348,41 +1320,6 @@ export function EntityDataTable<T = any>({
                       }`}
                     >
                     {columns.map((column, colIndex) => {
-                      // Special handling for selection column
-                      if (column.key === '_selection') {
-                        return (
-                          <td
-                            key={column.key}
-                            className={`px-6 py-2.5 ${
-                              colIndex === 0 ? 'sticky left-0 z-20 bg-dark-100 shadow-r' : ''
-                            }`}
-                            style={{
-                              textAlign: column.align || 'left',
-                              boxSizing: 'border-box'
-                            }}
-                          >
-                            <div
-                              style={{
-                                position: 'relative',
-                                zIndex: 1,
-                                textOverflow: 'ellipsis',
-                                padding: '2px 8px',
-                                overflow: 'hidden',
-                                whiteSpace: 'nowrap',
-                                fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-                                fontSize: '14px',
-                                color: '#37352F'
-                              }}
-                            >
-                              {column.render
-                                ? column.render((record as any)[column.key], record, data)
-                                : renderCellValue(column, (record as any)[column.key])
-                              }
-                            </div>
-                          </td>
-                        );
-                      }
-
                       // ============================================================================
                       // ACTIONS COLUMN - INLINE EDITING PATTERN (Matches SettingsDataTable)
                       // ============================================================================

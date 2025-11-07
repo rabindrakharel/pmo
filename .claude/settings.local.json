@@ -125,7 +125,15 @@
       "Bash(timeout 300 tail:*)",
       "Bash(SESSION_ID=\"f7612425-eeb0-4fac-8490-79cb291cf3fc\")",
       "Bash(for entity in ARTIFACT WIKI FORM POSITION REPORTS CLIENT)",
-      "Bash(do echo -n \"$entity: \")"
+      "Bash(do echo -n \"$entity: \")",
+      "Bash(pnpm --filter mcp-server run build)",
+      "Bash(killall:*)",
+      "Bash(pnpm --filter api run build:*)",
+      "Bash(timeout 15 pnpm run type-check:api:*)",
+      "Bash(timeout 20 pnpm run type-check:api:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npx tsc:*)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": [],

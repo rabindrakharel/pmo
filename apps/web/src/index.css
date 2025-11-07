@@ -32,7 +32,8 @@
   }
 
   /* Form inputs - white surfaces with soft borders */
-  input,
+  /* Exclude checkboxes and radio buttons from these styles */
+  input:not([type="checkbox"]):not([type="radio"]),
   textarea,
   select {
     background-color: #FFFFFF !important; /* White surface */
@@ -40,7 +41,7 @@
     color: #37352F !important; /* Primary text */
   }
 
-  input:focus,
+  input:not([type="checkbox"]):not([type="radio"]):focus,
   textarea:focus,
   select:focus {
     border-color: #2383E2 !important; /* Notion blue */

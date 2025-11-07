@@ -42,10 +42,10 @@ export function LoginForm() {
   return (
     <div className="min-h-screen flex bg-dark-100">
       {/* Left Side - Brand & Welcome */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gray-800 p-12 flex-col justify-between">
+      <div className="hidden lg:flex lg:w-1/2 bg-slate-700 p-12 flex-col justify-between">
         <div>
           <div className="flex items-center gap-3 mb-8">
-            <div className="h-12 w-12 bg-gray-700 rounded-lg flex items-center justify-center">
+            <div className="h-12 w-12 bg-slate-600 rounded-lg flex items-center justify-center shadow-md">
               <LogIn className="h-7 w-7 text-white" />
             </div>
             <div>
@@ -65,7 +65,7 @@ export function LoginForm() {
 
             <div className="space-y-4 pt-8">
               <div className="flex items-start gap-3">
-                <div className="h-8 w-8 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
+                <div className="h-8 w-8 bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0 mt-1 shadow-md">
                   <Eye className="h-4 w-4 text-white" />
                 </div>
                 <div>
@@ -74,7 +74,7 @@ export function LoginForm() {
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <div className="h-8 w-8 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
+                <div className="h-8 w-8 bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0 mt-1 shadow-md">
                   <LogIn className="h-4 w-4 text-white" />
                 </div>
                 <div>
@@ -83,7 +83,7 @@ export function LoginForm() {
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <div className="h-8 w-8 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
+                <div className="h-8 w-8 bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0 mt-1 shadow-md">
                   <EyeOff className="h-4 w-4 text-white" />
                 </div>
                 <div>
@@ -104,7 +104,7 @@ export function LoginForm() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="max-w-md w-full space-y-8">
           <div className="text-center lg:text-left">
-            <div className="lg:hidden mx-auto h-12 w-12 flex items-center justify-center bg-blue-600 rounded-xl mb-6">
+            <div className="lg:hidden mx-auto h-12 w-12 flex items-center justify-center bg-slate-600 rounded-xl mb-6 shadow-md">
               <LogIn className="h-6 w-6 text-white" />
             </div>
             <h2 className="text-3xl font-extrabold text-gray-900">
@@ -132,7 +132,7 @@ export function LoginForm() {
                   type="email"
                   autoComplete="email"
                   required
-                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all"
+                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-slate-600 transition-all"
                   placeholder="Enter your email"
                 />
                 {errors.email && (
@@ -150,7 +150,7 @@ export function LoginForm() {
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
                     required
-                    className="block w-full px-4 py-3 pr-11 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all"
+                    className="block w-full px-4 py-3 pr-11 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-slate-600 transition-all"
                     placeholder="Enter your password"
                   />
                   <button
@@ -175,7 +175,7 @@ export function LoginForm() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
+                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
               >
                 {isLoading ? (
                   <>
@@ -204,7 +204,7 @@ export function LoginForm() {
             <div className="text-center pt-4">
               <p className="text-sm text-gray-600">
                 Don't have an account?{' '}
-                <a href="/signup" className="font-semibold text-blue-600 hover:text-blue-700 transition-colors">
+                <a href="/signup" className="font-semibold text-slate-600 hover:text-slate-700 transition-colors">
                   Sign up for free
                 </a>
               </p>

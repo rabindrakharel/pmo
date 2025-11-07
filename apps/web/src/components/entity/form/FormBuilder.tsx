@@ -1786,25 +1786,21 @@ export function StepProgressIndicator({
           const isActive = index === currentStepIndex;
           const isCompleted = index < currentStepIndex;
           const isClickable = !!onStepClick;
-          
+
           return (
-            <div 
+            <div
               key={step.id}
               className="flex-1 flex justify-center"
-              style={{ 
-                marginLeft: index === 0 ? '0' : '-16px',
-                marginRight: index === steps.length - 1 ? '0' : '-16px'
-              }}
             >
               {/* Step circle */}
               <button
                 onClick={() => isClickable && onStepClick(index)}
                 disabled={!isClickable}
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-normal transition-all duration-200 relative z-10 ${
-                  isActive 
-                    ? 'bg-dark-1000 text-white ring-4 ring-dark-700' 
-                    : isCompleted 
-                      ? 'bg-green-500 text-white hover:bg-green-600' 
+                  isActive
+                    ? 'bg-dark-1000 text-white ring-4 ring-dark-700'
+                    : isCompleted
+                      ? 'bg-green-500 text-white hover:bg-green-600'
                       : 'bg-dark-200 text-dark-700 hover:bg-dark-300'
                 } ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
                 title={step.title}
