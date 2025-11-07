@@ -96,7 +96,19 @@ navigator_llm_output=""
 last_user_message=""
 last_ai_message=""
 worker_llm_output=""
+capture_next_response=false
 declare -a conversation_summary=()
+
+# Track LLM calls per agent
+declare -A llm_calls
+llm_call_in_progress=""
+llm_call_agent=""
+llm_call_model=""
+llm_call_system_prompt=""
+llm_call_user_prompt=""
+llm_call_response=""
+llm_call_tokens=""
+llm_call_cost=""
 
 # Function to format session/timestamp header
 format_session_header() {
@@ -151,37 +163,12 @@ dump_state_to_json() {
   local json_file="$JSON_DUMP_DIR/context_${current_tracked_session}.json"
   local current_timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
 
-  # Build context object
-  local context_json="{"
-  local first=true
-  for key in "${!context_state[@]}"; do
-    # Skip flags for now, we'll add them separately
-    if [[ ! $key =~ _flag$ ]]; then
-      if [ "$first" = false ]; then
-        context_json+=","
-      fi
-      # Escape quotes in values
-      local value="${context_state[$key]}"
-      value="${value//\"/\\\"}"
-      context_json+="\"$key\":\"$value\""
-      first=false
-    fi
-  done
-  context_json+="}"
-
-  # Build flags object
-  local flags_json="{"
-  first=true
-  for key in "${!context_state[@]}"; do
-    if [[ $key =~ _flag$ ]]; then
-      if [ "$first" = false ]; then
-        flags_json+=","
-      fi
-      flags_json+="\"$key\":${context_state[$key]}"
-      first=false
-    fi
-  done
-  flags_json+="}"
+  # Read COMPLETE context from orchestrator's file
+  local full_context_json="{}"
+  local orch_context_file="./apps/api/logs/contexts/context_${current_tracked_session}.json"
+  if [ -f "$orch_context_file" ]; then
+    full_context_json=$(cat "$orch_context_file" | jq -c '.context // {}' 2>/dev/null || echo "{}")
+  fi
 
   # Build complete JSON
   cat > "$json_file" <<EOF
@@ -199,8 +186,7 @@ dump_state_to_json() {
     "last_user_message": "${last_user_message//\"/\\\"}",
     "last_ai_message": "${last_ai_message//\"/\\\"}"
   },
-  "context": $context_json,
-  "flags": $flags_json,
+  "context": $full_context_json,
   "dump_time": "$current_timestamp"
 }
 EOF
@@ -218,38 +204,38 @@ dump_complete_state() {
   echo -e "${CYAN}${BOLD}📊 ITERATION $current_iteration DUMP - ${current_node}${NC}"
   echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
-  # Build context JSON
-  local ctx_json="{"
+  # Read COMPLETE context from orchestrator's context file (if available)
+  local full_context_json="{}"
+  if [ -n "$current_tracked_session" ]; then
+    local orch_context_file="./apps/api/logs/contexts/context_${current_tracked_session}.json"
+    if [ -f "$orch_context_file" ]; then
+      # Extract ENTIRE context object from orchestrator
+      full_context_json=$(cat "$orch_context_file" | jq -c '.context // {}' 2>/dev/null || echo "{}")
+      local summary_count=$(echo "$full_context_json" | jq '.summary_of_conversation_on_each_step_until_now | length' 2>/dev/null || echo "0")
+      echo -e "${DIM}   📚 Loaded complete context with $summary_count conversation exchanges${NC}"
+    fi
+  fi
+
+  # Build LLM calls JSON
+  local llm_calls_json="{"
   local first=true
-  for key in agent_session_id customer_name customer_phone_number customer_id customers_main_ask matching_service_catalog task_id appointment_details next_course_of_action next_node_to_go_to; do
-    if [ -n "${context_state[$key]}" ] && [[ ! $key =~ _flag$ ]]; then
-      [ "$first" = false ] && ctx_json+=","
-      ctx_json+="\"$key\":\"${context_state[$key]//\"/\\\"}\""
+  for agent in "${!llm_calls[@]}"; do
+    if [ "$first" = true ]; then
       first=false
+    else
+      llm_calls_json+=","
     fi
+    llm_calls_json+="\"$agent\":${llm_calls[$agent]}"
   done
-  ctx_json+="}"
+  llm_calls_json+="}"
 
-  # Build flags JSON
-  local flags_json="{"
-  first=true
-  for key in "${!context_state[@]}"; do
-    if [[ $key =~ _flag$ ]]; then
-      [ "$first" = false ] && flags_json+=","
-      flags_json+="\"$key\":${context_state[$key]}"
-      first=false
-    fi
-  done
-  flags_json+="}"
-
-  # Print consolidated JSON
+  # Print consolidated JSON with COMPLETE context
   cat <<EOJSON
 {
   "iteration": ${current_iteration:-0},
   "session": "${current_tracked_session:0:8}",
   "node": "$current_node",
-  "context": $ctx_json,
-  "flags": $flags_json,
+  "context": $full_context_json,
   "navigator": {
     "decision": "$navigator_decision",
     "next_node": "$navigator_next_node",
@@ -262,7 +248,8 @@ dump_complete_state() {
   "conversation": {
     "user": "${last_user_message//\"/\\\"}",
     "ai": "${last_ai_message//\"/\\\"}"
-  }
+  },
+  "llm_calls": $llm_calls_json
 }
 EOJSON
 
@@ -324,6 +311,8 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
     navigator_reason=""
     navigator_llm_output=""
     worker_llm_output=""
+    unset llm_calls
+    declare -A llm_calls
 
     session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
     echo -e "\n${YELLOW}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -335,18 +324,20 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   # ========================================
   # USER MESSAGES
   # ========================================
-  if [[ $line =~ "User message:" ]] || [[ $line =~ "💬" ]]; then
+  if [[ $line =~ "👤 USER_MESSAGE:" ]] || [[ $line =~ "User message:" ]] || [[ $line =~ "💬" ]]; then
     # Extract user message content
-    if [[ $line =~ "User message:"[[:space:]](.+)$ ]]; then
+    if [[ $line =~ "USER_MESSAGE:"[[:space:]](.+)$ ]]; then
       last_user_message="${BASH_REMATCH[1]}"
-    elif [[ $line =~ 💬[[:space:]](.+)$ ]]; then
+    elif [[ $line =~ "User message:"[[:space:]](.+)$ ]]; then
+      last_user_message="${BASH_REMATCH[1]}"
+    elif [[ $line =~ 💬[[:space:]](.+)$ ]] && [[ ! $line =~ "SINGLE TURN COMPLETE" ]]; then
       last_user_message="${BASH_REMATCH[1]}"
     fi
 
-    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
-    echo -e "\n${GREEN}${BOLD}👤 USER MESSAGE${NC}"
-    [ -n "$session_header" ] && echo -e "$session_header"
-    echo -e "${GREEN}$line${NC}"
+    # Show actual message
+    if [ -n "$last_user_message" ]; then
+      echo -e "${DIM}👤 User: $last_user_message${NC}"
+    fi
   fi
 
   # ========================================
@@ -429,21 +420,16 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
     echo -e "${BLUE}🗺️  node_traversal_path: $line${NC}"
   fi
 
-  # Flags (track but don't show individually - will show in consolidated dump)
-  if [[ $line =~ "\"flags\":" ]] || [[ $line =~ "_flag" ]]; then
-    # Track flag updates
-    if [[ $line =~ "Set flag:"[[:space:]]([a-z_]+)[[:space:]]=[[:space:]]([0-9]+) ]]; then
-      context_state["${BASH_REMATCH[1]}"]="${BASH_REMATCH[2]}"
+  # Summary array - track conversation history
+  if [[ $line =~ "summary_of_conversation_on_each_step_until_now" ]]; then
+    # Extract array content if possible
+    if [[ $line =~ \[.*\] ]]; then
+      summary_array="${BASH_REMATCH[0]}"
+      context_state["conversation_summary"]="$summary_array"
+      echo -e "${DIM}💬 conversation summary updated (${#conversation_summary[@]} exchanges)${NC}"
+    else
+      echo -e "${DIM}💬 conversation summary updated${NC}"
     fi
-
-    # Suppress individual flag output
-    # echo -e "\n${PURPLE}${BOLD}🚩 FLAGS STATE:${NC}"
-    # echo -e "${PURPLE}$line${NC}"
-  fi
-
-  # Summary array
-  if [[ $line =~ "summary_of_conversation" ]]; then
-    echo -e "${DIM}💬 conversation summary updated${NC}"
   fi
 
   # Full context JSON blocks
@@ -494,12 +480,29 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   fi
 
   # ========================================
+  # AI RESPONSES
+  # ========================================
+  if [[ $line =~ "🤖 AI_RESPONSE:" ]]; then
+    # Extract full AI response
+    if [[ $line =~ "AI_RESPONSE:"[[:space:]](.+)$ ]]; then
+      last_ai_message="${BASH_REMATCH[1]}"
+      echo -e "${DIM}🤖 AI: ${last_ai_message:0:100}${NC}${DIM}...${NC}"
+
+      # Dump context JSON after each conversation exchange (user + AI)
+      if [ -n "$last_user_message" ] && [ -n "$last_ai_message" ]; then
+        dump_complete_state
+      fi
+    fi
+  fi
+
+  # ========================================
   # WORKER AGENT EXECUTION
   # ========================================
   if [[ $line =~ "👷" ]] || [[ $line =~ "WorkerAgent" ]]; then
     # Track AI response and LLM output
     if [[ $line =~ "✅ Generated response"[[:space:]]\(([0-9]+)[[:space:]]chars\) ]]; then
-      last_ai_message="Generated response (${BASH_REMATCH[1]} chars)"
+      # Actual response will be captured by AI_RESPONSE above
+      :
     elif [[ $line =~ "🤖 Response:"[[:space:]](.+)$ ]]; then
       worker_llm_output="${BASH_REMATCH[1]}"
     fi
@@ -512,21 +515,84 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   fi
 
   # ========================================
-  # LLM CALLS
+  # LLM CALLS - Capture detailed prompts and responses
   # ========================================
-  if [[ $line =~ "🤖 Model:" ]] || [[ $line =~ "🌡️  Temperature:" ]]; then
-    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
-    echo -e "\n${MAGENTA}${BOLD}🤖 LLM CALL${NC}"
-    [ -n "$session_header" ] && echo -e "$session_header"
-    echo -e "${MAGENTA}$line${NC}"
+
+  # Start of LLM call
+  if [[ $line =~ "🤖 [LLM CALL] Agent:"[[:space:]]([a-z]+) ]]; then
+    llm_call_agent="${BASH_REMATCH[1]}"
+    llm_call_in_progress="call"
+    llm_call_model=""
+    llm_call_system_prompt=""
+    llm_call_user_prompt=""
+    llm_call_response=""
+    llm_call_tokens=""
+    llm_call_cost=""
+
+    echo -e "\n${MAGENTA}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${MAGENTA}${BOLD}🤖 [LLM CALL] Agent: $llm_call_agent${NC}"
+    echo -e "${MAGENTA}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
   fi
 
-  # LLM responses
-  if [[ $line =~ "🤖 Response:" ]] || [[ $line =~ "\"response\":" ]]; then
-    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
-    echo -e "\n${BLUE}${BOLD}🤖 LLM RESPONSE${NC}"
-    [ -n "$session_header" ] && echo -e "$session_header"
-    echo -e "${BLUE}$line${NC}"
+  # Capture LLM call details
+  if [ "$llm_call_in_progress" = "call" ]; then
+    if [[ $line =~ "   Model:"[[:space:]](.+)$ ]]; then
+      llm_call_model="${BASH_REMATCH[1]}"
+      echo -e "${DIM}   Model: $llm_call_model${NC}"
+    elif [[ $line =~ "   Temperature:"[[:space:]](.+)$ ]]; then
+      echo -e "${DIM}$line${NC}"
+    elif [[ $line =~ "   Max Tokens:"[[:space:]](.+)$ ]]; then
+      echo -e "${DIM}$line${NC}"
+    elif [[ $line =~ "   JSON Mode:"[[:space:]](.+)$ ]]; then
+      echo -e "${DIM}$line${NC}"
+    elif [[ $line =~ "   Messages:"[[:space:]](.+)$ ]]; then
+      echo -e "${DIM}$line${NC}"
+    elif [[ $line =~ "   System Prompt Preview:"[[:space:]](.+)$ ]]; then
+      llm_call_system_prompt="${BASH_REMATCH[1]}"
+      echo -e "${CYAN}   System Prompt: ${llm_call_system_prompt:0:150}...${NC}"
+    elif [[ $line =~ "   User Prompt Preview:"[[:space:]](.+)$ ]]; then
+      llm_call_user_prompt="${BASH_REMATCH[1]}"
+      echo -e "${YELLOW}   User Prompt: ${llm_call_user_prompt:0:150}...${NC}"
+    fi
+  fi
+
+  # Start of LLM response
+  if [[ $line =~ "✅ [LLM RESPONSE] Agent:"[[:space:]]([a-z]+) ]]; then
+    llm_call_in_progress="response"
+    echo -e "\n${GREEN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}${BOLD}✅ [LLM RESPONSE] Agent: ${BASH_REMATCH[1]}${NC}"
+    echo -e "${GREEN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+  fi
+
+  # Capture LLM response details
+  if [ "$llm_call_in_progress" = "response" ]; then
+    if [[ $line =~ "   Tokens:"[[:space:]](.+)$ ]]; then
+      llm_call_tokens="${BASH_REMATCH[1]}"
+      echo -e "${DIM}   Tokens: $llm_call_tokens${NC}"
+    elif [[ $line =~ "   Cost:"[[:space:]](.+)$ ]]; then
+      llm_call_cost="${BASH_REMATCH[1]}"
+      echo -e "${DIM}   Cost: $llm_call_cost${NC}"
+    elif [[ $line =~ "   Latency:"[[:space:]](.+)$ ]]; then
+      echo -e "${DIM}$line${NC}"
+    elif [[ $line =~ "   Response Preview:"[[:space:]](.+)$ ]]; then
+      llm_call_response="${BASH_REMATCH[1]}"
+      echo -e "${BLUE}   Response: ${llm_call_response:0:200}...${NC}"
+
+      # Store complete LLM call data (truncate then escape)
+      local sys_prompt_trunc="${llm_call_system_prompt:0:300}"
+      local user_prompt_trunc="${llm_call_user_prompt:0:300}"
+      local response_trunc="${llm_call_response:0:300}"
+
+      # Escape quotes
+      sys_prompt_trunc="${sys_prompt_trunc//\"/\\\"}"
+      user_prompt_trunc="${user_prompt_trunc//\"/\\\"}"
+      response_trunc="${response_trunc//\"/\\\"}"
+
+      llm_calls[$llm_call_agent]="{\"model\":\"${llm_call_model}\",\"system_prompt\":\"${sys_prompt_trunc}\",\"user_prompt\":\"${user_prompt_trunc}\",\"response\":\"${response_trunc}\",\"tokens\":\"${llm_call_tokens}\",\"cost\":\"${llm_call_cost}\"}"
+
+      # Reset state
+      llm_call_in_progress=""
+    fi
   fi
 
   # ========================================

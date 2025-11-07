@@ -1,0 +1,971 @@
+{
+  "AGENT_PROFILE": {
+    "description": "Multiple specialized agent profiles work together: WorkerReplyAgent generates customer responses, WorkerMCPAgent executes tools and updates context, NavigatorAgent decides routing",
+    "workflow": "worker_reply_agent generates response → worker_mcp_agent (if needed) calls MCP tools and updates context → navigator_agent validates direction AND decides next node → all updates go to context.json",
+    "node_navigator_agent": {
+      "input_context_template": "Conversation of customer service agent and customer is given here {summary_of_conversation_on_each_step_until_now}. I want you to select a node based on these conditions {branching_conditions}. The conversation has already been through these nodes: {node_traversal_path}. Here's the data that was gathered {context_data}",
+      "input_context_variables": {
+        "summary_of_conversation_on_each_step_until_now": "Replace with context.summary_of_conversation_on_each_step_until_now array (format: [{customer: 'msg', agent: 'resp'}, ...])",
+        "branching_conditions": "Replace with current_node.branching_conditions array from dag.json",
+        "node_traversal_path": "Replace with context.node_traversal_path array (e.g., ['GREET_CUSTOMER', 'ASK_CUSTOMER_ABOUT_THEIR_NEED'])",
+        "context_data": "Replace with entire context.json object (includes customer_name, customers_main_ask, customer_phone_number, flags, etc.)"
+      },
+      "responsibilities": [
+        "Check if mandatory fields context.customers_main_ask and context.customer_phone_number are populated",
+        "Validate conversation is on track: output {is_on_track: boolean, reason: string}",
+        "Decide next node: update context.next_node_to_go_to (string node name)",
+        "Set immediate action: update context.next_course_of_action (string)",
+        "Track progress: append current node to context.node_traversal_path array",
+        "Trigger MCP calls when context fields are empty (matching_service_catalog_to_solve_customers_issue, task_id, appointment_details)"
+      ],
+      "decision_inputs": "Uses entire context.json including flags (object with flag_name: 0|1), mandatory fields (customers_main_ask, customer_phone_number), user intent, summary_of_conversation_on_each_step_until_now array",
+      "decision_outputs": "Updates context.next_node_to_go_to (string), context.next_course_of_action (string), context.node_traversal_path (array append)"
+    },
+    "worker_reply_agent": {
+      "role": "Generate natural, empathetic customer-facing responses (1-2 sentences)",
+      "input_context_template": "CRITICAL: Review COMPLETE conversation history: {summary_of_conversation_on_each_step_until_now}. Current node: {current_node_name}. Current user message: {current_user_message}. Context: {context_data}. Prompt examples: {prompt_examples}. IMPORTANT: Never ask questions already answered. Never repeat yourself. Generate natural 1-2 sentence responses only.",
+      "input_context_variables": {
+        "summary_of_conversation_on_each_step_until_now": "Replace with context.summary_of_conversation_on_each_step_until_now array - CRITICAL for avoiding repetition",
+        "current_node_name": "Replace with current_node.node_name string",
+        "current_user_message": "Replace with the most recent user message",
+        "prompt_examples": "Replace with current_node.prompt_templates string from agent_config.json",
+        "context_data": "Replace with entire context.json object"
+      },
+      "responsibilities": [
+        "FIRST: Read conversation history to understand what was already discussed",
+        "Understand node goal and role from configuration",
+        "Follow prompt examples/templates provided",
+        "Generate natural, empathetic response in 1-2 sentences",
+        "ONLY output customer-facing text (no JSON, no technical notes)",
+        "NEVER ask questions already answered in conversation history",
+        "NEVER repeat greetings or information"
+      ],
+      "decision_inputs": "Conversation history, current user message, node prompt templates, current context",
+      "decision_outputs": "Natural customer-facing response (string, 1-2 sentences)"
+    },
+    "worker_mcp_agent": {
+      "role": "Execute MCP tools and update context with results (no customer-facing responses)",
+      "input_context_template": "Analyze context to determine what data is missing: {context_data}. Available MCP tools: {mcp_tools}. Node responsibility: {node_context_update}. Select and execute appropriate MCP tool(s) to fetch missing data.",
+      "input_context_variables": {
+        "context_data": "Replace with entire context.json object",
+        "mcp_tools": "Replace with list of available MCP tools from manifest",
+        "node_context_update": "Replace with current_node.context_update string"
+      },
+      "responsibilities": [
+        "Analyze context to identify missing fields (service_catalog, task_id, customer_id, appointment_details, etc.)",
+        "Select appropriate MCP tool from available tools based on what's needed",
+        "Execute MCP tool with parameters from context",
+        "Map MCP tool results to context fields (using heuristics based on tool name)",
+        "Return context updates for orchestrator to merge",
+        "Optionally provide brief status message to customer (e.g., 'Let me check that for you')"
+      ],
+      "decision_inputs": "Current context state, available MCP tools, node's context-building responsibility",
+      "decision_outputs": "Context updates (partial DAGContext), MCP tool results, optional status message"
+    },
+    "validator_agent": {
+      "role": "Validates data integrity and business rules",
+      "input_context_template": "Validate the following context data: {context_data}. Check these rules: {validation_rules}",
+      "input_context_variables": {
+        "context_data": "Replace with entire context.json object",
+        "validation_rules": "Replace with mandatory field requirements and business rules"
+      },
+      "responsibilities": [
+        "Check mandatory fields are present: context.customers_main_ask, context.customer_phone_number",
+        "Validate field formats (phone numbers, emails, IDs)",
+        "Verify business rules (task requires customer_id, appointment requires task_id)",
+        "Output validation result: {valid: boolean, errors: string[]}"
+      ],
+      "decision_inputs": "Full context.json object, mandatory fields list, business rules",
+      "decision_outputs": "Returns {valid: boolean, errors: string[], warnings: string[]}"
+    },
+    "summarizer_agent": {
+      "role": "Summarizes conversation at each step",
+      "input_context_template": "Summarize this conversation exchange. User: {user_message}. Agent: {agent_response}",
+      "input_context_variables": {
+        "user_message": "Replace with last user message from state.messages",
+        "agent_response": "Replace with last agent response from state.messages"
+      },
+      "responsibilities": [
+        "Create concise summary of user message (1 sentence)",
+        "Create concise summary of agent response (1 sentence)",
+        "Append to context.summary_of_conversation_on_each_step_until_now array: {customer: 'summary', agent: 'summary'}"
+      ],
+      "decision_inputs": "Last user message, last agent response",
+      "decision_outputs": "Returns {customer: string, agent: string} to append to summary array"
+    },
+    "collaboration_flow": {
+      "step_1": "Orchestrator checks node type (reply vs MCP) and chooses correct worker agent",
+      "step_2a": "If reply node → worker_reply_agent generates customer-facing response (1-2 sentences)",
+      "step_2b": "If MCP node → worker_mcp_agent decides which MCP tool to use, executes it, and updates context.json",
+      "step_3": "Orchestrator merges contextUpdates into context.json using non-destructive rules",
+      "step_4": "navigator_agent reviews updated context and validates conversation direction",
+      "step_5": "navigator_agent decides next_node_to_go_to based on branching conditions and context state",
+      "step_6": "navigator_agent updates context.next_node_to_go_to and context.next_course_of_action",
+      "step_7": "Orchestrator transitions to next_node_to_go_to and repeats cycle"
+    },
+    "key_principle": "All agents use the same universal template but morph into different behaviors based on their profile in dag.json. No separate agent files needed - everything is configuration-driven.",
+    "agent_architecture": "Universal Agent System - Single agent template morphs into navigator, worker, validator, summarizer, etc. based on dag.json profiles"
+  },
+  "system_config": {
+    "agent_identity": "You are a polite customer service agent who is assisting a customer",
+    "default_context_values": {
+      "who_are_you": "You are a polite customer service agent who is assisting a customer. Behind the scene you use MCP tools, build data context and take actions to support customers need."
+    }
+  },
+  "context_update_rules": {
+    "description": "CRITICAL: All context updates are NON-DESTRUCTIVE. Context is built incrementally. Data is NEVER removed, only added or updated.",
+    "merge_behavior": {
+      "arrays": {
+        "rule": "APPEND - New items are added to existing array, never replaced",
+        "applicable_fields": [
+          "summary_of_conversation_on_each_step_until_now",
+          "node_traversal_path"
+        ],
+        "example": {
+          "before": {
+            "summary_of_conversation_on_each_step_until_now": [
+              {
+                "customer": "Hello",
+                "agent": "Hi!"
+              }
+            ]
+          },
+          "update": {
+            "summary_of_conversation_on_each_step_until_now": [
+              {
+                "customer": "Help me",
+                "agent": "Sure"
+              }
+            ]
+          },
+          "after": {
+            "summary_of_conversation_on_each_step_until_now": [
+              {
+                "customer": "Hello",
+                "agent": "Hi!"
+              },
+              {
+                "customer": "Help me",
+                "agent": "Sure"
+              }
+            ]
+          },
+          "note": "Array grows, old items preserved"
+        }
+      },
+      "scalar_fields": {
+        "rule": "UPDATE - Only update if new value is meaningful (not empty/null/undefined). Existing values can be overwritten.",
+        "applicable_fields": [
+          "customer_name",
+          "customer_phone_number",
+          "customer_id",
+          "customers_main_ask",
+          "matching_service_catalog_to_solve_customers_issue",
+          "related_entities_for_customers_ask",
+          "task_id",
+          "appointment_details",
+          "next_course_of_action",
+          "next_node_to_go_to"
+        ],
+        "example": {
+          "before": {
+            "customer_name": "",
+            "customer_phone_number": "555-1234"
+          },
+          "update": {
+            "customer_name": "John Doe",
+            "customer_phone_number": ""
+          },
+          "after": {
+            "customer_name": "John Doe",
+            "customer_phone_number": "555-1234"
+          },
+          "note": "customer_name updated (was empty), customer_phone_number preserved (update was empty)"
+        }
+      }
+    },
+    "mcp_tool_integration": {
+      "description": "MCP tools return data that must be MERGED into context using the same non-destructive rules",
+      "examples": {
+        "customer_create": {
+          "tool_returns": {
+            "id": "cust-123",
+            "name": "John Doe",
+            "primary_phone": "555-1234"
+          },
+          "context_updates": {
+            "customer_id": "cust-123",
+            "customer_name": "John Doe",
+            "customer_phone_number": "555-1234"
+          },
+          "note": "These updates are MERGED into existing context, not replaced"
+        },
+        "task_create": {
+          "tool_returns": {
+            "id": "task-456",
+            "name": "Lawn Care",
+            "service_catalog": "Landscaping"
+          },
+          "context_updates": {
+            "task_id": "task-456",
+            "matching_service_catalog_to_solve_customers_issue": "Landscaping"
+          },
+          "note": "Task data added to context, existing fields preserved"
+        },
+        "get_service_catalog": {
+          "tool_returns": [
+            {
+              "name": "Landscaping"
+            },
+            {
+              "name": "Plumbing"
+            }
+          ],
+          "context_updates": {
+            "matching_service_catalog_to_solve_customers_issue": "Landscaping"
+          },
+          "note": "First matching service selected and added to context"
+        }
+      }
+    },
+    "implementation_contract": {
+      "agent_context_service": "updateContext() method MUST implement non-destructive merge as specified above",
+      "worker_agent_service": "extractContextFromMCPResults() MUST return partial updates that will be merged",
+      "all_agents": "MUST use updateContext() for all context modifications, never direct assignment",
+      "verification": "Logs must show: 'appended', 'merged', 'updated' to confirm non-destructive behavior"
+    },
+    "mandatory_logging": {
+      "on_array_append": "Log: 'Array appended: X item(s), total: Y' (for summary_of_conversation, node_traversal_path)",
+      "on_field_update": "Log: 'Field updated: field_name [NEW|UPDATED]'",
+      "on_node_traversal": "Log: 'Node path appended: node_name, total nodes: X'",
+      "purpose": "Transparent tracking of context evolution for debugging and verification. node_traversal_path is critical for navigator routing."
+    }
+  },
+  "nodes": [
+    {
+      "node_name": "GREET_CUSTOMER",
+      "node_action": "reply",
+      "agent_profile_type": "worker_reply_agent",
+      "role": "a welcoming customer service representative",
+      "prompt": "Generate a warm, conversational greeting that invites the customer to share their needs.",
+      "example_tone_of_reply": "You are a polite customer service agent.\n\nYour task: Generate a warm greeting response for the customer.\n\nReply like this:\n\nIf the customer just said 'hello' or 'hi' with no issue mentioned:\n→ Hello! Welcome to our service. How can I help you today?\n\nIf the customer mentioned their issue:\n→ Hello! I understand you need help with [their specific issue]. Let me assist you with that right away.\n\n⚠️ OUTPUT RULES:\n- Output ONLY the greeting text (nothing else)\n- Do NOT include metadata, flags, or processing notes\n- Your entire response should be natural conversational text",
+      "node_goal": "Greet the customer warmly with a conversational question that invites them to share their needs.",
+      "context_update": "Initialize context with all required fields. Extract customers_main_ask if present in user's first message. Set greet_flag: 1.",
+      "expected_context_fields": [
+        "agent_session_id",
+        "who_are_you",
+        "summary_of_conversation_on_each_step_until_now",
+        "node_traversal_path"
+      ],
+      "default_next_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED",
+      "branching_conditions": [
+        {
+          "condition": "if customer stated their issue in first message",
+          "child_node": "Extract_Customer_Issue"
+        },
+        {
+          "condition": "if customer just greeted (no issue mentioned)",
+          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "ASK_CUSTOMER_ABOUT_THEIR_NEED",
+      "node_action": "reply",
+      "agent_profile_type": "worker_reply_agent",
+      "role": "a helpful customer service agent identifying customer needs",
+      "prompt": "Intelligently handle customer's need based on conversation history.",
+      "example_tone_of_reply": "You are a polite customer service agent.\n\nYour task: Respond appropriately based on whether the customer has stated their issue.\n\nReply like this:\n\nIf customer already stated their issue:\n→ I understand you need help with [their specific issue]. Let me help you with that.\n\nIf customer has NOT stated their issue yet:\n→ What can I help you with today?\n\n⚠️ OUTPUT RULES:\n- Output ONLY your natural response (nothing else)\n- Do NOT include metadata or processing notes\n- Never ask 'What brings you here?' if customer already told you their issue",
+      "node_goal": "Elicit the customer's primary need or issue intelligently. If customer has already stated their need, acknowledge it and extract it. If not, ask for it.",
+      "context_update": "Update customers_main_ask from customer's message if provided. Set ask_need_flag: 1.",
+      "default_next_node": "Extract_Customer_Issue",
+      "branching_conditions": [
+        {
+          "condition": "if customer has stated their need (in current or previous messages)",
+          "child_node": "Extract_Customer_Issue"
+        },
+        {
+          "condition": "if customer has NOT stated any need yet (just greetings)",
+          "child_node": "wait_for_customers_reply"
+        },
+        {
+          "condition": "if response unclear or no intent detected after asking",
+          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Extract_Customer_Issue",
+      "node_action": "mcp",
+      "agent_profile_type": "worker_mcp_agent",
+      "role": "an information extraction specialist",
+      "prompt": "Extract customer's main issue from conversation and update context.",
+      "example_tone_of_reply": "You are an information extraction specialist.\n\nYour task: Extract the customer's main issue/problem from the conversation.\n\nAnalyze:\n- What problem does the customer need solved?\n- What service are they asking for?\n- What is their primary concern?\n\nExtract and update customers_main_ask with a clear, concise description.\n\nExample extractions:\n→ User: 'My lawn is brown' → customers_main_ask: 'Lawn care - brown grass issue'\n→ User: 'I need drywall repair' → customers_main_ask: 'Drywall repair needed'\n→ User: 'Broken HVAC' → customers_main_ask: 'HVAC system repair'\n\n⚠️ OUTPUT RULES:\n- Extract ONLY from actual user messages\n- Be specific but concise\n- Return context update: {customers_main_ask: 'extracted issue'}\n- No customer-facing response needed (internal node)",
+      "node_goal": "Extract and structure the customer's main issue from conversation history and update customers_main_ask field.",
+      "context_update": "Extract customers_main_ask from conversation history. Set extract_issue_flag: 1.",
+      "expected_context_fields": [
+        "customers_main_ask"
+      ],
+      "default_next_node": "Identify_Issue",
+      "branching_conditions": [
+        {
+          "condition": "if customers_main_ask successfully extracted",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "if extraction fails or unclear",
+          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Identify_Issue",
+      "node_action": "reply",
+      "agent_profile_type": "worker_reply_agent",
+      "role": "a problem-solving customer service specialist",
+      "prompt": "Confirm the customer's issue and prepare for resolution.",
+      "example_tone_of_reply": "You are a polite customer service agent.\n\nYour task: Acknowledge the customer's issue empathetically.\n\nReply like this:\n\nFor drywall issue:\n→ I see you have drywall with holes that need patching. Let me help you find the right solution.\n\nFor other issues:\n→ I understand your [specific issue]. Let me see how I can assist you with that.\n\n⚠️ OUTPUT RULES:\n- Output ONLY your empathetic acknowledgment (nothing else)\n- Do NOT ask 'what brings you here' - the customer already told you\n- Be natural, empathetic, and solution-focused",
+      "node_goal": "Confirm the customer's issue that was captured in customers_main_ask. Acknowledge it empathetically and prepare for resolution.",
+      "context_update": "Confirm customers_main_ask is populated. Set identify_issue_flag: 1.",
+      "expected_context_fields": [
+        "customers_main_ask"
+      ],
+      "default_next_node": "Empathize",
+      "branching_conditions": [
+        {
+          "condition": "if issue already identified (identify_issue_flag: 1)",
+          "child_node": "Empathize"
+        },
+        {
+          "condition": "if customer changes issue",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "if need to fetch service catalog or MCP data",
+          "child_node": "use_mcp_to_get_info"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "use_mcp_to_get_info",
+      "node_action": "mcp",
+      "agent_profile_type": "worker_mcp_agent",
+      "role": "a data-gathering system assistant",
+      "prompt": "Find the matching MCP to get the needed information, execute it, and update context.",
+      "example_tone_of_reply": "You are a data-gathering system assistant.\n\nYour task:\n1. Identify the appropriate MCP endpoint or tool based on what information is needed\n2. Execute it to get the required data\n3. Update context with retrieved data: matching_service_catalog_to_solve_customers_issue, related_entities_for_customers_ask, task_id, appointment_details\n4. Set relevant flags\n\nOptional customer-facing response:\n→ Let me check that for you.\n→ One moment while I look that up.\n\n⚠️ OUTPUT RULES:\n- Return context updates as JSON\n- Optionally provide brief status message to customer",
+      "node_goal": "Find the matching MCP to get the specified information, execute it, and update context. Handles fetches for service catalog, entities, task_id, appointment details, etc.",
+      "context_update": "Update context with fetched data from MCP. Ensure mandatory fields like customers_main_ask and customer_phone_number are preserved.",
+      "expected_context_fields": [
+        "matching_service_catalog_to_solve_customers_issue",
+        "related_entities_for_customers_ask",
+        "task_id",
+        "appointment_details"
+      ],
+      "default_next_node": "Try_To_Gather_Customers_Data",
+      "branching_conditions": [
+        {
+          "condition": "if fetch fails or incomplete",
+          "child_node": "use_mcp_to_get_info"
+        },
+        {
+          "condition": "if customer changes issue during fetch",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Empathize",
+      "node_action": "reply",
+      "agent_profile_type": "worker_reply_agent",
+      "role": "an empathetic customer support agent",
+      "prompt": "Express empathy towards the customer's identified issue.",
+      "example_tone_of_reply": "You are a polite customer service agent.\n\nYour task: Express genuine empathy for the customer's issue.\n\nReply like this:\n→ Oh, I am sorry to hear that you are experiencing [their issue].\n→ I understand how frustrating [their issue] can be.\n\n⚠️ OUTPUT RULES:\n- Output ONLY your empathetic response (nothing else)\n- Use the customer's specific issue to personalize\n- Be natural and genuine",
+      "node_goal": "Acknowledge the customer's problem to build trust and show understanding.",
+      "context_update": "Confirm customers_main_ask is populated. Set empathize_flag: 1.",
+      "default_next_node": "wait_for_customers_reply",
+      "branching_conditions": [
+        {
+          "condition": "if empathy already fulfilled (empathize_flag: 1)",
+          "child_node": "Console_Build_Rapport"
+        },
+        {
+          "condition": "if customer replies and changes issue",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "if customer replies with acknowledgment",
+          "child_node": "Console_Build_Rapport"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Console_Build_Rapport",
+      "node_action": "reply",
+      "agent_profile_type": "worker_reply_agent",
+      "role": "a reassuring customer service professional",
+      "prompt": "Reassure the customer and build rapport.",
+      "example_tone_of_reply": "Your task: Reassure and comfort the customer.\n\nReply like this:\n→ Don't worry, you are in good hands. I will help you with [their issue].\n→ Rest assured, we'll get this sorted out together.\n\n⚠️ OUTPUT RULES:\n- Output ONLY your reassuring response (nothing else)\n- Be natural, supportive, and trust-building",
+      "node_goal": "Comfort the customer and assure them of assistance to strengthen the relationship.",
+      "context_update": "Set rapport_flag: 1.",
+      "default_next_node": "use_mcp_to_get_info",
+      "branching_conditions": [
+        {
+          "condition": "if rapport already built (rapport_flag: 1)",
+          "child_node": "Try_To_Gather_Customers_Data"
+        },
+        {
+          "condition": "if customer changes issue in response",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Try_To_Gather_Customers_Data",
+      "node_action": "reply",
+      "agent_profile_type": "worker_reply_agent",
+      "role": "a data collection specialist",
+      "prompt": "Ask targeted questions to collect customer data.",
+      "example_tone_of_reply": "Your task: Politely ask for missing customer information.\n\nReply like this:\n→ May I have your phone number so I can better assist you?\n→ Could you please provide your name?\n\n⚠️ OUTPUT RULES:\n- Output ONLY your polite question (nothing else)\n- Ask for one piece of information at a time",
+      "node_goal": "Gather essential customer information (name, phone) incrementally through questions.",
+      "context_update": "Incrementally populate customer_name and customer_phone_number. Treat customer_phone_number as mandatory.",
+      "expected_context_fields": [
+        "customer_name",
+        "customer_phone_number"
+      ],
+      "default_next_node": "Check_IF_existing_customer",
+      "branching_conditions": [
+        {
+          "condition": "if data not complete (e.g., missing mandatory customer_phone_number)",
+          "child_node": "Try_To_Gather_Customers_Data"
+        },
+        {
+          "condition": "if customer wants to update data",
+          "child_node": "Try_To_Gather_Customers_Data"
+        },
+        {
+          "condition": "if customer changes issue in response",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Check_IF_existing_customer",
+      "node_action": "mcp",
+      "agent_profile_type": "worker_mcp_agent",
+      "role": "a customer verification assistant",
+      "prompt": "Verify if the customer exists based on gathered data; handle creation if new. Behind the scenes: Check existence, update customer_id, set flags.",
+      "example_tone_of_reply": "Using {full_context}. Behind the scenes: Strictly check if customer exists via phone/name, if no create profile in background and fetch customer_id, update JSON without mentioning creation, set check_customer_flag: 1, ensure mandatory customer_phone_number is populated, and append summarized conversation pair to summary_of_conversation_on_each_step_until_now. Then, generate the response to the customer based on context data: If yes, 'Welcome back, {customer_name}!'; if no, proceed without mentioning.",
+      "node_goal": "Check for existing profile using customer data; welcome if yes, create silently if no, and update context with customer_id. Skip if checked (check flag: check_customer_flag: 1). Customer data flags persist unless explicitly updated.",
+      "context_update": "Add or update customer_id in context JSON. Set check_customer_flag: 1. Schema now requires customer_id for planning; ensure mandatory customer_phone_number is populated. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response}.",
+      "default_next_node": "Plan",
+      "branching_conditions": [
+        {
+          "condition": "if customer exists",
+          "child_node": "Plan"
+        },
+        {
+          "condition": "if customer does not exist",
+          "child_node": "Plan"
+        },
+        {
+          "condition": "if customer changes issue in response",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Plan",
+      "node_action": "mcp",
+      "agent_profile_type": "worker_mcp_agent",
+      "role": "a service planning coordinator",
+      "prompt": "Develop a step-wise plan to resolve the issue using available resources. Behind the scenes: Update context with plan details, set flags.",
+      "example_tone_of_reply": "From {full_context}. Behind the scenes: Strictly plan resolution, update JSON: {..., task_id: 'set via MCP', appointment_details: 'from MCP/tool', next_steps_plans_help_customer: 'step-wise plan using MCP, aligned to customers_main_ask and matching_service_catalog_to_solve_customers_issue'}, build mandatory customers_main_ask, set plan_flag: 1, and append summarized conversation pair to summary_of_conversation_on_each_step_until_now if interaction occurs. Then, generate the response to the customer based on context data: If needed, outline plan briefly.",
+      "node_goal": "Create a detailed plan in the JSON for helping the customer, incorporating MCP, based on intent and selected category. Skip if plan exists (check flag: plan_flag: 1). Reset if issue changes (via identify_issue_flag reset).",
+      "context_update": "Add task_id (via MCP), appointment_details (via MCP/tool), and next_steps_plans_help_customer to context JSON. Schema finalizes with plan details; build mandatory customers_main_ask. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response if any}.",
+      "default_next_node": "Communicate_To_Customer_Before_Action",
+      "branching_conditions": [
+        {
+          "condition": "if plan requires additional MCP fetch",
+          "child_node": "use_mcp_to_get_info"
+        },
+        {
+          "condition": "if plan already exists (plan_flag: 1)",
+          "child_node": "Communicate_To_Customer_Before_Action"
+        },
+        {
+          "condition": "if customer changes issue",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Communicate_To_Customer_Before_Action",
+      "node_action": "reply",
+      "agent_profile_type": "worker_reply_agent",
+      "role": "a transparent communication specialist",
+      "prompt": "Inform the customer about the planned actions for transparency. Behind the scenes: Set flags, confirm context.",
+      "example_tone_of_reply": "You are a polite customer service agent. Full context: {full_context}.\n\nYour task: Communicate the resolution plan clearly to the customer.\n\nExample responses:\n→ Here's what I plan to do to resolve your [issue]: [plan steps].\n→ Before I proceed, let me outline the next steps for you.\n\n⚠️ CRITICAL OUTPUT RULES:\n- Output ONLY your plan explanation (nothing else)\n- Do NOT output: 'CONTEXT UPDATE:', 'Set communicate_plan_flag', or ANY metadata\n- Do NOT output: Processing notes or technical details\n- Be clear and transparent about next steps\n- Your entire response should be natural, informative text\n\nExample correct output: Here's what I plan to do to resolve your drywall issue: I'll schedule a technician to patch the holes.\nExample WRONG output: Here's what I plan to do... Set communicate_plan_flag: 1...",
+      "node_goal": "Share the plan with the customer to get consent or feedback before proceeding. Skip if communicated (check flag: communicate_plan_flag: 1).",
+      "context_update": "No additions; set communicate_plan_flag: 1. Use full context including all keys; confirm mandatory fields. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response}.",
+      "default_next_node": "Execute_Plan_Using_MCP",
+      "branching_conditions": [
+        {
+          "condition": "if customer does not consent or requests changes",
+          "child_node": "Plan"
+        },
+        {
+          "condition": "if customer changes issue in response",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Execute_Plan_Using_MCP",
+      "node_action": "mcp",
+      "agent_profile_type": "worker_mcp_agent",
+      "role": "a service execution coordinator",
+      "prompt": "Carry out the planned steps via MCP integration. Behind the scenes: Execute and update context with results, set flags.",
+      "example_tone_of_reply": "Execute the plan from {full_context} using MCP. Behind the scenes: Strictly update context with execution_results (new key for outcomes), set execute_flag: 1, and append summarized conversation pair to summary_of_conversation_on_each_step_until_now if interaction occurs. Then, generate the response to the customer based on context data: If needed, inform of execution progress.",
+      "node_goal": "Perform the actions in the plan using MCP tools or APIs. Skip if executed (check flag: execute_flag: 1).",
+      "context_update": "Add execution_results to context JSON (e.g., {execution_results: 'details of what was done'}). Set execute_flag: 1. Schema includes results for communication; build wherever possible. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response if any}.",
+      "default_next_node": "Tell_Customers_Execution",
+      "branching_conditions": [
+        {
+          "condition": "if execution requires additional info",
+          "child_node": "use_mcp_to_get_info"
+        },
+        {
+          "condition": "if execution fails",
+          "child_node": "Plan"
+        },
+        {
+          "condition": "if customer changes issue",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Tell_Customers_Execution",
+      "node_action": "reply",
+      "agent_profile_type": "worker_reply_agent",
+      "role": "an update delivery specialist",
+      "prompt": "Update the customer on the execution results. Behind the scenes: Set flags, update context if needed.",
+      "example_tone_of_reply": "You are a polite customer service agent. Full context: {full_context}.\n\nYour task: Inform the customer about what was completed.\n\nExample responses:\n→ I have completed [the plan steps], and your [issue] should now be resolved.\n→ Here's what I've done: [execution results].\n\n⚠️ CRITICAL OUTPUT RULES:\n- Output ONLY your completion update (nothing else)\n- Do NOT output: 'CONTEXT UPDATE:', 'Set tell_execution_flag', or ANY metadata\n- Do NOT output: Processing notes or technical details\n- Be clear about what was accomplished\n- Your entire response should be natural, informative text\n\nExample correct output: I have scheduled a technician for tomorrow at 10 AM to patch your drywall.\nExample WRONG output: I have scheduled a technician... Set tell_execution_flag: 1...",
+      "node_goal": "Inform the customer about what was done to resolve their issue. Skip if told (check flag: tell_execution_flag: 1).",
+      "context_update": "No major additions; set tell_execution_flag: 1. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response}.",
+      "default_next_node": "Goodbye_And_Hangup",
+      "branching_conditions": [
+        {
+          "condition": "if customer has further questions",
+          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED"
+        },
+        {
+          "condition": "if customer changes issue in response",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Goodbye_And_Hangup",
+      "node_action": "reply",
+      "agent_profile_type": "worker_reply_agent",
+      "role": "a courteous closure specialist",
+      "prompt": "Conclude the conversation politely. Behind the scenes: Finalize context, set flags.",
+      "example_tone_of_reply": "You are a polite customer service agent. Full context: {full_context}.\n\nYour task: Conclude the conversation warmly and professionally.\n\nExample responses:\n→ Thank you for reaching out regarding [their issue]. Goodbye!\n→ If you need anything else, feel free to contact us. Have a great day!\n\n⚠️ CRITICAL OUTPUT RULES:\n- Output ONLY your warm closing message (nothing else)\n- Do NOT output: 'CONTEXT UPDATE:', 'Set goodbye_flag', or ANY metadata\n- Do NOT output: Processing notes or technical details\n- Your entire response should be natural, professional, warm text\n\nExample correct output: Thank you for reaching out regarding your drywall repair. Have a great day!\nExample WRONG output: Thank you for reaching out. Set goodbye_flag: 1...",
+      "node_goal": "End the interaction on a positive note after resolution. Skip if not at end (check if all prior flags are 1).",
+      "context_update": "Finalize context; add any wrap-up notes if needed. Set goodbye_flag: 1. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response}.",
+      "default_next_node": "Execute_Call_Hangup",
+      "branching_conditions": [
+        {
+          "condition": "if customer continues conversation",
+          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED"
+        },
+        {
+          "condition": "if customer changes issue",
+          "child_node": "Identify_Issue"
+        },
+        {
+          "condition": "after node completion to summarize",
+          "child_node": "summarize_the_conversation_on_node_and_update_context"
+        }
+      ]
+    },
+    {
+      "node_name": "Execute_Call_Hangup",
+      "node_action": "mcp",
+      "agent_profile_type": "worker_mcp_agent",
+      "role": "a call termination specialist",
+      "prompt": "Execute phone call hangup via MCP telephony tool to properly terminate the call session. Behind the scenes: Use MCP to end call, update context with hangup status.",
+      "example_tone_of_reply": "Using {full_context}. Behind the scenes: Strictly identify and execute the telephony MCP tool to hang up the phone call. Use context.chat_session_id or context.call_session_id to identify the call to terminate. Call the MCP hangup endpoint (e.g., call_hangup, telephony_end_call, or similar). Update context with call_ended: true and hangup_status. Set hangup_flag: 1. Append to summary_of_conversation_on_each_step_until_now if needed. No customer-facing response needed (call is ending).",
+      "node_goal": "Execute phone call hangup via MCP telephony tool to properly terminate the call session. This is the final system action after customer conversation ends.",
+      "context_update": "Update context with call_ended: true, hangup_status: 'success' or 'failed', hangup_timestamp. Set hangup_flag: 1. This confirms call termination was attempted.",
+      "expected_context_fields": [
+        "call_ended",
+        "hangup_status"
+      ],
+      "default_next_node": null,
+      "branching_conditions": [
+        {
+          "condition": "if hangup successful",
+          "child_node": null
+        },
+        {
+          "condition": "if hangup fails (retry once)",
+          "child_node": "Execute_Call_Hangup"
+        }
+      ]
+    },
+    {
+      "node_name": "wait_for_customers_reply",
+      "node_action": "internal",
+      "agent_profile_type": "internal",
+      "role": "a patient listener (internal routing node)",
+      "prompt": "Wait for and receive the customer's reply to process in the next appropriate node. Behind the scenes: Capture customer response and route to appropriate node based on content.",
+      "example_tone_of_reply": "You are a polite customer service agent. This node is triggered when waiting for customer input after asking a question or making a statement. Behind the scenes: Strictly capture the customer's response in context, analyze the response intent, and update next_node_to_go_to based on what the customer said. If customer provides requested information, route to the appropriate processing node. If customer changes topic or asks new question, route accordingly. Append customer response to summary_of_conversation_on_each_step_until_now. No direct response generated here; this is a routing node.",
+      "node_goal": "Capture customer's reply after agent asks a question and intelligently route to the next appropriate node based on response content.",
+      "context_update": "Capture customer_response, analyze intent, update next_node_to_go_to based on response content. Append to summary_of_conversation_on_each_step_until_now.",
+      "default_next_node": "Extract_Customer_Issue",
+      "branching_conditions": [
+        {
+          "condition": "if customers_main_ask is already populated and customer confirms/acknowledges",
+          "child_node": "Try_To_Gather_Customers_Data"
+        },
+        {
+          "condition": "if customers_main_ask is empty or not set",
+          "child_node": "Extract_Customer_Issue"
+        },
+        {
+          "condition": "if customer provides personal data (name, phone, email)",
+          "child_node": "Try_To_Gather_Customers_Data"
+        },
+        {
+          "condition": "if customer changes topic or states new issue",
+          "child_node": "Extract_Customer_Issue"
+        }
+      ]
+    },
+    {
+      "node_name": "summarize_the_conversation_on_node_and_update_context",
+      "node_action": "internal",
+      "agent_profile_type": "summarizer_agent",
+      "role": "a conversation summarizer (internal node)",
+      "prompt": "Summarize the conversation at this step and update the context JSON with the summary. Behind the scenes: Summarize the customer and agent messages concisely and append to the mandatory key.",
+      "example_tone_of_reply": "You are a polite customer service agent. This is a mandatory step after each interaction to maintain a summarized history. Clearly explained: The purpose is to create a concise record of the conversation for continuity, reference in future nodes, and to ensure the context JSON evolves with a running summary array. From the customer's message '{customer_response}' and the agent's response '{agent_response}', generate a summarized pair as {customer: 'concise summary of customer's message', agent: 'concise summary of agent's response'}. Strictly append this object to the array in summary_of_conversation_on_each_step_until_now in the full_context JSON. If no customer response (e.g., initial step), use empty string for customer. Do not modify other keys. No response is generated to the customer; this is an internal update only. After updating, the system will proceed to the next node based on the previous node's default_next_node or branching conditions.",
+      "node_goal": "Summarize and append the conversation pair to the mandatory summary_of_conversation_on_each_step_until_now key in context after each step, ensuring a clear, evolving history without interacting with the customer.",
+      "context_update": "Append the summarized {customer, agent} object to the array in summary_of_conversation_on_each_step_until_now. This is mandatory for each interactive step.",
+      "default_next_node": null,
+      "branching_conditions": []
+    }
+  ],
+  "global_context_schema_semantics": {
+    "description": "Semantics tells orchestrator what each fields mean, their purpose, and how they should be used throughout the conversation lifecycle",
+    "mandatory_fields": [
+      "customers_main_ask",
+      "customer_phone_number"
+    ],
+    "field_semantics": {
+      "agent_session_id": {
+        "type": "string",
+        "mandatory": true,
+        "description": "Unique session identifier (UUID) for this conversation. Set once at session initialization and never changes.",
+        "example": "abc-123-session-id",
+        "updated_by": "orchestrator at session start",
+        "when_to_update": "Once at initialization only"
+      },
+      "who_are_you": {
+        "type": "string",
+        "mandatory": true,
+        "description": "Agent identity and role description. Defines the agent's persona and capabilities. Used in LLM system prompts.",
+        "example": "You are a polite customer service agent who is assisting a customer",
+        "updated_by": "orchestrator at session start from system_config",
+        "when_to_update": "Once at initialization only"
+      },
+      "customer_name": {
+        "type": "string",
+        "mandatory": false,
+        "description": "Customer's full name. Extracted from conversation or fetched from customer record via MCP.",
+        "example": "John Doe",
+        "updated_by": "worker_agent from user input OR navigator_agent from MCP customer_create/customer_get results",
+        "when_to_update": "When customer provides name OR when customer record is fetched/created"
+      },
+      "customer_phone_number": {
+        "type": "string",
+        "mandatory": true,
+        "description": "Customer's primary phone number. CRITICAL for customer identification and record lookup/creation. Must be collected before creating tasks.",
+        "example": "555-1234",
+        "updated_by": "worker_agent from user input",
+        "when_to_update": "As soon as customer provides phone number (typically in Try_To_Gather_Customers_Data node)"
+      },
+      "customer_email": {
+        "type": "string",
+        "mandatory": false,
+        "description": "Customer's email address. Optional contact information.",
+        "example": "john.doe@example.com",
+        "updated_by": "worker_agent from user input OR navigator_agent from MCP customer results",
+        "when_to_update": "When customer provides email OR when customer record is fetched"
+      },
+      "customer_id": {
+        "type": "string",
+        "mandatory": false,
+        "description": "UUID of customer record in PMO system (d_cust table). Required for creating tasks and appointments. Populated via MCP customer_create or customer_get.",
+        "example": "cust-456",
+        "updated_by": "navigator_agent or worker_agent from MCP customer_create/customer_get results",
+        "when_to_update": "After customer lookup/creation in Check_IF_existing_customer node"
+      },
+      "customers_main_ask": {
+        "type": "string",
+        "mandatory": true,
+        "description": "Primary issue or request from customer. The core reason for contacting support. Used to match service catalog and create tasks.",
+        "example": "My lawn is brown and needs help",
+        "updated_by": "worker_agent from user input in Identify_Issue node",
+        "when_to_update": "When customer describes their issue (can be updated if customer changes topic)"
+      },
+      "matching_service_catalog_to_solve_customers_issue": {
+        "type": "string",
+        "mandatory": false,
+        "description": "Service category that matches customer's issue (e.g., Plumbing, Landscaping, HVAC). Fetched from settings via MCP setting_list endpoint.",
+        "example": "Landscaping",
+        "updated_by": "navigator_agent or worker_agent from MCP setting_list results (dl__service_category)",
+        "when_to_update": "After customers_main_ask is populated, use MCP to fetch service catalog and match"
+      },
+      "related_entities_for_customers_ask": {
+        "type": "string (JSON)",
+        "mandatory": false,
+        "description": "JSON string of related PMO entities (projects, tasks, employees) relevant to customer's issue. Used for context and assignment.",
+        "example": "[{id: 'proj-1', name: 'Lawn Care Project'}]",
+        "updated_by": "navigator_agent from MCP linkage or entity queries",
+        "when_to_update": "After service catalog is matched, optionally fetch related entities"
+      },
+      "task_id": {
+        "type": "string",
+        "mandatory": false,
+        "description": "UUID of task created for customer's service request (d_task table). Required for scheduling appointments.",
+        "example": "task-789",
+        "updated_by": "worker_agent from MCP task_create results",
+        "when_to_update": "After customer_id and customers_main_ask are populated, create task via MCP in Plan/Execute nodes"
+      },
+      "task_name": {
+        "type": "string",
+        "mandatory": false,
+        "description": "Human-readable name of the created task.",
+        "example": "Lawn Care Service Request",
+        "updated_by": "worker_agent from MCP task_create results",
+        "when_to_update": "When task is created"
+      },
+      "appointment_details": {
+        "type": "string",
+        "mandatory": false,
+        "description": "Details about scheduled appointment for the task. Includes date, time, technician, location.",
+        "example": "Scheduled for 2025-11-10 at 10:00 AM with Bob Smith",
+        "updated_by": "worker_agent from MCP person_calendar_book or booking_create results",
+        "when_to_update": "After task_id is populated, schedule appointment via MCP"
+      },
+      "project_id": {
+        "type": "string",
+        "mandatory": false,
+        "description": "UUID of project if task is linked to a larger project.",
+        "example": "proj-123",
+        "updated_by": "worker_agent from MCP project_create or linkage results",
+        "when_to_update": "When task is linked to a project"
+      },
+      "assigned_employee_id": {
+        "type": "string",
+        "mandatory": false,
+        "description": "UUID of employee assigned to handle the customer's request.",
+        "example": "emp-456",
+        "updated_by": "worker_agent from MCP employee queries or task assignment",
+        "when_to_update": "When technician/employee is assigned to task"
+      },
+      "assigned_employee_name": {
+        "type": "string",
+        "mandatory": false,
+        "description": "Name of assigned employee for customer communication.",
+        "example": "Bob Smith",
+        "updated_by": "worker_agent from MCP employee results",
+        "when_to_update": "When employee is assigned"
+      },
+      "next_course_of_action": {
+        "type": "string",
+        "mandatory": false,
+        "description": "Immediate next action the agent plans to take. Used by navigator to guide conversation flow. Updated after each decision.",
+        "example": "Empathize with customer about lawn issue",
+        "updated_by": "navigator_agent after each routing decision",
+        "when_to_update": "After every navigator decision (every iteration)"
+      },
+      "next_node_to_go_to": {
+        "type": "string",
+        "mandatory": true,
+        "description": "Name of next node to execute. Drives conversation flow. Navigator decides this based on context and branching conditions.",
+        "example": "Empathize",
+        "updated_by": "navigator_agent after routing decision",
+        "when_to_update": "After every navigator decision (every iteration)"
+      },
+      "node_traversal_path": {
+        "type": "array of strings",
+        "mandatory": true,
+        "description": "Ordered list of all nodes executed in this session. Used by navigator to prevent re-execution and track progress. APPEND ONLY.",
+        "example": [
+          "GREET_CUSTOMER",
+          "ASK_CUSTOMER_ABOUT_THEIR_NEED",
+          "Identify_Issue"
+        ],
+        "updated_by": "worker_agent or navigator_agent after each node execution",
+        "when_to_update": "Append current node name after each node completes execution"
+      },
+      "summary_of_conversation_on_each_step_until_now": {
+        "type": "array of objects {customer: string, agent: string}",
+        "mandatory": true,
+        "description": "Complete conversation history as summarized exchanges. Each object has customer message summary and agent response summary. Used for context continuity. APPEND ONLY.",
+        "example": [
+          {
+            "customer": "Hello, I need help with my lawn",
+            "agent": "Hello! How can I assist you today?"
+          },
+          {
+            "customer": "My grass is brown",
+            "agent": "I understand you're having issues with brown grass"
+          }
+        ],
+        "updated_by": "summarizer_agent or worker_agent after each interaction",
+        "when_to_update": "Append new {customer, agent} pair after each customer-agent exchange"
+      },
+      "flags": {
+        "type": "object {[node_name + '_flag']: 0 | 1}",
+        "mandatory": true,
+        "description": "Node completion flags. Each node sets its flag to 1 when completed. Used for skip logic and progress tracking. Keys are dynamic (node_name + '_flag').",
+        "example": {
+          "greet_flag": 1,
+          "identify_issue_flag": 1,
+          "empathize_flag": 1
+        },
+        "updated_by": "worker_agent after completing each node",
+        "when_to_update": "Set flag to 1 after node execution completes"
+      }
+    },
+    "example_context": {
+      "agent_session_id": "abc-123-session-id",
+      "who_are_you": "You are a polite customer service agent who is assisting a customer",
+      "customer_name": "John Doe",
+      "customer_phone_number": "555-1234",
+      "customer_email": "john.doe@example.com",
+      "customer_id": "cust-456",
+      "customers_main_ask": "My lawn is brown and needs help",
+      "matching_service_catalog_to_solve_customers_issue": "Landscaping",
+      "related_entities_for_customers_ask": "[{id: 'proj-1', name: 'Lawn Care Project'}]",
+      "task_id": "task-789",
+      "task_name": "Lawn Care Service Request",
+      "appointment_details": "Scheduled for 2025-11-10 at 10:00 AM with Bob Smith",
+      "project_id": "proj-123",
+      "assigned_employee_id": "emp-456",
+      "assigned_employee_name": "Bob Smith",
+      "next_course_of_action": "Empathize with customer about lawn issue",
+      "next_node_to_go_to": "Empathize",
+      "node_traversal_path": [
+        "GREET_CUSTOMER",
+        "ASK_CUSTOMER_ABOUT_THEIR_NEED",
+        "Identify_Issue"
+      ],
+      "summary_of_conversation_on_each_step_until_now": [
+        {
+          "customer": "Hello, I need help with my lawn",
+          "agent": "Hello! How can I assist you today?"
+        },
+        {
+          "customer": "My grass is brown",
+          "agent": "I understand you're having issues with brown grass"
+        }
+      ],
+      "flags": {
+        "greet_flag": 1,
+        "ask_need_flag": 1,
+        "identify_issue_flag": 1
+      }
+    },
+    "initial_context_template": {
+      "description": "CRITICAL: Orchestrator MUST initialize context with this exact structure at session start. All string fields start empty, all arrays start empty. This ensures context is properly tracked throughout the conversation.",
+      "template": {
+        "agent_session_id": "<session_uuid>",
+        "who_are_you": "You are a polite customer service agent who is assisting a customer. Behind the scene you use MCP tools, build data context and take actions to support customers need.",
+        "customer_name": "",
+        "customer_phone_number": "",
+        "customer_email": "",
+        "customer_id": "",
+        "customers_main_ask": "",
+        "matching_service_catalog_to_solve_customers_issue": "",
+        "related_entities_for_customers_ask": "",
+        "task_id": "",
+        "task_name": "",
+        "appointment_details": "",
+        "project_id": "",
+        "assigned_employee_id": "",
+        "assigned_employee_name": "",
+        "next_course_of_action": "",
+        "next_node_to_go_to": "GREET_CUSTOMER",
+        "node_traversal_path": [],
+        "summary_of_conversation_on_each_step_until_now": [],
+        "flags": {}
+      },
+      "instructions_for_orchestrator": [
+        "1. At session start, deep copy the initial_context_template.template object",
+        "2. Replace <session_uuid> with actual session ID",
+        "3. Initialize flags object as empty {}",
+        "4. As conversation progresses, UPDATE fields (never replace entire context)",
+        "5. APPEND to arrays (node_traversal_path, summary_of_conversation_on_each_step_until_now)",
+        "6. Preserve all existing context fields when updating",
+        "7. Log context state after each iteration for debugging"
+      ]
+    }
+  }
+}

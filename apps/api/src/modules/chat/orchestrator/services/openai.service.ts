@@ -7,6 +7,7 @@
 import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { getAgentModelConfig, calculateAgentCost } from '../config/agent-models.config.js';
+import { getLLMLogger } from './llm-logger.service.js';
 
 /**
  * OpenAI Service
@@ -14,6 +15,7 @@ import { getAgentModelConfig, calculateAgentCost } from '../config/agent-models.
  */
 export class OpenAIService {
   private client: OpenAI;
+  private logger = getLLMLogger();
 
   constructor() {
     if (!process.env.OPENAI_API_KEY) {
@@ -34,46 +36,103 @@ export class OpenAIService {
     temperature?: number;
     maxTokens?: number;
     jsonMode?: boolean;
+    tools?: any[];
+    tool_choice?: any;
+    sessionId?: string;  // Added for logging
   }): Promise<{
     content: string;
     tokensUsed: number;
     costCents: number;
     model: string;
+    tool_calls?: any[];
   }> {
     const config = getAgentModelConfig(args.agentType);
 
     const startTime = Date.now();
 
+    // Log LLM call to centralized logger
+    await this.logger.logLLMCall({
+      agentType: args.agentType,
+      model: config.model,
+      messages: args.messages,
+      temperature: args.temperature ?? config.temperature,
+      maxTokens: args.maxTokens ?? config.maxTokens,
+      jsonMode: args.jsonMode ?? false,
+      tools: args.tools,
+      sessionId: args.sessionId,
+    });
+
+    // Also log to console (abbreviated)
+    console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`🤖 [LLM CALL] Agent: ${args.agentType}`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`   Model: ${config.model}`);
+    console.log(`   Temperature: ${args.temperature ?? config.temperature}`);
+    console.log(`   Max Tokens: ${args.maxTokens ?? config.maxTokens}`);
+    console.log(`   JSON Mode: ${args.jsonMode ? 'YES' : 'NO'}`);
+    console.log(`   Messages: ${args.messages.length} message(s)`);
+
     try {
-      const response = await this.client.chat.completions.create({
+      const apiParams: any = {
         model: config.model,
         messages: args.messages,
         temperature: args.temperature ?? config.temperature,
         max_tokens: args.maxTokens ?? config.maxTokens,
         response_format: args.jsonMode ? { type: 'json_object' } : undefined,
-      });
+      };
+
+      // Add tools and tool_choice if provided
+      if (args.tools) {
+        apiParams.tools = args.tools;
+      }
+      if (args.tool_choice) {
+        apiParams.tool_choice = args.tool_choice;
+      }
+
+      const response = await this.client.chat.completions.create(apiParams);
 
       const content = response.choices[0]?.message?.content || '';
+      const tool_calls = response.choices[0]?.message?.tool_calls;
       const tokensUsed = response.usage?.total_tokens || 0;
       const costCents = calculateAgentCost(args.agentType, tokensUsed);
+      const promptTokens = response.usage?.prompt_tokens || 0;
+      const completionTokens = response.usage?.completion_tokens || 0;
 
       const latency = Date.now() - startTime;
 
-      console.log(`[OpenAI] ${args.agentType} agent:`, {
-        model: config.model,
-        tokens: tokensUsed,
-        cost: `$${(costCents / 100).toFixed(4)}`,
-        latency: `${latency}ms`,
+      // Log response to centralized logger
+      await this.logger.logLLMResponse({
+        agentType: args.agentType,
+        content,
+        tokensUsed,
+        promptTokens,
+        completionTokens,
+        costCents,
+        latencyMs: latency,
+        toolCalls: tool_calls,
+        sessionId: args.sessionId,
       });
+
+      // Also log to console (abbreviated)
+      console.log(`\n✅ [LLM RESPONSE] Agent: ${args.agentType}`);
+      console.log(`   Tokens: ${tokensUsed} (prompt: ${promptTokens}, completion: ${completionTokens})`);
+      console.log(`   Cost: $${(costCents / 100).toFixed(4)}`);
+      console.log(`   Latency: ${latency}ms`);
+      console.log(`   Response Preview: ${content.substring(0, 500)}...`);
+      if (tool_calls) {
+        console.log(`   Tool Calls: ${tool_calls.length} tool(s) called`);
+      }
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
       return {
         content,
         tokensUsed,
         costCents,
         model: config.model,
+        tool_calls,
       };
     } catch (error: any) {
-      console.error(`[OpenAI] Error calling ${args.agentType} agent:`, error.message);
+      console.error(`[OpenAI] ❌ Error calling ${args.agentType} agent:`, error.message);
       throw error;
     }
   }

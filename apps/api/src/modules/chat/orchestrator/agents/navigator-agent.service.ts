@@ -1,11 +1,14 @@
 /**
  * Navigator Agent
  * Lightweight routing brain that decides next node using LLM
- * Input: dag.json (nodes + branching_conditions) + minimal context
+ * Input: dag.json (nodes + branching_conditions) + context_{session_id}.json
  * Output: which node to execute next (no keyword matching, pure LLM decision)
+ * READS context_{session_id}.json file for complete context before routing
  * @module orchestrator/agents/navigator-agent
  */
 
+import fs from 'fs/promises';
+import path from 'path';
 import { getOpenAIService } from '../services/openai.service.js';
 import type { AgentContextState } from './agent-context.service.js';
 import type { DAGConfiguration, DAGContext } from './dag-types.js';
@@ -17,6 +20,7 @@ export interface NavigatorDecision {
   nextNode: string;
   nextCourseOfAction: string;
   reason: string;
+  matchedCondition?: string | null;
   mcpToolsNeeded?: string[];
   skipCurrent?: boolean;
   validationStatus: {
@@ -31,24 +35,53 @@ export interface NavigatorDecision {
  * Navigator Agent Service
  * Role: Validates conversation direction AND decides which node to go next
  * This unified agent combines validation + routing in a single LLM call
+ * READS context_{session_id}.json file for routing decisions
  */
 export class NavigatorAgent {
   private dagConfig: DAGConfiguration;
+  private contextDir: string = './logs/contexts';
 
   constructor(dagConfig: DAGConfiguration) {
     this.dagConfig = dagConfig;
   }
 
   /**
-   * Lightweight routing decision based on dag.json + minimal context
+   * Read context from JSON file - DIRECT FILE READ
+   */
+  private async readContextFile(sessionId: string): Promise<any | null> {
+    try {
+      const filePath = path.join(this.contextDir, `context_${sessionId}.json`);
+      const content = await fs.readFile(filePath, 'utf-8');
+      const parsed = JSON.parse(content);
+      console.log(`[NavigatorAgent] 📖 Read context_${sessionId.substring(0, 8)}...json (${parsed.metadata?.action || 'unknown'})`);
+      return parsed;
+    } catch (error: any) {
+      if (error.code !== 'ENOENT') {
+        console.error(`[NavigatorAgent] ❌ Failed to read context file: ${error.message}`);
+      }
+      return null;
+    }
+  }
+
+  /**
+   * Lightweight routing decision based on dag.json + context_{session_id}.json
    * Navigator focuses on: which node next? Not on detailed prompt engineering.
    */
   async decideNextNode(state: AgentContextState, skipValidation: boolean = false): Promise<NavigatorDecision> {
     console.log(`\n🧭 [NavigatorAgent] Deciding next node (lightweight routing)...`);
     console.log(`[NavigatorAgent] Current node: ${state.currentNode}`);
 
-    const systemPrompt = this.buildUnifiedSystemPrompt();
-    const userPrompt = this.buildUnifiedUserPrompt(state);
+    // Read context file for complete context
+    const contextFile = await this.readContextFile(state.sessionId);
+    if (contextFile) {
+      console.log(`[NavigatorAgent] 📊 Context file statistics:`);
+      console.log(`   - Total messages: ${contextFile.statistics?.totalMessages || 0}`);
+      console.log(`   - Nodes traversed: ${contextFile.statistics?.nodesTraversed || 0}`);
+      console.log(`   - Flags set: ${contextFile.statistics?.flagsSet || 0}/${Object.keys(contextFile.context?.flags || {}).length}`);
+    }
+
+    const systemPrompt = this.buildUnifiedSystemPrompt(state.currentNode);
+    const userPrompt = this.buildUnifiedUserPrompt(state, contextFile);
 
     const openaiService = getOpenAIService();
     const result = await openaiService.callAgent({
@@ -59,6 +92,7 @@ export class NavigatorAgent {
       ],
       temperature: 0.1,
       jsonMode: true,
+      sessionId: state.sessionId,
     });
 
     const decision = JSON.parse(result.content || '{"validationStatus": {"onTrack": true, "reason": "OK"}, "nextNode": "END", "reason": "Unable to determine next node"}');
@@ -72,6 +106,7 @@ export class NavigatorAgent {
     console.log(`[NavigatorAgent] ✅ Next node: ${decision.nextNode}`);
     console.log(`[NavigatorAgent] 📝 Next action: ${decision.nextCourseOfAction}`);
     console.log(`[NavigatorAgent] 💭 Routing reason: ${decision.reason}`);
+    console.log(`[NavigatorAgent] 🎯 Matched condition: ${decision.matchedCondition || 'Using default_next_node'}`);
 
     if (decision.mcpToolsNeeded && decision.mcpToolsNeeded.length > 0) {
       console.log(`[NavigatorAgent] 🔧 MCP tools needed: ${decision.mcpToolsNeeded.join(', ')}`);
@@ -81,6 +116,7 @@ export class NavigatorAgent {
       nextNode: decision.nextNode,
       nextCourseOfAction: decision.nextCourseOfAction || '',
       reason: decision.reason,
+      matchedCondition: decision.matchedCondition || null,
       mcpToolsNeeded: decision.mcpToolsNeeded || [],
       skipCurrent: decision.skipCurrent || false,
       validationStatus: validation,
@@ -88,110 +124,184 @@ export class NavigatorAgent {
   }
 
   /**
-   * Build lightweight system prompt focused on routing decisions
-   * Navigator only needs to know: nodes, flags, mandatory fields, flow rules
+   * Build system prompt for condition-based routing
+   * Navigator evaluates branching_conditions from dag.json against context to decide next node
+   * OPTIMIZED: Only passes metadata for child nodes available from current node's branches
    */
-  private buildUnifiedSystemPrompt(): string {
+  private buildUnifiedSystemPrompt(currentNodeName: string): string {
     const navigatorProfile = (this.dagConfig.AGENT_PROFILE as any)?.node_navigator_agent || {};
 
-    // Extract node flow + branching_conditions from dag.json
-    const nodeFlow = this.dagConfig.nodes.map(n => ({
-      name: n.node_name,
-      goal: n.node_goal,
-      default_next: n.default_next_node,
-      branching_conditions: n.branching_conditions.map(b => ({
-        condition: b.condition,
-        child_node: b.child_node
-      }))
-    }));
+    // Get current node's branching conditions to find available child nodes
+    const currentNodeConfig = this.dagConfig.nodes.find(n => n.node_name === currentNodeName);
+    const branchingConditions = currentNodeConfig?.branching_conditions || [];
+    const defaultNextNode = currentNodeConfig?.default_next_node;
+
+    // Extract unique child node names from branching conditions + default
+    const childNodeNames = new Set<string>();
+    branchingConditions.forEach((bc: any) => {
+      if (bc.child_node) childNodeNames.add(bc.child_node);
+    });
+    if (defaultNextNode && defaultNextNode !== 'null') {
+      childNodeNames.add(defaultNextNode);
+    }
+
+    // Extract ONLY essential metadata for AVAILABLE child nodes
+    const availableChildNodes = this.dagConfig.nodes
+      .filter(n => childNodeNames.has(n.node_name))
+      .map(n => ({
+        node_name: n.node_name,
+        role: (n as any).role || 'Node executor',
+        goal: n.node_goal || 'Execute node action',
+        context_update: n.context_update || 'Updates context as needed'
+      }));
 
     return `${(this.dagConfig as any).llm_framework_instructions?.architecture || 'Multi-Agent Conversation System'}
 
-YOUR ROLE: ${navigatorProfile.role || 'Navigator Agent - Pure LLM routing decisions'}
+YOUR ROLE: ${navigatorProfile.role || 'Navigator Agent - Condition-based routing decisions'}
 
-You are the ROUTING BRAIN. NO RULES. Pure LLM understanding of user intent and conversation flow.
+You are the ROUTING BRAIN. Your job is to:
+1. Review the current context state
+2. Evaluate the current node's branching_conditions against context
+3. CHOOSE 1 NODE from the available child nodes based on which condition matches
+4. If NO conditions match, choose the default_next_node
+5. Provide clear reasoning for your choice
 
-AVAILABLE NODES (from dag.json):
-${JSON.stringify(nodeFlow, null, 2)}
+AVAILABLE CHILD NODES (choose 1 from these):
+${JSON.stringify(availableChildNodes, null, 2)}
 
-Note: branching_conditions are DESCRIPTIVE HINTS ONLY, not rules to follow.
-Note: default_next_node is a SUGGESTION, not mandatory.
+DECISION PROCESS:
+1. You will be given the current node's branching_conditions (conditions to evaluate)
+2. You will be given the current context state (flags, mandatory fields, user message)
+3. Evaluate EACH condition IN ORDER - FIRST match wins
+4. CHOOSE 1 node from the available child nodes above based on which condition matches
+5. If NO conditions match, choose the default_next_node
 
-YOUR DECISION PROCESS:
-1. Understand user's intent from their message
-2. Analyze conversation context (flags, mandatory fields, flow)
-3. Decide which node makes LOGICAL sense next
-4. Skip nodes already completed (flag=1)
-5. Ensure mandatory fields get collected: customers_main_ask, customer_phone_number
-6. Use END when customer needs to respond
-7. Use use_mcp_to_get_info when external data needed
+CONDITION EVALUATION EXAMPLES:
+- "if issue already identified" → check if identify_issue_flag: 1 in context.flags
+- "if customer changes issue" → check if user message contradicts context.customers_main_ask
+- "if data not complete (missing mandatory customer_phone_number)" → check if context.customer_phone_number is empty
+- "if customer does not consent" → check user message for rejection signals
 
-THINK LIKE A HUMAN CONVERSATION MANAGER:
-- If customer changes topic → route to Identify_Issue
-- If customer gives data → update flags, move forward
-- If customer seems confused → maybe empathize or clarify
-- If plan rejected → go back to planning
-- If all done → say goodbye
+MANDATORY FIELDS TO VALIDATE:
+- customers_main_ask (what customer needs)
+- customer_phone_number (contact info)
 
-NO KEYWORD MATCHING. NO RULE CHECKING. Just understand and route.
+CRITICAL RULES:
+1. Evaluate branching_conditions IN ORDER - FIRST match wins
+2. CHOOSE EXACTLY 1 node from available child nodes
+3. NEVER return current node as nextNode
+4. Return "END" only when waiting for user response (not in child node list)
+5. Flags with value 1 = completed, 0 = pending
 
-OUTPUT:
+OUTPUT FORMAT (strict JSON):
 {
   "validationStatus": {
     "onTrack": true/false,
-    "reason": "brief explanation",
+    "reason": "brief validation explanation",
     "flagResets": {}
   },
-  "nextNode": "node_name",
-  "nextCourseOfAction": "one sentence plan",
-  "reason": "routing reason",
-  "mcpToolsNeeded": [],
-  "skipCurrent": false
+  "nextNode": "EXACTLY one node name from available child nodes OR 'END'",
+  "nextCourseOfAction": "one sentence describing what happens next",
+  "reason": "which condition matched (or 'using default_next_node')",
+  "matchedCondition": "exact condition text OR null if default",
+  "mcpToolsNeeded": []
 }`;
   }
 
   /**
-   * Build lightweight user prompt with ONLY routing essentials
-   * Navigator doesn't need full context - only routing signals
+   * Build user prompt with current node's branching conditions and ESSENTIAL context only
+   * Navigator evaluates branching_conditions against context to decide next node
+   * OPTIMIZED: Passes only last 5 messages and essential fields to avoid token limits
    */
-  private buildUnifiedUserPrompt(state: AgentContextState): string {
-    const flags = state.context.flags || {};
-    const completedSteps = Object.entries(flags)
-      .filter(([_, value]) => value === 1)
-      .map(([key, _]) => key);
-
+  private buildUnifiedUserPrompt(state: AgentContextState, contextFile: any | null): string {
     const lastUserMessage = this.getLastUserMessage(state);
 
-    // Extract ONLY routing signals (not full context)
-    const routingSignals = {
-      current_node: state.currentNode,
-      previous_node: state.previousNode || 'N/A',
-      completed_flags: completedSteps,
-      mandatory_fields: {
-        customers_main_ask: !!state.context.customers_main_ask,
-        customer_phone_number: !!state.context.customer_phone_number
-      },
-      has_service_catalog: !!state.context.matching_service_catalog_to_solve_customers_issue,
-      has_task_id: !!state.context.task_id,
-      has_plan: !!state.context.next_course_of_action,
-      node_path: state.context.node_traversal_path || [],
-      last_user_message: lastUserMessage
+    // Get current node's full config from dag.json
+    const currentNodeConfig = this.dagConfig.nodes.find(n => n.node_name === state.currentNode);
+    const defaultNextNode = currentNodeConfig?.default_next_node || 'END';
+    const branchingConditions = currentNodeConfig?.branching_conditions || [];
+
+    // Include context from JSON file if available
+    const fullContext = contextFile ? contextFile.context : state.context;
+
+    // CRITICAL: Only last 3 conversation summary exchanges (not all 255!)
+    const recentSummary = (fullContext.summary_of_conversation_on_each_step_until_now || []).slice(-3);
+
+    // Extract ONLY essential context fields for routing (mandatory fields + actively tracked fields)
+    const mandatoryFields = this.dagConfig.graph_config?.mandatory_fields || ['customers_main_ask', 'customer_phone_number'];
+    const essentialContext: Record<string, any> = {
+      flags: fullContext.flags || {}
     };
 
-    return `ROUTING DECISION REQUIRED
+    // Add mandatory fields
+    for (const field of mandatoryFields) {
+      essentialContext[field] = fullContext[field] || '(not set)';
+    }
 
-Context Signals:
-${JSON.stringify(routingSignals, null, 2)}
+    // Add next_node_to_go_to if set (routing hint)
+    if (fullContext.next_node_to_go_to) {
+      essentialContext.next_node_to_go_to = fullContext.next_node_to_go_to;
+    }
 
-Analyze the conversation:
-- What did the user just say?
-- What's the natural next step?
-- Are we collecting required info?
-- Is conversation progressing logically?
+    // Add fields that have been actively set (non-empty, non-default values)
+    const activeFields = ['customer_id', 'task_id', 'appointment_details', 'matching_service_catalog_to_solve_customers_issue'];
+    for (const field of activeFields) {
+      if (fullContext[field] && fullContext[field] !== '' && fullContext[field] !== '(not set)') {
+        essentialContext[field] = fullContext[field];
+      }
+    }
 
-NO RULES. Use your understanding of natural conversation flow.
+    // Count available branches for clear messaging
+    const branchCount = branchingConditions.length + (defaultNextNode ? 1 : 0);
 
-Return routing decision as JSON.`;
+    return `ROUTING DECISION: CHOOSE 1 NODE FROM ${branchCount} AVAILABLE BRANCHES
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CURRENT NODE JUST EXECUTED: ${state.currentNode}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 BRANCHING CONDITIONS (evaluate in order, first match wins):
+${JSON.stringify(branchingConditions, null, 2)}
+
+⚠️ DEFAULT BRANCH (fallback if no conditions match):
+${defaultNextNode}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONTEXT FOR EVALUATION:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚩 Flags (1=done, 0=pending):
+${JSON.stringify(essentialContext.flags, null, 2)}
+
+📊 Mandatory Fields:
+- customers_main_ask: ${essentialContext.customers_main_ask || '(not set)'}
+- customer_phone_number: ${essentialContext.customer_phone_number || '(not set)'}
+
+💬 Last User Message:
+${lastUserMessage || '(no message)'}
+
+📝 Recent Conversation (last 3 exchanges):
+${JSON.stringify(recentSummary, null, 2)}
+
+🔍 Active Context Fields:
+${JSON.stringify(essentialContext, null, 2)}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+YOUR TASK: CHOOSE EXACTLY 1 NODE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Evaluate EACH branching condition IN ORDER against context above
+2. FIRST matching condition → choose that condition's child_node
+3. NO conditions match → choose default: ${defaultNextNode}
+4. Return EXACTLY 1 node from the available child nodes in system prompt
+
+⚠️ CRITICAL:
+- NEVER return current node: ${state.currentNode}
+- Choose from available child nodes ONLY (see system prompt)
+- First match wins - stop evaluating after first match
+- Provide clear reason explaining which condition matched
+
+Return your routing decision as strict JSON.`;
   }
 
   /**
@@ -204,26 +314,19 @@ Return routing decision as JSON.`;
 
   /**
    * Check if node should be skipped based on flags
+   * Reads flag mapping from dag.json routing_config.node_flag_mapping
    */
   shouldSkipNode(nodeName: string, context: DAGContext): boolean {
-    const nodeFlagMap: Record<string, string> = {
-      'GREET_CUSTOMER': 'greet_flag',
-      'ASK_CUSTOMER_ABOUT_THEIR_NEED': 'ask_need_flag',
-      'Identify_Issue': 'identify_issue_flag',
-      'Empathize': 'empathize_flag',
-      'Console_Build_Rapport': 'rapport_flag',
-      'Try_To_Gather_Customers_Data': 'data_phone_flag',
-      'Check_IF_existing_customer': 'check_customer_flag',
-      'Plan': 'plan_flag',
-      'Communicate_To_Customer_Before_Action': 'communicate_plan_flag',
-      'Execute_Plan_Using_MCP': 'execute_flag',
-      'Tell_Customers_Execution': 'tell_execution_flag',
-      'Goodbye_And_Hangup': 'goodbye_flag',
-    };
+    // Read flag mapping from dag.json instead of hardcoding
+    const nodeFlagMapping = (this.dagConfig.routing_config as any)?.node_flag_mapping?.mappings || {};
+    const flagName = nodeFlagMapping[nodeName];
 
-    const flagName = nodeFlagMap[nodeName];
     if (flagName && context.flags) {
-      return context.flags[flagName] === 1;
+      const shouldSkip = context.flags[flagName] === 1;
+      if (shouldSkip) {
+        console.log(`[NavigatorAgent] ⏭️  Skip ${nodeName}: ${flagName} = 1 (from dag.json)`);
+      }
+      return shouldSkip;
     }
 
     return false;
@@ -231,26 +334,38 @@ Return routing decision as JSON.`;
 
   /**
    * Determine if MCP tools are needed based on context
-   * This is now just a helper - LLM makes the actual decision in decideNextNode()
+   * Uses simple heuristics to suggest tools based on missing context fields
+   * Note: MCP tools are now defined in the MCP manifest (apps/mcp-server/src/api-manifest.ts)
+   * and the LLM makes the final decision on which tools to call
    */
   determineMCPToolsNeeded(context: DAGContext): string[] {
     const tools: string[] = [];
 
-    // Simple context checks (LLM will make final decision)
+    // Simple heuristics based on context field presence
+    // The LLM will make the final decision using tools from the MCP manifest
+
+    // Suggest service catalog lookup if customer issue is known but service not matched
     if (context.customers_main_ask && !context.matching_service_catalog_to_solve_customers_issue) {
-      tools.push('fetch_service_catalog');
+      tools.push('setting_list'); // Get service catalog from settings
+      console.log('[NavigatorAgent] 🔧 Suggest: Fetch service catalog to match customer issue');
     }
 
-    if (context.customers_main_ask && !context.related_entities_for_customers_ask) {
-      tools.push('fetch_related_entities');
+    // Suggest customer lookup/creation if phone known but customer_id missing
+    if (context.customer_phone_number && !context.customer_id) {
+      tools.push('customer_list', 'customer_create'); // Search or create customer
+      console.log('[NavigatorAgent] 🔧 Suggest: Lookup or create customer record');
     }
 
-    if (context.matching_service_catalog_to_solve_customers_issue && !context.task_id) {
-      tools.push('create_task');
+    // Suggest task creation if customer and issue are known but no task created
+    if (context.customer_id && context.customers_main_ask && !context.task_id) {
+      tools.push('task_create');
+      console.log('[NavigatorAgent] 🔧 Suggest: Create task for customer issue');
     }
 
+    // Suggest appointment booking if task exists but no appointment scheduled
     if (context.task_id && !context.appointment_details) {
-      tools.push('fetch_appointment_details');
+      tools.push('person_calendar_get_available', 'person_calendar_book'); // Check availability and book
+      console.log('[NavigatorAgent] 🔧 Suggest: Schedule appointment for task');
     }
 
     return tools;

@@ -23,8 +23,7 @@ export type DAGContext = Record<string, any> & {
 export interface NodeConfig {
   node_name: string;
   prompt: string;
-  prompt_templates?: string;
-  context_data_schema_input_from_node?: string;
+  example_tone_of_reply?: string;
   node_goal: string;
   context_update?: string;
   default_next_node?: string | null;

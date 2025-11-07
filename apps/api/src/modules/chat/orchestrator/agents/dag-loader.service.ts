@@ -1,6 +1,6 @@
 /**
- * DAG Loader Service
- * Loads DAG configuration from dag.json file
+ * Agent Config Loader Service
+ * Loads agent configuration from agent_config.json file
  */
 
 import { readFile } from 'fs/promises';
@@ -11,35 +11,34 @@ import type { DAGConfiguration } from './dag-types.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export class DAGLoader {
-  private dagConfig: DAGConfiguration | null = null;
-  private dagPath: string;
+export class AgentConfigLoader {
+  private agentConfig: DAGConfiguration | null = null;
+  private configPath: string;
 
-  constructor(dagPath?: string) {
-    // Default to dag.json in parent directory (orchestrator/)
-    this.dagPath = dagPath || join(__dirname, '..', 'dag.json');
+  constructor(configPath?: string) {
+    // Default to agent_config.json in parent directory (orchestrator/)
+    this.configPath = configPath || join(__dirname, '..', 'agent_config.json');
   }
 
   /**
-   * Load DAG configuration from file
+   * Load agent configuration from file
    */
-  async loadDAGConfig(): Promise<DAGConfiguration> {
-    if (this.dagConfig) {
-      return this.dagConfig;
+  async loadAgentConfig(): Promise<DAGConfiguration> {
+    if (this.agentConfig) {
+      return this.agentConfig;
     }
 
     try {
-      const dagContent = await readFile(this.dagPath, 'utf-8');
-      this.dagConfig = JSON.parse(dagContent) as DAGConfiguration;
+      const configContent = await readFile(this.configPath, 'utf-8');
+      this.agentConfig = JSON.parse(configContent) as DAGConfiguration;
 
-      console.log(`[DAGLoader] ✅ Loaded DAG config from ${this.dagPath}`);
-      console.log(`[DAGLoader] Entry node: ${this.dagConfig.graph_config.entry_node}`);
-      console.log(`[DAGLoader] Total nodes: ${this.dagConfig.nodes.length}`);
+      console.log(`[AgentConfigLoader] ✅ Loaded agent config from ${this.configPath}`);
+      console.log(`[AgentConfigLoader] Total nodes: ${this.agentConfig.nodes.length}`);
 
-      return this.dagConfig;
+      return this.agentConfig;
     } catch (error: any) {
-      console.error(`[DAGLoader] ❌ Failed to load DAG config from ${this.dagPath}:`, error.message);
-      throw new Error(`Failed to load DAG configuration: ${error.message}`);
+      console.error(`[AgentConfigLoader] ❌ Failed to load agent config from ${this.configPath}:`, error.message);
+      throw new Error(`Failed to load agent configuration: ${error.message}`);
     }
   }
 
@@ -47,40 +46,35 @@ export class DAGLoader {
    * Get node configuration by name
    */
   getNodeConfig(nodeName: string): DAGConfiguration['nodes'][0] | undefined {
-    if (!this.dagConfig) {
-      throw new Error('DAG config not loaded. Call loadDAGConfig() first.');
+    if (!this.agentConfig) {
+      throw new Error('Agent config not loaded. Call loadAgentConfig() first.');
     }
-    return this.dagConfig.nodes.find(node => node.node_name === nodeName);
+    return this.agentConfig.nodes.find(node => node.node_name === nodeName);
   }
 
   /**
    * Get all node names
    */
   getAllNodeNames(): string[] {
-    if (!this.dagConfig) {
-      throw new Error('DAG config not loaded. Call loadDAGConfig() first.');
+    if (!this.agentConfig) {
+      throw new Error('Agent config not loaded. Call loadAgentConfig() first.');
     }
-    return this.dagConfig.nodes.map(node => node.node_name);
+    return this.agentConfig.nodes.map(node => node.node_name);
   }
 
   /**
-   * Validate DAG configuration
+   * Validate agent configuration
    */
-  validateDAG(): { valid: boolean; errors: string[] } {
-    if (!this.dagConfig) {
-      return { valid: false, errors: ['DAG config not loaded'] };
+  validateConfig(): { valid: boolean; errors: string[] } {
+    if (!this.agentConfig) {
+      return { valid: false, errors: ['Agent config not loaded'] };
     }
 
     const errors: string[] = [];
-    const nodeNames = new Set(this.dagConfig.nodes.map(n => n.node_name));
-
-    // Check entry node exists
-    if (!nodeNames.has(this.dagConfig.graph_config.entry_node)) {
-      errors.push(`Entry node "${this.dagConfig.graph_config.entry_node}" not found in nodes`);
-    }
+    const nodeNames = new Set(this.agentConfig.nodes.map(n => n.node_name));
 
     // Check all default_next_nodes exist
-    for (const node of this.dagConfig.nodes) {
+    for (const node of this.agentConfig.nodes) {
       if (node.default_next_node && !nodeNames.has(node.default_next_node)) {
         errors.push(`Node "${node.node_name}" references non-existent default_next_node: ${node.default_next_node}`);
       }
@@ -102,11 +96,11 @@ export class DAGLoader {
 /**
  * Singleton instance
  */
-let instance: DAGLoader | null = null;
+let instance: AgentConfigLoader | null = null;
 
-export function getDAGLoader(dagPath?: string): DAGLoader {
+export function getAgentConfigLoader(configPath?: string): AgentConfigLoader {
   if (!instance) {
-    instance = new DAGLoader(dagPath);
+    instance = new AgentConfigLoader(configPath);
   }
   return instance;
 }
