@@ -163,9 +163,16 @@ export async function greetCustomerNode(state: AgentState): Promise<Partial<Agen
     matching_service_catalog: '', // Initialize empty
   };
 
+  // Set progress flag to prevent re-greeting
+  const updatedProgressFlags = {
+    ...state.progress_flags,
+    greeted: true,
+  };
+
   return {
     messages: [...state.messages, { role: 'assistant', content: greeting }],
     context,
+    progress_flags: updatedProgressFlags,
   };
 }
 
@@ -201,9 +208,16 @@ export async function askAboutNeedNode(state: AgentState): Promise<Partial<Agent
     conversation_stage: 'asking_about_need' as const,
   };
 
+  // Set progress flag to prevent re-asking
+  const updatedProgressFlags = {
+    ...state.progress_flags,
+    asked_need: true,
+  };
+
   return {
     messages: [...state.messages, { role: 'assistant', content: askMessage }],
     context: updatedContext,
+    progress_flags: updatedProgressFlags,
   };
 }
 
@@ -380,9 +394,16 @@ export async function empathizeNode(state: AgentState): Promise<Partial<AgentSta
     conversation_stage: 'empathizing' as const,
   };
 
+  // Set progress flag
+  const updatedProgressFlags = {
+    ...state.progress_flags,
+    empathized: true,
+  };
+
   return {
     messages: [...state.messages, { role: 'assistant', content: empathyMessage }],
     context: updatedContext,
+    progress_flags: updatedProgressFlags,
   };
 }
 
@@ -405,9 +426,16 @@ export async function buildRapportNode(state: AgentState): Promise<Partial<Agent
     conversation_stage: 'building_rapport' as const,
   };
 
+  // Set progress flag
+  const updatedProgressFlags = {
+    ...state.progress_flags,
+    rapport_built: true,
+  };
+
   return {
     messages: [...state.messages, { role: 'assistant', content: rapportMessage }],
     context: updatedContext,
+    progress_flags: updatedProgressFlags,
   };
 }
 
@@ -621,10 +649,17 @@ export async function checkExistingCustomerNode(
       console.log(`📌 Updated Context:`, buildContextString(updatedContext));
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
+      // Set progress flag
+      const updatedProgressFlags = {
+        ...state.progress_flags,
+        customer_checked: true,
+      };
+
       return {
         messages: [...state.messages, { role: 'assistant', content: welcomeMessage }],
         context: updatedContext,
         customer_exists: true,
+        progress_flags: updatedProgressFlags,
       };
     } else {
       // Customer doesn't exist - create new
@@ -653,10 +688,17 @@ export async function checkExistingCustomerNode(
       console.log(`📌 Updated Context:`, buildContextString(updatedContext));
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
+      // Set progress flag
+      const updatedProgressFlags = {
+        ...state.progress_flags,
+        customer_checked: true,
+      };
+
       return {
         messages: [...state.messages, { role: 'assistant', content: welcomeMessage }],
         context: updatedContext,
         customer_exists: false,
+        progress_flags: updatedProgressFlags,
       };
     }
   } catch (error: any) {
@@ -756,8 +798,15 @@ Create a step-by-step plan and return JSON with next_steps_plan array.`;
   console.log(`📌 Plan Steps:`, planData.next_steps_plan);
   console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
+  // Set progress flag
+  const updatedProgressFlags = {
+    ...state.progress_flags,
+    plan_created: true,
+  };
+
   return {
     context: updatedContext,
+    progress_flags: updatedProgressFlags,
   };
 }
 
@@ -818,9 +867,16 @@ Communicate this plan clearly and ask for approval.`;
     conversation_stage: 'communicating_plan' as const,
   };
 
+  // Set progress flag
+  const updatedProgressFlags = {
+    ...state.progress_flags,
+    plan_communicated: true,
+  };
+
   return {
     messages: [...state.messages, { role: 'assistant', content: result.content }],
     context: updatedContext,
+    progress_flags: updatedProgressFlags,
   };
 }
 
@@ -861,9 +917,16 @@ export async function executePlanNode(
       conversation_stage: 'executing' as const,
     };
 
+    // Set progress flag
+    const updatedProgressFlags = {
+      ...state.progress_flags,
+      plan_executed: true,
+    };
+
     return {
       context: updatedContext,
       executed_actions: executedActions,
+      progress_flags: updatedProgressFlags,
     };
   } catch (error: any) {
     console.error(`❌ Error executing plan:`, error.message);
@@ -933,9 +996,16 @@ Communicate what was done clearly and ask if they need anything else.`;
     conversation_stage: 'confirming_execution' as const,
   };
 
+  // Set progress flag
+  const updatedProgressFlags = {
+    ...state.progress_flags,
+    execution_communicated: true,
+  };
+
   return {
     messages: [...state.messages, { role: 'assistant', content: result.content }],
     context: updatedContext,
+    progress_flags: updatedProgressFlags,
   };
 }
 
