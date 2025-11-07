@@ -82,6 +82,26 @@ extract_context_field() {
 declare -A context_state
 declare -A previous_context_state
 
+# Function to format session/timestamp header
+format_session_header() {
+  local session="$1"
+  local timestamp="$2"
+
+  # Build header parts
+  local parts=()
+  if [ -n "$session" ] && [ "$session" != "N/A" ]; then
+    parts+=("${BLUE}🔑 Session: ${BOLD}${session:0:8}...${NC}")
+  fi
+  if [ -n "$timestamp" ]; then
+    parts+=("${DIM}⏰ $timestamp${NC}")
+  fi
+
+  # Join with separator if we have parts
+  if [ ${#parts[@]} -gt 0 ]; then
+    echo -e "${parts[*]}" | sed 's/  */ | /g'
+  fi
+}
+
 # Function to track and show context changes
 track_context_change() {
   local field="$1"
@@ -106,31 +126,48 @@ track_context_change() {
   fi
 }
 
+# Track current session from "State saved for session" messages
+current_tracked_session=""
+
 # Extract and format chat logs
 tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
-  # Extract and display timestamp at start of each significant log entry
+  # Extract session from "State saved for session" messages
+  if [[ $line =~ "State saved for session"[[:space:]]([a-f0-9-]{36}) ]]; then
+    current_tracked_session="${BASH_REMATCH[1]}"
+  fi
+
+  # Extract and display timestamp (only if present in JSON logs)
   timestamp=$(extract_timestamp "$line")
-  formatted_time=$(format_timestamp "$timestamp")
+  if [ -n "$timestamp" ]; then
+    formatted_time=$(format_timestamp "$timestamp")
+  else
+    formatted_time=""
+  fi
 
   # ========================================
   # SESSION MARKERS
   # ========================================
   if [[ $line =~ "🆕 New session" ]] || [[ $line =~ "📂 Resuming session" ]]; then
+    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
     echo -e "\n${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${CYAN}${BOLD}📨 NEW CHAT SESSION ${DIM}[$formatted_time]${NC}"
+    echo -e "${CYAN}${BOLD}📨 NEW CHAT SESSION${NC}"
+    [ -n "$session_header" ] && echo -e "$session_header"
     echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${BLUE}$line${NC}"
     # Reset context state for new session
     unset context_state
     declare -A context_state
+    current_tracked_session=""
   fi
 
   # ========================================
   # ITERATION/TURN MARKERS
   # ========================================
   if [[ $line =~ "ITERATION" ]] || [[ $line =~ "🔄 ITERATION" ]]; then
+    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
     echo -e "\n${YELLOW}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${YELLOW}${BOLD}$line ${DIM}[$formatted_time]${NC}"
+    echo -e "${YELLOW}${BOLD}$line${NC}"
+    [ -n "$session_header" ] && echo -e "$session_header"
     echo -e "${YELLOW}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
   fi
 
@@ -138,7 +175,9 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   # USER MESSAGES
   # ========================================
   if [[ $line =~ "User message:" ]] || [[ $line =~ "💬" ]]; then
-    echo -e "\n${GREEN}${BOLD}👤 USER MESSAGE ${DIM}[$formatted_time]${NC}"
+    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
+    echo -e "\n${GREEN}${BOLD}👤 USER MESSAGE${NC}"
+    [ -n "$session_header" ] && echo -e "$session_header"
     echo -e "${GREEN}$line${NC}"
   fi
 
@@ -146,7 +185,9 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   # CURRENT NODE
   # ========================================
   if [[ $line =~ "Current Node:" ]] || [[ $line =~ "🎯 Executing" ]]; then
-    echo -e "\n${YELLOW}${BOLD}⚙️  CURRENT NODE ${DIM}[$formatted_time]${NC}"
+    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
+    echo -e "\n${YELLOW}${BOLD}⚙️  CURRENT NODE${NC}"
+    [ -n "$session_header" ] && echo -e "$session_header"
     echo -e "${YELLOW}$line${NC}"
   fi
 
@@ -156,11 +197,10 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
 
   # Context updates
   if [[ $line =~ "updateContext" ]] || [[ $line =~ "Context updated" ]]; then
-    # Show session info with timestamp
-    current_session="${context_state[agent_session_id]:-N/A}"
+    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
     echo -e "\n${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${CYAN}${BOLD}📝 CONTEXT UPDATE${NC}"
-    echo -e "${BLUE}🔑 Session: ${BOLD}$current_session${NC} ${DIM}| ⏰ $formatted_time${NC}"
+    [ -n "$session_header" ] && echo -e "$session_header"
     echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${CYAN}Building context incrementally:${NC}"
   fi
@@ -260,9 +300,9 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   # NAVIGATOR DECISIONS
   # ========================================
   if [[ $line =~ "🧭" ]] || [[ $line =~ "Navigator" ]]; then
-    current_session="${context_state[agent_session_id]:-N/A}"
+    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
     echo -e "\n${MAGENTA}${BOLD}🧭 NAVIGATOR DECISION${NC}"
-    echo -e "${BLUE}🔑 Session: ${BOLD}$current_session${NC} ${DIM}| ⏰ $formatted_time${NC}"
+    [ -n "$session_header" ] && echo -e "$session_header"
     echo -e "${MAGENTA}$line${NC}"
   fi
 
@@ -280,9 +320,9 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   # WORKER AGENT EXECUTION
   # ========================================
   if [[ $line =~ "👷" ]] || [[ $line =~ "WorkerAgent" ]]; then
-    current_session="${context_state[agent_session_id]:-N/A}"
+    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
     echo -e "\n${GREEN}${BOLD}👷 WORKER AGENT${NC}"
-    echo -e "${BLUE}🔑 Session: ${BOLD}$current_session${NC} ${DIM}| ⏰ $formatted_time${NC}"
+    [ -n "$session_header" ] && echo -e "$session_header"
     echo -e "${GREEN}$line${NC}"
   fi
 
@@ -290,17 +330,17 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   # LLM CALLS
   # ========================================
   if [[ $line =~ "🤖 Model:" ]] || [[ $line =~ "🌡️  Temperature:" ]]; then
-    current_session="${context_state[agent_session_id]:-N/A}"
+    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
     echo -e "\n${MAGENTA}${BOLD}🤖 LLM CALL${NC}"
-    echo -e "${BLUE}🔑 Session: ${BOLD}$current_session${NC} ${DIM}| ⏰ $formatted_time${NC}"
+    [ -n "$session_header" ] && echo -e "$session_header"
     echo -e "${MAGENTA}$line${NC}"
   fi
 
   # LLM responses
   if [[ $line =~ "🤖 Response:" ]] || [[ $line =~ "\"response\":" ]]; then
-    current_session="${context_state[agent_session_id]:-N/A}"
+    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
     echo -e "\n${BLUE}${BOLD}🤖 LLM RESPONSE${NC}"
-    echo -e "${BLUE}🔑 Session: ${BOLD}$current_session${NC} ${DIM}| ⏰ $formatted_time${NC}"
+    [ -n "$session_header" ] && echo -e "$session_header"
     echo -e "${BLUE}$line${NC}"
   fi
 
@@ -308,17 +348,21 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   # STATE MANAGEMENT
   # ========================================
   if [[ $line =~ "💾 State saved" ]] || [[ $line =~ "📦 Loaded state" ]]; then
-    current_session="${context_state[agent_session_id]:-N/A}"
-    echo -e "${CYAN}$line ${DIM}[Session: $current_session | $formatted_time]${NC}"
+    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
+    if [ -n "$session_header" ]; then
+      echo -e "${CYAN}$line ${DIM}[$session_header]${NC}"
+    else
+      echo -e "${CYAN}$line${NC}"
+    fi
   fi
 
   # ========================================
   # ERRORS
   # ========================================
   if [[ $line =~ "❌" ]] || [[ $line =~ "Error" ]] || [[ $line =~ "Failed" ]]; then
-    current_session="${context_state[agent_session_id]:-N/A}"
+    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
     echo -e "\n${RED}${BOLD}❌ ERROR${NC}"
-    echo -e "${BLUE}🔑 Session: ${BOLD}$current_session${NC} ${DIM}| ⏰ $formatted_time${NC}"
+    [ -n "$session_header" ] && echo -e "$session_header"
     echo -e "${RED}$line${NC}"
   fi
 
@@ -330,9 +374,9 @@ tail -n "$LINES" -f "$LOG_FILE" | while IFS= read -r line; do
   fi
 
   if [[ $line =~ "💬 Single turn complete" ]]; then
-    current_session="${context_state[agent_session_id]:-N/A}"
+    session_header=$(format_session_header "$current_tracked_session" "$formatted_time")
     echo -e "\n${GREEN}${BOLD}✅ TURN COMPLETE - WAITING FOR NEXT USER MESSAGE${NC}"
-    echo -e "${BLUE}🔑 Session: ${BOLD}$current_session${NC} ${DIM}| ⏰ $formatted_time${NC}"
+    [ -n "$session_header" ] && echo -e "$session_header"
 
     # Show accumulated context summary
     if [ ${#context_state[@]} -gt 0 ]; then
