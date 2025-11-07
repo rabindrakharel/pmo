@@ -81,17 +81,17 @@
   "system_config": {
     "agent_identity": "You are a polite customer service agent who is assisting a customer",
     "default_context_values": {
-      "who_are_you": "You are a polite customer service agent who is assisting a customer"
+      "who_are_you": "You are a polite customer service agent who is assisting a customer. Behind the scene you use MCP tools, build data context and take actions to support customers need."
     }
   },
   "nodes": [
     {
       "node_name": "GREET_CUSTOMER",
       "prompt": "Generate a greeting for the customer using one of the provided templates. Behind the scenes: Initialize and build the context JSON with initial values, ensuring mandatory fields are set where possible.",
-      "prompt_templates": "You are a polite customer service agent. Behind the scenes: Strictly initialize the context JSON if empty with {who_are_you: \"You are a polite customer service agent who is assisting a customer\", customer_name: \"\", customer_phone_number: \"\", customer_id: \"\", customers_main_ask: \"\", matching_service_catalog_to_solve_customers_issue: \"\", related_entities_for_customers_ask: \"\", task_id: \"\", appointment_details: \"\", next_steps_plans_help_customer: \"\", execution_results: \"\", summary_of_conversation_on_each_step_until_now: [], flags: {greet_flag: 1 after completion, ...}}. Then, generate the response to the customer based on context data: Greet the customer in a friendly manner. Templates: 'Hello, welcome to our service!', 'Hi there, how can I assist you today?', or similar variations.",
+      "prompt_templates": "You are a polite customer service agent. Behind the scenes: Strictly initialize the context JSON if empty with {agent_session_id: \"session identifier\", who_are_you: \"You are a polite customer service agent who is assisting a customer\", customer_name: \"\", customer_phone_number: \"\", customer_id: \"\", customers_main_ask: \"\", matching_service_catalog_to_solve_customers_issue: \"\", related_entities_for_customers_ask: \"\", task_id: \"\", appointment_details: \"\", next_steps_plans_help_customer: \"\", execution_results: \"\", summary_of_conversation_on_each_step_until_now: [], flags: {greet_flag: 1 after completion, ...}}. Then, generate the response to the customer based on context data: Greet the customer in a friendly manner. Templates: 'Hello, welcome to our service!', 'Hi there, how can I assist you today?', or similar variations.",
       "context_data_schema_input_from_node": "{} (empty, as this is the starting node; initializes context JSON if not present)",
       "node_goal": "Initiate the conversation by greeting the customer politely to set a positive tone. Skip if greeting already fulfilled (check flag in context: greet_flag: 1 for done, 0 for pending).",
-      "context_update": "Initialize context JSON if empty: {who_are_you: \"You are a polite customer service agent who is assisting a customer\", customer_name: \"\", customer_phone_number: \"\", customer_id: \"\", customers_main_ask: \"\", matching_service_catalog_to_solve_customers_issue: \"\", related_entities_for_customers_ask: \"\", task_id: \"\", appointment_details: \"\", next_steps_plans_help_customer: \"\", execution_results: \"\", flags: {greet_flag: 1 after completion, ...}} Pass updated context to next node. Build mandatory fields like customers_main_ask and customer_phone_number wherever possible in downstream nodes. Summarize and append to summary_of_conversation_on_each_step_until_now: [{customer: '', agent: 'generated_greeting'}] (initial entry).",
+      "context_update": "Initialize context JSON if empty: {agent_session_id: \"session identifier\", who_are_you: \"You are a polite customer service agent who is assisting a customer\", customer_name: \"\", customer_phone_number: \"\", customer_id: \"\", customers_main_ask: \"\", matching_service_catalog_to_solve_customers_issue: \"\", related_entities_for_customers_ask: \"\", task_id: \"\", appointment_details: \"\", next_steps_plans_help_customer: \"\", execution_results: \"\", flags: {greet_flag: 1 after completion, ...}} Pass updated context to next node. Build mandatory fields like customers_main_ask and customer_phone_number wherever possible in downstream nodes. Summarize and append to summary_of_conversation_on_each_step_until_now: [{customer: '', agent: 'generated_greeting'}] (initial entry).",
       "default_next_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED",
       "branching_conditions": [
         {
@@ -402,6 +402,7 @@
   "global_context_schema": {
     "description": "The context JSON is a single, evolving object passed to every node/LLM call. It starts minimal and builds incrementally. Flags control skipping/resets. If issue changes, reset identify_issue_flag and downstream (plan, execute, etc.) to 0, but preserve customer data keys/flags unless update requested. Context data must be built wherever possible; customers_main_ask and customer_phone_number are mandatory fields. The summarize_the_conversation_on_node_and_update_context node is called after each interactive step to make summary_of_conversation_on_each_step_until_now updates mandatory.",
     "core_keys": {
+      "agent_session_id": "string (orchestrator session identifier for tracking conversation state across nodes)",
       "who_are_you": "string",
       "customer_name": "string",
       "customer_phone_number": "string (mandatory)",

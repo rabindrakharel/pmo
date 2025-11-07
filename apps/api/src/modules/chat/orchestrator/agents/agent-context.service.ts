@@ -57,7 +57,7 @@ export class AgentContextManager {
       userId,
       authToken,
       messages: [],
-      context: this.initializeDAGContext(),
+      context: this.initializeDAGContext(sessionId),
       currentNode: 'GREET_CUSTOMER',
       completed: false,
       conversationEnded: false,
@@ -67,8 +67,9 @@ export class AgentContextManager {
   /**
    * Initialize DAG context with default values
    */
-  private initializeDAGContext(): DAGContext {
+  private initializeDAGContext(sessionId: string): DAGContext {
     return {
+      agent_session_id: sessionId,
       who_are_you: 'You are a polite customer service agent who is assisting a customer',
       customer_name: '',
       customer_phone_number: '',
