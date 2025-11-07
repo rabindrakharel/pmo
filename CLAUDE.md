@@ -331,6 +331,69 @@ app.datalabel_entity_type_permission   // RBAC per entity
 
 ---
 
+## 🗄️ Database Design Standards
+
+### Central Entity Registry: `d_entity` Table
+
+**Pattern:** Single source of truth for ALL entity type metadata
+
+```sql
+-- d_entity table structure
+CREATE TABLE app.d_entity (
+    code varchar(50) PRIMARY KEY,          -- 'project', 'task', 'office'
+    name varchar(100),                     -- 'Project', 'Task', 'Office'
+    ui_label varchar(100),                 -- 'Projects', 'Tasks', 'Offices'
+    ui_icon varchar(50),                   -- Lucide icon: 'FolderOpen', 'CheckSquare'
+    child_entities jsonb,                  -- Child entity metadata (icons, labels, order)
+    display_order int4,                    -- Sidebar/menu display order
+    active_flag boolean
+);
+
+-- Example: Project entity with 6 child entities
+{
+  "code": "project",
+  "ui_icon": "FolderOpen",
+  "child_entities": [
+    {"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1},
+    {"entity": "wiki", "ui_icon": "BookOpen", "ui_label": "Wiki", "order": 2},
+    {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 3}
+  ]
+}
+```
+
+**What `d_entity` Drives:**
+1. **UI Icons**: Every entity card, sidebar item, tab uses `ui_icon` from d_entity
+2. **Navigation Order**: `display_order` determines menu/sidebar sequence
+3. **Child Entity Tabs**: `child_entities` JSONB auto-generates tabs on detail pages
+4. **Entity Pickers**: Dropdown lists use `ui_label` + `ui_icon` for entity selection
+5. **Dynamic Routing**: Child entity routes generated from `child_entities` array
+6. **Parent-Child Links**: Defines which entities can link to which (project → task, etc.)
+
+**API Usage:**
+```typescript
+// Get all entity types (for sidebar/navigation)
+GET /api/v1/entity/types ORDER BY display_order
+
+// Get specific entity metadata
+GET /api/v1/entity/type/project
+// Returns: { code: 'project', ui_icon: 'FolderOpen', child_entities: [...] }
+
+// Frontend: Auto-generate child tabs
+const entity = await getEntityMetadata('project');
+entity.child_entities.map(child =>
+  <Tab icon={child.ui_icon} label={child.ui_label} />
+);
+```
+
+**Standards:**
+- **Never hardcode entity icons/labels** - always query `d_entity`
+- **Use `display_order`** for consistent navigation ordering
+- **Update `child_entities`** when adding new parent-child relationships
+- **Query `d_entity` on app load** and cache for session (rarely changes)
+- **All entity types MUST exist in d_entity** before creating entity instances
+
+---
+
 ## 🔄 End-to-End Data Flow (How Everything Connects)
 
 ### Example: Viewing Project Tasks
@@ -441,6 +504,7 @@ Database (PostgreSQL, 52 tables)
 7. **Follow create-then-link pattern** - auto-populate parent context
 8. **Use factory functions** - never duplicate route/API logic across entities
 9. **Centralize field formatting** - use data_transform_render.tsx middleware
+10. **Query d_entity for metadata** - never hardcode entity icons/labels/child relationships
 
 ---
 
