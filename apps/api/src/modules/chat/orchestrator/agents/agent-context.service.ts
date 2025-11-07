@@ -5,7 +5,7 @@
  * @module orchestrator/agents/agent-context
  */
 
-import type { DAGContext, ConversationSummary } from '../langgraph/dag-types.js';
+import type { DAGContext, ConversationSummary } from './dag-types.js';
 
 /**
  * Message in conversation

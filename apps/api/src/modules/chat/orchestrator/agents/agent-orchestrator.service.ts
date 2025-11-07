@@ -8,8 +8,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import { StateManager } from '../state/state-manager.service.js';
 import { MCPAdapterService } from '../../mcp-adapter.service.js';
-import { getDAGLoader } from '../langgraph/dag-loader.service.js';
-import type { DAGConfiguration } from '../langgraph/dag-types.js';
+import { getDAGLoader } from './dag-loader.service.js';
+import type { DAGConfiguration } from './dag-types.js';
 import {
   AgentContextManager,
   getAgentContextManager,

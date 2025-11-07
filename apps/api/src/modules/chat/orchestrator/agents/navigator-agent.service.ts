@@ -8,7 +8,7 @@
 
 import { getOpenAIService } from '../services/openai.service.js';
 import type { AgentContextState } from './agent-context.service.js';
-import type { DAGConfiguration, DAGContext } from '../langgraph/dag-types.js';
+import type { DAGConfiguration, DAGContext } from './dag-types.js';
 
 /**
  * Navigator Agent Decision
