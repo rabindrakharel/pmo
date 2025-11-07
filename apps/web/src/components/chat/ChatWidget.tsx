@@ -107,7 +107,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
 
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${apiBaseUrl}/api/v1/chat/message`, {
+      const response = await fetch(`${apiBaseUrl}/api/v1/chat/langgraph/message`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -124,6 +124,58 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
       }
 
       const data = await response.json();
+
+      // ============================================================
+      // 🔍 DEBUG LOGGING - LLM Call Details
+      // ============================================================
+      if (data.debugLogs && data.debugLogs.length > 0) {
+        console.group(`🤖 AI Chat Debug Logs (${data.debugLogs.length} entries)`);
+        console.log(`%c📊 Session: ${sessionId}`, 'color: #3b82f6; font-weight: bold');
+        console.log(`%c💬 User Message: "${userMessage.content}"`, 'color: #10b981; font-weight: bold');
+        console.log('');
+
+        data.debugLogs.forEach((log: any, index: number) => {
+          if (log.type === 'llm_call') {
+            console.group(`🎯 [${index + 1}] ${log.node} - ${log.timestamp}`);
+            console.log(`%c🤖 Model: ${log.model}`, 'color: #8b5cf6; font-weight: bold');
+            console.log(`%c🌡️  Temperature: ${log.temperature}`, 'color: #f59e0b');
+            if (log.jsonMode) {
+              console.log(`%c📋 Mode: JSON`, 'color: #ec4899');
+            }
+            console.log('');
+
+            console.group('📝 System Prompt');
+            console.log(`%c${log.systemPrompt}`, 'color: #6b7280; font-style: italic');
+            console.groupEnd();
+            console.log('');
+
+            console.group('👤 User Prompt');
+            console.log(`%c${log.userPrompt}`, 'color: #059669; font-style: italic');
+            console.groupEnd();
+            console.log('');
+
+            if (log.variables) {
+              console.group('🔧 Variables/Context');
+              console.table(log.variables);
+              console.groupEnd();
+              console.log('');
+            }
+
+            if (log.response) {
+              console.group('✅ LLM Response');
+              console.log(`%c${log.response}`, 'color: #10b981; font-weight: bold');
+              console.groupEnd();
+            }
+
+            console.groupEnd();
+            console.log('');
+          }
+        });
+
+        console.log(`%c🤖 Final Response: "${data.response}"`, 'color: #10b981; font-weight: bold; font-size: 14px');
+        console.groupEnd();
+      }
+      // ============================================================
 
       const assistantMessage: Message = {
         role: 'assistant',
@@ -320,7 +372,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
                 // Check if conversation ended
                 if (data.conversation_ended) {
                   console.log('🔚 Conversation ended:', data.end_reason);
-                  stopVoiceCall();
+                  endVoiceCall();
                 }
               };
 
@@ -343,7 +395,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
             setError(errorMessage);
           } else if (data.type === 'session.disconnected') {
             console.log('Session disconnected:', data.message);
-            stopVoiceCall();
+            endVoiceCall();
           }
         } catch (err) {
           console.error('Failed to parse voice message:', err);
