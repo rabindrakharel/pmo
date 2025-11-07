@@ -1,546 +1,1125 @@
-# 🚀 LangGraph Implementation - Complete
+# LangGraph Conversational AI Orchestrator
 
-## 🎉 What Was Implemented
+**Purpose**: 14-step conversational AI workflow for customer service automation using LangGraph state machine framework with progressive context building, empathetic interaction, and MCP tool integration.
 
-We've successfully migrated the 14-step conversational AI orchestrator to **LangGraph** while preserving **ALL** custom features!
-
-### ✅ Full Feature Preservation
-
-| Feature | Status | Implementation |
-|---------|--------|----------------|
-| **14-Step Flow (I-XIII)** | ✅ Complete | All nodes with Roman numerals |
-| **CustomerContext Building** | ✅ Complete | Incremental context in LangGraph state |
-| **Step Completion Tracking** | ✅ Complete | `steps_completed` tracker preserved |
-| **Intelligent Skip Logic** | ✅ Complete | Skip completed steps automatically |
-| **Issue Change Detection** | ✅ Complete | Reset from step III, preserve customer data |
-| **Data Update Detection** | ✅ Complete | Reset only specific fields |
-| **Context Injection to LLM** | ✅ Complete | Full context passed at every call |
-| **MCP Integration** | ✅ Complete | All tool calls work seamlessly |
-| **Debug Logging** | ✅ Complete | Browser console logs preserved |
-| **Error Handling** | ✅ Complete | ERROR_STATE node + graph resilience |
-| **State Persistence** | ✅ **ENHANCED** | Built-in checkpointer + database backup |
-| **Conversation Resume** | ✅ **NEW** | Resume from any point via thread_id |
+**Version**: 1.0.0
+**Status**: Production-Ready
+**Last Updated**: 2025-11-07
 
 ---
 
-## 📁 Files Created/Modified
+## 1. Semantics & Business Context
 
-### ✅ Created Files:
+### What This System Does
 
-1. **`langgraph-state-graph.service.ts`** (697 lines)
-   - Full LangGraph implementation
-   - State annotation with all custom fields
-   - Node wrappers preserving original logic
-   - Conditional routing with smart detection
-   - Checkpointer for automatic persistence
+Orchestrates multi-turn customer service conversations through a 14-step workflow that progressively builds context, shows empathy, gathers customer information, plans actions using available MCP tools, executes those actions, and gracefully handles multiple requests in a single session.
 
-2. **`LANGGRAPH_IMPLEMENTATION.md`** (this file)
-   - Complete documentation
-   - Usage guide
-   - Feature comparison
-   - Testing instructions
+### Business Requirements Addressed
 
-### ✅ Modified Files:
+1. **Progressive Context Building**: Each conversation step adds to accumulated customer context (identity, issue, service catalog match, related entities)
+2. **Empathetic Interaction**: Dedicated steps for empathy and rapport building before asking for information
+3. **Smart Data Gathering**: One field at a time, validates completeness before proceeding
+4. **Action Planning & Execution**: LLM-powered planning using available MCP tool catalog, customer approval before execution
+5. **Multi-Request Handling**: After resolving one issue, can handle additional requests in same conversation
+6. **Conversation Continuity**: Resume conversations across server restarts using session-based checkpointing
 
-1. **`langgraph-orchestrator.service.ts`**
-   - Added feature flag: `USE_LANGGRAPH = true`
-   - Dual implementation routing
-   - New `processMessageWithLangGraph()` method
-   - New `saveLangGraphState()` method
-   - Automatic fallback to original implementation
+### Use Cases
+
+- Voice-based customer service calls (primary)
+- Text-based chat support
+- Service appointment booking
+- Issue resolution workflows
+- Multi-issue support sessions
 
 ---
 
-## 🏗️ Architecture
+## 2. Architecture & DRY Design Patterns
 
-### LangGraph State Definition
+### System Architecture
 
-```typescript
-export const GraphState = Annotation.Root({
-  // LangGraph standard
-  messages: Annotation<BaseMessage[]>({
-    reducer: (x, y) => x.concat(y),
-  }),
-
-  // Our custom context (fully preserved)
-  context: Annotation<Partial<CustomerContext>>({
-    reducer: (x, y) => ({ ...x, ...y }),
-  }),
-
-  // Customer profile
-  customer_profile: Annotation<Record<string, any>>({
-    reducer: (x, y) => ({ ...x, ...y }),
-  }),
-
-  // Action planning (fully preserved)
-  proposed_actions, approved_actions, executed_actions...
-
-  // Flow control
-  current_node, conversation_ended, completed, end_reason...
-
-  // Internal (not serialized in checkpointer)
-  _mcpAdapter, _authToken...
-});
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    LangGraph Orchestrator                    │
+│                                                               │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │              StateGraph (LangGraph)                   │  │
+│  │  ┌────────────────────────────────────────────────┐  │  │
+│  │  │  14 Nodes (I-XIII + ERROR)                     │  │  │
+│  │  │  - I_greet_customer                            │  │  │
+│  │  │  - II_ask_about_need                           │  │  │
+│  │  │  - III_identify_issue (MCP)                    │  │  │
+│  │  │  - IV_empathize                                │  │  │
+│  │  │  - V_build_rapport                             │  │  │
+│  │  │  - VI_gather_customer_data                     │  │  │
+│  │  │  - VII_check_existing_customer (MCP)           │  │  │
+│  │  │  - VIII_plan_actions (MCP)                     │  │  │
+│  │  │  - IX_communicate_plan                         │  │  │
+│  │  │  - X_execute_plan (MCP)                        │  │  │
+│  │  │  - XI_communicate_execution                    │  │  │
+│  │  │  - XIb_ask_another_request                     │  │  │
+│  │  │  - XII_goodbye                                 │  │  │
+│  │  │  - XIII_hangup                                 │  │  │
+│  │  └────────────────────────────────────────────────┘  │  │
+│  │                                                        │  │
+│  │  ┌────────────────────────────────────────────────┐  │  │
+│  │  │  Conditional Edges (Smart Routing)             │  │  │
+│  │  │  - Issue change detection → III_identify_issue │  │  │
+│  │  │  - Data update → VI_gather_customer_data       │  │  │
+│  │  │  - Missing data → END (wait for user)          │  │  │
+│  │  │  - Another request → III_identify_issue        │  │  │
+│  │  │  - No more requests → XII_goodbye              │  │  │
+│  │  └────────────────────────────────────────────────┘  │  │
+│  │                                                        │  │
+│  │  ┌────────────────────────────────────────────────┐  │  │
+│  │  │  State Management                              │  │  │
+│  │  │  - MemorySaver Checkpointer (in-memory)        │  │  │
+│  │  │  - State reducers (auto-merge context)         │  │  │
+│  │  │  - Thread-based session tracking               │  │  │
+│  │  └────────────────────────────────────────────────┘  │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                               │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │        MCP Adapter Service Integration               │  │
+│  │  - customer_search (lookup by phone)                 │  │
+│  │  - customer_create (new profile)                     │  │
+│  │  - setting_list (service catalog)                    │  │
+│  │  - Tool execution with auth token                    │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                               │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │        OpenAI Service (LLM Calls)                    │  │
+│  │  - Worker agent (context-aware responses)            │  │
+│  │  - Planner agent (action planning)                   │  │
+│  │  - Temperature tuning per use case                   │  │
+│  │  - JSON mode for structured extraction               │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                               │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │        State Manager (Database Backup)               │  │
+│  │  - d_session_state table persistence                 │  │
+│  │  - d_agent_log audit trail                           │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Graph Construction
+### Conversation Flow Diagram
 
-```typescript
-const workflow = new StateGraph(GraphState)
-  // Add all 14 nodes
-  .addNode('I_greet_customer', wrapNode(greetCustomerNode))
-  .addNode('II_ask_about_need', wrapNode(askAboutNeedNode))
-  .addNode('III_identify_issue', wrapNodeWithMCP(identifyIssueNode))
-  // ... all nodes
-
-  // Define edges with conditional logic
-  .addEdge(START, 'I_greet_customer')
-  .addEdge('I_greet_customer', 'II_ask_about_need')
-  .addConditionalEdges('II_ask_about_need', routeFromNode)
-  .addConditionalEdges('III_identify_issue', routeFromNode)
-  // ... conditional routing
-
-  // Compile with checkpointer for persistence
-  .compile({ checkpointer: new MemorySaver() });
+```
+START
+  ↓
+[I_greet_customer] ──────────────────┐
+  ↓                                   │
+[II_ask_about_need]                  │
+  ↓                                   │
+[III_identify_issue] ←───────────┐   │
+  ↓                               │   │
+[IV_empathize]                    │   │
+  ↓                               │   │
+[V_build_rapport]                 │   │
+  ↓                               │   │
+[VI_gather_customer_data] ────→ END  │  (Wait for user input)
+  ↓                         (missing data)
+[VII_check_existing_customer]         │
+  ↓                                   │
+[VIII_plan_actions]                  │
+  ↓                                   │
+[IX_communicate_plan]                │
+  ↓                                   │
+[X_execute_plan]                     │
+  ↓                                   │
+[XI_communicate_execution]           │
+  ↓                                   │
+[XIb_ask_another_request] ────→ END  │  (Wait for user response)
+  ↓                          │        │
+  ├─ "Yes/I need help" ──────┘        │
+  │                                   │
+  └─ "No/Thanks" ───────────────────┘
+       ↓
+   [XII_goodbye]
+       ↓
+   [XIII_hangup]
+       ↓
+      END
 ```
 
-### Node Wrapping Pattern
+### DRY Design Patterns
 
-Each node function is wrapped to:
-1. Check if should skip (step completion logic)
-2. Convert LangGraph state → original AgentState
-3. Execute original node logic
-4. Mark step as completed
-5. Convert result → LangGraph update
+#### 1. **Node Wrapper Pattern**
+
+All node functions use a unified wrapper that handles:
+- Step completion checking
+- State format conversion (LangGraph ↔ Original)
+- Automatic step marking
+- Return value transformation
 
 ```typescript
-private wrapNode(nodeFunc) {
-  return async (state: LangGraphState) => {
-    // Skip if completed
+private wrapNode(
+  nodeFunc: (state: OriginalAgentState) => Promise<Partial<OriginalAgentState>>,
+  nodeName: NodeName
+) {
+  return async (state: LangGraphState): Promise<Partial<LangGraphState>> => {
+    // Skip if already completed
     if (this.shouldSkipStep(nodeName, state)) {
       return {};
     }
 
-    // Convert formats
+    // Convert state format
     const originalState = this.toOriginalState(state);
 
-    // Execute original logic
+    // Execute node logic
     const result = await nodeFunc(originalState);
 
-    // Mark completed
+    // Mark step completed
     this.markStepCompleted(nodeName, state);
 
     // Return LangGraph format
-    return this.toLangGraphUpdate(result, state);
+    return this.toLangGraphUpdate(result);
   };
 }
 ```
 
----
+**Variants**:
+- `wrapNode()`: Simple nodes (no external dependencies)
+- `wrapNodeWithMCP()`: Nodes needing MCP adapter + auth token
+- `wrapNodeWithMCPOnly()`: Nodes needing only MCP adapter
+- `wrapNodeForHangup()`: Special handling for voice hangup
+- `wrapNodeForError()`: Error state handling
 
-## 🔀 Conditional Routing
+#### 2. **Context Injection Pattern**
 
-### Smart Routing Logic
+Every LLM call receives accumulated context:
 
 ```typescript
-private routeFromNode(currentNode, state) {
-  // Check for issue change
+function injectContextIntoPrompt(basePrompt: string, context: CustomerContext): string {
+  const contextString = buildContextString(context);
+  return `📊 ACCUMULATED CONTEXT SO FAR:
+${contextString}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${basePrompt}`;
+}
+```
+
+Ensures LLM has full conversation history and customer data at every decision point.
+
+#### 3. **State Reducer Pattern**
+
+LangGraph automatically merges state updates:
+
+```typescript
+export const GraphState = Annotation.Root({
+  messages: Annotation<BaseMessage[]>({
+    reducer: (x, y) => x.concat(y),  // Append messages
+  }),
+  context: Annotation<Partial<CustomerContext>>({
+    reducer: (x, y) => ({ ...x, ...y }),  // Merge context objects
+  }),
+  customer_profile: Annotation<Record<string, any>>({
+    reducer: (x, y) => ({ ...x, ...y }),  // Merge profiles
+  }),
+  // ... other fields with reducers
+});
+```
+
+No manual state merging required—reducers handle it declaratively.
+
+#### 4. **Smart Routing Pattern**
+
+Conditional edges with priority-based detection:
+
+```typescript
+private routeFromNode(currentNode: NodeName, state: LangGraphState): NodeName | typeof END {
+  // Priority 1: Issue change detection
   if (this.detectIssueChange(state)) {
     this.resetStepsFrom('III_identify_issue', state, true);
-    return 'III_identify_issue'; // Jump back
+    return NODES.IDENTIFY;
   }
 
-  // Check for data update
+  // Priority 2: Data update detection
   const dataField = this.detectDataUpdateRequest(state);
   if (dataField) {
     state.context.steps_completed.VI_gather_data = false;
-    return 'VI_gather_customer_data'; // Jump back
+    return NODES.GATHER;
   }
 
-  // Normal flow
+  // Priority 3: Node-specific routing
   switch (currentNode) {
-    case 'II_ask_about_need':
-      return 'III_identify_issue';
+    case NODES.GATHER:
+      const hasRequiredData = this.validateCustomerData(state);
+      return hasRequiredData ? NODES.CHECK : END;  // ⚠️ Critical: END prevents infinite loop
 
-    case 'VI_gather_customer_data':
-      const hasPhone = !!state.context.customer_phone_number;
-      const hasName = !!state.context.customer_name;
-      return (hasPhone && hasName) ? 'VII_check_customer' : 'VI_gather_customer_data';
+    case NODES.ASK_ANOTHER:
+      const wantsMore = this.detectUserIntent(state);
+      return wantsMore ? NODES.IDENTIFY : NODES.GOODBYE;
 
     default:
-      return getNextNode(currentNode);
+      return this.getNextSequentialNode(currentNode);
   }
 }
 ```
 
+**Critical**: Returning `END` instead of same node prevents infinite loops when waiting for user input.
+
+### Request Flow (Step-by-Step)
+
+#### First Message (New Session)
+
+```
+1. POST /api/v1/chat/langgraph/message
+   Body: { message: "[CALL_STARTED]" }
+
+2. LangGraphOrchestratorService.processMessage()
+   ├─ No sessionId → Generate new UUID
+   ├─ Create session in d_session table
+   └─ Call langGraphService.processMessage()
+
+3. LangGraphStateGraphService.processMessage()
+   ├─ No existingState → createInitialState()
+   │  └─ Initialize steps_completed tracker (all false)
+   ├─ Skip adding [CALL_STARTED] to messages
+   ├─ Add _mcpAdapter and _authToken to state
+   └─ graph.invoke(inputState, { configurable: { thread_id: sessionId } })
+
+4. LangGraph Execution
+   ├─ START → I_greet_customer
+   │  └─ Return random greeting template
+   ├─ I_greet_customer → II_ask_about_need
+   │  └─ Ask "What brings you here today?"
+   ├─ II_ask_about_need → III_identify_issue
+   │  ├─ Call MCP: setting_list (service catalog)
+   │  ├─ Call OpenAI: Extract structured data (JSON mode)
+   │  └─ Update context with customer_main_ask, service_catalog match
+   ├─ III_identify_issue → IV_empathize
+   │  └─ Random empathy template with {issue} interpolation
+   ├─ IV_empathize → V_build_rapport
+   │  └─ Random rapport template
+   ├─ V_build_rapport → VI_gather_customer_data
+   │  ├─ Check missing fields (phone, name, email, address)
+   │  ├─ Ask for phone number (first priority)
+   │  └─ Route to END (wait for user response)
+   └─ END
+
+5. saveLangGraphState()
+   └─ Save state snapshot to d_session_state table
+
+6. Return response
+   {
+     sessionId: "uuid",
+     response: "May I have your phone number?",
+     currentNode: "I_greet_customer",
+     completed: false,
+     conversationEnded: false
+   }
+```
+
+#### Subsequent Message (Resume Session)
+
+```
+1. POST /api/v1/chat/langgraph/message
+   Body: { message: "555-123-4567", session_id: "uuid" }
+
+2. LangGraphOrchestratorService.processMessage()
+   ├─ sessionId exists → Resume session
+   └─ Call langGraphService.getConversationHistory(sessionId)
+
+3. LangGraphStateGraphService.getConversationHistory()
+   └─ graph.getState({ configurable: { thread_id: sessionId } })
+      └─ Returns last checkpointed state
+
+4. LangGraphStateGraphService.processMessage()
+   ├─ Use existingState (not createInitialState)
+   ├─ Add user message to messages array
+   └─ graph.invoke(inputState, { thread_id: sessionId })
+
+5. LangGraph Execution (resumes from last checkpoint)
+   ├─ Skip I-V (already completed)
+   ├─ VI_gather_customer_data executes
+   │  ├─ Extract phone from user message
+   │  ├─ Update context.customer_phone_number
+   │  ├─ Check: still missing name
+   │  └─ Ask "Could I get your full name?"
+   └─ Route to END (wait for next input)
+
+6. Continue until all data gathered, then proceed to VII-XIII
+```
+
 ---
 
-## 💾 State Persistence
+## 3. Database, API & UI/UX Mapping
 
-### Two-Layer Persistence
+### Database Tables
 
-**1. LangGraph Checkpointer (Primary)**
-- Automatic state snapshots at each node
-- Resume conversations via `thread_id` (sessionId)
-- Built-in versioning and history
-
-```typescript
-const result = await graph.invoke(inputState, {
-  configurable: { thread_id: sessionId },
-});
-```
-
-**2. Database Backup (Secondary)**
-- Saves to `d_session_state` table via StateManager
-- Backup in case checkpointer memory clears
-- Cross-session analytics
-
-```typescript
-await this.saveLangGraphState(sessionId, result);
-```
-
-### Resume Conversation
-
-```typescript
-// Get conversation history
-const existingState = await langGraphService.getConversationHistory(sessionId);
-
-// Continue from where it left off
-const result = await langGraphService.processMessage(
-  sessionId,
-  newMessage,
-  authToken,
-  existingState
+#### d_session (Primary Session Tracking)
+```sql
+CREATE TABLE app.d_session (
+  session_id UUID PRIMARY KEY,
+  chat_session_id TEXT,  -- Voice call session reference
+  user_id UUID,
+  current_intent TEXT,   -- "CalendarBooking"
+  current_node TEXT,     -- Current graph node
+  status TEXT,           -- active | completed | error
+  auth_metadata JSONB,   -- { authToken: "..." }
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
----
-
-## 🎯 Usage Guide
-
-### Feature Flag (Toggle Implementation)
-
-```typescript
-// In langgraph-orchestrator.service.ts
-const USE_LANGGRAPH = true; // ✅ Use LangGraph
-const USE_LANGGRAPH = false; // ❌ Use original implementation
+#### d_session_state (State Snapshots)
+```sql
+CREATE TABLE app.d_session_state (
+  id UUID PRIMARY KEY,
+  session_id UUID REFERENCES app.d_session(session_id),
+  state_key TEXT,        -- e.g., "messages", "context", "customer_profile"
+  state_value JSONB,
+  metadata JSONB,        -- { source: "langgraph", node_context: "...", validated: true }
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 ```
 
-### Processing Messages
+#### d_agent_log (Audit Trail)
+```sql
+CREATE TABLE app.d_agent_log (
+  id UUID PRIMARY KEY,
+  session_id UUID REFERENCES app.d_session(session_id),
+  agent_name TEXT,       -- "worker" | "planner"
+  action TEXT,           -- Node name
+  input_data JSONB,
+  output_data JSONB,
+  timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+```
 
+### API Endpoints
+
+#### POST /api/v1/chat/langgraph/message
+**Process a message through LangGraph orchestrator**
+
+Request:
+```json
+{
+  "message": "I have holes in my backyard with dying grass",
+  "session_id": "uuid-optional",
+  "chat_session_id": "voice-session-id-optional",
+  "user_id": "user-uuid-optional"
+}
+```
+
+Response:
+```json
+{
+  "sessionId": "generated-or-provided-uuid",
+  "response": "May I have your phone number so I can better assist you?",
+  "intent": "CalendarBooking",
+  "currentNode": "I_greet_customer",
+  "requiresUserInput": true,
+  "completed": false,
+  "conversationEnded": false,
+  "endReason": null,
+  "debugLogs": [
+    {
+      "timestamp": "2025-11-07T03:46:28.450Z",
+      "node": "identifyIssueNode",
+      "type": "llm_call",
+      "model": "GPT-4 (worker)",
+      "temperature": 0.3,
+      "jsonMode": true,
+      "systemPrompt": "...",
+      "userPrompt": "...",
+      "response": "..."
+    }
+  ]
+}
+```
+
+Auth: Bearer token in `Authorization` header (JWT)
+
+#### GET /api/v1/chat/langgraph/session/:id/status
+**Get session status and full state**
+
+Response:
+```json
+{
+  "session": {
+    "session_id": "uuid",
+    "current_intent": "CalendarBooking",
+    "current_node": "VI_gather_customer_data",
+    "status": "active"
+  },
+  "state": {
+    "messages": [...],
+    "context": { ... },
+    "completed": false
+  },
+  "logs": [...]  // Last 10 agent logs
+}
+```
+
+#### GET /api/v1/chat/langgraph/intents
+**List available intents/workflows**
+
+Response:
+```json
+{
+  "count": 1,
+  "intents": [
+    {
+      "name": "CalendarBooking",
+      "description": "Service appointment booking workflow"
+    }
+  ]
+}
+```
+
+#### GET /api/v1/chat/langgraph/health
+**Health check**
+
+Response:
+```json
+{
+  "status": "ok",
+  "service": "LangGraph Orchestrator",
+  "timestamp": "2025-11-07T03:46:28.450Z"
+}
+```
+
+### Frontend Integration Points
+
+**ChatWidget Component** (`apps/web/src/components/chat/ChatWidget.tsx`):
 ```typescript
-const orchestrator = new LangGraphOrchestratorService();
-
-const result = await orchestrator.processMessage({
-  sessionId: 'optional-session-id',
-  message: 'My internet is not working',
-  authToken: 'jwt-token',
-  userId: 'user-id',
-  chatSessionId: 'voice-session-id',
+// Send message to LangGraph orchestrator
+const response = await fetch('/api/v1/chat/langgraph/message', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${authToken}`
+  },
+  body: JSON.stringify({
+    message: userInput,
+    session_id: currentSessionId,  // Maintain session
+    user_id: userId
+  })
 });
 
-// Result includes:
-// - response: AI assistant's response
-// - currentNode: Where we are in the flow
-// - completed: Is conversation done?
-// - conversationEnded: Should we hang up?
-// - debugLogs: Browser console logs
+const data = await response.json();
+
+// Update UI
+setMessages([...messages,
+  { role: 'user', content: userInput },
+  { role: 'assistant', content: data.response }
+]);
+setCurrentSessionId(data.sessionId);
+
+// Handle conversation end
+if (data.conversationEnded) {
+  // Show "Conversation ended" message
+  // Optionally close chat widget
+}
 ```
 
-### New Session
-
+**Voice Integration** (WebSocket-based):
 ```typescript
-// First message - no sessionId
-const result1 = await orchestrator.processMessage({
-  message: '[CALL_STARTED]',
-  authToken: token,
+// Voice session starts → Initialize LangGraph session
+const initResponse = await fetch('/api/v1/chat/langgraph/message', {
+  method: 'POST',
+  body: JSON.stringify({ message: '[CALL_STARTED]' })
 });
 
-// LangGraph creates:
-// - New sessionId (UUID)
-// - Initial state with all trackers
-// - Checkpointer entry
-```
+const { sessionId } = await initResponse.json();
 
-### Resuming Session
+// For each voice transcript chunk
+voiceSocket.on('transcript', async (text) => {
+  const response = await fetch('/api/v1/chat/langgraph/message', {
+    method: 'POST',
+    body: JSON.stringify({
+      message: text,
+      session_id: sessionId,
+      chat_session_id: voiceSessionId
+    })
+  });
 
-```typescript
-// Subsequent messages - provide sessionId
-const result2 = await orchestrator.processMessage({
-  sessionId: result1.sessionId, // ✅ Resume from here
-  message: 'My name is John',
-  authToken: token,
+  const data = await response.json();
+
+  // Send AI response to text-to-speech
+  textToSpeech(data.response);
+
+  // Auto-disconnect if conversation ended
+  if (data.conversationEnded) {
+    disconnectVoiceSession(voiceSessionId);
+  }
 });
-
-// LangGraph automatically:
-// - Loads state from checkpointer
-// - Continues from current_node
-// - Preserves all context
 ```
-
----
-
-## 🧪 Testing
-
-### 1. **Basic Flow Test**
-
-```bash
-# Start services
-pnpm --filter api run dev
-
-# Test via API
-./tools/test-api.sh POST /api/v1/chat/langgraph/message '{
-  "message": "My internet is not working",
-  "authToken": "eyJhbGci..."
-}'
-```
-
-**Expected Console Output:**
-```
-[LangGraphOrchestrator] 🚀 Initialized with LangGraphStateGraphService
-[LangGraph] ====== Processing Message (14-Step Flow) ======
-[LangGraph] 🎯 Executing: I_greet_customer
-[LangGraph] ✅ Marked I_greet_customer as completed
-[LangGraph] 🎯 Executing: II_ask_about_need
-[LangGraph] ✅ Marked II_ask_about_need as completed
-...
-```
-
-### 2. **Step Skipping Test**
-
-```typescript
-// First message
-const result1 = await orchestrator.processMessage({
-  message: 'Internet issue',
-  authToken: token,
-});
-// Steps I-III complete ✅
-
-// Second message (same session)
-const result2 = await orchestrator.processMessage({
-  sessionId: result1.sessionId,
-  message: '555-1234',
-  authToken: token,
-});
-
-// Expected:
-// [LangGraph] ⏭️  Skipping I_greet_customer (already completed)
-// [LangGraph] ⏭️  Skipping II_ask_about_need (already completed)
-// [LangGraph] ⏭️  Skipping III_identify_issue (already completed)
-// [LangGraph] 🎯 Executing: VI_gather_customer_data
-```
-
-### 3. **Issue Change Test**
-
-```typescript
-// After step VIII_plan_actions
-const result = await orchestrator.processMessage({
-  sessionId,
-  message: 'Actually, I want to report a broken heater instead',
-  authToken: token,
-});
-
-// Expected:
-// [LangGraph] 🔄 Issue change detected, routing to IDENTIFY
-// [LangGraph] 🔄 Reset steps from III_identify_issue onwards (preserveCustomerData: true)
-// [LangGraph] 🎯 Executing: III_identify_issue
-// (customer_name, customer_phone_number preserved ✅)
-```
-
-### 4. **Data Update Test**
-
-```typescript
-const result = await orchestrator.processMessage({
-  sessionId,
-  message: 'Wait, my phone number changed to 555-9876',
-  authToken: token,
-});
-
-// Expected:
-// [LangGraph] 🔄 Data update detected (customer_phone_number), routing to GATHER
-// [LangGraph] 🎯 Executing: VI_gather_customer_data
-// (only customer_phone_number cleared, rest preserved ✅)
-```
-
-### 5. **Conversation Resume Test**
-
-```typescript
-// Simulate server restart
-const newOrchestrator = new LangGraphOrchestratorService();
-
-// Resume with existing sessionId
-const resumed = await newOrchestrator.processMessage({
-  sessionId: existingSessionId,
-  message: 'Continue where we left off',
-  authToken: token,
-});
-
-// Expected:
-// [LangGraphOrchestrator] 📂 Existing session abc-123, loading from LangGraph
-// [LangGraph] State loaded from checkpointer ✅
-// [LangGraph] Continuing from current_node: VIII_plan_actions
-```
-
----
-
-## 📊 Feature Comparison
-
-| Feature | Original | LangGraph | Winner |
-|---------|----------|-----------|--------|
-| **14-Step Flow** | ✅ Manual switch/case | ✅ Graph edges | 🤝 Equal |
-| **Context Building** | ✅ Manual merging | ✅ Automatic reducers | 🚀 LangGraph |
-| **Step Skip Logic** | ✅ Manual checks | ✅ Node wrappers | 🤝 Equal |
-| **State Persistence** | ✅ Database only | ✅✅ Checkpointer + DB | 🚀 LangGraph |
-| **Resume Conversations** | ❌ Manual reconstruction | ✅ Automatic via thread_id | 🚀 LangGraph |
-| **Error Handling** | ✅ Try/catch per node | ✅✅ Built-in + ERROR_STATE | 🚀 LangGraph |
-| **Conditional Routing** | ✅ Manual if/else | ✅ Conditional edges | 🚀 LangGraph |
-| **Visualization** | ❌ No | ✅ Graph diagrams | 🚀 LangGraph |
-| **Testing** | ⚠️  Manual mocking | ✅ Easier unit tests | 🚀 LangGraph |
-| **Debugging** | ✅ Console logs | ✅✅ Logs + tracing | 🚀 LangGraph |
-| **MCP Integration** | ✅ Works | ✅ Works | 🤝 Equal |
-| **Performance** | ✅ Fast | ✅ Fast (same nodes) | 🤝 Equal |
-
-**Overall Winner: 🚀 LangGraph** (Better architecture, more features, same performance)
 
 ---
 
-## 🎯 Benefits of LangGraph
+## 4. Central Configuration & Middleware
 
-### 1. **Better Architecture**
-- ✅ Declarative graph definition (clearer intent)
-- ✅ Separation of concerns (nodes vs. routing)
-- ✅ Standard patterns (LangChain community)
+### Node Prompts Configuration (`prompts.config.ts`)
 
-### 2. **State Management**
-- ✅ Automatic persistence with checkpointer
-- ✅ Built-in state versioning
-- ✅ Reducers handle merging automatically
+Centralized prompt templates for all 14 nodes:
 
-### 3. **Conversation Resume**
-- ✅ Resume from any point via `thread_id`
-- ✅ No manual state reconstruction needed
-- ✅ Works across server restarts
-
-### 4. **Debugging & Testing**
-- ✅ Can visualize graph as diagram
-- ✅ LangSmith tracing (optional)
-- ✅ Easier to unit test individual nodes
-
-### 5. **Future-Proof**
-- ✅ Easy to add new nodes
-- ✅ Easy to modify routing logic
-- ✅ Built-in support for complex patterns (cycles, parallel, etc.)
-
----
-
-## 🔧 Troubleshooting
-
-### Issue: "Cannot find module '@langchain/langgraph'"
-**Solution**: Packages already installed, restart TypeScript server
-
-### Issue: Conversations not resuming
-**Solution**: Check that `thread_id` matches `sessionId`:
 ```typescript
-const result = await graph.invoke(state, {
-  configurable: { thread_id: sessionId }, // ✅ Must match
-});
+export const NODE_PROMPTS = {
+  identify_issue: {
+    system: (serviceCatalog: string, availableEntities: string[]) => `
+      You are an intelligent customer service agent...
+      Available Service Catalog: ${serviceCatalog}
+      Available Entities: ${availableEntities.join(', ')}
+
+      Output JSON: {
+        customer_name, customer_phone_number, customers_main_ask,
+        matching_service_catalog, related_entities
+      }
+    `,
+    user: (customerMessage: string) => `Parse: "${customerMessage}"`
+  },
+
+  plan_actions: {
+    system: `Create step-by-step plan using available MCP tools...`,
+    user: (vars) => `Context: ${JSON.stringify(vars.customer_context)}
+                     Available Tools: ${vars.available_mcp_tools.join(', ')}`
+  },
+
+  // ... all 14 node prompts
+};
 ```
 
-### Issue: Context not building
-**Solution**: Check reducers in `GraphState.Annotation`:
+### Customer Context Type Definition
+
 ```typescript
-context: Annotation<Partial<CustomerContext>>({
-  reducer: (x, y) => ({ ...x, ...y }), // ✅ Merge objects
-}),
+export interface CustomerContext {
+  who_are_you: string;
+
+  // Customer Identity (persistent)
+  customer_id?: string;
+  customer_name?: string;
+  customer_phone_number?: string;
+  customer_email?: string;
+  customers_street_address?: string;
+  customers_city?: string;
+  customers_province?: string;
+  customers_zip_postal_code?: string;
+
+  // Request/Issue Data (resettable)
+  customers_main_ask: string;
+  matching_service_catalog: string;
+  related_entities: string[];
+  next_steps_plan: string[];
+
+  // Conversation Stage
+  conversation_stage:
+    | 'greeting'
+    | 'asking_about_need'
+    | 'identifying_issue'
+    | 'empathizing'
+    | 'building_rapport'
+    | 'gathering_data'
+    | 'checking_customer'
+    | 'planning'
+    | 'communicating_plan'
+    | 'executing'
+    | 'confirming_execution'
+    | 'asking_another_request'
+    | 'closing'
+    | 'error';
+
+  // Step Completion Tracking
+  steps_completed?: StepCompletionTracker;
+}
+
+export interface StepCompletionTracker {
+  I_greet: boolean;
+  II_ask_need: boolean;
+  III_identify_issue: boolean;
+  IV_empathize: boolean;
+  V_build_rapport: boolean;
+  VI_gather_data: boolean;
+  VII_check_customer: boolean;
+  VIII_plan_actions: boolean;
+  IX_communicate_plan: boolean;
+  X_execute_plan: boolean;
+  XI_communicate_execution: boolean;
+}
 ```
 
-### Issue: Steps not skipping
-**Solution**: Verify `shouldSkipStep()` is called in node wrappers and `steps_completed` is initialized
+### OpenAI Service Configuration (`services/openai.service.ts`)
 
----
+Agent types with different model/temperature settings:
 
-## 📈 Performance
-
-### Benchmarks (same hardware, same LLM):
-
-| Metric | Original | LangGraph | Difference |
-|--------|----------|-----------|------------|
-| **First Message** | 1.2s | 1.3s | +8% (checkpointer overhead) |
-| **Subsequent Messages** | 0.9s | 0.8s | -11% (faster state loading) |
-| **Memory Usage** | 50MB | 55MB | +10% (checkpointer cache) |
-| **Database Writes** | 15/session | 10/session | -33% (less redundancy) |
-
-**Verdict**: Slightly slower on first message, faster on subsequent messages, overall net positive.
-
----
-
-## 🚀 Next Steps (Optional Enhancements)
-
-### 1. **LangSmith Tracing** (Recommended)
 ```typescript
-import { Client } from 'langsmith';
+const AGENT_CONFIGS = {
+  worker: {
+    model: 'gpt-4',
+    temperature: 0.7,  // Creative responses
+  },
+  planner: {
+    model: 'gpt-4',
+    temperature: 0.2,  // Structured planning
+  },
+  critic: {
+    model: 'gpt-4',
+    temperature: 0.3,  // Analytical evaluation
+  }
+};
 
-const client = new Client({
-  apiKey: process.env.LANGCHAIN_API_KEY,
-});
+export async function callAgent(params: {
+  agentType: 'worker' | 'planner' | 'critic';
+  messages: Array<{ role: string; content: string }>;
+  temperature?: number;
+  jsonMode?: boolean;
+}) {
+  const config = AGENT_CONFIGS[params.agentType];
 
-// Automatic tracing of all LLM calls and state transitions
+  return await openai.chat.completions.create({
+    model: config.model,
+    messages: params.messages,
+    temperature: params.temperature ?? config.temperature,
+    response_format: params.jsonMode ? { type: 'json_object' } : undefined
+  });
+}
 ```
 
-### 2. **Graph Visualization**
+### MCP Adapter Integration
+
 ```typescript
-// Generate Mermaid diagram
-const mermaidCode = workflow.getGraph().drawMermaid();
+export class MCPAdapterService {
+  async executeMCPTool(
+    toolName: string,
+    params: Record<string, any>,
+    authToken: string
+  ): Promise<any> {
+    // Available tools:
+    // - customer_search: { query_phone: string }
+    // - customer_create: { body_primary_phone: string, body_primary_contact_name: string }
+    // - setting_list: { query_datalabel: string }
+    // - booking_create: { ... }
 
-// Render in docs or dashboard
-```
+    const response = await fetch(`http://localhost:4000/api/v1/mcp/tool/${toolName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(params)
+    });
 
-### 3. **Persistent Checkpointer** (Production)
-```typescript
-import { PostgresSaver } from '@langchain/langgraph-checkpoint-postgres';
-
-const checkpointer = new PostgresSaver(postgresConnectionString);
-const app = workflow.compile({ checkpointer });
-```
-
-### 4. **Streaming Responses**
-```typescript
-for await (const chunk of app.stream(input, config)) {
-  console.log('Streaming:', chunk);
-  // Send to client via WebSocket
+    return await response.json();
+  }
 }
 ```
 
 ---
 
-## ✅ Checklist
+## 5. User Interaction Flow Examples
 
-- [x] LangChain packages installed
-- [x] LangGraph state definition created
-- [x] All 14 nodes migrated to LangGraph format
-- [x] Conditional edges with smart routing
-- [x] Compiled graph with checkpointer
-- [x] Orchestrator service updated
-- [x] Feature flag for easy toggle
-- [x] State persistence (checkpointer + database)
-- [x] All features preserved
-- [ ] Testing in production
-- [ ] (Optional) LangSmith tracing
-- [ ] (Optional) Graph visualization
-- [ ] (Optional) Persistent checkpointer
+### Example 1: Backyard Holes & Dying Grass
+
+**User Journey**:
+```
+Customer calls → AI answers → Customer describes issue → AI gathers info → AI plans solution → AI executes → Confirms → Goodbye
+```
+
+**Detailed Flow**:
+
+```
+1. [CALL_STARTED]
+   AI: "Hey! How are you? How's it going? How can I help you today?"
+   AI: "What brings you here today?"
+   Node: II_ask_about_need
+
+2. User: "I have holes in my backyard and my grass is dying"
+   AI (Internal):
+     - Calls MCP: setting_list(dl__service_category)
+     - Calls GPT-4: Extract { customers_main_ask, matching_service_catalog, related_entities }
+     - Result: { customers_main_ask: "holes in backyard with dying grass",
+                 matching_service_catalog: "lawn_care_service",
+                 related_entities: ["Customer", "Booking", "Task"] }
+
+   AI: "I hear you, and I'm sorry that your issue is happening."
+   AI: "No worries at all! I'm here to help you sort this out."
+   AI: "May I have your phone number so I can better assist you?"
+   Node: VI_gather_customer_data
+
+3. User: "555-987-6543"
+   AI (Internal):
+     - Extracts phone: "555-987-6543"
+     - Updates context.customer_phone_number
+     - Still missing: customer_name
+
+   AI: "Could I get your full name, please?"
+   Node: VI_gather_customer_data (same node, different question)
+
+4. User: "John Smith"
+   AI (Internal):
+     - Extracts name: "John Smith"
+     - Updates context.customer_name
+     - Has phone + name → Proceed to customer lookup
+     - Calls MCP: customer_search({ query_phone: "555-987-6543" })
+     - Result: Customer not found
+     - Calls MCP: customer_create({ body_primary_phone: "555-987-6543",
+                                    body_primary_contact_name: "John Smith" })
+     - Result: { id: "new-customer-uuid" }
+
+   AI: "Thank you! I've set up your profile. Let's get your issue resolved."
+   Node: VII_check_existing_customer → VIII_plan_actions
+
+5. AI (Internal - Planning):
+   - Calls GPT-4 Planner:
+     * Context: { customers_main_ask: "holes in backyard with dying grass",
+                  matching_service_catalog: "lawn_care_service",
+                  customer_id: "uuid", customer_name: "John Smith", ... }
+     * Available MCP Tools: [booking_create, task_create, ...]
+     * Returns: { next_steps_plan: [
+         "1. Create lawn care service booking",
+         "2. Schedule assessment visit",
+         "3. Create follow-up task for grass treatment"
+       ]}
+
+   AI: "Here's what I'm going to do: First, I'll create a lawn care service booking for you.
+        Then, I'll schedule an assessment visit for tomorrow between 2-5 PM. After that,
+        I'll set up a follow-up task for grass treatment. Does that work for you?"
+   Node: IX_communicate_plan
+
+6. User: "Yes, that sounds good"
+   AI (Internal):
+     - Detects approval
+     - Executes plan steps:
+       * booking_create(...)
+       * task_create(...)
+     - Stores executed_actions
+
+   AI: "All set! I've created booking #12345 for your lawn care assessment and scheduled
+        the visit for tomorrow at 3 PM. You'll receive a confirmation email shortly.
+        Is there anything else I can help you with today?"
+   Node: XIb_ask_another_request
+
+7. User: "No, that's all"
+   AI (Internal):
+     - Detects "no" → Route to GOODBYE
+
+   AI: "Thank you for reaching out! Your service is all scheduled. Feel free to contact
+        us anytime. Have a great day!"
+   Node: XII_goodbye
+
+   AI (Internal):
+     - Auto-disconnect voice session (if voice call)
+
+   [CALL_ENDED]
+```
+
+### Example 2: Multiple Requests in One Call
+
+```
+1. First issue: "My internet is not working"
+   ... (steps I-XI as above)
+
+2. AI: "Is there anything else I can help you with today?"
+   User: "Yes, I also need to schedule a repair for my broken heater"
+
+3. AI (Internal):
+   - Detects "yes" + new request
+   - Resets steps from III_identify_issue onwards
+   - Preserves customer_id, customer_name, customer_phone_number
+   - Clears customers_main_ask, matching_service_catalog, next_steps_plan
+
+4. Routes back to III_identify_issue
+   - Processes new issue: "broken heater"
+   - Continues through steps IV-XIII
+   - Completes second request
+
+5. AI: "Is there anything else I can help you with today?"
+   User: "No, thanks"
+
+6. Routes to XII_goodbye → XIII_hangup → END
+```
 
 ---
 
-## 🎉 Status
+## 6. Critical Considerations When Building
 
-**✅ FULLY IMPLEMENTED AND PRODUCTION-READY**
+### Architectural Decisions
 
-All features preserved, architecture improved, ready to deploy!
+#### 1. **Return END, Not Loop to Same Node**
 
-To enable: Set `USE_LANGGRAPH = true` in `langgraph-orchestrator.service.ts`
+**Problem**: Returning same node from conditional edge creates infinite loop.
+
+**Solution**:
+```typescript
+case NODES.GATHER:
+  const hasRequiredData = this.validateCustomerData(state);
+  if (!hasRequiredData) {
+    return END;  // ✅ CRITICAL: Wait for user input
+  }
+  return NODES.CHECK;
+```
+
+**Why**: LangGraph executes continuously until reaching `END`. Looping to same node will execute forever. Use `END` to pause and wait for next user message.
+
+#### 2. **State Reducer Design**
+
+All state fields use reducers for automatic merging:
+
+```typescript
+context: Annotation<Partial<CustomerContext>>({
+  reducer: (x, y) => ({ ...x, ...y }),  // Shallow merge
+}),
+
+messages: Annotation<BaseMessage[]>({
+  reducer: (x, y) => x.concat(y),  // Append arrays
+}),
+```
+
+**Why**: Node functions return partial updates. Reducers merge them into accumulated state automatically.
+
+#### 3. **Context Injection at Every Step**
+
+```typescript
+const userPromptWithContext = injectContextIntoPrompt(baseUserPrompt, state.context);
+```
+
+**Why**: LLM has no memory. Must receive full conversation context with every call to make informed decisions.
+
+#### 4. **Step Completion Tracking**
+
+```typescript
+interface StepCompletionTracker {
+  I_greet: boolean;
+  II_ask_need: boolean;
+  // ... all steps
+}
+```
+
+**Why**: Enables intelligent skip logic when resuming conversations. If steps I-V already completed, jump directly to step VI.
+
+#### 5. **Two-Layer Persistence**
+
+- **Layer 1**: LangGraph MemorySaver checkpointer (in-memory, fast)
+- **Layer 2**: PostgreSQL d_session_state table (persistent, backup)
+
+**Why**: Checkpointer provides fast resume. Database provides durability across server restarts and analytics.
+
+#### 6. **Node Wrapping Variants**
+
+Different wrappers for different dependency needs:
+- `wrapNode()`: No external dependencies
+- `wrapNodeWithMCP()`: Needs MCP adapter + auth token
+- `wrapNodeWithMCPOnly()`: Needs only MCP adapter
+
+**Why**: DRY principle. Single wrapper logic, parameterized for different signatures.
+
+### Implementation Patterns
+
+#### Pattern 1: Adding a New Node
+
+```typescript
+// 1. Add node to NODES constant
+export const NODES = {
+  // ... existing nodes
+  NEW_NODE: 'XIV_new_node_name',
+} as const;
+
+// 2. Create node function in graph-nodes.service.ts
+export async function newNodeFunction(state: AgentState): Promise<Partial<AgentState>> {
+  console.log(`\n🎯 [XIV. NEW_NODE] ━━━━━━━━━━━━━━━━━━━━━━━━━`);
+
+  const context = state.context || {};
+
+  // Node logic here
+
+  return {
+    messages: [...state.messages, { role: 'assistant', content: response }],
+    context: { ...context, conversation_stage: 'new_stage' },
+  };
+}
+
+// 3. Add to graph construction
+workflow.addNode(NODES.NEW_NODE, this.wrapNode(newNodeFunction, NODES.NEW_NODE));
+
+// 4. Add edges
+workflow.addEdge(NODES.PREVIOUS_NODE, NODES.NEW_NODE);
+workflow.addEdge(NODES.NEW_NODE, NODES.NEXT_NODE);
+
+// 5. Update routing logic if conditional
+workflow.addConditionalEdges(NODES.NEW_NODE, (state) => this.routeFromNode(NODES.NEW_NODE, state));
+
+// 6. Add step completion tracking
+interface StepCompletionTracker {
+  // ... existing
+  XIV_new_node: boolean;
+}
+```
+
+#### Pattern 2: Adding MCP Tool Integration
+
+```typescript
+// In node function that needs MCP
+export async function nodeWithMCP(
+  state: AgentState,
+  mcpAdapter: MCPAdapterService,
+  authToken: string
+): Promise<Partial<AgentState>> {
+
+  // Call MCP tool
+  const result = await mcpAdapter.executeMCPTool(
+    'tool_name',
+    { param1: value1, param2: value2 },
+    authToken
+  );
+
+  // Process result
+  const data = result.data;
+
+  // Update context
+  return {
+    context: {
+      ...state.context,
+      new_field: data.extracted_value,
+    },
+  };
+}
+
+// Wrap with MCP variant
+workflow.addNode(NODES.NODE_NAME, this.wrapNodeWithMCP(nodeWithMCP, NODES.NODE_NAME));
+```
+
+#### Pattern 3: Conditional Routing with Detection
+
+```typescript
+// Add detection function
+private detectCustomCondition(state: LangGraphState): boolean {
+  const lastMessage = state.messages[state.messages.length - 1];
+  if (!lastMessage || lastMessage._getType() !== 'human') return false;
+
+  const userMessage = lastMessage.content.toString();
+  const indicators = /keyword1|keyword2|keyword3/i;
+
+  return indicators.test(userMessage);
+}
+
+// Use in routing
+private routeFromNode(currentNode: NodeName, state: LangGraphState): NodeName | typeof END {
+  // Check custom condition first
+  if (this.detectCustomCondition(state)) {
+    // Reset relevant steps
+    this.resetStepsFrom('III_identify_issue', state, true);
+    return NODES.TARGET_NODE;
+  }
+
+  // ... other routing logic
+}
+```
+
+### Common Pitfalls
+
+#### ❌ Don't: Loop to Same Node
+```typescript
+case NODES.GATHER:
+  return !hasData ? NODES.GATHER : NODES.CHECK;  // INFINITE LOOP!
+```
+
+#### ✅ Do: Return END to Wait
+```typescript
+case NODES.GATHER:
+  return !hasData ? END : NODES.CHECK;  // Correct
+```
+
+#### ❌ Don't: Forget to Pass Context
+```typescript
+const result = await openai.chat.completions.create({
+  messages: [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: 'Parse this message' }  // Missing context!
+  ]
+});
+```
+
+#### ✅ Do: Inject Context
+```typescript
+const userPromptWithContext = injectContextIntoPrompt('Parse this message', state.context);
+const result = await openai.chat.completions.create({
+  messages: [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPromptWithContext }  // Context included
+  ]
+});
+```
+
+#### ❌ Don't: Manually Merge State
+```typescript
+state.context = { ...state.context, ...newFields };  // Mutating state directly
+```
+
+#### ✅ Do: Return Partial Update
+```typescript
+return {
+  context: newFields  // Reducer handles merging
+};
+```
+
+### Testing Strategy
+
+```bash
+# 1. Start API
+pnpm --filter api run dev
+
+# 2. Test new session
+curl -X POST http://localhost:4000/api/v1/chat/langgraph/message \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "[CALL_STARTED]"}'
+
+# 3. Test conversation continuity
+curl -X POST http://localhost:4000/api/v1/chat/langgraph/message \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "User input", "session_id": "from-previous-response"}'
+
+# 4. Check session state
+curl http://localhost:4000/api/v1/chat/langgraph/session/$SESSION_ID/status \
+  -H "Authorization: Bearer $TOKEN"
+
+# 5. Monitor logs
+tail -f logs/api.log | grep -E "🎯|LangGraph|Error"
+```
+
+### Performance Optimization
+
+1. **Checkpointer**: In-memory for development, PostgreSQL for production
+2. **Skip Completed Steps**: Reduces unnecessary LLM calls
+3. **JSON Mode**: Faster structured extraction than parsing text
+4. **Temperature Tuning**: Lower for deterministic tasks, higher for creative responses
+5. **Prompt Optimization**: Shorter prompts with clear instructions reduce token usage
+
+### Security Considerations
+
+1. **Auth Token**: Always pass through `_authToken` in state, never serialize to checkpointer
+2. **PII Handling**: CustomerContext contains sensitive data—encrypt at rest in database
+3. **Input Validation**: Sanitize user messages before LLM calls
+4. **Rate Limiting**: Implement per-session to prevent abuse
+5. **MCP Tool Access**: Validate auth token before every tool execution
 
 ---
 
-**Implementation Date**: 2025-11-06
-**Version**: 1.0.0 (LangGraph Migration)
-**Status**: ✅ **COMPLETE**
+## Files Structure
+
+```
+apps/api/src/modules/chat/orchestrator/langgraph/
+├── langgraph-orchestrator.service.ts      # Main orchestrator (218 lines)
+├── langgraph-state-graph.service.ts       # Graph construction & execution (745 lines)
+├── graph-nodes.service.ts                 # All 14 node functions (950 lines)
+├── prompts.config.ts                      # Centralized prompts & types (536 lines)
+├── langgraph-orchestrator.routes.ts       # API endpoints (127 lines)
+└── LANGGRAPH_IMPLEMENTATION.md            # This documentation
+```
+
+---
+
+## Version History
+
+- **v1.0.0** (2025-11-07): Initial production release with 14-step flow, MCP integration, dual persistence
+- **v1.0.1** (2025-11-07): Fixed infinite loop bug (return END for wait states)
+
+---
+
+**Status**: ✅ Production-Ready
+**Maintainer**: PMO Platform Team
+**Last Review**: 2025-11-07
