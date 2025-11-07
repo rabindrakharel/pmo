@@ -241,13 +241,9 @@ Use the decide_next_node tool to return your decision.`;
 }
 
 /**
- * Singleton accessor
+ * Create new LLM router instance
+ * No singleton to avoid stale config issues
  */
-let routerInstance: DAGLLMRouter | null = null;
-
-export function getDAGLLMRouter(dagConfig: DAGConfiguration): DAGLLMRouter {
-  if (!routerInstance) {
-    routerInstance = new DAGLLMRouter(dagConfig);
-  }
-  return routerInstance;
+export function createDAGLLMRouter(dagConfig: DAGConfiguration): DAGLLMRouter {
+  return new DAGLLMRouter(dagConfig);
 }

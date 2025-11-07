@@ -61,6 +61,17 @@ export interface FlagDefinition {
 }
 
 /**
+ * System Configuration
+ */
+export interface SystemConfig {
+  agent_identity: string;
+  default_context_values: {
+    who_are_you: string;
+    [key: string]: any;
+  };
+}
+
+/**
  * Graph Configuration
  */
 export interface GraphConfig {
@@ -78,6 +89,7 @@ export interface GraphConfig {
  * Complete DAG Configuration
  */
 export interface DAGConfiguration {
+  system_config?: SystemConfig;
   nodes: DAGNode[];
   global_context_schema: GlobalContextSchema;
   routing_config: RoutingConfig;

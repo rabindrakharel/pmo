@@ -196,6 +196,22 @@ export class DAGLoaderService {
   }
 
   /**
+   * Get system config
+   */
+  getSystemConfig() {
+    if (!this.dagConfig) {
+      throw new Error('DAG config not loaded. Call loadDAGConfig() first.');
+    }
+
+    return this.dagConfig.system_config || {
+      agent_identity: 'You are a polite customer service agent who is assisting a customer',
+      default_context_values: {
+        who_are_you: 'You are a polite customer service agent who is assisting a customer',
+      },
+    };
+  }
+
+  /**
    * Get full DAG config
    */
   getDAGConfig(): DAGConfiguration {

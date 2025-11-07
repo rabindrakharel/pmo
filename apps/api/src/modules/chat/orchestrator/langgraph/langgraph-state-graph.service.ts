@@ -28,6 +28,8 @@ import {
   errorStateNode,
   type AgentState as OriginalAgentState,
 } from './graph-nodes.service.js';
+import { getDAGStateBridge } from './dag-state-bridge.service.js';
+import { getDAGLoader } from './dag-loader.service.js';
 
 /**
  * 14-Step Node Names (Roman Numerals)
@@ -113,6 +115,7 @@ export class LangGraphStateGraphService {
   private graph: any;
   private checkpointer: PostgresSaver;
   private initPromise: Promise<void>;
+  private stateBridge = getDAGStateBridge();
 
   constructor(mcpAdapter: MCPAdapterService) {
     this.mcpAdapter = mcpAdapter;
@@ -228,6 +231,7 @@ export class LangGraphStateGraphService {
   private wrapNode(nodeFunc: (state: OriginalAgentState) => Promise<Partial<OriginalAgentState>>, nodeName: NodeName) {
     return async (state: LangGraphState): Promise<Partial<LangGraphState>> => {
       console.log(`\n[LangGraph] 🎯 Executing: ${nodeName}`);
+      this.logFlagState(state.progress_flags || {}, 'Before execution');
 
       // Convert LangGraph state to our original state format
       const originalState = this.toOriginalState(state);
@@ -236,7 +240,13 @@ export class LangGraphStateGraphService {
       const result = await nodeFunc(originalState);
 
       // Convert result back to LangGraph format
-      return this.toLangGraphUpdate(result);
+      const update = this.toLangGraphUpdate(result);
+
+      if (update.progress_flags) {
+        this.logFlagState(update.progress_flags, 'After execution (update)');
+      }
+
+      return update;
     };
   }
 
@@ -253,11 +263,18 @@ export class LangGraphStateGraphService {
   ) {
     return async (state: LangGraphState): Promise<Partial<LangGraphState>> => {
       console.log(`\n[LangGraph] 🎯 Executing: ${nodeName}`);
+      this.logFlagState(state.progress_flags || {}, 'Before execution');
 
       const originalState = this.toOriginalState(state);
       const result = await nodeFunc(originalState, this.mcpAdapter, state._authToken || '');
 
-      return this.toLangGraphUpdate(result);
+      const update = this.toLangGraphUpdate(result);
+
+      if (update.progress_flags) {
+        this.logFlagState(update.progress_flags, 'After execution (update)');
+      }
+
+      return update;
     };
   }
 
@@ -270,11 +287,18 @@ export class LangGraphStateGraphService {
   ) {
     return async (state: LangGraphState): Promise<Partial<LangGraphState>> => {
       console.log(`\n[LangGraph] 🎯 Executing: ${nodeName}`);
+      this.logFlagState(state.progress_flags || {}, 'Before execution');
 
       const originalState = this.toOriginalState(state);
       const result = await nodeFunc(originalState, this.mcpAdapter);
 
-      return this.toLangGraphUpdate(result);
+      const update = this.toLangGraphUpdate(result);
+
+      if (update.progress_flags) {
+        this.logFlagState(update.progress_flags, 'After execution (update)');
+      }
+
+      return update;
     };
   }
 
@@ -404,6 +428,9 @@ export class LangGraphStateGraphService {
    * Determine next node (conditional routing logic)
    */
   private routeFromNode(currentNode: NodeName, state: LangGraphState): NodeName {
+    console.log(`\n[LangGraph] 🔀 Routing from: ${currentNode}`);
+    this.logFlagState(state.progress_flags || {}, 'Current state');
+
     // Check for issue change
     if (this.detectIssueChange(state)) {
       console.log(`[LangGraph] 🔄 Issue change detected, routing to IDENTIFY`);
@@ -436,8 +463,11 @@ export class LangGraphStateGraphService {
         return NODES.IDENTIFY;
 
       case NODES.IDENTIFY:
-        // After identifying issue, check progress flag instead of context
-        const issueIdentified = state.progress_flags?.issue_identified || false;
+        // After identifying issue, check progress flag using bridge
+        const issueIdentified = this.stateBridge.isFlagSet(
+          state.progress_flags || {},
+          'issue_identified'
+        );
         if (!issueIdentified) {
           // Issue not identified yet, wait for user input
           return END;
@@ -445,9 +475,15 @@ export class LangGraphStateGraphService {
         return NODES.EMPATHIZE;
 
       case NODES.GATHER:
-        // Use progress flags instead of checking context directly
-        const phoneCollected = state.progress_flags?.phone_collected || false;
-        const nameCollected = state.progress_flags?.name_collected || false;
+        // Use progress flags via bridge instead of checking context directly
+        const phoneCollected = this.stateBridge.isFlagSet(
+          state.progress_flags || {},
+          'phone_collected'
+        );
+        const nameCollected = this.stateBridge.isFlagSet(
+          state.progress_flags || {},
+          'name_collected'
+        );
 
         if (!phoneCollected || !nameCollected) {
           return END; // Stop and wait for user input
@@ -591,10 +627,21 @@ export class LangGraphStateGraphService {
    * Initialize new conversation state
    */
   createInitialState(): Partial<LangGraphState> {
+    // Load who_are_you from DAG config
+    let whoAreYou = 'You are a polite customer service agent who is assisting a customer'; // Default fallback
+    try {
+      const dagLoader = getDAGLoader();
+      const systemConfig = dagLoader.getSystemConfig();
+      whoAreYou = systemConfig.default_context_values.who_are_you;
+      console.log(`[LangGraph] 📝 Loaded agent identity from DAG config: "${whoAreYou}"`);
+    } catch (error) {
+      console.warn(`[LangGraph] ⚠️  Could not load system config from DAG, using default`);
+    }
+
     return {
       messages: [],
       context: {
-        who_are_you: 'You are a polite customer service agent who is assisting a customer',
+        who_are_you: whoAreYou,
         related_entities: [],
         next_steps_plan: [],
         conversation_stage: 'greeting',
@@ -721,6 +768,18 @@ export class LangGraphStateGraphService {
       console.error(`[LangGraph] Error getting conversation history:`, error);
       return null;
     }
+  }
+
+  /**
+   * Log current flag state for debugging
+   */
+  private logFlagState(flags: Record<string, boolean>, context: string): void {
+    const setFlags = Object.entries(flags)
+      .filter(([_, value]) => value === true)
+      .map(([key, _]) => key)
+      .join(', ');
+
+    console.log(`[LangGraph] 🏁 Flags (${context}): ${setFlags || 'none set'}`);
   }
 
   /**

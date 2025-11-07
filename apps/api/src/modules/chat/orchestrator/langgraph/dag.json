@@ -25,6 +25,12 @@
       "step_6": "User: 'Actually, I need plumbing help' → Router detects intent change → You analyze → Use update_context: flags.identify_issue_flag=0, flags.empathize_flag=0 → Use decide_next_node → Return: Identify_Issue (re-extract)"
     }
   },
+  "system_config": {
+    "agent_identity": "You are a polite customer service agent who is assisting a customer",
+    "default_context_values": {
+      "who_are_you": "You are a polite customer service agent who is assisting a customer"
+    }
+  },
   "nodes": [
     {
       "node_name": "GREET_CUSTOMER",

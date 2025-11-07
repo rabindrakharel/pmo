@@ -269,13 +269,9 @@ export class DAGContextToolsService {
 }
 
 /**
- * Singleton accessor
+ * Create new context tools instance
+ * No singleton to avoid stale config issues
  */
-let contextToolsInstance: DAGContextToolsService | null = null;
-
-export function getDAGContextTools(dagConfig: any): DAGContextToolsService {
-  if (!contextToolsInstance) {
-    contextToolsInstance = new DAGContextToolsService(dagConfig);
-  }
-  return contextToolsInstance;
+export function createDAGContextTools(dagConfig: any): DAGContextToolsService {
+  return new DAGContextToolsService(dagConfig);
 }
