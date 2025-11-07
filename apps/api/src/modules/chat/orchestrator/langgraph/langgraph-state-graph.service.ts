@@ -683,21 +683,45 @@ export class LangGraphStateGraphService {
     console.log(`[LangGraph] Session: ${sessionId}`);
     console.log(`[LangGraph] User message: "${userMessage}"`);
 
-    const inputState: Partial<LangGraphState> = existingState || this.createInitialState();
+    // Check if session exists in checkpointer
+    const hasExistingCheckpoint = existingState !== undefined;
 
-    // Add user message
-    if (userMessage !== '[CALL_STARTED]') {
-      inputState.messages = [
-        ...(inputState.messages || []),
-        new HumanMessage(userMessage),
-      ];
+    let inputState: Partial<LangGraphState>;
+
+    if (hasExistingCheckpoint) {
+      // Resuming session: ONLY pass new message + non-serializable fields
+      // Checkpointer automatically loads all other state
+      console.log(`[LangGraph] 🔄 Resuming session - checkpointer will load previous state`);
+      inputState = {
+        _mcpAdapter: this.mcpAdapter,
+        _authToken: authToken,
+      };
+
+      // Only add message if not [CALL_STARTED]
+      if (userMessage !== '[CALL_STARTED]') {
+        inputState.messages = [new HumanMessage(userMessage)];
+      }
+    } else {
+      // New session: pass full initial state
+      console.log(`[LangGraph] 🆕 New session - creating initial state`);
+      inputState = this.createInitialState();
+
+      // Add user message for new session
+      if (userMessage !== '[CALL_STARTED]') {
+        inputState.messages = [
+          ...(inputState.messages || []),
+          new HumanMessage(userMessage),
+        ];
+      }
+
+      // Add MCP adapter and auth token (these won't be serialized)
+      inputState._mcpAdapter = this.mcpAdapter;
+      inputState._authToken = authToken;
     }
 
-    // Add MCP adapter and auth token (these won't be serialized)
-    inputState._mcpAdapter = this.mcpAdapter;
-    inputState._authToken = authToken;
-
     // Invoke the graph
+    // - For new sessions: uses inputState as initial state
+    // - For existing sessions: checkpointer loads state, merges inputState updates
     const result = await this.graph.invoke(inputState, {
       configurable: { thread_id: sessionId },
     });
