@@ -1,34 +1,43 @@
 /**
  * LangGraph Orchestrator Service
- * Main service for executing multi-agent workflows
+ * Main service for executing multi-agent workflows using LangGraph
  * @module orchestrator/langgraph/langgraph-orchestrator
  */
 
 import { v4 as uuidv4 } from 'uuid';
 import { StateManager } from '../state/state-manager.service.js';
 import { MCPAdapterService } from '../../mcp-adapter.service.js';
-import { getOpenAIService } from '../services/openai.service.js';
-import { AgentCoordinatorService } from '../agents/agent-coordinator.service.js';
-import { WorkflowState } from '../state/state-machine.service.js';
+import {
+  LangGraphStateGraphService,
+  getLangGraphStateGraphService,
+  type LangGraphState,
+} from './langgraph-state-graph.service.js';
+import type { DebugLogEntry } from './graph-nodes.service.js';
+import { DEBUG_LOGS, clearDebugLogs } from './graph-nodes.service.js';
 
 /**
- * LangGraph Orchestrator Service (Multi-Agent)
+ * LangGraph Orchestrator Service
+ * Manages the 14-step conversational AI workflow using LangGraph framework
  */
 export class LangGraphOrchestratorService {
   private stateManager: StateManager;
   private mcpAdapter: MCPAdapterService;
-  private coordinator: AgentCoordinatorService;
+  private langGraphService: LangGraphStateGraphService;
 
   constructor() {
     this.stateManager = new StateManager();
     this.mcpAdapter = new MCPAdapterService();
-    this.coordinator = new AgentCoordinatorService(this.stateManager, this.mcpAdapter);
+    this.langGraphService = getLangGraphStateGraphService(this.mcpAdapter);
 
-    console.log('[LangGraphOrchestrator] Initialized multi-agent coordinator');
+    console.log('[LangGraphOrchestrator] 🚀 Initialized with LangGraph framework');
+    console.log(
+      '[LangGraphOrchestrator] Graph definition:',
+      JSON.stringify(this.langGraphService.getGraphDefinition(), null, 2)
+    );
   }
 
   /**
-   * Process a user message through the multi-agent orchestrator
+   * Process a user message through the LangGraph orchestrator
    */
   async processMessage(args: {
     sessionId?: string;
@@ -46,18 +55,17 @@ export class LangGraphOrchestratorService {
     conversationEnded: boolean;
     endReason?: string;
     engagingMessage?: string;
+    debugLogs?: DebugLogEntry[];
   }> {
     try {
+      clearDebugLogs();
       let sessionId = args.sessionId;
-      let currentState: WorkflowState;
-      let variables: Record<string, any> = {};
+      let existingState: Partial<LangGraphState> | undefined;
 
       if (!sessionId) {
-        // New session - create it
+        // New session
         sessionId = uuidv4();
-        currentState = WorkflowState.GREETING;
-
-        console.log(`[LangGraphOrchestrator] New session ${sessionId}, starting at GREETING`);
+        console.log(`[LangGraphOrchestrator] 🆕 New session ${sessionId}`);
 
         // Create session in database
         await this.stateManager.createSession({
@@ -65,230 +73,105 @@ export class LangGraphOrchestratorService {
           chat_session_id: args.chatSessionId,
           user_id: args.userId,
           current_intent: 'CalendarBooking',
-          current_node: currentState,
+          current_node: 'I_greet_customer',
           auth_metadata: { authToken: args.authToken },
         });
       } else {
-        // Existing session - load state
-        const session = await this.stateManager.getSession(sessionId);
-        if (!session) {
-          throw new Error(`Session ${sessionId} not found`);
-        }
-
-        // Get workflow state from session
-        const sessionData = session as any;
-        currentState = (sessionData.workflow_state || session.current_node || WorkflowState.GREETING) as WorkflowState;
-
-        // Load variables
-        const allState = await this.stateManager.getAllState(sessionId);
-        variables = Object.keys(allState)
-          .filter(key => !key.startsWith('_'))
-          .reduce((acc, key) => {
-            acc[key] = allState[key];
-            return acc;
-          }, {} as Record<string, any>);
-
-        console.log(`[LangGraphOrchestrator] Existing session ${sessionId}, state: ${currentState}`);
+        // Existing session - load state from LangGraph checkpointer
+        console.log(`[LangGraphOrchestrator] 📂 Resuming session ${sessionId}`);
+        existingState = (await this.langGraphService.getConversationHistory(sessionId)) || undefined;
       }
 
-      // Extract data from user message
-      const extractedData = await this.extractDataFromMessage(args.message, variables);
-      variables = { ...variables, ...extractedData };
-
-      console.log(`[LangGraphOrchestrator] Variables after extraction:`, variables);
-
-      // Process through agent coordinator
-      const result = await this.coordinator.processMessage({
+      // Process through LangGraph
+      const result = await this.langGraphService.processMessage(
         sessionId,
-        currentState,
-        userMessage: args.message,
-        variables,
-        authToken: args.authToken,
-        chatSessionId: args.chatSessionId,
-      });
+        args.message,
+        args.authToken || '',
+        existingState
+      );
 
-      // Save result variables to database
-      if (result.variables) {
-        const nonEmptyVars = Object.entries(result.variables)
-          .filter(([key, value]) => value !== undefined && value !== null && value !== '')
-          .reduce((acc, [key, value]) => {
-            acc[key] = value;
-            return acc;
-          }, {} as Record<string, any>);
+      // Save state to database for backup
+      await this.saveLangGraphState(sessionId, result);
 
-        if (Object.keys(nonEmptyVars).length > 0) {
-          console.log(`[LangGraphOrchestrator] Saving variables to database:`, nonEmptyVars);
-          for (const [key, value] of Object.entries(nonEmptyVars)) {
-            await this.stateManager.setState(sessionId, key, value, {
-              source: 'agent_coordinator',
-              node_context: result.nextState,
-              validated: true,
-            });
-          }
-        }
-      }
-
-      // Update session with new state
+      // Update session
       await this.stateManager.updateSession(sessionId, {
-        current_node: result.nextState,
+        current_node: result.current_node || 'I_greet_customer',
         status: result.completed ? 'completed' : 'active',
       });
 
-      // Update workflow_state column (added by 40_orchestrator_agents.ddl)
-      try {
-        await this.stateManager.setState(sessionId, '_workflow_state', result.nextState, {
-          source: 'state_machine',
-          validated: true,
-        });
-      } catch (error) {
-        // Column might not exist yet - ignore
-      }
-
-      // Automatically disconnect voice session if conversation ended
-      if (result.conversationEnded && args.chatSessionId) {
+      // Auto-disconnect voice if conversation ended
+      if (result.conversation_ended && args.chatSessionId) {
         try {
           const { disconnectVoiceLangraphSession } = await import('../../voice-langraph.service.js');
           const disconnected = disconnectVoiceLangraphSession(args.chatSessionId);
 
           if (disconnected) {
-            console.log(`📞 Voice session ${args.chatSessionId} auto-disconnected (${result.endReason})`);
+            console.log(
+              `📞 Voice session ${args.chatSessionId} auto-disconnected (${result.end_reason})`
+            );
           }
         } catch (error) {
           console.error('Error disconnecting voice session:', error);
         }
-
-        // Clear session cache
-        this.coordinator.clearSessionCache(sessionId);
       }
 
-      // Return response
+      // Get last assistant message
+      const lastAssistantMessage = result.messages
+        .filter((m) => m._getType() === 'ai')
+        .slice(-1)[0];
+
+      const response = lastAssistantMessage?.content.toString() || '';
+
       return {
         sessionId,
-        response: result.naturalResponse,
+        response,
         intent: 'CalendarBooking',
-        currentNode: result.nextState,
-        requiresUserInput: result.requiresUserInput,
-        completed: result.completed,
-        conversationEnded: result.conversationEnded,
-        endReason: result.endReason,
+        currentNode: result.current_node || 'I_greet_customer',
+        requiresUserInput: !result.conversation_ended,
+        completed: result.completed || false,
+        conversationEnded: result.conversation_ended || false,
+        endReason: result.end_reason,
         engagingMessage: undefined,
+        debugLogs: DEBUG_LOGS.length > 0 ? [...DEBUG_LOGS] : undefined,
       };
     } catch (error: any) {
-      console.error('[LangGraphOrchestrator] Error processing message:', error);
+      console.error('[LangGraphOrchestrator] ❌ Error processing message:', error);
       throw error;
     }
   }
 
   /**
-   * Fetch available service categories from database via MCP
+   * Save LangGraph state to database (backup for persistence)
    */
-  private async getServiceCategories(): Promise<string[]> {
-    try {
-      const response = await this.mcpAdapter.callTool({
-        toolName: 'setting_list',
-        arguments: { query_category: 'dl__service_category' },
-        authToken: '',
-      });
+  private async saveLangGraphState(sessionId: string, state: LangGraphState): Promise<void> {
+    // Convert messages to simple format for database
+    const messagesSimple = state.messages.map((msg) => ({
+      role: msg._getType() === 'human' ? 'user' : 'assistant',
+      content: msg.content.toString(),
+    }));
 
-      if (response.success && response.result) {
-        const data = JSON.parse(response.result);
-        // Extract service names from metadata array
-        if (data.metadata && Array.isArray(data.metadata)) {
-          return data.metadata.map((item: any) => item.name);
-        }
+    const stateToSave: Record<string, any> = {
+      messages: messagesSimple,
+      context: state.context,
+      customer_profile: state.customer_profile,
+      proposed_actions: state.proposed_actions,
+      approved_actions: state.approved_actions,
+      executed_actions: state.executed_actions,
+      completed: state.completed,
+      conversation_ended: state.conversation_ended,
+      end_reason: state.end_reason,
+      _workflow_state: state.current_node,
+      _langgraph_enabled: true,
+    };
+
+    for (const [key, value] of Object.entries(stateToSave)) {
+      if (value !== undefined && value !== null && value !== '') {
+        await this.stateManager.setState(sessionId, key, value, {
+          source: 'langgraph',
+          node_context: state.current_node,
+          validated: true,
+        });
       }
-
-      // Fallback to hardcoded list if MCP call fails
-      return ['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting'];
-    } catch (error) {
-      console.error('[LangGraphOrchestrator] Error fetching service categories, using fallback:', error);
-      return ['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting'];
-    }
-  }
-
-  /**
-   * Extract structured data from user message
-   * Uses GPT-3.5 Turbo for better data extraction
-   */
-  private async extractDataFromMessage(
-    message: string,
-    existingVariables: Record<string, any>
-  ): Promise<Record<string, any>> {
-    if (!message || message === '[CALL_STARTED]') {
-      return {};
-    }
-
-    try {
-      // Fetch available service categories dynamically from database
-      const serviceCategories = await this.getServiceCategories();
-      const serviceCategoryList = serviceCategories.map(s => `"${s}"`).join(', ');
-
-      // Define fields to extract based on booking workflow
-      const fieldsToExtract = [
-        { key: 'customer_name', type: 'string', description: 'Full name of the customer' },
-        { key: 'customer_phone', type: 'string', description: 'Phone number (10 digits, no formatting)' },
-        { key: 'customer_email', type: 'string', description: 'Email address' },
-        { key: 'customer_address', type: 'string', description: 'Full street address' },
-        { key: 'customer_city', type: 'string', description: 'City name' },
-        { key: 'service_category', type: 'string', description: `Service type - MUST be one of these exact values: ${serviceCategoryList}` },
-        { key: 'job_description', type: 'string', description: 'Description of the service needed or problem to fix' },
-        { key: 'desired_date', type: 'date', description: 'Preferred date for service (YYYY-MM-DD format)' },
-        { key: 'selected_time', type: 'string', description: 'Preferred time slot (e.g., "9:00 AM", "2:00 PM")' },
-      ];
-
-      // Build conversation context
-      const conversationContext = Object.keys(existingVariables).length > 0
-        ? `Current information collected: ${JSON.stringify(existingVariables)}`
-        : 'This is the start of the conversation';
-
-      // Use LLM to extract data
-      const openaiService = getOpenAIService();
-      const result = await openaiService.extractData({
-        userMessage: message,
-        fieldsToExtract,
-        conversationContext,
-      });
-
-      console.log(`[LangGraphOrchestrator] Extracted data:`, result.extractedData);
-      console.log(`[LangGraphOrchestrator] Data extraction cost: $${(result.costCents / 100).toFixed(4)}`);
-
-      // Only return newly extracted data (don't overwrite existing values)
-      const updates: Record<string, any> = {};
-      for (const [key, value] of Object.entries(result.extractedData)) {
-        if (value && !existingVariables[key]) {
-          updates[key] = value;
-        }
-      }
-
-      return updates;
-    } catch (error: any) {
-      console.error('[LangGraphOrchestrator] Error extracting data with LLM, falling back to regex:', error.message);
-
-      // Fallback: Simple regex-based extraction
-      const lowerMessage = message.toLowerCase();
-      const updates: Record<string, any> = {};
-
-      // Extract phone number
-      const phoneMatch = message.match(/(\d{3}[-.\s]?\d{3}[-.\s]?\d{4}|\d{10})/);
-      if (phoneMatch && !existingVariables.customer_phone) {
-        updates.customer_phone = phoneMatch[0].replace(/[-.\s]/g, '');
-      }
-
-      // Extract email
-      const emailMatch = message.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
-      if (emailMatch && !existingVariables.customer_email) {
-        updates.customer_email = emailMatch[0];
-      }
-
-      // Extract name
-      const nameMatch = message.match(/(?:i'?m|my name is|this is|i am)\s+([a-z]+)/i);
-      if (nameMatch && !existingVariables.customer_name) {
-        updates.customer_name = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1);
-      }
-
-      // Service category extraction removed - must come from LLM with MCP-provided values only
-
-      return updates;
     }
   }
 
