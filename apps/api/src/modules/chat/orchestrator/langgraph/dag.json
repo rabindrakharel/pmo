@@ -1,4 +1,30 @@
 {
+  "llm_framework_instructions": {
+    "architecture": "LLM-Driven Conversational AI - You control everything through context analysis and tool calls",
+    "your_role": "You are the intelligent controller of this conversation system. You analyze context, make routing decisions, and update context fields via tool calls.",
+    "core_principles": [
+      "1. CONTEXT IS EVERYTHING: All conversation state is in the context JSON. Read it, analyze it, update it.",
+      "2. TOOL-BASED UPDATES: Use update_context tool to modify any field. Set flags to 1 when completing steps.",
+      "3. LLM-BASED ROUTING: Use decide_next_node tool to determine which node executes next based on context analysis.",
+      "4. NON-DESTRUCTIVE: Preserve existing context values unless explicitly updating them.",
+      "5. MANDATORY FIELDS: Always ensure customers_main_ask and customer_phone_number are collected.",
+      "6. FLAG-DRIVEN: Check flags before executing nodes. Skip if flag=1. Reset flags when user changes intent."
+    ],
+    "how_it_works": {
+      "node_execution": "Each node gives you: (1) context JSON, (2) user message, (3) update_context tool. You analyze and decide what to update.",
+      "routing": "After each node, you analyze context and use decide_next_node tool to choose next step. Consider flags, mandatory fields, user intent.",
+      "context_updates": "Use update_context tool to set: customer data (name, phone, email), issue details (customers_main_ask, service catalog), flags (greet_flag=1, etc.), planning info (task_id, plan), execution results.",
+      "flag_management": "Set flag to 1 when step completes. Reset to 0 when user changes intent (e.g., reset identify_issue_flag=0 if user says 'actually, different issue')."
+    },
+    "example_flow": {
+      "step_1": "Node: GREET_CUSTOMER → You analyze context (empty) → Use update_context to set flags.greet_flag=1 → Response: greeting message",
+      "step_2": "Router → You analyze context (greet_flag=1) → Use decide_next_node → Return: ASK_CUSTOMER_ABOUT_THEIR_NEED",
+      "step_3": "Node: ASK_CUSTOMER_ABOUT_THEIR_NEED → You set flags.ask_need_flag=1 → Response: 'What brings you here today?'",
+      "step_4": "User: 'My grass is brown' → Node: Identify_Issue → You analyze message → Use update_context: customers_main_ask='grass is brown', matching_service_catalog='Landscaping', flags.identify_issue_flag=1",
+      "step_5": "Router → You see identify_issue_flag=1, customers_main_ask set → Use decide_next_node → Return: Empathize",
+      "step_6": "User: 'Actually, I need plumbing help' → Router detects intent change → You analyze → Use update_context: flags.identify_issue_flag=0, flags.empathize_flag=0 → Use decide_next_node → Return: Identify_Issue (re-extract)"
+    }
+  },
   "nodes": [
     {
       "node_name": "GREET_CUSTOMER",
@@ -333,7 +359,17 @@
     }
   },
   "routing_config": {
-    "description": "Configuration for router logic, branching conditions, and state transitions",
+    "description": "LLM-driven routing: LLM analyzes context and decides next node via tool calls",
+    "llm_routing_instructions": "Use the decide_next_node tool to analyze context and determine which node should execute next. Consider: (1) flags to skip completed steps, (2) mandatory fields that must be collected, (3) user intent changes that require re-routing, (4) logical conversation flow progression.",
+    "llm_context_update_instructions": "Use the update_context tool to modify any field in the context JSON. Always set flags to 1 when completing a step. Update customer data, issue details, plan, execution results, etc. as needed based on conversation analysis.",
+    "routing_hints": {
+      "issue_change_indicators": "User says 'actually', 'instead', 'wait', 'different issue', 'new problem', 'forget that', 'never mind', 'I meant', 'let me change' → reset identify_issue_flag, empathize_flag, plan_flag to 0 and route to Identify_Issue",
+      "data_update_indicators": "User says 'change phone', 'update email', 'new address' → reset specific data flag (data_phone_flag, data_email_flag, etc.) to 0 and route to Try_To_Gather_Customers_Data",
+      "consent_approval": "User says 'yes', 'proceed', 'go ahead', 'sounds good' → route to next step in flow",
+      "consent_denial": "User says 'no', 'cancel', 'stop', 'don't' → re-route to planning or ask for clarification",
+      "conversation_continuation": "User says 'yes', 'also', 'another', 'help me with', 'I need' after completion → route to ASK_CUSTOMER_ABOUT_THEIR_NEED",
+      "conversation_end": "User says 'that's all', 'nothing else', 'goodbye', 'bye', 'thanks' → route to Goodbye_And_Hangup"
+    },
     "variables": {
       "issue_change_keywords": ["actually", "instead", "wait", "change", "different issue", "new problem", "forget that", "never mind", "i meant", "let me change"],
       "data_update_keywords": ["change phone", "update phone", "new phone", "change name", "update name", "change email", "update email", "change address", "update address"],
