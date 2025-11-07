@@ -5,7 +5,7 @@
  */
 
 import { StateGraph, Annotation, START, END, MemorySaver } from '@langchain/langgraph';
-import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/dist/messages/index.js';
+import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
 import type { CustomerContext, StepCompletionTracker } from './prompts.config.js';
 import type { MCPAdapterService } from '../../mcp-adapter.service.js';
 import {
@@ -482,7 +482,7 @@ export class LangGraphStateGraphService {
         const hasName = !!context.customer_name;
 
         if (!hasPhone || !hasName) {
-          return NODES.GATHER; // Stay and wait for more data
+          return END; // Stop and wait for user input
         }
         return NODES.CHECK;
 
@@ -493,7 +493,7 @@ export class LangGraphStateGraphService {
         // Check if customer wants to do something else
         const lastMessage = state.messages[state.messages.length - 1];
         if (!lastMessage || lastMessage._getType() !== 'human') {
-          return NODES.GOODBYE;
+          return END; // Wait for user response
         }
 
         const userMessage = lastMessage.content.toString().toLowerCase();
