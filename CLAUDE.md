@@ -31,6 +31,321 @@ The **PMO Platform** is an enterprise-grade project management and operations sy
 
 ---
 
+## ⚡ Quick Tips & Essential Operations
+
+### 🛠️ Daily Operations (MUST USE TOOLS!)
+
+**Critical Rule:** Always use the tools in `/tools/` directory for operations:
+
+```bash
+# 1. DATA IMPORT - Run after ANY database schema change
+./tools/db-import.sh                              # Imports all 52 DDL files, resets data
+
+# 2. API TESTING - Never use curl/postman directly
+./tools/test-api.sh GET /api/v1/project          # Test GET endpoints
+./tools/test-api.sh POST /api/v1/task '{"name":"Task"}' # Test POST with data
+
+# 3. LOG VIEWING - Monitor API/Web logs
+./tools/logs-api.sh 100                          # Last 100 API log lines
+./tools/logs-web.sh -f                           # Follow web logs in real-time
+
+# 4. START PLATFORM - Always start all services together
+./tools/start-all.sh                             # Docker + API + Web
+```
+
+**⚠️ Important:**
+- After modifying any `.ddl` file in `/db/`, **always run** `./tools/db-import.sh`
+- Use `test-api.sh` for API testing (includes auth token handling)
+- Never restart services manually - use `start-all.sh` to ensure proper startup order
+
+---
+
+## 🏗️ Core Design Patterns & Standards
+
+### 1. Universal Entity System (DRY Architecture)
+
+**Pattern:** 3 pages handle ALL 18 entity types dynamically
+
+```typescript
+// ✅ CORRECT: Config-driven entities
+apps/web/src/config/entityConfigs.ts          // Single source of truth
+apps/web/src/pages/EntityListPage.tsx         // Universal list page
+apps/web/src/pages/EntityDetailPage.tsx       // Universal detail page
+apps/web/src/pages/EntityFormPage.tsx         // Universal form page
+
+// ❌ WRONG: Don't create entity-specific pages
+// apps/web/src/pages/ProjectListPage.tsx     // NO! Use universal page instead
+```
+
+**Standard:** When adding a new entity type:
+1. Add DDL file: `db/d_[entity].ddl`
+2. Add API module: `apps/api/src/modules/[entity]/`
+3. Add entity config: `apps/web/src/config/entityConfigs.ts`
+4. Run: `./tools/db-import.sh`
+
+### 2. Inline Create-Then-Link Pattern
+
+**Pattern:** Add child entities directly from parent context
+
+```typescript
+// User clicks "Add Task" button on Project detail page
+// → Opens task form with project_id pre-selected
+// → Creates task AND creates linkage in d_entity_id_map automatically
+
+// Standard implementation:
+d_entity_id_map: {
+  parent_entity_type: 'PROJECT',
+  parent_entity_id: 'uuid-of-project',
+  child_entity_type: 'TASK',
+  child_entity_id: 'uuid-of-new-task'
+}
+```
+
+**Standard:** All parent-child relationships MUST:
+- Store linkage in `d_entity_id_map` table
+- Support "Add Row" button with pre-filled parent context
+- Auto-populate parent dropdown in child form
+
+### 3. Default-Editable Pattern
+
+**Pattern:** All fields editable by default unless explicitly readonly
+
+```typescript
+// ✅ CORRECT: Fields editable in tables
+<FilteredDataTable
+  inlineEdit={true}                    // Default: enabled
+  columns={[
+    { accessorKey: 'name', editable: true },      // Default
+    { accessorKey: 'status', editable: true },    // Default
+    { accessorKey: 'id', editable: false }        // Explicitly readonly
+  ]}
+/>
+
+// ❌ WRONG: Making everything readonly by default
+inlineEdit={false}  // NO! Only disable for readonly entities
+```
+
+**Standard:**
+- Enable inline editing for all data tables
+- Only mark system fields as readonly (id, created_at, etc.)
+- Use smart input detection (dropdowns for foreign keys, text for strings)
+
+### 4. Column Consistency Pattern
+
+**Pattern:** Same columns regardless of navigation context
+
+```typescript
+// ✅ CORRECT: Task table shows same columns everywhere
+// - Viewed from main /task page → shows project_name, status, assignee
+// - Viewed from /project/123/tasks → shows SAME columns (not filtered)
+
+// API handles filtering, frontend shows consistent columns
+const columns = [
+  { header: 'Project', accessorKey: 'project_name' },  // Always visible
+  { header: 'Status', accessorKey: 'status' },
+  { header: 'Assignee', accessorKey: 'assignee_name' }
+];
+
+// ❌ WRONG: Different columns in different contexts
+// Don't hide 'project_name' when viewing tasks under a project
+```
+
+**Standard:**
+- Use the SAME column configuration for an entity type everywhere
+- Let API filter data, not column visibility
+- Maintain consistent UX regardless of navigation path
+
+### 5. Settings-Based Configuration
+
+**Pattern:** All dropdowns, workflows, states come from settings tables
+
+```typescript
+// ✅ CORRECT: Load options from settings API
+GET /api/v1/entity/project/options
+// Returns: { status: [...], priority: [...], type: [...] }
+
+// Settings tables:
+app.datalabel_type_category           // Dropdown categories
+app.datalabel_type_status             // Status workflows
+app.datalabel_type_priority           // Priority levels
+
+// ❌ WRONG: Hardcoded options in frontend
+const statuses = ['Open', 'In Progress', 'Done']  // NO!
+```
+
+**Standard:**
+- Never hardcode dropdown values
+- Use `/api/v1/entity/:type/options` for all selects
+- Add new options via settings tables, not code
+
+---
+
+## 📦 Entity System Concepts
+
+### What is an Entity?
+
+**Entity** = A business object with CRUD operations (Project, Task, Client, Employee, etc.)
+
+```
+Entity Components:
+1. Database Table: db/d_[entity].ddl
+2. API Module: apps/api/src/modules/[entity]/
+   - routes.ts (GET, POST, PUT, DELETE)
+   - service.ts (business logic)
+3. Frontend Config: apps/web/src/config/entityConfigs.ts
+4. Universal Pages: EntityListPage, EntityDetailPage, EntityFormPage
+```
+
+### Parent vs Child Entities
+
+```
+Parent Entity: Can exist independently (e.g., PROJECT)
+  ↓
+Child Entity: Belongs to parent (e.g., TASK belongs to PROJECT)
+  ↓
+Linkage Table: d_entity_id_map stores parent-child relationships
+
+Example:
+- PROJECT (id: abc-123) ← parent
+  - TASK (id: def-456) ← child
+  - TASK (id: ghi-789) ← child
+
+d_entity_id_map:
+| parent_entity_type | parent_entity_id | child_entity_type | child_entity_id |
+|-------------------|------------------|-------------------|-----------------|
+| PROJECT           | abc-123          | TASK              | def-456         |
+| PROJECT           | abc-123          | TASK              | ghi-789         |
+```
+
+**Key Concepts:**
+- **Parent entity:** Has "children" tab showing related entities
+- **Child entity:** Has parent dropdown/link in its form
+- **Many-to-many:** Multiple parents can link to same child (use `d_entity_id_map`)
+
+### Entity Metadata Tables
+
+All entity behavior is configured via database tables:
+
+```
+app.datalabel_entity_type              // Entity definitions (18 types)
+app.datalabel_entity_type_field        // Fields/columns per entity
+app.datalabel_entity_type_relationship // Parent-child relationships
+app.datalabel_entity_type_permission   // RBAC per entity
+```
+
+---
+
+## 🔄 End-to-End Data Flow (How Everything Connects)
+
+### Example: Viewing Project Tasks
+
+```
+1. USER ACTION
+   User navigates to: /project/abc-123
+   Clicks "Tasks" tab
+
+2. FRONTEND (React)
+   apps/web/src/pages/EntityDetailPage.tsx
+   → Renders FilteredDataTable for child entity "TASK"
+   → Uses entityConfigs.ts to get task columns
+
+3. API CALL
+   GET /api/v1/task?parent_entity_type=PROJECT&parent_entity_id=abc-123
+
+4. BACKEND (Fastify)
+   apps/api/src/modules/task/routes.ts
+   → Calls service.getAll(filters)
+
+5. DATABASE QUERY
+   apps/api/src/modules/task/service.ts
+   → Joins d_task, d_entity_id_map, settings tables
+   → Filters by parent relationship
+   → Returns tasks with enriched data (assignee names, status labels)
+
+6. RESPONSE
+   API returns: [{ id, name, status, assignee_name, project_name, ... }]
+
+7. FRONTEND RENDER
+   FilteredDataTable displays tasks with:
+   - Inline editing enabled
+   - Same columns as main /task page (column consistency)
+   - "Add Task" button (inline create-then-link)
+
+8. USER EDITS TASK
+   User double-clicks "status" cell → dropdown appears
+   → onChange → PATCH /api/v1/task/def-456
+   → Optimistic update + refetch
+```
+
+### Example: Creating New Task from Project
+
+```
+1. USER ACTION
+   On /project/abc-123, clicks "Add Task" button
+
+2. FRONTEND
+   apps/web/src/pages/EntityDetailPage.tsx
+   → Opens task form modal
+   → Pre-fills project_id = abc-123 (parent context)
+
+3. USER FILLS FORM
+   Enters task name, assignee, status
+
+4. FORM SUBMIT
+   POST /api/v1/task
+   Body: {
+     name: "New Task",
+     assignee_id: "employee-uuid",
+     status: "OPEN",
+     project_id: "abc-123"  // Parent link
+   }
+
+5. BACKEND
+   apps/api/src/modules/task/service.ts
+   → Creates task in d_task table
+   → Creates linkage in d_entity_id_map:
+      {
+        parent_entity_type: 'PROJECT',
+        parent_entity_id: 'abc-123',
+        child_entity_type: 'TASK',
+        child_entity_id: 'new-task-uuid'
+      }
+
+6. RESPONSE
+   Returns created task with ID
+
+7. FRONTEND UPDATE
+   → Refetches task list
+   → New task appears in project's tasks tab
+   → Can immediately edit inline
+```
+
+### Key Takeaways
+
+**Data Flow Layers:**
+```
+User Interaction (Browser)
+    ↓
+Frontend Components (React 19, TypeScript)
+    ↓
+API Routes (Fastify, JWT auth)
+    ↓
+Service Layer (Business logic, validation)
+    ↓
+Database (PostgreSQL, 52 tables)
+```
+
+**Standards to Follow:**
+1. **Always use tools** for operations (db-import, test-api, logs)
+2. **Never create entity-specific pages** - use universal pages + config
+3. **Store relationships in d_entity_id_map** - never add foreign keys to entity tables directly
+4. **Load dropdowns from settings API** - never hardcode options
+5. **Enable inline editing by default** - only disable for readonly fields
+6. **Keep columns consistent** - same columns in all contexts
+7. **Follow create-then-link pattern** - auto-populate parent context
+
+---
+
 ## 📚 Documentation Index
 
 > **🚀 NEW: Complete Documentation Navigation** → See [`docs/README.md`](./docs/README.md) for comprehensive folder-by-folder index with keyword search
