@@ -30,6 +30,7 @@ import {
 } from './graph-nodes.service.js';
 import { getDAGStateBridge } from './dag-state-bridge.service.js';
 import { getDAGLoader } from './dag-loader.service.js';
+import { getNavigationAgent } from './navigation-agent.service.js';
 
 /**
  * 14-Step Node Names (Roman Numerals)
@@ -116,6 +117,7 @@ export class LangGraphStateGraphService {
   private checkpointer: PostgresSaver;
   private initPromise: Promise<void>;
   private stateBridge = getDAGStateBridge();
+  private navigationAgent = getNavigationAgent();
 
   constructor(mcpAdapter: MCPAdapterService) {
     this.mcpAdapter = mcpAdapter;
@@ -185,36 +187,36 @@ export class LangGraphStateGraphService {
     // Set entry point
     workflow.addEdge(START, NODES.GREET);
 
-    // Define edges with conditional logic
+    // Define edges with conditional logic (async for LLM-based routing)
     workflow.addEdge(NODES.GREET, NODES.ASK_NEED);
 
-    workflow.addConditionalEdges(NODES.ASK_NEED, (state: LangGraphState) =>
-      this.routeFromNode(NODES.ASK_NEED, state)
+    workflow.addConditionalEdges(NODES.ASK_NEED, async (state: LangGraphState) =>
+      await this.routeFromNode(NODES.ASK_NEED, state)
     );
 
-    workflow.addConditionalEdges(NODES.IDENTIFY, (state: LangGraphState) =>
-      this.routeFromNode(NODES.IDENTIFY, state)
+    workflow.addConditionalEdges(NODES.IDENTIFY, async (state: LangGraphState) =>
+      await this.routeFromNode(NODES.IDENTIFY, state)
     );
 
     workflow.addEdge(NODES.EMPATHIZE, NODES.RAPPORT);
     workflow.addEdge(NODES.RAPPORT, NODES.GATHER);
 
-    workflow.addConditionalEdges(NODES.GATHER, (state: LangGraphState) =>
-      this.routeFromNode(NODES.GATHER, state)
+    workflow.addConditionalEdges(NODES.GATHER, async (state: LangGraphState) =>
+      await this.routeFromNode(NODES.GATHER, state)
     );
 
     workflow.addEdge(NODES.CHECK, NODES.PLAN);
     workflow.addEdge(NODES.PLAN, NODES.COMMUNICATE_PLAN);
 
-    workflow.addConditionalEdges(NODES.COMMUNICATE_PLAN, (state: LangGraphState) =>
-      this.routeFromNode(NODES.COMMUNICATE_PLAN, state)
+    workflow.addConditionalEdges(NODES.COMMUNICATE_PLAN, async (state: LangGraphState) =>
+      await this.routeFromNode(NODES.COMMUNICATE_PLAN, state)
     );
 
     workflow.addEdge(NODES.EXECUTE, NODES.COMMUNICATE_EXEC);
     workflow.addEdge(NODES.COMMUNICATE_EXEC, NODES.ASK_ANOTHER);
 
-    workflow.addConditionalEdges(NODES.ASK_ANOTHER, (state: LangGraphState) =>
-      this.routeFromNode(NODES.ASK_ANOTHER, state)
+    workflow.addConditionalEdges(NODES.ASK_ANOTHER, async (state: LangGraphState) =>
+      await this.routeFromNode(NODES.ASK_ANOTHER, state)
     );
 
     workflow.addEdge(NODES.GOODBYE, NODES.HANGUP);
@@ -425,26 +427,42 @@ export class LangGraphStateGraphService {
   }
 
   /**
-   * Determine next node (conditional routing logic)
+   * Determine next node (conditional routing logic with LLM-based navigation)
    */
-  private routeFromNode(currentNode: NodeName, state: LangGraphState): NodeName {
+  private async routeFromNode(currentNode: NodeName, state: LangGraphState): Promise<NodeName> {
     console.log(`\n[LangGraph] 🔀 Routing from: ${currentNode}`);
     this.logFlagState(state.progress_flags || {}, 'Current state');
 
-    // Check for issue change
-    if (this.detectIssueChange(state)) {
-      console.log(`[LangGraph] 🔄 Issue change detected, routing to IDENTIFY`);
-      this.resetStepsFrom('III_identify_issue', state, true);
+    // Get last user message for context
+    const lastMessage = state.messages[state.messages.length - 1];
+    const lastUserMessage = lastMessage?._getType() === 'human' ? lastMessage.content.toString() : undefined;
+
+    // Use Navigation Agent for intelligent routing decisions
+    const navAnalysis = await this.navigationAgent.analyzeNavigation(
+      currentNode,
+      state,
+      lastUserMessage
+    );
+
+    // Handle issue change
+    if (navAnalysis.issue_changed) {
+      console.log(`[LangGraph] 🔄 LLM detected issue change: ${navAnalysis.issue_change_reason}`);
+      console.log(`[LangGraph] 🔄 Resetting flags: ${navAnalysis.flags_to_reset.join(', ')}`);
+
+      // Reset flags as determined by LLM
+      this.resetFlagsFromList(navAnalysis.flags_to_reset, state, navAnalysis.preserve_customer_data);
+
       return NODES.IDENTIFY;
     }
 
-    // Check for data update request
-    const dataField = this.detectDataUpdateRequest(state);
-    if (dataField) {
-      console.log(`[LangGraph] 🔄 Data update detected (${dataField}), routing to GATHER`);
-      if (state.context?.steps_completed) {
-        state.context.steps_completed.VI_gather_data = false;
-      }
+    // Handle data update request
+    if (navAnalysis.data_update_requested && navAnalysis.data_field) {
+      console.log(`[LangGraph] 🔄 LLM detected data update request for: ${navAnalysis.data_field}`);
+      console.log(`[LangGraph] 🔄 Resetting flags: ${navAnalysis.flags_to_reset.join(', ')}`);
+
+      // Reset specific data flag
+      this.resetFlagsFromList(navAnalysis.flags_to_reset, state, true);
+
       return NODES.GATHER;
     }
 
@@ -525,58 +543,42 @@ export class LangGraphStateGraphService {
   }
 
   /**
-   * Detect if customer is changing their issue
+   * Reset specific flags from a list (determined by Navigation Agent LLM)
    */
-  private detectIssueChange(state: LangGraphState): boolean {
-    const lastMessage = state.messages[state.messages.length - 1];
-    if (!lastMessage || lastMessage._getType() !== 'human') return false;
+  private resetFlagsFromList(
+    flagsToReset: string[],
+    state: LangGraphState,
+    preserveCustomerData: boolean = true
+  ): void {
+    const progressFlags = state.progress_flags || {};
 
-    const userMessage = lastMessage.content.toString();
-    const changeIndicators = [
-      /actually/i,
-      /instead/i,
-      /wait/i,
-      /change.*request/i,
-      /different.*issue/i,
-      /new.*problem/i,
-      /forget.*that/i,
-      /never.*mind/i,
-      /i meant/i,
-      /let me change/i,
-    ];
+    console.log(`[LangGraph] 🔄 Resetting ${flagsToReset.length} flags (LLM-determined)`);
 
-    for (const pattern of changeIndicators) {
-      if (pattern.test(userMessage)) {
-        return true;
+    // Reset each flag
+    for (const flagName of flagsToReset) {
+      progressFlags[flagName] = false;
+    }
+
+    // Update state.progress_flags directly (mutable update for LangGraph)
+    Object.assign(state.progress_flags || {}, progressFlags);
+
+    // Clear issue-related context if needed
+    if (flagsToReset.includes('issue_identified')) {
+      const context = state.context || {};
+      if (!preserveCustomerData) {
+        context.customers_main_ask = '';
+        context.matching_service_catalog = '';
+        context.related_entities = [];
+        context.next_steps_plan = [];
+      } else {
+        // Only clear issue, keep customer data
+        context.customers_main_ask = '';
+        context.matching_service_catalog = '';
+        context.next_steps_plan = [];
       }
     }
 
-    return false;
-  }
-
-  /**
-   * Detect if customer wants to update specific data
-   */
-  private detectDataUpdateRequest(state: LangGraphState): string | null {
-    const lastMessage = state.messages[state.messages.length - 1];
-    if (!lastMessage || lastMessage._getType() !== 'human') return null;
-
-    const userMessage = lastMessage.content.toString().toLowerCase();
-
-    if (userMessage.match(/change.*phone|update.*phone|new phone|different phone/)) {
-      return 'customer_phone_number';
-    }
-    if (userMessage.match(/change.*name|update.*name|my name is actually/)) {
-      return 'customer_name';
-    }
-    if (userMessage.match(/change.*email|update.*email|new email|different email/)) {
-      return 'customer_email';
-    }
-    if (userMessage.match(/change.*address|update.*address|new address|different address/)) {
-      return 'customer_address';
-    }
-
-    return null;
+    console.log(`[LangGraph] 🔄 Reset complete. Flags reset: ${flagsToReset.join(', ')}`);
   }
 
   /**
