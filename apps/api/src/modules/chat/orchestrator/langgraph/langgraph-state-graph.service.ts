@@ -67,6 +67,11 @@ export const GraphState = Annotation.Root({
     reducer: (x, y) => ({ ...x, ...y }),
   }),
 
+  // Progress flags (track completed steps to prevent re-execution)
+  progress_flags: Annotation<Record<string, boolean>>({
+    reducer: (x, y) => ({ ...x, ...y }),
+  }),
+
   // Customer profile
   customer_profile: Annotation<Record<string, any>>({
     reducer: (x, y) => ({ ...x, ...y }),
@@ -321,6 +326,7 @@ export class LangGraphStateGraphService {
         content: msg.content.toString(),
       })),
       context: state.context || {},
+      progress_flags: state.progress_flags || {},
       customer_profile: state.customer_profile || {},
       proposed_actions: state.proposed_actions || [],
       available_actions: state.available_actions || [],
@@ -349,6 +355,10 @@ export class LangGraphStateGraphService {
 
     if (result.context) {
       update.context = result.context;
+    }
+
+    if (result.progress_flags) {
+      update.progress_flags = result.progress_flags;
     }
 
     if (result.customer_profile) {
@@ -426,20 +436,20 @@ export class LangGraphStateGraphService {
         return NODES.IDENTIFY;
 
       case NODES.IDENTIFY:
-        // After identifying issue, check if we have data
-        const hasIssue = !!state.context?.customers_main_ask;
-        if (!hasIssue) {
-          // No issue identified yet, wait for user input
+        // After identifying issue, check progress flag instead of context
+        const issueIdentified = state.progress_flags?.issue_identified || false;
+        if (!issueIdentified) {
+          // Issue not identified yet, wait for user input
           return END;
         }
         return NODES.EMPATHIZE;
 
       case NODES.GATHER:
-        const context = state.context || {};
-        const hasPhone = !!context.customer_phone_number;
-        const hasName = !!context.customer_name;
+        // Use progress flags instead of checking context directly
+        const phoneCollected = state.progress_flags?.phone_collected || false;
+        const nameCollected = state.progress_flags?.name_collected || false;
 
-        if (!hasPhone || !hasName) {
+        if (!phoneCollected || !nameCollected) {
           return END; // Stop and wait for user input
         }
         return NODES.CHECK;
@@ -601,6 +611,19 @@ export class LangGraphStateGraphService {
           X_execute_plan: false,
           XI_communicate_execution: false,
         },
+      },
+      progress_flags: {
+        greeted: false,
+        asked_need: false,
+        issue_identified: false,
+        empathized: false,
+        rapport_built: false,
+        phone_collected: false,
+        name_collected: false,
+        email_collected: false,
+        address_collected: false,
+        customer_checked: false,
+        plan_created: false,
       },
       customer_profile: {},
       proposed_actions: [],
