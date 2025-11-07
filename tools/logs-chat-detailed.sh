@@ -18,11 +18,15 @@ NC='\033[0m'
 
 LOG_FILE="logs/api.log"
 LINES="${1:-100}"
+JSON_DUMP_DIR="logs/chat_sessions"
 
 if [ ! -f "$LOG_FILE" ]; then
   echo -e "${RED}Error: Log file not found: $LOG_FILE${NC}"
   exit 1
 fi
+
+# Create JSON dump directory if it doesn't exist
+mkdir -p "$JSON_DUMP_DIR"
 
 echo -e "${PURPLE}${BOLD}"
 echo "╔════════════════════════════════════════════════════════════════╗"
@@ -136,8 +140,77 @@ track_context_change() {
   fi
 }
 
+# Function to dump state to JSON file
+dump_state_to_json() {
+  if [ -z "$current_tracked_session" ]; then
+    return
+  fi
+
+  local json_file="$JSON_DUMP_DIR/context_${current_tracked_session}.json"
+  local current_timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
+
+  # Build context object
+  local context_json="{"
+  local first=true
+  for key in "${!context_state[@]}"; do
+    # Skip flags for now, we'll add them separately
+    if [[ ! $key =~ _flag$ ]]; then
+      if [ "$first" = false ]; then
+        context_json+=","
+      fi
+      # Escape quotes in values
+      local value="${context_state[$key]}"
+      value="${value//\"/\\\"}"
+      context_json+="\"$key\":\"$value\""
+      first=false
+    fi
+  done
+  context_json+="}"
+
+  # Build flags object
+  local flags_json="{"
+  first=true
+  for key in "${!context_state[@]}"; do
+    if [[ $key =~ _flag$ ]]; then
+      if [ "$first" = false ]; then
+        flags_json+=","
+      fi
+      flags_json+="\"$key\":${context_state[$key]}"
+      first=false
+    fi
+  done
+  flags_json+="}"
+
+  # Build complete JSON
+  cat > "$json_file" <<EOF
+{
+  "session_id": "$current_tracked_session",
+  "timestamp": "$current_timestamp",
+  "iteration": ${current_iteration:-0},
+  "current_node": "${current_node:-null}",
+  "navigator": {
+    "decision": "${navigator_decision:-null}",
+    "next_node": "${navigator_next_node:-null}",
+    "reason": "${navigator_reason//\"/\\\"}"
+  },
+  "conversation": {
+    "last_user_message": "${last_user_message//\"/\\\"}",
+    "last_ai_message": "${last_ai_message//\"/\\\"}"
+  },
+  "context": $context_json,
+  "flags": $flags_json,
+  "dump_time": "$current_timestamp"
+}
+EOF
+
+  echo -e "${DIM}💾 JSON dumped to: ${json_file}${NC}"
+}
+
 # Function to dump complete state at iteration end
 dump_complete_state() {
+  # Dump to JSON file first
+  dump_state_to_json
+
   echo -e "\n${PURPLE}${BOLD}╔══════════════════════════════════════════════════════════════════╗${NC}"
   echo -e "${PURPLE}${BOLD}║           📊 COMPLETE STATE DUMP - ITERATION $current_iteration           ║${NC}"
   echo -e "${PURPLE}${BOLD}╚══════════════════════════════════════════════════════════════════╝${NC}"
