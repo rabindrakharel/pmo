@@ -209,7 +209,7 @@ export class DataExtractionAgent {
    * Build extraction prompt for LLM
    */
   private buildExtractionPrompt(
-    last4Exchanges: Array<{ customer: string; agent: string }>,
+    last4Exchanges: Array<{ index?: number; customer: string; agent: string }>,
     emptyFields: string[],
     currentContext: any
   ): string {
@@ -222,7 +222,8 @@ Your task: Analyze the recent conversation exchanges and extract missing custome
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 LAST 4 CONVERSATION EXCHANGES:
 ${last4Exchanges.map((exchange, idx) => {
-  return `[Exchange ${idx + 1}]\nCustomer: "${exchange.customer}"\nAgent: "${exchange.agent}"`;
+  const exchangeLabel = exchange.index !== undefined ? `Exchange #${exchange.index}` : `Exchange ${idx + 1}`;
+  return `[${exchangeLabel}]\nCustomer: "${exchange.customer}"\nAgent: "${exchange.agent}"`;
 }).join('\n\n')}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

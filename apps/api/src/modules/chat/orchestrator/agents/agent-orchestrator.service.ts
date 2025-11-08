@@ -572,17 +572,16 @@ export class AgentOrchestratorService {
         }
       }
 
-      // CRITICAL: Track node execution by appending to node_traversed
-      // This enables Navigator to make decisions based on which nodes have been visited
-      const currentPath = state.context.node_traversed || [];
-      if (!currentPath.includes(state.currentNode)) {
-        state = this.contextManager.updateContext(state, {
-          node_traversed: [state.currentNode]  // Will be appended by non-destructive merge
-        });
-        console.log(`[AgentOrchestrator] 🗺️  Added ${state.currentNode} to node_traversed (total: ${(state.context.node_traversed || []).length})`);
-      } else {
-        console.log(`[AgentOrchestrator] 🗺️  ${state.currentNode} already in node_traversed (skipping duplicate)`);
-      }
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // TRACK NODE TRAVERSAL
+      // ALWAYS append current node to enable loop detection and path tracking
+      // This shows the ACTUAL path taken through the DAG, including revisits
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      state = this.contextManager.updateContext(state, {
+        node_traversed: [state.currentNode]  // Will be appended by non-destructive merge
+      });
+      const totalNodes = (state.context.node_traversed || []).length;
+      console.log(`[AgentOrchestrator] 🗺️  Traversed ${state.currentNode} (path length: ${totalNodes})`);
 
       // Write context file after worker execution
       await this.writeContextFile(state, `node:${state.currentNode}`);
@@ -649,29 +648,21 @@ export class AgentOrchestratorService {
       // LOOP DETECTION & RETRY GUIDANCE
       // Track repeated visits to same node and provide guidance to try differently
       // Data is NEVER erased - only approach varies
+      // Uses node_traversed array to count visits (enables loop detection)
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      const recentNodes = (state.context.node_traversed || []).slice(-10); // Last 10 nodes
-      const nextNodeCount = recentNodes.filter(n => n === navigatorDecision.nextNode).length;
+      const allTraversedNodes = state.context.node_traversed || [];
+      const recentNodes = allTraversedNodes.slice(-10); // Last 10 nodes
 
-      // Initialize loop tracking in context if not exists
-      if (!state.context.loop_tracking) {
-        state = this.contextManager.updateContext(state, {
-          loop_tracking: {}
-        });
-      }
+      // Count how many times the NEXT node appears in recent history
+      const nextNodeVisitCount = recentNodes.filter(n => n === navigatorDecision.nextNode).length;
 
-      const loopTracking = state.context.loop_tracking || {};
-      const nodeKey = navigatorDecision.nextNode;
+      // Count total visits to next node across entire conversation
+      const totalNextNodeVisits = allTraversedNodes.filter(n => n === navigatorDecision.nextNode).length;
+      const attemptNumber = totalNextNodeVisits + 1; // Next visit will be attempt N+1
 
-      // Track visit count and attempt index for this node
-      if (!loopTracking[nodeKey]) {
-        loopTracking[nodeKey] = { visits: 0, last_attempt: '' };
-      }
-      loopTracking[nodeKey].visits = nextNodeCount + 1;
-
-      if (nextNodeCount >= 2) {
-        console.log(`\n🔄 [LOOP DETECTED] ${navigatorDecision.nextNode} visited ${nextNodeCount + 1} times`);
-        console.log(`   Recent path: ${JSON.stringify(recentNodes)}`);
+      if (nextNodeVisitCount >= 2) {
+        console.log(`\n🔄 [LOOP DETECTED] ${navigatorDecision.nextNode} visited ${nextNodeVisitCount} times in last 10 nodes (attempt #${attemptNumber} total)`);
+        console.log(`   Recent path (last 10): ${JSON.stringify(recentNodes)}`);
         console.log(`   ℹ️  Providing retry guidance to try different approach...`);
         console.log(`   ⚠️  IMPORTANT: Data collected so far is PRESERVED`);
 
@@ -679,20 +670,19 @@ export class AgentOrchestratorService {
         let retryGuidance = '';
 
         if (navigatorDecision.nextNode === 'Try_To_Gather_Customers_Data') {
-          const attempts = loopTracking[nodeKey].visits;
           const dataFields = state.context.data_extraction_fields || {};
 
-          if (attempts === 3) {
-            retryGuidance = `This is attempt #${attempts} to gather customer data. Try a different approach:\n`;
+          if (attemptNumber === 3) {
+            retryGuidance = `This is attempt #${attemptNumber} to gather customer data. Try a different approach:\n`;
             retryGuidance += `- Currently have: name="${dataFields.customer_name || '(missing)'}", phone="${dataFields.customer_phone_number || '(missing)'}"\n`;
             retryGuidance += `- Try asking: "To help you better, could you share your contact number?"\n`;
             retryGuidance += `- Be more direct and specific about what's needed`;
-          } else if (attempts === 4) {
-            retryGuidance = `This is attempt #${attempts}. Try offering value:\n`;
+          } else if (attemptNumber === 4) {
+            retryGuidance = `This is attempt #${attemptNumber}. Try offering value:\n`;
             retryGuidance += `- Example: "So I can send you updates about the service, what's a good number to reach you?"\n`;
             retryGuidance += `- Explain WHY you need the information`;
-          } else if (attempts >= 5) {
-            retryGuidance = `This is attempt #${attempts}. Offer alternative:\n`;
+          } else if (attemptNumber >= 5) {
+            retryGuidance = `This is attempt #${attemptNumber}. Offer alternative:\n`;
             retryGuidance += `- Example: "I can proceed with partial information. Would you like to continue or provide a contact number?"\n`;
             retryGuidance += `- Give customer option to skip if they prefer`;
           } else {
@@ -700,26 +690,23 @@ export class AgentOrchestratorService {
           }
 
         } else if (navigatorDecision.nextNode === 'ASK_CUSTOMER_ABOUT_THEIR_NEED') {
-          const attempts = loopTracking[nodeKey].visits;
-
-          if (attempts === 3) {
+          if (attemptNumber === 3) {
             retryGuidance = `Customer response unclear. Try:\n`;
             retryGuidance += `- Ask more specific questions about their issue\n`;
             retryGuidance += `- Example: "What specific problem are you experiencing with your [roof/plumbing/etc]?"`;
-          } else if (attempts >= 4) {
+          } else if (attemptNumber >= 4) {
             retryGuidance = `Provide examples to help customer:\n`;
             retryGuidance += `- Example: "For example, is it a leak, damage, installation, or something else?"\n`;
             retryGuidance += `- Give concrete options to choose from`;
           }
 
         } else {
-          retryGuidance = `Attempt #${loopTracking[nodeKey].visits}. Try varying your approach to gather required information.`;
+          retryGuidance = `Attempt #${attemptNumber}. Try varying your approach to gather required information.`;
         }
 
         // Update context with retry guidance (NEVER reset data)
         state = this.contextManager.updateContext(state, {
-          next_course_of_action: retryGuidance,
-          loop_tracking: loopTracking
+          next_course_of_action: retryGuidance
         });
 
         // Log loop detection event
@@ -728,7 +715,9 @@ export class AgentOrchestratorService {
           nodeName: state.currentNode,
           result: {
             loopDetected: true,
-            attemptNumber: loopTracking[nodeKey].visits,
+            attemptNumber,
+            recentVisits: nextNodeVisitCount,
+            totalVisits: totalNextNodeVisits,
             nextNode: navigatorDecision.nextNode,
             retryGuidance,
             dataPreserved: true,
@@ -738,8 +727,9 @@ export class AgentOrchestratorService {
           sessionId: state.sessionId,
         });
 
-        console.log(`   📝 Retry guidance: ${retryGuidance.substring(0, 100)}...`);
-        console.log(`   ✅ All collected data preserved: ${Object.keys(state.context.data_extraction_fields || {}).filter(k => state.context.data_extraction_fields[k]).join(', ')}`);
+        console.log(`   📝 Retry guidance: ${retryGuidance.substring(0, 150)}...`);
+        const collectedFields = Object.keys(state.context.data_extraction_fields || {}).filter(k => state.context.data_extraction_fields[k]);
+        console.log(`   ✅ Data preserved (${collectedFields.length} fields): ${collectedFields.join(', ') || '(none yet)'}`);
       }
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
