@@ -26,10 +26,11 @@ export class ContextInitializer {
     console.log(`[ContextInitializer] 🔧 Initializing FRESH context for session: ${sessionId.substring(0, 8)}...`);
     console.log(`[ContextInitializer] 🚮 Flushing dummy data from schema...`);
 
-    const schema = this.dagConfig.global_context_schema as any;
+    // Use global_context_schema_semantics from agent_config.json
+    const schema = (this.dagConfig as any).global_context_schema_semantics;
 
     if (!schema) {
-      console.warn('[ContextInitializer] ⚠️ No global_context_schema found in agent_config.json, using minimal defaults');
+      console.warn('[ContextInitializer] ⚠️ No global_context_schema_semantics found in agent_config.json, using minimal defaults');
       return this.createMinimalContext(sessionId);
     }
 
@@ -146,8 +147,8 @@ export class ContextInitializer {
    * Check if field is mandatory
    */
   private isMandatoryField(fieldName: string): boolean {
-    // Check in mandatory_fields from global_context_schema
-    const schema = this.dagConfig.global_context_schema as any;
+    // Check in mandatory_fields from global_context_schema_semantics
+    const schema = (this.dagConfig as any).global_context_schema_semantics;
     const mandatoryFields = schema?.mandatory_fields || [];
     return mandatoryFields.includes(fieldName);
   }
@@ -197,7 +198,8 @@ export class ContextInitializer {
    * Log initialization summary
    */
   private logInitializationSummary(context: DAGContext) {
-    const mandatoryFields = this.dagConfig.graph_config?.mandatory_fields || [];
+    const schema = (this.dagConfig as any).global_context_schema_semantics;
+    const mandatoryFields = schema?.mandatory_fields || [];
     const totalFields = Object.keys(context).length;
 
     console.log(`[ContextInitializer] ✅ Context initialized:`);
@@ -210,23 +212,23 @@ export class ContextInitializer {
    * Validate context has all required fields from schema
    */
   validateContext(context: DAGContext): { valid: boolean; missing: string[]; errors: string[] } {
-    const schema = this.dagConfig.global_context_schema;
+    const schema = (this.dagConfig as any).global_context_schema_semantics;
     const missing: string[] = [];
     const errors: string[] = [];
 
-    if (!schema || !schema.core_keys) {
+    if (!schema || !schema.field_semantics) {
       return { valid: true, missing: [], errors: ['No schema to validate against'] };
     }
 
-    // Check all core_keys exist
-    for (const fieldName of Object.keys(schema.core_keys)) {
+    // Check all field_semantics exist
+    for (const fieldName of Object.keys(schema.field_semantics)) {
       if (!(fieldName in context)) {
         missing.push(fieldName);
       }
     }
 
     // Check mandatory fields are populated
-    const mandatoryFields = this.dagConfig.graph_config?.mandatory_fields || [];
+    const mandatoryFields = schema.mandatory_fields || [];
     for (const fieldName of mandatoryFields) {
       if (!context[fieldName] || context[fieldName] === '') {
         errors.push(`Mandatory field '${fieldName}' is empty`);
@@ -248,20 +250,20 @@ export class ContextInitializer {
    * Get field metadata from schema
    */
   getFieldMetadata(fieldName: string): { type: string; mandatory: boolean; description: string } | null {
-    const schema = this.dagConfig.global_context_schema;
+    const schema = (this.dagConfig as any).global_context_schema_semantics;
 
-    if (!schema || !schema.core_keys || !(fieldName in schema.core_keys)) {
+    if (!schema || !schema.field_semantics || !(fieldName in schema.field_semantics)) {
       return null;
     }
 
-    const description = schema.core_keys[fieldName] as string;
-    const fieldType = this.parseFieldType(description);
+    const fieldInfo = schema.field_semantics[fieldName];
+    const fieldType = fieldInfo.type || 'string';
     const isMandatory = this.isMandatoryField(fieldName);
 
     return {
       type: fieldType,
       mandatory: isMandatory,
-      description,
+      description: fieldInfo.description || '',
     };
   }
 
@@ -269,14 +271,16 @@ export class ContextInitializer {
    * Get all mandatory fields from schema
    */
   getMandatoryFields(): string[] {
-    return this.dagConfig.graph_config?.mandatory_fields || [];
+    const schema = (this.dagConfig as any).global_context_schema_semantics;
+    return schema?.mandatory_fields || [];
   }
 
   /**
    * Get schema description
    */
   getSchemaDescription(): string {
-    return this.dagConfig.global_context_schema?.description || '';
+    const schema = (this.dagConfig as any).global_context_schema_semantics;
+    return schema?.description || '';
   }
 }
 
