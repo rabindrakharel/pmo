@@ -238,8 +238,10 @@ export class AgentOrchestratorService {
         status: state.completed ? 'completed' : 'active',
       });
 
-      // Finalize context file if conversation ended
+      // Auto-disconnect voice if needed
       if (state.conversationEnded && args.chatSessionId) {
+        await this.autoDisconnectVoice(args.chatSessionId, state.endReason);
+        // Finalize context file
         await this.writeContextFile(state, 'finalize');
 
         // Log session end
@@ -625,6 +627,22 @@ export class AgentOrchestratorService {
     );
 
     console.log(`[AgentOrchestrator] 💾 State saved for session ${state.sessionId}`);
+  }
+
+  /**
+   * Auto-disconnect voice session
+   */
+  private async autoDisconnectVoice(chatSessionId: string, endReason?: string): Promise<void> {
+    try {
+      const { disconnectVoiceLangraphSession } = await import('../../voice-langraph.service.js');
+      const disconnected = disconnectVoiceLangraphSession(chatSessionId);
+
+      if (disconnected) {
+        console.log(`📞 Voice session ${chatSessionId} auto-disconnected (${endReason})`);
+      }
+    } catch (error) {
+      console.error('Error disconnecting voice session:', error);
+    }
   }
 
   /**
