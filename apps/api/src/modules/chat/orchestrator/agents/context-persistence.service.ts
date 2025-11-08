@@ -1,6 +1,6 @@
 /**
  * Context Persistence Service
- * Writes context_{session_id}.json files to track conversation state
+ * Writes session_{session_id}_memory_data.json files to track conversation state
  * Helps with debugging and understanding incremental context building
  * @module orchestrator/agents/context-persistence
  */
@@ -36,7 +36,7 @@ export class ContextPersistenceService {
    * Get file path for session
    */
   private getFilePath(sessionId: string): string {
-    return path.join(this.contextDir, `context_${sessionId}.json`);
+    return path.join(this.contextDir, `session_${sessionId}_memory_data.json`);
   }
 
   /**
@@ -195,7 +195,7 @@ export class ContextPersistenceService {
   async listContextFiles(): Promise<string[]> {
     try {
       const files = await fs.readdir(this.contextDir);
-      return files.filter(f => f.startsWith('context_') && f.endsWith('.json'));
+      return files.filter(f => f.startsWith('session_') && f.endsWith('_memory_data.json'));
     } catch (error: any) {
       console.error(`[ContextPersistence] ❌ Failed to list context files: ${error.message}`);
       return [];

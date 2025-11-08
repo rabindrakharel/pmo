@@ -1,9 +1,9 @@
 /**
  * Navigator Agent
  * Lightweight routing brain that decides next node using LLM
- * Input: dag.json (nodes + branching_conditions) + context_{session_id}.json
+ * Input: dag.json (nodes + branching_conditions) + session_{session_id}_memory_data.json
  * Output: which node to execute next (no keyword matching, pure LLM decision)
- * READS context_{session_id}.json file for complete context before routing
+ * READS session_{session_id}_memory_data.json file for complete context before routing
  * @module orchestrator/agents/navigator-agent
  */
 
@@ -35,7 +35,7 @@ export interface NavigatorDecision {
  * Navigator Agent Service
  * Role: Validates conversation direction AND decides which node to go next
  * This unified agent combines validation + routing in a single LLM call
- * READS context_{session_id}.json file for routing decisions
+ * READS session_{session_id}_memory_data.json file for routing decisions
  */
 export class NavigatorAgent {
   private dagConfig: DAGConfiguration;
@@ -50,10 +50,10 @@ export class NavigatorAgent {
    */
   private async readContextFile(sessionId: string): Promise<any | null> {
     try {
-      const filePath = path.join(this.contextDir, `context_${sessionId}.json`);
+      const filePath = path.join(this.contextDir, `session_${sessionId}_memory_data.json`);
       const content = await fs.readFile(filePath, 'utf-8');
       const parsed = JSON.parse(content);
-      console.log(`[NavigatorAgent] 📖 Read context_${sessionId.substring(0, 8)}...json (${parsed.metadata?.action || 'unknown'})`);
+      console.log(`[NavigatorAgent] 📖 Read session_${sessionId.substring(0, 8)}..._memory_data.json (${parsed.metadata?.action || 'unknown'})`);
       return parsed;
     } catch (error: any) {
       if (error.code !== 'ENOENT') {
@@ -64,7 +64,7 @@ export class NavigatorAgent {
   }
 
   /**
-   * Lightweight routing decision based on dag.json + context_{session_id}.json
+   * Lightweight routing decision based on dag.json + session_{session_id}_memory_data.json
    * Navigator focuses on: which node next? Not on detailed prompt engineering.
    */
   async decideNextNode(state: AgentContextState, skipValidation: boolean = false): Promise<NavigatorDecision> {

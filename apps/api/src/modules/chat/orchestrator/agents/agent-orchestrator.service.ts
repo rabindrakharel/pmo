@@ -71,7 +71,7 @@ export class AgentOrchestratorService {
    * Get context file path for session
    */
   private getContextFilePath(sessionId: string): string {
-    return path.join(this.contextDir, `context_${sessionId}.json`);
+    return path.join(this.contextDir, `session_${sessionId}_memory_data.json`);
   }
 
   /**
@@ -113,14 +113,14 @@ export class AgentOrchestratorService {
 
       const truncatedId = state.sessionId.substring(0, 8);
       const shortAction = action.length > 50 ? action.substring(0, 47) + '...' : action;
-      console.log(`[AgentOrchestrator] 💾 context_${truncatedId}...json (${shortAction})`);
+      console.log(`[AgentOrchestrator] 💾 session_${truncatedId}..._memory_data.json (${shortAction})`);
 
       // ========================================================================
       // DUMP COMPLETE CONTEXT JSON FILE TO LOGS (User Requested)
       // ========================================================================
       console.log(`\n┌════════════════════════════════════════════════════════════════════┐`);
       console.log(`│ 📄 COMPLETE CONTEXT JSON FILE - ${shortAction.padEnd(40)} │`);
-      console.log(`│ File: context_${truncatedId}.json${' '.repeat(43 - truncatedId.length)}│`);
+      console.log(`│ File: session_${truncatedId}_memory_data.json${' '.repeat(30 - truncatedId.length)}│`);
       console.log(`└════════════════════════════════════════════════════════════════════┘`);
       console.log(JSON.stringify(snapshot, null, 2));
       console.log(`┌════════════════════════════════════════════════════════════════════┐`);
