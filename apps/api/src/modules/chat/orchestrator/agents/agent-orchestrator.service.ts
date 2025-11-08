@@ -22,6 +22,8 @@ import { WorkerMCPAgent, createWorkerMCPAgent } from './worker-mcp-agent.service
 import { NavigatorAgent, createNavigatorAgent } from './navigator-agent.service.js';
 import { DataExtractionAgent, createDataExtractionAgent } from './data-extraction-agent.service.js';
 import { getLLMLogger } from '../services/llm-logger.service.js';
+import { getContextDbService } from '../services/context-db.service.js';
+import type { SessionContextData } from '../services/context-db.service.js';
 
 /**
  * Agent Orchestrator Service
@@ -50,9 +52,23 @@ export class AgentOrchestratorService {
     this.mcpAdapter = new MCPAdapterService();
     this.contextManager = getAgentContextManager();
 
-    console.log('[AgentOrchestrator] 🚀 Initializing pure agent-based system');
+    console.log('[AgentOrchestrator] 🚀 Initializing pure agent-based system with LowDB');
+    this.initializeContextDb();
     this.initializeContextDir();
     this.initializeAgents();
+  }
+
+  /**
+   * Initialize LowDB for context storage
+   */
+  private async initializeContextDb(): Promise<void> {
+    try {
+      const contextDb = getContextDbService();
+      await contextDb.initialize();
+      console.log(`[AgentOrchestrator] 🗄️  LowDB initialized: ${contextDb.getDbPath()}`);
+    } catch (error: any) {
+      console.error(`[AgentOrchestrator] ❌ Failed to initialize LowDB: ${error.message}`);
+    }
   }
 
   /**
@@ -75,74 +91,70 @@ export class AgentOrchestratorService {
   }
 
   /**
-   * Write context to JSON file - DIRECT FILE WRITE
+   * Write context to LowDB - REPLACES FILE WRITE
    */
   private async writeContextFile(state: AgentContextState, action: string = 'update'): Promise<void> {
     try {
-      const filePath = this.getContextFilePath(state.sessionId);
+      const contextDb = getContextDbService();
 
-      const snapshot = {
-        metadata: {
-          sessionId: state.sessionId,
-          chatSessionId: state.chatSessionId,
-          userId: state.userId,
-          currentNode: state.currentNode,
-          previousNode: state.previousNode,
-          completed: state.completed,
-          conversationEnded: state.conversationEnded,
-          endReason: state.endReason,
-          lastUpdated: new Date().toISOString(),
-          action,
-        },
+      const sessionData: SessionContextData = {
+        sessionId: state.sessionId,
+        chatSessionId: state.chatSessionId,
+        userId: state.userId,
+        currentNode: state.currentNode,
+        previousNode: state.previousNode,
+        completed: state.completed,
+        conversationEnded: state.conversationEnded,
+        endReason: state.endReason,
         context: state.context,
         messages: state.messages.map(m => ({
           role: m.role,
           content: m.content,
           timestamp: m.timestamp.toISOString(),
         })),
-        statistics: {
-          totalMessages: state.messages.length,
-          userMessages: state.messages.filter(m => m.role === 'user').length,
-          assistantMessages: state.messages.filter(m => m.role === 'assistant').length,
-          nodesTraversed: state.context.node_traversed?.length || 0,
-          flagsSet: Object.values(state.context.flags || {}).filter(v => v === 1).length,
-        },
+        lastUpdated: new Date().toISOString(),
+        action,
       };
 
-      await fs.writeFile(filePath, JSON.stringify(snapshot, null, 2), 'utf-8');
+      await contextDb.saveSession(sessionData);
 
       const truncatedId = state.sessionId.substring(0, 8);
       const shortAction = action.length > 50 ? action.substring(0, 47) + '...' : action;
-      console.log(`[AgentOrchestrator] 💾 session_${truncatedId}..._memory_data.json (${shortAction})`);
+      console.log(`[AgentOrchestrator] 💾 LowDB: session_${truncatedId}... (${shortAction})`);
 
       // ========================================================================
-      // DUMP COMPLETE CONTEXT JSON FILE TO LOGS (User Requested)
+      // DUMP COMPLETE CONTEXT DATA TO LOGS (User Requested)
       // ========================================================================
       console.log(`\n┌════════════════════════════════════════════════════════════════════┐`);
-      console.log(`│ 📄 COMPLETE CONTEXT JSON FILE - ${shortAction.padEnd(40)} │`);
-      console.log(`│ File: session_${truncatedId}_memory_data.json${' '.repeat(30 - truncatedId.length)}│`);
+      console.log(`│ 📄 COMPLETE CONTEXT DATA (LowDB) - ${shortAction.padEnd(34)} │`);
+      console.log(`│ Session: ${truncatedId}${' '.repeat(59 - truncatedId.length)}│`);
       console.log(`└════════════════════════════════════════════════════════════════════┘`);
-      console.log(JSON.stringify(snapshot, null, 2));
+      console.log(JSON.stringify(sessionData, null, 2));
       console.log(`┌════════════════════════════════════════════════════════════════════┐`);
-      console.log(`│ END OF CONTEXT JSON FILE${' '.repeat(44)}│`);
+      console.log(`│ END OF CONTEXT DATA${' '.repeat(49)}│`);
       console.log(`└════════════════════════════════════════════════════════════════════┘\n`);
     } catch (error: any) {
-      console.error(`[AgentOrchestrator] ❌ Failed to write context file: ${error.message}`);
+      console.error(`[AgentOrchestrator] ❌ Failed to save context to LowDB: ${error.message}`);
     }
   }
 
   /**
-   * Read context from JSON file - DIRECT FILE READ
+   * Read context from LowDB - REPLACES FILE READ
    */
   private async readContextFile(sessionId: string): Promise<any | null> {
     try {
-      const filePath = this.getContextFilePath(sessionId);
-      const content = await fs.readFile(filePath, 'utf-8');
-      return JSON.parse(content);
-    } catch (error: any) {
-      if (error.code !== 'ENOENT') {
-        console.error(`[AgentOrchestrator] ❌ Failed to read context file: ${error.message}`);
+      const contextDb = getContextDbService();
+      const session = await contextDb.getSession(sessionId);
+
+      if (!session) {
+        console.log(`[AgentOrchestrator] ℹ️  Session ${sessionId.substring(0, 8)}... not found in LowDB`);
+        return null;
       }
+
+      console.log(`[AgentOrchestrator] 📖 Loaded session ${sessionId.substring(0, 8)}... from LowDB`);
+      return session;
+    } catch (error: any) {
+      console.error(`[AgentOrchestrator] ❌ Failed to read context from LowDB: ${error.message}`);
       return null;
     }
   }

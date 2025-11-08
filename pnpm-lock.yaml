@@ -159,6 +159,9 @@ importers:
       lib0:
         specifier: ^0.2.114
         version: 0.2.114
+      lowdb:
+        specifier: 7.0.1
+        version: 7.0.1
       minio:
         specifier: ^8.0.6
         version: 8.0.6
@@ -7699,6 +7702,13 @@ packages:
       get-func-name: 2.0.2
     dev: true
 
+  /lowdb@7.0.1:
+    resolution: {integrity: sha512-neJAj8GwF0e8EpycYIDFqEPcx9Qz4GUho20jWFR7YiFeXzF1YMLdxB36PypcTSPMA+4+LvgyMacYhlr18Zlymw==}
+    engines: {node: '>=18'}
+    dependencies:
+      steno: 4.0.2
+    dev: false
+
   /lowlight@3.3.0:
     resolution: {integrity: sha512-0JNhgFoPvP6U6lE/UdVsSq99tn6DhjjpAj5MxG49ewd2mOBVtwWYIT8ClyABhq198aXXODMU6Ox8DrGy/CpTZQ==}
     dependencies:
@@ -9305,6 +9315,11 @@ packages:
       fastq: 1.19.1
       fastseries: 1.7.2
       reusify: 1.1.0
+    dev: false
+
+  /steno@4.0.2:
+    resolution: {integrity: sha512-yhPIQXjrlt1xv7dyPQg2P17URmXbuM5pdGkpiMB3RenprfiBlvK415Lctfe0eshk90oA7/tNq7WEiMK8RSP39A==}
+    engines: {node: '>=18'}
     dev: false
 
   /stream-chain@2.2.5:
