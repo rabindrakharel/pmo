@@ -1,9 +1,9 @@
 # AI Chat System - Complete Architecture Documentation
 
 > **Target Audience**: Staff-level software engineers and solutions architects
-> **Current Version**: 2.3.0
-> **Last Updated**: 2025-11-07
-> **Status**: Production-ready multi-agent orchestration system with optimized token usage
+> **Current Version**: 2.4.0
+> **Last Updated**: 2025-11-08
+> **Status**: Production-ready multi-agent orchestration system with GPT-4o mini and soft semantic routing
 
 ---
 
@@ -35,11 +35,11 @@ The AI Chat System is a **multi-agent orchestration platform** for customer serv
 
 | Capability | Implementation |
 |-----------|---------------|
-| Natural language understanding | GPT-4/Claude via OpenAI Service |
+| Natural language understanding | GPT-4o mini via OpenAI Service (cost-optimized) |
 | Information extraction | LLM JSON mode for structured data |
 | External tool execution | MCP adapter for PMO API integration |
 | Conversation state management | context.json with non-destructive merging |
-| Flow control | Navigator agent with branching conditions |
+| Flow control | Navigator agent with soft semantic routing |
 | Call lifecycle | 17 nodes from greeting to hangup |
 
 ---
@@ -1525,6 +1525,122 @@ const nodeTraversalPath = fullContext.node_traversal_path || [];
 
 ---
 
-**Document Version**: 2.5.0
-**System Version**: 2.5.0 - node_traversal_path-Based Routing
+## 16. GPT-4o Mini Migration & Soft Semantic Routing (2025-11-08)
+
+### Version 2.4.0 Updates
+
+#### 1. GPT-4o Mini Migration
+
+**Change:** Migrated all agent types from GPT-3.5 Turbo to GPT-4o mini
+
+**File:** `apps/api/src/modules/chat/orchestrator/config/agent-models.config.ts`
+
+**Updated Agents:**
+
+| Agent Type | Old Model | New Model | Cost Reduction |
+|-----------|-----------|-----------|----------------|
+| Orchestrator | gpt-3.5-turbo | gpt-4o-mini | 73% |
+| Planner/Navigator | gpt-3.5-turbo | gpt-4o-mini | 73% |
+| Worker (Reply + MCP) | gpt-3.5-turbo | gpt-4o-mini | 73% |
+| Evaluator | gpt-3.5-turbo | gpt-4o-mini | 73% |
+| Critic | gpt-3.5-turbo | gpt-4o-mini | 73% |
+| Summary | gpt-3.5-turbo | gpt-4o-mini | 73% |
+
+**Cost Impact:**
+
+```typescript
+// Before (GPT-3.5 Turbo)
+costPer1KTokens: 0.0015  // $1.50 per 1M tokens
+
+// After (GPT-4o mini)
+costPer1KTokens: 0.0004  // $0.40 per 1M tokens
+
+// Savings: 73% cost reduction
+```
+
+**Benefits:**
+
+1. **73% Cost Reduction** - From $1.50 to $0.40 per 1M tokens
+2. **Faster Response Times** - GPT-4o mini optimized for low latency
+3. **Better Semantic Understanding** - Improved instruction following for soft routing
+4. **Maintained Quality** - Newer architecture with enhanced capabilities
+
+**Environment Variable Overrides:**
+
+```bash
+# Override any agent model at runtime
+ORCHESTRATOR_MODEL=gpt-4o-mini
+PLANNER_MODEL=gpt-4o-mini
+WORKER_MODEL=gpt-4o-mini
+EVALUATOR_MODEL=gpt-4o-mini
+CRITIC_MODEL=gpt-4o-mini
+SUMMARY_MODEL=gpt-4o-mini
+```
+
+#### 2. Soft Semantic Routing
+
+**Change:** Replaced rigid pattern-matching branching conditions with soft semantic descriptions
+
+**File:** `apps/api/src/modules/chat/orchestrator/agent_config.json`
+
+**Before (Rigid Pattern Matching):**
+
+```json
+{
+  "condition": "if response is UNCLEAR/VAGUE/INCOMPLETE - just keywords or fragments (examples: 'my roof', 'my roof my roof', 'roof', 'help', 'problem', 'plumbing', 'HVAC' - NO complete problem/issue stated)",
+  "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED"
+}
+```
+
+**After (Soft Semantic):**
+
+```json
+{
+  "condition": "if customer response is unclear, vague, or incomplete",
+  "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED"
+}
+```
+
+**Examples of Simplified Conditions:**
+
+| Before | After |
+|--------|-------|
+| `if customer message contains explicit phone number pattern (e.g., 555-1234, (555) 123-4567)` | `if customer provides a phone number` |
+| `if customer provides a person's name explicitly (e.g., 'My name is John', 'I'm Sarah')` | `if customer provides their name` |
+| `if customers_main_ask is empty AND customer mentions ANY service/problem/issue (examples: 'roof', 'plumbing', 'HVAC')` | `if customer mentions a service or problem and customers_main_ask is empty` |
+
+**Benefits:**
+
+1. **LLM Semantic Understanding** - Let GPT-4o mini use natural language understanding instead of pattern matching
+2. **More Flexible Routing** - Handles vague inputs like "my roof my roof" with clarifying questions
+3. **Easier Maintenance** - No need to add examples for every edge case
+4. **AI-First Philosophy** - Leverages LLM's intelligence for intent detection
+
+**Example Scenario:**
+
+```
+User: "my roof my roof"
+
+Before (Pattern Matching):
+❌ Doesn't match "CLEAR and COMPLETE issue" examples
+❌ Falls to default_next_node or waits silently
+
+After (Soft Semantic):
+✅ Matches "if customer response is unclear, vague, or incomplete"
+✅ Routes to ASK_CUSTOMER_ABOUT_THEIR_NEED with loop_back_intention
+✅ Agent asks: "I understand you mentioned your roof. Could you tell me more about what's happening with it?"
+```
+
+**Implementation:**
+
+All branching conditions in `agent_config.json` have been simplified:
+- ASK_CUSTOMER_ABOUT_THEIR_NEED node
+- Try_To_Gather_Customers_Data node
+- wait_for_customers_reply node
+- All other nodes with branching logic
+
+---
+
+**Document Version**: 2.4.0
+**System Version**: 2.4.0 - GPT-4o Mini + Soft Semantic Routing
 **Last Updated**: 2025-11-08

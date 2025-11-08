@@ -621,7 +621,7 @@ Form builder: form/form.md
 | **tools, scripts, db-import, test-api** | `tools.md` |
 | **entity configuration, DRY, entity config** | `entity_design_pattern/universal_entity_system.md`, `entity_ui_ux_route_api.md` |
 | **AI chat, voice calling, MCP, function tools, booking automation** | `ai_chat/AI_CHAT_SYSTEM.md` ⭐ |
-| **OpenAI, GPT-4, realtime API, chat widget, customer service** | `ai_chat/AI_CHAT_SYSTEM.md` |
+| **OpenAI, GPT-4o mini, semantic routing, chat widget, customer service** | `ai_chat/AI_CHAT_SYSTEM.md` |
 
 ---
 
@@ -760,8 +760,9 @@ MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-**Last Updated:** 2025-11-04
+**Last Updated:** 2025-11-08
 **Version:** 3.1.0 (Production)
+**AI Chat Version:** 2.4.0 (GPT-4o mini + Soft Semantic Routing)
 **Architecture:** DRY-first, Config-driven, Universal Components with Inline Create-Then-Link
 **Deployment:** http://100.26.224.246:5173
 
