@@ -2,8 +2,8 @@
  * DAG Configuration Types
  * Simplified types for agent-based orchestration
  *
- * NOTE: DAGContext structure is defined by global_context_schema in dag.json
- * These are generic TypeScript interfaces - the actual schema comes from dag.json
+ * NOTE: DAGContext structure is defined by global_context_schema in agent_config.json
+ * These are generic TypeScript interfaces - the actual schema comes from agent_config.json
  */
 
 export interface ConversationSummary {
@@ -12,11 +12,11 @@ export interface ConversationSummary {
 }
 
 /**
- * DAG Context - Dynamic structure based on dag.json global_context_schema
- * The actual fields and structure are defined in dag.json's global_context_schema.core_keys
+ * DAG Context - Dynamic structure based on agent_config.json global_context_schema
+ * The actual fields and structure are defined in agent_config.json's global_context_schema.core_keys
  */
 export type DAGContext = Record<string, any> & {
-  // Core fields referenced by dag.json (see global_context_schema)
+  // Core fields referenced by agent_config.json (see global_context_schema)
   [key: string]: any;
 };
 

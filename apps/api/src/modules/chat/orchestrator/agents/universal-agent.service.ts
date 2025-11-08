@@ -237,7 +237,7 @@ YOUR ROLE: ${this.profile.role}
 AGENT PROFILE: ${this.agentType.toUpperCase()}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-RESPONSIBILITIES (from dag.json):
+RESPONSIBILITIES (from agent_config.json):
 ${this.profile.responsibilities.map((r, i) => `${i + 1}. ${r}`).join('\n')}
 
 DECISION INPUTS:
@@ -256,7 +256,7 @@ EXECUTION INSTRUCTIONS
 4. Return structured data in JSON format
 
 IMPORTANT:
-- Follow responsibilities exactly as defined in dag.json
+- Follow responsibilities exactly as defined in agent_config.json
 - Only output fields specified in decision_outputs
 - Use context data to make informed decisions
 - Do not invent or assume data not provided

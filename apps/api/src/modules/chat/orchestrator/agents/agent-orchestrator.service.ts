@@ -1,7 +1,7 @@
 /**
  * Agent Orchestrator Service
  * Pure agent-based orchestration without LangGraph dependencies
- * Coordinates worker, guider, and navigator agents based on dag.json
+ * Coordinates worker, guider, and navigator agents based on agent_config.json
  * @module orchestrator/agents/agent-orchestrator
  */
 
@@ -20,6 +20,7 @@ import {
 import { WorkerReplyAgent, createWorkerReplyAgent } from './worker-reply-agent.service.js';
 import { WorkerMCPAgent, createWorkerMCPAgent } from './worker-mcp-agent.service.js';
 import { NavigatorAgent, createNavigatorAgent } from './navigator-agent.service.js';
+import { DataExtractionAgent, createDataExtractionAgent } from './data-extraction-agent.service.js';
 import { getLLMLogger } from '../services/llm-logger.service.js';
 
 /**
@@ -36,6 +37,7 @@ export class AgentOrchestratorService {
   private workerReplyAgent!: WorkerReplyAgent;
   private workerMCPAgent!: WorkerMCPAgent;
   private navigatorAgent!: NavigatorAgent;
+  private dataExtractionAgent!: DataExtractionAgent;
 
   // In-memory state cache (replace LangGraph checkpointer)
   private stateCache: Map<string, AgentContextState> = new Map();
@@ -69,7 +71,7 @@ export class AgentOrchestratorService {
    * Get context file path for session
    */
   private getContextFilePath(sessionId: string): string {
-    return path.join(this.contextDir, `context_${sessionId}.json`);
+    return path.join(this.contextDir, `session_${sessionId}_memory_data.json`);
   }
 
   /**
@@ -102,13 +104,28 @@ export class AgentOrchestratorService {
           totalMessages: state.messages.length,
           userMessages: state.messages.filter(m => m.role === 'user').length,
           assistantMessages: state.messages.filter(m => m.role === 'assistant').length,
-          nodesTraversed: state.context.node_traversal_path?.length || 0,
+          nodesTraversed: state.context.node_traversed?.length || 0,
           flagsSet: Object.values(state.context.flags || {}).filter(v => v === 1).length,
         },
       };
 
       await fs.writeFile(filePath, JSON.stringify(snapshot, null, 2), 'utf-8');
-      console.log(`[AgentOrchestrator] 💾 context_${state.sessionId.substring(0, 8)}...json (${action})`);
+
+      const truncatedId = state.sessionId.substring(0, 8);
+      const shortAction = action.length > 50 ? action.substring(0, 47) + '...' : action;
+      console.log(`[AgentOrchestrator] 💾 session_${truncatedId}..._memory_data.json (${shortAction})`);
+
+      // ========================================================================
+      // DUMP COMPLETE CONTEXT JSON FILE TO LOGS (User Requested)
+      // ========================================================================
+      console.log(`\n┌════════════════════════════════════════════════════════════════════┐`);
+      console.log(`│ 📄 COMPLETE CONTEXT JSON FILE - ${shortAction.padEnd(40)} │`);
+      console.log(`│ File: session_${truncatedId}_memory_data.json${' '.repeat(30 - truncatedId.length)}│`);
+      console.log(`└════════════════════════════════════════════════════════════════════┘`);
+      console.log(JSON.stringify(snapshot, null, 2));
+      console.log(`┌════════════════════════════════════════════════════════════════════┐`);
+      console.log(`│ END OF CONTEXT JSON FILE${' '.repeat(44)}│`);
+      console.log(`└════════════════════════════════════════════════════════════════════┘\n`);
     } catch (error: any) {
       console.error(`[AgentOrchestrator] ❌ Failed to write context file: ${error.message}`);
     }
@@ -141,16 +158,19 @@ export class AgentOrchestratorService {
       // Pass agent config to context manager for deterministic initialization
       this.contextManager.setDAGConfig(this.dagConfig);
 
-      // Initialize TWO worker agents:
+      // Initialize THREE worker agents:
       // 1. WorkerReplyAgent - generates customer-facing responses
       // 2. WorkerMCPAgent - executes MCP tools and updates context
+      // 3. DataExtractionAgent - extracts context from conversation (called AFTER worker agents)
       this.workerReplyAgent = createWorkerReplyAgent(this.dagConfig);
       this.workerMCPAgent = createWorkerMCPAgent(this.dagConfig, this.mcpAdapter);
       this.navigatorAgent = createNavigatorAgent(this.dagConfig);
+      this.dataExtractionAgent = createDataExtractionAgent();
 
       console.log('[AgentOrchestrator] ✅ Agents initialized');
       console.log('[AgentOrchestrator]    - WorkerReplyAgent: Customer-facing responses');
       console.log('[AgentOrchestrator]    - WorkerMCPAgent: MCP tool execution');
+      console.log('[AgentOrchestrator]    - DataExtractionAgent: Context extraction (post-processing)');
       console.log('[AgentOrchestrator]    - NavigatorAgent: Routing decisions');
       console.log(`[AgentOrchestrator] Total nodes: ${this.dagConfig.nodes.length}`);
     } catch (error: any) {
@@ -248,7 +268,7 @@ export class AgentOrchestratorService {
         await this.logger.logSessionEnd({
           sessionId,
           endReason: state.endReason || 'unknown',
-          totalIterations: state.context.node_traversal_path?.length || 0,
+          totalIterations: state.context.node_traversed?.length || 0,
           totalMessages: state.messages.length,
         });
       }
@@ -317,28 +337,28 @@ export class AgentOrchestratorService {
       if (state.endReason) console.log(`   End Reason: ${state.endReason}`);
 
       // Navigation history
-      console.log(`\n🗺️  NODE TRAVERSAL HISTORY (${state.context.node_traversal_path?.length || 0} nodes):`);
-      console.log(`   ${JSON.stringify(state.context.node_traversal_path || [], null, 2)}`);
+      console.log(`\n🗺️  NODE TRAVERSAL HISTORY (${state.context.node_traversed?.length || 0} nodes):`);
+      console.log(`   ${JSON.stringify(state.context.node_traversed || [], null, 2)}`);
 
       // Core identification fields
       console.log(`\n👤 CUSTOMER IDENTIFICATION:`);
-      console.log(`   ✓ customer_name: ${state.context.customer_name || '(not set)'}`);
-      console.log(`   ✓ customer_phone_number: ${state.context.customer_phone_number || '(not set)'}`);
-      console.log(`   ✓ customer_id: ${state.context.customer_id || '(not set)'}`);
+      console.log(`   ✓ customer_name: ${state.context.data_extraction_fields?.customer_name || '(not set)'}`);
+      console.log(`   ✓ customer_phone_number: ${state.context.data_extraction_fields?.customer_phone_number || '(not set)'}`);
+      console.log(`   ✓ customer_id: ${state.context.data_extraction_fields?.customer_id || '(not set)'}`);
 
       // Problem/need fields
       console.log(`\n🎯 CUSTOMER NEED/PROBLEM:`);
-      console.log(`   ✓ customers_main_ask: ${state.context.customers_main_ask || '(not set)'}`);
+      console.log(`   ✓ customers_main_ask: ${state.context.data_extraction_fields?.customers_main_ask || '(not set)'}`);
       console.log(`   ✓ related_entities_for_customers_ask: ${state.context.related_entities_for_customers_ask || '(not set)'}`);
 
       // Service matching
       console.log(`\n🔧 SERVICE MATCHING:`);
-      console.log(`   ✓ matching_service_catalog_to_solve_customers_issue: ${state.context.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
+      console.log(`   ✓ matching_service_catalog_to_solve_customers_issue: ${state.context.data_extraction_fields?.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
 
       // Task/booking fields
       console.log(`\n📅 TASK/BOOKING:`);
-      console.log(`   ✓ task_id: ${state.context.task_id || '(not set)'}`);
-      console.log(`   ✓ appointment_details: ${state.context.appointment_details || '(not set)'}`);
+      console.log(`   ✓ task_id: ${state.context.data_extraction_fields?.task_id || '(not set)'}`);
+      console.log(`   ✓ appointment_details: ${state.context.data_extraction_fields?.appointment_details || '(not set)'}`);
 
       // Navigation/planning fields
       console.log(`\n🧭 NAVIGATION/PLANNING:`);
@@ -479,13 +499,48 @@ export class AgentOrchestratorService {
         console.log(`[AgentOrchestrator] 🤖 AI_RESPONSE: ${response}`);
       }
 
-      // Update state with worker results
+      // Update state with worker results FIRST
       if (response) {
         state = this.contextManager.addAssistantMessage(state, response);
       }
       if (Object.keys(contextUpdates).length > 0) {
         state = this.contextManager.updateContext(state, contextUpdates);
       }
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // STEP: Call DataExtractionAgent AFTER worker agents complete
+      // This agent analyzes conversation and extracts missing context fields
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      if (agentProfileType === 'worker_reply_agent' || agentProfileType === 'worker_mcp_agent') {
+        console.log(`\n[AgentOrchestrator] 🔍 Calling DataExtractionAgent for post-processing...`);
+
+        const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(state);
+
+        console.log(`\n📊 [DATA EXTRACTION RESULT]`);
+        console.log(`   Extraction Reason: ${extractionResult.extractionReason}`);
+
+        if (extractionResult.fieldsUpdated && extractionResult.fieldsUpdated.length > 0) {
+          console.log(`   Fields Updated: ${extractionResult.fieldsUpdated.join(', ')}`);
+          console.log(`   Context Updates: ${JSON.stringify(extractionResult.contextUpdates, null, 2)}`);
+
+          // Merge extraction results into context
+          state = this.contextManager.updateContext(state, extractionResult.contextUpdates || {});
+
+          // CRITICAL: Write context to persistent JSON file immediately after extraction
+          await this.writeContextFile(state, `extraction:${extractionResult.fieldsUpdated.join(',')}`);
+
+          // Log extraction to llm.log
+          await this.logger.logAgentExecution({
+            agentType: 'data_extraction',
+            nodeName: state.currentNode,
+            result: extractionResult,
+            sessionId: state.sessionId,
+          });
+        } else {
+          console.log(`   No new fields extracted`);
+        }
+      }
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
       // CRITICAL: Append to conversation summary after each user-agent exchange
       // This populates summary_of_conversation_on_each_step_until_now array
@@ -511,16 +566,16 @@ export class AgentOrchestratorService {
         });
       }
 
-      // CRITICAL: Track node execution by appending to node_traversal_path
+      // CRITICAL: Track node execution by appending to node_traversed
       // This enables Navigator to make decisions based on which nodes have been visited
-      const currentPath = state.context.node_traversal_path || [];
+      const currentPath = state.context.node_traversed || [];
       if (!currentPath.includes(state.currentNode)) {
         state = this.contextManager.updateContext(state, {
-          node_traversal_path: [state.currentNode]  // Will be appended by non-destructive merge
+          node_traversed: [state.currentNode]  // Will be appended by non-destructive merge
         });
-        console.log(`[AgentOrchestrator] 🗺️  Added ${state.currentNode} to node_traversal_path (total: ${(state.context.node_traversal_path || []).length})`);
+        console.log(`[AgentOrchestrator] 🗺️  Added ${state.currentNode} to node_traversed (total: ${(state.context.node_traversed || []).length})`);
       } else {
-        console.log(`[AgentOrchestrator] 🗺️  ${state.currentNode} already in node_traversal_path (skipping duplicate)`);
+        console.log(`[AgentOrchestrator] 🗺️  ${state.currentNode} already in node_traversed (skipping duplicate)`);
       }
 
       // Write context file after worker execution
@@ -531,17 +586,17 @@ export class AgentOrchestratorService {
       console.log(`📊 [CONTEXT AFTER WORKER EXECUTION]`);
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       console.log(`\n👤 CUSTOMER DATA:`);
-      console.log(`   ✓ customer_name: ${state.context.customer_name || '(not set)'}`);
-      console.log(`   ✓ customer_phone_number: ${state.context.customer_phone_number || '(not set)'}`);
-      console.log(`   ✓ customer_id: ${state.context.customer_id || '(not set)'}`);
+      console.log(`   ✓ customer_name: ${state.context.data_extraction_fields?.customer_name || '(not set)'}`);
+      console.log(`   ✓ customer_phone_number: ${state.context.data_extraction_fields?.customer_phone_number || '(not set)'}`);
+      console.log(`   ✓ customer_id: ${state.context.data_extraction_fields?.customer_id || '(not set)'}`);
       console.log(`\n🎯 PROBLEM/SERVICE:`);
-      console.log(`   ✓ customers_main_ask: ${state.context.customers_main_ask || '(not set)'}`);
-      console.log(`   ✓ service_catalog: ${state.context.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
+      console.log(`   ✓ customers_main_ask: ${state.context.data_extraction_fields?.customers_main_ask || '(not set)'}`);
+      console.log(`   ✓ service_catalog: ${state.context.data_extraction_fields?.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
       console.log(`\n📅 TASK/BOOKING:`);
-      console.log(`   ✓ task_id: ${state.context.task_id || '(not set)'}`);
-      console.log(`   ✓ appointment_details: ${state.context.appointment_details || '(not set)'}`);
-      console.log(`\n🗺️  NAVIGATION HISTORY (${state.context.node_traversal_path?.length || 0} nodes):`);
-      console.log(`   ${JSON.stringify(state.context.node_traversal_path || [], null, 2)}`);
+      console.log(`   ✓ task_id: ${state.context.data_extraction_fields?.task_id || '(not set)'}`);
+      console.log(`   ✓ appointment_details: ${state.context.data_extraction_fields?.appointment_details || '(not set)'}`);
+      console.log(`\n🗺️  NAVIGATION HISTORY (${state.context.node_traversed?.length || 0} nodes):`);
+      console.log(`   ${JSON.stringify(state.context.node_traversed || [], null, 2)}`);
       console.log(`\n💬 CONVERSATION (${state.context.summary_of_conversation_on_each_step_until_now?.length || 0} exchanges)`);
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
@@ -588,13 +643,13 @@ export class AgentOrchestratorService {
       console.log(`\n🧭 NAVIGATION UPDATES:`);
       console.log(`   ✓ next_node_to_go_to: ${state.context.next_node_to_go_to}`);
       console.log(`   ✓ next_course_of_action: ${state.context.next_course_of_action}`);
-      console.log(`\n🗺️  PATH HISTORY (${state.context.node_traversal_path?.length || 0} nodes):`);
-      console.log(`   ${JSON.stringify(state.context.node_traversal_path || [], null, 2)}`);
+      console.log(`\n🗺️  PATH HISTORY (${state.context.node_traversed?.length || 0} nodes):`);
+      console.log(`   ${JSON.stringify(state.context.node_traversed || [], null, 2)}`);
       console.log(`\n💡 KEY CONTEXT FIELDS:`);
-      console.log(`   ✓ customers_main_ask: ${state.context.customers_main_ask || '(not set)'}`);
-      console.log(`   ✓ customer_phone_number: ${state.context.customer_phone_number || '(not set)'}`);
-      console.log(`   ✓ service_catalog: ${state.context.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
-      console.log(`   ✓ task_id: ${state.context.task_id || '(not set)'}`);
+      console.log(`   ✓ customers_main_ask: ${state.context.data_extraction_fields?.customers_main_ask || '(not set)'}`);
+      console.log(`   ✓ customer_phone_number: ${state.context.data_extraction_fields?.customer_phone_number || '(not set)'}`);
+      console.log(`   ✓ service_catalog: ${state.context.data_extraction_fields?.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
+      console.log(`   ✓ task_id: ${state.context.data_extraction_fields?.task_id || '(not set)'}`);
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
       // Log Navigator's decision
@@ -628,7 +683,7 @@ export class AgentOrchestratorService {
         console.log(`\n🛑 [END OF TURN]`);
         console.log(`   Reason: Waiting for user input`);
         console.log(`   Current node remains: ${state.currentNode}`);
-        console.log(`   Node traversal path: ${JSON.stringify(state.context.node_traversal_path || [], null, 2)}`);
+        console.log(`   Node traversal path: ${JSON.stringify(state.context.node_traversed || [], null, 2)}`);
 
         // Log iteration end
         await this.logger.logIterationEnd({
@@ -717,8 +772,8 @@ export class AgentOrchestratorService {
       console.log(`   Breaking loop to wait for next user message`);
       console.log(`   Final state context:`);
       console.log(`     - currentNode: ${state.currentNode}`);
-      console.log(`     - customers_main_ask: ${state.context.customers_main_ask || '(not set)'}`);
-      console.log(`     - customer_phone_number: ${state.context.customer_phone_number || '(not set)'}`);
+      console.log(`     - customers_main_ask: ${state.context.data_extraction_fields?.customers_main_ask || '(not set)'}`);
+      console.log(`     - customer_phone_number: ${state.context.data_extraction_fields?.customer_phone_number || '(not set)'}`);
       console.log(`     - flags: ${JSON.stringify(state.context.flags || {}, null, 2)}`);
 
       // Log iteration end

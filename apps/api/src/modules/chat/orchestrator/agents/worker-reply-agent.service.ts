@@ -1,11 +1,11 @@
 /**
  * Worker Reply Agent
- * Generates customer-facing responses only
+ * Generates customer-facing responses ONLY
  * Responsibilities:
  * - Read conversation context
  * - Understand node role, goal, and prompt examples
  * - Reply in 1-2 natural sentences
- * - NO context extraction or updates (handled elsewhere)
+ * - NO context extraction (handled by DataExtractionAgent)
  * @module orchestrator/agents/worker-reply-agent
  */
 
@@ -33,6 +33,7 @@ export class WorkerReplyAgent {
 
   /**
    * Execute node: Generate customer response ONLY
+   * Context extraction is handled by DataExtractionAgent after this completes
    */
   async executeNode(
     nodeName: string,
@@ -53,7 +54,7 @@ export class WorkerReplyAgent {
 
     console.log(`[WorkerReplyAgent] Node Goal: ${node.node_goal}`);
 
-    // Call LLM to generate customer response
+    // Call LLM to generate customer response (NO tools - just response)
     const openaiService = getOpenAIService();
     const result = await openaiService.callAgent({
       agentType: 'worker',
@@ -63,6 +64,7 @@ export class WorkerReplyAgent {
       ],
       temperature: 0.7,
       sessionId: state.sessionId,
+      // NO tools parameter - this agent only generates responses
     });
 
     const response = result.content || '';
@@ -112,14 +114,15 @@ NODE GOAL: ${nodeGoal}
 EXAMPLE TONE/STYLE OF REPLY:
 ${exampleTone}
 
-ACTIVE CONTEXT (only tracked fields):
+CURRENT CONTEXT (fields already populated):
 ${JSON.stringify(activeContext, null, 2)}
 
-CRITICAL RULES:
+RESPONSE GENERATION RULES:
 - Review recent_conversation FIRST to avoid repetition
 - NEVER ask questions already answered
 - Generate natural 1-2 sentence response ONLY
-- NO technical details, JSON, or metadata in output
+- NO technical details, JSON, or metadata in customer-facing response
+- Focus ONLY on generating helpful, empathetic customer response
 
 Please reply to customer:`;
   }

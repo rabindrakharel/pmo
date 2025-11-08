@@ -1,6 +1,6 @@
 /**
  * Agent Factory
- * Creates universal agents configured for specific roles based on dag.json
+ * Creates universal agents configured for specific roles based on agent_config.json
  * @module orchestrator/agents/agent-factory
  */
 
@@ -66,7 +66,7 @@ export class AgentFactory {
   }
 
   /**
-   * List available agent types from dag.json
+   * List available agent types from agent_config.json
    */
   getAvailableAgentTypes(): string[] {
     const agentProfiles = this.dagConfig.AGENT_PROFILE as any;
