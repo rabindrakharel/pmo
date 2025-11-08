@@ -154,20 +154,20 @@
       "default_next_node": "Extract_Customer_Issue",
       "branching_conditions": [
         {
-          "condition": "if customer has stated their need or issue (examples: 'my roof is leaking', 'need plumbing help', 'my roof', 'drywall repair', 'HVAC broken', ANY service/problem mentioned)",
+          "condition": "if response is UNCLEAR/VAGUE/INCOMPLETE - just keywords or fragments (examples: 'my roof', 'my roof my roof', 'roof', 'help', 'problem', 'plumbing', 'HVAC' - NO complete problem/issue stated)",
+          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED",
+          "advance_type": "stepwise",
+          "loop_back_intention": "The customer's response was unclear or incomplete. Ask clarifying questions to understand the specific problem. Be empathetic and patient."
+        },
+        {
+          "condition": "if customer has stated a CLEAR and COMPLETE issue (examples: 'my roof is leaking', 'I need roof repair', 'roof has a hole', 'HVAC is broken', 'need drywall patching' - COMPLETE problem with context)",
           "child_node": "Extract_Customer_Issue",
           "advance_type": "auto"
         },
         {
-          "condition": "if customer ONLY said greeting with NO issue mentioned (examples: 'hello', 'hi', 'good morning', 'hey there' - NOTHING about roof/plumbing/service/problem)",
+          "condition": "if customer ONLY said greeting with NO issue/service mentioned at all (examples: 'hello', 'hi', 'good morning', 'hey there' - NOTHING about roof/plumbing/service/problem)",
           "child_node": "wait_for_customers_reply",
           "advance_type": "stepwise"
-        },
-        {
-          "condition": "if response unclear or no intent detected after asking",
-          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED",
-          "advance_type": "stepwise",
-          "loop_back_intention": "The customer's response was unclear. Ask again kindly and differently to understand their need. Be empathetic and patient."
         }
       ]
     },
