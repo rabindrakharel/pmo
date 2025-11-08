@@ -22,6 +22,8 @@ import { WorkerMCPAgent, createWorkerMCPAgent } from './worker-mcp-agent.service
 import { NavigatorAgent, createNavigatorAgent } from './navigator-agent.service.js';
 import { DataExtractionAgent, createDataExtractionAgent } from './data-extraction-agent.service.js';
 import { getLLMLogger } from '../services/llm-logger.service.js';
+import { getSessionMemoryDataService } from '../services/session-memory-data.service.js';
+import type { SessionMemoryData } from '../services/session-memory-data.service.js';
 
 /**
  * Agent Orchestrator Service
@@ -50,9 +52,23 @@ export class AgentOrchestratorService {
     this.mcpAdapter = new MCPAdapterService();
     this.contextManager = getAgentContextManager();
 
-    console.log('[AgentOrchestrator] 🚀 Initializing pure agent-based system');
+    console.log('[AgentOrchestrator] 🚀 Initializing pure agent-based system with LowDB');
+    this.initializeSessionMemoryData();
     this.initializeContextDir();
     this.initializeAgents();
+  }
+
+  /**
+   * Initialize LowDB for session memory data storage
+   */
+  private async initializeSessionMemoryData(): Promise<void> {
+    try {
+      const sessionMemoryDataService = getSessionMemoryDataService();
+      await sessionMemoryDataService.initialize();
+      console.log(`[AgentOrchestrator] 🗄️  LowDB initialized: ${sessionMemoryDataService.getDbPath()}`);
+    } catch (error: any) {
+      console.error(`[AgentOrchestrator] ❌ Failed to initialize LowDB: ${error.message}`);
+    }
   }
 
   /**
@@ -75,74 +91,70 @@ export class AgentOrchestratorService {
   }
 
   /**
-   * Write context to JSON file - DIRECT FILE WRITE
+   * Write session memory data to LowDB - REPLACES FILE WRITE
    */
   private async writeContextFile(state: AgentContextState, action: string = 'update'): Promise<void> {
     try {
-      const filePath = this.getContextFilePath(state.sessionId);
+      const sessionMemoryDataService = getSessionMemoryDataService();
 
-      const snapshot = {
-        metadata: {
-          sessionId: state.sessionId,
-          chatSessionId: state.chatSessionId,
-          userId: state.userId,
-          currentNode: state.currentNode,
-          previousNode: state.previousNode,
-          completed: state.completed,
-          conversationEnded: state.conversationEnded,
-          endReason: state.endReason,
-          lastUpdated: new Date().toISOString(),
-          action,
-        },
+      const sessionData: SessionMemoryData = {
+        sessionId: state.sessionId,
+        chatSessionId: state.chatSessionId,
+        userId: state.userId,
+        currentNode: state.currentNode,
+        previousNode: state.previousNode,
+        completed: state.completed,
+        conversationEnded: state.conversationEnded,
+        endReason: state.endReason,
         context: state.context,
         messages: state.messages.map(m => ({
           role: m.role,
           content: m.content,
           timestamp: m.timestamp.toISOString(),
         })),
-        statistics: {
-          totalMessages: state.messages.length,
-          userMessages: state.messages.filter(m => m.role === 'user').length,
-          assistantMessages: state.messages.filter(m => m.role === 'assistant').length,
-          nodesTraversed: state.context.node_traversed?.length || 0,
-          flagsSet: Object.values(state.context.flags || {}).filter(v => v === 1).length,
-        },
+        lastUpdated: new Date().toISOString(),
+        action,
       };
 
-      await fs.writeFile(filePath, JSON.stringify(snapshot, null, 2), 'utf-8');
+      await sessionMemoryDataService.saveSession(sessionData);
 
       const truncatedId = state.sessionId.substring(0, 8);
       const shortAction = action.length > 50 ? action.substring(0, 47) + '...' : action;
-      console.log(`[AgentOrchestrator] 💾 session_${truncatedId}..._memory_data.json (${shortAction})`);
+      console.log(`[AgentOrchestrator] 💾 LowDB: session_${truncatedId}... (${shortAction})`);
 
       // ========================================================================
-      // DUMP COMPLETE CONTEXT JSON FILE TO LOGS (User Requested)
+      // DUMP COMPLETE SESSION MEMORY DATA TO LOGS (User Requested)
       // ========================================================================
       console.log(`\n┌════════════════════════════════════════════════════════════════════┐`);
-      console.log(`│ 📄 COMPLETE CONTEXT JSON FILE - ${shortAction.padEnd(40)} │`);
-      console.log(`│ File: session_${truncatedId}_memory_data.json${' '.repeat(30 - truncatedId.length)}│`);
+      console.log(`│ 📄 COMPLETE SESSION MEMORY DATA (LowDB) - ${shortAction.padEnd(28)} │`);
+      console.log(`│ Session: ${truncatedId}${' '.repeat(59 - truncatedId.length)}│`);
       console.log(`└════════════════════════════════════════════════════════════════════┘`);
-      console.log(JSON.stringify(snapshot, null, 2));
+      console.log(JSON.stringify(sessionData, null, 2));
       console.log(`┌════════════════════════════════════════════════════════════════════┐`);
-      console.log(`│ END OF CONTEXT JSON FILE${' '.repeat(44)}│`);
+      console.log(`│ END OF CONTEXT DATA${' '.repeat(49)}│`);
       console.log(`└════════════════════════════════════════════════════════════════════┘\n`);
     } catch (error: any) {
-      console.error(`[AgentOrchestrator] ❌ Failed to write context file: ${error.message}`);
+      console.error(`[AgentOrchestrator] ❌ Failed to save context to LowDB: ${error.message}`);
     }
   }
 
   /**
-   * Read context from JSON file - DIRECT FILE READ
+   * Read session memory data from LowDB - REPLACES FILE READ
    */
   private async readContextFile(sessionId: string): Promise<any | null> {
     try {
-      const filePath = this.getContextFilePath(sessionId);
-      const content = await fs.readFile(filePath, 'utf-8');
-      return JSON.parse(content);
-    } catch (error: any) {
-      if (error.code !== 'ENOENT') {
-        console.error(`[AgentOrchestrator] ❌ Failed to read context file: ${error.message}`);
+      const sessionMemoryDataService = getSessionMemoryDataService();
+      const session = await sessionMemoryDataService.getSession(sessionId);
+
+      if (!session) {
+        console.log(`[AgentOrchestrator] ℹ️  Session ${sessionId.substring(0, 8)}... not found in LowDB`);
+        return null;
       }
+
+      console.log(`[AgentOrchestrator] 📖 Loaded session ${sessionId.substring(0, 8)}... from LowDB`);
+      return session;
+    } catch (error: any) {
+      console.error(`[AgentOrchestrator] ❌ Failed to read context from LowDB: ${error.message}`);
       return null;
     }
   }
@@ -199,6 +211,9 @@ export class AgentOrchestratorService {
     endReason?: string;
   }> {
     try {
+      // Ensure SessionMemoryDataService is initialized before processing
+      await this.initializeSessionMemoryData();
+
       // Ensure agents are initialized
       if (!this.dagConfig) {
         await this.initializeAgents();
@@ -365,16 +380,9 @@ export class AgentOrchestratorService {
       console.log(`   ✓ next_node_to_go_to: ${state.context.next_node_to_go_to || '(not set)'}`);
       console.log(`   ✓ next_course_of_action: ${state.context.next_course_of_action || '(not set)'}`);
 
-      // Conversation summary
-      console.log(`\n💬 CONVERSATION SUMMARY (${state.context.summary_of_conversation_on_each_step_until_now?.length || 0} exchanges):`);
-      if (state.context.summary_of_conversation_on_each_step_until_now && state.context.summary_of_conversation_on_each_step_until_now.length > 0) {
-        state.context.summary_of_conversation_on_each_step_until_now.forEach((exchange, idx) => {
-          console.log(`   [${idx + 1}] Customer: "${exchange.customer?.substring(0, 80)}${exchange.customer?.length > 80 ? '...' : ''}"`);
-          console.log(`       Agent: "${exchange.agent?.substring(0, 80)}${exchange.agent?.length > 80 ? '...' : ''}"`);
-        });
-      } else {
-        console.log(`   (no exchanges yet)`);
-      }
+      // Conversation history (from messages array)
+      const conversationCount = Math.floor((state.messages?.length || 0) / 2); // Pairs of user+agent
+      console.log(`\n💬 CONVERSATION HISTORY (${conversationCount} exchanges, ${state.messages?.length || 0} total messages)`);
 
       // Agent profile
       console.log(`\n🤖 AGENT PROFILE:`);
@@ -542,41 +550,53 @@ export class AgentOrchestratorService {
       }
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-      // CRITICAL: Append to conversation summary after each user-agent exchange
-      // This populates summary_of_conversation_on_each_step_until_now array
+      // Log conversation turn to llm.log (only on first iteration)
       if (iterations === 1 && userMessage && response) {
-        // First iteration: append user message and agent response
-        const currentSummary = state.context.summary_of_conversation_on_each_step_until_now || [];
-        state = this.contextManager.updateContext(state, {
-          summary_of_conversation_on_each_step_until_now: [
-            ...currentSummary,
-            {
-              customer: userMessage,
-              agent: response
-            }
-          ]
-        });
-        console.log(`[AgentOrchestrator] 📝 Appended to conversation summary (total: ${(state.context.summary_of_conversation_on_each_step_until_now || []).length})`);
-
-        // Log conversation turn to llm.log
         await this.logger.logConversationTurn({
           userMessage,
           aiResponse: response,
           sessionId: state.sessionId,
         });
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // INDEXED CONVERSATION SUMMARY
+        // Append conversation exchange with index to prevent duplicates
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        const currentSummary = state.context.summary_of_conversation_on_each_step_until_now || [];
+        const nextIndex = currentSummary.length; // Next index is current length (0, 1, 2, ...)
+
+        // Check if this exact exchange already exists (prevent duplicates)
+        const isDuplicate = currentSummary.some((entry: any) =>
+          entry.customer === userMessage && entry.agent === response
+        );
+
+        if (!isDuplicate) {
+          state = this.contextManager.updateContext(state, {
+            summary_of_conversation_on_each_step_until_now: [
+              ...currentSummary,
+              {
+                index: nextIndex,
+                customer: userMessage,
+                agent: response
+              }
+            ]
+          });
+          console.log(`[AgentOrchestrator] 💬 Added conversation exchange #${nextIndex} to summary`);
+        } else {
+          console.log(`[AgentOrchestrator] ⚠️ Skipping duplicate conversation entry`);
+        }
       }
 
-      // CRITICAL: Track node execution by appending to node_traversed
-      // This enables Navigator to make decisions based on which nodes have been visited
-      const currentPath = state.context.node_traversed || [];
-      if (!currentPath.includes(state.currentNode)) {
-        state = this.contextManager.updateContext(state, {
-          node_traversed: [state.currentNode]  // Will be appended by non-destructive merge
-        });
-        console.log(`[AgentOrchestrator] 🗺️  Added ${state.currentNode} to node_traversed (total: ${(state.context.node_traversed || []).length})`);
-      } else {
-        console.log(`[AgentOrchestrator] 🗺️  ${state.currentNode} already in node_traversed (skipping duplicate)`);
-      }
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // TRACK NODE TRAVERSAL
+      // ALWAYS append current node to enable loop detection and path tracking
+      // This shows the ACTUAL path taken through the DAG, including revisits
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      state = this.contextManager.updateContext(state, {
+        node_traversed: [state.currentNode]  // Will be appended by non-destructive merge
+      });
+      const totalNodes = (state.context.node_traversed || []).length;
+      console.log(`[AgentOrchestrator] 🗺️  Traversed ${state.currentNode} (path length: ${totalNodes})`);
 
       // Write context file after worker execution
       await this.writeContextFile(state, `node:${state.currentNode}`);
@@ -597,7 +617,9 @@ export class AgentOrchestratorService {
       console.log(`   ✓ appointment_details: ${state.context.data_extraction_fields?.appointment_details || '(not set)'}`);
       console.log(`\n🗺️  NAVIGATION HISTORY (${state.context.node_traversed?.length || 0} nodes):`);
       console.log(`   ${JSON.stringify(state.context.node_traversed || [], null, 2)}`);
-      console.log(`\n💬 CONVERSATION (${state.context.summary_of_conversation_on_each_step_until_now?.length || 0} exchanges)`);
+      const msgCount = Math.floor((state.messages?.length || 0) / 2);
+      const summaryCount = state.context.summary_of_conversation_on_each_step_until_now?.length || 0;
+      console.log(`\n💬 CONVERSATION (${summaryCount} indexed exchanges in summary, ${msgCount} exchanges in messages array)`);
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
       // STEP 2: Navigator Agent decides next node AFTER execution
@@ -636,6 +658,95 @@ export class AgentOrchestratorService {
         next_node_to_go_to: navigatorDecision.nextNode,
         next_course_of_action: navigatorDecision.nextCourseOfAction,
       });
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // LOOP DETECTION & RETRY GUIDANCE
+      // Track repeated visits to same node and provide guidance to try differently
+      // Data is NEVER erased - only approach varies
+      // Uses node_traversed array to count visits (enables loop detection)
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      const allTraversedNodes = state.context.node_traversed || [];
+      const recentNodes = allTraversedNodes.slice(-10); // Last 10 nodes
+
+      // Count how many times the NEXT node appears in recent history
+      const nextNodeVisitCount = recentNodes.filter(n => n === navigatorDecision.nextNode).length;
+
+      // Count total visits to next node across entire conversation
+      const totalNextNodeVisits = allTraversedNodes.filter(n => n === navigatorDecision.nextNode).length;
+      const attemptNumber = totalNextNodeVisits + 1; // Next visit will be attempt N+1
+
+      if (nextNodeVisitCount >= 2) {
+        console.log(`\n🔄 [LOOP DETECTED] ${navigatorDecision.nextNode} visited ${nextNodeVisitCount} times in last 10 nodes (attempt #${attemptNumber} total)`);
+        console.log(`   Recent path (last 10): ${JSON.stringify(recentNodes)}`);
+        console.log(`   ℹ️  Providing retry guidance to try different approach...`);
+        console.log(`   ⚠️  IMPORTANT: Data collected so far is PRESERVED`);
+
+        // Generate retry guidance based on node type and attempt number
+        let retryGuidance = '';
+
+        if (navigatorDecision.nextNode === 'Try_To_Gather_Customers_Data') {
+          const dataFields = state.context.data_extraction_fields || {};
+
+          if (attemptNumber === 3) {
+            retryGuidance = `This is attempt #${attemptNumber} to gather customer data. Try a different approach:\n`;
+            retryGuidance += `- Currently have: name="${dataFields.customer_name || '(missing)'}", phone="${dataFields.customer_phone_number || '(missing)'}"\n`;
+            retryGuidance += `- Try asking: "To help you better, could you share your contact number?"\n`;
+            retryGuidance += `- Be more direct and specific about what's needed`;
+          } else if (attemptNumber === 4) {
+            retryGuidance = `This is attempt #${attemptNumber}. Try offering value:\n`;
+            retryGuidance += `- Example: "So I can send you updates about the service, what's a good number to reach you?"\n`;
+            retryGuidance += `- Explain WHY you need the information`;
+          } else if (attemptNumber >= 5) {
+            retryGuidance = `This is attempt #${attemptNumber}. Offer alternative:\n`;
+            retryGuidance += `- Example: "I can proceed with partial information. Would you like to continue or provide a contact number?"\n`;
+            retryGuidance += `- Give customer option to skip if they prefer`;
+          } else {
+            retryGuidance = `Try rephrasing the question differently. Current data: ${JSON.stringify(dataFields)}`;
+          }
+
+        } else if (navigatorDecision.nextNode === 'ASK_CUSTOMER_ABOUT_THEIR_NEED') {
+          if (attemptNumber === 3) {
+            retryGuidance = `Customer response unclear. Try:\n`;
+            retryGuidance += `- Ask more specific questions about their issue\n`;
+            retryGuidance += `- Example: "What specific problem are you experiencing with your [roof/plumbing/etc]?"`;
+          } else if (attemptNumber >= 4) {
+            retryGuidance = `Provide examples to help customer:\n`;
+            retryGuidance += `- Example: "For example, is it a leak, damage, installation, or something else?"\n`;
+            retryGuidance += `- Give concrete options to choose from`;
+          }
+
+        } else {
+          retryGuidance = `Attempt #${attemptNumber}. Try varying your approach to gather required information.`;
+        }
+
+        // Update context with retry guidance (NEVER reset data)
+        state = this.contextManager.updateContext(state, {
+          next_course_of_action: retryGuidance
+        });
+
+        // Log loop detection event
+        await this.logger.logAgentExecution({
+          agentType: 'loop_detection',
+          nodeName: state.currentNode,
+          result: {
+            loopDetected: true,
+            attemptNumber,
+            recentVisits: nextNodeVisitCount,
+            totalVisits: totalNextNodeVisits,
+            nextNode: navigatorDecision.nextNode,
+            retryGuidance,
+            dataPreserved: true,
+            recentPath: recentNodes,
+            currentData: state.context.data_extraction_fields
+          },
+          sessionId: state.sessionId,
+        });
+
+        console.log(`   📝 Retry guidance: ${retryGuidance.substring(0, 150)}...`);
+        const collectedFields = Object.keys(state.context.data_extraction_fields || {}).filter(k => state.context.data_extraction_fields[k]);
+        console.log(`   ✅ Data preserved (${collectedFields.length} fields): ${collectedFields.join(', ') || '(none yet)'}`);
+      }
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
       console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       console.log(`📊 [CONTEXT AFTER NAVIGATOR DECISION]`);
@@ -868,6 +979,9 @@ export class AgentOrchestratorService {
    * Get session status
    */
   async getSessionStatus(sessionId: string): Promise<any> {
+    // Ensure SessionMemoryDataService is initialized
+    await this.initializeSessionMemoryData();
+
     const session = await this.stateManager.getSession(sessionId);
     if (!session) {
       return null;

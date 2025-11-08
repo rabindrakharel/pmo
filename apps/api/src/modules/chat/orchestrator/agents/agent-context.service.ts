@@ -207,15 +207,20 @@ export class AgentContextManager {
   /**
    * Append conversation exchange to summary
    * Helper method for explicitly appending to conversation history
+   * Auto-generates index based on current summary length
    */
   appendConversationSummary(
     state: AgentContextState,
     userMessage: string,
     agentResponse: string
   ): AgentContextState {
+    const currentSummary = state.context.summary_of_conversation_on_each_step_until_now || [];
+    const nextIndex = currentSummary.length;
+
     return this.updateContext(state, {
       summary_of_conversation_on_each_step_until_now: [
         {
+          index: nextIndex,
           customer: userMessage,
           agent: agentResponse,
         },

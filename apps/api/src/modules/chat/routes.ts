@@ -22,6 +22,7 @@ import type {
 } from './types.js';
 
 import { voiceLangraphRoutes } from './voice-langraph.routes.js';
+import { sessionMemoryDataRoutes } from './session-memory-data.routes.js';
 import { disconnectVoiceLangraphSession, getActiveVoiceLangraphSessionCount } from './voice-langraph.service.js';
 
 /**
@@ -30,6 +31,9 @@ import { disconnectVoiceLangraphSession, getActiveVoiceLangraphSessionCount } fr
 export async function chatRoutes(fastify: FastifyInstance) {
   // Register voice WebSocket routes
   await voiceLangraphRoutes(fastify);
+
+  // Register session memory data routes
+  await fastify.register(sessionMemoryDataRoutes, { prefix: '/session-memory-data' });
 
   /**
    * POST /api/v1/chat/session/new
