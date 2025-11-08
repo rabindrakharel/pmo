@@ -3,23 +3,23 @@
     "description": "Multiple specialized agent profiles work together: WorkerReplyAgent generates customer responses, WorkerMCPAgent executes tools and updates context, NavigatorAgent decides routing",
     "workflow": "worker_reply_agent generates response \u2192 worker_mcp_agent (if needed) calls MCP tools and updates context \u2192 navigator_agent validates direction AND decides next node \u2192 all updates go to context.json",
     "node_navigator_agent": {
-      "input_context_template": "Conversation of customer service agent and customer is given here {summary_of_conversation_on_each_step_until_now}. I want you to select a node based on these conditions {branching_conditions}. The conversation has already been through these nodes: {node_traversal_path}. Here's the data that was gathered {context_data}",
+      "input_context_template": "Conversation of customer service agent and customer is given here {summary_of_conversation_on_each_step_until_now}. I want you to select a node based on these conditions {branching_conditions}. The conversation has already been through these nodes: {node_traversed}. Here's the data that was gathered {context_data}",
       "input_context_variables": {
         "summary_of_conversation_on_each_step_until_now": "Replace with context.summary_of_conversation_on_each_step_until_now array (format: [{customer: 'msg', agent: 'resp'}, ...])",
         "branching_conditions": "Replace with current_node.branching_conditions array from dag.json",
-        "node_traversal_path": "Replace with context.node_traversal_path array (e.g., ['GREET_CUSTOMER', 'ASK_CUSTOMER_ABOUT_THEIR_NEED'])",
-        "context_data": "Replace with entire context.json object (includes customer_name, customers_main_ask, customer_phone_number, flags, etc.)"
+        "node_traversed": "Replace with context.node_traversed array (e.g., ['GREET_CUSTOMER', 'ASK_CUSTOMER_ABOUT_THEIR_NEED'])",
+        "context_data": "Replace with entire context.json object (includes context.data_extraction_fields.customer_name, context.data_extraction_fields.customers_main_ask, context.flags, etc.)"
       },
       "responsibilities": [
-        "Check if mandatory fields context.customers_main_ask and context.customer_phone_number are populated",
+        "Check if mandatory fields context.data_extraction_fields.customers_main_ask and context.data_extraction_fields.customer_phone_number are populated",
         "Validate conversation is on track: output {is_on_track: boolean, reason: string}",
         "Decide next node: update context.next_node_to_go_to (string node name)",
         "Set immediate action: update context.next_course_of_action (string)",
-        "Track progress: append current node to context.node_traversal_path array",
-        "Trigger MCP calls when context fields are empty (matching_service_catalog_to_solve_customers_issue, task_id, appointment_details)"
+        "Track progress: append current node to context.node_traversed array",
+        "Trigger MCP calls when extraction fields are empty (context.data_extraction_fields.matching_service_catalog_to_solve_customers_issue, context.data_extraction_fields.task_id, context.data_extraction_fields.appointment_details)"
       ],
-      "decision_inputs": "Uses entire context.json including flags (object with flag_name: 0|1), mandatory fields (customers_main_ask, customer_phone_number), user intent, summary_of_conversation_on_each_step_until_now array",
-      "decision_outputs": "Updates context.next_node_to_go_to (string), context.next_course_of_action (string), context.node_traversal_path (array append)"
+      "decision_inputs": "Uses entire context.json including context.flags (object with flag_name: 0|1), mandatory fields (context.data_extraction_fields.customers_main_ask, context.data_extraction_fields.customer_phone_number), user intent, context.summary_of_conversation_on_each_step_until_now array",
+      "decision_outputs": "Updates context.next_node_to_go_to (string), context.next_course_of_action (string), context.node_traversed (array append)"
     },
     "worker_reply_agent": {
       "role": "Generate natural, empathetic customer-facing responses (1-2 sentences)",
@@ -47,35 +47,35 @@
       "role": "Execute MCP tools and update context with results (no customer-facing responses)",
       "input_context_template": "Analyze context to determine what data is missing: {context_data}. Available MCP tools: {mcp_tools}. Node responsibility: {node_context_update}. Select and execute appropriate MCP tool(s) to fetch missing data.",
       "input_context_variables": {
-        "context_data": "Replace with entire context.json object",
+        "context_data": "Replace with entire context.json object (includes context.data_extraction_fields for customer/task data, context.flags for node completion, context.node_traversed for navigation history)",
         "mcp_tools": "Replace with list of available MCP tools from manifest",
         "node_context_update": "Replace with current_node.context_update string"
       },
       "responsibilities": [
-        "Analyze context to identify missing fields (service_catalog, task_id, customer_id, appointment_details, etc.)",
+        "Analyze context.data_extraction_fields to identify missing fields (service_catalog, task_id, customer_id, appointment_details, etc.)",
         "Select appropriate MCP tool from available tools based on what's needed",
-        "Execute MCP tool with parameters from context",
-        "Map MCP tool results to context fields (using heuristics based on tool name)",
-        "Return context updates for orchestrator to merge",
+        "Execute MCP tool with parameters from context.data_extraction_fields (e.g., customer_id, customers_main_ask)",
+        "Map MCP tool results to context.data_extraction_fields (using heuristics based on tool name)",
+        "Return context updates for orchestrator to merge into context.data_extraction_fields",
         "Optionally provide brief status message to customer (e.g., 'Let me check that for you')"
       ],
-      "decision_inputs": "Current context state, available MCP tools, node's context-building responsibility",
-      "decision_outputs": "Context updates (partial DAGContext), MCP tool results, optional status message"
+      "decision_inputs": "Current context state (context.data_extraction_fields, context.flags), available MCP tools, node's context-building responsibility",
+      "decision_outputs": "Context updates (partial context.data_extraction_fields), MCP tool results, optional status message"
     },
     "validator_agent": {
       "role": "Validates data integrity and business rules",
       "input_context_template": "Validate the following context data: {context_data}. Check these rules: {validation_rules}",
       "input_context_variables": {
-        "context_data": "Replace with entire context.json object",
+        "context_data": "Replace with entire context.json object (includes context.data_extraction_fields for validation)",
         "validation_rules": "Replace with mandatory field requirements and business rules"
       },
       "responsibilities": [
-        "Check mandatory fields are present: context.customers_main_ask, context.customer_phone_number",
-        "Validate field formats (phone numbers, emails, IDs)",
-        "Verify business rules (task requires customer_id, appointment requires task_id)",
+        "Check mandatory fields are present: context.data_extraction_fields.customers_main_ask, context.data_extraction_fields.customer_phone_number",
+        "Validate field formats (phone numbers, emails, IDs) within context.data_extraction_fields",
+        "Verify business rules (task requires context.data_extraction_fields.customer_id, appointment requires context.data_extraction_fields.task_id)",
         "Output validation result: {valid: boolean, errors: string[]}"
       ],
-      "decision_inputs": "Full context.json object, mandatory fields list, business rules",
+      "decision_inputs": "Full context.json object (context.data_extraction_fields, context.flags, context.node_traversed), mandatory fields list, business rules",
       "decision_outputs": "Returns {valid: boolean, errors: string[], warnings: string[]}"
     },
     "summarizer_agent": {
@@ -95,25 +95,25 @@
     },
     "data_extraction_agent": {
       "role": "Extracts and updates context data from conversation history",
-      "description": "Post-processing agent that runs AFTER worker agents (reply/mcp) complete. Analyzes last 4 conversation exchanges to extract missing context fields.",
-      "input_context_template": "Analyze last 4 conversation exchanges from {summary_of_conversation_on_each_step_until_now}. Identify empty context fields from {context_data}. Extract customer information (name, phone, email, issue) using updateContext tool.",
+      "description": "Post-processing agent that runs AFTER worker agents (reply/mcp) complete. Analyzes last 4 conversation exchanges to extract missing context.data_extraction_fields.",
+      "input_context_template": "Analyze last 4 conversation exchanges from {summary_of_conversation_on_each_step_until_now}. Identify empty fields in {context.data_extraction_fields}. Extract customer information (name, phone, email, issue) using updateContext tool.",
       "input_context_variables": {
         "summary_of_conversation_on_each_step_until_now": "Replace with context.summary_of_conversation_on_each_step_until_now array (last 4 entries)",
-        "context_data": "Replace with entire context.json object to identify empty fields"
+        "context_data": "Replace with entire context.json object (check context.data_extraction_fields to identify empty fields)"
       },
       "responsibilities": [
-        "Read last 4 conversation exchanges from persistent context (summary_of_conversation_on_each_step_until_now)",
-        "Identify which context fields are still empty (customer_name, customer_phone_number, customer_email, customers_main_ask, etc.)",
+        "Read last 4 conversation exchanges from context.summary_of_conversation_on_each_step_until_now",
+        "Identify which extraction fields are still empty in context.data_extraction_fields (customer_name, customer_phone_number, customer_email, customers_main_ask, etc.)",
         "Analyze customer messages (NOT agent responses) for extractable information",
-        "Call updateContext tool with extracted data ({key: value} pairs)",
-        "Return context updates to orchestrator for merging",
+        "Call updateContext tool with extracted data ({key: value} pairs) - tool will update context.data_extraction_fields",
+        "Return context updates to orchestrator for merging into context.data_extraction_fields",
         "ONLY extract information explicitly mentioned by customer (no assumptions)",
         "Extract ALL available fields in ONE call (don't call multiple times)"
       ],
-      "decision_inputs": "Last 4 conversation exchanges, current context state (all fields), list of empty fields",
-      "decision_outputs": "Returns {contextUpdates: Record<string, any>, fieldsUpdated: string[], extractionReason: string}",
+      "decision_inputs": "Last 4 conversation exchanges (context.summary_of_conversation_on_each_step_until_now), current extraction fields (context.data_extraction_fields), list of empty fields",
+      "decision_outputs": "Returns {contextUpdates: {data_extraction_fields: {...}}, fieldsUpdated: string[], extractionReason: string}",
       "execution_timing": "Called AFTER worker_reply_agent and worker_mcp_agent complete their execution in each iteration",
-      "tool_access": "Has access to updateContext tool for local context updates"
+      "tool_access": "Has access to updateContext tool for local updates to context.data_extraction_fields"
     },
     "collaboration_flow": {
       "step_1": "Orchestrator checks node type (reply vs MCP) and chooses correct worker agent",
@@ -148,7 +148,7 @@
         "agent_session_id",
         "who_are_you",
         "summary_of_conversation_on_each_step_until_now",
-        "node_traversal_path"
+        "node_traversed"
       ],
       "default_next_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED",
       "branching_conditions": [
@@ -656,10 +656,26 @@
         "updated_by": "navigator_agent after routing decision",
         "when_to_update": "After every navigator decision (every iteration)"
       },
-      "node_traversal_path": {
+      "data_extraction_fields": {
+        "type": "object (nested)",
+        "mandatory": true,
+        "description": "Nested object containing all customer/task-related data extracted from conversation or fetched via MCP tools. This groups all extraction fields for clear separation from system fields.",
+        "example": {
+          "customer_name": "John Doe",
+          "customer_phone_number": "555-1234",
+          "customers_main_ask": "My lawn is brown and needs help",
+          "matching_service_catalog_to_solve_customers_issue": "Landscaping",
+          "task_id": "task-789",
+          "appointment_details": "Scheduled for 2025-11-10 at 10:00 AM"
+        },
+        "updated_by": "data_extraction_agent (from conversation), worker_mcp_agent (from MCP tools), navigator_agent (from routing logic)",
+        "when_to_update": "Throughout conversation as fields are extracted/fetched. Access fields via context.data_extraction_fields.customer_name, context.data_extraction_fields.task_id, etc.",
+        "nested_fields": "See individual field_semantics entries (customer_name, customer_phone_number, customer_email, customer_id, customers_main_ask, matching_service_catalog_to_solve_customers_issue, related_entities_for_customers_ask, task_id, task_name, appointment_details, project_id, assigned_employee_id, assigned_employee_name)"
+      },
+      "node_traversed": {
         "type": "array of strings",
         "mandatory": true,
-        "description": "Ordered list of all nodes executed in this session. Used by navigator to prevent re-execution and track progress. APPEND ONLY.",
+        "description": "Ordered list of all nodes executed in this session. Used by navigator to prevent re-execution and track progress. APPEND ONLY. (Renamed from node_traversal_path)",
         "example": [
           "GREET_CUSTOMER",
           "ASK_CUSTOMER_ABOUT_THEIR_NEED",
