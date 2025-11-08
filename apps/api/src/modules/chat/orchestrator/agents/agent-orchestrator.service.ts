@@ -303,22 +303,69 @@ export class AgentOrchestratorService {
         console.log(`[AgentOrchestrator] 👤 USER_MESSAGE: ${userMessage}`);
       }
 
-      // Log context BEFORE execution
-      console.log(`📊 [CONTEXT BEFORE EXECUTION]`);
+      // Log COMPLETE context data - show ALL fields being built
+      console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`📊 [COMPLETE CONTEXT STATE - Iteration ${iterations}]`);
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+
+      // Current execution state
+      console.log(`\n🎯 EXECUTION STATE:`);
       console.log(`   Current Node: ${state.currentNode}`);
-      console.log(`   Node Traversal Path: ${JSON.stringify(state.context.node_traversal_path || [], null, 2)}`);
-      console.log(`   Mandatory Fields:`);
-      console.log(`     - customers_main_ask: ${state.context.customers_main_ask || '(not set)'}`);
-      console.log(`     - customer_phone_number: ${state.context.customer_phone_number || '(not set)'}`);
-      console.log(`   Other Context:`);
-      console.log(`     - customer_name: ${state.context.customer_name || '(not set)'}`);
-      console.log(`     - service_catalog: ${state.context.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
-      console.log(`     - task_id: ${state.context.task_id || '(not set)'}`);
-      console.log(`     - next_node_to_go_to: ${state.context.next_node_to_go_to || '(not set)'}`);
-      console.log(`     - next_course_of_action: ${state.context.next_course_of_action || '(not set)'}`);
-      console.log(`\n🔍 [FULL CONTEXT DATA]`);
+      console.log(`   Previous Node: ${state.previousNode || '(none)'}`);
+      console.log(`   Loop Back Intention: ${state.loopBackIntention || '(none)'}`);
+      console.log(`   Conversation Ended: ${state.conversationEnded ? 'YES' : 'NO'}`);
+      if (state.endReason) console.log(`   End Reason: ${state.endReason}`);
+
+      // Navigation history
+      console.log(`\n🗺️  NODE TRAVERSAL HISTORY (${state.context.node_traversal_path?.length || 0} nodes):`);
+      console.log(`   ${JSON.stringify(state.context.node_traversal_path || [], null, 2)}`);
+
+      // Core identification fields
+      console.log(`\n👤 CUSTOMER IDENTIFICATION:`);
+      console.log(`   ✓ customer_name: ${state.context.customer_name || '(not set)'}`);
+      console.log(`   ✓ customer_phone_number: ${state.context.customer_phone_number || '(not set)'}`);
+      console.log(`   ✓ customer_id: ${state.context.customer_id || '(not set)'}`);
+
+      // Problem/need fields
+      console.log(`\n🎯 CUSTOMER NEED/PROBLEM:`);
+      console.log(`   ✓ customers_main_ask: ${state.context.customers_main_ask || '(not set)'}`);
+      console.log(`   ✓ related_entities_for_customers_ask: ${state.context.related_entities_for_customers_ask || '(not set)'}`);
+
+      // Service matching
+      console.log(`\n🔧 SERVICE MATCHING:`);
+      console.log(`   ✓ matching_service_catalog_to_solve_customers_issue: ${state.context.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
+
+      // Task/booking fields
+      console.log(`\n📅 TASK/BOOKING:`);
+      console.log(`   ✓ task_id: ${state.context.task_id || '(not set)'}`);
+      console.log(`   ✓ appointment_details: ${state.context.appointment_details || '(not set)'}`);
+
+      // Navigation/planning fields
+      console.log(`\n🧭 NAVIGATION/PLANNING:`);
+      console.log(`   ✓ next_node_to_go_to: ${state.context.next_node_to_go_to || '(not set)'}`);
+      console.log(`   ✓ next_course_of_action: ${state.context.next_course_of_action || '(not set)'}`);
+
+      // Conversation summary
+      console.log(`\n💬 CONVERSATION SUMMARY (${state.context.summary_of_conversation_on_each_step_until_now?.length || 0} exchanges):`);
+      if (state.context.summary_of_conversation_on_each_step_until_now && state.context.summary_of_conversation_on_each_step_until_now.length > 0) {
+        state.context.summary_of_conversation_on_each_step_until_now.forEach((exchange, idx) => {
+          console.log(`   [${idx + 1}] Customer: "${exchange.customer?.substring(0, 80)}${exchange.customer?.length > 80 ? '...' : ''}"`);
+          console.log(`       Agent: "${exchange.agent?.substring(0, 80)}${exchange.agent?.length > 80 ? '...' : ''}"`);
+        });
+      } else {
+        console.log(`   (no exchanges yet)`);
+      }
+
+      // Agent profile
+      console.log(`\n🤖 AGENT PROFILE:`);
+      console.log(`   ✓ who_are_you: ${state.context.who_are_you || '(not set)'}`);
+      console.log(`   ✓ agent_session_id: ${state.context.agent_session_id || '(not set)'}`);
+
+      // Raw context dump
+      console.log(`\n📋 RAW CONTEXT OBJECT (JSON):`);
       console.log(JSON.stringify(state.context, null, 2));
-      console.log(``);
+
+      console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
       // Log full context state to llm.log
       await this.logger.logContextState(state, 'CONTEXT BEFORE EXECUTION');
@@ -479,13 +526,24 @@ export class AgentOrchestratorService {
       // Write context file after worker execution
       await this.writeContextFile(state, `node:${state.currentNode}`);
 
-      console.log(`\n📊 [CONTEXT AFTER WORKER]`);
-      console.log(`   node_traversal_path: ${JSON.stringify(state.context.node_traversal_path || [], null, 2)}`);
-      console.log(`   customers_main_ask: ${state.context.customers_main_ask || '(not set)'}`);
-      console.log(`   customer_phone_number: ${state.context.customer_phone_number || '(not set)'}`);
-      console.log(`   customer_name: ${state.context.customer_name || '(not set)'}`);
-      console.log(`   service_catalog: ${state.context.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
-      console.log(`   task_id: ${state.context.task_id || '(not set)'}\n`);
+      // Show what changed after worker execution
+      console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`📊 [CONTEXT AFTER WORKER EXECUTION]`);
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`\n👤 CUSTOMER DATA:`);
+      console.log(`   ✓ customer_name: ${state.context.customer_name || '(not set)'}`);
+      console.log(`   ✓ customer_phone_number: ${state.context.customer_phone_number || '(not set)'}`);
+      console.log(`   ✓ customer_id: ${state.context.customer_id || '(not set)'}`);
+      console.log(`\n🎯 PROBLEM/SERVICE:`);
+      console.log(`   ✓ customers_main_ask: ${state.context.customers_main_ask || '(not set)'}`);
+      console.log(`   ✓ service_catalog: ${state.context.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
+      console.log(`\n📅 TASK/BOOKING:`);
+      console.log(`   ✓ task_id: ${state.context.task_id || '(not set)'}`);
+      console.log(`   ✓ appointment_details: ${state.context.appointment_details || '(not set)'}`);
+      console.log(`\n🗺️  NAVIGATION HISTORY (${state.context.node_traversal_path?.length || 0} nodes):`);
+      console.log(`   ${JSON.stringify(state.context.node_traversal_path || [], null, 2)}`);
+      console.log(`\n💬 CONVERSATION (${state.context.summary_of_conversation_on_each_step_until_now?.length || 0} exchanges)`);
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
       // STEP 2: Navigator Agent decides next node AFTER execution
       console.log(`[AgentOrchestrator] 🧭 Consulting Navigator for next step...`);
@@ -524,10 +582,20 @@ export class AgentOrchestratorService {
         next_course_of_action: navigatorDecision.nextCourseOfAction,
       });
 
-      console.log(`\n📊 [CONTEXT AFTER NAVIGATOR]`);
-      console.log(`   next_node_to_go_to: ${state.context.next_node_to_go_to}`);
-      console.log(`   next_course_of_action: ${state.context.next_course_of_action}`);
-      console.log(`   node_traversal_path: ${JSON.stringify(state.context.node_traversal_path || [], null, 2)}\n`);
+      console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`📊 [CONTEXT AFTER NAVIGATOR DECISION]`);
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`\n🧭 NAVIGATION UPDATES:`);
+      console.log(`   ✓ next_node_to_go_to: ${state.context.next_node_to_go_to}`);
+      console.log(`   ✓ next_course_of_action: ${state.context.next_course_of_action}`);
+      console.log(`\n🗺️  PATH HISTORY (${state.context.node_traversal_path?.length || 0} nodes):`);
+      console.log(`   ${JSON.stringify(state.context.node_traversal_path || [], null, 2)}`);
+      console.log(`\n💡 KEY CONTEXT FIELDS:`);
+      console.log(`   ✓ customers_main_ask: ${state.context.customers_main_ask || '(not set)'}`);
+      console.log(`   ✓ customer_phone_number: ${state.context.customer_phone_number || '(not set)'}`);
+      console.log(`   ✓ service_catalog: ${state.context.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
+      console.log(`   ✓ task_id: ${state.context.task_id || '(not set)'}`);
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
       // Log Navigator's decision
       console.log(`[AgentOrchestrator] ➡️  Navigator decision: ${state.currentNode} → ${navigatorDecision.nextNode}`);
