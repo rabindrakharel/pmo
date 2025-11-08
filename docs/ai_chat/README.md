@@ -3,7 +3,7 @@
 > **Complete documentation for the AI-powered customer service chat system**
 >
 > **Last Updated:** 2025-11-08
-> **Version:** 2.4.0 (GPT-4o mini + Soft Semantic Routing)
+> **Version:** 3.0.0 (Deepgram STT + ElevenLabs TTS + LowDB Session Memory)
 > **Branch:** `claude/fix-context-data-api-011CUuhgpTfBzse9X6tDieKZ`
 
 ---
@@ -35,24 +35,49 @@
 
 ---
 
-## ✅ Recent Changes (Nov 2025)
+## ✅ Recent Changes (November 2025)
 
-### **1. Context Restructuring (Commits f381f06 - 37d2af9)**
-- ✅ Nested `data_extraction_fields` object for better organization
-- ✅ Renamed `node_traversal_path` → `node_traversed`
-- ✅ Session memory files: `session_{sessionId}_memory_data.json`
-- ✅ Cleaned up all dag.json references (single source: agent_config.json)
+### **1. Voice Processing Upgrade (Commit 974a58c) - Nov 8** 🎤🔊
+**OpenAI Whisper/TTS → Deepgram Nova-2 + ElevenLabs Flash v2.5**
 
-### **2. MCP Node Auto-Advance Fix (Commit fdd34ff)**
-- ✅ Fixed 3 MCP nodes from `stepwise` → `auto`
-- ✅ Eliminated dead states where system waits unnecessarily
-- ✅ Enabled smooth auto-advance through automated operations
+**Speech-to-Text: Deepgram Nova-2**
+- SDK: @deepgram/sdk 4.11.2
+- Model: nova-2 (latest Deepgram model)
+- Features: Smart formatting, confidence scores, better accuracy
+- API Key: DEEPGRAM_API_KEY
 
-### **3. DataExtractionAgent Integration**
-- ✅ Runs automatically after every worker execution
-- ✅ Analyzes last 4 conversation exchanges
-- ✅ Extracts customer data seamlessly
-- ✅ Immediate file write to persistent storage
+**Text-to-Speech: ElevenLabs Flash v2.5**
+- SDK: @elevenlabs/elevenlabs-js 2.22.0
+- Model: eleven_flash_v2_5 (ultra-low latency ~75ms)
+- Default Voice: Nova (Voice ID: 7ExgohZ4jKVjuJLwSEWl)
+- 6 voice options with fine-tuned settings
+- High-quality MP3 output (44.1kHz, 128kbps)
+- API Key: ELEVEN_LABS_API_KEY
+
+### **2. Session Memory: JSON Files → LowDB (Commits 0ebc841, 84bad58)** 💾
+- ✅ Centralized in-memory JSON storage with file persistence
+- ✅ Per-session locking mechanism (prevents race conditions)
+- ✅ API endpoints: `/api/v1/session-memory-data/*`
+- ✅ MCP tools for agent read/write access
+- ✅ Location: `logs/contexts/session_memory_data.db.json`
+- ✅ All 13 data_extraction_fields (including `task_name`)
+
+### **3. Structured Logging System (Commit 7d00282)** 📊
+- ✅ AgentLogger service with timestamps (HH:mm:ss.SSS)
+- ✅ Concise single-line logs (80% reduction in verbosity)
+- ✅ VERBOSE_AGENT_LOGS=true for debugging
+- ✅ Clean separation: no voice logs in API console
+
+### **4. Code Cleanup (Commit f95a152)** 🧹
+- ✅ Removed 16 deprecated files (6 services + 10 docs)
+- ✅ Old universal agent pattern removed
+- ✅ Cleaner codebase focused on multi-agent system
+
+### **5. Architectural Coherence Fixes (Commit 84bad58)** 🏗️
+- ✅ Fixed `task_name` field in SessionMemoryData schema
+- ✅ Fixed async initialization race conditions
+- ✅ Schema matches agent_config.json template exactly
+- ✅ Proper await for SessionMemoryDataService init
 
 ---
 
@@ -65,37 +90,102 @@
 - **DataExtractionAgent** - Extracts customer data from conversation
 - **ValidatorAgent** - Validates data integrity and business rules
 
-### **2. Context Structure**
-```json
-{
-  "agent_session_id": "uuid",
-  "who_are_you": "...",
-  "data_extraction_fields": {       // ← Nested extraction data
-    "customer_name": "",
-    "customer_phone_number": "",
-    "customers_main_ask": "",
-    "task_id": ""
-  },
-  "next_node_to_go_to": "...",
-  "node_traversed": [...],
-  "summary_of_conversation_on_each_step_until_now": [...]
+### **2. Session Memory Data Structure (LowDB)**
+```typescript
+interface SessionMemoryData {
+  sessionId: string;
+  chatSessionId: string;
+  userId: string;
+  currentNode: string;
+  context: {
+    agent_session_id: string;
+    who_are_you: string;
+    data_extraction_fields: {       // ← All 13 fields
+      customer_name: string;
+      customer_phone_number: string;
+      customer_email: string;
+      customer_id: string;
+      customers_main_ask: string;
+      matching_service_catalog_to_solve_customers_issue: string;
+      related_entities_for_customers_ask: string;
+      task_id: string;
+      task_name: string;            // ← Added in schema fix
+      appointment_details: string;
+      project_id: string;
+      assigned_employee_id: string;
+      assigned_employee_name: string;
+    };
+    next_course_of_action: string;
+    next_node_to_go_to: string;
+    node_traversed: string[];
+    summary_of_conversation_on_each_step_until_now: Array<{
+      index: number;
+      customer: string;
+      agent: string;
+    }>;
+    flags: Record<string, number>;
+  };
+  messages: Array<{role, content, timestamp}>;
+  completed: boolean;
+  conversationEnded: boolean;
+  endReason: string | null;
 }
 ```
 
-### **3. Advance Types**
+### **3. Voice Processing Flow**
+```
+Audio Input (WAV/WebM)
+    ↓
+🎤 Deepgram Nova-2 STT (with confidence scores)
+    ↓
+🎯 Agent Orchestrator (multi-agent DAG)
+    ↓
+🔊 ElevenLabs Flash v2.5 TTS (Nova voice)
+    ↓
+Audio Output (MP3, 44.1kHz)
+```
+
+### **4. Advance Types**
 | Type | Behavior | Use Case |
 |------|----------|----------|
 | `auto` | Continue loop, execute next node immediately | MCP operations, automated replies |
 | `stepwise` | Break loop, wait for user input | Questions, confirmations, user data |
 
-### **4. Session Memory Files**
-- **Location:** `./logs/contexts/session_{sessionId}_memory_data.json`
-- **Updates:** After every extraction, navigation, and worker execution
-- **Purpose:** Persistent storage of conversation state and extracted data
+### **5. LowDB Session Storage**
+- **Location:** `./logs/contexts/session_memory_data.db.json`
+- **Format:** Centralized JSON database (all sessions in one file)
+- **Features:** Per-session locking, atomic operations, race condition prevention
+- **API:** `/api/v1/session-memory-data/*` endpoints
+- **MCP Tools:** Agents read/write via sessionMemoryDataService
+
+### **6. Structured Logging**
+**Concise Mode (Default):**
+```
+[10:23:45.123] 🔄 ITER 1 | Node: GREET_CUSTOMER | Session: a1b2c3d4
+[10:23:46.456] 🗣️ WORKER_REPLY @ GREET_CUSTOMER: Hello...
+[10:23:47.123] 🔍 Extracted: customer_name, customers_main_ask
+[10:23:47.345] ➡️  Navigate: GREET_CUSTOMER → ASK_NEXT_NODE
+```
+
+**Verbose Mode (VERBOSE_AGENT_LOGS=true):**
+- Full context dumps
+- Complete state snapshots
+- Raw JSON objects
 
 ---
 
 ## 🛠️ Development Workflow
+
+### **Environment Variables:**
+```bash
+# Required
+OPENAI_API_KEY=sk-...                    # GPT-4o mini for agents
+DEEPGRAM_API_KEY=a98b33349bd...          # STT
+ELEVEN_LABS_API_KEY=sk_708f8cdb90...     # TTS
+
+# Optional
+VERBOSE_AGENT_LOGS=true                  # Enable verbose logging
+```
 
 ### **Making Changes:**
 1. Update agent configuration in `agent_config.json`
@@ -111,22 +201,30 @@
 # Test chat endpoint
 ./tools/test-api.sh POST /api/v1/chat '{"message": "My roof is leaking"}'
 
-# View logs
-./tools/logs-api.sh 100 | grep "DataExtractionAgent"
-./tools/logs-api.sh 100 | grep "AUTO-ADVANCE ENABLED"
+# View concise logs (default)
+./tools/logs-api.sh 100
+
+# View verbose logs (full context)
+VERBOSE_AGENT_LOGS=true npm start
+./tools/logs-api.sh 100 | grep "COMPLETE CONTEXT STATE"
 ```
 
 ### **Debugging:**
 ```bash
-# Check session memory files
-ls -la ./logs/contexts/
-cat ./logs/contexts/session_<sessionId>_memory_data.json | jq
+# Check LowDB session storage
+cat ./logs/contexts/session_memory_data.db.json | jq
+
+# Check specific session
+cat ./logs/contexts/session_memory_data.db.json | jq '.sessions["<sessionId>"]'
 
 # Check extraction fields
-cat ./logs/contexts/session_<sessionId>_memory_data.json | jq '.context.data_extraction_fields'
+cat ./logs/contexts/session_memory_data.db.json | jq '.sessions["<sessionId>"].context.data_extraction_fields'
 
 # Check node traversal
-cat ./logs/contexts/session_<sessionId>_memory_data.json | jq '.context.node_traversed'
+cat ./logs/contexts/session_memory_data.db.json | jq '.sessions["<sessionId>"].context.node_traversed'
+
+# Test session memory API
+curl http://localhost:4000/api/v1/session-memory-data/sessions/<sessionId>
 ```
 
 ---
@@ -226,10 +324,11 @@ for (let iterations = 1; iterations <= 10; iterations++) {
 
 | Version | Date | Changes |
 |---------|------|---------|
-| **2.4.0** | 2025-11-08 | MCP node fixes, context restructuring |
-| **2.3.0** | 2025-11-07 | DataExtractionAgent integration |
-| **2.2.0** | 2025-11-06 | Nested context structure |
-| **2.1.0** | 2025-11-05 | Session memory persistence |
+| **3.0.0** | 2025-11-08 | Deepgram STT + ElevenLabs TTS + LowDB + Structured Logging + Code Cleanup |
+| **2.4.0** | 2025-11-07 | MCP node fixes, context restructuring |
+| **2.3.0** | 2025-11-06 | DataExtractionAgent integration |
+| **2.2.0** | 2025-11-05 | Nested context structure |
+| **2.1.0** | 2025-11-04 | Session memory persistence |
 | **2.0.0** | 2025-11-01 | GPT-4o mini + Soft Semantic Routing |
 
 ---
