@@ -26,6 +26,7 @@ export interface NodeConfig {
   example_tone_of_reply?: string;
   node_goal: string;
   context_update?: string;
+  auto_advance?: boolean; // If true, automatically execute next node without waiting for user input
   default_next_node?: string | null;
   branching_conditions?: Array<{
     condition: string;

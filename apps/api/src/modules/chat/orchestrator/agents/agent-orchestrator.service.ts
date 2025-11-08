@@ -546,25 +546,38 @@ export class AgentOrchestratorService {
       console.log(`   New current node: ${state.currentNode}`);
       console.log(`   Previous node: ${state.previousNode || 'N/A'}`);
 
-      // Break after first iteration to wait for user response (single-turn mode)
-      if (iterations === 1) {
-        console.log(`\n💬 [SINGLE TURN COMPLETE]`);
-        console.log(`   Breaking loop to wait for next user message`);
-        console.log(`   Final state context:`);
-        console.log(`     - currentNode: ${state.currentNode}`);
-        console.log(`     - customers_main_ask: ${state.context.customers_main_ask || '(not set)'}`);
-        console.log(`     - customer_phone_number: ${state.context.customer_phone_number || '(not set)'}`);
-        console.log(`     - flags: ${JSON.stringify(state.context.flags || {}, null, 2)}`);
+      // Check if the NEW node has auto_advance flag
+      const nextNodeConfig = this.dagConfig.nodes.find(n => n.node_name === state.currentNode);
+      const shouldAutoAdvance = nextNodeConfig?.auto_advance === true;
 
-        // Log iteration end
-        await this.logger.logIterationEnd({
-          iteration: iterations,
-          nextNode: state.currentNode,
-          conversationEnded: false,
-          sessionId: state.sessionId,
-        });
-        break;
+      // If auto-advance is enabled, continue to next iteration immediately
+      if (shouldAutoAdvance && iterations < maxIterations) {
+        console.log(`\n⚡ [AUTO-ADVANCE ENABLED]`);
+        console.log(`   Node ${state.currentNode} has auto_advance=true`);
+        console.log(`   Continuing to execute next node without waiting for user input...`);
+        // Don't break - continue the loop
+        continue;
       }
+
+      // Break to wait for user response when:
+      // 1. First iteration completed AND current node doesn't have auto_advance
+      // 2. Auto-advance chain completed (no more auto_advance nodes)
+      console.log(`\n💬 [TURN COMPLETE]`);
+      console.log(`   Breaking loop to wait for next user message`);
+      console.log(`   Final state context:`);
+      console.log(`     - currentNode: ${state.currentNode}`);
+      console.log(`     - customers_main_ask: ${state.context.customers_main_ask || '(not set)'}`);
+      console.log(`     - customer_phone_number: ${state.context.customer_phone_number || '(not set)'}`);
+      console.log(`     - flags: ${JSON.stringify(state.context.flags || {}, null, 2)}`);
+
+      // Log iteration end
+      await this.logger.logIterationEnd({
+        iteration: iterations,
+        nextNode: state.currentNode,
+        conversationEnded: false,
+        sessionId: state.sessionId,
+      });
+      break;
     }
 
     if (iterations >= maxIterations) {
