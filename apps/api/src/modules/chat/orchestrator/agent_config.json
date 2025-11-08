@@ -6,7 +6,7 @@
       "input_context_template": "Conversation of customer service agent and customer is given here {summary_of_conversation_on_each_step_until_now}. I want you to select a node based on these conditions {branching_conditions}. The conversation has already been through these nodes: {node_traversed}. Here's the data that was gathered {context_data}",
       "input_context_variables": {
         "summary_of_conversation_on_each_step_until_now": "Replace with context.summary_of_conversation_on_each_step_until_now array (format: [{customer: 'msg', agent: 'resp'}, ...])",
-        "branching_conditions": "Replace with current_node.branching_conditions array from dag.json",
+        "branching_conditions": "Replace with current_node.branching_conditions array from agent_config.json",
         "node_traversed": "Replace with context.node_traversed array (e.g., ['GREET_CUSTOMER', 'ASK_CUSTOMER_ABOUT_THEIR_NEED'])",
         "context_data": "Replace with entire context.json object (includes context.data_extraction_fields.customer_name, context.data_extraction_fields.customers_main_ask, context.flags, etc.)"
       },
@@ -125,8 +125,8 @@
       "step_6": "navigator_agent updates context.next_node_to_go_to and context.next_course_of_action",
       "step_7": "Orchestrator transitions to next_node_to_go_to and repeats cycle"
     },
-    "key_principle": "All agents use the same universal template but morph into different behaviors based on their profile in dag.json. No separate agent files needed - everything is configuration-driven.",
-    "agent_architecture": "Universal Agent System - Single agent template morphs into navigator, worker, validator, summarizer, etc. based on dag.json profiles"
+    "key_principle": "All agents use the same universal template but morph into different behaviors based on their profile in agent_config.json. No separate agent files needed - everything is configuration-driven.",
+    "agent_architecture": "Universal Agent System - Single agent template morphs into navigator, worker, validator, summarizer, etc. based on agent_config.json profiles"
   },
   "system_config": {
     "agent_identity": "You are a polite customer service agent who is assisting a customer",
@@ -714,7 +714,7 @@
         "when_to_update": "Set flag to 1 after node execution completes"
       }
     },
-    "initial_context_template": {
+    "session_memory_data": {
       "description": "CRITICAL: Orchestrator MUST initialize context with this exact structure at session start. All string fields start empty, all arrays start empty. This ensures context is properly tracked throughout the conversation.",
       "template": {
         "agent_session_id": "<session_uuid>",
@@ -741,7 +741,7 @@
         "flags": {}
       },
       "instructions_for_orchestrator": [
-        "1. At session start, deep copy the initial_context_template.template object",
+        "1. At session start, deep copy the session_memory_data.template object",
         "2. Replace <session_uuid> with actual session ID",
         "3. Initialize flags object as empty {}",
         "4. As conversation progresses, UPDATE fields (never replace entire context)",

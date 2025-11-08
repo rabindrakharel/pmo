@@ -1,7 +1,7 @@
 /**
  * Agent Orchestrator Service
  * Pure agent-based orchestration without LangGraph dependencies
- * Coordinates worker, guider, and navigator agents based on dag.json
+ * Coordinates worker, guider, and navigator agents based on agent_config.json
  * @module orchestrator/agents/agent-orchestrator
  */
 

@@ -1,7 +1,7 @@
 /**
  * Navigator Agent
  * Lightweight routing brain that decides next node using LLM
- * Input: dag.json (nodes + branching_conditions) + session_{session_id}_memory_data.json
+ * Input: agent_config.json (nodes + branching_conditions) + session_{session_id}_memory_data.json
  * Output: which node to execute next (no keyword matching, pure LLM decision)
  * READS session_{session_id}_memory_data.json file for complete context before routing
  * @module orchestrator/agents/navigator-agent
@@ -64,7 +64,7 @@ export class NavigatorAgent {
   }
 
   /**
-   * Lightweight routing decision based on dag.json + session_{session_id}_memory_data.json
+   * Lightweight routing decision based on agent_config.json + session_{session_id}_memory_data.json
    * Navigator focuses on: which node next? Not on detailed prompt engineering.
    */
   async decideNextNode(state: AgentContextState, skipValidation: boolean = false): Promise<NavigatorDecision> {
@@ -125,7 +125,7 @@ export class NavigatorAgent {
 
   /**
    * Build system prompt for condition-based routing
-   * Navigator evaluates branching_conditions from dag.json against context to decide next node
+   * Navigator evaluates branching_conditions from agent_config.json against context to decide next node
    * OPTIMIZED: Only passes metadata for child nodes available from current node's branches
    */
   private buildUnifiedSystemPrompt(currentNodeName: string): string {
@@ -222,7 +222,7 @@ OUTPUT FORMAT (strict JSON):
   private buildUnifiedUserPrompt(state: AgentContextState, contextFile: any | null): string {
     const lastUserMessage = this.getLastUserMessage(state);
 
-    // Get current node's full config from dag.json
+    // Get current node's full config from agent_config.json
     const currentNodeConfig = this.dagConfig.nodes.find(n => n.node_name === state.currentNode);
     const defaultNextNode = currentNodeConfig?.default_next_node || 'END';
     const branchingConditions = currentNodeConfig?.branching_conditions || [];

@@ -1,7 +1,7 @@
 /**
  * Worker Agent
  * Executes nodes using detailed prompt engineering with full context
- * Each node from dag.json defines its own prompt template and goal
+ * Each node from agent_config.json defines its own prompt template and goal
  * Worker builds context, extracts info, and generates customer responses
  * @module orchestrator/agents/worker-agent
  */
@@ -40,7 +40,7 @@ export class WorkerAgent {
   }
 
   /**
-   * Execute node: detailed prompt engineering using node config from dag.json
+   * Execute node: detailed prompt engineering using node config from agent_config.json
    * This is where the "node thing" happens - using context for prompt engineering
    * Navigator decides WHICH node, Worker executes WHAT the node does
    *
@@ -53,7 +53,7 @@ export class WorkerAgent {
   ): Promise<WorkerAgentResult> {
     console.log(`\n🔧 [WorkerAgent] Executing node: ${nodeName}`);
 
-    // Get node configuration from dag.json (prompt_templates, node_goal, context_update)
+    // Get node configuration from agent_config.json (prompt_templates, node_goal, context_update)
     const node = this.dagConfig.nodes.find(n => n.node_name === nodeName);
     if (!node) {
       throw new Error(`Node not found in DAG: ${nodeName}`);
@@ -121,7 +121,7 @@ export class WorkerAgent {
 
   /**
    * Build system prompt from node configuration
-   * Uses node's prompt_templates from dag.json + full context for detailed prompt engineering
+   * Uses node's prompt_templates from agent_config.json + full context for detailed prompt engineering
    * EXPLICITLY tells LLM which context fields THIS node must build (from context_update)
    */
   private buildSystemPrompt(node: any, context: DAGContext): string {
@@ -241,12 +241,12 @@ Generate your response now:`;
 
   /**
    * Parse expected context fields from node configuration
-   * Reads from node.expected_context_fields in dag.json if present
+   * Reads from node.expected_context_fields in agent_config.json if present
    */
   private parseExpectedContextFields(node: any): string[] {
-    // First check if node has explicit expected_context_fields in dag.json
+    // First check if node has explicit expected_context_fields in agent_config.json
     if (node.expected_context_fields && Array.isArray(node.expected_context_fields)) {
-      console.log(`[WorkerAgent] 📋 Using explicit expected_context_fields from dag.json for ${node.node_name}`);
+      console.log(`[WorkerAgent] 📋 Using explicit expected_context_fields from agent_config.json for ${node.node_name}`);
 
       // Always include mandatory fields
       const mandatoryFields = this.dagConfig.graph_config?.mandatory_fields || [];
@@ -255,7 +255,7 @@ Generate your response now:`;
     }
 
     // Fallback: parse from context_update text (legacy behavior)
-    console.log(`[WorkerAgent] ⚠️ No expected_context_fields in dag.json for ${node.node_name}, parsing from context_update`);
+    console.log(`[WorkerAgent] ⚠️ No expected_context_fields in agent_config.json for ${node.node_name}, parsing from context_update`);
     const contextUpdate = node.context_update || '';
     const globalSchema = this.dagConfig.global_context_schema?.core_keys || {};
 
@@ -332,7 +332,7 @@ NODE CONTEXT BUILDING RESPONSIBILITY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 NODE: ${nodeName}
-NODE RESPONSIBILITY (from dag.json): ${node.context_update}
+NODE RESPONSIBILITY (from agent_config.json): ${node.context_update}
 
 CONVERSATION:
 USER: "${userMessage}"
@@ -371,7 +371,7 @@ OUTPUT: Return ONLY valid JSON with the extracted fields, no other text.
       const result = await openaiService.callAgent({
         agentType: 'worker',
         messages: [
-          { role: 'system', content: 'You are a data extraction assistant. Return only valid JSON based on the node\'s specific responsibilities from dag.json.' },
+          { role: 'system', content: 'You are a data extraction assistant. Return only valid JSON based on the node\'s specific responsibilities from agent_config.json.' },
           { role: 'user', content: extractionPrompt },
         ],
         temperature: 0.1,
@@ -398,7 +398,7 @@ OUTPUT: Return ONLY valid JSON with the extracted fields, no other text.
 
   /**
    * Build context updates based on node execution
-   * Reads flag mapping from dag.json routing_config.node_flag_mapping
+   * Reads flag mapping from agent_config.json routing_config.node_flag_mapping
    */
   private buildContextUpdates(
     nodeName: string,
@@ -407,7 +407,7 @@ OUTPUT: Return ONLY valid JSON with the extracted fields, no other text.
   ): Partial<DAGContext> {
     const updates: Partial<DAGContext> = { ...extractedInfo };
 
-    // Read flag mapping from dag.json instead of hardcoding
+    // Read flag mapping from agent_config.json instead of hardcoding
     const nodeFlagMapping = (this.dagConfig.routing_config as any)?.node_flag_mapping?.mappings || {};
     const flagName = nodeFlagMapping[nodeName];
 
@@ -416,7 +416,7 @@ OUTPUT: Return ONLY valid JSON with the extracted fields, no other text.
         ...currentContext.flags,
         [flagName]: 1,
       };
-      console.log(`[WorkerAgent] 🏁 Set flag: ${flagName} = 1 (from dag.json)`);
+      console.log(`[WorkerAgent] 🏁 Set flag: ${flagName} = 1 (from agent_config.json)`);
     }
 
     // Handle specific data flags

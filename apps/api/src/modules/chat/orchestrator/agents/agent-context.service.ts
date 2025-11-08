@@ -1,7 +1,7 @@
 /**
  * Agent Context Service
  * Pure context management without LangGraph dependencies
- * Manages conversation context based on dag.json schema
+ * Manages conversation context based on agent_config.json schema
  * @module orchestrator/agents/agent-context
  */
 
@@ -30,7 +30,7 @@ export interface AgentContextState {
   // Message history
   messages: AgentMessage[];
 
-  // DAG Context (matches dag.json schema)
+  // DAG Context (matches agent_config.json schema)
   context: DAGContext;
 
   // Current execution state
@@ -46,7 +46,7 @@ export interface AgentContextState {
 
 /**
  * Agent Context Manager
- * Manages context state without LangGraph - DETERMINISTIC from dag.json
+ * Manages context state without LangGraph - DETERMINISTIC from agent_config.json
  */
 export class AgentContextManager {
   private dagConfig: DAGConfiguration | null = null;
@@ -62,7 +62,7 @@ export class AgentContextManager {
   }
 
   /**
-   * Initialize new context - DETERMINISTIC from dag.json
+   * Initialize new context - DETERMINISTIC from agent_config.json
    */
   initializeContext(sessionId: string, chatSessionId?: string, userId?: string, authToken?: string): AgentContextState {
     return {
@@ -79,7 +79,7 @@ export class AgentContextManager {
   }
 
   /**
-   * Initialize DAG context with default values - DETERMINISTIC from dag.json global_context_schema
+   * Initialize DAG context with default values - DETERMINISTIC from agent_config.json global_context_schema
    * Uses ContextInitializer service for proper initialization
    */
   private initializeDAGContext(sessionId: string): DAGContext {
@@ -162,7 +162,7 @@ export class AgentContextManager {
   /**
    * Update context (NON-DESTRUCTIVE MERGE)
    *
-   * IMPORTANT BEHAVIOR (per dag.json context_update_rules):
+   * IMPORTANT BEHAVIOR (per agent_config.json context_update_rules):
    * - Arrays (summary_of_conversation, node_traversal_path): APPENDS new items to existing
    * - Other fields: UPDATES only if new value is meaningful (not undefined/null/empty)
    * - Existing data is NEVER removed, only added to or updated

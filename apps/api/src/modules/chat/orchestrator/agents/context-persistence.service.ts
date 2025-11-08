@@ -67,7 +67,7 @@ export class ContextPersistenceService {
           nodeName: metadata?.nodeName,
         },
 
-        // Full context (from dag.json schema)
+        // Full context (from agent_config.json schema)
         context: state.context,
 
         // Message history
