@@ -185,136 +185,41 @@
       "expected_context_fields": [
         "customers_main_ask"
       ],
-      "default_next_node": "Identify_Issue",
+      "auto_advance": true,
+      "default_next_node": "Acknowledge_And_Empathize",
       "branching_conditions": [
         {
-          "condition": "if customers_main_ask successfully extracted",
-          "child_node": "Identify_Issue"
+          "condition": "if customers_main_ask successfully extracted (not empty string)",
+          "child_node": "Acknowledge_And_Empathize"
         },
         {
-          "condition": "if extraction fails or unclear",
+          "condition": "if extraction fails (customers_main_ask is still empty)",
           "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED"
-        },
-        {
-          "condition": "after node completion to summarize",
-          "child_node": "summarize_the_conversation_on_node_and_update_context"
         }
       ]
     },
     {
-      "node_name": "Identify_Issue",
+      "node_name": "Acknowledge_And_Empathize",
       "node_action": "reply",
       "agent_profile_type": "worker_reply_agent",
-      "role": "a problem-solving customer service specialist",
-      "prompt": "Confirm the customer's issue and prepare for resolution.",
-      "example_tone_of_reply": "You are a polite customer service agent.\n\nYour task: Acknowledge the customer's issue empathetically.\n\nReply like this:\n\nFor drywall issue:\n→ I see you have drywall with holes that need patching. Let me help you find the right solution.\n\nFor other issues:\n→ I understand your [specific issue]. Let me see how I can assist you with that.\n\n⚠️ OUTPUT RULES:\n- Output ONLY your empathetic acknowledgment (nothing else)\n- Do NOT ask 'what brings you here' - the customer already told you\n- Be natural, empathetic, and solution-focused",
-      "node_goal": "Confirm the customer's issue that was captured in customers_main_ask. Acknowledge it empathetically and prepare for resolution.",
-      "context_update": "Confirm customers_main_ask is populated. Set identify_issue_flag: 1.",
+      "role": "an empathetic problem-solving specialist",
+      "prompt": "Acknowledge the customer's issue with empathy and prepare to help.",
+      "example_tone_of_reply": "You are a polite customer service agent.\n\nYour task: Acknowledge the customer's issue with empathy and assure them you'll help.\n\nReply like this:\n\nFor roof leaking:\n→ I understand you're dealing with a roof leak - that can be really stressful. Let me help you get this fixed right away.\n\nFor other issues:\n→ I see you're experiencing [specific issue]. I'm here to help you resolve this.\n\n⚠️ OUTPUT RULES:\n- Output ONLY your empathetic acknowledgment (nothing else)\n- Combine understanding + assurance in one natural response\n- Be warm, professional, and solution-focused\n- Keep it to 1-2 sentences maximum",
+      "node_goal": "Confirm and empathize with the customer's issue, then signal readiness to help. This combines acknowledgment and empathy in one smooth interaction.",
+      "context_update": "Confirm customers_main_ask is populated. Set acknowledge_empathize_flag: 1.",
       "expected_context_fields": [
         "customers_main_ask"
       ],
-      "default_next_node": "Empathize",
-      "branching_conditions": [
-        {
-          "condition": "if issue already identified (identify_issue_flag: 1)",
-          "child_node": "Empathize"
-        },
-        {
-          "condition": "if customer changes issue",
-          "child_node": "Identify_Issue"
-        },
-        {
-          "condition": "if need to fetch service catalog or MCP data",
-          "child_node": "use_mcp_to_get_info"
-        },
-        {
-          "condition": "after node completion to summarize",
-          "child_node": "summarize_the_conversation_on_node_and_update_context"
-        }
-      ]
-    },
-    {
-      "node_name": "use_mcp_to_get_info",
-      "node_action": "mcp",
-      "agent_profile_type": "worker_mcp_agent",
-      "role": "a data-gathering system assistant",
-      "prompt": "Find the matching MCP to get the needed information, execute it, and update context.",
-      "example_tone_of_reply": "You are a data-gathering system assistant.\n\nYour task:\n1. Identify the appropriate MCP endpoint or tool based on what information is needed\n2. Execute it to get the required data\n3. Update context with retrieved data: matching_service_catalog_to_solve_customers_issue, related_entities_for_customers_ask, task_id, appointment_details\n4. Set relevant flags\n\nOptional customer-facing response:\n→ Let me check that for you.\n→ One moment while I look that up.\n\n⚠️ OUTPUT RULES:\n- Return context updates as JSON\n- Optionally provide brief status message to customer",
-      "node_goal": "Find the matching MCP to get the specified information, execute it, and update context. Handles fetches for service catalog, entities, task_id, appointment details, etc.",
-      "context_update": "Update context with fetched data from MCP. Ensure mandatory fields like customers_main_ask and customer_phone_number are preserved.",
-      "expected_context_fields": [
-        "matching_service_catalog_to_solve_customers_issue",
-        "related_entities_for_customers_ask",
-        "task_id",
-        "appointment_details"
-      ],
+      "auto_advance": true,
       "default_next_node": "Try_To_Gather_Customers_Data",
       "branching_conditions": [
         {
-          "condition": "if fetch fails or incomplete",
-          "child_node": "use_mcp_to_get_info"
-        },
-        {
-          "condition": "if customer changes issue during fetch",
-          "child_node": "Identify_Issue"
-        },
-        {
-          "condition": "after node completion to summarize",
-          "child_node": "summarize_the_conversation_on_node_and_update_context"
-        }
-      ]
-    },
-    {
-      "node_name": "Empathize",
-      "node_action": "reply",
-      "agent_profile_type": "worker_reply_agent",
-      "role": "an empathetic customer support agent",
-      "prompt": "Express empathy towards the customer's identified issue.",
-      "example_tone_of_reply": "You are a polite customer service agent.\n\nYour task: Express genuine empathy for the customer's issue.\n\nReply like this:\n→ Oh, I am sorry to hear that you are experiencing [their issue].\n→ I understand how frustrating [their issue] can be.\n\n⚠️ OUTPUT RULES:\n- Output ONLY your empathetic response (nothing else)\n- Use the customer's specific issue to personalize\n- Be natural and genuine",
-      "node_goal": "Acknowledge the customer's problem to build trust and show understanding.",
-      "context_update": "Confirm customers_main_ask is populated. Set empathize_flag: 1.",
-      "default_next_node": "wait_for_customers_reply",
-      "branching_conditions": [
-        {
-          "condition": "if empathy already fulfilled (empathize_flag: 1)",
-          "child_node": "Console_Build_Rapport"
-        },
-        {
-          "condition": "if customer replies and changes issue",
-          "child_node": "Identify_Issue"
-        },
-        {
-          "condition": "if customer replies with acknowledgment",
-          "child_node": "Console_Build_Rapport"
-        },
-        {
-          "condition": "after node completion to summarize",
-          "child_node": "summarize_the_conversation_on_node_and_update_context"
-        }
-      ]
-    },
-    {
-      "node_name": "Console_Build_Rapport",
-      "node_action": "reply",
-      "agent_profile_type": "worker_reply_agent",
-      "role": "a reassuring customer service professional",
-      "prompt": "Reassure the customer and build rapport.",
-      "example_tone_of_reply": "Your task: Reassure and comfort the customer.\n\nReply like this:\n→ Don't worry, you are in good hands. I will help you with [their issue].\n→ Rest assured, we'll get this sorted out together.\n\n⚠️ OUTPUT RULES:\n- Output ONLY your reassuring response (nothing else)\n- Be natural, supportive, and trust-building",
-      "node_goal": "Comfort the customer and assure them of assistance to strengthen the relationship.",
-      "context_update": "Set rapport_flag: 1.",
-      "default_next_node": "use_mcp_to_get_info",
-      "branching_conditions": [
-        {
-          "condition": "if rapport already built (rapport_flag: 1)",
+          "condition": "ALWAYS auto-advance to Try_To_Gather_Customers_Data (no waiting needed)",
           "child_node": "Try_To_Gather_Customers_Data"
         },
         {
-          "condition": "if customer changes issue in response",
-          "child_node": "Identify_Issue"
-        },
-        {
-          "condition": "after node completion to summarize",
-          "child_node": "summarize_the_conversation_on_node_and_update_context"
+          "condition": "only if customer explicitly changes their issue in THIS response",
+          "child_node": "Extract_Customer_Issue"
         }
       ]
     },
@@ -550,20 +455,28 @@
       "default_next_node": "Extract_Customer_Issue",
       "branching_conditions": [
         {
-          "condition": "if customers_main_ask is already populated and customer confirms/acknowledges",
+          "condition": "if customer message contains explicit phone number pattern (e.g., 555-1234, (555) 123-4567, 5551234567) - check for digits and dashes/parentheses",
           "child_node": "Try_To_Gather_Customers_Data"
         },
         {
-          "condition": "if customers_main_ask is empty or not set",
-          "child_node": "Extract_Customer_Issue"
-        },
-        {
-          "condition": "if customer provides personal data (name, phone, email)",
+          "condition": "if customer provides a person's name explicitly (e.g., 'My name is John', 'I'm Sarah', 'This is Mike') - NOT service names",
           "child_node": "Try_To_Gather_Customers_Data"
         },
         {
-          "condition": "if customer changes topic or states new issue",
+          "condition": "if customer message contains email address pattern (e.g., user@domain.com)",
+          "child_node": "Try_To_Gather_Customers_Data"
+        },
+        {
+          "condition": "if customers_main_ask is empty string or not populated yet",
           "child_node": "Extract_Customer_Issue"
+        },
+        {
+          "condition": "if customer describes a NEW different issue/problem (not just elaborating on existing issue)",
+          "child_node": "Extract_Customer_Issue"
+        },
+        {
+          "condition": "if customer just acknowledges (ok, sure, yes, alright) AND customers_main_ask already exists",
+          "child_node": "Try_To_Gather_Customers_Data"
         }
       ]
     },
