@@ -93,6 +93,28 @@
       "decision_inputs": "Last user message, last agent response",
       "decision_outputs": "Returns {customer: string, agent: string} to append to summary array"
     },
+    "data_extraction_agent": {
+      "role": "Extracts and updates context data from conversation history",
+      "description": "Post-processing agent that runs AFTER worker agents (reply/mcp) complete. Analyzes last 4 conversation exchanges to extract missing context fields.",
+      "input_context_template": "Analyze last 4 conversation exchanges from {summary_of_conversation_on_each_step_until_now}. Identify empty context fields from {context_data}. Extract customer information (name, phone, email, issue) using updateContext tool.",
+      "input_context_variables": {
+        "summary_of_conversation_on_each_step_until_now": "Replace with context.summary_of_conversation_on_each_step_until_now array (last 4 entries)",
+        "context_data": "Replace with entire context.json object to identify empty fields"
+      },
+      "responsibilities": [
+        "Read last 4 conversation exchanges from persistent context (summary_of_conversation_on_each_step_until_now)",
+        "Identify which context fields are still empty (customer_name, customer_phone_number, customer_email, customers_main_ask, etc.)",
+        "Analyze customer messages (NOT agent responses) for extractable information",
+        "Call updateContext tool with extracted data ({key: value} pairs)",
+        "Return context updates to orchestrator for merging",
+        "ONLY extract information explicitly mentioned by customer (no assumptions)",
+        "Extract ALL available fields in ONE call (don't call multiple times)"
+      ],
+      "decision_inputs": "Last 4 conversation exchanges, current context state (all fields), list of empty fields",
+      "decision_outputs": "Returns {contextUpdates: Record<string, any>, fieldsUpdated: string[], extractionReason: string}",
+      "execution_timing": "Called AFTER worker_reply_agent and worker_mcp_agent complete their execution in each iteration",
+      "tool_access": "Has access to updateContext tool for local context updates"
+    },
     "collaboration_flow": {
       "step_1": "Orchestrator checks node type (reply vs MCP) and chooses correct worker agent",
       "step_2a": "If reply node \u2192 worker_reply_agent generates customer-facing response (1-2 sentences)",

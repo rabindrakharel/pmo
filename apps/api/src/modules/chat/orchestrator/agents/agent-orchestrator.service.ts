@@ -20,7 +20,7 @@ import {
 import { WorkerReplyAgent, createWorkerReplyAgent } from './worker-reply-agent.service.js';
 import { WorkerMCPAgent, createWorkerMCPAgent } from './worker-mcp-agent.service.js';
 import { NavigatorAgent, createNavigatorAgent } from './navigator-agent.service.js';
-import { ContextUpdateMCP } from './context-update-mcp.service.js';
+import { DataExtractionAgent, createDataExtractionAgent } from './data-extraction-agent.service.js';
 import { getLLMLogger } from '../services/llm-logger.service.js';
 
 /**
@@ -37,7 +37,7 @@ export class AgentOrchestratorService {
   private workerReplyAgent!: WorkerReplyAgent;
   private workerMCPAgent!: WorkerMCPAgent;
   private navigatorAgent!: NavigatorAgent;
-  private contextUpdateMCP!: ContextUpdateMCP;
+  private dataExtractionAgent!: DataExtractionAgent;
 
   // In-memory state cache (replace LangGraph checkpointer)
   private stateCache: Map<string, AgentContextState> = new Map();
@@ -158,19 +158,20 @@ export class AgentOrchestratorService {
       // Pass agent config to context manager for deterministic initialization
       this.contextManager.setDAGConfig(this.dagConfig);
 
-      // Initialize TWO worker agents:
+      // Initialize THREE worker agents:
       // 1. WorkerReplyAgent - generates customer-facing responses
       // 2. WorkerMCPAgent - executes MCP tools and updates context
+      // 3. DataExtractionAgent - extracts context from conversation (called AFTER worker agents)
       this.workerReplyAgent = createWorkerReplyAgent(this.dagConfig);
       this.workerMCPAgent = createWorkerMCPAgent(this.dagConfig, this.mcpAdapter);
       this.navigatorAgent = createNavigatorAgent(this.dagConfig);
-      this.contextUpdateMCP = new ContextUpdateMCP();
+      this.dataExtractionAgent = createDataExtractionAgent();
 
       console.log('[AgentOrchestrator] ✅ Agents initialized');
       console.log('[AgentOrchestrator]    - WorkerReplyAgent: Customer-facing responses');
       console.log('[AgentOrchestrator]    - WorkerMCPAgent: MCP tool execution');
+      console.log('[AgentOrchestrator]    - DataExtractionAgent: Context extraction (post-processing)');
       console.log('[AgentOrchestrator]    - NavigatorAgent: Routing decisions');
-      console.log('[AgentOrchestrator]    - ContextUpdateMCP: Intelligent context extraction');
       console.log(`[AgentOrchestrator] Total nodes: ${this.dagConfig.nodes.length}`);
     } catch (error: any) {
       console.error('[AgentOrchestrator] ❌ Failed to initialize agents:', error.message);
@@ -473,16 +474,6 @@ export class AgentOrchestratorService {
 
         response = replyResult.response;
 
-        // WorkerReplyAgent may have called updateContext tool internally
-        if (replyResult.contextUpdates) {
-          console.log(`[WorkerReplyAgent] 🔧 LLM called updateContext tool`);
-          console.log(`[WorkerReplyAgent] ✅ Extracted fields: ${replyResult.fieldsUpdated?.join(', ')}`);
-          contextUpdates = {
-            ...contextUpdates,
-            ...replyResult.contextUpdates
-          };
-        }
-
         // Log agent execution
         await this.logger.logAgentExecution({
           agentType: 'worker_reply',
@@ -508,13 +499,45 @@ export class AgentOrchestratorService {
         console.log(`[AgentOrchestrator] 🤖 AI_RESPONSE: ${response}`);
       }
 
-      // Update state with worker results
+      // Update state with worker results FIRST
       if (response) {
         state = this.contextManager.addAssistantMessage(state, response);
       }
       if (Object.keys(contextUpdates).length > 0) {
         state = this.contextManager.updateContext(state, contextUpdates);
       }
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // STEP: Call DataExtractionAgent AFTER worker agents complete
+      // This agent analyzes conversation and extracts missing context fields
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      if (agentProfileType === 'worker_reply_agent' || agentProfileType === 'worker_mcp_agent') {
+        console.log(`\n[AgentOrchestrator] 🔍 Calling DataExtractionAgent for post-processing...`);
+
+        const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(state);
+
+        console.log(`\n📊 [DATA EXTRACTION RESULT]`);
+        console.log(`   Extraction Reason: ${extractionResult.extractionReason}`);
+
+        if (extractionResult.fieldsUpdated && extractionResult.fieldsUpdated.length > 0) {
+          console.log(`   Fields Updated: ${extractionResult.fieldsUpdated.join(', ')}`);
+          console.log(`   Context Updates: ${JSON.stringify(extractionResult.contextUpdates, null, 2)}`);
+
+          // Merge extraction results into context
+          state = this.contextManager.updateContext(state, extractionResult.contextUpdates || {});
+
+          // Log extraction to llm.log
+          await this.logger.logAgentExecution({
+            agentType: 'data_extraction',
+            nodeName: state.currentNode,
+            result: extractionResult,
+            sessionId: state.sessionId,
+          });
+        } else {
+          console.log(`   No new fields extracted`);
+        }
+      }
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
       // CRITICAL: Append to conversation summary after each user-agent exchange
       // This populates summary_of_conversation_on_each_step_until_now array
