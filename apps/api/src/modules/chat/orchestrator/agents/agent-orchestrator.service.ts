@@ -22,6 +22,7 @@ import { WorkerMCPAgent, createWorkerMCPAgent } from './worker-mcp-agent.service
 import { NavigatorAgent, createNavigatorAgent } from './navigator-agent.service.js';
 import { DataExtractionAgent, createDataExtractionAgent } from './data-extraction-agent.service.js';
 import { getLLMLogger } from '../services/llm-logger.service.js';
+import { createAgentLogger, type AgentLogger } from '../services/agent-logger.service.js';
 import { getSessionMemoryDataService } from '../services/session-memory-data.service.js';
 import type { SessionMemoryData } from '../services/session-memory-data.service.js';
 
@@ -46,6 +47,9 @@ export class AgentOrchestratorService {
 
   // Context file directory
   private contextDir: string = './logs/contexts';
+
+  // Logging control - set via env var VERBOSE_AGENT_LOGS=true for detailed logs
+  private readonly VERBOSE_LOGS = process.env.VERBOSE_AGENT_LOGS === 'true';
 
   constructor() {
     this.stateManager = new StateManager();
@@ -319,13 +323,16 @@ export class AgentOrchestratorService {
     const maxIterations = 20; // Prevent infinite loops
     let loopBackIntention: string | undefined = undefined; // Track loop-back intention for current iteration
 
+    // Create session-scoped concise logger
+    const logger = createAgentLogger(state.sessionId);
+
     while (iterations < maxIterations) {
       iterations++;
-      console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-      console.log(`🔄 ITERATION ${iterations} - Current Node: ${state.currentNode}`);
-      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
-      // Log iteration start
+      // Concise iteration log
+      logger.iteration(iterations, state.currentNode, iterations === 1 ? userMessage : undefined);
+
+      // Log iteration start (detailed file logging)
       await this.logger.logIterationStart(
         iterations,
         state.sessionId,
@@ -333,74 +340,44 @@ export class AgentOrchestratorService {
         iterations === 1 ? userMessage : undefined
       );
 
-      // Log user message if present
-      if (iterations === 1 && userMessage) {
-        console.log(`[AgentOrchestrator] 👤 USER_MESSAGE: ${userMessage}`);
+      // Verbose context logging (only if enabled)
+      if (this.VERBOSE_LOGS) {
+        console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        console.log(`📊 [COMPLETE CONTEXT STATE - Iteration ${iterations}]`);
+        console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        console.log(`\n🎯 EXECUTION STATE:`);
+        console.log(`   Current Node: ${state.currentNode}`);
+        console.log(`   Previous Node: ${state.previousNode || '(none)'}`);
+        console.log(`   Loop Back Intention: ${state.loopBackIntention || '(none)'}`);
+        console.log(`   Conversation Ended: ${state.conversationEnded ? 'YES' : 'NO'}`);
+        if (state.endReason) console.log(`   End Reason: ${state.endReason}`);
+        console.log(`\n🗺️  NODE TRAVERSAL HISTORY (${state.context.node_traversed?.length || 0} nodes):`);
+        console.log(`   ${JSON.stringify(state.context.node_traversed || [], null, 2)}`);
+        console.log(`\n👤 CUSTOMER IDENTIFICATION:`);
+        console.log(`   ✓ customer_name: ${state.context.data_extraction_fields?.customer_name || '(not set)'}`);
+        console.log(`   ✓ customer_phone_number: ${state.context.data_extraction_fields?.customer_phone_number || '(not set)'}`);
+        console.log(`   ✓ customer_id: ${state.context.data_extraction_fields?.customer_id || '(not set)'}`);
+        console.log(`\n🎯 CUSTOMER NEED/PROBLEM:`);
+        console.log(`   ✓ customers_main_ask: ${state.context.data_extraction_fields?.customers_main_ask || '(not set)'}`);
+        console.log(`\n🔧 SERVICE MATCHING:`);
+        console.log(`   ✓ matching_service_catalog_to_solve_customers_issue: ${state.context.data_extraction_fields?.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
+        console.log(`\n📅 TASK/BOOKING:`);
+        console.log(`   ✓ task_id: ${state.context.data_extraction_fields?.task_id || '(not set)'}`);
+        console.log(`   ✓ appointment_details: ${state.context.data_extraction_fields?.appointment_details || '(not set)'}`);
+        console.log(`\n🧭 NAVIGATION/PLANNING:`);
+        console.log(`   ✓ next_node_to_go_to: ${state.context.next_node_to_go_to || '(not set)'}`);
+        console.log(`   ✓ next_course_of_action: ${state.context.next_course_of_action || '(not set)'}`);
+        console.log(`\n📋 RAW CONTEXT OBJECT (JSON):`);
+        console.log(JSON.stringify(state.context, null, 2));
+        console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
       }
-
-      // Log COMPLETE context data - show ALL fields being built
-      console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-      console.log(`📊 [COMPLETE CONTEXT STATE - Iteration ${iterations}]`);
-      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-
-      // Current execution state
-      console.log(`\n🎯 EXECUTION STATE:`);
-      console.log(`   Current Node: ${state.currentNode}`);
-      console.log(`   Previous Node: ${state.previousNode || '(none)'}`);
-      console.log(`   Loop Back Intention: ${state.loopBackIntention || '(none)'}`);
-      console.log(`   Conversation Ended: ${state.conversationEnded ? 'YES' : 'NO'}`);
-      if (state.endReason) console.log(`   End Reason: ${state.endReason}`);
-
-      // Navigation history
-      console.log(`\n🗺️  NODE TRAVERSAL HISTORY (${state.context.node_traversed?.length || 0} nodes):`);
-      console.log(`   ${JSON.stringify(state.context.node_traversed || [], null, 2)}`);
-
-      // Core identification fields
-      console.log(`\n👤 CUSTOMER IDENTIFICATION:`);
-      console.log(`   ✓ customer_name: ${state.context.data_extraction_fields?.customer_name || '(not set)'}`);
-      console.log(`   ✓ customer_phone_number: ${state.context.data_extraction_fields?.customer_phone_number || '(not set)'}`);
-      console.log(`   ✓ customer_id: ${state.context.data_extraction_fields?.customer_id || '(not set)'}`);
-
-      // Problem/need fields
-      console.log(`\n🎯 CUSTOMER NEED/PROBLEM:`);
-      console.log(`   ✓ customers_main_ask: ${state.context.data_extraction_fields?.customers_main_ask || '(not set)'}`);
-      console.log(`   ✓ related_entities_for_customers_ask: ${state.context.related_entities_for_customers_ask || '(not set)'}`);
-
-      // Service matching
-      console.log(`\n🔧 SERVICE MATCHING:`);
-      console.log(`   ✓ matching_service_catalog_to_solve_customers_issue: ${state.context.data_extraction_fields?.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
-
-      // Task/booking fields
-      console.log(`\n📅 TASK/BOOKING:`);
-      console.log(`   ✓ task_id: ${state.context.data_extraction_fields?.task_id || '(not set)'}`);
-      console.log(`   ✓ appointment_details: ${state.context.data_extraction_fields?.appointment_details || '(not set)'}`);
-
-      // Navigation/planning fields
-      console.log(`\n🧭 NAVIGATION/PLANNING:`);
-      console.log(`   ✓ next_node_to_go_to: ${state.context.next_node_to_go_to || '(not set)'}`);
-      console.log(`   ✓ next_course_of_action: ${state.context.next_course_of_action || '(not set)'}`);
-
-      // Conversation history (from messages array)
-      const conversationCount = Math.floor((state.messages?.length || 0) / 2); // Pairs of user+agent
-      console.log(`\n💬 CONVERSATION HISTORY (${conversationCount} exchanges, ${state.messages?.length || 0} total messages)`);
-
-      // Agent profile
-      console.log(`\n🤖 AGENT PROFILE:`);
-      console.log(`   ✓ who_are_you: ${state.context.who_are_you || '(not set)'}`);
-      console.log(`   ✓ agent_session_id: ${state.context.agent_session_id || '(not set)'}`);
-
-      // Raw context dump
-      console.log(`\n📋 RAW CONTEXT OBJECT (JSON):`);
-      console.log(JSON.stringify(state.context, null, 2));
-
-      console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
       // Log full context state to llm.log
       await this.logger.logContextState(state, 'CONTEXT BEFORE EXECUTION');
 
       // Check if conversation has ended
       if (state.conversationEnded) {
-        console.log(`[AgentOrchestrator] ✅ Conversation ended: ${state.endReason}`);
+        logger.end(state.endReason || 'unknown');
         break;
       }
 
@@ -417,23 +394,25 @@ export class AgentOrchestratorService {
           if (matchedCondition?.loop_back_intention) {
             loopBackIntention = matchedCondition.loop_back_intention;
             state.loopBackIntention = loopBackIntention; // Set in state for agents to use
-            console.log(`\n🔄 [LOOP-BACK CONTEXT]`);
-            console.log(`   Previous node: ${state.previousNode}`);
-            console.log(`   Current node: ${state.currentNode}`);
-            console.log(`   Loop-back intention: ${loopBackIntention}`);
+
+            if (this.VERBOSE_LOGS) {
+              console.log(`\n🔄 [LOOP-BACK CONTEXT]`);
+              console.log(`   Previous node: ${state.previousNode}`);
+              console.log(`   Current node: ${state.currentNode}`);
+              console.log(`   Loop-back intention: ${loopBackIntention}`);
+            }
 
             // Reset context fields if specified in branching condition
             if (matchedCondition?.context_reset && Array.isArray(matchedCondition.context_reset)) {
-              console.log(`   🔄 Resetting context fields: ${matchedCondition.context_reset.join(', ')}`);
+              if (this.VERBOSE_LOGS) {
+                console.log(`   🔄 Resetting context fields: ${matchedCondition.context_reset.join(', ')}`);
+              }
               const resetUpdates: any = {};
               matchedCondition.context_reset.forEach((field: string) => {
                 resetUpdates[field] = ''; // Reset to empty string
-                console.log(`      - ${field}: "${state.context[field]}" → "" (cleared for re-gathering)`);
               });
               state = this.contextManager.updateContext(state, resetUpdates);
             }
-
-            console.log(`   ⚠️  This is INTERNAL context for the LLM - NOT shown to customer\n`);
           }
         }
       }
@@ -442,20 +421,20 @@ export class AgentOrchestratorService {
       const currentNodeConfig = this.dagConfig.nodes.find(n => n.node_name === state.currentNode);
       const agentProfileType = currentNodeConfig?.agent_profile_type || 'worker_reply_agent';
 
-      console.log(`[AgentOrchestrator] 🎯 Node: ${state.currentNode}, Agent Type: ${agentProfileType}`);
-
       let response: string = '';
       let contextUpdates: any = {};
 
       if (agentProfileType === 'worker_mcp_agent') {
         // Use WorkerMCPAgent for MCP operations
-        console.log(`[AgentOrchestrator] 🔧 Executing WorkerMCPAgent`);
         const mcpResult = await this.workerMCPAgent.executeNode(state.currentNode, state);
+        logger.agent('worker_mcp', state.currentNode, mcpResult.statusMessage);
 
-        console.log(`\n📝 [WORKER MCP RESULT]`);
-        console.log(`   Status: "${mcpResult.statusMessage}"`);
-        console.log(`   Context Updates: ${JSON.stringify(mcpResult.contextUpdates, null, 2)}`);
-        console.log(`   MCP Executed: ${mcpResult.mcpExecuted}`);
+        if (this.VERBOSE_LOGS) {
+          console.log(`\n📝 [WORKER MCP RESULT]`);
+          console.log(`   Status: "${mcpResult.statusMessage}"`);
+          console.log(`   Context Updates: ${JSON.stringify(mcpResult.contextUpdates, null, 2)}`);
+          console.log(`   MCP Executed: ${mcpResult.mcpExecuted}`);
+        }
 
         response = mcpResult.statusMessage || '';
         contextUpdates = mcpResult.contextUpdates;
@@ -470,15 +449,12 @@ export class AgentOrchestratorService {
 
       } else if (agentProfileType === 'worker_reply_agent') {
         // Use WorkerReplyAgent for customer-facing responses
-        console.log(`[AgentOrchestrator] 🗣️  Executing WorkerReplyAgent`);
         const replyResult = await this.workerReplyAgent.executeNode(
           state.currentNode,
           state,
           iterations === 1 ? userMessage : undefined
         );
-
-        console.log(`\n📝 [WORKER REPLY RESULT]`);
-        console.log(`   Response: "${replyResult.response.substring(0, 100)}${replyResult.response.length > 100 ? '...' : ''}"`);
+        logger.agent('worker_reply', state.currentNode, replyResult.response);
 
         response = replyResult.response;
 
@@ -520,16 +496,17 @@ export class AgentOrchestratorService {
       // This agent analyzes conversation and extracts missing context fields
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       if (agentProfileType === 'worker_reply_agent' || agentProfileType === 'worker_mcp_agent') {
-        console.log(`\n[AgentOrchestrator] 🔍 Calling DataExtractionAgent for post-processing...`);
-
         const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(state);
 
-        console.log(`\n📊 [DATA EXTRACTION RESULT]`);
-        console.log(`   Extraction Reason: ${extractionResult.extractionReason}`);
-
         if (extractionResult.fieldsUpdated && extractionResult.fieldsUpdated.length > 0) {
-          console.log(`   Fields Updated: ${extractionResult.fieldsUpdated.join(', ')}`);
-          console.log(`   Context Updates: ${JSON.stringify(extractionResult.contextUpdates, null, 2)}`);
+          logger.extraction(extractionResult.fieldsUpdated);
+
+          if (this.VERBOSE_LOGS) {
+            console.log(`\n📊 [DATA EXTRACTION RESULT]`);
+            console.log(`   Extraction Reason: ${extractionResult.extractionReason}`);
+            console.log(`   Fields Updated: ${extractionResult.fieldsUpdated.join(', ')}`);
+            console.log(`   Context Updates: ${JSON.stringify(extractionResult.contextUpdates, null, 2)}`);
+          }
 
           // Merge extraction results into context
           state = this.contextManager.updateContext(state, extractionResult.contextUpdates || {});
@@ -601,41 +578,54 @@ export class AgentOrchestratorService {
       // Write context file after worker execution
       await this.writeContextFile(state, `node:${state.currentNode}`);
 
-      // Show what changed after worker execution
-      console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-      console.log(`📊 [CONTEXT AFTER WORKER EXECUTION]`);
-      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-      console.log(`\n👤 CUSTOMER DATA:`);
-      console.log(`   ✓ customer_name: ${state.context.data_extraction_fields?.customer_name || '(not set)'}`);
-      console.log(`   ✓ customer_phone_number: ${state.context.data_extraction_fields?.customer_phone_number || '(not set)'}`);
-      console.log(`   ✓ customer_id: ${state.context.data_extraction_fields?.customer_id || '(not set)'}`);
-      console.log(`\n🎯 PROBLEM/SERVICE:`);
-      console.log(`   ✓ customers_main_ask: ${state.context.data_extraction_fields?.customers_main_ask || '(not set)'}`);
-      console.log(`   ✓ service_catalog: ${state.context.data_extraction_fields?.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
-      console.log(`\n📅 TASK/BOOKING:`);
-      console.log(`   ✓ task_id: ${state.context.data_extraction_fields?.task_id || '(not set)'}`);
-      console.log(`   ✓ appointment_details: ${state.context.data_extraction_fields?.appointment_details || '(not set)'}`);
-      console.log(`\n🗺️  NAVIGATION HISTORY (${state.context.node_traversed?.length || 0} nodes):`);
-      console.log(`   ${JSON.stringify(state.context.node_traversed || [], null, 2)}`);
-      const msgCount = Math.floor((state.messages?.length || 0) / 2);
-      const summaryCount = state.context.summary_of_conversation_on_each_step_until_now?.length || 0;
-      console.log(`\n💬 CONVERSATION (${summaryCount} indexed exchanges in summary, ${msgCount} exchanges in messages array)`);
-      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+      // Concise snapshot after worker execution
+      logger.snapshot({
+        node: state.currentNode,
+        customer_name: state.context.data_extraction_fields?.customer_name,
+        customer_phone: state.context.data_extraction_fields?.customer_phone_number,
+        main_ask: state.context.data_extraction_fields?.customers_main_ask,
+        task_id: state.context.data_extraction_fields?.task_id,
+        traversed: state.context.node_traversed?.length
+      });
+
+      if (this.VERBOSE_LOGS) {
+        console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        console.log(`📊 [CONTEXT AFTER WORKER EXECUTION]`);
+        console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        console.log(`\n👤 CUSTOMER DATA:`);
+        console.log(`   ✓ customer_name: ${state.context.data_extraction_fields?.customer_name || '(not set)'}`);
+        console.log(`   ✓ customer_phone_number: ${state.context.data_extraction_fields?.customer_phone_number || '(not set)'}`);
+        console.log(`   ✓ customer_id: ${state.context.data_extraction_fields?.customer_id || '(not set)'}`);
+        console.log(`\n🎯 PROBLEM/SERVICE:`);
+        console.log(`   ✓ customers_main_ask: ${state.context.data_extraction_fields?.customers_main_ask || '(not set)'}`);
+        console.log(`   ✓ service_catalog: ${state.context.data_extraction_fields?.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
+        console.log(`\n📅 TASK/BOOKING:`);
+        console.log(`   ✓ task_id: ${state.context.data_extraction_fields?.task_id || '(not set)'}`);
+        console.log(`   ✓ appointment_details: ${state.context.data_extraction_fields?.appointment_details || '(not set)'}`);
+        console.log(`\n🗺️  NAVIGATION HISTORY (${state.context.node_traversed?.length || 0} nodes):`);
+        console.log(`   ${JSON.stringify(state.context.node_traversed || [], null, 2)}`);
+        const msgCount = Math.floor((state.messages?.length || 0) / 2);
+        const summaryCount = state.context.summary_of_conversation_on_each_step_until_now?.length || 0;
+        console.log(`\n💬 CONVERSATION (${summaryCount} indexed exchanges in summary, ${msgCount} exchanges in messages array)`);
+        console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+      }
 
       // STEP 2: Navigator Agent decides next node AFTER execution
-      console.log(`[AgentOrchestrator] 🧭 Consulting Navigator for next step...`);
       const navigatorDecision = await this.navigatorAgent.decideNextNode(state);
+      logger.navigate(state.currentNode, navigatorDecision.nextNode, navigatorDecision.reason);
 
-      console.log(`\n🧭 [NAVIGATOR DECISION]`);
-      console.log(`   Validation: ${navigatorDecision.validationStatus.onTrack ? '✅ ON TRACK' : '⚠️ OFF TRACK'}`);
-      console.log(`   Reason: ${navigatorDecision.validationStatus.reason}`);
-      console.log(`   Current Node: ${state.currentNode}`);
-      console.log(`   Next Node: ${navigatorDecision.nextNode}`);
-      console.log(`   Matched Condition: ${navigatorDecision.matchedCondition || 'Using default_next_node'}`);
-      console.log(`   Next Action: ${navigatorDecision.nextCourseOfAction}`);
-      console.log(`   Routing Reason: ${navigatorDecision.reason}`);
-      if (navigatorDecision.mcpToolsNeeded && navigatorDecision.mcpToolsNeeded.length > 0) {
-        console.log(`   MCP Tools Needed: ${navigatorDecision.mcpToolsNeeded.join(', ')}`);
+      if (this.VERBOSE_LOGS) {
+        console.log(`\n🧭 [NAVIGATOR DECISION]`);
+        console.log(`   Validation: ${navigatorDecision.validationStatus.onTrack ? '✅ ON TRACK' : '⚠️ OFF TRACK'}`);
+        console.log(`   Reason: ${navigatorDecision.validationStatus.reason}`);
+        console.log(`   Current Node: ${state.currentNode}`);
+        console.log(`   Next Node: ${navigatorDecision.nextNode}`);
+        console.log(`   Matched Condition: ${navigatorDecision.matchedCondition || 'Using default_next_node'}`);
+        console.log(`   Next Action: ${navigatorDecision.nextCourseOfAction}`);
+        console.log(`   Routing Reason: ${navigatorDecision.reason}`);
+        if (navigatorDecision.mcpToolsNeeded && navigatorDecision.mcpToolsNeeded.length > 0) {
+          console.log(`   MCP Tools Needed: ${navigatorDecision.mcpToolsNeeded.join(', ')}`);
+        }
       }
 
       // Log navigator decision to llm.log
