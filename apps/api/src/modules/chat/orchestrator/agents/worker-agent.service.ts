@@ -103,7 +103,7 @@ export class WorkerAgent {
       console.log(`[WorkerAgent] 📦 Context contributions: ${contextKeys.join(', ')}`);
 
       // Show new values for mandatory fields
-      const mandatoryFields = this.dagConfig.graph_config?.mandatory_fields || [];
+      const mandatoryFields = (this.dagConfig as any).global_context_schema_semantics?.mandatory_fields || [];
       for (const field of mandatoryFields) {
         if (contextUpdates[field]) {
           const isNew = !state.context[field] || state.context[field] === '';
@@ -130,7 +130,7 @@ export class WorkerAgent {
 
     // Parse which fields this node should build
     const expectedFields = this.parseExpectedContextFields(node);
-    const mandatoryFields = this.dagConfig.graph_config?.mandatory_fields || [];
+    const mandatoryFields = (this.dagConfig as any).global_context_schema_semantics?.mandatory_fields || [];
 
     return `${llmFramework.architecture || 'Multi-Agent Conversation System'}
 

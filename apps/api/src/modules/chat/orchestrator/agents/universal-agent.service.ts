@@ -308,19 +308,8 @@ Execute your task now:`;
       }
     }
 
-    // Handle node flag updates if agent is worker type
-    if (this.agentType === 'worker' && currentContext.flags) {
-      const nodeFlagMapping = (this.dagConfig.routing_config as any)?.node_flag_mapping?.mappings || {};
-      const currentNode = output.current_node || currentContext.node_traversal_path?.slice(-1)[0];
-      const flagName = nodeFlagMapping[currentNode];
-
-      if (flagName) {
-        updates.flags = {
-          ...currentContext.flags,
-          [flagName]: 1,
-        };
-      }
-    }
+    // Node execution tracking is now handled by node_traversal_path in orchestrator
+    // No flag-based tracking needed here
 
     return updates;
   }

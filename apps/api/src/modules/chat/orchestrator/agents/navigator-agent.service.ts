@@ -237,7 +237,7 @@ OUTPUT FORMAT (strict JSON):
     const nodeTraversalPath = fullContext.node_traversal_path || [];
 
     // Extract ONLY essential context fields for routing (mandatory fields + actively tracked fields)
-    const mandatoryFields = this.dagConfig.graph_config?.mandatory_fields || ['customers_main_ask', 'customer_phone_number'];
+    const mandatoryFields = (this.dagConfig as any).global_context_schema_semantics?.mandatory_fields || ['customers_main_ask', 'customer_phone_number'];
     const essentialContext: Record<string, any> = {};
 
     // Add mandatory fields
