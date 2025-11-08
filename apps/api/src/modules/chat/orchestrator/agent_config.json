@@ -420,11 +420,11 @@
         "call_ended",
         "hangup_status"
       ],
-      "default_next_node": null,
+      "default_next_node": "END",
       "branching_conditions": [
         {
           "condition": "if hangup successful",
-          "child_node": null,
+          "child_node": "END",
           "advance_type": "stepwise"
         },
         {

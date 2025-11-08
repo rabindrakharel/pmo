@@ -524,6 +524,27 @@ export class AgentOrchestratorService {
 
       // Check if we should end conversation
       if (navigatorDecision.nextNode === 'END') {
+        // Special case: If we're coming from Execute_Call_Hangup, end the entire conversation
+        if (state.currentNode === 'Execute_Call_Hangup') {
+          console.log(`\n📞 [CALL HANGUP COMPLETE]`);
+          console.log(`   MCP hangup executed successfully`);
+          console.log(`   Ending conversation with status: Call Terminated`);
+          state = this.contextManager.endConversation(state, 'Call Terminated');
+          console.log(`   conversationEnded: ${state.conversationEnded}`);
+          console.log(`   endReason: ${state.endReason}`);
+
+          // Log iteration end
+          await this.logger.logIterationEnd({
+            iteration: iterations,
+            nextNode: 'END',
+            conversationEnded: true,
+            endReason: state.endReason,
+            sessionId: state.sessionId,
+          });
+          break;
+        }
+
+        // Normal END: wait for user input
         console.log(`\n🛑 [END OF TURN]`);
         console.log(`   Reason: Waiting for user input`);
         console.log(`   Current node remains: ${state.currentNode}`);
