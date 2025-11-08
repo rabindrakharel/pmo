@@ -108,7 +108,22 @@ export class AgentOrchestratorService {
       };
 
       await fs.writeFile(filePath, JSON.stringify(snapshot, null, 2), 'utf-8');
-      console.log(`[AgentOrchestrator] 💾 context_${state.sessionId.substring(0, 8)}...json (${action})`);
+
+      const truncatedId = state.sessionId.substring(0, 8);
+      const shortAction = action.length > 50 ? action.substring(0, 47) + '...' : action;
+      console.log(`[AgentOrchestrator] 💾 context_${truncatedId}...json (${shortAction})`);
+
+      // ========================================================================
+      // DUMP COMPLETE CONTEXT JSON FILE TO LOGS (User Requested)
+      // ========================================================================
+      console.log(`\n┌════════════════════════════════════════════════════════════════════┐`);
+      console.log(`│ 📄 COMPLETE CONTEXT JSON FILE - ${shortAction.padEnd(40)} │`);
+      console.log(`│ File: context_${truncatedId}.json${' '.repeat(43 - truncatedId.length)}│`);
+      console.log(`└════════════════════════════════════════════════════════════════════┘`);
+      console.log(JSON.stringify(snapshot, null, 2));
+      console.log(`┌════════════════════════════════════════════════════════════════════┐`);
+      console.log(`│ END OF CONTEXT JSON FILE${' '.repeat(44)}│`);
+      console.log(`└════════════════════════════════════════════════════════════════════┘\n`);
     } catch (error: any) {
       console.error(`[AgentOrchestrator] ❌ Failed to write context file: ${error.message}`);
     }
