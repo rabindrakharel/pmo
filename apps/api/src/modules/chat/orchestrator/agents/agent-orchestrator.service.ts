@@ -365,16 +365,9 @@ export class AgentOrchestratorService {
       console.log(`   ✓ next_node_to_go_to: ${state.context.next_node_to_go_to || '(not set)'}`);
       console.log(`   ✓ next_course_of_action: ${state.context.next_course_of_action || '(not set)'}`);
 
-      // Conversation summary
-      console.log(`\n💬 CONVERSATION SUMMARY (${state.context.summary_of_conversation_on_each_step_until_now?.length || 0} exchanges):`);
-      if (state.context.summary_of_conversation_on_each_step_until_now && state.context.summary_of_conversation_on_each_step_until_now.length > 0) {
-        state.context.summary_of_conversation_on_each_step_until_now.forEach((exchange, idx) => {
-          console.log(`   [${idx + 1}] Customer: "${exchange.customer?.substring(0, 80)}${exchange.customer?.length > 80 ? '...' : ''}"`);
-          console.log(`       Agent: "${exchange.agent?.substring(0, 80)}${exchange.agent?.length > 80 ? '...' : ''}"`);
-        });
-      } else {
-        console.log(`   (no exchanges yet)`);
-      }
+      // Conversation history (from messages array)
+      const conversationCount = Math.floor((state.messages?.length || 0) / 2); // Pairs of user+agent
+      console.log(`\n💬 CONVERSATION HISTORY (${conversationCount} exchanges, ${state.messages?.length || 0} total messages)`);
 
       // Agent profile
       console.log(`\n🤖 AGENT PROFILE:`);
@@ -542,23 +535,11 @@ export class AgentOrchestratorService {
       }
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-      // CRITICAL: Append to conversation summary after each user-agent exchange
-      // This populates summary_of_conversation_on_each_step_until_now array
-      if (iterations === 1 && userMessage && response) {
-        // First iteration: append user message and agent response
-        const currentSummary = state.context.summary_of_conversation_on_each_step_until_now || [];
-        state = this.contextManager.updateContext(state, {
-          summary_of_conversation_on_each_step_until_now: [
-            ...currentSummary,
-            {
-              customer: userMessage,
-              agent: response
-            }
-          ]
-        });
-        console.log(`[AgentOrchestrator] 📝 Appended to conversation summary (total: ${(state.context.summary_of_conversation_on_each_step_until_now || []).length})`);
+      // REMOVED: summary_of_conversation_on_each_step_until_now (duplicate of messages array)
+      // DataExtractionAgent now reads from state.messages directly
 
-        // Log conversation turn to llm.log
+      // Log conversation turn to llm.log (only on first iteration)
+      if (iterations === 1 && userMessage && response) {
         await this.logger.logConversationTurn({
           userMessage,
           aiResponse: response,
@@ -597,7 +578,8 @@ export class AgentOrchestratorService {
       console.log(`   ✓ appointment_details: ${state.context.data_extraction_fields?.appointment_details || '(not set)'}`);
       console.log(`\n🗺️  NAVIGATION HISTORY (${state.context.node_traversed?.length || 0} nodes):`);
       console.log(`   ${JSON.stringify(state.context.node_traversed || [], null, 2)}`);
-      console.log(`\n💬 CONVERSATION (${state.context.summary_of_conversation_on_each_step_until_now?.length || 0} exchanges)`);
+      const msgCount = Math.floor((state.messages?.length || 0) / 2);
+      console.log(`\n💬 CONVERSATION (${msgCount} exchanges, ${state.messages?.length || 0} messages)`);
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
       // STEP 2: Navigator Agent decides next node AFTER execution
@@ -636,6 +618,62 @@ export class AgentOrchestratorService {
         next_node_to_go_to: navigatorDecision.nextNode,
         next_course_of_action: navigatorDecision.nextCourseOfAction,
       });
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // LOOP DETECTION SAFEGUARD
+      // Prevent infinite loops by detecting when same node is visited 3+ times
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      const recentNodes = (state.context.node_traversed || []).slice(-6); // Last 6 nodes
+      const nextNodeCount = recentNodes.filter(n => n === navigatorDecision.nextNode).length;
+
+      if (nextNodeCount >= 3) {
+        console.log(`\n🚨 [LOOP DETECTION] ${navigatorDecision.nextNode} visited ${nextNodeCount} times in last 6 nodes`);
+        console.log(`   Recent path: ${JSON.stringify(recentNodes)}`);
+        console.log(`   🔧 FORCING ESCAPE from infinite loop...`);
+
+        // Find the node configuration
+        const currentNodeConfig = this.dagConfig.nodes.find(n => n.node_name === state.currentNode);
+
+        // Escape strategy based on node type
+        if (navigatorDecision.nextNode === 'Try_To_Gather_Customers_Data') {
+          // Force move to next node even if data is missing
+          console.log(`   🔧 Forcing escape: Try_To_Gather_Customers_Data → Check_IF_existing_customer`);
+          console.log(`   ⚠️  WARNING: Moving forward with incomplete data to prevent loop`);
+          navigatorDecision.nextNode = 'Check_IF_existing_customer';
+        } else if (navigatorDecision.nextNode === 'ASK_CUSTOMER_ABOUT_THEIR_NEED') {
+          // Force move to next step
+          console.log(`   🔧 Forcing escape: ASK_CUSTOMER_ABOUT_THEIR_NEED → Extract_Customer_Issue`);
+          navigatorDecision.nextNode = 'Extract_Customer_Issue';
+        } else if (currentNodeConfig?.default_next_node) {
+          // Generic escape: use default_next_node
+          console.log(`   🔧 Forcing escape: ${navigatorDecision.nextNode} → ${currentNodeConfig.default_next_node}`);
+          navigatorDecision.nextNode = currentNodeConfig.default_next_node;
+        } else {
+          // Last resort: skip to Goodbye
+          console.log(`   🔧 Forcing escape: ${navigatorDecision.nextNode} → Goodbye_And_Hangup (last resort)`);
+          navigatorDecision.nextNode = 'Goodbye_And_Hangup';
+        }
+
+        // Update context with forced escape
+        state = this.contextManager.updateContext(state, {
+          next_node_to_go_to: navigatorDecision.nextNode,
+          next_course_of_action: `LOOP DETECTED - Forced escape from infinite loop`,
+        });
+
+        // Log to llm.log
+        await this.logger.logAgentExecution({
+          agentType: 'loop_detection',
+          nodeName: state.currentNode,
+          result: {
+            loopDetected: true,
+            originalNextNode: recentNodes[recentNodes.length - 1],
+            forcedNextNode: navigatorDecision.nextNode,
+            recentPath: recentNodes
+          },
+          sessionId: state.sessionId,
+        });
+      }
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
       console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       console.log(`📊 [CONTEXT AFTER NAVIGATOR DECISION]`);

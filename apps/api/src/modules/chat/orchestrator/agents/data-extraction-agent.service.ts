@@ -37,18 +37,34 @@ export class DataExtractionAgent {
   async extractAndUpdateContext(state: AgentContextState): Promise<DataExtractionResult> {
     console.log(`\n🔍 [DataExtractionAgent] Analyzing conversation for context updates...`);
 
-    // Get last 4 conversation exchanges from persistent context
-    const conversationHistory = state.context.summary_of_conversation_on_each_step_until_now || [];
-    const last4Exchanges = conversationHistory.slice(-4);
+    // Get last 8 messages from state.messages (4 user + 4 assistant exchanges)
+    const allMessages = state.messages || [];
+    const last8Messages = allMessages.slice(-8);
 
-    if (last4Exchanges.length === 0) {
+    if (last8Messages.length === 0) {
       console.log(`[DataExtractionAgent] No conversation history - skipping`);
       return {
         extractionReason: 'No conversation history available'
       };
     }
 
-    console.log(`[DataExtractionAgent] 📝 Analyzing last ${last4Exchanges.length} conversation exchanges`);
+    // Convert messages to exchange format for analysis
+    const exchanges: Array<{ customer: string; agent: string }> = [];
+    for (let i = 0; i < last8Messages.length; i += 2) {
+      const userMsg = last8Messages[i];
+      const agentMsg = last8Messages[i + 1];
+
+      if (userMsg?.role === 'user' && agentMsg?.role === 'assistant') {
+        exchanges.push({
+          customer: userMsg.content,
+          agent: agentMsg.content
+        });
+      }
+    }
+
+    const last4Exchanges = exchanges.slice(-4);
+
+    console.log(`[DataExtractionAgent] 📝 Analyzing last ${last4Exchanges.length} conversation exchanges (from messages array)`);
     console.log(`[DataExtractionAgent] Exchanges:`, JSON.stringify(last4Exchanges, null, 2));
 
     // Identify which context fields are still empty (nested under data_extraction_fields)
@@ -79,8 +95,17 @@ export class DataExtractionAgent {
     // Build prompt for LLM
     const systemPrompt = this.buildExtractionPrompt(last4Exchanges, emptyFields, state.context);
 
+    // 🔍 DEBUG: Log extraction prompt
+    console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`[DataExtractionAgent] 🔍 DEBUG: Extraction Prompt Preview`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(systemPrompt.substring(0, 500) + '...\n');
+
     // Get local tools for context updates
     const localTools = getLocalTools();
+
+    // 🔍 DEBUG: Log tools available
+    console.log(`[DataExtractionAgent] 🔍 DEBUG: Tools available: ${localTools.map((t: any) => t.function.name).join(', ')}`);
 
     // Call LLM with tool calling capability
     const openaiService = getOpenAIService();
@@ -95,7 +120,19 @@ export class DataExtractionAgent {
       tools: localTools, // Give LLM access to updateContext tool
     });
 
-    console.log(`[DataExtractionAgent] 🤖 LLM Response: ${result.content?.substring(0, 200) || '(no text response)'}...`);
+    // 🔍 DEBUG: Log full LLM response
+    console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`[DataExtractionAgent] 🔍 DEBUG: LLM Response`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`   Content: ${result.content || '(no content)'}`);
+    console.log(`   Tool Calls: ${result.tool_calls ? result.tool_calls.length : 0}`);
+    if (result.tool_calls && result.tool_calls.length > 0) {
+      result.tool_calls.forEach((tc: any, idx: number) => {
+        console.log(`   [${idx + 1}] Tool: ${tc.function.name}`);
+        console.log(`       Args: ${tc.function.arguments}`);
+      });
+    }
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
     // Handle tool calls if LLM made any
     let contextUpdates: Record<string, any> = {};
@@ -107,24 +144,39 @@ export class DataExtractionAgent {
       for (const toolCall of result.tool_calls) {
         if (toolCall.function.name === 'updateContext') {
           console.log(`[DataExtractionAgent] 🔧 Processing updateContext call...`);
-          console.log(`[DataExtractionAgent] Arguments: ${toolCall.function.arguments}`);
+          console.log(`[DataExtractionAgent] 🔍 DEBUG: Raw arguments: ${toolCall.function.arguments}`);
 
           try {
             const toolArgs = JSON.parse(toolCall.function.arguments);
+            console.log(`[DataExtractionAgent] 🔍 DEBUG: Parsed arguments:`, JSON.stringify(toolArgs, null, 2));
+
             const toolResult = await executeUpdateContext(state, toolArgs);
+
+            console.log(`[DataExtractionAgent] 🔍 DEBUG: Tool execution result:`);
+            console.log(`   Success: ${toolResult.success}`);
+            console.log(`   Fields updated: ${toolResult.fieldsUpdated.join(', ')}`);
+            console.log(`   Updates:`, JSON.stringify(toolResult.updates, null, 2));
 
             if (toolResult.success) {
               contextUpdates = { ...contextUpdates, ...toolResult.updates };
               fieldsUpdated = [...new Set([...fieldsUpdated, ...toolResult.fieldsUpdated])];
               console.log(`[DataExtractionAgent] ✅ Successfully extracted ${toolResult.fieldsUpdated.length} fields`);
+            } else {
+              console.error(`[DataExtractionAgent] ⚠️ Tool execution returned success=false`);
             }
           } catch (error: any) {
             console.error(`[DataExtractionAgent] ❌ Failed to parse tool arguments: ${error.message}`);
+            console.error(`[DataExtractionAgent] 🔍 DEBUG: Error stack:`, error.stack);
           }
         }
       }
     } else {
       console.log(`[DataExtractionAgent] ℹ️  LLM did not call any tools - no extractable data found`);
+      console.log(`[DataExtractionAgent] 🔍 DEBUG: This could mean:`);
+      console.log(`   1. No phone number/name/data found in last 4 exchanges`);
+      console.log(`   2. LLM decided all fields already populated`);
+      console.log(`   3. LLM didn't understand the task`);
+      console.log(`   4. Tool calling is not working properly`);
     }
 
     // Return results

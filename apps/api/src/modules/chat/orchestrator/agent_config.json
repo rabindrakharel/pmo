@@ -3,9 +3,9 @@
     "description": "Multiple specialized agent profiles work together: WorkerReplyAgent generates customer responses, WorkerMCPAgent executes tools and updates context, NavigatorAgent decides routing",
     "workflow": "worker_reply_agent generates response \u2192 worker_mcp_agent (if needed) calls MCP tools and updates context \u2192 navigator_agent validates direction AND decides next node \u2192 all updates go to context.json",
     "node_navigator_agent": {
-      "input_context_template": "Conversation of customer service agent and customer is given here {summary_of_conversation_on_each_step_until_now}. I want you to select a node based on these conditions {branching_conditions}. The conversation has already been through these nodes: {node_traversed}. Here's the data that was gathered {context_data}",
+      "input_context_template": "Conversation of customer service agent and customer is given here {messages_array}. I want you to select a node based on these conditions {branching_conditions}. The conversation has already been through these nodes: {node_traversed}. Here's the data that was gathered {context_data}",
       "input_context_variables": {
-        "summary_of_conversation_on_each_step_until_now": "Replace with context.summary_of_conversation_on_each_step_until_now array (format: [{customer: 'msg', agent: 'resp'}, ...])",
+        "messages_array": "Replace with state.messages array (OpenAI format: [{role: 'user', content: '...'}, {role: 'assistant', content: '...'}])",
         "branching_conditions": "Replace with current_node.branching_conditions array from agent_config.json",
         "node_traversed": "Replace with context.node_traversed array (e.g., ['GREET_CUSTOMER', 'ASK_CUSTOMER_ABOUT_THEIR_NEED'])",
         "context_data": "Replace with entire context.json object (includes context.data_extraction_fields.customer_name, context.data_extraction_fields.customers_main_ask, context.flags, etc.)"
@@ -737,7 +737,6 @@
         "next_course_of_action": "",
         "next_node_to_go_to": "GREET_CUSTOMER",
         "node_traversed": [],
-        "summary_of_conversation_on_each_step_until_now": [],
         "flags": {}
       },
       "instructions_for_orchestrator": [
@@ -745,10 +744,11 @@
         "2. Replace <session_uuid> with actual session ID",
         "3. Initialize flags object as empty {}",
         "4. As conversation progresses, UPDATE fields (never replace entire context)",
-        "5. APPEND to arrays (node_traversed, summary_of_conversation_on_each_step_until_now)",
+        "5. APPEND to node_traversed array as nodes are visited",
         "6. Preserve all existing context fields when updating",
         "7. Update data_extraction_fields as a nested object (access via context.data_extraction_fields.customer_name, etc.)",
-        "8. Log context state after each iteration for debugging"
+        "8. Log context state after each iteration for debugging",
+        "9. Conversation history is stored in state.messages array (OpenAI format), NOT in context"
       ]
     }
   }
