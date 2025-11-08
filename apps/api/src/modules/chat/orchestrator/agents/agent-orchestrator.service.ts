@@ -473,6 +473,16 @@ export class AgentOrchestratorService {
 
         response = replyResult.response;
 
+        // WorkerReplyAgent may have called updateContext tool internally
+        if (replyResult.contextUpdates) {
+          console.log(`[WorkerReplyAgent] 🔧 LLM called updateContext tool`);
+          console.log(`[WorkerReplyAgent] ✅ Extracted fields: ${replyResult.fieldsUpdated?.join(', ')}`);
+          contextUpdates = {
+            ...contextUpdates,
+            ...replyResult.contextUpdates
+          };
+        }
+
         // Log agent execution
         await this.logger.logAgentExecution({
           agentType: 'worker_reply',
@@ -480,29 +490,6 @@ export class AgentOrchestratorService {
           result: replyResult,
           sessionId: state.sessionId,
         });
-
-        // ========================================================================
-        // INTELLIGENT CONTEXT UPDATE - Extract from conversation (Factory MCP)
-        // ========================================================================
-        console.log(`\n🧠 [ContextUpdateMCP] Running intelligent context extraction...`);
-        const initialContextTemplate = this.dagConfig.graph_config?.initial_context_template || { template: {} };
-        const contextUpdateResult = await this.contextUpdateMCP.updateContextFromConversation(
-          state,
-          initialContextTemplate
-        );
-
-        if (contextUpdateResult.fieldsUpdated.length > 0) {
-          console.log(`[ContextUpdateMCP] ✅ Auto-extracted ${contextUpdateResult.fieldsUpdated.length} fields:`, contextUpdateResult.fieldsUpdated);
-          console.log(`[ContextUpdateMCP] 📝 Reason: ${contextUpdateResult.extractionReason}`);
-
-          // Merge automatic updates with any existing contextUpdates
-          contextUpdates = {
-            ...contextUpdates,
-            ...contextUpdateResult.updates
-          };
-        } else {
-          console.log(`[ContextUpdateMCP] ℹ️  No new information to extract`);
-        }
 
       } else if (agentProfileType === 'internal') {
         // Internal nodes (wait_for_customers_reply) - no agent execution needed
