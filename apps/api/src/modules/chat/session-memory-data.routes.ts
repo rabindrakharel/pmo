@@ -1,4 +1,4 @@
-import { FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { getSessionMemoryDataService } from './orchestrator/services/session-memory-data.service.js';
 
