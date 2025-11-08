@@ -284,17 +284,17 @@
         {
           "condition": "if customer exists",
           "child_node": "Plan",
-          "advance_type": "stepwise"
+          "advance_type": "auto"
         },
         {
           "condition": "if customer does not exist",
           "child_node": "Plan",
-          "advance_type": "stepwise"
+          "advance_type": "auto"
         },
         {
           "condition": "if customer changes issue in response",
           "child_node": "Extract_Customer_Issue",
-          "advance_type": "stepwise"
+          "advance_type": "auto"
         }
       ]
     },
@@ -312,17 +312,17 @@
         {
           "condition": "if plan requires additional MCP fetch",
           "child_node": "use_mcp_to_get_info",
-          "advance_type": "stepwise"
+          "advance_type": "auto"
         },
         {
           "condition": "if plan already exists (plan_flag: 1)",
           "child_node": "Communicate_To_Customer_Before_Action",
-          "advance_type": "stepwise"
+          "advance_type": "auto"
         },
         {
           "condition": "if customer changes issue",
           "child_node": "Extract_Customer_Issue",
-          "advance_type": "stepwise",
+          "advance_type": "auto",
           "loop_back_intention": "Customer has mentioned a different issue than before. Extract the new issue and restart the conversation flow with the updated need."
         }
       ]
@@ -365,18 +365,18 @@
         {
           "condition": "if execution requires additional info",
           "child_node": "use_mcp_to_get_info",
-          "advance_type": "stepwise"
+          "advance_type": "auto"
         },
         {
           "condition": "if execution fails",
           "child_node": "Plan",
-          "advance_type": "stepwise",
+          "advance_type": "auto",
           "loop_back_intention": "Plan execution failed. Go back to planning to create an alternative approach. Acknowledge the failure and reassure the customer."
         },
         {
           "condition": "if customer changes issue",
           "child_node": "Extract_Customer_Issue",
-          "advance_type": "stepwise",
+          "advance_type": "auto",
           "loop_back_intention": "Customer has mentioned a different issue than before. Extract the new issue and restart the conversation flow with the updated need."
         }
       ]
