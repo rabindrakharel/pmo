@@ -20,6 +20,7 @@ import {
 import { WorkerReplyAgent, createWorkerReplyAgent } from './worker-reply-agent.service.js';
 import { WorkerMCPAgent, createWorkerMCPAgent } from './worker-mcp-agent.service.js';
 import { NavigatorAgent, createNavigatorAgent } from './navigator-agent.service.js';
+import { ContextUpdateMCP } from './context-update-mcp.service.js';
 import { getLLMLogger } from '../services/llm-logger.service.js';
 
 /**
@@ -36,6 +37,7 @@ export class AgentOrchestratorService {
   private workerReplyAgent!: WorkerReplyAgent;
   private workerMCPAgent!: WorkerMCPAgent;
   private navigatorAgent!: NavigatorAgent;
+  private contextUpdateMCP!: ContextUpdateMCP;
 
   // In-memory state cache (replace LangGraph checkpointer)
   private stateCache: Map<string, AgentContextState> = new Map();
@@ -162,11 +164,13 @@ export class AgentOrchestratorService {
       this.workerReplyAgent = createWorkerReplyAgent(this.dagConfig);
       this.workerMCPAgent = createWorkerMCPAgent(this.dagConfig, this.mcpAdapter);
       this.navigatorAgent = createNavigatorAgent(this.dagConfig);
+      this.contextUpdateMCP = new ContextUpdateMCP();
 
       console.log('[AgentOrchestrator] ✅ Agents initialized');
       console.log('[AgentOrchestrator]    - WorkerReplyAgent: Customer-facing responses');
       console.log('[AgentOrchestrator]    - WorkerMCPAgent: MCP tool execution');
       console.log('[AgentOrchestrator]    - NavigatorAgent: Routing decisions');
+      console.log('[AgentOrchestrator]    - ContextUpdateMCP: Intelligent context extraction');
       console.log(`[AgentOrchestrator] Total nodes: ${this.dagConfig.nodes.length}`);
     } catch (error: any) {
       console.error('[AgentOrchestrator] ❌ Failed to initialize agents:', error.message);
@@ -476,6 +480,29 @@ export class AgentOrchestratorService {
           result: replyResult,
           sessionId: state.sessionId,
         });
+
+        // ========================================================================
+        // INTELLIGENT CONTEXT UPDATE - Extract from conversation (Factory MCP)
+        // ========================================================================
+        console.log(`\n🧠 [ContextUpdateMCP] Running intelligent context extraction...`);
+        const initialContextTemplate = this.dagConfig.graph_config?.initial_context_template || { template: {} };
+        const contextUpdateResult = await this.contextUpdateMCP.updateContextFromConversation(
+          state,
+          initialContextTemplate
+        );
+
+        if (contextUpdateResult.fieldsUpdated.length > 0) {
+          console.log(`[ContextUpdateMCP] ✅ Auto-extracted ${contextUpdateResult.fieldsUpdated.length} fields:`, contextUpdateResult.fieldsUpdated);
+          console.log(`[ContextUpdateMCP] 📝 Reason: ${contextUpdateResult.extractionReason}`);
+
+          // Merge automatic updates with any existing contextUpdates
+          contextUpdates = {
+            ...contextUpdates,
+            ...contextUpdateResult.updates
+          };
+        } else {
+          console.log(`[ContextUpdateMCP] ℹ️  No new information to extract`);
+        }
 
       } else if (agentProfileType === 'internal') {
         // Internal nodes (wait_for_customers_reply) - no agent execution needed
