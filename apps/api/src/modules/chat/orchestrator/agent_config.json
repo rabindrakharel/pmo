@@ -132,11 +132,13 @@
       "branching_conditions": [
         {
           "condition": "if customer stated their issue in first message",
-          "child_node": "Extract_Customer_Issue"
+          "child_node": "Extract_Customer_Issue",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if customer just greeted (no issue mentioned)",
-          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED"
+          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED",
+          "advance_type": "stepwise"
         }
       ]
     },
@@ -153,15 +155,18 @@
       "branching_conditions": [
         {
           "condition": "if customer has stated their need (in current or previous messages)",
-          "child_node": "Extract_Customer_Issue"
+          "child_node": "Extract_Customer_Issue",
+          "advance_type": "auto"
         },
         {
           "condition": "if customer has NOT stated any need yet (just greetings)",
-          "child_node": "wait_for_customers_reply"
+          "child_node": "wait_for_customers_reply",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if response unclear or no intent detected after asking",
-          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED"
+          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED",
+          "advance_type": "stepwise"
         }
       ]
     },
@@ -177,9 +182,14 @@
       "expected_context_fields": [
         "customers_main_ask"
       ],
-      "auto_advance": true,
       "default_next_node": "Acknowledge_And_Empathize",
-      "branching_conditions": []
+      "branching_conditions": [
+        {
+          "condition": "if customer's issue has been extracted and stored in customers_main_ask",
+          "advance_type": "auto",
+          "child_node": "Acknowledge_And_Empathize"
+        }
+      ]
     },
     {
       "node_name": "Acknowledge_And_Empathize",
@@ -193,9 +203,14 @@
       "expected_context_fields": [
         "customers_main_ask"
       ],
-      "auto_advance": true,
       "default_next_node": "Try_To_Gather_Customers_Data",
-      "branching_conditions": []
+      "branching_conditions": [
+        {
+          "condition": "if customer's issue has been acknowledged and empathy shown",
+          "advance_type": "auto",
+          "child_node": "Try_To_Gather_Customers_Data"
+        }
+      ]
     },
     {
       "node_name": "Try_To_Gather_Customers_Data",
@@ -214,15 +229,18 @@
       "branching_conditions": [
         {
           "condition": "if data not complete (e.g., missing mandatory customer_phone_number)",
-          "child_node": "Try_To_Gather_Customers_Data"
+          "child_node": "Try_To_Gather_Customers_Data",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if customer wants to update data",
-          "child_node": "Try_To_Gather_Customers_Data"
+          "child_node": "Try_To_Gather_Customers_Data",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if customer changes issue in response",
-          "child_node": "Extract_Customer_Issue"
+          "child_node": "Extract_Customer_Issue",
+          "advance_type": "stepwise"
         }
       ]
     },
@@ -239,15 +257,18 @@
       "branching_conditions": [
         {
           "condition": "if customer exists",
-          "child_node": "Plan"
+          "child_node": "Plan",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if customer does not exist",
-          "child_node": "Plan"
+          "child_node": "Plan",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if customer changes issue in response",
-          "child_node": "Extract_Customer_Issue"
+          "child_node": "Extract_Customer_Issue",
+          "advance_type": "stepwise"
         }
       ]
     },
@@ -264,15 +285,18 @@
       "branching_conditions": [
         {
           "condition": "if plan requires additional MCP fetch",
-          "child_node": "use_mcp_to_get_info"
+          "child_node": "use_mcp_to_get_info",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if plan already exists (plan_flag: 1)",
-          "child_node": "Communicate_To_Customer_Before_Action"
+          "child_node": "Communicate_To_Customer_Before_Action",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if customer changes issue",
-          "child_node": "Extract_Customer_Issue"
+          "child_node": "Extract_Customer_Issue",
+          "advance_type": "stepwise"
         }
       ]
     },
@@ -289,11 +313,13 @@
       "branching_conditions": [
         {
           "condition": "if customer does not consent or requests changes",
-          "child_node": "Plan"
+          "child_node": "Plan",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if customer changes issue in response",
-          "child_node": "Extract_Customer_Issue"
+          "child_node": "Extract_Customer_Issue",
+          "advance_type": "stepwise"
         }
       ]
     },
@@ -310,15 +336,18 @@
       "branching_conditions": [
         {
           "condition": "if execution requires additional info",
-          "child_node": "use_mcp_to_get_info"
+          "child_node": "use_mcp_to_get_info",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if execution fails",
-          "child_node": "Plan"
+          "child_node": "Plan",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if customer changes issue",
-          "child_node": "Extract_Customer_Issue"
+          "child_node": "Extract_Customer_Issue",
+          "advance_type": "stepwise"
         }
       ]
     },
@@ -335,11 +364,13 @@
       "branching_conditions": [
         {
           "condition": "if customer has further questions",
-          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED"
+          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if customer changes issue in response",
-          "child_node": "Extract_Customer_Issue"
+          "child_node": "Extract_Customer_Issue",
+          "advance_type": "stepwise"
         }
       ]
     },
@@ -356,11 +387,13 @@
       "branching_conditions": [
         {
           "condition": "if customer continues conversation",
-          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED"
+          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if customer changes issue",
-          "child_node": "Extract_Customer_Issue"
+          "child_node": "Extract_Customer_Issue",
+          "advance_type": "stepwise"
         }
       ]
     },
@@ -381,11 +414,13 @@
       "branching_conditions": [
         {
           "condition": "if hangup successful",
-          "child_node": null
+          "child_node": null,
+          "advance_type": "stepwise"
         },
         {
           "condition": "if hangup fails (retry once)",
-          "child_node": "Execute_Call_Hangup"
+          "child_node": "Execute_Call_Hangup",
+          "advance_type": "stepwise"
         }
       ]
     },
@@ -402,27 +437,33 @@
       "branching_conditions": [
         {
           "condition": "if customer message contains explicit phone number pattern (e.g., 555-1234, (555) 123-4567, 5551234567) - check for digits and dashes/parentheses",
-          "child_node": "Try_To_Gather_Customers_Data"
+          "child_node": "Try_To_Gather_Customers_Data",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if customer provides a person's name explicitly (e.g., 'My name is John', 'I'm Sarah', 'This is Mike') - NOT service names",
-          "child_node": "Try_To_Gather_Customers_Data"
+          "child_node": "Try_To_Gather_Customers_Data",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if customer message contains email address pattern (e.g., user@domain.com)",
-          "child_node": "Try_To_Gather_Customers_Data"
+          "child_node": "Try_To_Gather_Customers_Data",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if customers_main_ask is empty string or not populated yet",
-          "child_node": "Extract_Customer_Issue"
+          "child_node": "Extract_Customer_Issue",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if customer describes a NEW different issue/problem (not just elaborating on existing issue)",
-          "child_node": "Extract_Customer_Issue"
+          "child_node": "Extract_Customer_Issue",
+          "advance_type": "stepwise"
         },
         {
           "condition": "if customer just acknowledges (ok, sure, yes, alright) AND customers_main_ask already exists",
-          "child_node": "Try_To_Gather_Customers_Data"
+          "child_node": "Try_To_Gather_Customers_Data",
+          "advance_type": "stepwise"
         }
       ]
     },

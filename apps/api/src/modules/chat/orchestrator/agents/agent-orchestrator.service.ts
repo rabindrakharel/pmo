@@ -549,23 +549,47 @@ export class AgentOrchestratorService {
       console.log(`   New current node: ${state.currentNode}`);
       console.log(`   Previous node: ${state.previousNode || 'N/A'}`);
 
-      // Check if the NEW node has auto_advance flag
-      const nextNodeConfig = this.dagConfig.nodes.find(n => n.node_name === state.currentNode);
-      const shouldAutoAdvance = nextNodeConfig?.auto_advance === true;
+      // Check advance_type from the matched branching condition
+      // If the transition was made via a branching condition with advance_type='auto', continue
+      // If advance_type='stepwise' or no match, break and wait for user
+      const prevNodeConfig = this.dagConfig.nodes.find(n => n.node_name === previousNode);
+      let shouldAutoAdvance = false;
+      let matchedBranchingCondition: any = null;
 
-      // If auto-advance is enabled, continue to next iteration immediately
-      if (shouldAutoAdvance && iterations < maxIterations) {
-        console.log(`\n⚡ [AUTO-ADVANCE ENABLED]`);
-        console.log(`   Node ${state.currentNode} has auto_advance=true`);
-        console.log(`   Continuing to execute next node without waiting for user input...`);
-        // Don't break - continue the loop
-        continue;
+      // Find the branching condition that led to the current node
+      if (prevNodeConfig?.branching_conditions) {
+        matchedBranchingCondition = prevNodeConfig.branching_conditions.find(
+          (bc: any) => bc.child_node === state.currentNode
+        );
+
+        if (matchedBranchingCondition) {
+          shouldAutoAdvance = matchedBranchingCondition.advance_type === 'auto';
+          console.log(`\n🔀 [ROUTING TYPE]`);
+          console.log(`   Matched branching condition: ${matchedBranchingCondition.condition || '(no condition text)'}`);
+          console.log(`   Advance type: ${matchedBranchingCondition.advance_type || '(not set)'}`);
+          console.log(`   Child node: ${matchedBranchingCondition.child_node}`);
+        }
       }
 
-      // Break to wait for user response when:
-      // 1. First iteration completed AND current node doesn't have auto_advance
-      // 2. Auto-advance chain completed (no more auto_advance nodes)
-      console.log(`\n💬 [TURN COMPLETE]`);
+      // If no matching condition found, check if transition was via default_next_node
+      if (!matchedBranchingCondition && prevNodeConfig?.default_next_node === state.currentNode) {
+        console.log(`\n🔀 [ROUTING TYPE]`);
+        console.log(`   Used default_next_node (no branching condition matched)`);
+        console.log(`   Advance type: stepwise (default behavior)`);
+        shouldAutoAdvance = false;
+      }
+
+      // Auto-advance: continue to next iteration immediately
+      if (shouldAutoAdvance && iterations < maxIterations) {
+        console.log(`\n⚡ [AUTO-ADVANCE ENABLED]`);
+        console.log(`   Transition has advance_type='auto'`);
+        console.log(`   Continuing to execute next node without waiting for user input...`);
+        continue; // Don't break - continue the loop
+      }
+
+      // Stepwise: break and wait for user response
+      console.log(`\n💬 [TURN COMPLETE - STEPWISE]`);
+      console.log(`   Transition has advance_type='stepwise' or default`);
       console.log(`   Breaking loop to wait for next user message`);
       console.log(`   Final state context:`);
       console.log(`     - currentNode: ${state.currentNode}`);
