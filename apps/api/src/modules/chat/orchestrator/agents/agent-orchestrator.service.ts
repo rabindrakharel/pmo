@@ -620,58 +620,100 @@ export class AgentOrchestratorService {
       });
 
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // LOOP DETECTION SAFEGUARD
-      // Prevent infinite loops by detecting when same node is visited 3+ times
+      // LOOP DETECTION & RETRY GUIDANCE
+      // Track repeated visits to same node and provide guidance to try differently
+      // Data is NEVER erased - only approach varies
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      const recentNodes = (state.context.node_traversed || []).slice(-6); // Last 6 nodes
+      const recentNodes = (state.context.node_traversed || []).slice(-10); // Last 10 nodes
       const nextNodeCount = recentNodes.filter(n => n === navigatorDecision.nextNode).length;
 
-      if (nextNodeCount >= 3) {
-        console.log(`\n🚨 [LOOP DETECTION] ${navigatorDecision.nextNode} visited ${nextNodeCount} times in last 6 nodes`);
+      // Initialize loop tracking in context if not exists
+      if (!state.context.loop_tracking) {
+        state = this.contextManager.updateContext(state, {
+          loop_tracking: {}
+        });
+      }
+
+      const loopTracking = state.context.loop_tracking || {};
+      const nodeKey = navigatorDecision.nextNode;
+
+      // Track visit count and attempt index for this node
+      if (!loopTracking[nodeKey]) {
+        loopTracking[nodeKey] = { visits: 0, last_attempt: '' };
+      }
+      loopTracking[nodeKey].visits = nextNodeCount + 1;
+
+      if (nextNodeCount >= 2) {
+        console.log(`\n🔄 [LOOP DETECTED] ${navigatorDecision.nextNode} visited ${nextNodeCount + 1} times`);
         console.log(`   Recent path: ${JSON.stringify(recentNodes)}`);
-        console.log(`   🔧 FORCING ESCAPE from infinite loop...`);
+        console.log(`   ℹ️  Providing retry guidance to try different approach...`);
+        console.log(`   ⚠️  IMPORTANT: Data collected so far is PRESERVED`);
 
-        // Find the node configuration
-        const currentNodeConfig = this.dagConfig.nodes.find(n => n.node_name === state.currentNode);
+        // Generate retry guidance based on node type and attempt number
+        let retryGuidance = '';
 
-        // Escape strategy based on node type
         if (navigatorDecision.nextNode === 'Try_To_Gather_Customers_Data') {
-          // Force move to next node even if data is missing
-          console.log(`   🔧 Forcing escape: Try_To_Gather_Customers_Data → Check_IF_existing_customer`);
-          console.log(`   ⚠️  WARNING: Moving forward with incomplete data to prevent loop`);
-          navigatorDecision.nextNode = 'Check_IF_existing_customer';
+          const attempts = loopTracking[nodeKey].visits;
+          const dataFields = state.context.data_extraction_fields || {};
+
+          if (attempts === 3) {
+            retryGuidance = `This is attempt #${attempts} to gather customer data. Try a different approach:\n`;
+            retryGuidance += `- Currently have: name="${dataFields.customer_name || '(missing)'}", phone="${dataFields.customer_phone_number || '(missing)'}"\n`;
+            retryGuidance += `- Try asking: "To help you better, could you share your contact number?"\n`;
+            retryGuidance += `- Be more direct and specific about what's needed`;
+          } else if (attempts === 4) {
+            retryGuidance = `This is attempt #${attempts}. Try offering value:\n`;
+            retryGuidance += `- Example: "So I can send you updates about the service, what's a good number to reach you?"\n`;
+            retryGuidance += `- Explain WHY you need the information`;
+          } else if (attempts >= 5) {
+            retryGuidance = `This is attempt #${attempts}. Offer alternative:\n`;
+            retryGuidance += `- Example: "I can proceed with partial information. Would you like to continue or provide a contact number?"\n`;
+            retryGuidance += `- Give customer option to skip if they prefer`;
+          } else {
+            retryGuidance = `Try rephrasing the question differently. Current data: ${JSON.stringify(dataFields)}`;
+          }
+
         } else if (navigatorDecision.nextNode === 'ASK_CUSTOMER_ABOUT_THEIR_NEED') {
-          // Force move to next step
-          console.log(`   🔧 Forcing escape: ASK_CUSTOMER_ABOUT_THEIR_NEED → Extract_Customer_Issue`);
-          navigatorDecision.nextNode = 'Extract_Customer_Issue';
-        } else if (currentNodeConfig?.default_next_node) {
-          // Generic escape: use default_next_node
-          console.log(`   🔧 Forcing escape: ${navigatorDecision.nextNode} → ${currentNodeConfig.default_next_node}`);
-          navigatorDecision.nextNode = currentNodeConfig.default_next_node;
+          const attempts = loopTracking[nodeKey].visits;
+
+          if (attempts === 3) {
+            retryGuidance = `Customer response unclear. Try:\n`;
+            retryGuidance += `- Ask more specific questions about their issue\n`;
+            retryGuidance += `- Example: "What specific problem are you experiencing with your [roof/plumbing/etc]?"`;
+          } else if (attempts >= 4) {
+            retryGuidance = `Provide examples to help customer:\n`;
+            retryGuidance += `- Example: "For example, is it a leak, damage, installation, or something else?"\n`;
+            retryGuidance += `- Give concrete options to choose from`;
+          }
+
         } else {
-          // Last resort: skip to Goodbye
-          console.log(`   🔧 Forcing escape: ${navigatorDecision.nextNode} → Goodbye_And_Hangup (last resort)`);
-          navigatorDecision.nextNode = 'Goodbye_And_Hangup';
+          retryGuidance = `Attempt #${loopTracking[nodeKey].visits}. Try varying your approach to gather required information.`;
         }
 
-        // Update context with forced escape
+        // Update context with retry guidance (NEVER reset data)
         state = this.contextManager.updateContext(state, {
-          next_node_to_go_to: navigatorDecision.nextNode,
-          next_course_of_action: `LOOP DETECTED - Forced escape from infinite loop`,
+          next_course_of_action: retryGuidance,
+          loop_tracking: loopTracking
         });
 
-        // Log to llm.log
+        // Log loop detection event
         await this.logger.logAgentExecution({
           agentType: 'loop_detection',
           nodeName: state.currentNode,
           result: {
             loopDetected: true,
-            originalNextNode: recentNodes[recentNodes.length - 1],
-            forcedNextNode: navigatorDecision.nextNode,
-            recentPath: recentNodes
+            attemptNumber: loopTracking[nodeKey].visits,
+            nextNode: navigatorDecision.nextNode,
+            retryGuidance,
+            dataPreserved: true,
+            recentPath: recentNodes,
+            currentData: state.context.data_extraction_fields
           },
           sessionId: state.sessionId,
         });
+
+        console.log(`   📝 Retry guidance: ${retryGuidance.substring(0, 100)}...`);
+        console.log(`   ✅ All collected data preserved: ${Object.keys(state.context.data_extraction_fields || {}).filter(k => state.context.data_extraction_fields[k]).join(', ')}`);
       }
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
