@@ -31,6 +31,7 @@ export interface NodeConfig {
     condition?: string; // Optional: LLM-evaluated condition (use sparingly)
     advance_type: 'auto' | 'stepwise'; // auto = continue behind scenes, stepwise = wait for user
     child_node: string;
+    loop_back_intention?: string; // Explains WHY looping back (only for self-loops or backward navigation)
   }>;
 }
 

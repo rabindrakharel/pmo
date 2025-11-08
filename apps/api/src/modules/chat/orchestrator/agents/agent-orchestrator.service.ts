@@ -568,6 +568,13 @@ export class AgentOrchestratorService {
           console.log(`   Matched branching condition: ${matchedBranchingCondition.condition || '(no condition text)'}`);
           console.log(`   Advance type: ${matchedBranchingCondition.advance_type || '(not set)'}`);
           console.log(`   Child node: ${matchedBranchingCondition.child_node}`);
+
+          // Log loop-back intention if present
+          if (matchedBranchingCondition.loop_back_intention) {
+            console.log(`\n🔄 [LOOP-BACK DETECTED]`);
+            console.log(`   Loop-back intention: ${matchedBranchingCondition.loop_back_intention}`);
+            console.log(`   Agent should: Rephrase differently and empathetically`);
+          }
         }
       }
 
