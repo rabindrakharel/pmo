@@ -176,11 +176,18 @@ DECISION PROCESS:
 4. CHOOSE 1 node from the available child nodes above based on which condition matches
 5. If NO conditions match, choose the default_next_node
 
+CONDITION EVALUATION STRATEGY:
+Use these data sources to evaluate branching conditions:
+1. node_traversal_path: Array of already-visited nodes (e.g., ["GREET_CUSTOMER", "Identify_Issue"])
+2. summary_of_conversation_on_each_step_until_now: Conversation progress and what's been discussed
+3. context_data: Gathered information (customer_name, customers_main_ask, customer_phone_number, etc.)
+
 CONDITION EVALUATION EXAMPLES:
-- "if issue already identified" → check if identify_issue_flag: 1 in context.flags
+- "if issue already identified" → check if "Identify_Issue" in node_traversal_path
 - "if customer changes issue" → check if user message contradicts context.customers_main_ask
 - "if data not complete (missing mandatory customer_phone_number)" → check if context.customer_phone_number is empty
 - "if customer does not consent" → check user message for rejection signals
+- "if rapport already built" → check if "Console_Build_Rapport" in node_traversal_path
 
 MANDATORY FIELDS TO VALIDATE:
 - customers_main_ask (what customer needs)
@@ -191,14 +198,13 @@ CRITICAL RULES:
 2. CHOOSE EXACTLY 1 node from available child nodes
 3. NEVER return current node as nextNode
 4. Return "END" only when waiting for user response (not in child node list)
-5. Flags with value 1 = completed, 0 = pending
+5. Use node_traversal_path to track which nodes have already been executed
 
 OUTPUT FORMAT (strict JSON):
 {
   "validationStatus": {
     "onTrack": true/false,
-    "reason": "brief validation explanation",
-    "flagResets": {}
+    "reason": "brief validation explanation"
   },
   "nextNode": "EXACTLY one node name from available child nodes OR 'END'",
   "nextCourseOfAction": "one sentence describing what happens next",
@@ -227,11 +233,12 @@ OUTPUT FORMAT (strict JSON):
     // CRITICAL: Only last 3 conversation summary exchanges (not all 255!)
     const recentSummary = (fullContext.summary_of_conversation_on_each_step_until_now || []).slice(-3);
 
+    // Extract node traversal path (which nodes have been visited)
+    const nodeTraversalPath = fullContext.node_traversal_path || [];
+
     // Extract ONLY essential context fields for routing (mandatory fields + actively tracked fields)
-    const mandatoryFields = this.dagConfig.graph_config?.mandatory_fields || ['customers_main_ask', 'customer_phone_number'];
-    const essentialContext: Record<string, any> = {
-      flags: fullContext.flags || {}
-    };
+    const mandatoryFields = (this.dagConfig as any).global_context_schema_semantics?.mandatory_fields || ['customers_main_ask', 'customer_phone_number'];
+    const essentialContext: Record<string, any> = {};
 
     // Add mandatory fields
     for (const field of mandatoryFields) {
@@ -270,8 +277,11 @@ ${defaultNextNode}
 CONTEXT FOR EVALUATION:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🚩 Flags (1=done, 0=pending):
-${JSON.stringify(essentialContext.flags, null, 2)}
+🛤️  Node Traversal Path (which nodes have already been executed):
+${JSON.stringify(nodeTraversalPath, null, 2)}
+
+📝 Recent Conversation (last 3 exchanges):
+${JSON.stringify(recentSummary, null, 2)}
 
 📊 Mandatory Fields:
 - customers_main_ask: ${essentialContext.customers_main_ask || '(not set)'}
@@ -279,9 +289,6 @@ ${JSON.stringify(essentialContext.flags, null, 2)}
 
 💬 Last User Message:
 ${lastUserMessage || '(no message)'}
-
-📝 Recent Conversation (last 3 exchanges):
-${JSON.stringify(recentSummary, null, 2)}
 
 🔍 Active Context Fields:
 ${JSON.stringify(essentialContext, null, 2)}
@@ -310,26 +317,6 @@ Return your routing decision as strict JSON.`;
   private getLastUserMessage(state: AgentContextState): string {
     const userMessages = state.messages.filter(m => m.role === 'user');
     return userMessages.length > 0 ? userMessages[userMessages.length - 1].content : '';
-  }
-
-  /**
-   * Check if node should be skipped based on flags
-   * Reads flag mapping from dag.json routing_config.node_flag_mapping
-   */
-  shouldSkipNode(nodeName: string, context: DAGContext): boolean {
-    // Read flag mapping from dag.json instead of hardcoding
-    const nodeFlagMapping = (this.dagConfig.routing_config as any)?.node_flag_mapping?.mappings || {};
-    const flagName = nodeFlagMapping[nodeName];
-
-    if (flagName && context.flags) {
-      const shouldSkip = context.flags[flagName] === 1;
-      if (shouldSkip) {
-        console.log(`[NavigatorAgent] ⏭️  Skip ${nodeName}: ${flagName} = 1 (from dag.json)`);
-      }
-      return shouldSkip;
-    }
-
-    return false;
   }
 
   /**

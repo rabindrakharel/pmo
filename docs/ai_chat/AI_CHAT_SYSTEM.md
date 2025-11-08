@@ -1427,6 +1427,104 @@ grep "NAVIGATOR DECISION" ./logs/llm.log
 
 ---
 
-**Document Version**: 2.4.0
-**System Version**: 2.4.0 - Context System Verified & Fixed
+## 14. Routing Strategy: node_traversal_path-Based (2025-11-08)
+
+### Problem with Flag-Based Routing
+
+**Previous Approach (REMOVED):**
+- Navigator used `context.flags` (e.g., `greet_flag: 1`, `rapport_flag: 1`) to track node completion
+- Flags had to be manually set after each node execution
+- Flags were mutable state that could be reset or incorrectly managed
+- Navigator evaluated conditions like "if rapport_flag: 1" to determine next node
+
+**Issues:**
+- Flags were never being set → Navigator couldn't evaluate conditions properly
+- Conversation loops: Identify_Issue → Empathize → Console_Build_Rapport → back to Identify_Issue
+- State machine couldn't progress because flags remained empty: `Flags: {}`
+
+### New Approach: node_traversal_path-Based Routing
+
+**Current Implementation:**
+
+The Navigator now uses **immutable conversation history** instead of mutable flags:
+
+```typescript
+// Context data sources for routing decisions
+{
+  node_traversal_path: ["GREET_CUSTOMER", "Identify_Issue", "Empathize"],
+  summary_of_conversation_on_each_step_until_now: [
+    { customer: "roof leaking", agent: "I understand..." },
+    { customer: "yes it's urgent", agent: "Let me help..." }
+  ],
+  customers_main_ask: "Roof leaking issue",
+  customer_phone_number: "(not set)"
+}
+```
+
+**Routing Logic:**
+
+```typescript
+// Navigator evaluates branching conditions using node_traversal_path
+"if rapport already built"
+  → check if "Console_Build_Rapport" in node_traversal_path
+
+"if issue already identified"
+  → check if "Identify_Issue" in node_traversal_path
+
+"if customer changes issue"
+  → check if user message contradicts context.customers_main_ask
+
+"if data not complete"
+  → check if context.customer_phone_number is empty
+```
+
+**Implementation:**
+
+```typescript
+// apps/api/src/modules/chat/orchestrator/agents/agent-orchestrator.service.ts
+// After worker agent executes, append current node to traversal path
+const currentPath = state.context.node_traversal_path || [];
+if (!currentPath.includes(state.currentNode)) {
+  state = this.contextManager.updateContext(state, {
+    node_traversal_path: [state.currentNode]  // Non-destructive merge appends
+  });
+}
+
+// apps/api/src/modules/chat/orchestrator/agents/navigator-agent.service.ts
+// Navigator receives node_traversal_path in context
+const nodeTraversalPath = fullContext.node_traversal_path || [];
+
+// Passed to LLM for condition evaluation
+🛤️  Node Traversal Path: ["GREET_CUSTOMER", "Identify_Issue"]
+📝 Recent Conversation (last 3 exchanges): [...]
+📊 Mandatory Fields: customers_main_ask, customer_phone_number
+```
+
+**Benefits:**
+
+1. **Stateless Routing**: Node history is immutable, never needs to be reset
+2. **Automatic Tracking**: Orchestrator appends to `node_traversal_path` after each execution
+3. **Clear Conditions**: "if rapport already built" = check if node in traversal path
+4. **No Manual Flags**: No need to set/reset flags, just check history
+5. **Loop Prevention**: Can detect if node was already executed
+6. **Conversation Continuity**: Full context preserved in `summary_of_conversation_on_each_step_until_now`
+
+**Removed Components:**
+
+- ❌ `shouldSkipNode()` method (flag-based)
+- ❌ Flag reset logic in orchestrator
+- ❌ Flag-based condition examples in Navigator prompt
+- ❌ `validationStatus.flagResets` in Navigator output
+
+**New Components:**
+
+- ✅ `node_traversal_path` tracking in orchestrator (lines 430-440)
+- ✅ `node_traversal_path` passed to Navigator (line 237)
+- ✅ Node history-based condition examples
+- ✅ Immutable state tracking
+
+---
+
+**Document Version**: 2.5.0
+**System Version**: 2.5.0 - node_traversal_path-Based Routing
 **Last Updated**: 2025-11-08

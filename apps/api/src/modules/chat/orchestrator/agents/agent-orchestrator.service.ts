@@ -305,7 +305,7 @@ export class AgentOrchestratorService {
       // Log context BEFORE execution
       console.log(`📊 [CONTEXT BEFORE EXECUTION]`);
       console.log(`   Current Node: ${state.currentNode}`);
-      console.log(`   Flags: ${JSON.stringify(state.context.flags || {}, null, 2)}`);
+      console.log(`   Node Traversal Path: ${JSON.stringify(state.context.node_traversal_path || [], null, 2)}`);
       console.log(`   Mandatory Fields:`);
       console.log(`     - customers_main_ask: ${state.context.customers_main_ask || '(not set)'}`);
       console.log(`     - customer_phone_number: ${state.context.customer_phone_number || '(not set)'}`);
@@ -314,8 +314,7 @@ export class AgentOrchestratorService {
       console.log(`     - service_catalog: ${state.context.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
       console.log(`     - task_id: ${state.context.task_id || '(not set)'}`);
       console.log(`     - next_node_to_go_to: ${state.context.next_node_to_go_to || '(not set)'}`);
-      console.log(`     - next_course_of_action: ${state.context.next_course_of_action || '(not set)'}`);
-      console.log(`     - node_path: ${JSON.stringify(state.context.node_traversal_path || [])}\n`);
+      console.log(`     - next_course_of_action: ${state.context.next_course_of_action || '(not set)'}\n`);
 
       // Log full context state to llm.log
       await this.logger.logContextState(state, 'CONTEXT BEFORE EXECUTION');
@@ -427,11 +426,23 @@ export class AgentOrchestratorService {
         });
       }
 
+      // CRITICAL: Track node execution by appending to node_traversal_path
+      // This enables Navigator to make decisions based on which nodes have been visited
+      const currentPath = state.context.node_traversal_path || [];
+      if (!currentPath.includes(state.currentNode)) {
+        state = this.contextManager.updateContext(state, {
+          node_traversal_path: [state.currentNode]  // Will be appended by non-destructive merge
+        });
+        console.log(`[AgentOrchestrator] 🗺️  Added ${state.currentNode} to node_traversal_path (total: ${(state.context.node_traversal_path || []).length})`);
+      } else {
+        console.log(`[AgentOrchestrator] 🗺️  ${state.currentNode} already in node_traversal_path (skipping duplicate)`);
+      }
+
       // Write context file after worker execution
       await this.writeContextFile(state, `node:${state.currentNode}`);
 
       console.log(`\n📊 [CONTEXT AFTER WORKER]`);
-      console.log(`   Flags: ${JSON.stringify(state.context.flags || {}, null, 2)}`);
+      console.log(`   node_traversal_path: ${JSON.stringify(state.context.node_traversal_path || [], null, 2)}`);
       console.log(`   customers_main_ask: ${state.context.customers_main_ask || '(not set)'}`);
       console.log(`   customer_phone_number: ${state.context.customer_phone_number || '(not set)'}`);
       console.log(`   customer_name: ${state.context.customer_name || '(not set)'}`);
@@ -460,24 +471,13 @@ export class AgentOrchestratorService {
         decision: navigatorDecision.validationStatus.onTrack ? 'On Track' : 'Off Track',
         nextNode: navigatorDecision.nextNode,
         reason: navigatorDecision.reason,
-        contextUpdates: navigatorDecision.validationStatus.flagResets,
         sessionId: state.sessionId,
       });
 
-      // Apply flag resets if conversation is off-track
+      // Log validation status if off-track
       if (!navigatorDecision.validationStatus.onTrack) {
-        console.log(`\n⚠️ [APPLYING FLAG RESETS]`);
+        console.log(`\n⚠️ [VALIDATION WARNING]`);
         console.log(`   Off-track reason: ${navigatorDecision.validationStatus.reason}`);
-
-        if (navigatorDecision.validationStatus.flagResets) {
-          console.log(`   Flag resets: ${JSON.stringify(navigatorDecision.validationStatus.flagResets, null, 2)}`);
-          state = this.contextManager.updateContext(state, {
-            flags: {
-              ...state.context.flags,
-              ...navigatorDecision.validationStatus.flagResets,
-            },
-          });
-        }
       }
 
       // Update context with navigator decisions
@@ -489,7 +489,7 @@ export class AgentOrchestratorService {
       console.log(`\n📊 [CONTEXT AFTER NAVIGATOR]`);
       console.log(`   next_node_to_go_to: ${state.context.next_node_to_go_to}`);
       console.log(`   next_course_of_action: ${state.context.next_course_of_action}`);
-      console.log(`   Flags: ${JSON.stringify(state.context.flags || {}, null, 2)}\n`);
+      console.log(`   node_traversal_path: ${JSON.stringify(state.context.node_traversal_path || [], null, 2)}\n`);
 
       // Log Navigator's decision
       console.log(`[AgentOrchestrator] ➡️  Navigator decision: ${state.currentNode} → ${navigatorDecision.nextNode}`);
@@ -501,7 +501,7 @@ export class AgentOrchestratorService {
         console.log(`\n🛑 [END OF TURN]`);
         console.log(`   Reason: Waiting for user input`);
         console.log(`   Current node remains: ${state.currentNode}`);
-        console.log(`   Final context flags: ${JSON.stringify(state.context.flags || {}, null, 2)}`);
+        console.log(`   Node traversal path: ${JSON.stringify(state.context.node_traversal_path || [], null, 2)}`);
 
         // Log iteration end
         await this.logger.logIterationEnd({
