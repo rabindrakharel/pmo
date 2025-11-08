@@ -211,6 +211,9 @@ export class AgentOrchestratorService {
     endReason?: string;
   }> {
     try {
+      // Ensure SessionMemoryDataService is initialized before processing
+      await this.initializeSessionMemoryData();
+
       // Ensure agents are initialized
       if (!this.dagConfig) {
         await this.initializeAgents();
@@ -976,6 +979,9 @@ export class AgentOrchestratorService {
    * Get session status
    */
   async getSessionStatus(sessionId: string): Promise<any> {
+    // Ensure SessionMemoryDataService is initialized
+    await this.initializeSessionMemoryData();
+
     const session = await this.stateManager.getSession(sessionId);
     if (!session) {
       return null;

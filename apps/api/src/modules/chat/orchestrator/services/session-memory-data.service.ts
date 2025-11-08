@@ -32,6 +32,7 @@ export interface SessionMemoryData {
       matching_service_catalog_to_solve_customers_issue: string;
       related_entities_for_customers_ask: string;
       task_id: string;
+      task_name: string;
       appointment_details: string;
       project_id: string;
       assigned_employee_id: string;
