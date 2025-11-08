@@ -36,6 +36,7 @@ export interface AgentContextState {
   // Current execution state
   currentNode: string;
   previousNode?: string;
+  loopBackIntention?: string; // Internal context: why agent is looping back (not shown to customer)
 
   // Completion status
   completed: boolean;

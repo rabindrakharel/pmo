@@ -282,6 +282,7 @@ export class AgentOrchestratorService {
     let state = initialState;
     let iterations = 0;
     const maxIterations = 20; // Prevent infinite loops
+    let loopBackIntention: string | undefined = undefined; // Track loop-back intention for current iteration
 
     while (iterations < maxIterations) {
       iterations++;
@@ -326,6 +327,28 @@ export class AgentOrchestratorService {
       if (state.conversationEnded) {
         console.log(`[AgentOrchestrator] ✅ Conversation ended: ${state.endReason}`);
         break;
+      }
+
+      // Detect loop-back intention BEFORE executing node
+      // Check if current node was reached via a loop-back condition
+      loopBackIntention = undefined; // Reset for this iteration
+      state.loopBackIntention = undefined; // Clear from state
+      if (iterations > 1 && state.previousNode) {
+        const prevNodeConfig = this.dagConfig.nodes.find(n => n.node_name === state.previousNode);
+        if (prevNodeConfig?.branching_conditions) {
+          const matchedCondition = prevNodeConfig.branching_conditions.find(
+            (bc: any) => bc.child_node === state.currentNode
+          );
+          if (matchedCondition?.loop_back_intention) {
+            loopBackIntention = matchedCondition.loop_back_intention;
+            state.loopBackIntention = loopBackIntention; // Set in state for agents to use
+            console.log(`\n🔄 [LOOP-BACK CONTEXT]`);
+            console.log(`   Previous node: ${state.previousNode}`);
+            console.log(`   Current node: ${state.currentNode}`);
+            console.log(`   Loop-back intention: ${loopBackIntention}`);
+            console.log(`   ⚠️  This is INTERNAL context for the LLM - NOT shown to customer\n`);
+          }
+        }
       }
 
       // STEP 1: Choose correct worker agent based on node.agent_profile_type
@@ -568,13 +591,6 @@ export class AgentOrchestratorService {
           console.log(`   Matched branching condition: ${matchedBranchingCondition.condition || '(no condition text)'}`);
           console.log(`   Advance type: ${matchedBranchingCondition.advance_type || '(not set)'}`);
           console.log(`   Child node: ${matchedBranchingCondition.child_node}`);
-
-          // Log loop-back intention if present
-          if (matchedBranchingCondition.loop_back_intention) {
-            console.log(`\n🔄 [LOOP-BACK DETECTED]`);
-            console.log(`   Loop-back intention: ${matchedBranchingCondition.loop_back_intention}`);
-            console.log(`   Agent should: Rephrase differently and empathetically`);
-          }
         }
       }
 
