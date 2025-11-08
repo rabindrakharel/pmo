@@ -146,13 +146,13 @@ export class NavigatorAgent {
     }
 
     // Extract ONLY essential metadata for AVAILABLE child nodes
+    // OPTIMIZED: Only pass role and goal (plan), not context_update
     const availableChildNodes = this.dagConfig.nodes
       .filter(n => childNodeNames.has(n.node_name))
       .map(n => ({
         node_name: n.node_name,
         role: (n as any).role || 'Node executor',
-        goal: n.node_goal || 'Execute node action',
-        context_update: n.context_update || 'Updates context as needed'
+        goal: n.node_goal || 'Execute node action'
       }));
 
     return `${(this.dagConfig as any).llm_framework_instructions?.architecture || 'Multi-Agent Conversation System'}
