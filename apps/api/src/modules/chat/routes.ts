@@ -21,15 +21,10 @@ import type {
   ChatMessage
 } from './types.js';
 
-import { voiceLangraphRoutes } from './voice-langraph.routes.js';
-import { disconnectVoiceLangraphSession, getActiveVoiceLangraphSessionCount } from './voice-langraph.service.js';
-
 /**
  * Register chat routes
  */
 export async function chatRoutes(fastify: FastifyInstance) {
-  // Register voice WebSocket routes
-  await voiceLangraphRoutes(fastify);
 
   /**
    * POST /api/v1/chat/session/new
@@ -268,40 +263,26 @@ export async function chatRoutes(fastify: FastifyInstance) {
   }>('/session/:sessionId/disconnect', async (request, reply) => {
     try {
       const { sessionId } = request.params;
-      const { resolution = 'resolved', session_type = 'auto' } = request.body;
+      const { resolution = 'resolved' } = request.body;
 
-      let voiceDisconnected = false;
-      let textClosed = false;
-
-      // Try to disconnect voice session if it exists
-      if (session_type === 'auto' || session_type === 'voice') {
-        voiceDisconnected = disconnectVoiceLangraphSession(sessionId);
+      // Close the session in database
+      let success = false;
+      try {
+        await closeSession(sessionId, resolution);
+        success = true;
+      } catch (error) {
+        console.warn(`Could not close session ${sessionId} in database:`, error);
       }
-
-      // Always close the session in database (works for both text and voice)
-      if (session_type === 'auto' || session_type === 'text' || voiceDisconnected) {
-        try {
-          await closeSession(sessionId, resolution);
-          textClosed = true;
-        } catch (error) {
-          console.warn(`Could not close session ${sessionId} in database:`, error);
-        }
-      }
-
-      const success = voiceDisconnected || textClosed;
 
       reply.code(success ? 200 : 404).send({
         success,
-        voice_disconnected: voiceDisconnected,
-        text_closed: textClosed,
         message: success
           ? 'Session disconnected successfully'
-          : 'Session not found',
-        active_voice_sessions: getActiveVoiceLangraphSessionCount()
+          : 'Session not found'
       });
 
       if (success) {
-        console.log(`✅ Session disconnected: ${sessionId} (voice: ${voiceDisconnected}, text: ${textClosed}, resolution: ${resolution})`);
+        console.log(`✅ Session disconnected: ${sessionId} (resolution: ${resolution})`);
       }
     } catch (error) {
       console.error('Error disconnecting session:', error);
