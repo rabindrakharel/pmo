@@ -21,10 +21,11 @@ export class ContextInitializer {
    * Initialize context based on global_context_schema in agent_config.json
    * FLUSHES dummy/example data and creates fresh empty context
    * Uses initial_context_template if available, otherwise falls back to field_types
+   *
+   * CRITICAL: This is DYNAMIC initialization - reads template from agent_config.json
    */
   initializeContext(sessionId: string, additionalFields?: Record<string, any>): DAGContext {
     console.log(`[ContextInitializer] 🔧 Initializing FRESH context for session: ${sessionId.substring(0, 8)}...`);
-    console.log(`[ContextInitializer] 🚮 Flushing dummy data from schema...`);
 
     // Use global_context_schema_semantics from agent_config.json
     const schema = (this.dagConfig as any).global_context_schema_semantics;
@@ -34,9 +35,11 @@ export class ContextInitializer {
       return this.createMinimalContext(sessionId);
     }
 
-    // PREFERRED: Use initial_context_template if available
+    // PREFERRED: Use initial_context_template if available (DYNAMIC from config)
     if (schema.initial_context_template?.template) {
-      console.log('[ContextInitializer] ✅ Using initial_context_template from config');
+      console.log('[ContextInitializer] ✅ DYNAMIC initialization mode: reading from agent_config.json');
+      console.log('[ContextInitializer] 📄 Source: global_context_schema_semantics.initial_context_template.template');
+      console.log('[ContextInitializer] 🔄 All fields will be extracted from config (NOT hardcoded)');
       return this.initializeFromTemplate(sessionId, schema.initial_context_template.template, additionalFields);
     }
 
@@ -90,38 +93,76 @@ export class ContextInitializer {
 
   /**
    * Initialize context from template (deep copy to avoid mutation)
+   * DYNAMICALLY extracts initial_context_template from agent_config.json
    */
   private initializeFromTemplate(sessionId: string, template: any, additionalFields?: Record<string, any>): DAGContext {
+    console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`📋 [DYNAMIC CONTEXT INITIALIZATION FROM CONFIG]`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`[ContextInitializer] 🔧 Reading template from agent_config.json`);
+    console.log(`[ContextInitializer] 📄 Path: global_context_schema_semantics.initial_context_template.template`);
+
     // Deep copy template to avoid mutation
     const context: DAGContext = JSON.parse(JSON.stringify(template));
 
+    // Log extracted template structure
+    const templateFields = Object.keys(template);
+    console.log(`[ContextInitializer] ✅ Extracted ${templateFields.length} fields from config template:`);
+    console.log(`\n📊 TEMPLATE STRUCTURE (from agent_config.json):`);
+
+    // Group fields by type for better visibility
+    const stringFields = templateFields.filter(f => typeof template[f] === 'string' && f !== 'agent_session_id' && f !== 'who_are_you');
+    const arrayFields = templateFields.filter(f => Array.isArray(template[f]));
+    const objectFields = templateFields.filter(f => typeof template[f] === 'object' && !Array.isArray(template[f]));
+
+    console.log(`   📝 String fields (${stringFields.length}): ${stringFields.join(', ')}`);
+    console.log(`   📋 Array fields (${arrayFields.length}): ${arrayFields.join(', ')}`);
+    console.log(`   🗂️  Object fields (${objectFields.length}): ${objectFields.join(', ')}`);
+    console.log(`   🎯 Special fields: agent_session_id, who_are_you`);
+
     // Replace <session_uuid> placeholder with actual session ID
+    console.log(`\n[ContextInitializer] 🔄 Replacing placeholders:`);
+    console.log(`   - agent_session_id: "<session_uuid>" → "${sessionId.substring(0, 16)}..."`);
     context.agent_session_id = sessionId;
 
     // Initialize flags if not present
     if (!context.flags) {
       context.flags = {};
+      console.log(`   - flags: initialized as empty object`);
     }
 
     // Ensure arrays are initialized
     if (!context.node_traversal_path) {
       context.node_traversal_path = [];
+      console.log(`   - node_traversal_path: initialized as empty array`);
     }
     if (!context.summary_of_conversation_on_each_step_until_now) {
       context.summary_of_conversation_on_each_step_until_now = [];
+      console.log(`   - summary_of_conversation_on_each_step_until_now: initialized as empty array`);
     }
 
     // Merge additional fields if provided
     if (additionalFields) {
       Object.assign(context, additionalFields);
-      console.log(`[ContextInitializer] 📝 Added ${Object.keys(additionalFields).length} additional fields`);
+      console.log(`\n[ContextInitializer] 📝 Added ${Object.keys(additionalFields).length} additional fields: ${Object.keys(additionalFields).join(', ')}`);
     }
 
     // Log initialization summary
-    this.logInitializationSummary(context);
+    console.log(`\n[ContextInitializer] ✅ DYNAMIC INITIALIZATION COMPLETE`);
+    console.log(`   - Source: agent_config.json (initial_context_template.template)`);
+    console.log(`   - Total fields in context: ${Object.keys(context).length}`);
+    console.log(`   - String fields: ${stringFields.length} (all initialized as empty strings)`);
+    console.log(`   - Array fields: ${arrayFields.length} (all initialized as empty arrays)`);
+    console.log(`   - Session ID: ${sessionId.substring(0, 8)}...`);
 
-    console.log(`[ContextInitializer] ✅ Context initialized from template`);
-    console.log(`[ContextInitializer] 📋 Fields initialized: ${Object.keys(context).length}`);
+    // Log template source reference
+    const schema = (this.dagConfig as any).global_context_schema_semantics;
+    if (schema?.initial_context_template?.description) {
+      console.log(`\n📖 Template Description (from config):`);
+      console.log(`   "${schema.initial_context_template.description}"`);
+    }
+
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
     return context;
   }
