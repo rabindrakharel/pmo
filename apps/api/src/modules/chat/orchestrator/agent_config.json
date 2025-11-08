@@ -154,18 +154,18 @@
       "default_next_node": "Extract_Customer_Issue",
       "branching_conditions": [
         {
-          "condition": "if response is UNCLEAR/VAGUE/INCOMPLETE - just keywords or fragments (examples: 'my roof', 'my roof my roof', 'roof', 'help', 'problem', 'plumbing', 'HVAC' - NO complete problem/issue stated)",
+          "condition": "if customer response is unclear, vague, or incomplete",
           "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED",
           "advance_type": "stepwise",
           "loop_back_intention": "The customer's response was unclear or incomplete. Ask clarifying questions to understand the specific problem. Be empathetic and patient."
         },
         {
-          "condition": "if customer has stated a CLEAR and COMPLETE issue (examples: 'my roof is leaking', 'I need roof repair', 'roof has a hole', 'HVAC is broken', 'need drywall patching' - COMPLETE problem with context)",
+          "condition": "if customer stated a clear and complete issue",
           "child_node": "Extract_Customer_Issue",
           "advance_type": "auto"
         },
         {
-          "condition": "if customer ONLY said greeting with NO issue/service mentioned at all (examples: 'hello', 'hi', 'good morning', 'hey there' - NOTHING about roof/plumbing/service/problem)",
+          "condition": "if customer only greeted without mentioning any issue",
           "child_node": "wait_for_customers_reply",
           "advance_type": "stepwise"
         }
@@ -229,7 +229,7 @@
       "default_next_node": "Check_IF_existing_customer",
       "branching_conditions": [
         {
-          "condition": "if data not complete (e.g., missing mandatory customer_phone_number)",
+          "condition": "if required customer data is missing or incomplete",
           "child_node": "Try_To_Gather_Customers_Data",
           "advance_type": "stepwise",
           "loop_back_intention": "Still missing required customer information. Ask for the missing data again, but phrase it differently. Be polite and patient."
@@ -446,32 +446,32 @@
       "default_next_node": "Extract_Customer_Issue",
       "branching_conditions": [
         {
-          "condition": "if customer message contains explicit phone number pattern (e.g., 555-1234, (555) 123-4567, 5551234567) - check for digits and dashes/parentheses",
+          "condition": "if customer provides a phone number",
           "child_node": "Try_To_Gather_Customers_Data",
           "advance_type": "stepwise"
         },
         {
-          "condition": "if customer provides a person's name explicitly (e.g., 'My name is John', 'I'm Sarah', 'This is Mike') - NOT service names",
+          "condition": "if customer provides their name",
           "child_node": "Try_To_Gather_Customers_Data",
           "advance_type": "stepwise"
         },
         {
-          "condition": "if customer message contains email address pattern (e.g., user@domain.com)",
+          "condition": "if customer provides an email address",
           "child_node": "Try_To_Gather_Customers_Data",
           "advance_type": "stepwise"
         },
         {
-          "condition": "if customers_main_ask is empty AND customer mentions ANY service/problem/issue (examples: 'roof', 'plumbing', 'HVAC', 'drywall', 'my roof my roof', 'need help with X')",
+          "condition": "if customer mentions a service or problem and customers_main_ask is empty",
           "child_node": "Extract_Customer_Issue",
           "advance_type": "stepwise"
         },
         {
-          "condition": "if customer describes a NEW different issue/problem (not just elaborating on existing issue) - examples: switching from 'roof' to 'plumbing', or 'drywall' to 'HVAC'",
+          "condition": "if customer describes a different issue than previously stated",
           "child_node": "Extract_Customer_Issue",
           "advance_type": "stepwise"
         },
         {
-          "condition": "if customer just acknowledges (ok, sure, yes, alright) AND customers_main_ask already exists",
+          "condition": "if customer simply acknowledges and customers_main_ask already exists",
           "child_node": "Try_To_Gather_Customers_Data",
           "advance_type": "stepwise"
         }
