@@ -346,6 +346,18 @@ export class AgentOrchestratorService {
             console.log(`   Previous node: ${state.previousNode}`);
             console.log(`   Current node: ${state.currentNode}`);
             console.log(`   Loop-back intention: ${loopBackIntention}`);
+
+            // Reset context fields if specified in branching condition
+            if (matchedCondition?.context_reset && Array.isArray(matchedCondition.context_reset)) {
+              console.log(`   🔄 Resetting context fields: ${matchedCondition.context_reset.join(', ')}`);
+              const resetUpdates: any = {};
+              matchedCondition.context_reset.forEach((field: string) => {
+                resetUpdates[field] = ''; // Reset to empty string
+                console.log(`      - ${field}: "${state.context[field]}" → "" (cleared for re-gathering)`);
+              });
+              state = this.contextManager.updateContext(state, resetUpdates);
+            }
+
             console.log(`   ⚠️  This is INTERNAL context for the LLM - NOT shown to customer\n`);
           }
         }
