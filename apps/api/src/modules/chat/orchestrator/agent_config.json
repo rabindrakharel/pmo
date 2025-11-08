@@ -179,16 +179,7 @@
       ],
       "auto_advance": true,
       "default_next_node": "Acknowledge_And_Empathize",
-      "branching_conditions": [
-        {
-          "condition": "if customers_main_ask successfully extracted (not empty string)",
-          "child_node": "Acknowledge_And_Empathize"
-        },
-        {
-          "condition": "if extraction fails (customers_main_ask is still empty)",
-          "child_node": "ASK_CUSTOMER_ABOUT_THEIR_NEED"
-        }
-      ]
+      "branching_conditions": []
     },
     {
       "node_name": "Acknowledge_And_Empathize",
@@ -204,16 +195,7 @@
       ],
       "auto_advance": true,
       "default_next_node": "Try_To_Gather_Customers_Data",
-      "branching_conditions": [
-        {
-          "condition": "ALWAYS auto-advance to Try_To_Gather_Customers_Data (no waiting needed)",
-          "child_node": "Try_To_Gather_Customers_Data"
-        },
-        {
-          "condition": "only if customer explicitly changes their issue in THIS response",
-          "child_node": "Extract_Customer_Issue"
-        }
-      ]
+      "branching_conditions": []
     },
     {
       "node_name": "Try_To_Gather_Customers_Data",
@@ -240,7 +222,7 @@
         },
         {
           "condition": "if customer changes issue in response",
-          "child_node": "Identify_Issue"
+          "child_node": "Extract_Customer_Issue"
         }
       ]
     },
@@ -265,7 +247,7 @@
         },
         {
           "condition": "if customer changes issue in response",
-          "child_node": "Identify_Issue"
+          "child_node": "Extract_Customer_Issue"
         }
       ]
     },
@@ -290,7 +272,7 @@
         },
         {
           "condition": "if customer changes issue",
-          "child_node": "Identify_Issue"
+          "child_node": "Extract_Customer_Issue"
         }
       ]
     },
@@ -311,7 +293,7 @@
         },
         {
           "condition": "if customer changes issue in response",
-          "child_node": "Identify_Issue"
+          "child_node": "Extract_Customer_Issue"
         }
       ]
     },
@@ -336,7 +318,7 @@
         },
         {
           "condition": "if customer changes issue",
-          "child_node": "Identify_Issue"
+          "child_node": "Extract_Customer_Issue"
         }
       ]
     },
@@ -357,7 +339,7 @@
         },
         {
           "condition": "if customer changes issue in response",
-          "child_node": "Identify_Issue"
+          "child_node": "Extract_Customer_Issue"
         }
       ]
     },
@@ -378,7 +360,7 @@
         },
         {
           "condition": "if customer changes issue",
-          "child_node": "Identify_Issue"
+          "child_node": "Extract_Customer_Issue"
         }
       ]
     },
@@ -517,7 +499,7 @@
         "mandatory": true,
         "description": "Primary issue or request from customer. The core reason for contacting support. Used to match service catalog and create tasks.",
         "example": "My lawn is brown and needs help",
-        "updated_by": "worker_agent from user input in Identify_Issue node",
+        "updated_by": "worker_agent from user input in Acknowledge_And_Empathize node",
         "when_to_update": "When customer describes their issue (can be updated if customer changes topic)"
       },
       "matching_service_catalog_to_solve_customers_issue": {

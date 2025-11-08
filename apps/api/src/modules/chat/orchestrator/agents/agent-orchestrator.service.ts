@@ -314,7 +314,10 @@ export class AgentOrchestratorService {
       console.log(`     - service_catalog: ${state.context.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
       console.log(`     - task_id: ${state.context.task_id || '(not set)'}`);
       console.log(`     - next_node_to_go_to: ${state.context.next_node_to_go_to || '(not set)'}`);
-      console.log(`     - next_course_of_action: ${state.context.next_course_of_action || '(not set)'}\n`);
+      console.log(`     - next_course_of_action: ${state.context.next_course_of_action || '(not set)'}`);
+      console.log(`\n🔍 [FULL CONTEXT DATA]`);
+      console.log(JSON.stringify(state.context, null, 2));
+      console.log(``);
 
       // Log full context state to llm.log
       await this.logger.logContextState(state, 'CONTEXT BEFORE EXECUTION');
