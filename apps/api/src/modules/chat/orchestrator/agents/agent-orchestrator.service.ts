@@ -22,8 +22,8 @@ import { WorkerMCPAgent, createWorkerMCPAgent } from './worker-mcp-agent.service
 import { NavigatorAgent, createNavigatorAgent } from './navigator-agent.service.js';
 import { DataExtractionAgent, createDataExtractionAgent } from './data-extraction-agent.service.js';
 import { getLLMLogger } from '../services/llm-logger.service.js';
-import { getContextDbService } from '../services/context-db.service.js';
-import type { SessionContextData } from '../services/context-db.service.js';
+import { getSessionMemoryDataService } from '../services/session-memory-data.service.js';
+import type { SessionMemoryData } from '../services/session-memory-data.service.js';
 
 /**
  * Agent Orchestrator Service
@@ -59,13 +59,13 @@ export class AgentOrchestratorService {
   }
 
   /**
-   * Initialize LowDB for context storage
+   * Initialize LowDB for session memory data storage
    */
   private async initializeContextDb(): Promise<void> {
     try {
-      const contextDb = getContextDbService();
-      await contextDb.initialize();
-      console.log(`[AgentOrchestrator] 🗄️  LowDB initialized: ${contextDb.getDbPath()}`);
+      const sessionMemoryDataService = getSessionMemoryDataService();
+      await sessionMemoryDataService.initialize();
+      console.log(`[AgentOrchestrator] 🗄️  LowDB initialized: ${sessionMemoryDataService.getDbPath()}`);
     } catch (error: any) {
       console.error(`[AgentOrchestrator] ❌ Failed to initialize LowDB: ${error.message}`);
     }
@@ -91,13 +91,13 @@ export class AgentOrchestratorService {
   }
 
   /**
-   * Write context to LowDB - REPLACES FILE WRITE
+   * Write session memory data to LowDB - REPLACES FILE WRITE
    */
   private async writeContextFile(state: AgentContextState, action: string = 'update'): Promise<void> {
     try {
-      const contextDb = getContextDbService();
+      const sessionMemoryDataService = getSessionMemoryDataService();
 
-      const sessionData: SessionContextData = {
+      const sessionData: SessionMemoryData = {
         sessionId: state.sessionId,
         chatSessionId: state.chatSessionId,
         userId: state.userId,
@@ -116,17 +116,17 @@ export class AgentOrchestratorService {
         action,
       };
 
-      await contextDb.saveSession(sessionData);
+      await sessionMemoryDataService.saveSession(sessionData);
 
       const truncatedId = state.sessionId.substring(0, 8);
       const shortAction = action.length > 50 ? action.substring(0, 47) + '...' : action;
       console.log(`[AgentOrchestrator] 💾 LowDB: session_${truncatedId}... (${shortAction})`);
 
       // ========================================================================
-      // DUMP COMPLETE CONTEXT DATA TO LOGS (User Requested)
+      // DUMP COMPLETE SESSION MEMORY DATA TO LOGS (User Requested)
       // ========================================================================
       console.log(`\n┌════════════════════════════════════════════════════════════════════┐`);
-      console.log(`│ 📄 COMPLETE CONTEXT DATA (LowDB) - ${shortAction.padEnd(34)} │`);
+      console.log(`│ 📄 COMPLETE SESSION MEMORY DATA (LowDB) - ${shortAction.padEnd(28)} │`);
       console.log(`│ Session: ${truncatedId}${' '.repeat(59 - truncatedId.length)}│`);
       console.log(`└════════════════════════════════════════════════════════════════════┘`);
       console.log(JSON.stringify(sessionData, null, 2));
@@ -139,12 +139,12 @@ export class AgentOrchestratorService {
   }
 
   /**
-   * Read context from LowDB - REPLACES FILE READ
+   * Read session memory data from LowDB - REPLACES FILE READ
    */
   private async readContextFile(sessionId: string): Promise<any | null> {
     try {
-      const contextDb = getContextDbService();
-      const session = await contextDb.getSession(sessionId);
+      const sessionMemoryDataService = getSessionMemoryDataService();
+      const session = await sessionMemoryDataService.getSession(sessionId);
 
       if (!session) {
         console.log(`[AgentOrchestrator] ℹ️  Session ${sessionId.substring(0, 8)}... not found in LowDB`);

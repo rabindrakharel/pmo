@@ -1,79 +1,84 @@
 /**
- * MCP Tools for Context Database Interaction
+ * MCP Tools for Session Memory Data Interaction
  *
- * Provides tools for agents to read and write session context data via LowDB
+ * Provides tools for agents to read and write session memory data via LowDB
+ *
+ * Access Pattern:
+ * - Agents READ freely via MCP tools (get_session_memory_data, get_context_data)
+ * - Agents WRITE only via sessionMemoryDataService API (through MCP update tools)
+ * - Service ensures atomic operations and prevents race conditions
  */
 
-import { getContextDbService } from '../services/context-db.service.js';
+import { getSessionMemoryDataService } from '../services/session-memory-data.service.js';
 import type { AgentContextState } from '../agents/types.js';
 
 /**
- * Get session context from LowDB
+ * Get session memory data from LowDB
  */
-export async function getContextFromDb(sessionId: string): Promise<any> {
-  const contextDb = getContextDbService();
+export async function getSessionMemoryData(sessionId: string): Promise<any> {
+  const sessionMemoryDataService = getSessionMemoryDataService();
 
-  console.log(`[MCP:ContextDB] 📖 Reading session ${sessionId.substring(0, 8)}... from DB`);
+  console.log(`[MCP:SessionMemoryData] 📖 Reading session ${sessionId.substring(0, 8)}... from DB`);
 
-  const session = await contextDb.getSession(sessionId);
+  const session = await sessionMemoryDataService.getSession(sessionId);
 
   if (!session) {
-    console.log(`[MCP:ContextDB] ⚠️  Session ${sessionId.substring(0, 8)}... not found in DB`);
+    console.log(`[MCP:SessionMemoryData] ⚠️  Session ${sessionId.substring(0, 8)}... not found in DB`);
     return null;
   }
 
-  console.log(`[MCP:ContextDB] ✅ Retrieved session data (${session.messages.length} messages, ${session.context.node_traversed.length} nodes)`);
+  console.log(`[MCP:SessionMemoryData] ✅ Retrieved session data (${session.messages.length} messages, ${session.context.node_traversed.length} nodes)`);
 
   return session;
 }
 
 /**
- * Save session context to LowDB
+ * Save session memory data to LowDB
  */
-export async function saveContextToDb(
+export async function saveSessionMemoryData(
   sessionData: any,
   action: string = 'update'
 ): Promise<void> {
-  const contextDb = getContextDbService();
+  const sessionMemoryDataService = getSessionMemoryDataService();
 
   const shortId = sessionData.sessionId.substring(0, 8);
-  console.log(`[MCP:ContextDB] 💾 Saving session ${shortId}... to DB (${action})`);
+  console.log(`[MCP:SessionMemoryData] 💾 Saving session ${shortId}... to DB (${action})`);
 
-  await contextDb.saveSession({
+  await sessionMemoryDataService.saveSession({
     ...sessionData,
     action,
   });
 
-  console.log(`[MCP:ContextDB] ✅ Session ${shortId}... saved successfully`);
+  console.log(`[MCP:SessionMemoryData] ✅ Session ${shortId}... saved successfully`);
 }
 
 /**
- * Update specific context fields in LowDB
+ * Update specific session memory data fields in LowDB
  */
-export async function updateContextInDb(
+export async function updateSessionMemoryData(
   sessionId: string,
   updates: Partial<any>,
   action: string = 'partial_update'
 ): Promise<void> {
-  const contextDb = getContextDbService();
+  const sessionMemoryDataService = getSessionMemoryDataService();
 
   const shortId = sessionId.substring(0, 8);
-  console.log(`[MCP:ContextDB] 🔄 Updating session ${shortId}... in DB`);
+  console.log(`[MCP:SessionMemoryData] 🔄 Updating session ${shortId}... in DB`);
 
-  await contextDb.updateSession(sessionId, updates, action);
+  await sessionMemoryDataService.updateSession(sessionId, updates, action);
 
-  console.log(`[MCP:ContextDB] ✅ Session ${shortId}... updated successfully`);
+  console.log(`[MCP:SessionMemoryData] ✅ Session ${shortId}... updated successfully`);
 }
 
 /**
  * Get only context object (lightweight)
  */
-export async function getContextDataFromDb(sessionId: string): Promise<any | null> {
-  const contextDb = getContextDbService();
+export async function getContextData(sessionId: string): Promise<any | null> {
+  const sessionMemoryDataService = getSessionMemoryDataService();
 
-  console.log(`[MCP:ContextDB] 📖 Reading context data for session ${sessionId.substring(0, 8)}...`);
+  console.log(`[MCP:SessionMemoryData] 📖 Reading context data for session ${sessionId.substring(0, 8)}...`);
 
-  const session = await contextDb.getSession(sessionId);
+  const session = await sessionMemoryDataService.getSession(sessionId);
 
   if (!session) {
     return null;
@@ -89,13 +94,13 @@ export async function updateDataExtractionFields(
   sessionId: string,
   fields: Record<string, any>
 ): Promise<void> {
-  const contextDb = getContextDbService();
+  const sessionMemoryDataService = getSessionMemoryDataService();
 
   const shortId = sessionId.substring(0, 8);
-  console.log(`[MCP:ContextDB] 🔄 Updating data_extraction_fields for session ${shortId}...`);
+  console.log(`[MCP:SessionMemoryData] 🔄 Updating data_extraction_fields for session ${shortId}...`);
 
   // Get current session
-  const session = await contextDb.getSession(sessionId);
+  const session = await sessionMemoryDataService.getSession(sessionId);
   if (!session) {
     throw new Error(`Session ${sessionId} not found`);
   }
@@ -106,7 +111,7 @@ export async function updateDataExtractionFields(
     ...fields,
   };
 
-  await contextDb.updateSession(
+  await sessionMemoryDataService.updateSession(
     sessionId,
     {
       context: {
@@ -118,23 +123,23 @@ export async function updateDataExtractionFields(
   );
 
   const updatedFieldNames = Object.keys(fields);
-  console.log(`[MCP:ContextDB] ✅ Updated fields: ${updatedFieldNames.join(', ')}`);
+  console.log(`[MCP:SessionMemoryData] ✅ Updated fields: ${updatedFieldNames.join(', ')}`);
 }
 
 /**
  * Append conversation exchange to indexed summary
  */
-export async function appendConversationToDb(
+export async function appendConversationToMemoryData(
   sessionId: string,
   customer: string,
   agent: string
 ): Promise<void> {
-  const contextDb = getContextDbService();
+  const sessionMemoryDataService = getSessionMemoryDataService();
 
   const shortId = sessionId.substring(0, 8);
 
   // Get current session
-  const session = await contextDb.getSession(sessionId);
+  const session = await sessionMemoryDataService.getSession(sessionId);
   if (!session) {
     throw new Error(`Session ${sessionId} not found`);
   }
@@ -148,7 +153,7 @@ export async function appendConversationToDb(
   );
 
   if (isDuplicate) {
-    console.log(`[MCP:ContextDB] ⚠️  Skipping duplicate conversation entry for session ${shortId}...`);
+    console.log(`[MCP:SessionMemoryData] ⚠️  Skipping duplicate conversation entry for session ${shortId}...`);
     return;
   }
 
@@ -162,7 +167,7 @@ export async function appendConversationToDb(
     },
   ];
 
-  await contextDb.updateSession(
+  await sessionMemoryDataService.updateSession(
     sessionId,
     {
       context: {
@@ -173,22 +178,22 @@ export async function appendConversationToDb(
     'conversation_append'
   );
 
-  console.log(`[MCP:ContextDB] 💬 Appended conversation exchange #${nextIndex} for session ${shortId}...`);
+  console.log(`[MCP:SessionMemoryData] 💬 Appended conversation exchange #${nextIndex} for session ${shortId}...`);
 }
 
 /**
  * Append node to traversal path
  */
-export async function appendNodeTraversalToDb(
+export async function appendNodeTraversal(
   sessionId: string,
   nodeName: string
 ): Promise<void> {
-  const contextDb = getContextDbService();
+  const sessionMemoryDataService = getSessionMemoryDataService();
 
   const shortId = sessionId.substring(0, 8);
 
   // Get current session
-  const session = await contextDb.getSession(sessionId);
+  const session = await sessionMemoryDataService.getSession(sessionId);
   if (!session) {
     throw new Error(`Session ${sessionId} not found`);
   }
@@ -196,7 +201,7 @@ export async function appendNodeTraversalToDb(
   const currentPath = session.context.node_traversed || [];
   const updatedPath = [...currentPath, nodeName];
 
-  await contextDb.updateSession(
+  await sessionMemoryDataService.updateSession(
     sessionId,
     {
       context: {
@@ -207,24 +212,24 @@ export async function appendNodeTraversalToDb(
     `node_traversal:${nodeName}`
   );
 
-  console.log(`[MCP:ContextDB] 🗺️  Appended node ${nodeName} to path for session ${shortId}... (total: ${updatedPath.length})`);
+  console.log(`[MCP:SessionMemoryData] 🗺️  Appended node ${nodeName} to path for session ${shortId}... (total: ${updatedPath.length})`);
 }
 
 /**
  * MCP Tool Definitions for OpenAI Function Calling
  */
-export const contextDbMcpTools = [
+export const sessionMemoryDataMcpTools = [
   {
     type: 'function' as const,
     function: {
-      name: 'get_session_context',
-      description: 'Retrieve complete session context data from the database including messages, context fields, and navigation history',
+      name: 'get_session_memory_data',
+      description: 'Retrieve complete session memory data from the database including messages, context fields, and navigation history',
       parameters: {
         type: 'object',
         properties: {
           sessionId: {
             type: 'string',
-            description: 'The session ID to retrieve context for',
+            description: 'The session ID to retrieve memory data for',
           },
         },
         required: ['sessionId'],
@@ -252,7 +257,7 @@ export const contextDbMcpTools = [
     type: 'function' as const,
     function: {
       name: 'update_data_extraction_fields',
-      description: 'Update specific data extraction fields (customer_name, phone, email, etc.) in the session context',
+      description: 'Update specific data extraction fields (customer_name, phone, email, etc.) in the session memory data',
       parameters: {
         type: 'object',
         properties: {
@@ -285,8 +290,8 @@ export const contextDbMcpTools = [
   {
     type: 'function' as const,
     function: {
-      name: 'update_session_context',
-      description: 'Update session context fields (next_course_of_action, next_node_to_go_to, currentNode, etc.)',
+      name: 'update_session_memory_data',
+      description: 'Update session memory data fields (next_course_of_action, next_node_to_go_to, currentNode, etc.)',
       parameters: {
         type: 'object',
         properties: {
@@ -325,34 +330,34 @@ export const contextDbMcpTools = [
 /**
  * Execute MCP tool call
  */
-export async function executeContextDbMcpTool(
+export async function executeSessionMemoryDataMcpTool(
   toolName: string,
   args: any
 ): Promise<any> {
-  console.log(`[MCP:ContextDB] 🔧 Executing tool: ${toolName}`);
-  console.log(`[MCP:ContextDB] 📝 Arguments:`, JSON.stringify(args, null, 2));
+  console.log(`[MCP:SessionMemoryData] 🔧 Executing tool: ${toolName}`);
+  console.log(`[MCP:SessionMemoryData] 📝 Arguments:`, JSON.stringify(args, null, 2));
 
   try {
     switch (toolName) {
-      case 'get_session_context':
-        return await getContextFromDb(args.sessionId);
+      case 'get_session_memory_data':
+        return await getSessionMemoryData(args.sessionId);
 
       case 'get_context_data':
-        return await getContextDataFromDb(args.sessionId);
+        return await getContextData(args.sessionId);
 
       case 'update_data_extraction_fields':
         await updateDataExtractionFields(args.sessionId, args.fields);
         return { success: true, fieldsUpdated: Object.keys(args.fields) };
 
-      case 'update_session_context':
-        await updateContextInDb(args.sessionId, args.updates, args.action);
+      case 'update_session_memory_data':
+        await updateSessionMemoryData(args.sessionId, args.updates, args.action);
         return { success: true };
 
       default:
         throw new Error(`Unknown MCP tool: ${toolName}`);
     }
   } catch (error: any) {
-    console.error(`[MCP:ContextDB] ❌ Error executing tool ${toolName}:`, error.message);
+    console.error(`[MCP:SessionMemoryData] ❌ Error executing tool ${toolName}:`, error.message);
     throw error;
   }
 }

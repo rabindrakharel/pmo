@@ -1,28 +1,29 @@
 import { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { getContextDbService } from './orchestrator/services/context-db.service.js';
+import { getSessionMemoryDataService } from './orchestrator/services/session-memory-data.service.js';
 
 /**
- * Context Database API Routes
+ * Session Memory Data API Routes
  *
- * RESTful API for managing session context data stored in LowDB
+ * RESTful API for managing session memory data stored in LowDB
+ * Implements session_{id}_memory_data.json as centralized database
  */
-export async function contextDbRoutes(fastify: FastifyInstance) {
-  const contextDb = getContextDbService();
+export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
+  const sessionMemoryDataService = getSessionMemoryDataService();
 
   // Ensure DB is initialized
-  await contextDb.initialize();
+  await sessionMemoryDataService.initialize();
 
   /**
-   * GET /api/v1/context-db/stats
+   * GET /api/v1/session-memory-data/stats
    * Get database statistics
    */
   fastify.get(
     '/stats',
     {
       schema: {
-        description: 'Get context database statistics',
-        tags: ['Context DB'],
+        description: 'Get session memory data database statistics',
+        tags: ['Session Memory Data'],
         response: {
           200: Type.Object({
             totalSessions: Type.Number(),
@@ -36,16 +37,16 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const stats = await contextDb.getStats();
+      const stats = await sessionMemoryDataService.getStats();
       return {
         ...stats,
-        dbPath: contextDb.getDbPath(),
+        dbPath: sessionMemoryDataService.getDbPath(),
       };
     }
   );
 
   /**
-   * GET /api/v1/context-db/sessions
+   * GET /api/v1/session-memory-data/sessions
    * Get all sessions or filter by userId
    */
   fastify.get(
@@ -53,7 +54,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
     {
       schema: {
         description: 'Get all sessions or filter by userId',
-        tags: ['Context DB'],
+        tags: ['Session Memory Data'],
         querystring: Type.Object({
           userId: Type.Optional(Type.String()),
           active: Type.Optional(Type.Boolean()),
@@ -65,11 +66,11 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
 
       let sessions;
       if (userId) {
-        sessions = await contextDb.getSessionsByUser(userId);
+        sessions = await sessionMemoryDataService.getSessionsByUser(userId);
       } else if (active) {
-        sessions = await contextDb.getActiveSessions();
+        sessions = await sessionMemoryDataService.getActiveSessions();
       } else {
-        sessions = await contextDb.getAllSessions();
+        sessions = await sessionMemoryDataService.getAllSessions();
       }
 
       return {
@@ -80,15 +81,15 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
   );
 
   /**
-   * GET /api/v1/context-db/sessions/:sessionId
+   * GET /api/v1/session-memory-data/sessions/:sessionId
    * Get specific session by ID
    */
   fastify.get(
     '/sessions/:sessionId',
     {
       schema: {
-        description: 'Get session context data by session ID',
-        tags: ['Context DB'],
+        description: 'Get session memory data by session ID',
+        tags: ['Session Memory Data'],
         params: Type.Object({
           sessionId: Type.String(),
         }),
@@ -102,7 +103,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { sessionId } = request.params as any;
 
-      const session = await contextDb.getSession(sessionId);
+      const session = await sessionMemoryDataService.getSession(sessionId);
       if (!session) {
         reply.code(404);
         return { error: `Session ${sessionId} not found` };
@@ -113,15 +114,15 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
   );
 
   /**
-   * PUT /api/v1/context-db/sessions/:sessionId
+   * PUT /api/v1/session-memory-data/sessions/:sessionId
    * Update specific session context fields
    */
   fastify.put(
     '/sessions/:sessionId',
     {
       schema: {
-        description: 'Update session context fields (partial update)',
-        tags: ['Context DB'],
+        description: 'Update session memory data fields (partial update)',
+        tags: ['Session Memory Data'],
         params: Type.Object({
           sessionId: Type.String(),
         }),
@@ -158,7 +159,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
       const updates = request.body as any;
 
       try {
-        await contextDb.updateSession(sessionId, updates, updates.action || 'api_update');
+        await sessionMemoryDataService.updateSession(sessionId, updates, updates.action || 'api_update');
 
         return {
           success: true,
@@ -172,15 +173,15 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
   );
 
   /**
-   * DELETE /api/v1/context-db/sessions/:sessionId
+   * DELETE /api/v1/session-memory-data/sessions/:sessionId
    * Delete session
    */
   fastify.delete(
     '/sessions/:sessionId',
     {
       schema: {
-        description: 'Delete session from context database',
-        tags: ['Context DB'],
+        description: 'Delete session from session memory data database',
+        tags: ['Session Memory Data'],
         params: Type.Object({
           sessionId: Type.String(),
         }),
@@ -195,7 +196,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { sessionId } = request.params as any;
 
-      await contextDb.deleteSession(sessionId);
+      await sessionMemoryDataService.deleteSession(sessionId);
 
       return {
         success: true,
@@ -205,7 +206,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
   );
 
   /**
-   * GET /api/v1/context-db/sessions/:sessionId/export
+   * GET /api/v1/session-memory-data/sessions/:sessionId/export
    * Export session as JSON
    */
   fastify.get(
@@ -213,7 +214,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
     {
       schema: {
         description: 'Export session as JSON string',
-        tags: ['Context DB'],
+        tags: ['Session Memory Data'],
         params: Type.Object({
           sessionId: Type.String(),
         }),
@@ -228,7 +229,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
       const { sessionId } = request.params as any;
 
       try {
-        const jsonString = await contextDb.exportSession(sessionId);
+        const jsonString = await sessionMemoryDataService.exportSession(sessionId);
 
         reply.type('application/json');
         return jsonString;
@@ -240,7 +241,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
   );
 
   /**
-   * POST /api/v1/context-db/compact
+   * POST /api/v1/session-memory-data/compact
    * Compact database (remove old sessions)
    */
   fastify.post(
@@ -248,7 +249,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
     {
       schema: {
         description: 'Remove old completed sessions from database',
-        tags: ['Context DB'],
+        tags: ['Session Memory Data'],
         body: Type.Object({
           olderThanDays: Type.Optional(Type.Number({ default: 7 })),
         }),
@@ -263,7 +264,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { olderThanDays = 7 } = request.body as any;
 
-      const removedCount = await contextDb.compact(olderThanDays);
+      const removedCount = await sessionMemoryDataService.compact(olderThanDays);
 
       return {
         success: true,
@@ -273,7 +274,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
   );
 
   /**
-   * DELETE /api/v1/context-db/clear
+   * DELETE /api/v1/session-memory-data/clear
    * Clear all sessions (admin only, dangerous)
    */
   fastify.delete(
@@ -281,7 +282,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
     {
       schema: {
         description: 'Clear all sessions from database (use with caution)',
-        tags: ['Context DB'],
+        tags: ['Session Memory Data'],
         response: {
           200: Type.Object({
             success: Type.Boolean(),
@@ -291,7 +292,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      await contextDb.clearAll();
+      await sessionMemoryDataService.clearAll();
 
       return {
         success: true,
@@ -301,7 +302,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
   );
 
   /**
-   * GET /api/v1/context-db/sessions/:sessionId/context
+   * GET /api/v1/session-memory-data/sessions/:sessionId/context
    * Get only context object (lightweight)
    */
   fastify.get(
@@ -309,7 +310,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
     {
       schema: {
         description: 'Get only context object for session',
-        tags: ['Context DB'],
+        tags: ['Session Memory Data'],
         params: Type.Object({
           sessionId: Type.String(),
         }),
@@ -323,7 +324,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { sessionId } = request.params as any;
 
-      const session = await contextDb.getSession(sessionId);
+      const session = await sessionMemoryDataService.getSession(sessionId);
       if (!session) {
         reply.code(404);
         return { error: `Session ${sessionId} not found` };
@@ -334,7 +335,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
   );
 
   /**
-   * GET /api/v1/context-db/sessions/:sessionId/messages
+   * GET /api/v1/session-memory-data/sessions/:sessionId/messages
    * Get only messages array (lightweight)
    */
   fastify.get(
@@ -342,7 +343,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
     {
       schema: {
         description: 'Get only messages array for session',
-        tags: ['Context DB'],
+        tags: ['Session Memory Data'],
         params: Type.Object({
           sessionId: Type.String(),
         }),
@@ -356,7 +357,7 @@ export async function contextDbRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { sessionId } = request.params as any;
 
-      const session = await contextDb.getSession(sessionId);
+      const session = await sessionMemoryDataService.getSession(sessionId);
       if (!session) {
         reply.code(404);
         return { error: `Session ${sessionId} not found` };

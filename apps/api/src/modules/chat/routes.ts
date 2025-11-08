@@ -22,7 +22,7 @@ import type {
 } from './types.js';
 
 import { voiceLangraphRoutes } from './voice-langraph.routes.js';
-import { contextDbRoutes } from './context-db.routes.js';
+import { sessionMemoryDataRoutes } from './session-memory-data.routes.js';
 import { disconnectVoiceLangraphSession, getActiveVoiceLangraphSessionCount } from './voice-langraph.service.js';
 
 /**
@@ -32,8 +32,8 @@ export async function chatRoutes(fastify: FastifyInstance) {
   // Register voice WebSocket routes
   await voiceLangraphRoutes(fastify);
 
-  // Register context database routes
-  await fastify.register(contextDbRoutes, { prefix: '/context-db' });
+  // Register session memory data routes
+  await fastify.register(sessionMemoryDataRoutes, { prefix: '/session-memory-data' });
 
   /**
    * POST /api/v1/chat/session/new
