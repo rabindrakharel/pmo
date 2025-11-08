@@ -154,12 +154,12 @@
       "default_next_node": "Extract_Customer_Issue",
       "branching_conditions": [
         {
-          "condition": "if customer has stated their need (in current or previous messages)",
+          "condition": "if customer has stated their need or issue (examples: 'my roof is leaking', 'need plumbing help', 'my roof', 'drywall repair', 'HVAC broken', ANY service/problem mentioned)",
           "child_node": "Extract_Customer_Issue",
           "advance_type": "auto"
         },
         {
-          "condition": "if customer has NOT stated any need yet (just greetings)",
+          "condition": "if customer ONLY said greeting with NO issue mentioned (examples: 'hello', 'hi', 'good morning', 'hey there' - NOTHING about roof/plumbing/service/problem)",
           "child_node": "wait_for_customers_reply",
           "advance_type": "stepwise"
         },
@@ -461,12 +461,12 @@
           "advance_type": "stepwise"
         },
         {
-          "condition": "if customers_main_ask is empty string or not populated yet",
+          "condition": "if customers_main_ask is empty AND customer mentions ANY service/problem/issue (examples: 'roof', 'plumbing', 'HVAC', 'drywall', 'my roof my roof', 'need help with X')",
           "child_node": "Extract_Customer_Issue",
           "advance_type": "stepwise"
         },
         {
-          "condition": "if customer describes a NEW different issue/problem (not just elaborating on existing issue)",
+          "condition": "if customer describes a NEW different issue/problem (not just elaborating on existing issue) - examples: switching from 'roof' to 'plumbing', or 'drywall' to 'HVAC'",
           "child_node": "Extract_Customer_Issue",
           "advance_type": "stepwise"
         },
