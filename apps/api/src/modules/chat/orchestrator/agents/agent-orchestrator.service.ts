@@ -526,6 +526,9 @@ export class AgentOrchestratorService {
           // Merge extraction results into context
           state = this.contextManager.updateContext(state, extractionResult.contextUpdates || {});
 
+          // CRITICAL: Write context to persistent JSON file immediately after extraction
+          await this.writeContextFile(state, `extraction:${extractionResult.fieldsUpdated.join(',')}`);
+
           // Log extraction to llm.log
           await this.logger.logAgentExecution({
             agentType: 'data_extraction',
