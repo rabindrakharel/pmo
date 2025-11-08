@@ -535,9 +535,6 @@ export class AgentOrchestratorService {
       }
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-      // REMOVED: summary_of_conversation_on_each_step_until_now (duplicate of messages array)
-      // DataExtractionAgent now reads from state.messages directly
-
       // Log conversation turn to llm.log (only on first iteration)
       if (iterations === 1 && userMessage && response) {
         await this.logger.logConversationTurn({
@@ -545,6 +542,34 @@ export class AgentOrchestratorService {
           aiResponse: response,
           sessionId: state.sessionId,
         });
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // INDEXED CONVERSATION SUMMARY
+        // Append conversation exchange with index to prevent duplicates
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        const currentSummary = state.context.summary_of_conversation_on_each_step_until_now || [];
+        const nextIndex = currentSummary.length; // Next index is current length (0, 1, 2, ...)
+
+        // Check if this exact exchange already exists (prevent duplicates)
+        const isDuplicate = currentSummary.some((entry: any) =>
+          entry.customer === userMessage && entry.agent === response
+        );
+
+        if (!isDuplicate) {
+          state = this.contextManager.updateContext(state, {
+            summary_of_conversation_on_each_step_until_now: [
+              ...currentSummary,
+              {
+                index: nextIndex,
+                customer: userMessage,
+                agent: response
+              }
+            ]
+          });
+          console.log(`[AgentOrchestrator] 💬 Added conversation exchange #${nextIndex} to summary`);
+        } else {
+          console.log(`[AgentOrchestrator] ⚠️ Skipping duplicate conversation entry`);
+        }
       }
 
       // CRITICAL: Track node execution by appending to node_traversed
@@ -579,7 +604,8 @@ export class AgentOrchestratorService {
       console.log(`\n🗺️  NAVIGATION HISTORY (${state.context.node_traversed?.length || 0} nodes):`);
       console.log(`   ${JSON.stringify(state.context.node_traversed || [], null, 2)}`);
       const msgCount = Math.floor((state.messages?.length || 0) / 2);
-      console.log(`\n💬 CONVERSATION (${msgCount} exchanges, ${state.messages?.length || 0} messages)`);
+      const summaryCount = state.context.summary_of_conversation_on_each_step_until_now?.length || 0;
+      console.log(`\n💬 CONVERSATION (${summaryCount} indexed exchanges in summary, ${msgCount} exchanges in messages array)`);
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
       // STEP 2: Navigator Agent decides next node AFTER execution

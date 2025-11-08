@@ -737,6 +737,7 @@
         "next_course_of_action": "",
         "next_node_to_go_to": "GREET_CUSTOMER",
         "node_traversed": [],
+        "summary_of_conversation_on_each_step_until_now": [],
         "flags": {}
       },
       "instructions_for_orchestrator": [
@@ -748,7 +749,8 @@
         "6. Preserve all existing context fields when updating",
         "7. Update data_extraction_fields as a nested object (access via context.data_extraction_fields.customer_name, etc.)",
         "8. Log context state after each iteration for debugging",
-        "9. Conversation history is stored in state.messages array (OpenAI format), NOT in context"
+        "9. Conversation history stored in BOTH state.messages (OpenAI format) AND context.summary_of_conversation_on_each_step_until_now (indexed format)",
+        "10. Each conversation exchange in summary MUST have index (0, 1, 2, ...) to prevent duplicates"
       ]
     }
   }

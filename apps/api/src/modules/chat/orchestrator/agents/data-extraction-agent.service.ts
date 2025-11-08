@@ -37,35 +37,45 @@ export class DataExtractionAgent {
   async extractAndUpdateContext(state: AgentContextState): Promise<DataExtractionResult> {
     console.log(`\n🔍 [DataExtractionAgent] Analyzing conversation for context updates...`);
 
-    // Get last 8 messages from state.messages (4 user + 4 assistant exchanges)
-    const allMessages = state.messages || [];
-    const last8Messages = allMessages.slice(-8);
+    // Try to get indexed summary first (preferred), fall back to messages array
+    const indexedSummary = state.context.summary_of_conversation_on_each_step_until_now || [];
+    let exchanges: Array<{ index?: number; customer: string; agent: string }> = [];
 
-    if (last8Messages.length === 0) {
-      console.log(`[DataExtractionAgent] No conversation history - skipping`);
-      return {
-        extractionReason: 'No conversation history available'
-      };
-    }
+    if (indexedSummary.length > 0) {
+      // Use indexed summary (already in exchange format with index)
+      exchanges = indexedSummary.slice(-4); // Last 4 exchanges
+      console.log(`[DataExtractionAgent] 📝 Analyzing last ${exchanges.length} conversation exchanges (from indexed summary)`);
+      console.log(`[DataExtractionAgent] Exchange indices: ${exchanges.map((e: any) => e.index).join(', ')}`);
+    } else {
+      // Fall back to messages array for backward compatibility
+      const allMessages = state.messages || [];
+      const last8Messages = allMessages.slice(-8);
 
-    // Convert messages to exchange format for analysis
-    const exchanges: Array<{ customer: string; agent: string }> = [];
-    for (let i = 0; i < last8Messages.length; i += 2) {
-      const userMsg = last8Messages[i];
-      const agentMsg = last8Messages[i + 1];
-
-      if (userMsg?.role === 'user' && agentMsg?.role === 'assistant') {
-        exchanges.push({
-          customer: userMsg.content,
-          agent: agentMsg.content
-        });
+      if (last8Messages.length === 0) {
+        console.log(`[DataExtractionAgent] No conversation history - skipping`);
+        return {
+          extractionReason: 'No conversation history available'
+        };
       }
+
+      // Convert messages to exchange format for analysis
+      for (let i = 0; i < last8Messages.length; i += 2) {
+        const userMsg = last8Messages[i];
+        const agentMsg = last8Messages[i + 1];
+
+        if (userMsg?.role === 'user' && agentMsg?.role === 'assistant') {
+          exchanges.push({
+            customer: userMsg.content,
+            agent: agentMsg.content
+          });
+        }
+      }
+
+      exchanges = exchanges.slice(-4); // Last 4 exchanges
+      console.log(`[DataExtractionAgent] 📝 Analyzing last ${exchanges.length} conversation exchanges (from messages array - fallback)`);
     }
 
-    const last4Exchanges = exchanges.slice(-4);
-
-    console.log(`[DataExtractionAgent] 📝 Analyzing last ${last4Exchanges.length} conversation exchanges (from messages array)`);
-    console.log(`[DataExtractionAgent] Exchanges:`, JSON.stringify(last4Exchanges, null, 2));
+    console.log(`[DataExtractionAgent] Exchanges:`, JSON.stringify(exchanges, null, 2));
 
     // Identify which context fields are still empty (nested under data_extraction_fields)
     const dataFields = state.context.data_extraction_fields || {};
@@ -92,8 +102,8 @@ export class DataExtractionAgent {
       };
     }
 
-    // Build prompt for LLM
-    const systemPrompt = this.buildExtractionPrompt(last4Exchanges, emptyFields, state.context);
+    // Build prompt for LLM (exchanges already contains last 4)
+    const systemPrompt = this.buildExtractionPrompt(exchanges, emptyFields, state.context);
 
     // 🔍 DEBUG: Log extraction prompt
     console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
