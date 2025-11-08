@@ -51,7 +51,8 @@ export class DataExtractionAgent {
     console.log(`[DataExtractionAgent] 📝 Analyzing last ${last4Exchanges.length} conversation exchanges`);
     console.log(`[DataExtractionAgent] Exchanges:`, JSON.stringify(last4Exchanges, null, 2));
 
-    // Identify which context fields are still empty
+    // Identify which context fields are still empty (nested under data_extraction_fields)
+    const dataFields = state.context.data_extraction_fields || {};
     const allContextFields = [
       'customer_name',
       'customer_phone_number',
@@ -62,16 +63,16 @@ export class DataExtractionAgent {
     ];
 
     const emptyFields = allContextFields.filter(
-      field => !state.context[field] || state.context[field] === ''
+      field => !dataFields[field] || dataFields[field] === ''
     );
 
-    console.log(`[DataExtractionAgent] 📊 Empty context fields: ${emptyFields.join(', ') || '(none)'}`);
+    console.log(`[DataExtractionAgent] 📊 Empty extraction fields: ${emptyFields.join(', ') || '(none)'}`);
 
     // If all fields are populated, skip extraction
     if (emptyFields.length === 0) {
-      console.log(`[DataExtractionAgent] ✅ All context fields populated - skipping extraction`);
+      console.log(`[DataExtractionAgent] ✅ All extraction fields populated - skipping extraction`);
       return {
-        extractionReason: 'All context fields already populated'
+        extractionReason: 'All data extraction fields already populated'
       };
     }
 
@@ -150,6 +151,8 @@ export class DataExtractionAgent {
     emptyFields: string[],
     currentContext: any
   ): string {
+    const dataFields = currentContext.data_extraction_fields || {};
+
     return `You are a data extraction specialist for a customer service system.
 
 Your task: Analyze the recent conversation exchanges and extract missing customer information.
@@ -161,11 +164,11 @@ ${last4Exchanges.map((exchange, idx) => {
 }).join('\n\n')}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 EMPTY CONTEXT FIELDS (not yet extracted):
+📊 EMPTY DATA EXTRACTION FIELDS (not yet extracted):
 ${emptyFields.join(', ')}
 
-🔍 CURRENT CONTEXT (fields already populated):
-${JSON.stringify(currentContext, null, 2)}
+🔍 CURRENT DATA EXTRACTION FIELDS (already populated):
+${JSON.stringify(dataFields, null, 2)}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎯 YOUR TASK:

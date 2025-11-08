@@ -102,18 +102,26 @@ export class AgentContextManager {
     return {
       agent_session_id: sessionId,
       who_are_you: 'You are a polite customer service agent who is assisting a customer',
-      customer_name: '',
-      customer_phone_number: '',
-      customer_id: '',
-      customers_main_ask: '',
-      matching_service_catalog_to_solve_customers_issue: '',
-      related_entities_for_customers_ask: '',
-      task_id: '',
-      appointment_details: '',
+      data_extraction_fields: {
+        customer_name: '',
+        customer_phone_number: '',
+        customer_email: '',
+        customer_id: '',
+        customers_main_ask: '',
+        matching_service_catalog_to_solve_customers_issue: '',
+        related_entities_for_customers_ask: '',
+        task_id: '',
+        task_name: '',
+        appointment_details: '',
+        project_id: '',
+        assigned_employee_id: '',
+        assigned_employee_name: '',
+      },
       next_course_of_action: '',
       next_node_to_go_to: '',
-      node_traversal_path: [],
+      node_traversed: [],
       summary_of_conversation_on_each_step_until_now: [],
+      flags: {},
     };
   }
 
@@ -171,12 +179,17 @@ export class AgentContextManager {
         const newItems = Array.isArray(value) ? value : [value];
         merged.summary_of_conversation_on_each_step_until_now = [...existing, ...newItems];
         console.log(`[AgentContext] 💬 Conversation summary appended: ${newItems.length} item(s), total: ${merged.summary_of_conversation_on_each_step_until_now.length}`);
-      } else if (key === 'node_traversal_path') {
-        // ✅ APPEND to traversal path array (never replace)
-        const existing = state.context.node_traversal_path || [];
+      } else if (key === 'node_traversed') {
+        // ✅ APPEND to node traversal array (never replace)
+        const existing = state.context.node_traversed || [];
         const newNodes = Array.isArray(value) ? value : [value];
-        merged.node_traversal_path = [...existing, ...newNodes];
-        console.log(`[AgentContext] 🗺️  Node path appended: ${newNodes.join(' → ')}, total nodes: ${merged.node_traversal_path.length}`);
+        merged.node_traversed = [...existing, ...newNodes];
+        console.log(`[AgentContext] 🗺️  Node traversed appended: ${newNodes.join(' → ')}, total nodes: ${merged.node_traversed.length}`);
+      } else if (key === 'data_extraction_fields') {
+        // ✅ MERGE nested data_extraction_fields object (not replace)
+        const existing = state.context.data_extraction_fields || {};
+        merged.data_extraction_fields = { ...existing, ...value };
+        console.log(`[AgentContext] 📝 Data extraction fields merged: ${Object.keys(value).join(', ')}`);
       } else if (value !== undefined && value !== null && value !== '') {
         // ✅ UPDATE field only if new value is meaningful
         const isNew = !merged[key] || merged[key] === '';
@@ -211,12 +224,12 @@ export class AgentContextManager {
   }
 
   /**
-   * Update current node and append to traversal path
+   * Update current node and append to node traversed array
    */
   updateCurrentNode(state: AgentContextState, nodeName: string): AgentContextState {
-    // Add to traversal path
+    // Add to node traversed array
     const stateWithPath = this.updateContext(state, {
-      node_traversal_path: [nodeName],
+      node_traversed: [nodeName],
     });
 
     return {

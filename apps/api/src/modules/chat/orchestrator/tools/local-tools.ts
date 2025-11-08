@@ -124,6 +124,7 @@ IMPORTANT:
 
 /**
  * Execute updateContext tool locally
+ * Updates fields within data_extraction_fields nested object
  */
 export async function executeUpdateContext(
   state: AgentContextState,
@@ -132,8 +133,11 @@ export async function executeUpdateContext(
   console.log(`\n🔧 [LocalTool:updateContext] Executing context update...`);
   console.log(`   Arguments: ${JSON.stringify(toolArgs, null, 2)}`);
 
-  const updates: Record<string, any> = {};
   const fieldsUpdated: string[] = [];
+
+  // Get current data_extraction_fields object (or initialize if missing)
+  const currentDataFields = state.context.data_extraction_fields || {};
+  const updatedDataFields: Record<string, any> = { ...currentDataFields };
 
   // Process each field in tool arguments
   for (const [key, value] of Object.entries(toolArgs)) {
@@ -143,12 +147,12 @@ export async function executeUpdateContext(
     }
 
     // Only update if value is different from current
-    if (state.context[key] !== value) {
-      updates[key] = value;
+    if (currentDataFields[key] !== value) {
+      updatedDataFields[key] = value;
       fieldsUpdated.push(key);
-      console.log(`   ✓ ${key}: "${state.context[key] || '(empty)'}" → "${value}"`);
+      console.log(`   ✓ data_extraction_fields.${key}: "${currentDataFields[key] || '(empty)'}" → "${value}"`);
     } else {
-      console.log(`   ⊘ ${key}: Already set to "${value}" (skipping)`);
+      console.log(`   ⊘ data_extraction_fields.${key}: Already set to "${value}" (skipping)`);
     }
   }
 
@@ -157,6 +161,11 @@ export async function executeUpdateContext(
   } else {
     console.log(`[LocalTool:updateContext] ℹ️  No fields updated (all values unchanged)`);
   }
+
+  // Return updates with nested structure
+  const updates = {
+    data_extraction_fields: updatedDataFields
+  };
 
   return {
     success: true,

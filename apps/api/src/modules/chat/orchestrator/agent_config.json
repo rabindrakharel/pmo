@@ -703,22 +703,24 @@
       "template": {
         "agent_session_id": "<session_uuid>",
         "who_are_you": "You are a polite customer service agent who is assisting a customer. Behind the scene you use MCP tools, build data context and take actions to support customers need.",
-        "customer_name": "",
-        "customer_phone_number": "",
-        "customer_email": "",
-        "customer_id": "",
-        "customers_main_ask": "",
-        "matching_service_catalog_to_solve_customers_issue": "",
-        "related_entities_for_customers_ask": "",
-        "task_id": "",
-        "task_name": "",
-        "appointment_details": "",
-        "project_id": "",
-        "assigned_employee_id": "",
-        "assigned_employee_name": "",
+        "data_extraction_fields": {
+          "customer_name": "",
+          "customer_phone_number": "",
+          "customer_email": "",
+          "customer_id": "",
+          "customers_main_ask": "",
+          "matching_service_catalog_to_solve_customers_issue": "",
+          "related_entities_for_customers_ask": "",
+          "task_id": "",
+          "task_name": "",
+          "appointment_details": "",
+          "project_id": "",
+          "assigned_employee_id": "",
+          "assigned_employee_name": ""
+        },
         "next_course_of_action": "",
         "next_node_to_go_to": "GREET_CUSTOMER",
-        "node_traversal_path": [],
+        "node_traversed": [],
         "summary_of_conversation_on_each_step_until_now": [],
         "flags": {}
       },
@@ -727,9 +729,10 @@
         "2. Replace <session_uuid> with actual session ID",
         "3. Initialize flags object as empty {}",
         "4. As conversation progresses, UPDATE fields (never replace entire context)",
-        "5. APPEND to arrays (node_traversal_path, summary_of_conversation_on_each_step_until_now)",
+        "5. APPEND to arrays (node_traversed, summary_of_conversation_on_each_step_until_now)",
         "6. Preserve all existing context fields when updating",
-        "7. Log context state after each iteration for debugging"
+        "7. Update data_extraction_fields as a nested object (access via context.data_extraction_fields.customer_name, etc.)",
+        "8. Log context state after each iteration for debugging"
       ]
     }
   }
