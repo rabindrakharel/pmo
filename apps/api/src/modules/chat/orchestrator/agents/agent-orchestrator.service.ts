@@ -53,7 +53,7 @@ export class AgentOrchestratorService {
     this.contextManager = getAgentContextManager();
 
     console.log('[AgentOrchestrator] 🚀 Initializing pure agent-based system with LowDB');
-    this.initializeContextDb();
+    this.initializeSessionMemoryData();
     this.initializeContextDir();
     this.initializeAgents();
   }
@@ -61,7 +61,7 @@ export class AgentOrchestratorService {
   /**
    * Initialize LowDB for session memory data storage
    */
-  private async initializeContextDb(): Promise<void> {
+  private async initializeSessionMemoryData(): Promise<void> {
     try {
       const sessionMemoryDataService = getSessionMemoryDataService();
       await sessionMemoryDataService.initialize();
