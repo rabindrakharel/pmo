@@ -77,10 +77,10 @@ export class WorkerReplyAgent {
     let fieldsUpdated: string[] = [];
 
     // Handle tool calls if LLM made any
-    if (result.toolCalls && result.toolCalls.length > 0) {
-      console.log(`[WorkerReplyAgent] 🔧 LLM called ${result.toolCalls.length} tool(s)`);
+    if (result.tool_calls && result.tool_calls.length > 0) {
+      console.log(`[WorkerReplyAgent] 🔧 LLM called ${result.tool_calls.length} tool(s)`);
 
-      for (const toolCall of result.toolCalls) {
+      for (const toolCall of result.tool_calls) {
         if (toolCall.function.name === 'updateContext') {
           console.log(`[WorkerReplyAgent] ⚙️  Executing updateContext tool...`);
 
