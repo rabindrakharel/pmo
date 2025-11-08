@@ -282,6 +282,7 @@ export class AgentOrchestratorService {
     let state = initialState;
     let iterations = 0;
     const maxIterations = 20; // Prevent infinite loops
+    let loopBackIntention: string | undefined = undefined; // Track loop-back intention for current iteration
 
     while (iterations < maxIterations) {
       iterations++;
@@ -314,7 +315,10 @@ export class AgentOrchestratorService {
       console.log(`     - service_catalog: ${state.context.matching_service_catalog_to_solve_customers_issue || '(not set)'}`);
       console.log(`     - task_id: ${state.context.task_id || '(not set)'}`);
       console.log(`     - next_node_to_go_to: ${state.context.next_node_to_go_to || '(not set)'}`);
-      console.log(`     - next_course_of_action: ${state.context.next_course_of_action || '(not set)'}\n`);
+      console.log(`     - next_course_of_action: ${state.context.next_course_of_action || '(not set)'}`);
+      console.log(`\n🔍 [FULL CONTEXT DATA]`);
+      console.log(JSON.stringify(state.context, null, 2));
+      console.log(``);
 
       // Log full context state to llm.log
       await this.logger.logContextState(state, 'CONTEXT BEFORE EXECUTION');
@@ -323,6 +327,28 @@ export class AgentOrchestratorService {
       if (state.conversationEnded) {
         console.log(`[AgentOrchestrator] ✅ Conversation ended: ${state.endReason}`);
         break;
+      }
+
+      // Detect loop-back intention BEFORE executing node
+      // Check if current node was reached via a loop-back condition
+      loopBackIntention = undefined; // Reset for this iteration
+      state.loopBackIntention = undefined; // Clear from state
+      if (iterations > 1 && state.previousNode) {
+        const prevNodeConfig = this.dagConfig.nodes.find(n => n.node_name === state.previousNode);
+        if (prevNodeConfig?.branching_conditions) {
+          const matchedCondition = prevNodeConfig.branching_conditions.find(
+            (bc: any) => bc.child_node === state.currentNode
+          );
+          if (matchedCondition?.loop_back_intention) {
+            loopBackIntention = matchedCondition.loop_back_intention;
+            state.loopBackIntention = loopBackIntention; // Set in state for agents to use
+            console.log(`\n🔄 [LOOP-BACK CONTEXT]`);
+            console.log(`   Previous node: ${state.previousNode}`);
+            console.log(`   Current node: ${state.currentNode}`);
+            console.log(`   Loop-back intention: ${loopBackIntention}`);
+            console.log(`   ⚠️  This is INTERNAL context for the LLM - NOT shown to customer\n`);
+          }
+        }
       }
 
       // STEP 1: Choose correct worker agent based on node.agent_profile_type
@@ -498,6 +524,27 @@ export class AgentOrchestratorService {
 
       // Check if we should end conversation
       if (navigatorDecision.nextNode === 'END') {
+        // Special case: If we're coming from Execute_Call_Hangup, end the entire conversation
+        if (state.currentNode === 'Execute_Call_Hangup') {
+          console.log(`\n📞 [CALL HANGUP COMPLETE]`);
+          console.log(`   MCP hangup executed successfully`);
+          console.log(`   Ending conversation with status: Call Terminated`);
+          state = this.contextManager.endConversation(state, 'Call Terminated');
+          console.log(`   conversationEnded: ${state.conversationEnded}`);
+          console.log(`   endReason: ${state.endReason}`);
+
+          // Log iteration end
+          await this.logger.logIterationEnd({
+            iteration: iterations,
+            nextNode: 'END',
+            conversationEnded: true,
+            endReason: state.endReason,
+            sessionId: state.sessionId,
+          });
+          break;
+        }
+
+        // Normal END: wait for user input
         console.log(`\n🛑 [END OF TURN]`);
         console.log(`   Reason: Waiting for user input`);
         console.log(`   Current node remains: ${state.currentNode}`);
@@ -546,23 +593,47 @@ export class AgentOrchestratorService {
       console.log(`   New current node: ${state.currentNode}`);
       console.log(`   Previous node: ${state.previousNode || 'N/A'}`);
 
-      // Check if the NEW node has auto_advance flag
-      const nextNodeConfig = this.dagConfig.nodes.find(n => n.node_name === state.currentNode);
-      const shouldAutoAdvance = nextNodeConfig?.auto_advance === true;
+      // Check advance_type from the matched branching condition
+      // If the transition was made via a branching condition with advance_type='auto', continue
+      // If advance_type='stepwise' or no match, break and wait for user
+      const prevNodeConfig = this.dagConfig.nodes.find(n => n.node_name === previousNode);
+      let shouldAutoAdvance = false;
+      let matchedBranchingCondition: any = null;
 
-      // If auto-advance is enabled, continue to next iteration immediately
-      if (shouldAutoAdvance && iterations < maxIterations) {
-        console.log(`\n⚡ [AUTO-ADVANCE ENABLED]`);
-        console.log(`   Node ${state.currentNode} has auto_advance=true`);
-        console.log(`   Continuing to execute next node without waiting for user input...`);
-        // Don't break - continue the loop
-        continue;
+      // Find the branching condition that led to the current node
+      if (prevNodeConfig?.branching_conditions) {
+        matchedBranchingCondition = prevNodeConfig.branching_conditions.find(
+          (bc: any) => bc.child_node === state.currentNode
+        );
+
+        if (matchedBranchingCondition) {
+          shouldAutoAdvance = matchedBranchingCondition.advance_type === 'auto';
+          console.log(`\n🔀 [ROUTING TYPE]`);
+          console.log(`   Matched branching condition: ${matchedBranchingCondition.condition || '(no condition text)'}`);
+          console.log(`   Advance type: ${matchedBranchingCondition.advance_type || '(not set)'}`);
+          console.log(`   Child node: ${matchedBranchingCondition.child_node}`);
+        }
       }
 
-      // Break to wait for user response when:
-      // 1. First iteration completed AND current node doesn't have auto_advance
-      // 2. Auto-advance chain completed (no more auto_advance nodes)
-      console.log(`\n💬 [TURN COMPLETE]`);
+      // If no matching condition found, check if transition was via default_next_node
+      if (!matchedBranchingCondition && prevNodeConfig?.default_next_node === state.currentNode) {
+        console.log(`\n🔀 [ROUTING TYPE]`);
+        console.log(`   Used default_next_node (no branching condition matched)`);
+        console.log(`   Advance type: stepwise (default behavior)`);
+        shouldAutoAdvance = false;
+      }
+
+      // Auto-advance: continue to next iteration immediately
+      if (shouldAutoAdvance && iterations < maxIterations) {
+        console.log(`\n⚡ [AUTO-ADVANCE ENABLED]`);
+        console.log(`   Transition has advance_type='auto'`);
+        console.log(`   Continuing to execute next node without waiting for user input...`);
+        continue; // Don't break - continue the loop
+      }
+
+      // Stepwise: break and wait for user response
+      console.log(`\n💬 [TURN COMPLETE - STEPWISE]`);
+      console.log(`   Transition has advance_type='stepwise' or default`);
       console.log(`   Breaking loop to wait for next user message`);
       console.log(`   Final state context:`);
       console.log(`     - currentNode: ${state.currentNode}`);
