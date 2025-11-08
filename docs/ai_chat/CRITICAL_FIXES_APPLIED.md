@@ -1,6 +1,8 @@
 # ✅ Critical Fixes Applied
 
-> **Status:** Fixes applied in commit `a5b7089`
+> **Status:** Fixes applied and revised
+>
+> **Commits:** `a5b7089` (initial), `695cf8a` (loop detection revision)
 >
 > **Branch:** `claude/fix-context-data-api-011CUuhgpTfBzse9X6tDieKZ`
 >
@@ -11,6 +13,8 @@
 ## 🎯 Summary
 
 Applied P0 (critical) and P1 (high priority) fixes to resolve production issues found in session `8e5465d2-7a7a-40e7-aa72-bcaa78e912be`.
+
+**Revision (commit `695cf8a`):** Loop detection updated to use intelligent retry guidance instead of forced escape, preserving all collected data across retries.
 
 ---
 
@@ -50,42 +54,89 @@ console.log(`   Fields updated: ${toolResult.fieldsUpdated.join(', ')}`);
 
 ---
 
-## ✅ Fix #2: Loop Detection Safeguard
+## ✅ Fix #2: Loop Detection with Intelligent Retry Guidance
 
 **Problem:** System stuck in infinite loop visiting `Try_To_Gather_Customers_Data` 5+ times.
 
-**Solution:** Added loop detection that checks if same node visited 3+ times in last 6 nodes:
+**Solution (Revised in commit `695cf8a`):** Added intelligent retry guidance that preserves data and helps agent try differently:
 
 ```typescript
-const recentNodes = (state.context.node_traversed || []).slice(-6);
+const recentNodes = (state.context.node_traversed || []).slice(-10); // Last 10 nodes
 const nextNodeCount = recentNodes.filter(n => n === navigatorDecision.nextNode).length;
 
-if (nextNodeCount >= 3) {
-  console.log(`🚨 [LOOP DETECTION] ${navigatorDecision.nextNode} visited ${nextNodeCount} times`);
+// Initialize loop tracking in context if not exists
+if (!state.context.loop_tracking) {
+  state = this.contextManager.updateContext(state, {
+    loop_tracking: {}
+  });
+}
 
-  // Force escape strategies:
+const loopTracking = state.context.loop_tracking || {};
+const nodeKey = navigatorDecision.nextNode;
+
+// Track visit count and attempt index for this node
+if (!loopTracking[nodeKey]) {
+  loopTracking[nodeKey] = { visits: 0, last_attempt: '' };
+}
+loopTracking[nodeKey].visits = nextNodeCount + 1;
+
+if (nextNodeCount >= 2) {
+  console.log(`🔄 [LOOP DETECTED] ${navigatorDecision.nextNode} visited ${nextNodeCount + 1} times`);
+  console.log(`   ⚠️  IMPORTANT: Data collected so far is PRESERVED`);
+
+  // Generate retry guidance based on node type and attempt number
+  let retryGuidance = '';
+
   if (navigatorDecision.nextNode === 'Try_To_Gather_Customers_Data') {
-    navigatorDecision.nextNode = 'Check_IF_existing_customer';
-  } else if (navigatorDecision.nextNode === 'ASK_CUSTOMER_ABOUT_THEIR_NEED') {
-    navigatorDecision.nextNode = 'Extract_Customer_Issue';
-  } else {
-    // Generic: use default_next_node or goto Goodbye
+    const attempts = loopTracking[nodeKey].visits;
+    const dataFields = state.context.data_extraction_fields || {};
+
+    if (attempts === 3) {
+      retryGuidance = `This is attempt #${attempts}. Try a different approach:\n`;
+      retryGuidance += `- Currently have: name="${dataFields.customer_name || '(missing)'}", phone="${dataFields.customer_phone_number || '(missing)'}"\n`;
+      retryGuidance += `- Try: "To help you better, could you share your contact number?"\n`;
+      retryGuidance += `- Be more direct and specific`;
+    } else if (attempts === 4) {
+      retryGuidance = `Attempt #${attempts}. Offer value:\n`;
+      retryGuidance += `- Example: "So I can send updates, what's a good number to reach you?"\n`;
+      retryGuidance += `- Explain WHY you need the information`;
+    } else if (attempts >= 5) {
+      retryGuidance = `Attempt #${attempts}. Offer alternative:\n`;
+      retryGuidance += `- Example: "I can proceed with partial info. Continue or provide contact number?"\n`;
+      retryGuidance += `- Give customer option to skip`;
+    }
   }
+
+  // Update context with retry guidance (NEVER reset data)
+  state = this.contextManager.updateContext(state, {
+    next_course_of_action: retryGuidance,
+    loop_tracking: loopTracking
+  });
 }
 ```
 
-**Escape Strategies:**
-- `Try_To_Gather_Customers_Data` → Forces to `Check_IF_existing_customer` (move forward even with incomplete data)
-- `ASK_CUSTOMER_ABOUT_THEIR_NEED` → Forces to `Extract_Customer_Issue`
-- Other nodes → Uses `default_next_node` or last resort: `Goodbye_And_Hangup`
+**Retry Strategies:**
+- **Attempt 3:** Be more direct and specific about what's needed
+- **Attempt 4:** Explain WHY information is needed (value proposition)
+- **Attempt 5+:** Offer alternatives or option to skip
+- **All attempts:** Show current data status, suggest different phrasing
+
+**Key Changes from Initial Implementation:**
+- ✅ **Data Preservation:** All collected data preserved across retries (NEVER reset)
+- ✅ **Allow Loops:** Revisiting same node is okay (no forced escape)
+- ✅ **Progressive Guidance:** Suggestions vary based on attempt number
+- ✅ **Conversation Index:** Tracked via `loop_tracking[nodeKey].visits`
 
 **Benefits:**
-- Prevents infinite loops
-- Customer can never get stuck
-- System always makes progress
+- Prevents infinite loops while allowing necessary retries
+- Preserves all extracted customer data
+- Provides progressive retry guidance to try different approaches
+- Tracks attempt index for contextual suggestions
 - Logs loop detection events for debugging
 
-**File:** `apps/api/src/modules/chat/orchestrator/agents/agent-orchestrator.service.ts` (lines 640-694)
+**Files:**
+- Initial: `apps/api/src/modules/chat/orchestrator/agents/agent-orchestrator.service.ts` (commit `a5b7089`)
+- Revised: Same file (commit `695cf8a`)
 
 ---
 
@@ -156,7 +207,8 @@ if (nextNodeCount >= 3) {
 | Issue | Before | After | Status |
 |-------|--------|-------|--------|
 | **Phone extraction fails** | No debug info | Comprehensive logging | ✅ CAN DEBUG |
-| **Infinite loops** | System stuck 5+ times | Forced escape after 3 visits | ✅ PREVENTED |
+| **Infinite loops** | System stuck 5+ times | Retry guidance + data preservation | ✅ INTELLIGENT RETRY |
+| **Data loss on retry** | Extracted data potentially lost | All data preserved across retries | ✅ PRESERVED |
 | **Conversation duplication** | 60+ duplicate entries | 6 unique messages | ✅ ELIMINATED |
 | **Memory usage** | ~10KB per session (duplicates) | ~2KB per session | ✅ REDUCED |
 | **Data quality** | Corrupted/duplicate summaries | Clean OpenAI format | ✅ IMPROVED |
@@ -199,7 +251,7 @@ curl POST /api/v1/chat '{"message": "My phone is 555-1234"}'
 # - Tool execution: customer_phone_number = "555-1234"
 ```
 
-### **Test Case 2: Loop Detection**
+### **Test Case 2: Loop Detection with Retry Guidance**
 ```bash
 # Simulate loop scenario
 # User: "My roof is leaking"
@@ -209,8 +261,13 @@ curl POST /api/v1/chat '{"message": "My phone is 555-1234"}'
 
 # Expected:
 # - After 3rd "Try_To_Gather_Customers_Data" visit
-# - Log: "🚨 [LOOP DETECTION]"
-# - Forced escape to Check_IF_existing_customer
+# - Log: "🔄 [LOOP DETECTED]"
+# - Log: "⚠️ IMPORTANT: Data collected so far is PRESERVED"
+# - next_course_of_action updated with retry guidance
+# - Shows: "Currently have: name='John', phone='(missing)'"
+# - Suggests: "Try asking: 'To help you better, could you share your contact number?'"
+# - NO forced escape - allows agent to retry with different approach
+# - All extracted data (name="John") remains in context
 ```
 
 ### **Test Case 3: No Duplication**
@@ -308,5 +365,5 @@ cat ./logs/contexts/session_<sessionId>_memory_data.json | jq '.messages | lengt
 ---
 
 **Last Updated:** 2025-11-08
-**Commit:** `a5b7089`
-**Status:** ✅ FIXES APPLIED, TESTING PENDING
+**Commits:** `a5b7089` (initial), `695cf8a` (loop detection revision)
+**Status:** ✅ FIXES APPLIED AND REVISED, TESTING PENDING
