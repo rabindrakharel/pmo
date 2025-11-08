@@ -2,13 +2,13 @@
 
 ## Overview
 
-The Universal Agent System replaces separate agent files (navigator-agent.service.ts, worker-agent.service.ts) with a **single agent template** that morphs into different behaviors based on dag.json configuration.
+The Universal Agent System replaces separate agent files (navigator-agent.service.ts, worker-agent.service.ts) with a **single agent template** that morphs into different behaviors based on agent_config.json configuration.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      dag.json                               │
+│                      agent_config.json                               │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │  AGENT_PROFILE                                      │   │
 │  │  ├── node_navigator_agent (profile)                │   │
@@ -22,7 +22,7 @@ The Universal Agent System replaces separate agent files (navigator-agent.servic
 │         universal-agent.service.ts (ONE FILE)               │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │  UniversalAgent                                     │   │
-│  │  - Reads profile from dag.json                      │   │
+│  │  - Reads profile from agent_config.json                      │   │
 │  │  - Builds prompts from templates                    │   │
 │  │  - Executes responsibilities                        │   │
 │  │  - Returns structured outputs                       │   │
@@ -40,14 +40,14 @@ The Universal Agent System replaces separate agent files (navigator-agent.servic
 ## Key Benefits
 
 1. ✅ **Single Code Template**: One file instead of multiple agent files
-2. ✅ **Configuration-Driven**: All behavior defined in dag.json
+2. ✅ **Configuration-Driven**: All behavior defined in agent_config.json
 3. ✅ **Easy to Extend**: Add new agent types by editing JSON, not code
 4. ✅ **Maintainable**: Fix bugs in one place, affects all agents
 5. ✅ **Type-Safe**: TypeScript interfaces ensure consistency
 
-## Agent Profile Structure (dag.json)
+## Agent Profile Structure (agent_config.json)
 
-Each agent profile in dag.json must have:
+Each agent profile in agent_config.json must have:
 
 ```json
 {
@@ -77,7 +77,7 @@ Each agent profile in dag.json must have:
 import { createAgentFactory } from './agents/agent-factory.service.js';
 import { loadDAGConfig } from './agents/dag-loader.service.js';
 
-// Load dag.json
+// Load agent_config.json
 const dagConfig = await loadDAGConfig();
 
 // Create factory
@@ -121,7 +121,7 @@ await contextService.updateContext(state.sessionId, result.contextUpdates);
 
 ### 4. Create Custom Agent Type
 
-Add profile to dag.json:
+Add profile to agent_config.json:
 
 ```json
 {
@@ -191,7 +191,7 @@ const execution = await worker.execute(state, { userMessage, currentNode: nodeNa
 
 To add a new agent type (e.g., "analyzer_agent"):
 
-### Step 1: Add Profile to dag.json
+### Step 1: Add Profile to agent_config.json
 
 ```json
 {
@@ -217,7 +217,7 @@ To add a new agent type (e.g., "analyzer_agent"):
 ### Step 2: Use Immediately (No Code Changes!)
 
 ```typescript
-// Factory automatically detects new profile in dag.json
+// Factory automatically detects new profile in agent_config.json
 const analyzer = factory.createCustomAgent('analyzer');
 const analysis = await analyzer.execute(state);
 
@@ -280,12 +280,12 @@ import { describe, it, expect } from '@jest/globals';
 import { createUniversalAgent } from './universal-agent.service.js';
 
 describe('UniversalAgent', () => {
-  it('morphs into navigator based on dag.json profile', async () => {
+  it('morphs into navigator based on agent_config.json profile', async () => {
     const agent = createUniversalAgent(dagConfig, 'navigator');
     expect(agent.getProfile().role).toContain('Condition-based routing');
   });
 
-  it('morphs into worker based on dag.json profile', async () => {
+  it('morphs into worker based on agent_config.json profile', async () => {
     const agent = createUniversalAgent(dagConfig, 'worker');
     expect(agent.getProfile().role).toContain('Replies to prompts');
   });
@@ -315,7 +315,7 @@ Total: 1,600 lines of TypeScript
 ```
 universal-agent.service.ts  (350 lines)
 agent-factory.service.ts    (100 lines)
-dag.json (agent profiles)   (200 lines)
+agent_config.json (agent profiles)   (200 lines)
 ─────────────────────────────────────
 Total: 650 lines (60% reduction!)
 ```
@@ -341,7 +341,7 @@ const result = await agent.execute(state);
 The Universal Agent System is a **configuration-driven architecture** where:
 
 1. **One code template** handles all agent behaviors
-2. **dag.json profiles** define what each agent does
+2. **agent_config.json profiles** define what each agent does
 3. **Zero code changes** needed to add new agent types
 4. **Fully extensible** via JSON configuration
 5. **Type-safe** with TypeScript interfaces
