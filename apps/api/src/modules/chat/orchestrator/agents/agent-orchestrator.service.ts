@@ -364,6 +364,33 @@ export class AgentOrchestratorService {
         state = await this.loadState(sessionId);
       }
 
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // STREAMING FIX: Check goal's primary_agent configuration
+      // If goal uses mcp_agent, execute it first (non-streaming) before streaming response
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      const currentGoalConfig = this.config.goals.find(g => g.goal_id === state.currentNode);
+      const primaryAgent = currentGoalConfig?.primary_agent || 'conversational_agent';
+
+      console.log(`[AgentOrchestrator] 🎯 Goal ${state.currentNode} uses primary_agent: ${primaryAgent}`);
+
+      // Execute MCP agent first if goal requires it
+      if (primaryAgent === 'mcp_agent' && this.mcpAdapter) {
+        console.log(`[AgentOrchestrator] 🔧 Executing MCP agent for goal: ${state.currentNode}`);
+        try {
+          const mcpResult = await this.workerMCPAgent.executeGoal(state.currentNode, state);
+
+          // Apply context updates from MCP execution
+          if (mcpResult.contextUpdates && Object.keys(mcpResult.contextUpdates).length > 0) {
+            console.log(`[AgentOrchestrator] 📝 Applying MCP context updates`);
+            state = this.contextManager.updateContext(state, mcpResult.contextUpdates);
+          }
+
+          console.log(`[AgentOrchestrator] ✅ MCP agent execution complete`);
+        } catch (error: any) {
+          console.error(`[AgentOrchestrator] ❌ MCP agent execution failed: ${error.message}`);
+        }
+      }
+
       // Stream response from worker agent
       let fullResponse = '';
 
@@ -376,18 +403,20 @@ export class AgentOrchestratorService {
           // Final chunk - prepare completion data
           fullResponse = chunk.response || fullResponse;
 
-          // Update conversation summary
-          state = this.contextManager.appendConversationSummary(
-            state,
-            args.message,
-            fullResponse
-          );
-
-          // Run data extraction (non-streaming)
+          // ✅ FIX: Run data extraction BEFORE appending to summary to avoid duplication
+          // Data extraction analyzes recent exchanges + adds current exchange for analysis
+          // If we append first, it will see the exchange twice (once in summary, once in currentExchange)
           const currentExchange = { customer: args.message, agent: fullResponse };
           const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(
             state,
             currentExchange
+          );
+
+          // Update conversation summary AFTER extraction
+          state = this.contextManager.appendConversationSummary(
+            state,
+            args.message,
+            fullResponse
           );
 
           if (extractionResult.fieldsUpdated && extractionResult.fieldsUpdated.length > 0) {

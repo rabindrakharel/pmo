@@ -324,19 +324,19 @@ export const API_MANIFEST = [
         name: 'task_create',
         method: 'POST',
         path: '/api/v1/task',
-        description: 'Create new task. Description is automatically enriched with extracted customer data (name, phone, address) and complete conversation history.',
+        description: 'Create new task',
         requiresAuth: true,
         category: 'Task',
         parameters: {
             body: {
-                name: 'Task name (REQUIRED)',
-                code: 'Task code (optional)',
-                descr: 'Task description (optional, auto-enriched with customer info + conversation history)',
-                dl__task_stage: 'Task stage (optional)',
-                dl__task_priority: 'Task priority (optional)',
-                estimated_hours: 'Estimated hours (optional)',
-                story_points: 'Story points (optional)',
-                metadata: 'Additional metadata like project_id (optional)'
+                name: 'Task name',
+                code: 'Task code',
+                descr: 'Task description',
+                dl__task_stage: 'Task stage',
+                dl__task_priority: 'Task priority',
+                estimated_hours: 'Estimated hours',
+                story_points: 'Story points',
+                metadata: 'Additional metadata (project_id, etc.)'
             }
         }
     },
@@ -1693,18 +1693,14 @@ export const API_MANIFEST = [
         name: 'person_calendar_book',
         method: 'POST',
         path: '/api/v1/person-calendar/book',
-        description: 'Book calendar slot(s) for appointments. Automatically enriched with task details, customer info, and attendee list.',
+        description: 'Book a calendar slot',
         requiresAuth: true,
         category: 'Calendar',
         parameters: {
             body: {
-                slot_ids: 'Array of calendar slot UUIDs to book (REQUIRED)',
-                title: 'Event title (REQUIRED, auto-generated from service if not provided)',
-                event_id: 'External event ID reference (optional)',
-                appointment_medium: 'Meeting type: "onsite" or "virtual" (optional)',
-                appointment_addr: 'Meeting address or virtual link (optional)',
-                instructions: 'Event instructions/notes (optional, auto-enriched with task + customer details)',
-                metadata: 'Event metadata including attendees (optional, auto-enriched with attendee emails and task reference)'
+                slot_id: 'Calendar slot UUID to book',
+                customer_id: 'Customer UUID',
+                event_details: 'Event details'
             }
         }
     },
