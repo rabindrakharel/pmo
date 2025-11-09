@@ -237,6 +237,7 @@ export class ContextInitializer {
           name: '',
           phone: '',
           email: '',
+          address: '',
           id: ''
         },
         service: {
