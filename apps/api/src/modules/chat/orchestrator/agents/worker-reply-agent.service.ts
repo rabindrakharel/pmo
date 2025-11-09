@@ -49,7 +49,8 @@ export class WorkerReplyAgent {
     }
 
     // Build prompts using node's configuration
-    const systemPrompt = this.buildSystemPrompt(node, state.context);
+    // ✅ FIX: Pass current user message to buildSystemPrompt to ensure it's included
+    const systemPrompt = this.buildSystemPrompt(node, state.context, userMessage);
     const userPrompt = this.buildUserPrompt(node, state.context, userMessage);
 
     console.log(`[WorkerReplyAgent] Node Goal: ${node.node_goal}`);
@@ -79,15 +80,17 @@ export class WorkerReplyAgent {
   /**
    * Build system prompt for customer-facing response
    * OPTIMIZED: Only passes role, goal, prompt example, and actively tracked context fields
+   * ✅ FIX: Now includes current user message to prevent stale context issues
    */
-  private buildSystemPrompt(node: any, context: DAGContext): string {
+  private buildSystemPrompt(node: any, context: DAGContext, currentUserMessage?: string): string {
     // Node provides role and goal (business operation state)
     const nodeRole = node.node_role || node.role || 'a customer service agent';
     const nodeGoal = node.node_goal || '';
     const exampleTone = node.example_tone_of_reply || '';
 
-    // CRITICAL: Only last 5 conversation exchanges (not all 255!)
-    const recentConversation = (context.summary_of_conversation_on_each_step_until_now || []).slice(-5);
+    // CRITICAL: Only last 3 conversation exchanges (not all 255!)
+    // Reduced from 5 to 3 to leave more room for current message context
+    const recentConversation = (context.summary_of_conversation_on_each_step_until_now || []).slice(-3);
 
     // Format ONLY actively tracked context fields (mandatory + non-empty fields)
     const mandatoryFields = this.dagConfig.graph_config?.mandatory_fields || ['customers_main_ask', 'customer_phone_number'];
@@ -107,24 +110,44 @@ export class WorkerReplyAgent {
       }
     }
 
-    return `NODE ROLE: ${nodeRole}
+    // ✅ FIX: Build comprehensive context including current message
+    let prompt = `NODE ROLE: ${nodeRole}
 
 NODE GOAL: ${nodeGoal}
 
 EXAMPLE TONE/STYLE OF REPLY:
 ${exampleTone}
 
+RECENT CONVERSATION HISTORY (last 3 exchanges):
+${recentConversation.map((ex: any) => `Customer: "${ex.customer}"\nAgent: "${ex.agent}"`).join('\n\n')}
+
 CURRENT CONTEXT (fields already populated):
-${JSON.stringify(activeContext, null, 2)}
+${JSON.stringify(activeContext, null, 2)}`;
+
+    // ✅ CRITICAL: Include current user message if available
+    if (currentUserMessage) {
+      prompt += `
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔴 CURRENT CUSTOMER MESSAGE (MOST IMPORTANT - RESPOND TO THIS):
+"${currentUserMessage}"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+    }
+
+    prompt += `
 
 RESPONSE GENERATION RULES:
-- Review recent_conversation FIRST to avoid repetition
+- Review CURRENT CUSTOMER MESSAGE first (most important!)
+- Check recent_conversation to avoid repetition
 - NEVER ask questions already answered
 - Generate natural 1-2 sentence response ONLY
 - NO technical details, JSON, or metadata in customer-facing response
 - Focus ONLY on generating helpful, empathetic customer response
+- Base your response on the CURRENT message, not old conversation
 
-Please reply to customer:`;
+Please generate appropriate response to the CURRENT customer message:`;
+
+    return prompt;
   }
 
   /**

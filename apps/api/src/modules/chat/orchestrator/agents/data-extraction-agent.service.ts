@@ -33,8 +33,12 @@ export class DataExtractionAgent {
   /**
    * Analyze conversation and extract missing context fields
    * This is called AFTER worker agents complete their work
+   * ✅ FIX: Now accepts current exchange to avoid stale context issues
    */
-  async extractAndUpdateContext(state: AgentContextState): Promise<DataExtractionResult> {
+  async extractAndUpdateContext(
+    state: AgentContextState,
+    currentExchange?: { customer: string; agent: string }
+  ): Promise<DataExtractionResult> {
     console.log(`\n🔍 [DataExtractionAgent] Analyzing conversation for context updates...`);
 
     // Try to get indexed summary first (preferred), fall back to messages array
@@ -43,7 +47,7 @@ export class DataExtractionAgent {
 
     if (indexedSummary.length > 0) {
       // Use indexed summary (already in exchange format with index)
-      exchanges = indexedSummary.slice(-4); // Last 4 exchanges
+      exchanges = indexedSummary.slice(-3); // Last 3 exchanges (reduced to make room for current)
       console.log(`[DataExtractionAgent] 📝 Analyzing last ${exchanges.length} conversation exchanges (from indexed summary)`);
       console.log(`[DataExtractionAgent] Exchange indices: ${exchanges.map((e: any) => e.index).join(', ')}`);
     } else {
@@ -71,8 +75,19 @@ export class DataExtractionAgent {
         }
       }
 
-      exchanges = exchanges.slice(-4); // Last 4 exchanges
+      exchanges = exchanges.slice(-3); // Last 3 exchanges (reduced to make room for current)
       console.log(`[DataExtractionAgent] 📝 Analyzing last ${exchanges.length} conversation exchanges (from messages array - fallback)`);
+    }
+
+    // ✅ FIX: Add current exchange if provided (this is the LATEST exchange, not yet in summary)
+    if (currentExchange) {
+      const nextIndex = indexedSummary.length; // Next index
+      exchanges.push({
+        index: nextIndex,
+        customer: currentExchange.customer,
+        agent: currentExchange.agent
+      });
+      console.log(`[DataExtractionAgent] ✅ Added CURRENT exchange (index: ${nextIndex}) to analysis`);
     }
 
     console.log(`[DataExtractionAgent] Exchanges:`, JSON.stringify(exchanges, null, 2));
@@ -102,7 +117,7 @@ export class DataExtractionAgent {
       };
     }
 
-    // Build prompt for LLM (exchanges already contains last 4)
+    // Build prompt for LLM (exchanges contains recent history + current exchange if provided)
     const systemPrompt = this.buildExtractionPrompt(exchanges, emptyFields, state.context);
 
     // 🔍 DEBUG: Log extraction prompt
@@ -207,9 +222,10 @@ export class DataExtractionAgent {
 
   /**
    * Build extraction prompt for LLM
+   * ✅ FIX: Now handles varying number of exchanges (including current exchange)
    */
   private buildExtractionPrompt(
-    last4Exchanges: Array<{ index?: number; customer: string; agent: string }>,
+    recentExchanges: Array<{ index?: number; customer: string; agent: string }>,
     emptyFields: string[],
     currentContext: any
   ): string {
@@ -220,10 +236,11 @@ export class DataExtractionAgent {
 Your task: Analyze the recent conversation exchanges and extract missing customer information.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 LAST 4 CONVERSATION EXCHANGES:
-${last4Exchanges.map((exchange, idx) => {
+📋 RECENT CONVERSATION EXCHANGES (including CURRENT exchange):
+${recentExchanges.map((exchange, idx) => {
   const exchangeLabel = exchange.index !== undefined ? `Exchange #${exchange.index}` : `Exchange ${idx + 1}`;
-  return `[${exchangeLabel}]\nCustomer: "${exchange.customer}"\nAgent: "${exchange.agent}"`;
+  const isCurrent = idx === recentExchanges.length - 1;
+  return `[${exchangeLabel}]${isCurrent ? ' 🔴 CURRENT (MOST RECENT)' : ''}\nCustomer: "${exchange.customer}"\nAgent: "${exchange.agent}"`;
 }).join('\n\n')}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -236,12 +253,13 @@ ${JSON.stringify(dataFields, null, 2)}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎯 YOUR TASK:
 
-Based on the LAST 4 CONVERSATION EXCHANGES above:
+Based on the RECENT CONVERSATION EXCHANGES above (especially the CURRENT 🔴 exchange):
 1. Look for customer information that can fill EMPTY CONTEXT FIELDS
 2. Extract information from CUSTOMER messages ONLY (not agent responses)
 3. Do NOT make assumptions or infer information
 4. Only extract information explicitly mentioned by the customer
 5. If you find extractable information, call the updateContext tool
+6. PAY SPECIAL ATTENTION to the CURRENT 🔴 exchange (most recent)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📝 EXTRACTION EXAMPLES:
