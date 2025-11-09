@@ -126,8 +126,8 @@ ${JSON.stringify(state.context.flags || {}, null, 6)}
 
    🛤️  Node Traversal Path: ${JSON.stringify(state.context.node_traversal_path || [])}
 
-   💬 Conversation History (${state.messages.length} messages):
-${state.messages.slice(-5).map((msg, idx) => `      ${idx + 1}. [${msg.role.toUpperCase()}] ${typeof msg.content === 'string' ? msg.content.substring(0, 100) : '(complex content)'}${(typeof msg.content === 'string' && msg.content.length > 100) ? '...' : ''}`).join('\n')}
+   💬 Conversation History (${(state.context.summary_of_conversation_on_each_step_until_now || []).length} exchanges):
+${(state.context.summary_of_conversation_on_each_step_until_now || []).slice(-3).map((ex: any, idx: number) => `      ${ex.index || idx}. [CUSTOMER] ${ex.customer.substring(0, 80)}${ex.customer.length > 80 ? '...' : ''}\n         [AGENT] ${ex.agent.substring(0, 80)}${ex.agent.length > 80 ? '...' : ''}`).join('\n')}
 `;
     await this.appendToLog(entry);
   }
