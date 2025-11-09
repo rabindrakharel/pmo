@@ -22,6 +22,7 @@ import { WorkerMCPAgent, createWorkerMCPAgent } from './worker-mcp-agent.service
 import { GoalTransitionEngine } from '../engines/goal-transition.engine.js';
 import { DataExtractionAgent, createDataExtractionAgent } from './data-extraction-agent.service.js';
 import { ParallelAgentExecutor, createParallelAgentExecutor, type AgentExecutor } from '../engines/parallel-agent-executor.js';
+import { UnifiedGoalAgent, createUnifiedGoalAgent } from './unified-goal-agent.service.js';
 import { getLLMLogger } from '../services/llm-logger.service.js';
 import { createAgentLogger, type AgentLogger } from '../services/agent-logger.service.js';
 import { getSessionMemoryDataService } from '../services/session-memory-data.service.js';
@@ -45,6 +46,7 @@ export class AgentOrchestratorService {
   private transitionEngine!: GoalTransitionEngine;
   private dataExtractionAgent!: DataExtractionAgent;
   private parallelExecutor!: ParallelAgentExecutor;
+  private unifiedGoalAgent!: UnifiedGoalAgent;  // NEW: Single-session agent
 
   // In-memory state cache (replace LangGraph checkpointer)
   private stateCache: Map<string, AgentContextState> = new Map();
@@ -201,18 +203,21 @@ export class AgentOrchestratorService {
       // 3. DataExtractionAgent - extracts context from conversation (called AFTER worker agents)
       // 4. GoalTransitionEngine - evaluates goal transitions using semantic routing
       // 5. ParallelAgentExecutor - executes agents in parallel for 50%+ performance boost
+      // 6. UnifiedGoalAgent - NEW v4.0: Single LLM session per goal (replaces multi-agent orchestration)
       this.workerReplyAgent = createWorkerReplyAgent(this.config, 'conversational_agent');
       this.workerMCPAgent = createWorkerMCPAgent(this.config, this.mcpAdapter, undefined, 'mcp_agent');
       this.transitionEngine = new GoalTransitionEngine(this.config);
       this.dataExtractionAgent = createDataExtractionAgent();
       this.parallelExecutor = createParallelAgentExecutor();
+      this.unifiedGoalAgent = createUnifiedGoalAgent(this.config, this.mcpAdapter, undefined);
 
-      console.log('[AgentOrchestrator] ✅ Agents initialized (Goal-Oriented Architecture v3.0)');
-      console.log('[AgentOrchestrator]    - WorkerReplyAgent: Customer-facing responses');
-      console.log('[AgentOrchestrator]    - WorkerMCPAgent: MCP tool execution');
+      console.log('[AgentOrchestrator] ✅ Agents initialized (Goal-Oriented Architecture v4.0 - Single Session Pattern)');
+      console.log('[AgentOrchestrator]    - UnifiedGoalAgent: Single LLM session per goal (NEW)');
+      console.log('[AgentOrchestrator]    - WorkerReplyAgent: Customer-facing responses (legacy)');
+      console.log('[AgentOrchestrator]    - WorkerMCPAgent: MCP tool execution (legacy)');
       console.log('[AgentOrchestrator]    - DataExtractionAgent: Context extraction (post-processing)');
       console.log('[AgentOrchestrator]    - GoalTransitionEngine: Semantic goal routing');
-      console.log('[AgentOrchestrator]    - ParallelAgentExecutor: Parallel agent execution');
+      console.log('[AgentOrchestrator]    - ParallelAgentExecutor: Parallel agent execution (legacy)');
       console.log(`[AgentOrchestrator] Total goals: ${this.config.goals.length}`);
       console.log(`[AgentOrchestrator] Agent profiles: ${Object.keys(this.config.agent_profiles).join(', ')}`);
     } catch (error: any) {
@@ -561,19 +566,64 @@ export class AgentOrchestratorService {
       loopBackIntention = undefined;
       state.loopBackIntention = undefined;
 
-      // STEP 1: Choose correct worker agent based on current goal configuration
-      // Use declarative goal.primary_agent instead of hardcoding logic
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // STEP 1: Execute goal using UNIFIED AGENT (v4.0 Single Session Pattern)
+      // ONE LLM call per goal, returns { commands_to_run, ask_talk_reply_to_customer }
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       const currentGoalConfig = this.config.goals.find(g => g.goal_id === state.currentNode);
       if (!currentGoalConfig) {
         console.warn(`[AgentOrchestrator] ⚠️ Goal not found: ${state.currentNode}, using default`);
       }
 
-      // Check if goal has parallel execution strategy
-      const executionStrategy = (currentGoalConfig as any)?.agent_execution_strategy;
+      // Check if goal is configured to use new unified pattern
+      const useUnifiedAgent = (currentGoalConfig as any)?.use_unified_agent !== false; // Default: true
 
       let response: string = '';
       let contextUpdates: any = {};
       let primaryAgentFailed = false;
+
+      if (useUnifiedAgent) {
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // NEW v4.0: UNIFIED AGENT (Single LLM Session)
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        console.log(`\n🎯 [UNIFIED AGENT EXECUTION] Goal: ${state.currentNode}`);
+
+        try {
+          const unifiedResult = await this.unifiedGoalAgent.executeGoal(
+            state.currentNode,
+            state,
+            iterations === 1 ? userMessage : undefined
+          );
+
+          response = unifiedResult.ask_talk_reply_to_customer;
+          contextUpdates = unifiedResult.contextUpdates || {};
+
+          console.log(`[UnifiedAgent] ✅ Execution complete`);
+          console.log(`   Response: "${response.substring(0, 80)}..."`);
+          console.log(`   MCP tools executed: ${unifiedResult.commands_to_run.length}`);
+          console.log(`   Context updates: ${Object.keys(contextUpdates).length} fields`);
+
+          // Log unified agent execution
+          await this.logger.logAgentExecution({
+            agentType: 'unified_goal',
+            nodeName: state.currentNode,
+            result: unifiedResult,
+            sessionId: state.sessionId,
+          });
+        } catch (error: any) {
+          primaryAgentFailed = true;
+          console.error(`[UnifiedAgent] ❌ Execution failed: ${error.message}`);
+          response = "I apologize, but I encountered an issue processing your request. Could you please try again?";
+        }
+
+      } else {
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // LEGACY: Multi-agent orchestration (v3.0)
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        console.log(`\n🔀 [LEGACY MULTI-AGENT MODE] Goal: ${state.currentNode}`);
+
+        // Check if goal has parallel execution strategy
+        const executionStrategy = (currentGoalConfig as any)?.agent_execution_strategy;
 
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       // PARALLEL EXECUTION: If goal has execution strategy, use it
@@ -793,6 +843,8 @@ export class AgentOrchestratorService {
 
       } // End of parallel/sequential execution conditional
 
+      } // End of unified vs legacy agent conditional
+
       // ✅ REMOVED: No longer add to messages array - conversation tracked in summary_of_conversation_on_each_step_until_now
       // Assistant response will be added to summary after worker execution (lines 543-566)
 
@@ -806,11 +858,12 @@ export class AgentOrchestratorService {
       // This agent analyzes conversation and extracts missing context fields
       // ✅ FIX: Pass current exchange to avoid stale context issues
       // ⚡ SKIP if parallel execution already ran extraction agent
+      // ⚡ SKIP if unified agent was used (extraction handled by LLM in single session)
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // Skip extraction if we used parallel execution (extraction already ran in parallel)
-      const usedParallelExecution = executionStrategy && executionStrategy.mode !== 'sequential';
+      // Skip extraction if we used parallel execution OR unified agent
+      const usedParallelExecution = !useUnifiedAgent && (currentGoalConfig as any)?.agent_execution_strategy && (currentGoalConfig as any)?.agent_execution_strategy.mode !== 'sequential';
 
-      if (!usedParallelExecution && response) {
+      if (!useUnifiedAgent && !usedParallelExecution && response) {
         // Build current exchange from latest user message and agent response
         const currentExchange = (iterations === 1 && userMessage && response) ? {
           customer: userMessage,

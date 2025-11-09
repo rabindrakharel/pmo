@@ -32,6 +32,22 @@
           "condition": "customer has clearly stated their issue and we understand what help they need",
           "next_goal": "GATHER_REQUIREMENTS"
         }
+      ],
+      "examples": [
+        {
+          "input": "Customer says: 'My heater is broken and it's freezing in here!'",
+          "output": {
+            "commands_to_run": [],
+            "ask_talk_reply_to_customer": "I'm so sorry to hear your heater isn't working! That must be really uncomfortable. Let me help you get this fixed right away. Can you tell me a bit more about what's happening with the heater?"
+          }
+        },
+        {
+          "input": "Customer says: 'I need someone to fix my sink'",
+          "output": {
+            "commands_to_run": [],
+            "ask_talk_reply_to_customer": "I can definitely help with that! Is it a leak, a clog, or something else going on with your sink?"
+          }
+        }
       ]
     },
     {
@@ -78,6 +94,22 @@
           "condition": "context shows all mandatory fields are populated: customer.phone, customer.name, customer.address_street, customer.address_city, customer.address_state (check context data, not conversation flow)",
           "next_goal": "MANAGE_CUSTOMER_PROFILE"
         }
+      ],
+      "examples": [
+        {
+          "input": "Customer says: 'My phone number is 650-555-1234'",
+          "output": {
+            "commands_to_run": [],
+            "ask_talk_reply_to_customer": "Thank you! And may I have your name please?"
+          }
+        },
+        {
+          "input": "Customer says: 'I'm John Smith'",
+          "output": {
+            "commands_to_run": [],
+            "ask_talk_reply_to_customer": "Great, John! What's the address where you need the service?"
+          }
+        }
       ]
     },
     {
@@ -107,6 +139,25 @@
           "operator": "is_set",
           "next_goal": "DESIGN_SOLUTION",
           "description": "Advance when customer.id is obtained (either from lookup or creation)"
+        }
+      ],
+      "examples": [
+        {
+          "input": "We have customer.phone='650-555-1234', customer.name='John Smith', customer.address_street='123 Main St', customer.address_city='Palo Alto', customer.address_state='CA'",
+          "output": {
+            "commands_to_run": ["customer_get", "customer_create"],
+            "customer_get_args": {
+              "body_primary_phone": "650-555-1234"
+            },
+            "customer_create_args": {
+              "body_name": "John Smith",
+              "body_primary_phone": "650-555-1234",
+              "body_primary_address": "123 Main St",
+              "body_city": "Palo Alto",
+              "body_province": "CA"
+            },
+            "ask_talk_reply_to_customer": "Perfect, John! I've got your information. Let me find the best solution for your heating issue."
+          }
         }
       ]
     },
@@ -139,6 +190,16 @@
           "next_goal": "DESIGN_SOLUTION",
           "loop_prevention": { "max_iterations": 2 }
         }
+      ],
+      "examples": [
+        {
+          "input": "We have service.primary_request='heater repair', customer.id='cust-123'",
+          "output": {
+            "commands_to_run": ["employee_list"],
+            "employee_list_args": {},
+            "ask_talk_reply_to_customer": "I've found a great technician for your heater repair! We can schedule them for tomorrow morning at 9 AM. Does that work for you?"
+          }
+        }
       ]
     },
     {
@@ -162,6 +223,19 @@
         {
           "condition": "all actions executed successfully",
           "next_goal": "CONFIRM_RESOLUTION"
+        }
+      ],
+      "examples": [
+        {
+          "input": "Customer consented to the plan. We have customer.id='cust-123', service.primary_request='heater repair', assignment.employee_id='emp-456'",
+          "output": {
+            "commands_to_run": ["task_create"],
+            "task_create_args": {
+              "body_name": "Heater Repair",
+              "body_assignee": "emp-456"
+            },
+            "ask_talk_reply_to_customer": "Perfect! I've created your service ticket and assigned our technician. You'll receive a confirmation shortly. Is there anything else you need help with?"
+          }
         }
       ]
     },
