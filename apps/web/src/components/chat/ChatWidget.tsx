@@ -35,6 +35,10 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
+  // Audio playback queue to prevent overlapping
+  const audioQueueRef = useRef<Array<{ audio: string; onComplete?: () => void }>>([]);
+  const isPlayingAudioRef = useRef<boolean>(false);
+
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
   // Auto-scroll to bottom when new messages arrive
@@ -347,8 +351,8 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
         };
       };
 
-      // Helper function to play audio from base64 MP3
-      const playAudioFromBase64 = async (base64Audio: string, onComplete?: () => void) => {
+      // Helper function to play audio from base64 MP3 (internal - plays immediately)
+      const playAudioFromBase64Internal = async (base64Audio: string, onComplete?: () => void) => {
         try {
           const audioData = atob(base64Audio);
           const audioArray = new Uint8Array(audioData.length);
@@ -405,6 +409,39 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
           console.error('Failed to decode/play audio:', err);
           if (onComplete) onComplete();
         }
+      };
+
+      // Process audio queue sequentially to prevent overlapping
+      const processAudioQueue = async () => {
+        if (isPlayingAudioRef.current || audioQueueRef.current.length === 0) {
+          return; // Already processing or queue is empty
+        }
+
+        isPlayingAudioRef.current = true;
+
+        while (audioQueueRef.current.length > 0) {
+          const audioItem = audioQueueRef.current.shift()!;
+
+          console.log(`🎵 Playing audio from queue (${audioQueueRef.current.length} remaining)`);
+
+          // Play audio and wait for it to complete
+          await new Promise<void>((resolve) => {
+            playAudioFromBase64Internal(audioItem.audio, () => {
+              if (audioItem.onComplete) audioItem.onComplete();
+              resolve();
+            });
+          });
+        }
+
+        isPlayingAudioRef.current = false;
+        console.log('✅ Audio queue empty');
+      };
+
+      // Public function to queue audio for playback
+      const playAudioFromBase64 = (base64Audio: string, onComplete?: () => void) => {
+        console.log(`📥 Queueing audio chunk (queue size: ${audioQueueRef.current.length})`);
+        audioQueueRef.current.push({ audio: base64Audio, onComplete });
+        processAudioQueue(); // Start processing if not already running
       };
 
       ws.onmessage = async (event) => {
@@ -515,6 +552,11 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
+
+    // Clear audio playback queue to prevent stale audio
+    audioQueueRef.current = [];
+    isPlayingAudioRef.current = false;
+    console.log('🗑️  Cleared audio playback queue');
 
     setIsVoiceActive(false);
     setVoiceStatus('Not connected');
