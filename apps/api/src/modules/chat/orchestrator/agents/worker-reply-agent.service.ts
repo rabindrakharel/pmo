@@ -98,6 +98,71 @@ export class WorkerReplyAgent {
   }
 
   /**
+   * Execute goal and STREAM response (token by token)
+   * Same as executeGoal but yields tokens as they arrive
+   */
+  async *executeGoalStream(
+    goalId: string,
+    state: AgentContextState,
+    userMessage?: string
+  ): AsyncGenerator<{ token: string; done: boolean; response?: string }> {
+    console.log(`\n🌊 [WorkerReplyAgent] Streaming goal: ${goalId}`);
+
+    // Get goal configuration
+    const goal = this.config.goals.find(g => g.goal_id === goalId);
+    if (!goal) {
+      throw new Error(`Goal not found: ${goalId}`);
+    }
+
+    // OBSERVE: Gather relevant context
+    const observation = this.observe(goal, state, userMessage);
+
+    // THINK + ACT: Generate response (streaming)
+    const systemPrompt = this.buildReActPrompt(goal, observation, state.context);
+    const userPrompt = this.buildUserPrompt(userMessage, goal);
+
+    console.log(`[WorkerReplyAgent] Goal: ${goal.description}`);
+    console.log(`[WorkerReplyAgent] Agent Identity: ${this.agentProfile.identity}`);
+    console.log(`[WorkerReplyAgent] Streaming: ENABLED`);
+
+    // Call LLM with streaming
+    const openaiService = getOpenAIService();
+    let fullResponse = '';
+
+    try {
+      for await (const chunk of openaiService.callAgentStream({
+        agentType: 'worker_reply',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+        sessionId: state.sessionId,
+      })) {
+        if (chunk.done) {
+          // Final chunk - yield completion
+          console.log(`[WorkerReplyAgent] ✅ Streaming complete (${fullResponse.length} chars)`);
+          yield {
+            token: '',
+            done: true,
+            response: fullResponse,
+          };
+        } else {
+          // Token chunk - yield to client
+          fullResponse += chunk.token;
+          yield {
+            token: chunk.token,
+            done: false,
+          };
+        }
+      }
+    } catch (error: any) {
+      console.error(`[WorkerReplyAgent] ❌ Streaming error: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
    * OBSERVE: Gather relevant context for decision-making
    */
   private observe(goal: ConversationGoal, state: AgentContextState, userMessage?: string) {

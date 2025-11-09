@@ -197,6 +197,136 @@ export async function chatRoutes(fastify: FastifyInstance) {
   });
 
   /**
+   * POST /api/v1/chat/message/stream
+   * Send a message and stream AI response in real-time (SSE)
+   * Returns Server-Sent Events stream with token-by-token response
+   */
+  fastify.post<{
+    Body: ChatMessageRequest;
+  }>('/message/stream', async (request, reply) => {
+    try {
+      const { session_id, message, customer_id, customer_email, customer_name } = request.body;
+
+      if (!session_id || !message) {
+        return reply.code(400).send({ error: 'session_id and message are required' });
+      }
+
+      // Get existing session
+      const session = await getSession(session_id);
+      if (!session) {
+        return reply.code(404).send({ error: 'Session not found' });
+      }
+
+      // Set up SSE headers
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'X-Accel-Buffering': 'no' // Disable Nginx buffering
+      });
+
+      // Get auth token for MCP tools
+      const token = request.headers.authorization?.replace('Bearer ', '') || '';
+
+      if (!token) {
+        console.warn(`⚠️ No auth token for session ${session_id} - AI will have limited tool access`);
+      } else {
+        console.log(`🔐 Chat session ${session_id} using authenticated MCP tools (streaming)`);
+      }
+
+      // Import agent orchestrator
+      const { getAgentOrchestratorService } = await import('./orchestrator/agents/agent-orchestrator.service.js');
+      const orchestrator = getAgentOrchestratorService();
+
+      // Get or create orchestrator session
+      const orchestratorSessionId = session.metadata?.orchestrator_session_id;
+
+      console.log(`🌊 Starting streaming response for session ${session_id}...`);
+
+      // Process message through agent orchestrator (streaming)
+      let fullResponse = '';
+      let orchestratorResult: any;
+
+      try {
+        for await (const chunk of orchestrator.processMessageStream({
+          sessionId: orchestratorSessionId,
+          message,
+          chatSessionId: session_id,
+          userId: customer_id || session.metadata?.customer_id,
+          authToken: token
+        })) {
+          if (chunk.type === 'token') {
+            // Send token chunk via SSE
+            fullResponse += chunk.token;
+            reply.raw.write(`data: ${JSON.stringify({ type: 'token', token: chunk.token })}\n\n`);
+          } else if (chunk.type === 'done') {
+            // Final chunk with metadata
+            orchestratorResult = chunk;
+            reply.raw.write(`data: ${JSON.stringify({
+              type: 'done',
+              sessionId: chunk.sessionId,
+              response: chunk.response,
+              currentNode: chunk.currentNode,
+              conversationEnded: chunk.conversationEnded
+            })}\n\n`);
+            console.log(`✅ Streaming complete for session ${session_id} (${chunk.response?.length || 0} chars)`);
+          } else if (chunk.type === 'error') {
+            reply.raw.write(`data: ${JSON.stringify({ type: 'error', error: chunk.error })}\n\n`);
+            console.error(`❌ Streaming error for session ${session_id}:`, chunk.error);
+          }
+        }
+      } catch (streamError) {
+        console.error('Streaming error:', streamError);
+        reply.raw.write(`data: ${JSON.stringify({
+          type: 'error',
+          error: streamError instanceof Error ? streamError.message : 'Unknown streaming error'
+        })}\n\n`);
+      }
+
+      // Close SSE stream
+      reply.raw.end();
+
+      // Update session in database (async, don't block)
+      if (orchestratorResult) {
+        const assistantMessage: ChatMessage = {
+          role: 'assistant',
+          content: orchestratorResult.response,
+          timestamp: new Date().toISOString()
+        };
+
+        const userMessage: ChatMessage = {
+          role: 'user',
+          content: message,
+          timestamp: new Date().toISOString()
+        };
+
+        const updatedConversation = [...session.conversation_history, userMessage, assistantMessage];
+
+        updateSession(session_id, updatedConversation, {
+          total_tokens: (session.total_tokens || 0) + 100,
+          total_cost_cents: (session.total_cost_cents || 0) + 2,
+          model_used: 'gpt-4o-mini',
+          metadata: {
+            ...session.metadata,
+            orchestrator_session_id: orchestratorResult.sessionId,
+            current_node: orchestratorResult.currentNode
+          }
+        }).catch(err => console.error('Failed to update session after streaming:', err));
+      }
+
+    } catch (error) {
+      console.error('Error in streaming endpoint:', error);
+      if (!reply.raw.headersSent) {
+        reply.code(500).send({
+          error: 'Failed to process streaming message',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
+  });
+
+  /**
    * GET /api/v1/chat/session/:sessionId/history
    * Get conversation history for a session
    */

@@ -313,6 +313,138 @@ export class AgentOrchestratorService {
   }
 
   /**
+   * Process user message with STREAMING (yields tokens as they arrive)
+   * Same as processMessage but streams the agent's response
+   */
+  async *processMessageStream(args: {
+    sessionId?: string;
+    message: string;
+    chatSessionId?: string;
+    userId?: string;
+    authToken?: string;
+  }): AsyncGenerator<{
+    type: 'token' | 'done' | 'error';
+    token?: string;
+    sessionId?: string;
+    response?: string;
+    currentNode?: string;
+    conversationEnded?: boolean;
+    endReason?: string;
+    error?: string;
+  }> {
+    try {
+      // Ensure SessionMemoryDataService is initialized
+      await this.initializeSessionMemoryData();
+
+      // Ensure agents are initialized
+      if (!this.config) {
+        await this.initializeAgents();
+      }
+
+      let sessionId = args.sessionId;
+      let state: AgentContextState;
+
+      if (!sessionId) {
+        // New session
+        sessionId = uuidv4();
+        console.log(`\n[AgentOrchestrator] 🆕 New streaming session ${sessionId}`);
+
+        // Log session start
+        await this.logger.logSessionStart(sessionId, args.chatSessionId, args.userId);
+
+        // Initialize context
+        state = this.contextManager.initializeContext(
+          sessionId,
+          args.chatSessionId,
+          args.userId,
+          args.authToken
+        );
+
+        // Write initial context to JSON file
+        await this.writeContextFile(state, 'initialize');
+
+        // Create session in database
+        await this.stateManager.createSession({
+          session_id: sessionId,
+          chat_session_id: args.chatSessionId,
+          user_id: args.userId,
+          current_intent: 'CalendarBooking',
+          current_node: 'GREET_CUSTOMER',
+          auth_metadata: { authToken: args.authToken },
+        });
+      } else {
+        // Existing session - load from cache or database
+        console.log(`\n[AgentOrchestrator] 📂 Resuming streaming session ${sessionId}`);
+        state = await this.loadState(sessionId);
+      }
+
+      // Stream response from worker agent
+      let fullResponse = '';
+
+      for await (const chunk of this.workerReplyAgent.executeGoalStream(
+        state.currentNode,
+        state,
+        args.message
+      )) {
+        if (chunk.done) {
+          // Final chunk - prepare completion data
+          fullResponse = chunk.response || fullResponse;
+
+          // Update conversation summary
+          state = this.contextManager.appendConversationSummary(
+            state,
+            args.message,
+            fullResponse
+          );
+
+          // Run data extraction (non-streaming)
+          const currentExchange = { customer: args.message, agent: fullResponse };
+          const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(
+            state,
+            currentExchange
+          );
+
+          if (extractionResult.fieldsUpdated && extractionResult.fieldsUpdated.length > 0) {
+            state = this.contextManager.updateContext(state, extractionResult.contextUpdates || {});
+          }
+
+          // Save state
+          await this.saveState(state);
+
+          // Update session in database
+          await this.stateManager.updateSession(sessionId, {
+            current_node: state.currentNode,
+            status: state.completed ? 'completed' : 'active',
+          });
+
+          // Yield final metadata
+          yield {
+            type: 'done',
+            sessionId,
+            response: fullResponse,
+            currentNode: state.currentNode,
+            conversationEnded: state.conversationEnded,
+            endReason: state.endReason,
+          };
+        } else {
+          // Token chunk - yield to client immediately
+          fullResponse += chunk.token;
+          yield {
+            type: 'token',
+            token: chunk.token,
+          };
+        }
+      }
+    } catch (error: any) {
+      console.error('[AgentOrchestrator] ❌ Error streaming message:', error);
+      yield {
+        type: 'error',
+        error: error.message,
+      };
+    }
+  }
+
+  /**
    * Main conversation execution loop
    */
   private async executeConversationLoop(

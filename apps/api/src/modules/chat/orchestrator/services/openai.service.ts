@@ -28,7 +28,112 @@ export class OpenAIService {
   }
 
   /**
-   * Call GPT with agent-specific configuration
+   * Call GPT with agent-specific configuration (STREAMING VERSION)
+   * Returns async generator that yields tokens as they arrive
+   */
+  async *callAgentStream(args: {
+    agentType: string;
+    messages: ChatCompletionMessageParam[];
+    temperature?: number;
+    maxTokens?: number;
+    jsonMode?: boolean;
+    sessionId?: string;
+  }): AsyncGenerator<{
+    token: string;
+    done: boolean;
+    tokensUsed?: number;
+    costCents?: number;
+    model?: string;
+  }> {
+    const config = getAgentModelConfig(args.agentType);
+    const startTime = Date.now();
+
+    // Log LLM call to centralized logger
+    await this.logger.logLLMCall({
+      agentType: args.agentType,
+      model: config.model,
+      messages: args.messages,
+      temperature: args.temperature ?? config.temperature,
+      maxTokens: args.maxTokens ?? config.maxTokens,
+      jsonMode: args.jsonMode ?? false,
+      sessionId: args.sessionId,
+    });
+
+    console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`🌊 [LLM STREAM] Agent: ${args.agentType}`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`   Model: ${config.model}`);
+    console.log(`   Temperature: ${args.temperature ?? config.temperature}`);
+    console.log(`   Streaming: ENABLED`);
+
+    try {
+      const apiParams: any = {
+        model: config.model,
+        messages: args.messages,
+        temperature: args.temperature ?? config.temperature,
+        max_tokens: args.maxTokens ?? config.maxTokens,
+        response_format: args.jsonMode ? { type: 'json_object' } : undefined,
+        stream: true, // Enable streaming
+      };
+
+      const stream = await this.client.chat.completions.create(apiParams);
+
+      let fullContent = '';
+      let tokenCount = 0;
+
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content || '';
+        if (delta) {
+          fullContent += delta;
+          tokenCount++;
+
+          // Yield each token as it arrives
+          yield {
+            token: delta,
+            done: false,
+          };
+        }
+      }
+
+      // Calculate final stats
+      const latency = Date.now() - startTime;
+      const costCents = calculateAgentCost(args.agentType, tokenCount);
+
+      // Log response to centralized logger
+      await this.logger.logLLMResponse({
+        agentType: args.agentType,
+        content: fullContent,
+        tokensUsed: tokenCount,
+        promptTokens: 0, // Streaming doesn't provide exact counts
+        completionTokens: tokenCount,
+        costCents,
+        latencyMs: latency,
+        sessionId: args.sessionId,
+      });
+
+      console.log(`\n✅ [LLM STREAM COMPLETE] Agent: ${args.agentType}`);
+      console.log(`   Tokens: ~${tokenCount}`);
+      console.log(`   Cost: $${(costCents / 100).toFixed(4)}`);
+      console.log(`   Latency: ${latency}ms`);
+      console.log(`   Response: ${fullContent.substring(0, 500)}...`);
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+
+      // Yield final chunk with metadata
+      yield {
+        token: '',
+        done: true,
+        tokensUsed: tokenCount,
+        costCents,
+        model: config.model,
+      };
+    } catch (error: any) {
+      console.error(`[OpenAI] ❌ Error streaming ${args.agentType} agent:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Call GPT with agent-specific configuration (NON-STREAMING VERSION)
    */
   async callAgent(args: {
     agentType: string;
