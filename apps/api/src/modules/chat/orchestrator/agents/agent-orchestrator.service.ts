@@ -382,58 +382,87 @@ export class AgentOrchestratorService {
       loopBackIntention = undefined;
       state.loopBackIntention = undefined;
 
-      // STEP 1: Choose correct worker agent based on current goal
-      // TODO: In future, use goal.allowed_agents to determine which agent to use
-      // For now, default to worker_reply_agent unless context indicates MCP operation needed
-      const needsMCP = state.context.next_course_of_action?.toLowerCase().includes('mcp') ||
-                       state.context.next_course_of_action?.toLowerCase().includes('book') ||
-                       state.context.next_course_of_action?.toLowerCase().includes('create task');
-      const agentProfileType = needsMCP ? 'worker_mcp_agent' : 'worker_reply_agent';
+      // STEP 1: Choose correct worker agent based on current goal configuration
+      // Use declarative goal.primary_agent instead of hardcoding logic
+      const currentGoalConfig = this.config.goals.find(g => g.goal_id === state.currentNode);
+      if (!currentGoalConfig) {
+        console.warn(`[AgentOrchestrator] ⚠️ Goal not found: ${state.currentNode}, using default`);
+      }
+
+      // Use goal's primary_agent to determine which agent to use
+      const primaryAgent = (currentGoalConfig as any)?.primary_agent || 'conversational_agent';
+      const fallbackAgent = (currentGoalConfig as any)?.fallback_agent;
+      let agentProfileType = primaryAgent === 'mcp_agent' ? 'worker_mcp_agent' : 'worker_reply_agent';
+
+      console.log(`[AgentOrchestrator] 🎯 Goal: ${state.currentNode}, Primary Agent: ${primaryAgent}${fallbackAgent ? `, Fallback: ${fallbackAgent}` : ''}`);
 
       let response: string = '';
       let contextUpdates: any = {};
+      let primaryAgentFailed = false;
 
       if (agentProfileType === 'worker_mcp_agent') {
         // Use WorkerMCPAgent for MCP operations
-        const mcpResult = await this.workerMCPAgent.executeNode(state.currentNode, state);
-        logger.agent('worker_mcp', state.currentNode, mcpResult.statusMessage);
+        try {
+          const mcpResult = await this.workerMCPAgent.executeNode(state.currentNode, state);
+          logger.agent('worker_mcp', state.currentNode, mcpResult.statusMessage);
 
-        if (this.VERBOSE_LOGS) {
-          console.log(`\n📝 [WORKER MCP RESULT]`);
-          console.log(`   Status: "${mcpResult.statusMessage}"`);
-          console.log(`   Context Updates: ${JSON.stringify(mcpResult.contextUpdates, null, 2)}`);
-          console.log(`   MCP Executed: ${mcpResult.mcpExecuted}`);
+          if (this.VERBOSE_LOGS) {
+            console.log(`\n📝 [WORKER MCP RESULT]`);
+            console.log(`   Status: "${mcpResult.statusMessage}"`);
+            console.log(`   Context Updates: ${JSON.stringify(mcpResult.contextUpdates, null, 2)}`);
+            console.log(`   MCP Executed: ${mcpResult.mcpExecuted}`);
+          }
+
+          response = mcpResult.statusMessage || '';
+          contextUpdates = mcpResult.contextUpdates;
+
+          // Check if MCP agent failed (error in results or no response)
+          if (mcpResult.mcpResults?.error || (!response && Object.keys(contextUpdates).length === 0)) {
+            primaryAgentFailed = true;
+            console.log(`[AgentOrchestrator] ⚠️ Primary MCP agent failed or returned no results`);
+          }
+
+          // Log agent execution
+          await this.logger.logAgentExecution({
+            agentType: 'worker_mcp',
+            nodeName: state.currentNode,
+            result: mcpResult,
+            sessionId: state.sessionId,
+          });
+        } catch (error: any) {
+          primaryAgentFailed = true;
+          console.error(`[AgentOrchestrator] ❌ Primary MCP agent error: ${error.message}`);
         }
-
-        response = mcpResult.statusMessage || '';
-        contextUpdates = mcpResult.contextUpdates;
-
-        // Log agent execution
-        await this.logger.logAgentExecution({
-          agentType: 'worker_mcp',
-          nodeName: state.currentNode,
-          result: mcpResult,
-          sessionId: state.sessionId,
-        });
 
       } else if (agentProfileType === 'worker_reply_agent') {
         // Use WorkerReplyAgent for customer-facing responses
-        const replyResult = await this.workerReplyAgent.executeNode(
-          state.currentNode,
-          state,
-          iterations === 1 ? userMessage : undefined
-        );
-        logger.agent('worker_reply', state.currentNode, replyResult.response);
+        try {
+          const replyResult = await this.workerReplyAgent.executeNode(
+            state.currentNode,
+            state,
+            iterations === 1 ? userMessage : undefined
+          );
+          logger.agent('worker_reply', state.currentNode, replyResult.response);
 
-        response = replyResult.response;
+          response = replyResult.response;
 
-        // Log agent execution
-        await this.logger.logAgentExecution({
-          agentType: 'worker_reply',
-          nodeName: state.currentNode,
-          result: replyResult,
-          sessionId: state.sessionId,
-        });
+          // Check if reply agent failed (no response)
+          if (!response || response.trim() === '') {
+            primaryAgentFailed = true;
+            console.log(`[AgentOrchestrator] ⚠️ Primary reply agent returned empty response`);
+          }
+
+          // Log agent execution
+          await this.logger.logAgentExecution({
+            agentType: 'worker_reply',
+            nodeName: state.currentNode,
+            result: replyResult,
+            sessionId: state.sessionId,
+          });
+        } catch (error: any) {
+          primaryAgentFailed = true;
+          console.error(`[AgentOrchestrator] ❌ Primary reply agent error: ${error.message}`);
+        }
 
       } else if (agentProfileType === 'internal') {
         // Internal nodes (wait_for_customers_reply) - no agent execution needed
@@ -445,6 +474,49 @@ export class AgentOrchestratorService {
 
       } else {
         console.warn(`[AgentOrchestrator] ⚠️  Unknown agent_profile_type: ${agentProfileType}`);
+      }
+
+      // FALLBACK AGENT: If primary agent failed and fallback is configured, try fallback agent
+      if (primaryAgentFailed && fallbackAgent) {
+        console.log(`\n🔄 [FALLBACK AGENT TRIGGERED]`);
+        console.log(`   Primary agent (${primaryAgent}) failed, trying fallback: ${fallbackAgent}`);
+
+        const fallbackAgentType = fallbackAgent === 'mcp_agent' ? 'worker_mcp_agent' : 'worker_reply_agent';
+
+        try {
+          if (fallbackAgentType === 'worker_mcp_agent') {
+            const mcpResult = await this.workerMCPAgent.executeNode(state.currentNode, state);
+            response = mcpResult.statusMessage || '';
+            contextUpdates = mcpResult.contextUpdates;
+            console.log(`[AgentOrchestrator] ✅ Fallback MCP agent succeeded`);
+
+            await this.logger.logAgentExecution({
+              agentType: 'worker_mcp',
+              nodeName: `${state.currentNode}_fallback`,
+              result: mcpResult,
+              sessionId: state.sessionId,
+            });
+          } else if (fallbackAgentType === 'worker_reply_agent') {
+            const replyResult = await this.workerReplyAgent.executeNode(
+              state.currentNode,
+              state,
+              iterations === 1 ? userMessage : undefined
+            );
+            response = replyResult.response;
+            console.log(`[AgentOrchestrator] ✅ Fallback reply agent succeeded`);
+
+            await this.logger.logAgentExecution({
+              agentType: 'worker_reply',
+              nodeName: `${state.currentNode}_fallback`,
+              result: replyResult,
+              sessionId: state.sessionId,
+            });
+          }
+        } catch (fallbackError: any) {
+          console.error(`[AgentOrchestrator] ❌ Fallback agent also failed: ${fallbackError.message}`);
+          // Use a default response if both agents fail
+          response = "I apologize, but I'm having trouble processing your request. Could you please try rephrasing?";
+        }
       }
 
       // Log full AI response for log parsing
@@ -663,42 +735,38 @@ export class AgentOrchestratorService {
         console.log(`   ℹ️  Providing retry guidance to try different approach...`);
         console.log(`   ⚠️  IMPORTANT: Data collected so far is PRESERVED`);
 
-        // Generate retry guidance based on goal type and attempt number
+        // Generate retry guidance using goal's declarative retry_strategy
         let retryGuidance = '';
 
-        if (nextNodeOrGoal === 'GATHER_REQUIREMENTS') {
-          const dataFields = state.context.data_extraction_fields || {};
+        // Get goal configuration for retry strategy
+        const nextGoalConfig = this.config.goals.find(g => g.goal_id === nextNodeOrGoal);
+        const retryStrategy = (nextGoalConfig as any)?.retry_strategy;
 
-          if (attemptNumber === 3) {
-            retryGuidance = `This is attempt #${attemptNumber} to gather customer data. Try a different approach:\n`;
-            retryGuidance += `- Currently have: name="${dataFields.customer_name || '(missing)'}", phone="${dataFields.customer_phone_number || '(missing)'}"\n`;
-            retryGuidance += `- Try asking: "To help you better, could you share your contact number?"\n`;
-            retryGuidance += `- Be more direct and specific about what's needed`;
-          } else if (attemptNumber === 4) {
-            retryGuidance = `This is attempt #${attemptNumber}. Try offering value:\n`;
-            retryGuidance += `- Example: "So I can send you updates about the service, what's a good number to reach you?"\n`;
-            retryGuidance += `- Explain WHY you need the information`;
-          } else if (attemptNumber >= 5) {
-            retryGuidance = `This is attempt #${attemptNumber}. Offer alternative:\n`;
-            retryGuidance += `- Example: "I can proceed with partial information. Would you like to continue or provide a contact number?"\n`;
-            retryGuidance += `- Give customer option to skip if they prefer`;
+        if (retryStrategy && retryStrategy.escalation_messages) {
+          // Use declarative escalation messages from goal config
+          const escalationTurns = retryStrategy.escalation_turns || [];
+          const escalationMessages = retryStrategy.escalation_messages || [];
+
+          // Find which escalation level we're at based on attempt number
+          let escalationIndex = -1;
+          for (let i = 0; i < escalationTurns.length; i++) {
+            if (attemptNumber >= escalationTurns[i]) {
+              escalationIndex = i;
+            }
+          }
+
+          if (escalationIndex >= 0 && escalationIndex < escalationMessages.length) {
+            // Use declarative escalation message from config
+            retryGuidance = `Attempt #${attemptNumber}. ${escalationMessages[escalationIndex]}`;
+            console.log(`[Loop Detection] 📋 Using escalation message (level ${escalationIndex + 1}) from goal config`);
           } else {
-            retryGuidance = `Try rephrasing the question differently. Current data: ${JSON.stringify(dataFields)}`;
+            // Default retry message using goal's approach
+            retryGuidance = `Attempt #${attemptNumber}. Retry strategy: ${retryStrategy.approach}. Try varying your approach to achieve goal: ${nextNodeOrGoal}`;
           }
-
-        } else if (nextNodeOrGoal === 'UNDERSTAND_REQUEST') {
-          if (attemptNumber === 3) {
-            retryGuidance = `Customer response unclear. Try:\n`;
-            retryGuidance += `- Ask more specific questions about their issue\n`;
-            retryGuidance += `- Example: "What specific problem are you experiencing with your [roof/plumbing/etc]?"`;
-          } else if (attemptNumber >= 4) {
-            retryGuidance = `Provide examples to help customer:\n`;
-            retryGuidance += `- Example: "For example, is it a leak, damage, installation, or something else?"\n`;
-            retryGuidance += `- Give concrete options to choose from`;
-          }
-
         } else {
+          // Fallback if no retry strategy defined in goal
           retryGuidance = `Attempt #${attemptNumber}. Try varying your approach to achieve goal: ${nextNodeOrGoal}`;
+          console.log(`[Loop Detection] ⚠️ No retry_strategy found for goal: ${nextNodeOrGoal}, using generic retry guidance`);
         }
 
         // Update context with retry guidance (NEVER reset data)
@@ -788,8 +856,14 @@ export class AgentOrchestratorService {
         break;
       }
 
-      if (nextNodeOrGoal === 'CONFIRM_RESOLUTION' && transitionResult.shouldTransition) {
-        console.log(`\n👋 [CONVERSATION ENDING - RESOLUTION CONFIRMED]`);
+      // Check if we've reached a terminal goal (declarative from config)
+      const nextGoalConfig = this.config.goals.find(g => g.goal_id === nextNodeOrGoal);
+      const isTerminalGoal = (nextGoalConfig as any)?.is_terminal === true;
+
+      if (isTerminalGoal && transitionResult.shouldTransition) {
+        console.log(`\n👋 [CONVERSATION ENDING - TERMINAL GOAL REACHED]`);
+        console.log(`   Terminal Goal: ${nextNodeOrGoal}`);
+        console.log(`   Description: ${nextGoalConfig?.description}`);
         console.log(`   Ending conversation with status: Completed`);
         state = this.contextManager.endConversation(state, 'Completed');
         console.log(`   conversationEnded: ${state.conversationEnded}`);

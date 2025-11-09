@@ -6,6 +6,9 @@
     {
       "goal_id": "UNDERSTAND_REQUEST",
       "description": "Understand what the customer needs help with",
+      "goal_type": "conversational",
+      "is_terminal": false,
+      "primary_agent": "conversational_agent",
       "success_criteria": {
         "mandatory_fields": ["service.primary_request"],
         "quality_checks": ["issue_is_clear"]
@@ -13,6 +16,10 @@
       "allowed_agents": ["conversational_agent", "extraction_agent"],
       "conversation_tactics": ["empathetic_listening", "clarifying_questions", "issue_confirmation"],
       "max_turns": 5,
+      "retry_strategy": {
+        "approach": "provide_examples",
+        "escalation_turns": [3, 5]
+      },
       "auto_advance_conditions": [
         {
           "condition": "customer has clearly stated their issue and we understand what help they need",
@@ -23,6 +30,10 @@
     {
       "goal_id": "GATHER_REQUIREMENTS",
       "description": "Collect necessary customer information",
+      "goal_type": "conversational_with_mcp",
+      "is_terminal": false,
+      "primary_agent": "conversational_agent",
+      "fallback_agent": "mcp_agent",
       "success_criteria": {
         "mandatory_fields": ["customer.phone"],
         "conditional_fields": {
@@ -33,6 +44,15 @@
       "available_tools": ["customer_get", "customer_create", "setting_list"],
       "conversation_tactics": ["incremental_data_gathering", "rapport_building"],
       "max_turns": 8,
+      "retry_strategy": {
+        "approach": "vary_phrasing",
+        "escalation_turns": [3, 5, 7],
+        "escalation_messages": [
+          "Try a different approach to ask for contact information",
+          "Offer value - explain why you need their info",
+          "Offer to proceed with partial information"
+        ]
+      },
       "auto_advance_conditions": [
         {
           "condition": "all mandatory fields collected and customer information complete",
@@ -43,6 +63,10 @@
     {
       "goal_id": "DESIGN_SOLUTION",
       "description": "Create plan to resolve customer request",
+      "goal_type": "planning",
+      "is_terminal": false,
+      "primary_agent": "planner_agent",
+      "fallback_agent": "mcp_agent",
       "success_criteria": {
         "mandatory_fields": ["operations.solution_plan"]
       },
@@ -50,6 +74,10 @@
       "available_tools": ["setting_list", "task_create"],
       "conversation_tactics": ["solution_explanation", "consent_gathering"],
       "max_turns": 6,
+      "retry_strategy": {
+        "approach": "revise_plan",
+        "escalation_turns": [2, 4]
+      },
       "auto_advance_conditions": [
         {
           "condition": "solution plan created and customer consents",
@@ -65,6 +93,10 @@
     {
       "goal_id": "EXECUTE_SOLUTION",
       "description": "Execute the planned actions",
+      "goal_type": "execution",
+      "is_terminal": false,
+      "primary_agent": "mcp_agent",
+      "fallback_agent": "conversational_agent",
       "success_criteria": {
         "mandatory_fields": ["operations.task_id"]
       },
@@ -72,6 +104,10 @@
       "available_tools": ["task_create", "person_calendar_book"],
       "conversation_tactics": ["progress_updates", "success_confirmation"],
       "max_turns": 6,
+      "retry_strategy": {
+        "approach": "retry_operation",
+        "escalation_turns": [2, 4]
+      },
       "auto_advance_conditions": [
         {
           "condition": "all actions executed successfully",
@@ -82,6 +118,9 @@
     {
       "goal_id": "CONFIRM_RESOLUTION",
       "description": "Verify satisfaction and close",
+      "goal_type": "terminal",
+      "is_terminal": true,
+      "primary_agent": "conversational_agent",
       "success_criteria": {
         "mandatory_fields": []
       },
@@ -89,6 +128,10 @@
       "available_tools": ["call_hangup"],
       "conversation_tactics": ["satisfaction_check", "graceful_closure"],
       "max_turns": 3,
+      "retry_strategy": {
+        "approach": "gentle_wrap_up",
+        "escalation_turns": [2]
+      },
       "auto_advance_conditions": [
         {
           "condition": "customer satisfied and conversation closed",
