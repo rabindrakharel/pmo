@@ -95,9 +95,13 @@ export class WorkerMCPAgent {
     // OBSERVE: Analyze what's missing
     const observation = this.observe(goal, state);
 
-    // Get available MCP tools
-    const availableTools = getMCPTools();
-    console.log(`[WorkerMCPAgent] 📋 Available MCP tools: ${availableTools.length}`);
+    // Get available MCP tools (SCOPED BY ENTITY_BOUNDARY)
+    const entityBoundary = this.determineEntityBoundary(state);
+    const availableTools = getMCPTools({
+      categories: entityBoundary,
+      maxTools: 40  // Limit to prevent token overflow
+    });
+    console.log(`[WorkerMCPAgent] 📋 Available MCP tools: ${availableTools.length} (scoped to entities: ${entityBoundary.join(', ')})`);
 
     // THINK + ACT: Select and execute tool
     const systemPrompt = this.buildReActPrompt(goal, observation, availableTools);
@@ -379,6 +383,59 @@ Select and call appropriate MCP tool(s) to fetch missing data.`;
     }
 
     return updates;
+  }
+
+  /**
+   * Determine entity boundary dynamically based on session context
+   *
+   * Reads entity_boundary config and applies expansion rules based on:
+   * - Current goal
+   * - Extracted data (service catalog, project mentions, etc.)
+   * - Conversation context
+   *
+   * @returns Array of entity categories to scope MCP tools
+   */
+  private determineEntityBoundary(state: AgentContextState): string[] {
+    const entityBoundaryConfig = (this.agentProfile as any).entity_boundary;
+    if (!entityBoundaryConfig) {
+      // No config - return default categories
+      return ['Customer', 'Task', 'Employee', 'Calendar', 'Settings'];
+    }
+
+    // Start with default entities
+    let entities = new Set<string>(entityBoundaryConfig.default_entities || []);
+
+    // Always include certain categories
+    const alwaysInclude = entityBoundaryConfig.always_include_categories || [];
+    alwaysInclude.forEach((cat: string) => entities.add(cat));
+
+    // Apply expansion rules based on context
+    const extracted = state.context.data_extraction_fields || {};
+    const expansionRules = entityBoundaryConfig.expansion_rules || {};
+
+    // Rule: If service catalog matched
+    if (extracted.service?.catalog_match && expansionRules.if_service_catalog_matched) {
+      expansionRules.if_service_catalog_matched.add_entities.forEach((e: string) => entities.add(e));
+    }
+
+    // Rule: If project mentioned
+    if (extracted.project?.id && expansionRules.if_project_mentioned) {
+      expansionRules.if_project_mentioned.add_entities.forEach((e: string) => entities.add(e));
+    }
+
+    // Rule: If appointment booking
+    if (state.context.currentGoal?.includes('appointment') && expansionRules.if_appointment_booking) {
+      expansionRules.if_appointment_booking.add_entities.forEach((e: string) => entities.add(e));
+    }
+
+    // Remove never include categories
+    const neverInclude = entityBoundaryConfig.never_include_categories || [];
+    neverInclude.forEach((cat: string) => entities.delete(cat));
+
+    const result = Array.from(entities);
+    console.log(`[WorkerMCPAgent] 🔍 Entity boundary determined: ${result.join(', ')}`);
+
+    return result;
   }
 
   /**
