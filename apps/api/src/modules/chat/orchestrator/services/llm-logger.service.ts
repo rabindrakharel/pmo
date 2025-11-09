@@ -205,10 +205,10 @@ ${args.content}
   }
 
   /**
-   * Log agent execution (worker, navigator, etc.)
+   * Log agent execution (worker, navigator, data extraction, etc.)
    */
   async logAgentExecution(args: {
-    agentType: 'worker_reply' | 'worker_mcp' | 'navigator';
+    agentType: 'worker_reply' | 'worker_mcp' | 'navigator' | 'data_extraction' | 'loop_detection' | string;
     nodeName: string;
     result: any;
     sessionId?: string;

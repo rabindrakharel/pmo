@@ -620,9 +620,6 @@ export class AgentOrchestratorService {
         if (transitionResult.shouldTransition && transitionResult.nextGoal) {
           console.log(`   Next Goal: ${transitionResult.nextGoal}`);
         }
-        if (transitionResult.confidence !== undefined) {
-          console.log(`   Confidence: ${(transitionResult.confidence * 100).toFixed(1)}%`);
-        }
       }
 
       // Log transition decision to llm.log
