@@ -148,7 +148,6 @@ export class ContextInitializer {
           name: '',
           phone: '',
           email: '',
-          address: '',  // Fallback for full address
           address_street: '',
           address_city: '',
           address_state: '',
@@ -161,7 +160,7 @@ export class ContextInitializer {
         project: { id: '' },
         assignment: { employee_id: '', employee_name: '' }
       };
-      console.log(`   - data_extraction_fields: initialized with nested structure (customer with fine-grained address, service, operations, project, assignment)`);
+      console.log(`   - data_extraction_fields: initialized with fine-grained address (street, city, state, zipcode, country)`);
     }
 
     // Merge additional fields if provided
@@ -248,7 +247,6 @@ export class ContextInitializer {
           name: '',
           phone: '',
           email: '',
-          address: '',  // Fallback for full address
           address_street: '',
           address_city: '',
           address_state: '',

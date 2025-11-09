@@ -213,10 +213,6 @@
           "type": "string",
           "extraction_strategy": "Look for self-introductions"
         },
-        "customer_address": {
-          "type": "string",
-          "extraction_strategy": "Extract complete address when provided as single statement (fallback if components not available)"
-        },
         "customer_address_street": {
           "type": "string",
           "extraction_strategy": "Extract street number and street name (e.g., '353531 Edmonton Avenue')"

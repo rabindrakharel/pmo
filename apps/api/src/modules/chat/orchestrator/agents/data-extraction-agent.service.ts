@@ -305,7 +305,10 @@ export class DataExtractionAgent {
       { path: 'customer.name', key: 'customer_name' },
       { path: 'customer.phone', key: 'customer_phone' },
       { path: 'customer.email', key: 'customer_email' },
-      { path: 'customer.address', key: 'customer_address' },
+      { path: 'customer.address_street', key: 'customer_address_street' },
+      { path: 'customer.address_city', key: 'customer_address_city' },
+      { path: 'customer.address_state', key: 'customer_address_state' },
+      { path: 'customer.address_zipcode', key: 'customer_address_zipcode' },
       { path: 'service.primary_request', key: 'primary_request' }
     ];
   }
@@ -412,19 +415,18 @@ Agent: "I can help with that roof issue"
 
 ---
 
-Example 3 - Fine-grained address extraction:
+Example 3 - Address component extraction:
 Conversation:
 Customer: "My address is 353531 Edmonton Avenue, Palo Alto, California"
 Agent: "Thank you for providing your address"
 
 → Call: updateContext({
-  "customer.address": "353531 Edmonton Avenue, Palo Alto, California",
   "customer.address_street": "353531 Edmonton Avenue",
   "customer.address_city": "Palo Alto",
   "customer.address_state": "California"
 })
 
-Note: Extract BOTH full address AND components when possible
+Note: Extract address as structured components for validation and routing
 
 ---
 
