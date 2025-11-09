@@ -14,6 +14,13 @@ const ELEVEN_LABS_API_KEY = process.env.ELEVEN_LABS_API_KEY;
 const ELEVEN_LABS_VOICE_ID = process.env.ELEVEN_LABS_VOICE_ID;
 const ELEVEN_LABS_MODEL_ID = process.env.ELEVEN_LABS_MODEL_ID || 'eleven_flash_v2_5';
 
+// ✅ Voice settings for consistent pitch/volume across all responses
+// Higher stability = more consistent pitch/tone (0.8 recommended for customer service)
+// Lower style = less variation in delivery (0.0 recommended for consistency)
+const ELEVEN_LABS_STABILITY = parseFloat(process.env.ELEVEN_LABS_STABILITY || '0.8');
+const ELEVEN_LABS_SIMILARITY = parseFloat(process.env.ELEVEN_LABS_SIMILARITY || '0.8');
+const ELEVEN_LABS_STYLE = parseFloat(process.env.ELEVEN_LABS_STYLE || '0.0');
+
 // Initialize Deepgram client
 const deepgramClient = DEEPGRAM_API_KEY ? createClient(DEEPGRAM_API_KEY) : null;
 
@@ -104,12 +111,12 @@ export async function textToSpeech(text: string, voice: string = 'nova'): Promis
       text,
       model_id: ELEVEN_LABS_MODEL_ID,    // Use env var model ID (default: eleven_flash_v2_5)
       voice_settings: {
-        stability: 0.5,                   // Voice consistency (0-1)
-        similarity_boost: 0.75,           // Voice similarity to original (0-1)
-        style: 0.5,                       // Style exaggeration (0-1, Flash v2.5 only)
-        use_speaker_boost: true           // Enhance voice clarity
+        stability: ELEVEN_LABS_STABILITY,      // Voice consistency (0.8 default) - higher = more consistent pitch/tone
+        similarity_boost: ELEVEN_LABS_SIMILARITY, // Voice similarity (0.8 default) - higher = better consistency
+        style: ELEVEN_LABS_STYLE,              // Style variation (0.0 default) - lower = less pitch/volume variation
+        use_speaker_boost: true                // Enhance voice clarity and normalize volume
       },
-      output_format: 'mp3_44100_128'     // MP3, 44.1kHz, 128kbps
+      output_format: 'mp3_44100_128'     // MP3, 44.1kHz, 128kbps (consistent bitrate ensures consistent volume)
     });
 
     // Collect all chunks into a buffer
@@ -227,12 +234,12 @@ export async function* processVoiceMessageStream(args: {
               text: textBuffer,
               model_id: ELEVEN_LABS_MODEL_ID,
               voice_settings: {
-                stability: 0.5,
-                similarity_boost: 0.75,
-                style: 0.5,
-                use_speaker_boost: true
+                stability: ELEVEN_LABS_STABILITY,      // Voice consistency - configurable via env
+                similarity_boost: ELEVEN_LABS_SIMILARITY, // Voice similarity - configurable via env
+                style: ELEVEN_LABS_STYLE,              // Style variation - configurable via env
+                use_speaker_boost: true                // Normalize volume
               },
-              output_format: 'mp3_44100_128'
+              output_format: 'mp3_44100_128'     // Consistent bitrate
             });
 
             // Collect audio chunks
@@ -271,12 +278,12 @@ export async function* processVoiceMessageStream(args: {
               text: textBuffer,
               model_id: ELEVEN_LABS_MODEL_ID,
               voice_settings: {
-                stability: 0.5,
-                similarity_boost: 0.75,
-                style: 0.5,
-                use_speaker_boost: true
+                stability: ELEVEN_LABS_STABILITY,      // Voice consistency - configurable via env
+                similarity_boost: ELEVEN_LABS_SIMILARITY, // Voice similarity - configurable via env
+                style: ELEVEN_LABS_STYLE,              // Style variation - configurable via env
+                use_speaker_boost: true                // Normalize volume
               },
-              output_format: 'mp3_44100_128'
+              output_format: 'mp3_44100_128'     // Consistent bitrate
             });
 
             const audioChunks: Buffer[] = [];
