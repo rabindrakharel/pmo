@@ -17,7 +17,11 @@
       "Bash(./tools/logs-web.sh:*)",
       "Bash(pnpm install:*)",
       "Bash(./tools/restart-api.sh:*)",
-      "Bash(node --version)"
+      "Bash(node --version)",
+      "Bash(docker ps:*)",
+      "Bash(netstat:*)",
+      "Bash(lsof:*)",
+      "Bash(timeout 5 curl:*)"
     ],
     "deny": [],
     "ask": [],

@@ -58,6 +58,63 @@ export async function agentOrchestratorRoutes(fastify: FastifyInstance) {
   });
 
   /**
+   * POST /api/v1/chat/agent/message
+   * Process a message through the agent orchestrator
+   */
+  fastify.post('/message', async (request, reply) => {
+    try {
+      const { session_id, message, customer_id } = request.body as any;
+
+      if (!message) {
+        return reply.code(400).send({
+          error: 'Message is required',
+        });
+      }
+
+      // Get auth token for MCP tools
+      const token = request.headers.authorization?.replace('Bearer ', '') || '';
+
+      // Process message through orchestrator (collect stream into full response)
+      let fullResponse = '';
+      let result: any = {};
+
+      for await (const chunk of orchestrator.processMessageStream({
+        sessionId: session_id,
+        message,
+        userId: customer_id,
+        authToken: token
+      })) {
+        if (chunk.type === 'token') {
+          fullResponse += chunk.token;
+        } else if (chunk.type === 'done') {
+          result = {
+            sessionId: chunk.sessionId,
+            response: chunk.response || fullResponse,
+            currentNode: chunk.currentNode,
+            conversationEnded: chunk.conversationEnded
+          };
+        } else if (chunk.type === 'error') {
+          throw new Error(chunk.error || 'Unknown error during processing');
+        }
+      }
+
+      return reply.code(200).send({
+        session_id: result.sessionId,
+        response: result.response,
+        current_node: result.currentNode,
+        conversation_ended: result.conversationEnded,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('[AgentRoutes] Error processing message:', error);
+      return reply.code(500).send({
+        error: 'Internal server error',
+        message: error.message,
+      });
+    }
+  });
+
+  /**
    * GET /api/v1/chat/agent/health
    * Health check endpoint
    */

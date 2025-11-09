@@ -102,7 +102,8 @@ export class SessionMemoryQueueService {
         this.reconnect();
       } else {
         console.error('[SessionMemoryQueue] ❌ Max reconnection attempts reached. Giving up.');
-        throw error;
+        console.warn('[SessionMemoryQueue] ⚠️  System will continue without RabbitMQ queue functionality.');
+        // Don't throw error - allow system to continue without queue
       }
     }
   }
@@ -131,6 +132,12 @@ export class SessionMemoryQueueService {
     if (!this.publishChannel) {
       console.warn('[SessionMemoryQueue] ⚠️  Publish channel not ready, initializing...');
       await this.initialize();
+
+      // If still no channel after initialization, RabbitMQ is not available
+      if (!this.publishChannel) {
+        console.warn('[SessionMemoryQueue] ⚠️  RabbitMQ not available, skipping message publish');
+        return;
+      }
     }
 
     try {
@@ -169,10 +176,17 @@ export class SessionMemoryQueueService {
       await this.initialize();
     }
 
+    // Double-check channel is ready after initialization
+    if (!this.consumerChannel) {
+      console.warn('[SessionMemoryQueue] ⚠️  Consumer channel failed to initialize - RabbitMQ may not be available');
+      console.warn('[SessionMemoryQueue] ⚠️  System will continue without message consumer');
+      return; // Don't throw error - allow system to continue without consumer
+    }
+
     try {
       console.log('[SessionMemoryQueue] 🎧 Starting message consumer...');
 
-      await this.consumerChannel!.consume(
+      await this.consumerChannel.consume(
         this.QUEUE_NAME,
         async (msg) => {
           if (msg) {

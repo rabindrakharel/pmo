@@ -72,7 +72,9 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
       }
 
       const data = await response.json();
-      setSessionId(data.sessionId);
+      // API returns session_id (snake_case), not sessionId
+      const newSessionId = data.session_id || data.sessionId;
+      setSessionId(newSessionId);
       setMessages([{
         role: 'assistant',
         content: data.response,
@@ -223,6 +225,12 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
       // Create audio context
       const audioContext = new AudioContext({ sampleRate: 24000 });
       audioContextRef.current = audioContext;
+
+      // Resume AudioContext immediately (user interaction from button click)
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+        console.log('✅ AudioContext resumed on initialization');
+      }
 
       // Connect to WebSocket with auth token
       const token = localStorage.getItem('auth_token');
@@ -380,7 +388,35 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
                 setVoiceStatus('🎙️ Voice call active - Speak now!');
               };
 
-              await audio.play();
+              // Resume AudioContext if suspended (fixes autoplay restrictions)
+              if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+                try {
+                  await audioContextRef.current.resume();
+                  console.log('✅ AudioContext resumed');
+                } catch (err) {
+                  console.error('Failed to resume AudioContext:', err);
+                }
+              }
+
+              // Play audio with proper error handling
+              try {
+                await audio.play();
+                console.log('🔊 Audio playing');
+              } catch (playError) {
+                console.error('Audio play failed:', playError);
+                // If autoplay is blocked, show a message
+                if (playError instanceof DOMException && playError.name === 'NotAllowedError') {
+                  console.warn('⚠️  Autoplay blocked - user interaction required');
+                  setVoiceStatus('🎙️ Click to hear response');
+                  // Try to play again (user might have interacted)
+                  setTimeout(() => {
+                    audio.play().catch(() => {
+                      console.log('Second play attempt failed - truly blocked');
+                    });
+                  }, 100);
+                }
+                setVoiceStatus('🎙️ Voice call active - Speak now!');
+              }
             } catch (err) {
               console.error('Failed to decode audio:', err);
               setVoiceStatus('🎙️ Voice call active - Speak now!');

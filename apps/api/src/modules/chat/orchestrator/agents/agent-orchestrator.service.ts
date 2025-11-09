@@ -81,13 +81,18 @@ export class AgentOrchestratorService {
 
   /**
    * Initialize RabbitMQ for session memory queue
-   * RabbitMQ is required - no fallback
+   * Falls back gracefully if RabbitMQ is not available
    */
   private async initializeSessionMemoryQueue(): Promise<void> {
-    const queueService = getSessionMemoryQueueService();
-    await queueService.initialize();
-    await queueService.startConsumer();
-    console.log(`[AgentOrchestrator] 🐰 RabbitMQ queue initialized and consumer started`);
+    try {
+      const queueService = getSessionMemoryQueueService();
+      await queueService.initialize();
+      await queueService.startConsumer();
+      console.log(`[AgentOrchestrator] 🐰 RabbitMQ queue initialized and consumer started`);
+    } catch (error: any) {
+      console.warn(`[AgentOrchestrator] ⚠️  RabbitMQ not available, continuing without queue: ${error.message}`);
+      console.warn(`[AgentOrchestrator] ℹ️  Session memory updates will be processed directly (synchronous mode)`);
+    }
   }
 
   /**
