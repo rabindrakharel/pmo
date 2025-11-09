@@ -92,22 +92,28 @@ export class DataExtractionAgent {
 
     console.log(`[DataExtractionAgent] Exchanges:`, JSON.stringify(exchanges, null, 2));
 
-    // Identify which context fields are still empty (nested under data_extraction_fields)
+    // Identify which context fields are still empty (nested structure)
     const dataFields = state.context.data_extraction_fields || {};
-    const allContextFields = [
-      'customer_name',
-      'customer_phone_number',
-      'customer_email',
-      'customers_main_ask'
-      // NOTE: matching_service_catalog_to_solve_customers_issue should come from MCP (not extracted from conversation)
-      // NOTE: related_entities_for_customers_ask should come from MCP (not extracted from conversation)
+
+    // Define extractable fields with nested paths
+    const extractableFields = [
+      { path: 'customer.name', key: 'customer_name' },
+      { path: 'customer.phone', key: 'customer_phone' },
+      { path: 'customer.email', key: 'customer_email' },
+      { path: 'service.primary_request', key: 'service_primary_request' }
+      // NOTE: service.catalog_match, service.related_entities should come from MCP (not conversation)
+      // NOTE: operations.* fields should come from MCP (not conversation)
     ];
 
-    const emptyFields = allContextFields.filter(
-      field => !dataFields[field] || dataFields[field] === ''
-    );
+    // Check which nested fields are empty
+    const emptyFields = extractableFields.filter(field => {
+      const [category, subfield] = field.path.split('.');
+      const value = dataFields[category]?.[subfield];
+      return !value || value === '';
+    });
 
-    console.log(`[DataExtractionAgent] 📊 Empty extraction fields: ${emptyFields.join(', ') || '(none)'}`);
+    const emptyFieldPaths = emptyFields.map(f => f.path);
+    console.log(`[DataExtractionAgent] 📊 Empty extraction fields: ${emptyFieldPaths.join(', ') || '(none)'}`);
 
     // If all fields are populated, skip extraction
     if (emptyFields.length === 0) {
@@ -222,14 +228,15 @@ export class DataExtractionAgent {
 
   /**
    * Build extraction prompt for LLM
-   * ✅ FIX: Now handles varying number of exchanges (including current exchange)
+   * ✅ Updated for nested field structure (customer.*, service.*, etc.)
    */
   private buildExtractionPrompt(
     recentExchanges: Array<{ index?: number; customer: string; agent: string }>,
-    emptyFields: string[],
+    emptyFields: Array<{ path: string; key: string }>,
     currentContext: any
   ): string {
     const dataFields = currentContext.data_extraction_fields || {};
+    const emptyFieldPaths = emptyFields.map(f => f.path);
 
     return `You are a data extraction specialist for a customer service system.
 
@@ -245,7 +252,7 @@ ${recentExchanges.map((exchange, idx) => {
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📊 EMPTY DATA EXTRACTION FIELDS (not yet extracted):
-${emptyFields.join(', ')}
+${emptyFieldPaths.join(', ')}
 
 🔍 CURRENT DATA EXTRACTION FIELDS (already populated):
 ${JSON.stringify(dataFields, null, 2)}
@@ -262,14 +269,14 @@ Based on the RECENT CONVERSATION EXCHANGES above (especially the CURRENT 🔴 ex
 6. PAY SPECIAL ATTENTION to the CURRENT 🔴 exchange (most recent)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📝 EXTRACTION EXAMPLES:
+📝 EXTRACTION EXAMPLES (using nested field structure):
 
 Example 1 - Name extraction:
 Conversation:
 Customer: "My name is John Smith"
 Agent: "Thank you, John"
 
-→ Call: updateContext({"customer_name": "John Smith"})
+→ Call: updateContext({"customer.name": "John Smith"})
 
 ---
 
@@ -279,9 +286,9 @@ Customer: "I'm Jane Doe, my number is 555-1234, and I need help with a leaking r
 Agent: "I can help with that roof issue"
 
 → Call: updateContext({
-  "customer_name": "Jane Doe",
-  "customer_phone_number": "555-1234",
-  "customers_main_ask": "Roof leak repair"
+  "customer.name": "Jane Doe",
+  "customer.phone": "555-1234",
+  "service.primary_request": "Roof leak repair"
 })
 
 ---
@@ -292,7 +299,7 @@ Customer: "The backyard has a hole that needs to be patched"
 Agent: "I understand, we can help patch that hole"
 
 → Call: updateContext({
-  "customers_main_ask": "Backyard hole repair/patching"
+  "service.primary_request": "Backyard hole repair/patching"
 })
 
 ---
@@ -307,11 +314,12 @@ Agent: "Great, let me proceed"
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ IMPORTANT RULES:
 
-1. ONLY extract from CUSTOMER messages (not agent responses)
-2. ONLY extract information explicitly mentioned
-3. Do NOT update fields that are already populated (check CURRENT CONTEXT)
-4. Extract ALL relevant fields in ONE call (don't call multiple times)
-5. If NO extractable information found, do NOT call the tool
+1. Use NESTED field names: customer.name, customer.phone, service.primary_request, etc.
+2. ONLY extract from CUSTOMER messages (not agent responses)
+3. ONLY extract information explicitly mentioned
+4. Do NOT update fields that are already populated (check CURRENT CONTEXT)
+5. Extract ALL relevant fields in ONE call (don't call multiple times)
+6. If NO extractable information found, do NOT call the tool
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

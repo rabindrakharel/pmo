@@ -257,7 +257,7 @@ export const sessionMemoryDataMcpTools = [
     type: 'function' as const,
     function: {
       name: 'update_data_extraction_fields',
-      description: 'Update specific data extraction fields (customer_name, phone, email, etc.) in the session memory data',
+      description: 'Update specific data extraction fields (nested structure: customer.*, service.*, operations.*, etc.) in the session memory data',
       parameters: {
         type: 'object',
         properties: {
@@ -267,21 +267,47 @@ export const sessionMemoryDataMcpTools = [
           },
           fields: {
             type: 'object',
-            description: 'Object containing field names and values to update',
+            description: 'Nested object containing field categories and values to update',
             properties: {
-              customer_name: { type: 'string' },
-              customer_phone_number: { type: 'string' },
-              customer_email: { type: 'string' },
-              customer_id: { type: 'string' },
-              customers_main_ask: { type: 'string' },
-              matching_service_catalog_to_solve_customers_issue: { type: 'string' },
-              related_entities_for_customers_ask: { type: 'string' },
-              task_id: { type: 'string' },
-              task_name: { type: 'string' },
-              appointment_details: { type: 'string' },
-              project_id: { type: 'string' },
-              assigned_employee_id: { type: 'string' },
-              assigned_employee_name: { type: 'string' },
+              customer: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  phone: { type: 'string' },
+                  email: { type: 'string' },
+                  id: { type: 'string' },
+                },
+              },
+              service: {
+                type: 'object',
+                properties: {
+                  primary_request: { type: 'string' },
+                  catalog_match: { type: 'string' },
+                  related_entities: { type: 'string' },
+                },
+              },
+              operations: {
+                type: 'object',
+                properties: {
+                  solution_plan: { type: 'string' },
+                  task_id: { type: 'string' },
+                  task_name: { type: 'string' },
+                  appointment_details: { type: 'string' },
+                },
+              },
+              project: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                },
+              },
+              assignment: {
+                type: 'object',
+                properties: {
+                  employee_id: { type: 'string' },
+                  employee_name: { type: 'string' },
+                },
+              },
             },
           },
         },

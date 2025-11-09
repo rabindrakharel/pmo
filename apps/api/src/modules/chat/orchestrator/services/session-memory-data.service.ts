@@ -24,19 +24,30 @@ export interface SessionMemoryData {
     agent_session_id: string;
     who_are_you: string;
     data_extraction_fields: {
-      customer_name: string;
-      customer_phone_number: string;
-      customer_email: string;
-      customer_id: string;
-      customers_main_ask: string;
-      matching_service_catalog_to_solve_customers_issue: string;
-      related_entities_for_customers_ask: string;
-      task_id: string;
-      task_name: string;
-      appointment_details: string;
-      project_id: string;
-      assigned_employee_id: string;
-      assigned_employee_name: string;
+      customer: {
+        name: string;
+        phone: string;
+        email: string;
+        id: string;
+      };
+      service: {
+        primary_request: string;
+        catalog_match: string;
+        related_entities: string;
+      };
+      operations: {
+        solution_plan: string;
+        task_id: string;
+        task_name: string;
+        appointment_details: string;
+      };
+      project: {
+        id: string;
+      };
+      assignment: {
+        employee_id: string;
+        employee_name: string;
+      };
     };
     next_course_of_action: string;
     next_node_to_go_to: string;
@@ -240,8 +251,26 @@ export class SessionMemoryDataService {
           ...existing.context,
           ...updates.context,
           data_extraction_fields: {
-            ...existing.context.data_extraction_fields,
-            ...(updates.context.data_extraction_fields || {}),
+            customer: {
+              ...existing.context.data_extraction_fields?.customer,
+              ...updates.context.data_extraction_fields?.customer,
+            },
+            service: {
+              ...existing.context.data_extraction_fields?.service,
+              ...updates.context.data_extraction_fields?.service,
+            },
+            operations: {
+              ...existing.context.data_extraction_fields?.operations,
+              ...updates.context.data_extraction_fields?.operations,
+            },
+            project: {
+              ...existing.context.data_extraction_fields?.project,
+              ...updates.context.data_extraction_fields?.project,
+            },
+            assignment: {
+              ...existing.context.data_extraction_fields?.assignment,
+              ...updates.context.data_extraction_fields?.assignment,
+            },
           },
         };
       }
