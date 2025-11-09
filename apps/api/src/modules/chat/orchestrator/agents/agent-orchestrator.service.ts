@@ -976,6 +976,35 @@ export class AgentOrchestratorService {
         console.log(`   ℹ️  Providing retry guidance to try different approach...`);
         console.log(`   ⚠️  IMPORTANT: Data collected so far is PRESERVED`);
 
+        // ✅ FIX #6: Add hard limit to prevent infinite loops (max 5 attempts per goal)
+        const MAX_GOAL_ATTEMPTS = 5;
+        if (totalNextNodeVisits >= MAX_GOAL_ATTEMPTS) {
+          console.error(`\n🚨 [INFINITE LOOP PREVENTION] Goal ${nextNodeOrGoal} attempted ${totalNextNodeVisits} times (limit: ${MAX_GOAL_ATTEMPTS})`);
+          console.error(`   This suggests the goal cannot be completed or requires manual intervention`);
+          console.error(`   FORCED ACTION: Ending conversation to prevent infinite loop`);
+
+          state.conversationEnded = true;
+          state.endReason = `Infinite loop detected: ${nextNodeOrGoal} failed after ${MAX_GOAL_ATTEMPTS} attempts. Please review conversation and provide missing information.`;
+
+          // Log critical event
+          await this.logger.logAgentExecution({
+            agentType: 'infinite_loop_prevention',
+            nodeName: state.currentNode,
+            result: {
+              forcedEnd: true,
+              goal: nextNodeOrGoal,
+              attempts: totalNextNodeVisits,
+              maxAttempts: MAX_GOAL_ATTEMPTS,
+              reason: 'Goal repeatedly failed to complete - preventing infinite loop',
+              preservedData: state.context.data_extraction_fields
+            },
+            sessionId: state.sessionId,
+          });
+
+          // Continue to next iteration which will exit due to conversationEnded flag
+          continue;
+        }
+
         // Generate retry guidance using goal's declarative retry_strategy
         let retryGuidance = '';
 

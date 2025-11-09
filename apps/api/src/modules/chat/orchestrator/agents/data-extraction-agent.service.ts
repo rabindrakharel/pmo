@@ -358,6 +358,24 @@ export class DataExtractionAgent {
     const dataFields = currentContext.data_extraction_fields || {};
     const emptyFieldPaths = emptyFields.map(f => f.path);
 
+    // ✅ FIX #3: Build list of POPULATED fields to make idempotency explicit
+    // ✅ DYNAMIC: Read categories from actual data_extraction_fields object, not hardcoded
+    const populatedFields: string[] = [];
+
+    Object.entries(dataFields).forEach(([category, fields]) => {
+      if (typeof fields === 'object' && fields !== null) {
+        Object.entries(fields).forEach(([key, value]) => {
+          if (value && value !== '' && value !== '(unknown)' && value !== '(not set)') {
+            populatedFields.push(`${category}.${key} = "${value}"`);
+          }
+        });
+      }
+    });
+
+    const populatedFieldsDisplay = populatedFields.length > 0
+      ? populatedFields.join('\n')
+      : '(none - all fields empty)';
+
     return `You are a data extraction specialist for a customer service system.
 
 Your task: Analyze the recent conversation exchanges and extract missing customer information.
@@ -371,13 +389,16 @@ ${recentExchanges.map((exchange, idx) => {
 }).join('\n\n')}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 EMPTY DATA EXTRACTION FIELDS (not yet extracted):
-${emptyFieldPaths.join(', ')}
+✅ ALREADY POPULATED FIELDS (DO NOT EXTRACT AGAIN - IDEMPOTENCY):
+${populatedFieldsDisplay}
+
+⚠️ CRITICAL RULE: If you see a field value in the ALREADY POPULATED list above, you MUST NOT extract or update it again, even if the customer mentions it in the conversation. These fields are already set and should remain unchanged.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 EMPTY DATA EXTRACTION FIELDS (extract ONLY these):
+${emptyFieldPaths.length > 0 ? emptyFieldPaths.join(', ') : '(none - all fields populated)'}
 
 ${this.buildExtractionStrategies(emptyFields)}
-
-🔍 CURRENT DATA EXTRACTION FIELDS (already populated):
-${JSON.stringify(dataFields, null, 2)}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎯 YOUR TASK:
@@ -389,6 +410,7 @@ Based on the RECENT CONVERSATION EXCHANGES above (especially the CURRENT 🔴 ex
 4. Only extract information explicitly mentioned by the customer
 5. If you find extractable information, call the updateContext tool
 6. PAY SPECIAL ATTENTION to the CURRENT 🔴 exchange (most recent)
+7. 🚨 INCOMPLETE UTTERANCE DETECTION: Do NOT extract from incomplete sentences like "The name is" (without name), "My phone is" (without number), "The address is" (without address). Wait for complete information.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📝 EXTRACTION EXAMPLES (using nested field structure):
@@ -467,13 +489,21 @@ Agent: "Great, let me proceed"
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ IMPORTANT RULES:
 
-1. Use NESTED field names: customer.name, customer.phone, customer.address_street, customer.address_city, customer.address_state, customer.address_zipcode, customer.address_country, service.primary_request, etc.
-2. ONLY extract from CUSTOMER messages (not agent responses)
-3. ONLY extract information explicitly mentioned
-4. Do NOT update fields that are already populated (check CURRENT CONTEXT)
-5. Extract ALL relevant fields in ONE call (don't call multiple times)
-6. If NO extractable information found, do NOT call the tool
-7. For addresses:
+1. 🚫 IDEMPOTENCY RULE (MOST IMPORTANT): Do NOT extract or update ANY field that appears in "ALREADY POPULATED FIELDS" section above. If a field has a value, SKIP IT completely, even if the customer mentions it again in the conversation.
+
+2. ✅ ONLY EXTRACT EMPTY FIELDS: Only extract fields that appear in "EMPTY DATA EXTRACTION FIELDS" section above.
+
+3. Use NESTED field names: customer.name, customer.phone, customer.address_street, customer.address_city, customer.address_state, customer.address_zipcode, customer.address_country, service.primary_request, etc.
+
+4. ONLY extract from CUSTOMER messages (not agent responses)
+
+5. ONLY extract information explicitly mentioned
+
+6. Extract ALL relevant EMPTY fields in ONE call (don't call multiple times)
+
+7. If NO NEW extractable information found, do NOT call the tool
+
+8. For addresses:
    - Extract fine-grained address components: customer.address_street, customer.address_city, customer.address_state, customer.address_zipcode, customer.address_country
    - Components help with service area validation and routing
    - Extract incrementally as customer provides partial address info
@@ -481,7 +511,7 @@ Agent: "Great, let me proceed"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Now analyze the conversation and extract any missing context fields.`;
+Now analyze the conversation and extract any missing context fields. Remember: ONLY extract fields from the EMPTY FIELDS list, NEVER extract fields that are ALREADY POPULATED.`;
   }
 }
 

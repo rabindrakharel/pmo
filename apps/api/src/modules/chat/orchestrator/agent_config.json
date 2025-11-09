@@ -42,7 +42,14 @@
       "primary_agent": "conversational_agent",
       "fallback_agent": "mcp_agent",
       "success_criteria": {
-        "mandatory_fields": ["customer.phone", "customer.name", "customer.address_street", "customer.address_city", "customer.address_state"]
+        "mandatory_fields": ["customer.phone", "customer.name", "customer.address_street", "customer.address_city", "customer.address_state"],
+        "field_collection_order": [
+          "customer.phone",
+          "customer.name",
+          "customer.address_street",
+          "customer.address_city",
+          "customer.address_state"
+        ]
       },
       "allowed_agents": ["conversational_agent", "extraction_agent", "mcp_agent"],
       "conversation_tactics": ["incremental_data_gathering", "rapport_building"],
@@ -75,13 +82,16 @@
     },
     {
       "goal_id": "MANAGE_CUSTOMER_PROFILE",
-      "description": "Look up existing customer or create new customer profile",
+      "description": "Look up existing customer or create new customer profile using phone/name/address from previous step",
       "goal_type": "execution",
       "is_terminal": false,
       "primary_agent": "mcp_agent",
       "fallback_agent": "conversational_agent",
       "success_criteria": {
-        "mandatory_fields": ["customer.id"]
+        "mandatory_fields": [],
+        "quality_checks": [
+          "Customer lookup/creation has been attempted using available customer data (phone, name, address)"
+        ]
       },
       "allowed_agents": ["mcp_agent", "conversational_agent"],
       "conversation_tactics": ["progress_updates"],
@@ -95,7 +105,8 @@
           "type": "semi_deterministic",
           "json_path": "customer.id",
           "operator": "is_set",
-          "next_goal": "DESIGN_SOLUTION"
+          "next_goal": "DESIGN_SOLUTION",
+          "description": "Advance when customer.id is obtained (either from lookup or creation)"
         }
       ]
     },
