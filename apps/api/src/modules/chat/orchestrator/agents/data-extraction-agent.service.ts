@@ -98,9 +98,9 @@ export class DataExtractionAgent {
       'customer_name',
       'customer_phone_number',
       'customer_email',
-      'customers_main_ask',
-      'matching_service_catalog_to_solve_customers_issue',
-      'related_entities_for_customers_ask'
+      'customers_main_ask'
+      // NOTE: matching_service_catalog_to_solve_customers_issue should come from MCP (not extracted from conversation)
+      // NOTE: related_entities_for_customers_ask should come from MCP (not extracted from conversation)
     ];
 
     const emptyFields = allContextFields.filter(

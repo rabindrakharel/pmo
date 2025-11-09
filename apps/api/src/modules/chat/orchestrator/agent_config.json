@@ -227,12 +227,40 @@
       "expected_context_fields": [
         "customers_main_ask"
       ],
-      "default_next_node": "Try_To_Gather_Customers_Data",
+      "default_next_node": "Identify_Service_Catalog_Via_MCP",
       "branching_conditions": [
         {
           "condition": "if customer's issue has been acknowledged and empathy shown",
           "advance_type": "auto",
+          "child_node": "Identify_Service_Catalog_Via_MCP"
+        }
+      ]
+    },
+    {
+      "node_name": "Identify_Service_Catalog_Via_MCP",
+      "node_action": "mcp",
+      "agent_profile_type": "worker_mcp_agent",
+      "role": "a service catalog matching specialist",
+      "prompt": "Use MCP to fetch service catalog from settings and match it to customer's issue.",
+      "example_tone_of_reply": "You are a service catalog specialist.\n\nYour task: Use MCP tools to fetch service catalog options from settings (dl__service_category) and match to customer's issue.\n\nBehind the scenes:\n1. Call MCP setting_list tool to get dl__service_category options\n2. Match customer's issue to the most appropriate service category\n3. Update matching_service_catalog_to_solve_customers_issue in context\n4. No customer-facing response needed (internal processing)\n\nExample:\n- Customer issue: 'Roof with holes' → Match to 'Roofing' service category\n- Customer issue: 'Brown lawn' → Match to 'Landscaping' service category\n- Customer issue: 'Broken pipe' → Match to 'Plumbing' service category",
+      "node_goal": "Fetch service catalog from MCP settings and match it to customer's issue. This MUST use MCP, not extract from conversation.",
+      "context_update": "Call MCP setting_list to get dl__service_category. Match customer's issue to service catalog. Update matching_service_catalog_to_solve_customers_issue. Set identify_service_catalog_flag: 1.",
+      "expected_context_fields": [
+        "customers_main_ask",
+        "matching_service_catalog_to_solve_customers_issue"
+      ],
+      "default_next_node": "Try_To_Gather_Customers_Data",
+      "branching_conditions": [
+        {
+          "condition": "if service catalog has been identified via MCP",
+          "advance_type": "auto",
           "child_node": "Try_To_Gather_Customers_Data"
+        },
+        {
+          "condition": "if MCP call fails or no matching service found",
+          "advance_type": "auto",
+          "child_node": "Try_To_Gather_Customers_Data",
+          "loop_back_intention": "Could not match service catalog, but proceed to gather customer data. Service will be determined later."
         }
       ]
     },
@@ -252,10 +280,27 @@
       "default_next_node": "Check_IF_existing_customer",
       "branching_conditions": [
         {
-          "condition": "if required customer data is missing or incomplete",
+          "condition": "if customer_phone_number is populated",
+          "child_node": "Check_IF_existing_customer",
+          "advance_type": "auto"
+        },
+        {
+          "condition": "if required customer data (phone) is missing after 3 attempts",
+          "child_node": "Check_IF_existing_customer",
+          "advance_type": "stepwise",
+          "loop_back_intention": "Customer hasn't provided phone after multiple attempts. Proceed with available information or offer to skip phone collection."
+        },
+        {
+          "condition": "if customer explicitly refuses to provide phone number",
+          "child_node": "Check_IF_existing_customer",
+          "advance_type": "stepwise",
+          "loop_back_intention": "Customer declined to provide phone. Proceed with available information."
+        },
+        {
+          "condition": "if required customer data (phone) is missing and attempts < 3",
           "child_node": "Try_To_Gather_Customers_Data",
           "advance_type": "stepwise",
-          "loop_back_intention": "Still missing required customer information. Ask for the missing data again, but phrase it differently. Be polite and patient."
+          "loop_back_intention": "Still missing phone number. Ask again with different phrasing. Be polite and patient."
         },
         {
           "condition": "if customer wants to update data",
@@ -305,25 +350,88 @@
       "role": "a service planning coordinator",
       "prompt": "Develop a step-wise plan to resolve the issue using available resources. Behind the scenes: Update context with plan details, set flags.",
       "example_tone_of_reply": "From {full_context}. Behind the scenes: Strictly plan resolution, update JSON: {..., task_id: 'set via MCP', appointment_details: 'from MCP/tool', next_steps_plans_help_customer: 'step-wise plan using MCP, aligned to customers_main_ask and matching_service_catalog_to_solve_customers_issue'}, build mandatory customers_main_ask, set plan_flag: 1, and append summarized conversation pair to summary_of_conversation_on_each_step_until_now if interaction occurs. Then, generate the response to the customer based on context data: If needed, outline plan briefly.",
-      "node_goal": "Create a detailed plan in the JSON for helping the customer, incorporating MCP, based on intent and selected category. Skip if plan exists (check flag: plan_flag: 1). Reset if issue changes (via identify_issue_flag reset).",
-      "context_update": "Add task_id (via MCP), appointment_details (via MCP/tool), and next_steps_plans_help_customer to context JSON. Schema finalizes with plan details; build mandatory customers_main_ask. Summarize and append to summary_of_conversation_on_each_step_until_now: {customer: previous_user_input, agent: generated_response if any}.",
-      "default_next_node": "Communicate_To_Customer_Before_Action",
+      "node_goal": "CRITICAL: Use MCP to create task for customer's issue. Then ask customer if they want to book an appointment. If yes, use MCP to book calendar for available employee. This node MUST call MCP task_create tool with customer_id, customers_main_ask, and matching_service_catalog_to_solve_customers_issue.",
+      "context_update": "MUST call MCP task_create tool to create task and populate task_id. Then ask customer if they want appointment. If yes, call MCP person_calendar_book to schedule and populate appointment_details. Set plan_flag: 1 only after task creation succeeds.",
+      "default_next_node": "Ask_Customer_For_Appointment",
       "branching_conditions": [
         {
-          "condition": "if plan requires additional MCP fetch",
-          "child_node": "use_mcp_to_get_info",
+          "condition": "if task_id is populated (task created successfully)",
+          "child_node": "Ask_Customer_For_Appointment",
           "advance_type": "auto"
         },
         {
-          "condition": "if plan already exists (plan_flag: 1)",
+          "condition": "if task creation fails",
           "child_node": "Communicate_To_Customer_Before_Action",
-          "advance_type": "auto"
+          "advance_type": "auto",
+          "loop_back_intention": "Task creation failed. Inform customer about the issue and try alternative approach."
         },
         {
           "condition": "if customer changes issue",
           "child_node": "Extract_Customer_Issue",
           "advance_type": "auto",
           "loop_back_intention": "Customer has mentioned a different issue than before. Extract the new issue and restart the conversation flow with the updated need."
+        }
+      ]
+    },
+    {
+      "node_name": "Ask_Customer_For_Appointment",
+      "node_action": "reply",
+      "agent_profile_type": "worker_reply_agent",
+      "role": "an appointment scheduling coordinator",
+      "prompt": "Ask the customer if they would like to book an appointment for the service.",
+      "example_tone_of_reply": "You are a polite customer service agent.\n\nYour task: Ask if customer wants to book an appointment.\n\nReply like this:\n→ I've created a task for your [issue]. Would you like me to schedule an appointment with one of our technicians?\n→ Your service request has been logged. Would you like to book an appointment now?\n\n⚠️ OUTPUT RULES:\n- Output ONLY your question (nothing else)\n- Be clear about what was created (task for their issue)\n- Ask for appointment booking preference",
+      "node_goal": "Ask customer if they want to book an appointment after task creation.",
+      "context_update": "Set ask_appointment_flag: 1.",
+      "expected_context_fields": [
+        "task_id"
+      ],
+      "default_next_node": "Book_Appointment_Via_MCP",
+      "branching_conditions": [
+        {
+          "condition": "if customer agrees to book appointment",
+          "child_node": "Book_Appointment_Via_MCP",
+          "advance_type": "stepwise"
+        },
+        {
+          "condition": "if customer declines appointment",
+          "child_node": "Tell_Customers_Execution",
+          "advance_type": "stepwise",
+          "loop_back_intention": "Customer doesn't want appointment. Proceed to inform them about task creation and next steps."
+        },
+        {
+          "condition": "if customer changes issue",
+          "child_node": "Extract_Customer_Issue",
+          "advance_type": "stepwise"
+        }
+      ]
+    },
+    {
+      "node_name": "Book_Appointment_Via_MCP",
+      "node_action": "mcp",
+      "agent_profile_type": "worker_mcp_agent",
+      "role": "an appointment booking specialist",
+      "prompt": "Use MCP to book appointment with available employee for the customer's task.",
+      "example_tone_of_reply": "You are an appointment booking specialist.\n\nYour task: Use MCP person_calendar_book tool to schedule appointment.\n\nBehind the scenes:\n1. Call MCP person_calendar_book with task_id to find available employee\n2. Book calendar slot for employee\n3. Update appointment_details with scheduled time and employee info\n4. No customer-facing response needed (internal processing)\n\nExample:\n- Task ID: 'task-123' → Find available technician → Book slot → Update appointment_details: 'Scheduled for 2025-11-10 at 10:00 AM with Bob Smith'",
+      "node_goal": "Use MCP to book appointment with available employee. MUST call MCP person_calendar_book tool with task_id.",
+      "context_update": "MUST call MCP person_calendar_book to schedule appointment. Update appointment_details, assigned_employee_id, assigned_employee_name from MCP results. Set book_appointment_flag: 1.",
+      "expected_context_fields": [
+        "task_id",
+        "appointment_details",
+        "assigned_employee_id",
+        "assigned_employee_name"
+      ],
+      "default_next_node": "Tell_Customers_Execution",
+      "branching_conditions": [
+        {
+          "condition": "if appointment booked successfully",
+          "child_node": "Tell_Customers_Execution",
+          "advance_type": "auto"
+        },
+        {
+          "condition": "if no available employees found",
+          "child_node": "Tell_Customers_Execution",
+          "advance_type": "auto",
+          "loop_back_intention": "No available employees found. Inform customer that task is created but appointment needs to be scheduled later."
         }
       ]
     },
