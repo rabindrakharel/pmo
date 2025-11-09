@@ -51,6 +51,15 @@
       "available_tools": ["customer_get", "customer_create", "setting_list"],
       "conversation_tactics": ["incremental_data_gathering", "rapport_building"],
       "max_turns": 8,
+      "agent_execution_strategy": {
+        "mode": "parallel",
+        "parallel_groups": [
+          {
+            "agents": ["conversational_agent", "extraction_agent"],
+            "description": "Reply to customer while extracting data in parallel"
+          }
+        ]
+      },
       "retry_strategy": {
         "approach": "vary_phrasing",
         "escalation_turns": [3, 5, 7],

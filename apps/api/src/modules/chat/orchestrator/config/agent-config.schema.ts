@@ -34,6 +34,33 @@ export interface ConversationGoal {
   auto_advance_conditions: AdvanceCondition[];
   constraints?: Constraint[];
   termination_sequence?: TerminationSequence;
+  agent_execution_strategy?: AgentExecutionStrategy;
+}
+
+/**
+ * Agent Execution Strategy - Defines how agents run for this goal
+ * Parallel execution can dramatically improve performance
+ */
+export interface AgentExecutionStrategy {
+  // Execution mode
+  mode: 'sequential' | 'parallel' | 'dependency_graph';
+
+  // For parallel mode: agents that can run simultaneously
+  parallel_groups?: ParallelAgentGroup[];
+
+  // For dependency_graph mode: execution order based on dependencies
+  execution_graph?: AgentExecutionNode[];
+}
+
+export interface ParallelAgentGroup {
+  agents: string[];  // Agent IDs that run in parallel
+  description?: string;
+}
+
+export interface AgentExecutionNode {
+  agent: string;
+  depends_on?: string[];  // Agent IDs this agent depends on
+  required: boolean;  // If false, failure doesn't stop execution
 }
 
 /**
