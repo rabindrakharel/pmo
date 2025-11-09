@@ -222,16 +222,16 @@ export class WorkerReplyAgent {
       .filter(Boolean)
       .join('\n');
 
-    // Build list of already collected fields from session memory
-    const collectedFieldsList = this.buildCollectedFieldsList(context);
+    // Build session memory data section (mandatory vs optional fields)
+    const sessionMemoryData = this.buildSessionMemoryDataSection(goal, context);
 
     // Replace placeholders in system prompt and goal description with actual session values
     let systemPromptWithValues = replacePlaceholders(this.agentProfile.system_prompt, context);
 
-    // Replace {{COLLECTED_FIELDS}} with actual collected data
+    // Replace {{SESSION_MEMORY_DATA}} with formatted session memory
     systemPromptWithValues = systemPromptWithValues.replace(
-      '{{COLLECTED_FIELDS}}',
-      collectedFieldsList
+      '{{SESSION_MEMORY_DATA}}',
+      sessionMemoryData
     );
 
     const goalDescriptionWithValues = replacePlaceholders(goal.description, context);
@@ -379,31 +379,87 @@ Generate your response now:`;
   }
 
   /**
-   * Build formatted list of already collected fields from session memory
+   * Build session memory data section showing collected fields
+   * Separates MANDATORY fields (from goal) vs OPTIONAL/Good-to-have fields
    * This prevents the agent from asking for information that's already been collected
    */
-  private buildCollectedFieldsList(context: any): string {
+  private buildSessionMemoryDataSection(goal: ConversationGoal, context: any): string {
     const dataFields = context.data_extraction_fields || {};
-    const collectedFields: string[] = [];
+    const mandatoryFields = goal.success_criteria?.mandatory_fields || [];
 
-    // Iterate through all categories and fields
+    const collectedMandatory: string[] = [];
+    const collectedOptional: string[] = [];
+    const missingMandatory: string[] = [];
+
+    // Track which mandatory fields we've seen
+    const seenMandatoryFields = new Set<string>();
+
+    // First pass: Collect all fields that have values
     Object.entries(dataFields).forEach(([category, fields]) => {
       if (typeof fields === 'object' && fields !== null) {
         Object.entries(fields).forEach(([key, value]) => {
-          // Check if field has a real value (not empty, not placeholder)
-          if (value && value !== '' && value !== '(unknown)' && value !== '(not set)') {
+          const fieldPath = `${category}.${key}`;
+          const isMandatory = mandatoryFields.includes(fieldPath);
+          const hasValue = value && value !== '' && value !== '(unknown)' && value !== '(not set)';
+
+          if (isMandatory) {
+            seenMandatoryFields.add(fieldPath);
+          }
+
+          if (hasValue) {
             const fieldLabel = this.getFieldLabel(category, key);
-            collectedFields.push(`  • ${fieldLabel}: "${value}"`);
+            const entry = `  • ${fieldLabel}: "${value}"`;
+
+            if (isMandatory) {
+              collectedMandatory.push(entry);
+            } else {
+              collectedOptional.push(entry);
+            }
           }
         });
       }
     });
 
-    if (collectedFields.length === 0) {
-      return '  (none yet - starting fresh conversation)';
+    // Second pass: Find missing mandatory fields
+    mandatoryFields.forEach(fieldPath => {
+      const [category, key] = fieldPath.split('.');
+      const value = dataFields[category]?.[key];
+      const hasValue = value && value !== '' && value !== '(unknown)' && value !== '(not set)';
+
+      if (!hasValue) {
+        const fieldLabel = this.getFieldLabel(category, key);
+        missingMandatory.push(`  • ${fieldLabel}`);
+      }
+    });
+
+    // Build formatted output
+    const sections: string[] = [];
+
+    // Mandatory fields section
+    if (collectedMandatory.length > 0) {
+      sections.push('\n✅ MANDATORY (collected for goal: ' + goal.goal_id + '):');
+      sections.push(collectedMandatory.join('\n'));
     }
 
-    return collectedFields.join('\n');
+    if (missingMandatory.length > 0) {
+      sections.push('\n❌ MANDATORY (still need):');
+      sections.push(missingMandatory.join('\n'));
+    }
+
+    // Optional fields section
+    if (collectedOptional.length > 0) {
+      sections.push('\n📌 OPTIONAL (collected):');
+      sections.push(collectedOptional.join('\n'));
+    }
+
+    // Only show rules if there's data
+    if (sections.length > 0) {
+      sections.push('\n⚠️ DO NOT ask for ✅ fields above. Only ask for ❌ fields.');
+      return sections.join('\n');
+    }
+
+    // No data collected yet
+    return '\n(No data collected yet - starting fresh)';
   }
 
   /**
