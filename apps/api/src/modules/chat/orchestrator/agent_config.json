@@ -288,13 +288,13 @@
           "condition": "if required customer data (phone) is missing after 3 attempts",
           "child_node": "Check_IF_existing_customer",
           "advance_type": "stepwise",
-          "loop_back_intention": "Customer hasn't provided phone after multiple attempts. Proceed with available information or offer to skip phone collection."
+          "forward_intention": "Customer hasn't provided phone after multiple attempts. Move forward to customer check with available information."
         },
         {
           "condition": "if customer explicitly refuses to provide phone number",
           "child_node": "Check_IF_existing_customer",
           "advance_type": "stepwise",
-          "loop_back_intention": "Customer declined to provide phone. Proceed with available information."
+          "forward_intention": "Customer declined to provide phone. Move forward with available information."
         },
         {
           "condition": "if required customer data (phone) is missing and attempts < 3",
