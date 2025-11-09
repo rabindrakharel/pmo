@@ -26,6 +26,7 @@ import { getLLMLogger } from '../services/llm-logger.service.js';
 import { createAgentLogger, type AgentLogger } from '../services/agent-logger.service.js';
 import { getSessionMemoryDataService } from '../services/session-memory-data.service.js';
 import type { SessionMemoryData } from '../services/session-memory-data.service.js';
+import { getSessionMemoryQueueService } from '../services/session-memory-queue.service.js';
 
 /**
  * Agent Orchestrator Service
@@ -47,9 +48,6 @@ export class AgentOrchestratorService {
   // In-memory state cache (replace LangGraph checkpointer)
   private stateCache: Map<string, AgentContextState> = new Map();
 
-  // Session lock mechanism to prevent race conditions on concurrent requests
-  private sessionLocks: Map<string, Promise<void>> = new Map();
-
   // Context file directory
   private contextDir: string = './logs/contexts';
 
@@ -61,8 +59,9 @@ export class AgentOrchestratorService {
     this.mcpAdapter = new MCPAdapterService();
     this.contextManager = getAgentContextManager();
 
-    console.log('[AgentOrchestrator] 🚀 Initializing pure agent-based system with LowDB');
+    console.log('[AgentOrchestrator] 🚀 Initializing pure agent-based system with LowDB + RabbitMQ');
     this.initializeSessionMemoryData();
+    this.initializeSessionMemoryQueue();
     this.initializeContextDir();
     this.initializeAgents();
   }
@@ -77,6 +76,21 @@ export class AgentOrchestratorService {
       console.log(`[AgentOrchestrator] 🗄️  LowDB initialized: ${sessionMemoryDataService.getDbPath()}`);
     } catch (error: any) {
       console.error(`[AgentOrchestrator] ❌ Failed to initialize LowDB: ${error.message}`);
+    }
+  }
+
+  /**
+   * Initialize RabbitMQ for session memory queue
+   */
+  private async initializeSessionMemoryQueue(): Promise<void> {
+    try {
+      const queueService = getSessionMemoryQueueService();
+      await queueService.initialize();
+      await queueService.startConsumer();
+      console.log(`[AgentOrchestrator] 🐰 RabbitMQ queue initialized and consumer started`);
+    } catch (error: any) {
+      console.warn(`[AgentOrchestrator] ⚠️  Failed to initialize RabbitMQ: ${error.message}`);
+      console.warn(`[AgentOrchestrator] ⚠️  Will fall back to direct LowDB writes (single-instance only)`);
     }
   }
 
@@ -221,11 +235,8 @@ export class AgentOrchestratorService {
     endReason?: string;
     error?: string;
   }> {
-    // Determine session ID first (needed for lock)
-    let sessionId = args.sessionId || uuidv4();
-
-    // Acquire session lock to prevent race conditions
-    const releaseLock = await this.acquireSessionLock(sessionId);
+    // Note: Race conditions now handled by RabbitMQ queue (sequential processing per session)
+    let sessionId = args.sessionId;
 
     try {
       // Ensure SessionMemoryDataService is initialized
@@ -238,9 +249,9 @@ export class AgentOrchestratorService {
 
       let state: AgentContextState;
 
-      if (!args.sessionId) {
+      if (!sessionId) {
         // New session
-        sessionId = sessionId; // Already created above
+        sessionId = uuidv4();
         console.log(`\n[AgentOrchestrator] 🆕 New streaming session ${sessionId}`);
 
         // Log session start
@@ -335,9 +346,6 @@ export class AgentOrchestratorService {
         type: 'error',
         error: error.message,
       };
-    } finally {
-      // Always release session lock, even on error
-      releaseLock();
     }
   }
 
@@ -1159,61 +1167,65 @@ export class AgentOrchestratorService {
   }
 
   /**
-   * Save state to cache and database
+   * Save state to cache and queue for database persistence
+   * Uses RabbitMQ queue to prevent race conditions on session memory data writes
    */
   private async saveState(state: AgentContextState): Promise<void> {
-    // Save to cache
+    // Save to cache (immediate)
     this.stateCache.set(state.sessionId, state);
 
-    // Save to database
-    const plainState = this.contextManager.toPlainObject(state);
-    await this.stateManager.setState(
-      state.sessionId,
-      'context',
-      plainState.context,
-      { source: 'agent-orchestrator', validated: true }
-    );
-    await this.stateManager.setState(
-      state.sessionId,
-      'messages',
-      plainState.messages,
-      { source: 'agent-orchestrator', validated: true }
-    );
-    await this.stateManager.setState(
-      state.sessionId,
-      'current_node',
-      plainState.currentNode,
-      { source: 'agent-orchestrator', validated: true }
-    );
+    try {
+      // Publish to RabbitMQ queue (sequential processing per session)
+      const queueService = getSessionMemoryQueueService();
 
-    console.log(`[AgentOrchestrator] 💾 State saved for session ${state.sessionId}`);
-  }
+      // Build session memory data from state
+      const sessionData = {
+        sessionId: state.sessionId,
+        chatSessionId: state.chatSessionId,
+        userId: state.userId,
+        currentNode: state.currentNode,
+        previousNode: state.previousNode,
+        completed: state.completed,
+        conversationEnded: state.conversationEnded,
+        endReason: state.endReason,
+        conversations: state.context.summary_of_conversation_on_each_step_until_now || [],
+        context: state.context
+      };
 
-  /**
-   * Acquire session lock to prevent concurrent processing of the same session
-   * Returns a release function that must be called when processing is complete
-   */
-  private async acquireSessionLock(sessionId: string): Promise<() => void> {
-    // Wait for any existing lock to be released
-    while (this.sessionLocks.has(sessionId)) {
-      await this.sessionLocks.get(sessionId);
+      await queueService.publishUpdate({
+        sessionId: state.sessionId,
+        operation: 'update',
+        data: sessionData,
+        timestamp: new Date().toISOString()
+      });
+
+      console.log(`[AgentOrchestrator] 📤 State queued for session ${state.sessionId}`);
+    } catch (error: any) {
+      // Fallback to direct write if queue fails
+      console.warn(`[AgentOrchestrator] ⚠️  Queue unavailable, falling back to direct write: ${error.message}`);
+
+      const plainState = this.contextManager.toPlainObject(state);
+      await this.stateManager.setState(
+        state.sessionId,
+        'context',
+        plainState.context,
+        { source: 'agent-orchestrator', validated: true }
+      );
+      await this.stateManager.setState(
+        state.sessionId,
+        'messages',
+        plainState.messages,
+        { source: 'agent-orchestrator', validated: true }
+      );
+      await this.stateManager.setState(
+        state.sessionId,
+        'current_node',
+        plainState.currentNode,
+        { source: 'agent-orchestrator', validated: true }
+      );
+
+      console.log(`[AgentOrchestrator] 💾 State saved directly for session ${state.sessionId}`);
     }
-
-    // Create new lock promise with resolver
-    let releaseLock: () => void;
-    const lockPromise = new Promise<void>((resolve) => {
-      releaseLock = resolve;
-    });
-
-    this.sessionLocks.set(sessionId, lockPromise);
-    console.log(`[AgentOrchestrator] 🔒 Session lock acquired: ${sessionId}`);
-
-    // Return release function
-    return () => {
-      this.sessionLocks.delete(sessionId);
-      releaseLock!();
-      console.log(`[AgentOrchestrator] 🔓 Session lock released: ${sessionId}`);
-    };
   }
 
   /**
