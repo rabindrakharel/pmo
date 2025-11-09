@@ -81,17 +81,13 @@ export class AgentOrchestratorService {
 
   /**
    * Initialize RabbitMQ for session memory queue
+   * RabbitMQ is required - no fallback
    */
   private async initializeSessionMemoryQueue(): Promise<void> {
-    try {
-      const queueService = getSessionMemoryQueueService();
-      await queueService.initialize();
-      await queueService.startConsumer();
-      console.log(`[AgentOrchestrator] 🐰 RabbitMQ queue initialized and consumer started`);
-    } catch (error: any) {
-      console.warn(`[AgentOrchestrator] ⚠️  Failed to initialize RabbitMQ: ${error.message}`);
-      console.warn(`[AgentOrchestrator] ⚠️  Will fall back to direct LowDB writes (single-instance only)`);
-    }
+    const queueService = getSessionMemoryQueueService();
+    await queueService.initialize();
+    await queueService.startConsumer();
+    console.log(`[AgentOrchestrator] 🐰 RabbitMQ queue initialized and consumer started`);
   }
 
   /**
@@ -1169,63 +1165,37 @@ export class AgentOrchestratorService {
   /**
    * Save state to cache and queue for database persistence
    * Uses RabbitMQ queue to prevent race conditions on session memory data writes
+   * No fallback - RabbitMQ is required for proper operation
    */
   private async saveState(state: AgentContextState): Promise<void> {
     // Save to cache (immediate)
     this.stateCache.set(state.sessionId, state);
 
-    try {
-      // Publish to RabbitMQ queue (sequential processing per session)
-      const queueService = getSessionMemoryQueueService();
+    // Publish to RabbitMQ queue (sequential processing per session)
+    const queueService = getSessionMemoryQueueService();
 
-      // Build session memory data from state
-      const sessionData = {
-        sessionId: state.sessionId,
-        chatSessionId: state.chatSessionId,
-        userId: state.userId,
-        currentNode: state.currentNode,
-        previousNode: state.previousNode,
-        completed: state.completed,
-        conversationEnded: state.conversationEnded,
-        endReason: state.endReason,
-        conversations: state.context.summary_of_conversation_on_each_step_until_now || [],
-        context: state.context
-      };
+    // Build session memory data from state
+    const sessionData = {
+      sessionId: state.sessionId,
+      chatSessionId: state.chatSessionId,
+      userId: state.userId,
+      currentNode: state.currentNode,
+      previousNode: state.previousNode,
+      completed: state.completed,
+      conversationEnded: state.conversationEnded,
+      endReason: state.endReason,
+      conversations: state.context.summary_of_conversation_on_each_step_until_now || [],
+      context: state.context
+    };
 
-      await queueService.publishUpdate({
-        sessionId: state.sessionId,
-        operation: 'update',
-        data: sessionData,
-        timestamp: new Date().toISOString()
-      });
+    await queueService.publishUpdate({
+      sessionId: state.sessionId,
+      operation: 'update',
+      data: sessionData,
+      timestamp: new Date().toISOString()
+    });
 
-      console.log(`[AgentOrchestrator] 📤 State queued for session ${state.sessionId}`);
-    } catch (error: any) {
-      // Fallback to direct write if queue fails
-      console.warn(`[AgentOrchestrator] ⚠️  Queue unavailable, falling back to direct write: ${error.message}`);
-
-      const plainState = this.contextManager.toPlainObject(state);
-      await this.stateManager.setState(
-        state.sessionId,
-        'context',
-        plainState.context,
-        { source: 'agent-orchestrator', validated: true }
-      );
-      await this.stateManager.setState(
-        state.sessionId,
-        'messages',
-        plainState.messages,
-        { source: 'agent-orchestrator', validated: true }
-      );
-      await this.stateManager.setState(
-        state.sessionId,
-        'current_node',
-        plainState.currentNode,
-        { source: 'agent-orchestrator', validated: true }
-      );
-
-      console.log(`[AgentOrchestrator] 💾 State saved directly for session ${state.sessionId}`);
-    }
+    console.log(`[AgentOrchestrator] 📤 State queued for session ${state.sessionId}`);
   }
 
   /**
