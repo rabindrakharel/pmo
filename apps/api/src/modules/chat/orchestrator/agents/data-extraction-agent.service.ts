@@ -108,28 +108,40 @@ export class DataExtractionAgent {
     // - Goal's success_criteria.mandatory_fields determine what conversational agent asks for
     // - Extraction runs in parallel to capture any volunteered information
 
-    // Check which nested fields are empty
-    const emptyFields = extractableFields.filter(field => {
+    // ✅ FIX: Separate fields into empty vs populated (for corrections/updates)
+    const emptyFields: Array<{ path: string; key: string }> = [];
+    const populatedFields: Array<{ path: string; key: string; value: any }> = [];
+
+    extractableFields.forEach(field => {
       const [category, subfield] = field.path.split('.');
       const value = dataFields[category]?.[subfield];
-      return !value || value === '';
+
+      if (!value || value === '') {
+        emptyFields.push(field);
+      } else {
+        populatedFields.push({ ...field, value });
+      }
     });
 
     const emptyFieldPaths = emptyFields.map(f => f.path);
+    const populatedFieldPaths = populatedFields.map(f => `${f.path}="${f.value}"`);
+
     console.log(`[DataExtractionAgent] 📊 Empty extraction fields: ${emptyFieldPaths.join(', ') || '(none)'}`);
+    console.log(`[DataExtractionAgent] 📊 Populated fields (can be corrected): ${populatedFieldPaths.join(', ') || '(none)'}`);
     console.log(`[DataExtractionAgent] ℹ️  Extraction mode: PASSIVE (only extract from customer's words)`);
     console.log(`[DataExtractionAgent] ℹ️  Goal's mandatory_fields drive what to ASK for`);
 
-    // If all fields are populated, skip extraction
-    if (emptyFields.length === 0) {
-      console.log(`[DataExtractionAgent] ✅ All extraction fields populated - skipping extraction`);
+    // ✅ FIX: Allow extraction even if all fields populated (for corrections)
+    // Skip only if there are no extractable fields at all
+    if (extractableFields.length === 0) {
+      console.log(`[DataExtractionAgent] ✅ No extractable fields configured - skipping extraction`);
       return {
-        extractionReason: 'All data extraction fields already populated'
+        extractionReason: 'No extractable fields configured'
       };
     }
 
     // Build prompt for LLM (exchanges contains recent history + current exchange if provided)
-    const systemPrompt = this.buildExtractionPrompt(exchanges, emptyFields, state.context);
+    const systemPrompt = this.buildExtractionPrompt(exchanges, emptyFields, populatedFields, state.context);
 
     // 🔍 DEBUG: Log extraction prompt
     console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
@@ -349,31 +361,17 @@ export class DataExtractionAgent {
   /**
    * Build extraction prompt for LLM
    * ✅ Updated for nested field structure (customer.*, service.*, etc.)
+   * ✅ FIX: Now supports field corrections/updates
    */
   private buildExtractionPrompt(
     recentExchanges: Array<{ index?: number; customer: string; agent: string }>,
     emptyFields: Array<{ path: string; key: string }>,
+    populatedFields: Array<{ path: string; key: string; value: any }>,
     currentContext: any
   ): string {
-    const dataFields = currentContext.data_extraction_fields || {};
     const emptyFieldPaths = emptyFields.map(f => f.path);
-
-    // ✅ FIX #3: Build list of POPULATED fields to make idempotency explicit
-    // ✅ DYNAMIC: Read categories from actual data_extraction_fields object, not hardcoded
-    const populatedFields: string[] = [];
-
-    Object.entries(dataFields).forEach(([category, fields]) => {
-      if (typeof fields === 'object' && fields !== null) {
-        Object.entries(fields).forEach(([key, value]) => {
-          if (value && value !== '' && value !== '(unknown)' && value !== '(not set)') {
-            populatedFields.push(`${category}.${key} = "${value}"`);
-          }
-        });
-      }
-    });
-
     const populatedFieldsDisplay = populatedFields.length > 0
-      ? populatedFields.join('\n')
+      ? populatedFields.map(f => `${f.path} = "${f.value}"`).join('\n')
       : '(none - all fields empty)';
 
     return `You are a data extraction specialist for a customer service system.
@@ -389,13 +387,16 @@ ${recentExchanges.map((exchange, idx) => {
 }).join('\n\n')}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ ALREADY POPULATED FIELDS (DO NOT EXTRACT AGAIN - IDEMPOTENCY):
+✅ ALREADY POPULATED FIELDS (can be CORRECTED if customer provides new information):
 ${populatedFieldsDisplay}
 
-⚠️ CRITICAL RULE: If you see a field value in the ALREADY POPULATED list above, you MUST NOT extract or update it again, even if the customer mentions it in the conversation. These fields are already set and should remain unchanged.
+⚠️ UPDATE POLICY: You CAN update populated fields ONLY if:
+   1. Customer explicitly provides CORRECTING/CLARIFYING information (e.g., "Actually, it's Leo not Leah", "My full name is Leo Hargrove")
+   2. Customer provides MORE SPECIFIC information (e.g., "Leah" → "Leah Thompson")
+   3. DO NOT update if customer is just REPEATING the same information already stored
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 EMPTY DATA EXTRACTION FIELDS (extract ONLY these):
+📊 EMPTY DATA EXTRACTION FIELDS (extract these):
 ${emptyFieldPaths.length > 0 ? emptyFieldPaths.join(', ') : '(none - all fields populated)'}
 
 ${this.buildExtractionStrategies(emptyFields)}
@@ -405,12 +406,13 @@ ${this.buildExtractionStrategies(emptyFields)}
 
 Based on the RECENT CONVERSATION EXCHANGES above (especially the CURRENT 🔴 exchange):
 1. Look for customer information that can fill EMPTY CONTEXT FIELDS
-2. Extract information from CUSTOMER messages ONLY (not agent responses)
-3. Do NOT make assumptions or infer information
-4. Only extract information explicitly mentioned by the customer
-5. If you find extractable information, call the updateContext tool
-6. PAY SPECIAL ATTENTION to the CURRENT 🔴 exchange (most recent)
-7. 🚨 INCOMPLETE UTTERANCE DETECTION: Do NOT extract from incomplete sentences like "The name is" (without name), "My phone is" (without number), "The address is" (without address). Wait for complete information.
+2. Check for CORRECTIONS/CLARIFICATIONS to POPULATED fields (e.g., "Actually my name is X", "It's X not Y")
+3. Extract information from CUSTOMER messages ONLY (not agent responses)
+4. Do NOT make assumptions or infer information
+5. Only extract information explicitly mentioned by the customer
+6. If you find extractable information OR corrections, call the updateContext tool
+7. PAY SPECIAL ATTENTION to the CURRENT 🔴 exchange (most recent)
+8. 🚨 INCOMPLETE UTTERANCE DETECTION: Do NOT extract from incomplete sentences like "The name is" (without name), "My phone is" (without number), "The address is" (without address). Wait for complete information.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📝 EXTRACTION EXAMPLES (using nested field structure):
@@ -486,16 +488,52 @@ Agent: "Great, let me proceed"
 
 → NO TOOL CALL - no new customer data to extract
 
+---
+
+Example 7 - CORRECTION to populated field:
+Already Populated: customer.name = "Leah"
+Conversation:
+Customer: "It's Leo Hargrove, and honestly, if you're about to tell me you're pulling up my file, you've got the wrong Leo."
+Agent: "I understand, Leo! Thank you for clarifying your name."
+
+→ Call: updateContext({"customer.name": "Leo Hargrove"})
+Reason: Customer is CORRECTING the name from "Leah" to "Leo Hargrove"
+
+---
+
+Example 8 - MORE SPECIFIC information:
+Already Populated: customer.name = "Leo"
+Conversation:
+Customer: "Yeah. That's it. Just Leo."
+Agent: "Thank you, Leo!"
+
+→ NO TOOL CALL - customer is just confirming, not providing more specific info
+
+---
+
+Example 9 - Redundant repetition (DON'T update):
+Already Populated: customer.phone = "5550147"
+Conversation:
+Customer: "Already gave you that. 5 55 0147."
+Agent: "Thank you for confirming."
+
+→ NO TOOL CALL - customer is REPEATING the same value, not providing new information
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ IMPORTANT RULES:
 
-1. 🚫 IDEMPOTENCY RULE (MOST IMPORTANT): Do NOT extract or update ANY field that appears in "ALREADY POPULATED FIELDS" section above. If a field has a value, SKIP IT completely, even if the customer mentions it again in the conversation.
+1. ✅ EXTRACT EMPTY FIELDS: Extract fields that appear in "EMPTY DATA EXTRACTION FIELDS" section above.
 
-2. ✅ ONLY EXTRACT EMPTY FIELDS: Only extract fields that appear in "EMPTY DATA EXTRACTION FIELDS" section above.
+2. ✅ UPDATE POPULATED FIELDS: You CAN update "ALREADY POPULATED FIELDS" if:
+   - Customer provides CORRECTING information (e.g., "It's Leo Hargrove, not Leah")
+   - Customer provides MORE SPECIFIC information (e.g., "Leah" → "Leah Thompson")
+   - DO NOT update if customer is just REPEATING the same value
 
-3. Use NESTED field names: customer.name, customer.phone, customer.address_street, customer.address_city, customer.address_state, customer.address_zipcode, customer.address_country, service.primary_request, etc.
+3. 🚫 AVOID REDUNDANT UPDATES: If customer mentions a field that already has the EXACT SAME value, do NOT call updateContext. Only update if the value is DIFFERENT or MORE SPECIFIC.
 
-4. ONLY extract from CUSTOMER messages (not agent responses)
+4. Use NESTED field names: customer.name, customer.phone, customer.address_street, customer.address_city, customer.address_state, customer.address_zipcode, customer.address_country, service.primary_request, etc.
+
+5. ONLY extract from CUSTOMER messages (not agent responses)
 
 5. ONLY extract information explicitly mentioned
 

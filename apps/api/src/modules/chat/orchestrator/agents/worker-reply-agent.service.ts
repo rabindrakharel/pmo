@@ -222,8 +222,18 @@ export class WorkerReplyAgent {
       .filter(Boolean)
       .join('\n');
 
+    // Build list of already collected fields from session memory
+    const collectedFieldsList = this.buildCollectedFieldsList(context);
+
     // Replace placeholders in system prompt and goal description with actual session values
-    const systemPromptWithValues = replacePlaceholders(this.agentProfile.system_prompt, context);
+    let systemPromptWithValues = replacePlaceholders(this.agentProfile.system_prompt, context);
+
+    // Replace {{COLLECTED_FIELDS}} with actual collected data
+    systemPromptWithValues = systemPromptWithValues.replace(
+      '{{COLLECTED_FIELDS}}',
+      collectedFieldsList
+    );
+
     const goalDescriptionWithValues = replacePlaceholders(goal.description, context);
 
     // ✅ FIX #5: Determine next field to collect based on field_collection_order
@@ -366,6 +376,64 @@ Generate your response now:`;
       return `Customer just said: "${userMessage}"\n\nRespond appropriately to help achieve goal: ${goal?.description}`;
     }
     return `Generate appropriate response to progress toward goal: ${goal?.description}`;
+  }
+
+  /**
+   * Build formatted list of already collected fields from session memory
+   * This prevents the agent from asking for information that's already been collected
+   */
+  private buildCollectedFieldsList(context: any): string {
+    const dataFields = context.data_extraction_fields || {};
+    const collectedFields: string[] = [];
+
+    // Iterate through all categories and fields
+    Object.entries(dataFields).forEach(([category, fields]) => {
+      if (typeof fields === 'object' && fields !== null) {
+        Object.entries(fields).forEach(([key, value]) => {
+          // Check if field has a real value (not empty, not placeholder)
+          if (value && value !== '' && value !== '(unknown)' && value !== '(not set)') {
+            const fieldLabel = this.getFieldLabel(category, key);
+            collectedFields.push(`  • ${fieldLabel}: "${value}"`);
+          }
+        });
+      }
+    });
+
+    if (collectedFields.length === 0) {
+      return '  (none yet - starting fresh conversation)';
+    }
+
+    return collectedFields.join('\n');
+  }
+
+  /**
+   * Get human-readable label for a field
+   */
+  private getFieldLabel(category: string, field: string): string {
+    const labels: Record<string, string> = {
+      'customer.name': 'Customer Name',
+      'customer.phone': 'Phone Number',
+      'customer.email': 'Email',
+      'customer.address_street': 'Street Address',
+      'customer.address_city': 'City',
+      'customer.address_state': 'State/Province',
+      'customer.address_zipcode': 'Postal/Zip Code',
+      'customer.address_country': 'Country',
+      'customer.id': 'Customer ID',
+      'service.primary_request': 'Service Request',
+      'service.catalog_match': 'Matched Service',
+      'service.related_entities': 'Related Services',
+      'operations.solution_plan': 'Solution Plan',
+      'operations.task_id': 'Task ID',
+      'operations.task_name': 'Task Name',
+      'operations.appointment_details': 'Appointment',
+      'project.id': 'Project ID',
+      'assignment.employee_id': 'Assigned Employee ID',
+      'assignment.employee_name': 'Assigned Employee',
+    };
+
+    const key = `${category}.${field}`;
+    return labels[key] || `${category}.${field}`;
   }
 }
 
