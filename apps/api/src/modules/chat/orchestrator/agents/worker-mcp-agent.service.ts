@@ -17,6 +17,7 @@ import type { AgentConfigV3, ConversationGoal, AgentProfile } from '../config/ag
 import type { MCPAdapterService } from '../../mcp-adapter.service.js';
 import { getMCPTools } from '../../mcp-adapter.service.js';
 import type { DAGContext } from './dag-types.js';
+import { createToolEnrichmentEngine, type ToolEnrichmentEngine } from '../lib/tool-enrichment-engine.service.js';
 
 /**
  * Worker MCP Agent Result
@@ -37,6 +38,7 @@ export class WorkerMCPAgent {
   private agentProfile: AgentProfile;
   private mcpAdapter?: MCPAdapterService;
   private authToken?: string;
+  private enrichmentEngine: ToolEnrichmentEngine;
 
   constructor(
     config: AgentConfigV3,
@@ -54,6 +56,9 @@ export class WorkerMCPAgent {
       throw new Error(`Agent profile not found: ${agentProfileId}`);
     }
     this.agentProfile = profile;
+
+    // Initialize generic enrichment engine from config (LOOSELY COUPLED!)
+    this.enrichmentEngine = createToolEnrichmentEngine(config);
 
     console.log(`[WorkerMCPAgent] 🎭 Initialized with profile: ${this.agentProfile.identity}`);
   }
@@ -129,9 +134,9 @@ export class WorkerMCPAgent {
         try {
           const { executeMCPTool } = await import('../../mcp-adapter.service.js');
 
-          // Parse arguments and enrich them with context data
+          // Parse arguments and enrich them with context data (GENERIC ENGINE - NO HARDCODING!)
           let toolArgs = JSON.parse(toolCall.function.arguments);
-          toolArgs = this.enrichMCPToolArguments(toolCall.function.name, toolArgs, state);
+          toolArgs = this.enrichmentEngine.enrichToolArguments(toolCall.function.name, toolArgs, state);
 
           const toolResult = await executeMCPTool(
             toolCall.function.name,
@@ -374,230 +379,6 @@ Select and call appropriate MCP tool(s) to fetch missing data.`;
     }
 
     return updates;
-  }
-
-  /**
-   * Enrich MCP tool arguments with session context data
-   * Adds extracted data + conversation history to task descriptions
-   * Adds task references + attendees to calendar bookings
-   */
-  private enrichMCPToolArguments(
-    toolName: string,
-    args: Record<string, any>,
-    state: AgentContextState
-  ): Record<string, any> {
-    console.log(`[WorkerMCPAgent] 🔍 Enriching arguments for tool: ${toolName}`);
-
-    // Enrich task_create with extracted data + conversation history
-    if (toolName === 'task_create') {
-      console.log(`[WorkerMCPAgent] 📋 Enriching task description with extracted data + conversation`);
-
-      const extracted = state.context.data_extraction_fields || {};
-      const conversations = state.context.summary_of_conversation_on_each_step_until_now || [];
-
-      // Build rich description
-      let richDescription = args.body_descr || '';
-
-      // Add extracted customer data
-      if (extracted.customer) {
-        richDescription += '\n\n## Customer Information\n';
-        if (extracted.customer.name) richDescription += `- Name: ${extracted.customer.name}\n`;
-        if (extracted.customer.phone) richDescription += `- Phone: ${extracted.customer.phone}\n`;
-        if (extracted.customer.email) richDescription += `- Email: ${extracted.customer.email}\n`;
-
-        // Fine-grained address fields
-        const addressParts: string[] = [];
-        if (extracted.customer.address_street) addressParts.push(extracted.customer.address_street);
-        if (extracted.customer.address_city) addressParts.push(extracted.customer.address_city);
-        if (extracted.customer.address_state) addressParts.push(extracted.customer.address_state);
-        if (extracted.customer.address_zipcode) addressParts.push(extracted.customer.address_zipcode);
-        if (extracted.customer.address_country) addressParts.push(extracted.customer.address_country);
-
-        if (addressParts.length > 0) {
-          richDescription += `- Address: ${addressParts.join(', ')}\n`;
-        }
-      }
-
-      // Add service request details
-      if (extracted.service) {
-        richDescription += '\n## Service Request\n';
-        if (extracted.service.primary_request) {
-          richDescription += `- Request: ${extracted.service.primary_request}\n`;
-        }
-        if (extracted.service.catalog_match) {
-          richDescription += `- Service Type: ${extracted.service.catalog_match}\n`;
-        }
-      }
-
-      // Add conversation history
-      if (conversations.length > 0) {
-        richDescription += '\n## Conversation History\n';
-        conversations.forEach((exchange: any, index: number) => {
-          richDescription += `\n**Exchange ${index + 1}:**\n`;
-          richDescription += `Customer: ${exchange.customer}\n`;
-          richDescription += `Agent: ${exchange.agent}\n`;
-        });
-      }
-
-      args.body_descr = richDescription.trim();
-      console.log(`[WorkerMCPAgent] ✅ Enhanced task description (${richDescription.length} chars)`);
-    }
-
-    // Enrich person_calendar_book with task reference + attendees
-    if (toolName === 'person_calendar_book') {
-      console.log(`[WorkerMCPAgent] 📅 Enriching calendar event with task details + attendees`);
-
-      const extracted = state.context.data_extraction_fields || {};
-
-      // Build event title if not provided
-      if (!args.body_title && extracted.service?.primary_request) {
-        args.body_title = `Service: ${extracted.service.primary_request}`;
-      }
-
-      // Build event instructions/details
-      let eventInstructions = args.body_instructions || '';
-
-      // Add task reference if available
-      if (extracted.operations?.task_id) {
-        eventInstructions += `\n\nTask ID: ${extracted.operations.task_id}`;
-        if (extracted.operations.task_name) {
-          eventInstructions += `\nTask: ${extracted.operations.task_name}`;
-        }
-      }
-
-      // Add service details
-      if (extracted.service?.primary_request) {
-        eventInstructions += `\n\nService: ${extracted.service.primary_request}`;
-      }
-
-      // Add customer info
-      if (extracted.customer?.name) {
-        eventInstructions += `\n\nCustomer: ${extracted.customer.name}`;
-        if (extracted.customer.phone) {
-          eventInstructions += `\nPhone: ${extracted.customer.phone}`;
-        }
-      }
-
-      args.body_instructions = eventInstructions.trim();
-
-      // Build attendees list for metadata
-      const attendees: Array<{ name: string; email?: string; phone?: string; type: string }> = [];
-
-      // Add customer as attendee
-      if (extracted.customer?.name) {
-        attendees.push({
-          name: extracted.customer.name,
-          email: extracted.customer.email || undefined,
-          phone: extracted.customer.phone || undefined,
-          type: 'customer'
-        });
-      }
-
-      // Add employee as attendee
-      if (extracted.assignment?.employee_name) {
-        attendees.push({
-          name: extracted.assignment.employee_name,
-          email: undefined, // Will need to fetch from employee record
-          type: 'employee'
-        });
-      }
-
-      // Merge attendees into metadata
-      const existingMetadata = args.body_metadata ? JSON.parse(args.body_metadata) : {};
-      const enrichedMetadata = {
-        ...existingMetadata,
-        attendees,
-        task_id: extracted.operations?.task_id,
-        service_type: extracted.service?.catalog_match
-      };
-
-      args.body_metadata = JSON.stringify(enrichedMetadata);
-
-      console.log(`[WorkerMCPAgent] ✅ Enhanced calendar event with ${attendees.length} attendees`);
-    }
-
-    // Enrich customer_create with fine-grained address
-    if (toolName === 'customer_create') {
-      console.log(`[WorkerMCPAgent] 👤 Enriching customer_create with fine-grained address`);
-
-      const extracted = state.context.data_extraction_fields || {};
-
-      // Map extracted customer data to API fields
-      if (extracted.customer) {
-        if (extracted.customer.name && !args.body_name) {
-          args.body_name = extracted.customer.name;
-        }
-        if (extracted.customer.phone && !args.body_primary_phone) {
-          args.body_primary_phone = extracted.customer.phone;
-        }
-        if (extracted.customer.email && !args.body_primary_email) {
-          args.body_primary_email = extracted.customer.email;
-        }
-
-        // Fine-grained address mapping
-        // Combine address components into primary_address field for customer table
-        const addressParts: string[] = [];
-        if (extracted.customer.address_street) {
-          addressParts.push(extracted.customer.address_street);
-          args.body_primary_address = extracted.customer.address_street; // Street goes to primary_address
-        }
-        if (extracted.customer.address_city && !args.body_city) {
-          args.body_city = extracted.customer.address_city;
-        }
-        if (extracted.customer.address_state && !args.body_province) {
-          args.body_province = extracted.customer.address_state;
-        }
-        if (extracted.customer.address_zipcode && !args.body_postal_code) {
-          args.body_postal_code = extracted.customer.address_zipcode;
-        }
-        if (extracted.customer.address_country && !args.body_country) {
-          args.body_country = extracted.customer.address_country;
-        }
-
-        console.log(`[WorkerMCPAgent] ✅ Mapped customer data with fine-grained address`);
-      }
-    }
-
-    // Enrich customer_update with fine-grained address
-    if (toolName === 'customer_update') {
-      console.log(`[WorkerMCPAgent] 👤 Enriching customer_update with fine-grained address`);
-
-      const extracted = state.context.data_extraction_fields || {};
-
-      // Map extracted customer data to API fields (incremental update)
-      if (extracted.customer) {
-        if (extracted.customer.name && !args.body_name) {
-          args.body_name = extracted.customer.name;
-        }
-        if (extracted.customer.phone && !args.body_primary_phone) {
-          args.body_primary_phone = extracted.customer.phone;
-        }
-        if (extracted.customer.email && !args.body_primary_email) {
-          args.body_primary_email = extracted.customer.email;
-        }
-
-        // Fine-grained address mapping (incremental)
-        if (extracted.customer.address_street && !args.body_primary_address) {
-          args.body_primary_address = extracted.customer.address_street;
-        }
-        if (extracted.customer.address_city && !args.body_city) {
-          args.body_city = extracted.customer.address_city;
-        }
-        if (extracted.customer.address_state && !args.body_province) {
-          args.body_province = extracted.customer.address_state;
-        }
-        if (extracted.customer.address_zipcode && !args.body_postal_code) {
-          args.body_postal_code = extracted.customer.address_zipcode;
-        }
-        if (extracted.customer.address_country && !args.body_country) {
-          args.body_country = extracted.customer.address_country;
-        }
-
-        console.log(`[WorkerMCPAgent] ✅ Mapped customer update with fine-grained address`);
-      }
-    }
-
-    return args;
   }
 
   /**
