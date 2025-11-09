@@ -406,9 +406,10 @@ Available Transition Conditions:
 ${conditions.map((c, i) => `${i}. "${c.condition}" → Next Goal: ${c.next_goal}`).join('\n')}
 
 Your Task:
-1. Analyze the conversation context and history
-2. Determine if ANY of the conditions above are satisfied
-3. Return JSON with your evaluation
+1. Analyze the CONTEXT DATA (primary source of truth)
+2. Use conversation history as supporting evidence
+3. Determine if ANY of the conditions above are satisfied
+4. Return JSON with your evaluation
 
 Output JSON Schema:
 {
@@ -419,24 +420,27 @@ Output JSON Schema:
 }
 
 Evaluation Guidelines:
-- Conditions are semantic descriptions, not rigid patterns
-- Use natural language understanding to interpret conditions
-- Consider customer's latest message and overall conversation flow
-- Prefer advancing when success criteria are clearly met
-- Stay in current goal if conditions are ambiguous (confidence < 0.6)
+- **PRIMARY**: Check if fields are populated in CONTEXT DATA (not conversation)
+- **SECONDARY**: Use conversation as supporting evidence
+- If context data shows fields are populated (not null, not "(unknown)"), condition is MET
+- Don't be misled by repeated questions in conversation - trust the context data
+- Prefer advancing when context data shows completion
+- Stay in current goal if context data is genuinely missing
 - Return the FIRST matching condition if multiple match
 
 Example Condition Interpretations:
-- "customer consents" → Look for affirmative responses: "yes", "okay", "sounds good", "let's do it"
-- "customer rejects plan" → Look for negative responses: "no", "I don't want", "that won't work"
-- "issue is clear" → Customer's problem description is specific and actionable
-- "all mandatory fields collected" → Check if required data is present in context
+- "customer consents" → Look for affirmative responses in LATEST message
+- "customer rejects plan" → Look for negative responses in LATEST message
+- "issue is clear" → Check if service.primary_request is populated with specific request
+- "all mandatory fields collected" → Check if ALL required fields exist in context data (ignore conversation flow)
+- "context shows fields populated" → Look at context data fields, not conversation
 
 Critical Rules:
-1. ONLY match a condition if you're confident (>0.6) it's satisfied
-2. If uncertain, return matched: false
-3. Provide clear reasoning for your decision
-4. Consider conversation flow and customer intent`;
+1. CONTEXT DATA is the source of truth - if fields are populated there, condition is met
+2. IGNORE conversation flow inconsistencies - agent may have asked multiple times
+3. ONLY match a condition if context data supports it (>0.7 confidence)
+4. If context data is missing, return matched: false
+5. Provide clear reasoning based on context data, not conversation tone`;
   }
 
   /**
@@ -516,7 +520,11 @@ Evaluate which transition condition (if any) is satisfied.`;
         name: fields.customer?.name,
         phone: fields.customer?.phone,
         email: fields.customer?.email,
-        address: fields.customer?.address
+        address_street: fields.customer?.address_street,
+        address_city: fields.customer?.address_city,
+        address_state: fields.customer?.address_state,
+        address_zipcode: fields.customer?.address_zipcode,
+        address_country: fields.customer?.address_country
       },
       service: {
         primary_request: fields.service?.primary_request,

@@ -68,7 +68,7 @@
       "auto_advance_conditions": [
         {
           "type": "semantic",
-          "condition": "all mandatory fields collected (customer phone, name, and address) and customer information complete",
+          "condition": "context shows all mandatory fields are populated: customer.phone, customer.name, customer.address_street, customer.address_city, customer.address_state (check context data, not conversation flow)",
           "next_goal": "MANAGE_CUSTOMER_PROFILE"
         }
       ]
