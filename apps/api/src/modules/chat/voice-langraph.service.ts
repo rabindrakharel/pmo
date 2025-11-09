@@ -5,6 +5,7 @@
  */
 
 import WebSocket from 'ws';
+import { getSessionRequestQueueService } from './orchestrator/services/session-request-queue.service.js';
 
 /**
  * Convert raw PCM16 audio to WAV format with proper headers
@@ -74,7 +75,6 @@ export class VoiceLangraphSession {
   private authToken?: string;
   private isConnected = false;
   private audioBuffer: Buffer[] = [];
-  private isProcessing = false;
   private orchestratorSessionId?: string; // Langraph session ID
 
   constructor(clientWs: WebSocket, config: VoiceLangraphSessionConfig) {
@@ -152,7 +152,6 @@ export class VoiceLangraphSession {
       } else if (message.type === 'audio.cancel') {
         // Cancel current audio
         this.audioBuffer = [];
-        this.isProcessing = false;
         console.log(`🚫 Audio cancelled for session ${this.sessionId}`);
       }
     } catch (error) {
@@ -167,111 +166,110 @@ export class VoiceLangraphSession {
 
   /**
    * Process accumulated audio through Whisper + Langraph + TTS (STREAMING)
+   * Uses session-level queue to ensure sequential audio processing and prevent overlapping speech
    */
   private async processAudio(): Promise<void> {
-    if (this.isProcessing) {
-      console.log(`⏳ Already processing audio for session ${this.sessionId}, skipping`);
-      return;
-    }
-
     if (this.audioBuffer.length === 0) {
       console.log(`📭 No audio to process for session ${this.sessionId}`);
       return;
     }
 
-    this.isProcessing = true;
+    // Get the session request queue service
+    const requestQueue = getSessionRequestQueueService();
 
-    try {
-      // Concatenate all audio chunks (raw PCM16 data)
-      const rawPcmBuffer = Buffer.concat(this.audioBuffer);
-      this.audioBuffer = []; // Clear buffer
+    // Enqueue the audio processing to ensure sequential execution per session
+    await requestQueue.enqueue(this.sessionId, async () => {
+      try {
+        // Concatenate all audio chunks (raw PCM16 data)
+        const rawPcmBuffer = Buffer.concat(this.audioBuffer);
+        this.audioBuffer = []; // Clear buffer
 
-      // Convert raw PCM16 to WAV format with headers
-      const wavBuffer = pcm16ToWav(rawPcmBuffer);
+        // Convert raw PCM16 to WAV format with headers
+        const wavBuffer = pcm16ToWav(rawPcmBuffer);
 
-      // Send processing indicator to client
-      this.clientWs.send(JSON.stringify({
-        type: 'processing.started'
-      }));
+        // Send processing indicator to client
+        this.clientWs.send(JSON.stringify({
+          type: 'processing.started'
+        }));
 
-      // Import streaming voice orchestrator
-      const { processVoiceMessageStream } = await import('./orchestrator/voice-orchestrator.service.js');
+        // Import streaming voice orchestrator
+        const { processVoiceMessageStream } = await import('./orchestrator/voice-orchestrator.service.js');
 
-      // Process through Whisper + Langraph + TTS (STREAMING)
-      let fullTranscript = '';
-      let fullResponse = '';
-      let finalResult: any;
+        // Process through Whisper + Langraph + TTS (STREAMING)
+        let fullTranscript = '';
+        let fullResponse = '';
+        let finalResult: any;
 
-      for await (const chunk of processVoiceMessageStream({
-        sessionId: this.orchestratorSessionId,
-        audioBuffer: wavBuffer,
-        audioFormat: 'wav',
-        authToken: this.authToken,
-        chatSessionId: this.interactionSessionId,
-        voice: 'nova'
-      })) {
-        if (chunk.type === 'transcript') {
-          // User's speech transcribed
-          fullTranscript = chunk.userTranscript || '';
-          console.log(`🎤 Deepgram STT: "${fullTranscript}"`);
-        } else if (chunk.type === 'audio') {
-          // Audio chunk generated - send immediately for progressive playback
-          this.clientWs.send(JSON.stringify({
-            type: 'audio.chunk',
-            audio: chunk.audio!.toString('base64'),
-            transcript: chunk.transcript
-          }));
-        } else if (chunk.type === 'done') {
-          // Final metadata
-          finalResult = chunk;
-          fullResponse = chunk.response || '';
+        for await (const chunk of processVoiceMessageStream({
+          sessionId: this.orchestratorSessionId,
+          audioBuffer: wavBuffer,
+          audioFormat: 'wav',
+          authToken: this.authToken,
+          chatSessionId: this.interactionSessionId,
+          voice: 'nova'
+        })) {
+          if (chunk.type === 'transcript') {
+            // User's speech transcribed
+            fullTranscript = chunk.userTranscript || '';
+            console.log(`🎤 Deepgram STT: "${fullTranscript}"`);
+          } else if (chunk.type === 'audio') {
+            // Audio chunk generated - send immediately for progressive playback
+            this.clientWs.send(JSON.stringify({
+              type: 'audio.chunk',
+              audio: chunk.audio!.toString('base64'),
+              transcript: chunk.transcript
+            }));
+          } else if (chunk.type === 'done') {
+            // Final metadata
+            finalResult = chunk;
+            fullResponse = chunk.response || '';
 
-          // Update orchestrator session ID for continuity
-          this.orchestratorSessionId = chunk.sessionId;
+            // Update orchestrator session ID for continuity
+            this.orchestratorSessionId = chunk.sessionId;
 
-          console.log(`✅ Voice streaming complete: "${fullTranscript}" → "${fullResponse}"`);
-          console.log(`📊 Session: ${chunk.sessionId}, Intent: ${chunk.intent}, Node: ${chunk.currentNode}, Ended: ${chunk.conversationEnded}`);
+            console.log(`✅ Voice streaming complete: "${fullTranscript}" → "${fullResponse}"`);
+            console.log(`📊 Session: ${chunk.sessionId}, Intent: ${chunk.intent}, Node: ${chunk.currentNode}, Ended: ${chunk.conversationEnded}`);
 
-          // Send final metadata to client
-          this.clientWs.send(JSON.stringify({
-            type: 'audio.done',
-            user_transcript: fullTranscript,
-            transcript: fullResponse,
-            session_id: chunk.sessionId,
-            intent: chunk.intent,
-            current_node: chunk.currentNode,
-            completed: chunk.completed,
-            conversation_ended: chunk.conversationEnded,
-            end_reason: chunk.endReason
-          }));
+            // Send final metadata to client
+            this.clientWs.send(JSON.stringify({
+              type: 'audio.done',
+              user_transcript: fullTranscript,
+              transcript: fullResponse,
+              session_id: chunk.sessionId,
+              intent: chunk.intent,
+              current_node: chunk.currentNode,
+              completed: chunk.completed,
+              conversation_ended: chunk.conversationEnded,
+              end_reason: chunk.endReason
+            }));
 
-          // If conversation ended, disconnect
-          if (chunk.conversationEnded) {
-            console.log(`🔚 Conversation ended for session ${this.sessionId}: ${chunk.endReason}`);
-            setTimeout(() => {
-              this.disconnect();
-            }, 2000); // Give time for final audio to play
+            // If conversation ended, disconnect
+            if (chunk.conversationEnded) {
+              console.log(`🔚 Conversation ended for session ${this.sessionId}: ${chunk.endReason}`);
+              setTimeout(() => {
+                this.disconnect();
+              }, 2000); // Give time for final audio to play
+            }
+          } else if (chunk.type === 'error') {
+            console.error(`❌ Voice streaming error: ${chunk.error}`);
+            this.clientWs.send(JSON.stringify({
+              type: 'error',
+              error: 'Failed to process audio',
+              message: chunk.error
+            }));
           }
-        } else if (chunk.type === 'error') {
-          console.error(`❌ Voice streaming error: ${chunk.error}`);
-          this.clientWs.send(JSON.stringify({
-            type: 'error',
-            error: 'Failed to process audio',
-            message: chunk.error
-          }));
         }
-      }
 
-    } catch (error) {
-      console.error(`❌ Error processing audio for session ${this.sessionId}:`, error);
-      this.clientWs.send(JSON.stringify({
-        type: 'error',
-        error: 'Failed to process audio',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      }));
-    } finally {
-      this.isProcessing = false;
-    }
+      } catch (error) {
+        console.error(`❌ Error processing audio for session ${this.sessionId}:`, error);
+        this.clientWs.send(JSON.stringify({
+          type: 'error',
+          error: 'Failed to process audio',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        }));
+        throw error; // Re-throw to be handled by the queue
+      }
+    });
   }
 
   /**
@@ -305,7 +303,6 @@ export class VoiceLangraphSession {
   private cleanup(): void {
     this.isConnected = false;
     this.audioBuffer = [];
-    this.isProcessing = false;
 
     // Unregister this session from the global registry
     unregisterVoiceLangraphSession(this.sessionId);
