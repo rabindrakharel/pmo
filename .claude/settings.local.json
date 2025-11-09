@@ -21,7 +21,9 @@
       "Bash(docker ps:*)",
       "Bash(netstat:*)",
       "Bash(lsof:*)",
-      "Bash(timeout 5 curl:*)"
+      "Bash(timeout 5 curl:*)",
+      "Bash(git -C /home/rabin/projects/pmo branch:*)",
+      "Bash(git -C /home/rabin/projects/pmo status)"
     ],
     "deny": [],
     "ask": [],

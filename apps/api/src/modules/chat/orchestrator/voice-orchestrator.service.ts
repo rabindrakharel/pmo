@@ -11,6 +11,8 @@ import { Readable } from 'stream';
 
 const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY;
 const ELEVEN_LABS_API_KEY = process.env.ELEVEN_LABS_API_KEY;
+const ELEVEN_LABS_VOICE_ID = process.env.ELEVEN_LABS_VOICE_ID;
+const ELEVEN_LABS_MODEL_ID = process.env.ELEVEN_LABS_MODEL_ID || 'eleven_flash_v2_5';
 
 // Initialize Deepgram client
 const deepgramClient = DEEPGRAM_API_KEY ? createClient(DEEPGRAM_API_KEY) : null;
@@ -94,12 +96,13 @@ export async function textToSpeech(text: string, voice: string = 'nova'): Promis
       'shimmer': 'pqHfZKP75CvOlQylNhV4',     // Glinda (female, warm)
     };
 
-    const voiceId = voiceIds[voice] || voiceIds['nova'];
+    // Use env var voice ID if provided, otherwise use voice name mapping, fallback to nova
+    const voiceId = ELEVEN_LABS_VOICE_ID || voiceIds[voice] || voiceIds['nova'];
 
     // Generate audio using ElevenLabs streaming API
     const audioStream = await elevenLabsClient.textToSpeech.convert(voiceId, {
       text,
-      model_id: 'eleven_flash_v2_5',    // Fastest model with lowest latency (~75ms)
+      model_id: ELEVEN_LABS_MODEL_ID,    // Use env var model ID (default: eleven_flash_v2_5)
       voice_settings: {
         stability: 0.5,                   // Voice consistency (0-1)
         similarity_boost: 0.75,           // Voice similarity to original (0-1)
@@ -194,7 +197,8 @@ export async function* processVoiceMessageStream(args: {
       'onyx': 'IKne3meq5aSn9XLyUdCD',
       'shimmer': 'pqHfZKP75CvOlQylNhV4',
     };
-    const voiceId = voiceIds[args.voice || 'nova'] || voiceIds['nova'];
+    // Use env var voice ID if provided, otherwise use voice name mapping, fallback to nova
+    const voiceId = ELEVEN_LABS_VOICE_ID || voiceIds[args.voice || 'nova'] || voiceIds['nova'];
 
     for await (const chunk of orchestrator.processMessageStream({
       sessionId: args.sessionId,
@@ -221,7 +225,7 @@ export async function* processVoiceMessageStream(args: {
 
             const audioStream = await elevenLabsClient.textToSpeech.convert(voiceId, {
               text: textBuffer,
-              model_id: 'eleven_flash_v2_5',
+              model_id: ELEVEN_LABS_MODEL_ID,
               voice_settings: {
                 stability: 0.5,
                 similarity_boost: 0.75,
@@ -265,7 +269,7 @@ export async function* processVoiceMessageStream(args: {
 
             const audioStream = await elevenLabsClient.textToSpeech.convert(voiceId, {
               text: textBuffer,
-              model_id: 'eleven_flash_v2_5',
+              model_id: ELEVEN_LABS_MODEL_ID,
               voice_settings: {
                 stability: 0.5,
                 similarity_boost: 0.75,
