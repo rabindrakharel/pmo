@@ -100,6 +100,7 @@ export class DataExtractionAgent {
       { path: 'customer.name', key: 'customer_name' },
       { path: 'customer.phone', key: 'customer_phone' },
       { path: 'customer.email', key: 'customer_email' },
+      { path: 'customer.address', key: 'customer_address' },
       { path: 'service.primary_request', key: 'service_primary_request' }
       // NOTE: service.catalog_match, service.related_entities should come from MCP (not conversation)
       // NOTE: operations.* fields should come from MCP (not conversation)
@@ -301,7 +302,18 @@ Agent: "I can help with that roof issue"
 
 ---
 
-Example 3 - Issue only:
+Example 3 - Address extraction:
+Conversation:
+Customer: "My address is 353531 Edmonton Avenue, Palo Alto, California"
+Agent: "Thank you for providing your address"
+
+→ Call: updateContext({
+  "customer.address": "353531 Edmonton Avenue, Palo Alto, California"
+})
+
+---
+
+Example 4 - Issue only:
 Conversation:
 Customer: "The backyard has a hole that needs to be patched"
 Agent: "I understand, we can help patch that hole"
@@ -312,7 +324,7 @@ Agent: "I understand, we can help patch that hole"
 
 ---
 
-Example 4 - Nothing to extract:
+Example 5 - Nothing to extract:
 Conversation:
 Customer: "Okay, sounds good"
 Agent: "Great, let me proceed"
@@ -322,12 +334,13 @@ Agent: "Great, let me proceed"
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ IMPORTANT RULES:
 
-1. Use NESTED field names: customer.name, customer.phone, service.primary_request, etc.
+1. Use NESTED field names: customer.name, customer.phone, customer.address, service.primary_request, etc.
 2. ONLY extract from CUSTOMER messages (not agent responses)
 3. ONLY extract information explicitly mentioned
 4. Do NOT update fields that are already populated (check CURRENT CONTEXT)
 5. Extract ALL relevant fields in ONE call (don't call multiple times)
 6. If NO extractable information found, do NOT call the tool
+7. For addresses, capture FULL address including street, city, state/province when provided
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
