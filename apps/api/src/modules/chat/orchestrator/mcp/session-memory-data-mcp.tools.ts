@@ -10,7 +10,7 @@
  */
 
 import { getSessionMemoryDataService } from '../services/session-memory-data.service.js';
-import type { AgentContextState } from '../agents/types.js';
+import type { AgentContextState } from '../agents/agent-context.service.js';
 
 /**
  * Get session memory data from LowDB

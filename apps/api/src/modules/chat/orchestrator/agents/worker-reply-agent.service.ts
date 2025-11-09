@@ -172,20 +172,22 @@ export class WorkerReplyAgent {
     // Success criteria (what we need to accomplish)
     const successCriteria = goal.success_criteria;
 
-    // Current context fields
+    // Current context fields (using nested structure)
+    const extractionFields = state.context.data_extraction_fields || {};
     const contextData = {
       customer: {
-        name: state.context.data_extraction_fields?.customer_name || '(unknown)',
-        phone: state.context.data_extraction_fields?.customer_phone_number || '(unknown)',
-        id: state.context.data_extraction_fields?.customer_id || '(unknown)',
+        name: extractionFields.customer?.name || '(unknown)',
+        phone: extractionFields.customer?.phone || '(unknown)',
+        id: extractionFields.customer?.id || '(unknown)',
       },
       service: {
-        request: state.context.data_extraction_fields?.customers_main_ask || '(not stated)',
-        matching_catalog: state.context.data_extraction_fields?.matching_service_catalog_to_solve_customers_issue || '(not matched)',
+        request: extractionFields.service?.primary_request || '(not stated)',
+        matching_catalog: extractionFields.service?.catalog_match || '(not matched)',
       },
       operations: {
-        task_id: state.context.data_extraction_fields?.task_id || '(not created)',
-        appointment: state.context.data_extraction_fields?.appointment_details || '(not scheduled)',
+        solution_plan: extractionFields.operations?.solution_plan || '(no plan)',
+        task_id: extractionFields.operations?.task_id || '(not created)',
+        appointment: extractionFields.operations?.appointment_details || '(not scheduled)',
       },
       next_action: state.context.next_course_of_action || '(no guidance)',
     };
@@ -224,8 +226,10 @@ ${systemPromptWithValues}
 # CURRENT GOAL
 **Objective:** ${goalDescriptionWithValues}
 
-**Success Criteria (what we need):**
+**Success Criteria (what we need to complete THIS goal):**
 ${goal.success_criteria.mandatory_fields.map(f => `- ${f}`).join('\n')}
+
+⚠️ **IMPORTANT:** ONLY focus on the fields listed above. Do NOT ask for other information yet (it will be collected in future goals).
 
 **Conversation Tactics to Use:**
 ${tactics}
@@ -255,9 +259,10 @@ ${observation.currentMessage ? `
 
 Based on observations:
 - What is the customer trying to accomplish?
-- What information do we have vs. what do we need (success criteria)?
+- What MANDATORY FIELDS (from success criteria) do we still need?
 - Which conversation tactic best fits this situation?
 - Have we already asked this question? (check recent conversation!)
+- ⚠️ CRITICAL: Don't ask for fields NOT in success criteria - other goals will handle them
 
 ## 3. ACT (Generate Response)
 
@@ -267,6 +272,7 @@ Based on observations:
 - Address the CURRENT message first
 - NEVER repeat questions from recent conversation
 - Keep response to 1-2 sentences
+- ONLY ask for fields in success criteria (ignore other empty fields you see in context)
 - Focus on progressing toward goal: ${goalDescriptionWithValues}
 
 Generate your response now:`;

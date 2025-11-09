@@ -95,7 +95,7 @@ export class DataExtractionAgent {
     // Identify which context fields are still empty (nested structure)
     const dataFields = state.context.data_extraction_fields || {};
 
-    // Define extractable fields with nested paths
+    // Define extractable fields with nested paths (ALL possible conversational fields)
     const extractableFields = [
       { path: 'customer.name', key: 'customer_name' },
       { path: 'customer.phone', key: 'customer_phone' },
@@ -104,6 +104,12 @@ export class DataExtractionAgent {
       // NOTE: service.catalog_match, service.related_entities should come from MCP (not conversation)
       // NOTE: operations.* fields should come from MCP (not conversation)
     ];
+
+    // ⚠️ IMPORTANT: Data extraction is PASSIVE, NOT active
+    // - This agent ONLY extracts information customer ALREADY SAID
+    // - It does NOT drive what questions to ask
+    // - Goal's success_criteria.mandatory_fields determine what conversational agent asks for
+    // - Extraction runs in parallel to capture any volunteered information
 
     // Check which nested fields are empty
     const emptyFields = extractableFields.filter(field => {
@@ -114,6 +120,8 @@ export class DataExtractionAgent {
 
     const emptyFieldPaths = emptyFields.map(f => f.path);
     console.log(`[DataExtractionAgent] 📊 Empty extraction fields: ${emptyFieldPaths.join(', ') || '(none)'}`);
+    console.log(`[DataExtractionAgent] ℹ️  Extraction mode: PASSIVE (only extract from customer's words)`);
+    console.log(`[DataExtractionAgent] ℹ️  Goal's mandatory_fields drive what to ASK for`);
 
     // If all fields are populated, skip extraction
     if (emptyFields.length === 0) {

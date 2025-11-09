@@ -125,8 +125,12 @@ export class AgentOrchestratorService {
         completed: state.completed,
         conversationEnded: state.conversationEnded,
         endReason: state.endReason,
-        context: state.context,
-        // ✅ REMOVED: messages array no longer saved (redundant with summary_of_conversation_on_each_step_until_now)
+        context: state.context as any, // DAGContext is dynamically initialized from config
+        messages: (state.messages || []).map(msg => ({
+          role: msg.role as 'user' | 'assistant' | 'system',
+          content: msg.content,
+          timestamp: msg.timestamp instanceof Date ? msg.timestamp.toISOString() : msg.timestamp
+        })),
         lastUpdated: new Date().toISOString(),
         action,
       };

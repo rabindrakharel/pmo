@@ -206,26 +206,30 @@ export class SessionMemoryQueueService {
 
       switch (message.operation) {
         case 'create':
-          await sessionMemoryService.createSession(message.sessionId, message.data);
+          await sessionMemoryService.saveSession(message.data);
           break;
 
         case 'update':
-          await sessionMemoryService.updateSessionData(message.sessionId, message.data);
+          await sessionMemoryService.updateSession(message.sessionId, message.data);
           break;
 
         case 'append':
           // For appending to arrays (e.g., conversation history)
-          const current = await sessionMemoryService.getSessionData(message.sessionId);
+          const current = await sessionMemoryService.getSession(message.sessionId);
           const merged = {
             ...current,
             ...message.data,
             // Merge conversation arrays
-            conversations: [
-              ...(current?.conversations || []),
-              ...(message.data.conversations || [])
-            ]
+            context: {
+              ...current?.context,
+              ...message.data.context,
+              summary_of_conversation_on_each_step_until_now: [
+                ...(current?.context?.summary_of_conversation_on_each_step_until_now || []),
+                ...(message.data.context?.summary_of_conversation_on_each_step_until_now || [])
+              ]
+            }
           };
-          await sessionMemoryService.updateSessionData(message.sessionId, merged);
+          await sessionMemoryService.updateSession(message.sessionId, merged);
           break;
 
         case 'delete':
