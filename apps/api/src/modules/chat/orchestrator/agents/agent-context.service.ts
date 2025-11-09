@@ -187,9 +187,26 @@ export class AgentContextManager {
         console.log(`[AgentContext] 🗺️  Node traversed appended: ${newNodes.join(' → ')}, total nodes: ${merged.node_traversed.length}`);
       } else if (key === 'data_extraction_fields') {
         // ✅ MERGE nested data_extraction_fields object (not replace)
+        // ✅ IMPROVED: Only merge non-empty values (prevent empty strings from overwriting existing data)
         const existing = state.context.data_extraction_fields || {};
-        merged.data_extraction_fields = { ...existing, ...value };
-        console.log(`[AgentContext] 📝 Data extraction fields merged: ${Object.keys(value).join(', ')}`);
+        const updates = value || {};
+
+        // Filter out empty/null/undefined values before merging
+        const filteredUpdates = Object.entries(updates).reduce((acc, [k, v]) => {
+          if (v !== undefined && v !== null && v !== '') {
+            acc[k] = v;
+          }
+          return acc;
+        }, {} as any);
+
+        merged.data_extraction_fields = { ...existing, ...filteredUpdates };
+
+        const updatedKeys = Object.keys(filteredUpdates);
+        if (updatedKeys.length > 0) {
+          console.log(`[AgentContext] 📝 Data extraction fields merged: ${updatedKeys.join(', ')}`);
+        } else {
+          console.log(`[AgentContext] ℹ️  Data extraction returned no new values (all empty)`);
+        }
       } else if (value !== undefined && value !== null && value !== '') {
         // ✅ UPDATE field only if new value is meaningful
         const isNew = !merged[key] || merged[key] === '';

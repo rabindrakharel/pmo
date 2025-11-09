@@ -494,9 +494,16 @@ export class AgentOrchestratorService {
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       // STEP: Call DataExtractionAgent AFTER worker agents complete
       // This agent analyzes conversation and extracts missing context fields
+      // ✅ FIX: Pass current exchange to avoid stale context issues
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       if (agentProfileType === 'worker_reply_agent' || agentProfileType === 'worker_mcp_agent') {
-        const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(state);
+        // Build current exchange from latest user message and agent response
+        const currentExchange = (iterations === 1 && userMessage && response) ? {
+          customer: userMessage,
+          agent: response
+        } : undefined;
+
+        const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(state, currentExchange);
 
         if (extractionResult.fieldsUpdated && extractionResult.fieldsUpdated.length > 0) {
           logger.extraction(extractionResult.fieldsUpdated);
@@ -537,7 +544,8 @@ export class AgentOrchestratorService {
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         // INDEXED CONVERSATION SUMMARY
-        // Append conversation exchange with index to prevent duplicates
+        // ✅ FIX: Only append NEW exchange (updateContext will append to array)
+        // Don't spread currentSummary as updateContext already handles appending
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         const currentSummary = state.context.summary_of_conversation_on_each_step_until_now || [];
         const nextIndex = currentSummary.length; // Next index is current length (0, 1, 2, ...)
@@ -548,9 +556,10 @@ export class AgentOrchestratorService {
         );
 
         if (!isDuplicate) {
+          // ✅ FIX: Pass only the NEW item (not spreading existing array)
+          // updateContext will append it to existing summary via non-destructive merge
           state = this.contextManager.updateContext(state, {
             summary_of_conversation_on_each_step_until_now: [
-              ...currentSummary,
               {
                 index: nextIndex,
                 customer: userMessage,
@@ -566,14 +575,16 @@ export class AgentOrchestratorService {
 
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       // TRACK NODE TRAVERSAL
-      // ALWAYS append current node to enable loop detection and path tracking
-      // This shows the ACTUAL path taken through the DAG, including revisits
+      // ✅ FIX: NO longer append here - node traversal happens ONLY in updateCurrentNode()
+      // This prevents duplicate entries (was appending both here AND in updateCurrentNode)
+      // We just log the current path length for visibility
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      state = this.contextManager.updateContext(state, {
-        node_traversed: [state.currentNode]  // Will be appended by non-destructive merge
-      });
       const totalNodes = (state.context.node_traversed || []).length;
-      console.log(`[AgentOrchestrator] 🗺️  Traversed ${state.currentNode} (path length: ${totalNodes})`);
+      if (iterations === 1) {
+        console.log(`[AgentOrchestrator] 🗺️  Executing ${state.currentNode} (path length: ${totalNodes})`);
+      } else {
+        console.log(`[AgentOrchestrator] ℹ️  Still in ${state.currentNode} (path length: ${totalNodes})`);
+      }
 
       // Write context file after worker execution
       await this.writeContextFile(state, `node:${state.currentNode}`);
@@ -611,7 +622,13 @@ export class AgentOrchestratorService {
       }
 
       // STEP 2: Navigator Agent decides next node AFTER execution
-      const navigatorDecision = await this.navigatorAgent.decideNextNode(state);
+      // ✅ FIX: Pass current exchange to Navigator to avoid stale context
+      const navCurrentExchange = (iterations === 1 && userMessage && response) ? {
+        customer: userMessage,
+        agent: response
+      } : undefined;
+
+      const navigatorDecision = await this.navigatorAgent.decideNextNode(state, false, navCurrentExchange);
       logger.navigate(state.currentNode, navigatorDecision.nextNode, navigatorDecision.reason);
 
       if (this.VERBOSE_LOGS) {

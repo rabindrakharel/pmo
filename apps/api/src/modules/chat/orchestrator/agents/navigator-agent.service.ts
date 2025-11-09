@@ -66,8 +66,13 @@ export class NavigatorAgent {
   /**
    * Lightweight routing decision based on agent_config.json + session_{session_id}_memory_data.json
    * Navigator focuses on: which node next? Not on detailed prompt engineering.
+   * ✅ FIX: Now accepts current exchange to avoid stale context issues
    */
-  async decideNextNode(state: AgentContextState, skipValidation: boolean = false): Promise<NavigatorDecision> {
+  async decideNextNode(
+    state: AgentContextState,
+    skipValidation: boolean = false,
+    currentExchange?: { customer: string; agent: string }
+  ): Promise<NavigatorDecision> {
     console.log(`\n🧭 [NavigatorAgent] Deciding next node (lightweight routing)...`);
     console.log(`[NavigatorAgent] Current node: ${state.currentNode}`);
 
@@ -81,7 +86,7 @@ export class NavigatorAgent {
     }
 
     const systemPrompt = this.buildUnifiedSystemPrompt(state.currentNode);
-    const userPrompt = this.buildUnifiedUserPrompt(state, contextFile);
+    const userPrompt = this.buildUnifiedUserPrompt(state, contextFile, currentExchange);
 
     const openaiService = getOpenAIService();
     const result = await openaiService.callAgent({
@@ -217,9 +222,14 @@ OUTPUT FORMAT (strict JSON):
   /**
    * Build user prompt with current node's branching conditions and ESSENTIAL context only
    * Navigator evaluates branching_conditions against context to decide next node
-   * OPTIMIZED: Passes only last 5 messages and essential fields to avoid token limits
+   * OPTIMIZED: Passes only last 3 messages and essential fields to avoid token limits
+   * ✅ FIX: Now includes current exchange to prevent stale context issues
    */
-  private buildUnifiedUserPrompt(state: AgentContextState, contextFile: any | null): string {
+  private buildUnifiedUserPrompt(
+    state: AgentContextState,
+    contextFile: any | null,
+    currentExchange?: { customer: string; agent: string }
+  ): string {
     const lastUserMessage = this.getLastUserMessage(state);
 
     // Get current node's full config from agent_config.json
@@ -230,8 +240,22 @@ OUTPUT FORMAT (strict JSON):
     // Include context from JSON file if available
     const fullContext = contextFile ? contextFile.context : state.context;
 
-    // CRITICAL: Only last 3 conversation summary exchanges (not all 255!)
-    const recentSummary = (fullContext.summary_of_conversation_on_each_step_until_now || []).slice(-3);
+    // CRITICAL: Only last 2 conversation summary exchanges (reduced to make room for current)
+    let recentSummary = (fullContext.summary_of_conversation_on_each_step_until_now || []).slice(-2);
+
+    // ✅ FIX: Add current exchange if provided (most recent, not yet in summary)
+    if (currentExchange) {
+      const nextIndex = (fullContext.summary_of_conversation_on_each_step_until_now || []).length;
+      recentSummary = [
+        ...recentSummary,
+        {
+          index: nextIndex,
+          customer: currentExchange.customer,
+          agent: currentExchange.agent,
+          isCurrent: true  // Mark as current for clarity
+        }
+      ];
+    }
 
     // Extract node traversal path (which nodes have been visited)
     const nodeTraversalPath = fullContext.node_traversal_path || [];
@@ -280,8 +304,11 @@ CONTEXT FOR EVALUATION:
 🛤️  Node Traversal Path (which nodes have already been executed):
 ${JSON.stringify(nodeTraversalPath, null, 2)}
 
-📝 Recent Conversation (last 3 exchanges):
-${JSON.stringify(recentSummary, null, 2)}
+📝 Recent Conversation (including CURRENT exchange):
+${recentSummary.map((ex: any) => {
+  const label = ex.isCurrent ? `[Exchange #${ex.index}] 🔴 CURRENT (MOST RECENT)` : `[Exchange #${ex.index}]`;
+  return `${label}\nCustomer: "${ex.customer}"\nAgent: "${ex.agent}"`;
+}).join('\n\n')}
 
 📊 Mandatory Fields:
 - customers_main_ask: ${essentialContext.customers_main_ask || '(not set)'}

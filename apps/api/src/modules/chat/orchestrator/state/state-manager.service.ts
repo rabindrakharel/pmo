@@ -565,16 +565,30 @@ export class StateManager {
   // Private Helper Methods
   // ========================================
 
+  /**
+   * Generate session number with advisory lock to prevent race conditions
+   * ✅ FIX: Uses PostgreSQL advisory lock for atomic number generation
+   */
   private async generateSessionNumber(): Promise<string> {
     const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-    const result = await client`
-      SELECT COUNT(*) as count
-      FROM app.orchestrator_session
-      WHERE session_number LIKE ${'ORCH-' + today + '%'}
-    `;
 
-    const count = parseInt(result[0].count) + 1;
-    return `ORCH-${today}-${count.toString().padStart(4, '0')}`;
+    // Use PostgreSQL advisory lock to ensure atomic session number generation
+    // Lock ID is hash of 'session_number_gen' string
+    await client`SELECT pg_advisory_lock(hashtext('session_number_gen'))`;
+
+    try {
+      const result = await client`
+        SELECT COUNT(*) as count
+        FROM app.orchestrator_session
+        WHERE session_number LIKE ${'ORCH-' + today + '%'}
+      `;
+
+      const count = parseInt(result[0].count) + 1;
+      return `ORCH-${today}-${count.toString().padStart(4, '0')}`;
+    } finally {
+      // Always release lock, even if error occurs
+      await client`SELECT pg_advisory_unlock(hashtext('session_number_gen'))`;
+    }
   }
 
   private detectValueType(value: any): string {
