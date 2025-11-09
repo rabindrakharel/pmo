@@ -209,6 +209,195 @@ export async function processVoiceMessage(args: {
 }
 
 /**
+ * Process voice message through orchestrator WITH STREAMING
+ * STT (Deepgram) → Agent Orchestrator (STREAMING) → TTS (ElevenLabs STREAMING)
+ * Yields audio chunks as they're generated for progressive playback
+ */
+export async function* processVoiceMessageStream(args: {
+  sessionId?: string;
+  audioBuffer: Buffer;
+  audioFormat: string;
+  authToken?: string;
+  chatSessionId?: string;
+  userId?: string;
+  tenantId?: string;
+  voice?: string;
+}): AsyncGenerator<{
+  type: 'audio' | 'transcript' | 'done' | 'error';
+  audio?: Buffer;
+  transcript?: string;
+  userTranscript?: string;
+  sessionId?: string;
+  response?: string;
+  intent?: string;
+  currentNode?: string;
+  completed?: boolean;
+  conversationEnded?: boolean;
+  endReason?: string;
+  error?: string;
+}> {
+  const startTime = Date.now();
+
+  try {
+    // Step 1: Speech-to-Text (Deepgram Nova-2)
+    const userTranscript = await speechToText(args.audioBuffer, args.audioFormat);
+
+    if (!userTranscript || userTranscript.trim().length === 0) {
+      throw new Error('No speech detected in audio');
+    }
+
+    // Yield the user's transcript first
+    yield {
+      type: 'transcript',
+      userTranscript
+    };
+
+    // Step 2: Stream response from agent orchestrator
+    const orchestrator = getAgentOrchestratorService();
+
+    let fullResponse = '';
+    let textBuffer = ''; // Buffer for accumulating text before sending to TTS
+    let orchestratorResult: any;
+
+    // Voice ID mapping
+    const voiceIds: Record<string, string> = {
+      'nova': '7ExgohZ4jKVjuJLwSEWl',
+      'alloy': 'pNInz6obpgDQGcFmaJgB',
+      'echo': 'VR6AewLTigWG4xSOukaG',
+      'fable': 'TX3LPaxmHKxFdv7VOQHJ',
+      'onyx': 'IKne3meq5aSn9XLyUdCD',
+      'shimmer': 'pqHfZKP75CvOlQylNhV4',
+    };
+    const voiceId = voiceIds[args.voice || 'nova'] || voiceIds['nova'];
+
+    for await (const chunk of orchestrator.processMessageStream({
+      sessionId: args.sessionId,
+      message: userTranscript,
+      authToken: args.authToken,
+      chatSessionId: args.chatSessionId,
+      userId: args.userId
+    })) {
+      if (chunk.type === 'token') {
+        fullResponse += chunk.token;
+        textBuffer += chunk.token;
+
+        // Check if we've hit a sentence boundary (. ! ? or line break)
+        // Also send if buffer is getting long (>100 chars)
+        const hasSentenceBoundary = /[.!?\n]/.test(textBuffer);
+        const isLongBuffer = textBuffer.length > 100;
+
+        if (hasSentenceBoundary || isLongBuffer) {
+          // Send accumulated text to TTS and stream audio
+          try {
+            if (!elevenLabsClient) {
+              throw new Error('ELEVEN_LABS_API_KEY not configured');
+            }
+
+            const audioStream = await elevenLabsClient.textToSpeech.convert(voiceId, {
+              text: textBuffer,
+              model_id: 'eleven_flash_v2_5',
+              voice_settings: {
+                stability: 0.5,
+                similarity_boost: 0.75,
+                style: 0.5,
+                use_speaker_boost: true
+              },
+              output_format: 'mp3_44100_128'
+            });
+
+            // Collect audio chunks
+            const audioChunks: Buffer[] = [];
+            for await (const audioChunk of audioStream) {
+              audioChunks.push(Buffer.from(audioChunk));
+            }
+
+            const audioBuffer = Buffer.concat(audioChunks);
+
+            // Yield audio chunk
+            yield {
+              type: 'audio',
+              audio: audioBuffer,
+              transcript: textBuffer
+            };
+
+            // Clear buffer
+            textBuffer = '';
+          } catch (ttsError: any) {
+            console.error('❌ Streaming TTS Error:', ttsError.message);
+            // Continue even if one TTS chunk fails
+          }
+        }
+      } else if (chunk.type === 'done') {
+        orchestratorResult = chunk;
+
+        // Send any remaining buffered text to TTS
+        if (textBuffer.trim().length > 0) {
+          try {
+            if (!elevenLabsClient) {
+              throw new Error('ELEVEN_LABS_API_KEY not configured');
+            }
+
+            const audioStream = await elevenLabsClient.textToSpeech.convert(voiceId, {
+              text: textBuffer,
+              model_id: 'eleven_flash_v2_5',
+              voice_settings: {
+                stability: 0.5,
+                similarity_boost: 0.75,
+                style: 0.5,
+                use_speaker_boost: true
+              },
+              output_format: 'mp3_44100_128'
+            });
+
+            const audioChunks: Buffer[] = [];
+            for await (const audioChunk of audioStream) {
+              audioChunks.push(Buffer.from(audioChunk));
+            }
+
+            const audioBuffer = Buffer.concat(audioChunks);
+
+            yield {
+              type: 'audio',
+              audio: audioBuffer,
+              transcript: textBuffer
+            };
+          } catch (ttsError: any) {
+            console.error('❌ Final TTS Error:', ttsError.message);
+          }
+        }
+
+        // Yield final metadata
+        const duration = Date.now() - startTime;
+        console.log(`✅ Voice streaming complete in ${duration}ms: "${userTranscript}" → "${fullResponse}"`);
+
+        yield {
+          type: 'done',
+          sessionId: orchestratorResult.sessionId,
+          response: fullResponse,
+          userTranscript,
+          intent: orchestratorResult.intent,
+          currentNode: orchestratorResult.currentNode,
+          completed: orchestratorResult.completed,
+          conversationEnded: orchestratorResult.conversationEnded,
+          endReason: orchestratorResult.endReason
+        };
+      } else if (chunk.type === 'error') {
+        yield {
+          type: 'error',
+          error: chunk.error
+        };
+      }
+    }
+  } catch (error: any) {
+    console.error('❌ Voice streaming error:', error);
+    yield {
+      type: 'error',
+      error: error.message || 'Voice processing failed'
+    };
+  }
+}
+
+/**
  * Get available TTS voices (ElevenLabs)
  */
 export function getAvailableVoices(): Array<{

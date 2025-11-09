@@ -1,18 +1,19 @@
 /**
  * Agent Config Loader Service
- * Loads agent configuration from agent_config.json file
+ * Loads agent configuration from agent_config.json file (goal-based)
  */
 
 import { readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import type { DAGConfiguration } from './dag-types.js';
+import type { AgentConfigV3, ConversationGoal } from '../config/agent-config.schema.js';
+import { validateAgentConfigV3 } from '../config/agent-config.schema.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export class AgentConfigLoader {
-  private agentConfig: DAGConfiguration | null = null;
+  private agentConfig: AgentConfigV3 | null = null;
   private configPath: string;
 
   constructor(configPath?: string) {
@@ -23,17 +24,28 @@ export class AgentConfigLoader {
   /**
    * Load agent configuration from file
    */
-  async loadAgentConfig(): Promise<DAGConfiguration> {
+  async loadAgentConfig(): Promise<AgentConfigV3> {
     if (this.agentConfig) {
       return this.agentConfig;
     }
 
     try {
       const configContent = await readFile(this.configPath, 'utf-8');
-      this.agentConfig = JSON.parse(configContent) as DAGConfiguration;
+      const parsedConfig = JSON.parse(configContent) as AgentConfigV3;
+
+      // Validate configuration
+      const validation = validateAgentConfigV3(parsedConfig);
+      if (!validation.valid) {
+        console.error(`[AgentConfigLoader] ❌ Config validation failed:`);
+        validation.errors.forEach(err => console.error(`  - ${err}`));
+        throw new Error(`Invalid configuration: ${validation.errors.join(', ')}`);
+      }
+
+      this.agentConfig = parsedConfig;
 
       console.log(`[AgentConfigLoader] ✅ Loaded agent config from ${this.configPath}`);
-      console.log(`[AgentConfigLoader] Total nodes: ${this.agentConfig.nodes.length}`);
+      console.log(`[AgentConfigLoader] Total goals: ${this.agentConfig.goals.length}`);
+      console.log(`[AgentConfigLoader] Agent profiles: ${Object.keys(this.agentConfig.agent_profiles).join(', ')}`);
 
       return this.agentConfig;
     } catch (error: any) {
@@ -43,23 +55,53 @@ export class AgentConfigLoader {
   }
 
   /**
-   * Get node configuration by name
+   * Get goal configuration by ID
    */
-  getNodeConfig(nodeName: string): DAGConfiguration['nodes'][0] | undefined {
+  getGoalConfig(goalId: string): ConversationGoal | undefined {
     if (!this.agentConfig) {
       throw new Error('Agent config not loaded. Call loadAgentConfig() first.');
     }
-    return this.agentConfig.nodes.find(node => node.node_name === nodeName);
+    return this.agentConfig.goals.find(goal => goal.goal_id === goalId);
   }
 
   /**
-   * Get all node names
+   * Get all goal IDs
    */
-  getAllNodeNames(): string[] {
+  getAllGoalIds(): string[] {
     if (!this.agentConfig) {
       throw new Error('Agent config not loaded. Call loadAgentConfig() first.');
     }
-    return this.agentConfig.nodes.map(node => node.node_name);
+    return this.agentConfig.goals.map(goal => goal.goal_id);
+  }
+
+  /**
+   * Get agent profile by ID
+   */
+  getAgentProfile(agentId: string) {
+    if (!this.agentConfig) {
+      throw new Error('Agent config not loaded. Call loadAgentConfig() first.');
+    }
+    return this.agentConfig.agent_profiles[agentId];
+  }
+
+  /**
+   * Get conversation tactic by ID
+   */
+  getConversationTactic(tacticId: string) {
+    if (!this.agentConfig) {
+      throw new Error('Agent config not loaded. Call loadAgentConfig() first.');
+    }
+    return this.agentConfig.conversation_tactics[tacticId];
+  }
+
+  /**
+   * Get the full configuration
+   */
+  getConfig(): AgentConfigV3 {
+    if (!this.agentConfig) {
+      throw new Error('Agent config not loaded. Call loadAgentConfig() first.');
+    }
+    return this.agentConfig;
   }
 
   /**
@@ -71,20 +113,21 @@ export class AgentConfigLoader {
     }
 
     const errors: string[] = [];
-    const nodeNames = new Set(this.agentConfig.nodes.map(n => n.node_name));
+    const goalIds = new Set(this.agentConfig.goals.map(g => g.goal_id));
+    const agentIds = Object.keys(this.agentConfig.agent_profiles);
 
-    // Check all default_next_nodes exist
-    for (const node of this.agentConfig.nodes) {
-      if (node.default_next_node && !nodeNames.has(node.default_next_node)) {
-        errors.push(`Node "${node.node_name}" references non-existent default_next_node: ${node.default_next_node}`);
+    // Check all advance conditions reference valid goals
+    for (const goal of this.agentConfig.goals) {
+      for (const condition of goal.auto_advance_conditions) {
+        if (condition.next_goal !== 'END' && !goalIds.has(condition.next_goal)) {
+          errors.push(`Goal "${goal.goal_id}" references non-existent next_goal: ${condition.next_goal}`);
+        }
       }
 
-      // Check branching conditions
-      if (node.branching_conditions) {
-        for (const branch of node.branching_conditions) {
-          if (!nodeNames.has(branch.child_node)) {
-            errors.push(`Node "${node.node_name}" references non-existent child_node: ${branch.child_node}`);
-          }
+      // Check allowed agents exist
+      for (const agentId of goal.allowed_agents) {
+        if (!agentIds.includes(agentId)) {
+          errors.push(`Goal "${goal.goal_id}" references non-existent agent: ${agentId}`);
         }
       }
     }

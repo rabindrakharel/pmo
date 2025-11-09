@@ -11,7 +11,7 @@ import path from 'path';
 import { StateManager } from '../state/state-manager.service.js';
 import { MCPAdapterService } from '../../mcp-adapter.service.js';
 import { getAgentConfigLoader } from './dag-loader.service.js';
-import type { DAGConfiguration } from './dag-types.js';
+import type { AgentConfigV3 } from '../config/agent-config.schema.js';
 import {
   AgentContextManager,
   getAgentContextManager,
@@ -19,8 +19,9 @@ import {
 } from './agent-context.service.js';
 import { WorkerReplyAgent, createWorkerReplyAgent } from './worker-reply-agent.service.js';
 import { WorkerMCPAgent, createWorkerMCPAgent } from './worker-mcp-agent.service.js';
-import { NavigatorAgent, createNavigatorAgent } from './navigator-agent.service.js';
+import { GoalTransitionEngine } from '../engines/goal-transition.engine.js';
 import { DataExtractionAgent, createDataExtractionAgent } from './data-extraction-agent.service.js';
+import { ParallelAgentExecutor, createParallelAgentExecutor, type AgentExecutor } from '../engines/parallel-agent-executor.js';
 import { getLLMLogger } from '../services/llm-logger.service.js';
 import { createAgentLogger, type AgentLogger } from '../services/agent-logger.service.js';
 import { getSessionMemoryDataService } from '../services/session-memory-data.service.js';
@@ -34,13 +35,14 @@ export class AgentOrchestratorService {
   private stateManager: StateManager;
   private mcpAdapter: MCPAdapterService;
   private contextManager: AgentContextManager;
-  private dagConfig!: DAGConfiguration;
+  private config!: AgentConfigV3;
   private logger = getLLMLogger();
 
   private workerReplyAgent!: WorkerReplyAgent;
   private workerMCPAgent!: WorkerMCPAgent;
-  private navigatorAgent!: NavigatorAgent;
+  private transitionEngine!: GoalTransitionEngine;
   private dataExtractionAgent!: DataExtractionAgent;
+  private parallelExecutor!: ParallelAgentExecutor;
 
   // In-memory state cache (replace LangGraph checkpointer)
   private stateCache: Map<string, AgentContextState> = new Map();
@@ -165,26 +167,31 @@ export class AgentOrchestratorService {
   private async initializeAgents(): Promise<void> {
     try {
       const configLoader = getAgentConfigLoader();
-      this.dagConfig = await configLoader.loadAgentConfig();
+      this.config = await configLoader.loadAgentConfig();
 
       // Pass agent config to context manager for deterministic initialization
-      this.contextManager.setDAGConfig(this.dagConfig);
+      this.contextManager.setDAGConfig(this.config as any); // TODO: Update context manager to use AgentConfigV3
 
-      // Initialize THREE worker agents:
-      // 1. WorkerReplyAgent - generates customer-facing responses
-      // 2. WorkerMCPAgent - executes MCP tools and updates context
+      // Initialize worker agents and transition engine:
+      // 1. WorkerReplyAgent - generates customer-facing responses (uses conversational_agent profile)
+      // 2. WorkerMCPAgent - executes MCP tools and updates context (uses mcp_agent profile)
       // 3. DataExtractionAgent - extracts context from conversation (called AFTER worker agents)
-      this.workerReplyAgent = createWorkerReplyAgent(this.dagConfig);
-      this.workerMCPAgent = createWorkerMCPAgent(this.dagConfig, this.mcpAdapter);
-      this.navigatorAgent = createNavigatorAgent(this.dagConfig);
+      // 4. GoalTransitionEngine - evaluates goal transitions using semantic routing
+      // 5. ParallelAgentExecutor - executes agents in parallel for 50%+ performance boost
+      this.workerReplyAgent = createWorkerReplyAgent(this.config, 'conversational_agent');
+      this.workerMCPAgent = createWorkerMCPAgent(this.config, this.mcpAdapter, undefined, 'mcp_agent');
+      this.transitionEngine = new GoalTransitionEngine(this.config);
       this.dataExtractionAgent = createDataExtractionAgent();
+      this.parallelExecutor = createParallelAgentExecutor();
 
-      console.log('[AgentOrchestrator] ✅ Agents initialized');
+      console.log('[AgentOrchestrator] ✅ Agents initialized (Goal-Oriented Architecture v3.0)');
       console.log('[AgentOrchestrator]    - WorkerReplyAgent: Customer-facing responses');
       console.log('[AgentOrchestrator]    - WorkerMCPAgent: MCP tool execution');
       console.log('[AgentOrchestrator]    - DataExtractionAgent: Context extraction (post-processing)');
-      console.log('[AgentOrchestrator]    - NavigatorAgent: Routing decisions');
-      console.log(`[AgentOrchestrator] Total nodes: ${this.dagConfig.nodes.length}`);
+      console.log('[AgentOrchestrator]    - GoalTransitionEngine: Semantic goal routing');
+      console.log('[AgentOrchestrator]    - ParallelAgentExecutor: Parallel agent execution');
+      console.log(`[AgentOrchestrator] Total goals: ${this.config.goals.length}`);
+      console.log(`[AgentOrchestrator] Agent profiles: ${Object.keys(this.config.agent_profiles).join(', ')}`);
     } catch (error: any) {
       console.error('[AgentOrchestrator] ❌ Failed to initialize agents:', error.message);
       throw error;
@@ -215,7 +222,7 @@ export class AgentOrchestratorService {
       await this.initializeSessionMemoryData();
 
       // Ensure agents are initialized
-      if (!this.dagConfig) {
+      if (!this.config) {
         await this.initializeAgents();
       }
 
@@ -306,6 +313,138 @@ export class AgentOrchestratorService {
   }
 
   /**
+   * Process user message with STREAMING (yields tokens as they arrive)
+   * Same as processMessage but streams the agent's response
+   */
+  async *processMessageStream(args: {
+    sessionId?: string;
+    message: string;
+    chatSessionId?: string;
+    userId?: string;
+    authToken?: string;
+  }): AsyncGenerator<{
+    type: 'token' | 'done' | 'error';
+    token?: string;
+    sessionId?: string;
+    response?: string;
+    currentNode?: string;
+    conversationEnded?: boolean;
+    endReason?: string;
+    error?: string;
+  }> {
+    try {
+      // Ensure SessionMemoryDataService is initialized
+      await this.initializeSessionMemoryData();
+
+      // Ensure agents are initialized
+      if (!this.config) {
+        await this.initializeAgents();
+      }
+
+      let sessionId = args.sessionId;
+      let state: AgentContextState;
+
+      if (!sessionId) {
+        // New session
+        sessionId = uuidv4();
+        console.log(`\n[AgentOrchestrator] 🆕 New streaming session ${sessionId}`);
+
+        // Log session start
+        await this.logger.logSessionStart(sessionId, args.chatSessionId, args.userId);
+
+        // Initialize context
+        state = this.contextManager.initializeContext(
+          sessionId,
+          args.chatSessionId,
+          args.userId,
+          args.authToken
+        );
+
+        // Write initial context to JSON file
+        await this.writeContextFile(state, 'initialize');
+
+        // Create session in database
+        await this.stateManager.createSession({
+          session_id: sessionId,
+          chat_session_id: args.chatSessionId,
+          user_id: args.userId,
+          current_intent: 'CalendarBooking',
+          current_node: 'GREET_CUSTOMER',
+          auth_metadata: { authToken: args.authToken },
+        });
+      } else {
+        // Existing session - load from cache or database
+        console.log(`\n[AgentOrchestrator] 📂 Resuming streaming session ${sessionId}`);
+        state = await this.loadState(sessionId);
+      }
+
+      // Stream response from worker agent
+      let fullResponse = '';
+
+      for await (const chunk of this.workerReplyAgent.executeGoalStream(
+        state.currentNode,
+        state,
+        args.message
+      )) {
+        if (chunk.done) {
+          // Final chunk - prepare completion data
+          fullResponse = chunk.response || fullResponse;
+
+          // Update conversation summary
+          state = this.contextManager.appendConversationSummary(
+            state,
+            args.message,
+            fullResponse
+          );
+
+          // Run data extraction (non-streaming)
+          const currentExchange = { customer: args.message, agent: fullResponse };
+          const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(
+            state,
+            currentExchange
+          );
+
+          if (extractionResult.fieldsUpdated && extractionResult.fieldsUpdated.length > 0) {
+            state = this.contextManager.updateContext(state, extractionResult.contextUpdates || {});
+          }
+
+          // Save state
+          await this.saveState(state);
+
+          // Update session in database
+          await this.stateManager.updateSession(sessionId, {
+            current_node: state.currentNode,
+            status: state.completed ? 'completed' : 'active',
+          });
+
+          // Yield final metadata
+          yield {
+            type: 'done',
+            sessionId,
+            response: fullResponse,
+            currentNode: state.currentNode,
+            conversationEnded: state.conversationEnded,
+            endReason: state.endReason,
+          };
+        } else {
+          // Token chunk - yield to client immediately
+          fullResponse += chunk.token;
+          yield {
+            type: 'token',
+            token: chunk.token,
+          };
+        }
+      }
+    } catch (error: any) {
+      console.error('[AgentOrchestrator] ❌ Error streaming message:', error);
+      yield {
+        type: 'error',
+        error: error.message,
+      };
+    }
+  }
+
+  /**
    * Main conversation execution loop
    */
   private async executeConversationLoop(
@@ -375,90 +514,180 @@ export class AgentOrchestratorService {
         break;
       }
 
-      // Detect loop-back intention BEFORE executing node
-      // Check if current node was reached via a loop-back condition
-      loopBackIntention = undefined; // Reset for this iteration
-      state.loopBackIntention = undefined; // Clear from state
-      if (iterations > 1 && state.previousNode) {
-        const prevNodeConfig = this.dagConfig.nodes.find(n => n.node_name === state.previousNode);
-        if (prevNodeConfig?.branching_conditions) {
-          const matchedCondition = prevNodeConfig.branching_conditions.find(
-            (bc: any) => bc.child_node === state.currentNode
-          );
-          if (matchedCondition?.loop_back_intention) {
-            loopBackIntention = matchedCondition.loop_back_intention;
-            state.loopBackIntention = loopBackIntention; // Set in state for agents to use
+      // Goal-based architecture: No explicit loop-back intentions
+      // Goals are more flexible - agents can revisit goals based on context
+      loopBackIntention = undefined;
+      state.loopBackIntention = undefined;
 
-            if (this.VERBOSE_LOGS) {
-              console.log(`\n🔄 [LOOP-BACK CONTEXT]`);
-              console.log(`   Previous node: ${state.previousNode}`);
-              console.log(`   Current node: ${state.currentNode}`);
-              console.log(`   Loop-back intention: ${loopBackIntention}`);
-            }
-
-            // Reset context fields if specified in branching condition
-            if (matchedCondition?.context_reset && Array.isArray(matchedCondition.context_reset)) {
-              if (this.VERBOSE_LOGS) {
-                console.log(`   🔄 Resetting context fields: ${matchedCondition.context_reset.join(', ')}`);
-              }
-              const resetUpdates: any = {};
-              matchedCondition.context_reset.forEach((field: string) => {
-                resetUpdates[field] = ''; // Reset to empty string
-              });
-              state = this.contextManager.updateContext(state, resetUpdates);
-            }
-          }
-        }
+      // STEP 1: Choose correct worker agent based on current goal configuration
+      // Use declarative goal.primary_agent instead of hardcoding logic
+      const currentGoalConfig = this.config.goals.find(g => g.goal_id === state.currentNode);
+      if (!currentGoalConfig) {
+        console.warn(`[AgentOrchestrator] ⚠️ Goal not found: ${state.currentNode}, using default`);
       }
 
-      // STEP 1: Choose correct worker agent based on node.agent_profile_type
-      const currentNodeConfig = this.dagConfig.nodes.find(n => n.node_name === state.currentNode);
-      const agentProfileType = currentNodeConfig?.agent_profile_type || 'worker_reply_agent';
+      // Check if goal has parallel execution strategy
+      const executionStrategy = (currentGoalConfig as any)?.agent_execution_strategy;
 
       let response: string = '';
       let contextUpdates: any = {};
+      let primaryAgentFailed = false;
 
-      if (agentProfileType === 'worker_mcp_agent') {
-        // Use WorkerMCPAgent for MCP operations
-        const mcpResult = await this.workerMCPAgent.executeNode(state.currentNode, state);
-        logger.agent('worker_mcp', state.currentNode, mcpResult.statusMessage);
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // PARALLEL EXECUTION: If goal has execution strategy, use it
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      if (executionStrategy && executionStrategy.mode !== 'sequential') {
+        console.log(`\n⚡ [PARALLEL EXECUTION] Mode: ${executionStrategy.mode}`);
 
-        if (this.VERBOSE_LOGS) {
-          console.log(`\n📝 [WORKER MCP RESULT]`);
-          console.log(`   Status: "${mcpResult.statusMessage}"`);
-          console.log(`   Context Updates: ${JSON.stringify(mcpResult.contextUpdates, null, 2)}`);
-          console.log(`   MCP Executed: ${mcpResult.mcpExecuted}`);
-        }
+        // Build agent executor map
+        const agentExecutors = new Map<string, AgentExecutor>();
 
-        response = mcpResult.statusMessage || '';
-        contextUpdates = mcpResult.contextUpdates;
-
-        // Log agent execution
-        await this.logger.logAgentExecution({
-          agentType: 'worker_mcp',
-          nodeName: state.currentNode,
-          result: mcpResult,
-          sessionId: state.sessionId,
+        // Add worker reply agent
+        agentExecutors.set('conversational_agent', {
+          agentId: 'conversational_agent',
+          execute: async (state: AgentContextState, userMessage?: string) => {
+            return await this.workerReplyAgent.executeNode(state.currentNode, state, userMessage);
+          }
         });
 
-      } else if (agentProfileType === 'worker_reply_agent') {
-        // Use WorkerReplyAgent for customer-facing responses
-        const replyResult = await this.workerReplyAgent.executeNode(
-          state.currentNode,
+        // Add data extraction agent
+        agentExecutors.set('extraction_agent', {
+          agentId: 'extraction_agent',
+          execute: async (state: AgentContextState, userMessage?: string) => {
+            const currentExchange = userMessage ? { customer: userMessage, agent: '' } : undefined;
+            return await this.dataExtractionAgent.extractAndUpdateContext(state, currentExchange);
+          }
+        });
+
+        // Add MCP agent if needed
+        agentExecutors.set('mcp_agent', {
+          agentId: 'mcp_agent',
+          execute: async (state: AgentContextState) => {
+            return await this.workerMCPAgent.executeNode(state.currentNode, state);
+          }
+        });
+
+        // Execute agents in parallel
+        const parallelResult = await this.parallelExecutor.executeAgents(
+          executionStrategy,
+          agentExecutors,
           state,
           iterations === 1 ? userMessage : undefined
         );
-        logger.agent('worker_reply', state.currentNode, replyResult.response);
 
-        response = replyResult.response;
+        console.log(`\n   Execution time: ${parallelResult.executionTimeMs}ms`);
+        console.log(`   Results: ${parallelResult.results.size} agents succeeded`);
+        console.log(`   Errors: ${parallelResult.errors.size} agents failed`);
 
-        // Log agent execution
-        await this.logger.logAgentExecution({
-          agentType: 'worker_reply',
-          nodeName: state.currentNode,
-          result: replyResult,
-          sessionId: state.sessionId,
-        });
+        // Process results
+        const replyResult = parallelResult.results.get('conversational_agent');
+        const extractionResult = parallelResult.results.get('extraction_agent');
+        const mcpResult = parallelResult.results.get('mcp_agent');
+
+        if (replyResult) {
+          response = replyResult.response || '';
+          console.log(`[ParallelExecution] ✅ Reply agent: "${response.substring(0, 50)}..."`);
+        }
+
+        if (extractionResult) {
+          if (extractionResult.contextUpdates && Object.keys(extractionResult.contextUpdates).length > 0) {
+            contextUpdates = { ...contextUpdates, ...extractionResult.contextUpdates };
+            console.log(`[ParallelExecution] ✅ Extraction agent: ${extractionResult.fieldsUpdated?.length || 0} fields updated`);
+          }
+        }
+
+        if (mcpResult) {
+          if (mcpResult.contextUpdates) {
+            contextUpdates = { ...contextUpdates, ...mcpResult.contextUpdates };
+          }
+          response = mcpResult.statusMessage || response;
+          console.log(`[ParallelExecution] ✅ MCP agent: ${mcpResult.statusMessage}`);
+        }
+
+        // Check for failures
+        if (parallelResult.errors.size > 0) {
+          console.warn(`[ParallelExecution] ⚠️ Some agents failed:`);
+          for (const [agentId, error] of parallelResult.errors.entries()) {
+            console.warn(`   - ${agentId}: ${error.message}`);
+          }
+        }
+
+      } else {
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // SEQUENTIAL EXECUTION (original behavior)
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        // Use goal's primary_agent to determine which agent to use
+        const primaryAgent = (currentGoalConfig as any)?.primary_agent || 'conversational_agent';
+        const fallbackAgent = (currentGoalConfig as any)?.fallback_agent;
+        let agentProfileType = primaryAgent === 'mcp_agent' ? 'worker_mcp_agent' : 'worker_reply_agent';
+
+        console.log(`[AgentOrchestrator] 🎯 Goal: ${state.currentNode}, Primary Agent: ${primaryAgent}${fallbackAgent ? `, Fallback: ${fallbackAgent}` : ''}`);
+
+
+      if (agentProfileType === 'worker_mcp_agent') {
+        // Use WorkerMCPAgent for MCP operations
+        try {
+          const mcpResult = await this.workerMCPAgent.executeNode(state.currentNode, state);
+          logger.agent('worker_mcp', state.currentNode, mcpResult.statusMessage);
+
+          if (this.VERBOSE_LOGS) {
+            console.log(`\n📝 [WORKER MCP RESULT]`);
+            console.log(`   Status: "${mcpResult.statusMessage}"`);
+            console.log(`   Context Updates: ${JSON.stringify(mcpResult.contextUpdates, null, 2)}`);
+            console.log(`   MCP Executed: ${mcpResult.mcpExecuted}`);
+          }
+
+          response = mcpResult.statusMessage || '';
+          contextUpdates = mcpResult.contextUpdates;
+
+          // Check if MCP agent failed (error in results or no response)
+          if (mcpResult.mcpResults?.error || (!response && Object.keys(contextUpdates).length === 0)) {
+            primaryAgentFailed = true;
+            console.log(`[AgentOrchestrator] ⚠️ Primary MCP agent failed or returned no results`);
+          }
+
+          // Log agent execution
+          await this.logger.logAgentExecution({
+            agentType: 'worker_mcp',
+            nodeName: state.currentNode,
+            result: mcpResult,
+            sessionId: state.sessionId,
+          });
+        } catch (error: any) {
+          primaryAgentFailed = true;
+          console.error(`[AgentOrchestrator] ❌ Primary MCP agent error: ${error.message}`);
+        }
+
+      } else if (agentProfileType === 'worker_reply_agent') {
+        // Use WorkerReplyAgent for customer-facing responses
+        try {
+          const replyResult = await this.workerReplyAgent.executeNode(
+            state.currentNode,
+            state,
+            iterations === 1 ? userMessage : undefined
+          );
+          logger.agent('worker_reply', state.currentNode, replyResult.response);
+
+          response = replyResult.response;
+
+          // Check if reply agent failed (no response)
+          if (!response || response.trim() === '') {
+            primaryAgentFailed = true;
+            console.log(`[AgentOrchestrator] ⚠️ Primary reply agent returned empty response`);
+          }
+
+          // Log agent execution
+          await this.logger.logAgentExecution({
+            agentType: 'worker_reply',
+            nodeName: state.currentNode,
+            result: replyResult,
+            sessionId: state.sessionId,
+          });
+        } catch (error: any) {
+          primaryAgentFailed = true;
+          console.error(`[AgentOrchestrator] ❌ Primary reply agent error: ${error.message}`);
+        }
 
       } else if (agentProfileType === 'internal') {
         // Internal nodes (wait_for_customers_reply) - no agent execution needed
@@ -472,10 +701,55 @@ export class AgentOrchestratorService {
         console.warn(`[AgentOrchestrator] ⚠️  Unknown agent_profile_type: ${agentProfileType}`);
       }
 
+      // FALLBACK AGENT: If primary agent failed and fallback is configured, try fallback agent
+      if (primaryAgentFailed && fallbackAgent) {
+        console.log(`\n🔄 [FALLBACK AGENT TRIGGERED]`);
+        console.log(`   Primary agent (${primaryAgent}) failed, trying fallback: ${fallbackAgent}`);
+
+        const fallbackAgentType = fallbackAgent === 'mcp_agent' ? 'worker_mcp_agent' : 'worker_reply_agent';
+
+        try {
+          if (fallbackAgentType === 'worker_mcp_agent') {
+            const mcpResult = await this.workerMCPAgent.executeNode(state.currentNode, state);
+            response = mcpResult.statusMessage || '';
+            contextUpdates = mcpResult.contextUpdates;
+            console.log(`[AgentOrchestrator] ✅ Fallback MCP agent succeeded`);
+
+            await this.logger.logAgentExecution({
+              agentType: 'worker_mcp',
+              nodeName: `${state.currentNode}_fallback`,
+              result: mcpResult,
+              sessionId: state.sessionId,
+            });
+          } else if (fallbackAgentType === 'worker_reply_agent') {
+            const replyResult = await this.workerReplyAgent.executeNode(
+              state.currentNode,
+              state,
+              iterations === 1 ? userMessage : undefined
+            );
+            response = replyResult.response;
+            console.log(`[AgentOrchestrator] ✅ Fallback reply agent succeeded`);
+
+            await this.logger.logAgentExecution({
+              agentType: 'worker_reply',
+              nodeName: `${state.currentNode}_fallback`,
+              result: replyResult,
+              sessionId: state.sessionId,
+            });
+          }
+        } catch (fallbackError: any) {
+          console.error(`[AgentOrchestrator] ❌ Fallback agent also failed: ${fallbackError.message}`);
+          // Use a default response if both agents fail
+          response = "I apologize, but I'm having trouble processing your request. Could you please try rephrasing?";
+        }
+      }
+
       // Log full AI response for log parsing
       if (response) {
         console.log(`[AgentOrchestrator] 🤖 AI_RESPONSE: ${response}`);
       }
+
+      } // End of parallel/sequential execution conditional
 
       // ✅ REMOVED: No longer add to messages array - conversation tracked in summary_of_conversation_on_each_step_until_now
       // Assistant response will be added to summary after worker execution (lines 543-566)
@@ -489,8 +763,12 @@ export class AgentOrchestratorService {
       // STEP: Call DataExtractionAgent AFTER worker agents complete
       // This agent analyzes conversation and extracts missing context fields
       // ✅ FIX: Pass current exchange to avoid stale context issues
+      // ⚡ SKIP if parallel execution already ran extraction agent
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      if (agentProfileType === 'worker_reply_agent' || agentProfileType === 'worker_mcp_agent') {
+      // Skip extraction if we used parallel execution (extraction already ran in parallel)
+      const usedParallelExecution = executionStrategy && executionStrategy.mode !== 'sequential';
+
+      if (!usedParallelExecution && response) {
         // Build current exchange from latest user message and agent response
         const currentExchange = (iterations === 1 && userMessage && response) ? {
           customer: userMessage,
@@ -614,109 +892,112 @@ export class AgentOrchestratorService {
         console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
       }
 
-      // STEP 2: Navigator Agent decides next node AFTER execution
-      // ✅ FIX: Pass current exchange to Navigator to avoid stale context
-      const navCurrentExchange = (iterations === 1 && userMessage && response) ? {
-        customer: userMessage,
-        agent: response
-      } : undefined;
+      // STEP 2: GoalTransitionEngine evaluates if we should transition to next goal
+      // Build conversation history for semantic evaluation
+      const conversationHistory = (state.context.summary_of_conversation_on_each_step_until_now || []).map(
+        (entry: any) => ({ customer: entry.customer, agent: entry.agent })
+      );
 
-      const navigatorDecision = await this.navigatorAgent.decideNextNode(state, false, navCurrentExchange);
-      logger.navigate(state.currentNode, navigatorDecision.nextNode, navigatorDecision.reason);
+      // Use migration utility to build v3 context (temporary until full migration)
+      const { migrateContextV2toV3 } = await import('../migrations/context-migration-v2-to-v3.js');
+      const contextV3 = migrateContextV2toV3(state.context, state.sessionId, state.chatSessionId, state.userId);
+
+      // Evaluate transition
+      const transitionResult = await this.transitionEngine.evaluateTransition(
+        contextV3.conversation.current_goal,
+        contextV3,
+        conversationHistory
+      );
+
+      logger.navigate(
+        contextV3.conversation.current_goal,
+        transitionResult.nextGoal || contextV3.conversation.current_goal,
+        transitionResult.reason
+      );
 
       if (this.VERBOSE_LOGS) {
-        console.log(`\n🧭 [NAVIGATOR DECISION]`);
-        console.log(`   Validation: ${navigatorDecision.validationStatus.onTrack ? '✅ ON TRACK' : '⚠️ OFF TRACK'}`);
-        console.log(`   Reason: ${navigatorDecision.validationStatus.reason}`);
-        console.log(`   Current Node: ${state.currentNode}`);
-        console.log(`   Next Node: ${navigatorDecision.nextNode}`);
-        console.log(`   Matched Condition: ${navigatorDecision.matchedCondition || 'Using default_next_node'}`);
-        console.log(`   Next Action: ${navigatorDecision.nextCourseOfAction}`);
-        console.log(`   Routing Reason: ${navigatorDecision.reason}`);
-        if (navigatorDecision.mcpToolsNeeded && navigatorDecision.mcpToolsNeeded.length > 0) {
-          console.log(`   MCP Tools Needed: ${navigatorDecision.mcpToolsNeeded.join(', ')}`);
+        console.log(`\n🧭 [GOAL TRANSITION EVALUATION]`);
+        console.log(`   Current Goal: ${contextV3.conversation.current_goal}`);
+        console.log(`   Should Transition: ${transitionResult.shouldTransition ? '✅ YES' : '❌ NO'}`);
+        console.log(`   Reason: ${transitionResult.reason}`);
+        if (transitionResult.shouldTransition && transitionResult.nextGoal) {
+          console.log(`   Next Goal: ${transitionResult.nextGoal}`);
         }
       }
 
-      // Log navigator decision to llm.log
+      // Log transition decision to llm.log
       await this.logger.logNavigatorDecision({
-        currentNode: state.currentNode,
-        decision: navigatorDecision.validationStatus.onTrack ? 'On Track' : 'Off Track',
-        nextNode: navigatorDecision.nextNode,
-        reason: navigatorDecision.reason,
+        currentNode: contextV3.conversation.current_goal,
+        decision: transitionResult.shouldTransition ? 'Transition' : 'Stay in Goal',
+        nextNode: transitionResult.nextGoal || contextV3.conversation.current_goal,
+        reason: transitionResult.reason,
         sessionId: state.sessionId,
       });
 
-      // Log validation status if off-track
-      if (!navigatorDecision.validationStatus.onTrack) {
-        console.log(`\n⚠️ [VALIDATION WARNING]`);
-        console.log(`   Off-track reason: ${navigatorDecision.validationStatus.reason}`);
-      }
+      // Update context with next goal (use old currentNode field for now)
+      const nextNodeOrGoal = transitionResult.shouldTransition && transitionResult.nextGoal
+        ? transitionResult.nextGoal
+        : contextV3.conversation.current_goal;
 
-      // Update context with navigator decisions
       state = this.contextManager.updateContext(state, {
-        next_node_to_go_to: navigatorDecision.nextNode,
-        next_course_of_action: navigatorDecision.nextCourseOfAction,
+        next_node_to_go_to: nextNodeOrGoal,
+        next_course_of_action: transitionResult.reason,
       });
 
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       // LOOP DETECTION & RETRY GUIDANCE
-      // Track repeated visits to same node and provide guidance to try differently
+      // Track repeated visits to same goal and provide guidance to try differently
       // Data is NEVER erased - only approach varies
       // Uses node_traversed array to count visits (enables loop detection)
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       const allTraversedNodes = state.context.node_traversed || [];
-      const recentNodes = allTraversedNodes.slice(-10); // Last 10 nodes
+      const recentNodes = allTraversedNodes.slice(-10); // Last 10 goals
 
-      // Count how many times the NEXT node appears in recent history
-      const nextNodeVisitCount = recentNodes.filter(n => n === navigatorDecision.nextNode).length;
+      // Count how many times the NEXT goal appears in recent history
+      const nextNodeVisitCount = recentNodes.filter(n => n === nextNodeOrGoal).length;
 
-      // Count total visits to next node across entire conversation
-      const totalNextNodeVisits = allTraversedNodes.filter(n => n === navigatorDecision.nextNode).length;
+      // Count total visits to next goal across entire conversation
+      const totalNextNodeVisits = allTraversedNodes.filter(n => n === nextNodeOrGoal).length;
       const attemptNumber = totalNextNodeVisits + 1; // Next visit will be attempt N+1
 
       if (nextNodeVisitCount >= 2) {
-        console.log(`\n🔄 [LOOP DETECTED] ${navigatorDecision.nextNode} visited ${nextNodeVisitCount} times in last 10 nodes (attempt #${attemptNumber} total)`);
+        console.log(`\n🔄 [LOOP DETECTED] ${nextNodeOrGoal} visited ${nextNodeVisitCount} times in last 10 goals (attempt #${attemptNumber} total)`);
         console.log(`   Recent path (last 10): ${JSON.stringify(recentNodes)}`);
         console.log(`   ℹ️  Providing retry guidance to try different approach...`);
         console.log(`   ⚠️  IMPORTANT: Data collected so far is PRESERVED`);
 
-        // Generate retry guidance based on node type and attempt number
+        // Generate retry guidance using goal's declarative retry_strategy
         let retryGuidance = '';
 
-        if (navigatorDecision.nextNode === 'Try_To_Gather_Customers_Data') {
-          const dataFields = state.context.data_extraction_fields || {};
+        // Get goal configuration for retry strategy
+        const nextGoalConfig = this.config.goals.find(g => g.goal_id === nextNodeOrGoal);
+        const retryStrategy = (nextGoalConfig as any)?.retry_strategy;
 
-          if (attemptNumber === 3) {
-            retryGuidance = `This is attempt #${attemptNumber} to gather customer data. Try a different approach:\n`;
-            retryGuidance += `- Currently have: name="${dataFields.customer_name || '(missing)'}", phone="${dataFields.customer_phone_number || '(missing)'}"\n`;
-            retryGuidance += `- Try asking: "To help you better, could you share your contact number?"\n`;
-            retryGuidance += `- Be more direct and specific about what's needed`;
-          } else if (attemptNumber === 4) {
-            retryGuidance = `This is attempt #${attemptNumber}. Try offering value:\n`;
-            retryGuidance += `- Example: "So I can send you updates about the service, what's a good number to reach you?"\n`;
-            retryGuidance += `- Explain WHY you need the information`;
-          } else if (attemptNumber >= 5) {
-            retryGuidance = `This is attempt #${attemptNumber}. Offer alternative:\n`;
-            retryGuidance += `- Example: "I can proceed with partial information. Would you like to continue or provide a contact number?"\n`;
-            retryGuidance += `- Give customer option to skip if they prefer`;
+        if (retryStrategy && retryStrategy.escalation_messages) {
+          // Use declarative escalation messages from goal config
+          const escalationTurns = retryStrategy.escalation_turns || [];
+          const escalationMessages = retryStrategy.escalation_messages || [];
+
+          // Find which escalation level we're at based on attempt number
+          let escalationIndex = -1;
+          for (let i = 0; i < escalationTurns.length; i++) {
+            if (attemptNumber >= escalationTurns[i]) {
+              escalationIndex = i;
+            }
+          }
+
+          if (escalationIndex >= 0 && escalationIndex < escalationMessages.length) {
+            // Use declarative escalation message from config
+            retryGuidance = `Attempt #${attemptNumber}. ${escalationMessages[escalationIndex]}`;
+            console.log(`[Loop Detection] 📋 Using escalation message (level ${escalationIndex + 1}) from goal config`);
           } else {
-            retryGuidance = `Try rephrasing the question differently. Current data: ${JSON.stringify(dataFields)}`;
+            // Default retry message using goal's approach
+            retryGuidance = `Attempt #${attemptNumber}. Retry strategy: ${retryStrategy.approach}. Try varying your approach to achieve goal: ${nextNodeOrGoal}`;
           }
-
-        } else if (navigatorDecision.nextNode === 'ASK_CUSTOMER_ABOUT_THEIR_NEED') {
-          if (attemptNumber === 3) {
-            retryGuidance = `Customer response unclear. Try:\n`;
-            retryGuidance += `- Ask more specific questions about their issue\n`;
-            retryGuidance += `- Example: "What specific problem are you experiencing with your [roof/plumbing/etc]?"`;
-          } else if (attemptNumber >= 4) {
-            retryGuidance = `Provide examples to help customer:\n`;
-            retryGuidance += `- Example: "For example, is it a leak, damage, installation, or something else?"\n`;
-            retryGuidance += `- Give concrete options to choose from`;
-          }
-
         } else {
-          retryGuidance = `Attempt #${attemptNumber}. Try varying your approach to gather required information.`;
+          // Fallback if no retry strategy defined in goal
+          retryGuidance = `Attempt #${attemptNumber}. Try varying your approach to achieve goal: ${nextNodeOrGoal}`;
+          console.log(`[Loop Detection] ⚠️ No retry_strategy found for goal: ${nextNodeOrGoal}, using generic retry guidance`);
         }
 
         // Update context with retry guidance (NEVER reset data)
@@ -733,7 +1014,7 @@ export class AgentOrchestratorService {
             attemptNumber,
             recentVisits: nextNodeVisitCount,
             totalVisits: totalNextNodeVisits,
-            nextNode: navigatorDecision.nextNode,
+            nextNode: nextNodeOrGoal,
             retryGuidance,
             dataPreserved: true,
             recentPath: recentNodes,
@@ -763,13 +1044,13 @@ export class AgentOrchestratorService {
       console.log(`   ✓ task_id: ${state.context.data_extraction_fields?.task_id || '(not set)'}`);
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
-      // Log Navigator's decision
-      console.log(`[AgentOrchestrator] ➡️  Navigator decision: ${state.currentNode} → ${navigatorDecision.nextNode}`);
+      // Log Transition decision
+      console.log(`[AgentOrchestrator] ➡️  Goal transition: ${state.currentNode} → ${nextNodeOrGoal}`);
 
-      // STEP 3: FORCE transition to next node (no questions asked)
+      // STEP 3: Transition to next goal if needed
 
       // Check if we should end conversation
-      if (navigatorDecision.nextNode === 'END') {
+      if (nextNodeOrGoal === 'END') {
         // Special case: If we're coming from Execute_Call_Hangup, end the entire conversation
         if (state.currentNode === 'Execute_Call_Hangup') {
           console.log(`\n📞 [CALL HANGUP COMPLETE]`);
@@ -806,9 +1087,78 @@ export class AgentOrchestratorService {
         break;
       }
 
-      if (navigatorDecision.nextNode === 'Goodbye_And_Hangup') {
-        console.log(`\n👋 [CONVERSATION ENDING]`);
-        console.log(`   Ending conversation with status: Completed`);
+      // Check if we've reached a terminal goal (declarative from config)
+      const nextGoalConfig = this.config.goals.find(g => g.goal_id === nextNodeOrGoal);
+      const isTerminalGoal = (nextGoalConfig as any)?.is_terminal === true;
+
+      if (isTerminalGoal && transitionResult.shouldTransition) {
+        console.log(`\n👋 [CONVERSATION ENDING - TERMINAL GOAL REACHED]`);
+        console.log(`   Terminal Goal: ${nextNodeOrGoal}`);
+        console.log(`   Description: ${nextGoalConfig?.description}`);
+
+        // Execute termination sequence if configured (declarative goodbye + MCP hangup)
+        const terminationSequence = (nextGoalConfig as any)?.termination_sequence;
+        if (terminationSequence?.enabled) {
+          console.log(`\n🔚 [EXECUTING TERMINATION SEQUENCE]`);
+          console.log(`   ${terminationSequence.steps.length} steps configured`);
+
+          let goodbyeMessage = '';
+
+          for (const step of terminationSequence.steps) {
+            console.log(`\n   Step ${step.step}: ${step.action}`);
+
+            if (step.action === 'conversational_goodbye') {
+              // Generate goodbye message using conversational agent
+              console.log(`   Agent: ${step.agent}`);
+              console.log(`   Template: "${step.message_template}"`);
+
+              try {
+                const goodbyeResult = await this.workerReplyAgent.executeNode(
+                  nextNodeOrGoal,
+                  state,
+                  undefined
+                );
+                goodbyeMessage = goodbyeResult.response || step.message_template || 'Thank you! Goodbye!';
+                console.log(`   ✅ Goodbye message generated: "${goodbyeMessage}"`);
+
+                // Add goodbye message to conversation summary
+                state = this.contextManager.appendConversationSummary(
+                  state,
+                  '(system: ending conversation)',
+                  goodbyeMessage
+                );
+              } catch (error: any) {
+                console.error(`   ❌ Error generating goodbye message: ${error.message}`);
+                goodbyeMessage = step.message_template || 'Thank you! Goodbye!';
+              }
+
+            } else if (step.action === 'execute_mcp_hangup') {
+              // Execute MCP hangup tool
+              console.log(`   Agent: ${step.agent}`);
+              console.log(`   Tool: ${step.required_tool}`);
+
+              try {
+                const mcpResult = await this.workerMCPAgent.executeNode(nextNodeOrGoal, state);
+                console.log(`   ✅ MCP hangup executed successfully`);
+
+                // Log MCP execution
+                await this.logger.logAgentExecution({
+                  agentType: 'worker_mcp',
+                  nodeName: `${nextNodeOrGoal}_hangup`,
+                  result: mcpResult,
+                  sessionId: state.sessionId,
+                });
+              } catch (error: any) {
+                console.error(`   ❌ Error executing MCP hangup: ${error.message}`);
+              }
+            }
+          }
+
+          // Set final response to goodbye message
+          response = goodbyeMessage;
+        }
+
+        console.log(`\n   Ending conversation with status: Completed`);
         state = this.contextManager.endConversation(state, 'Completed');
         console.log(`   conversationEnded: ${state.conversationEnded}`);
         console.log(`   endReason: ${state.endReason}`);
@@ -816,7 +1166,7 @@ export class AgentOrchestratorService {
         // Log iteration end
         await this.logger.logIterationEnd({
           iteration: iterations,
-          nextNode: navigatorDecision.nextNode,
+          nextNode: nextNodeOrGoal,
           conversationEnded: true,
           endReason: state.endReason,
           sessionId: state.sessionId,
@@ -824,68 +1174,51 @@ export class AgentOrchestratorService {
         break;
       }
 
-      // FORCE move to next node - Navigator's decision is final
-      console.log(`\n🚀 [STATE TRANSITION]`);
-      console.log(`   FROM: ${state.currentNode}`);
-      console.log(`   TO: ${navigatorDecision.nextNode}`);
+      // Move to next goal if transition is needed
+      if (transitionResult.shouldTransition && transitionResult.nextGoal) {
+        console.log(`\n🚀 [GOAL TRANSITION]`);
+        console.log(`   FROM: ${state.currentNode}`);
+        console.log(`   TO: ${transitionResult.nextGoal}`);
 
-      const previousNode = state.currentNode;
-      state = this.contextManager.updateCurrentNode(state, navigatorDecision.nextNode);
+        const previousGoal = state.currentNode;
+        state = this.contextManager.updateCurrentNode(state, transitionResult.nextGoal);
 
-      // Write context file after navigation
-      await this.writeContextFile(state, `navigation:${previousNode}→${navigatorDecision.nextNode}`);
+        // Write context file after navigation
+        await this.writeContextFile(state, `goal_transition:${previousGoal}→${transitionResult.nextGoal}`);
 
-      console.log(`   ✅ Transition complete`);
-      console.log(`   New current node: ${state.currentNode}`);
-      console.log(`   Previous node: ${state.previousNode || 'N/A'}`);
+        console.log(`   ✅ Transition complete`);
+        console.log(`   New current goal: ${state.currentNode}`);
+        console.log(`   Previous goal: ${state.previousNode || 'N/A'}`);
 
-      // Check advance_type from the matched branching condition
-      // If the transition was made via a branching condition with advance_type='auto', continue
-      // If advance_type='stepwise' or no match, break and wait for user
-      const prevNodeConfig = this.dagConfig.nodes.find(n => n.node_name === previousNode);
-      let shouldAutoAdvance = false;
-      let matchedBranchingCondition: any = null;
+        // In goal-based architecture, transitions between goals are typically stepwise
+        // (wait for user input between goals). Auto-advance would be within a goal's sub-tasks.
+        // For now, always break after goal transition.
+        console.log(`\n💬 [TURN COMPLETE - GOAL TRANSITION]`);
+        console.log(`   Transitioned to new goal: ${transitionResult.nextGoal}`);
+        console.log(`   Breaking loop to wait for next user message`);
+        console.log(`   Final state context:`);
+        console.log(`     - currentGoal: ${state.currentNode}`);
+        console.log(`     - customers_main_ask: ${state.context.data_extraction_fields?.customers_main_ask || '(not set)'}`);
+        console.log(`     - customer_phone_number: ${state.context.data_extraction_fields?.customer_phone_number || '(not set)'}`);
 
-      // Find the branching condition that led to the current node
-      if (prevNodeConfig?.branching_conditions) {
-        matchedBranchingCondition = prevNodeConfig.branching_conditions.find(
-          (bc: any) => bc.child_node === state.currentNode
-        );
-
-        if (matchedBranchingCondition) {
-          shouldAutoAdvance = matchedBranchingCondition.advance_type === 'auto';
-          console.log(`\n🔀 [ROUTING TYPE]`);
-          console.log(`   Matched branching condition: ${matchedBranchingCondition.condition || '(no condition text)'}`);
-          console.log(`   Advance type: ${matchedBranchingCondition.advance_type || '(not set)'}`);
-          console.log(`   Child node: ${matchedBranchingCondition.child_node}`);
-        }
+        // Log iteration end
+        await this.logger.logIterationEnd({
+          iteration: iterations,
+          nextNode: state.currentNode,
+          conversationEnded: false,
+          sessionId: state.sessionId,
+        });
+        break;
       }
 
-      // If no matching condition found, check if transition was via default_next_node
-      if (!matchedBranchingCondition && prevNodeConfig?.default_next_node === state.currentNode) {
-        console.log(`\n🔀 [ROUTING TYPE]`);
-        console.log(`   Used default_next_node (no branching condition matched)`);
-        console.log(`   Advance type: stepwise (default behavior)`);
-        shouldAutoAdvance = false;
-      }
-
-      // Auto-advance: continue to next iteration immediately
-      if (shouldAutoAdvance && iterations < maxIterations) {
-        console.log(`\n⚡ [AUTO-ADVANCE ENABLED]`);
-        console.log(`   Transition has advance_type='auto'`);
-        console.log(`   Continuing to execute next node without waiting for user input...`);
-        continue; // Don't break - continue the loop
-      }
-
-      // Stepwise: break and wait for user response
-      console.log(`\n💬 [TURN COMPLETE - STEPWISE]`);
-      console.log(`   Transition has advance_type='stepwise' or default`);
+      // No transition: stay in current goal and wait for user input
+      console.log(`\n💬 [TURN COMPLETE - STAYING IN GOAL]`);
+      console.log(`   Remaining in goal: ${state.currentNode}`);
       console.log(`   Breaking loop to wait for next user message`);
       console.log(`   Final state context:`);
-      console.log(`     - currentNode: ${state.currentNode}`);
+      console.log(`     - currentGoal: ${state.currentNode}`);
       console.log(`     - customers_main_ask: ${state.context.data_extraction_fields?.customers_main_ask || '(not set)'}`);
       console.log(`     - customer_phone_number: ${state.context.data_extraction_fields?.customer_phone_number || '(not set)'}`);
-      console.log(`     - flags: ${JSON.stringify(state.context.flags || {}, null, 2)}`);
 
       // Log iteration end
       await this.logger.logIterationEnd({

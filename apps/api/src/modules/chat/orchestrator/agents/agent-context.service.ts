@@ -2,10 +2,15 @@
  * Agent Context Service
  * Pure context management without LangGraph dependencies
  * Manages conversation context based on agent_config.json schema
+ *
+ * NOTE: Currently uses flat context structure (DAGContext) for backward compatibility.
+ * Goal: Migrate to hierarchical ConversationContextV3 structure incrementally.
+ *
  * @module orchestrator/agents/agent-context
  */
 
-import type { DAGContext, ConversationSummary, DAGConfiguration } from './dag-types.js';
+import type { DAGContext, ConversationSummary } from './dag-types.js';
+import type { AgentConfigV3 } from '../config/agent-config.schema.js';
 import { createContextInitializer, type ContextInitializer } from './context-initializer.service.js';
 
 /**
@@ -47,24 +52,32 @@ export interface AgentContextState {
 /**
  * Agent Context Manager
  * Manages context state without LangGraph - DETERMINISTIC from agent_config.json
+ *
+ * NOTE: Updated to accept AgentConfigV3 but still uses old ContextInitializer internally
+ * during transition period.
  */
 export class AgentContextManager {
-  private dagConfig: DAGConfiguration | null = null;
+  private config: AgentConfigV3 | null = null;
   private contextInitializer: ContextInitializer | null = null;
 
   /**
-   * Set DAG configuration for deterministic context initialization
+   * Set agent configuration for deterministic context initialization
+   * NOTE: Accepts AgentConfigV3 but casts to old format for ContextInitializer compatibility
    */
-  setDAGConfig(config: DAGConfiguration): void {
-    this.dagConfig = config;
-    this.contextInitializer = createContextInitializer(config);
-    console.log('[AgentContextManager] 📋 DAG configuration loaded for deterministic context initialization');
+  setDAGConfig(config: AgentConfigV3): void {
+    this.config = config;
+    // TODO: Update ContextInitializer to work with AgentConfigV3
+    this.contextInitializer = createContextInitializer(config as any);
+    console.log('[AgentContextManager] 📋 Goal-based configuration loaded (v3.0)');
   }
 
   /**
    * Initialize new context - DETERMINISTIC from agent_config.json
+   * NOTE: Uses first goal as entry point in goal-based architecture
    */
   initializeContext(sessionId: string, chatSessionId?: string, userId?: string, authToken?: string): AgentContextState {
+    const entryGoal = this.config?.goals?.[0]?.goal_id || 'UNDERSTAND_REQUEST';
+
     return {
       sessionId,
       chatSessionId,
@@ -72,7 +85,7 @@ export class AgentContextManager {
       authToken,
       messages: [],
       context: this.initializeDAGContext(sessionId),
-      currentNode: this.dagConfig?.graph_config?.entry_node || 'GREET_CUSTOMER',
+      currentNode: entryGoal, // Use first goal as entry point
       completed: false,
       conversationEnded: false,
     };

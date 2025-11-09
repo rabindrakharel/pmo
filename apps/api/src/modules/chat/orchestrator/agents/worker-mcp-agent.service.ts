@@ -1,19 +1,22 @@
 /**
- * Worker MCP Agent
- * Executes MCP tools and updates context with results
+ * Worker MCP Agent - Goal-Oriented with ReAct Pattern
+ *
  * Responsibilities:
- * - Decide which MCP tool to use based on missing context fields
- * - Call MCP tools/APIs
- * - Interpret MCP results and map to context fields
- * - NO customer-facing responses (handled by WorkerReplyAgent)
+ * - Observe: Identify what data is missing from context
+ * - Think: Decide which MCP tool can retrieve that data
+ * - Act: Execute MCP tool and map results to context
+ * - Uses agent profile for consistent tool selection strategy
+ *
  * @module orchestrator/agents/worker-mcp-agent
+ * @version 3.0.0
  */
 
 import { getOpenAIService } from '../services/openai.service.js';
 import type { AgentContextState } from './agent-context.service.js';
-import type { DAGConfiguration, DAGContext } from './dag-types.js';
+import type { AgentConfigV3, ConversationGoal, AgentProfile } from '../config/agent-config.schema.js';
 import type { MCPAdapterService } from '../../mcp-adapter.service.js';
 import { getMCPTools } from '../../mcp-adapter.service.js';
+import type { DAGContext } from './dag-types.js';
 
 /**
  * Worker MCP Agent Result
@@ -27,45 +30,54 @@ export interface WorkerMCPResult {
 
 /**
  * Worker MCP Agent Service
- * Role: Execute MCP tools and update context (no customer-facing replies)
+ * Uses ReAct pattern to select and execute appropriate MCP tools
  */
 export class WorkerMCPAgent {
-  private dagConfig: DAGConfiguration;
+  private config: AgentConfigV3;
+  private agentProfile: AgentProfile;
   private mcpAdapter?: MCPAdapterService;
   private authToken?: string;
 
-  constructor(dagConfig: DAGConfiguration, mcpAdapter?: MCPAdapterService, authToken?: string) {
-    this.dagConfig = dagConfig;
+  constructor(
+    config: AgentConfigV3,
+    mcpAdapter?: MCPAdapterService,
+    authToken?: string,
+    agentProfileId: string = 'mcp_agent'
+  ) {
+    this.config = config;
     this.mcpAdapter = mcpAdapter;
     this.authToken = authToken;
+
+    // Get agent profile from config
+    const profile = config.agent_profiles[agentProfileId];
+    if (!profile) {
+      throw new Error(`Agent profile not found: ${agentProfileId}`);
+    }
+    this.agentProfile = profile;
+
+    console.log(`[WorkerMCPAgent] 🎭 Initialized with profile: ${this.agentProfile.identity}`);
   }
 
   /**
-   * Execute MCP node: Decide which tool to use and execute it
-   * OR extract information from conversation (for extraction nodes)
+   * Execute goal: Use MCP tools to fetch/update data
+   *
+   * ReAct Steps:
+   * 1. OBSERVE: Identify what data is missing based on goal success criteria
+   * 2. THINK: Determine which MCP tool can retrieve needed data
+   * 3. ACT: Execute MCP tool and map results to context
    */
-  async executeNode(
-    nodeName: string,
+  async executeGoal(
+    goalId: string,
     state: AgentContextState
   ): Promise<WorkerMCPResult> {
-    console.log(`\n🔧 [WorkerMCPAgent] Executing MCP node: ${nodeName}`);
+    console.log(`\n🔧 [WorkerMCPAgent] Executing goal: ${goalId}`);
 
-    // Get node configuration
-    const node = this.dagConfig.nodes.find(n => n.node_name === nodeName);
-    if (!node) {
-      throw new Error(`Node not found in DAG: ${nodeName}`);
+    // Get goal configuration
+    const goal = this.config.goals.find(g => g.goal_id === goalId);
+    if (!goal) {
+      throw new Error(`Goal not found: ${goalId}`);
     }
 
-    // Check if this is an extraction node (extracts from conversation, no external tools)
-    const isExtractionNode = nodeName === 'Extract_Customer_Issue' ||
-                             nodeName.toLowerCase().includes('extract');
-
-    if (isExtractionNode) {
-      // Handle extraction nodes (analyze conversation, return context updates)
-      return await this.executeExtractionNode(nodeName, node, state);
-    }
-
-    // Regular MCP nodes (call external tools)
     if (!this.mcpAdapter) {
       console.warn(`[WorkerMCPAgent] ⚠️ MCP adapter not available`);
       return {
@@ -75,20 +87,25 @@ export class WorkerMCPAgent {
       };
     }
 
+    // OBSERVE: Analyze what's missing
+    const observation = this.observe(goal, state);
+
     // Get available MCP tools
     const availableTools = getMCPTools();
     console.log(`[WorkerMCPAgent] 📋 Available MCP tools: ${availableTools.length}`);
 
-    // Build prompt to decide which tool to use
-    const systemPrompt = this.buildMCPSystemPrompt(node, state.context, availableTools);
-    const userPrompt = this.buildMCPUserPrompt(state.context);
+    // THINK + ACT: Select and execute tool
+    const systemPrompt = this.buildReActPrompt(goal, observation, availableTools);
+    const userPrompt = this.buildUserPrompt(observation);
 
+    console.log(`[WorkerMCPAgent] Goal: ${goal.description}`);
+    console.log(`[WorkerMCPAgent] Agent Identity: ${this.agentProfile.identity}`);
     console.log(`[WorkerMCPAgent] Analyzing context to decide which MCP tool to use...`);
 
     // Call LLM with function calling
     const openaiService = getOpenAIService();
     const result = await openaiService.callAgent({
-      agentType: 'worker',
+      agentType: 'worker_mcp',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -145,68 +162,130 @@ export class WorkerMCPAgent {
   }
 
   /**
-   * Build system prompt for MCP tool selection
-   * OPTIMIZED: Uses node.role, node.goal, and ONLY actively tracked context fields
+   * OBSERVE: Identify what data is missing based on goal
    */
-  private buildMCPSystemPrompt(node: any, context: DAGContext, tools: any[]): string {
-    // Node provides role and goal (business operation state)
-    const nodeRole = node.node_role || node.role || 'a data-gathering system assistant';
-    const nodeGoal = node.node_goal || '';
-    const exampleTone = node.example_tone_of_reply || '';
+  private observe(goal: ConversationGoal, state: AgentContextState) {
+    // Success criteria tells us what fields we need
+    const successCriteria = goal.success_criteria;
+    const mandatoryFields = successCriteria.mandatory_fields;
 
-    // Format available tools
-    const toolSummary = tools.map(t => `- ${t.function.name}: ${t.function.description}`).join('\n');
-
-    // Format ONLY actively tracked context fields (mandatory + non-empty fields)
-    const mandatoryFields = this.dagConfig.graph_config?.mandatory_fields || ['customers_main_ask', 'customer_phone_number'];
-    const activeContext: Record<string, any> = { flags: context.flags || {} };
+    // Check which fields are missing or empty
+    const missingFields: string[] = [];
+    const presentFields: Record<string, any> = {};
 
     for (const field of mandatoryFields) {
-      if (context[field]) activeContext[field] = context[field];
-    }
-
-    const trackingFields = ['customer_id', 'task_id', 'appointment_details', 'matching_service_catalog_to_solve_customers_issue'];
-    for (const field of trackingFields) {
-      if (context[field] && context[field] !== '' && context[field] !== '(not set)') {
-        activeContext[field] = context[field];
+      const value = this.getFieldValue(state.context, field);
+      if (!value || value === '' || value === '(not set)') {
+        missingFields.push(field);
+      } else {
+        presentFields[field] = value;
       }
     }
 
-    return `NODE ROLE: ${nodeRole}
+    // Current context data
+    const contextData = {
+      customer: {
+        name: state.context.data_extraction_fields?.customer_name || '(unknown)',
+        phone: state.context.data_extraction_fields?.customer_phone_number || '(unknown)',
+        id: state.context.data_extraction_fields?.customer_id || '(unknown)',
+      },
+      service: {
+        request: state.context.data_extraction_fields?.customers_main_ask || '(not stated)',
+        matching_catalog: state.context.data_extraction_fields?.matching_service_catalog_to_solve_customers_issue || '(not matched)',
+      },
+      operations: {
+        task_id: state.context.data_extraction_fields?.task_id || '(not created)',
+        appointment: state.context.data_extraction_fields?.appointment_details || '(not scheduled)',
+      },
+      next_action: state.context.next_course_of_action || '(no guidance)',
+    };
 
-NODE GOAL: ${nodeGoal}
-
-EXAMPLE TONE/STYLE (for optional customer message):
-${exampleTone}
-
-ACTIVE CONTEXT (only tracked fields):
-${JSON.stringify(activeContext, null, 2)}
-
-AVAILABLE MCP TOOLS (${tools.length} tools):
-${toolSummary}
-
-TASK:
-1. Analyze context to identify missing fields
-2. Select appropriate MCP tool from available list
-3. Call tool using function calling with parameters from context
-4. Optionally provide brief status message to customer
-
-Please call MCP tool or take necessary action:`;
+    return {
+      missingFields,
+      presentFields,
+      contextData,
+      goalDescription: goal.description,
+    };
   }
 
   /**
-   * Build user prompt for MCP execution
+   * Get field value from context (supports nested paths like service.primary_request)
    */
-  private buildMCPUserPrompt(context: DAGContext): string {
-    return `Analyze the current context and determine what needs to be fetched:
+  private getFieldValue(context: any, fieldPath: string): any {
+    const parts = fieldPath.split('.');
+    let value = context;
+    for (const part of parts) {
+      value = value?.[part];
+      if (value === undefined || value === null) break;
+    }
+    return value;
+  }
 
-Context Status:
-- customers_main_ask: ${context.customers_main_ask || '(not set)'}
-- customer_phone_number: ${context.customer_phone_number || '(not set)'}
-- customer_id: ${context.customer_id || '(not set)'}
-- service_catalog: ${context.matching_service_catalog_to_solve_customers_issue || '(not set)'}
-- task_id: ${context.task_id || '(not set)'}
-- appointment_details: ${context.appointment_details || '(not set)'}
+  /**
+   * BUILD REACT PROMPT: Uses agent profile and goal configuration
+   */
+  private buildReActPrompt(goal: ConversationGoal, observation: any, tools: any[]): string {
+    // Format available tools
+    const toolSummary = tools.map(t => `- ${t.function.name}: ${t.function.description}`).join('\n');
+
+    return `# AGENT IDENTITY
+${this.agentProfile.system_prompt}
+
+# CURRENT GOAL
+**Objective:** ${goal.description}
+
+**What We Need (Success Criteria):**
+${goal.success_criteria.mandatory_fields.map(f => `- ${f}`).join('\n')}
+
+# REACT: OBSERVE → THINK → ACT
+
+## 1. OBSERVE (Current Data Status)
+
+**Missing Fields (need to fetch):**
+${observation.missingFields.length > 0 ? observation.missingFields.map((f: string) => `- ${f}`).join('\n') : '(none - all required fields present)'}
+
+**Present Fields (already have):**
+\`\`\`json
+${JSON.stringify(observation.presentFields, null, 2)}
+\`\`\`
+
+**Current Context:**
+\`\`\`json
+${JSON.stringify(observation.contextData, null, 2)}
+\`\`\`
+
+**Guidance from System:** ${observation.contextData.next_action}
+
+## 2. THINK (Tool Selection)
+
+**Available MCP Tools (${tools.length} tools):**
+${toolSummary}
+
+Based on observations:
+- Which fields are missing that we need for goal: "${observation.goalDescription}"?
+- Which MCP tool can retrieve the missing data?
+- What parameters does the tool need from current context?
+
+## 3. ACT (Execute Tool)
+
+**Instructions:**
+- Select appropriate MCP tool from available list
+- Call tool using function calling with parameters from present fields
+- If no tool needed (all fields present), return brief status message
+- Keep any customer message brief and informative
+
+Execute MCP tool now or provide status:`;
+  }
+
+  /**
+   * Build user prompt
+   */
+  private buildUserPrompt(observation: any): string {
+    if (observation.missingFields.length === 0) {
+      return `All required fields are present. No MCP tool execution needed. Provide brief status if appropriate.`;
+    }
+
+    return `Missing fields: ${observation.missingFields.join(', ')}
 
 Select and call appropriate MCP tool(s) to fetch missing data.`;
   }
@@ -310,140 +389,24 @@ Select and call appropriate MCP tool(s) to fetch missing data.`;
   }
 
   /**
-   * Execute extraction node (analyzes conversation, no external tools)
-   */
-  private async executeExtractionNode(
-    nodeName: string,
-    node: any,
-    state: AgentContextState
-  ): Promise<WorkerMCPResult> {
-    console.log(`[WorkerMCPAgent] 🔍 Extraction node: ${nodeName}`);
-
-    const systemPrompt = this.buildExtractionSystemPrompt(node, state.context, state);
-    const userPrompt = `Extract information from the conversation and return context updates as JSON.`;
-
-    const openaiService = getOpenAIService();
-    const result = await openaiService.callAgent({
-      agentType: 'worker',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.1,
-      jsonMode: true, // Request structured JSON output
-      sessionId: state.sessionId,
-    });
-
-    let contextUpdates: Partial<DAGContext> = {};
-
-    try {
-      // Parse extracted data
-      const extracted = JSON.parse(result.content || '{}');
-      console.log(`[WorkerMCPAgent] 🔍 Extracted data: ${JSON.stringify(extracted)}`);
-
-      contextUpdates = extracted;
-
-      // Log what was extracted
-      this.logContextUpdates(contextUpdates);
-
-      return {
-        statusMessage: '', // No customer-facing message for extraction nodes
-        contextUpdates,
-        mcpExecuted: true,
-        mcpResults: extracted
-      };
-    } catch (error: any) {
-      console.error(`[WorkerMCPAgent] ❌ Extraction failed: ${error.message}`);
-      return {
-        statusMessage: '',
-        contextUpdates: {},
-        mcpExecuted: false,
-        mcpResults: { error: error.message }
-      };
-    }
-  }
-
-  /**
-   * Build system prompt for extraction nodes
-   * Uses summary_of_conversation_on_each_step_until_now array with fallback to raw messages
-   * OPTIMIZED: Only uses last 10 exchanges to avoid token limits
-   */
-  private buildExtractionSystemPrompt(node: any, context: DAGContext, state: AgentContextState): string {
-    const nodeRole = node.role || 'an information extraction specialist';
-    const nodeGoal = node.node_goal || '';
-    const exampleTone = node.example_tone_of_reply || '';
-
-    // Use summary array if populated, otherwise fallback to raw messages
-    let conversationHistory = '';
-    const summaryArray = context.summary_of_conversation_on_each_step_until_now || [];
-
-    if (summaryArray.length > 0) {
-      // CRITICAL: Only last 10 exchanges (not all 255!) for extraction
-      const recentExchanges = summaryArray.slice(-10);
-      conversationHistory = recentExchanges
-        .map((exchange, idx) => `${idx + 1}. CUSTOMER: ${exchange.customer}\n   AGENT: ${exchange.agent}`)
-        .join('\n\n');
-      console.log(`[WorkerMCPAgent] 📋 Using last ${recentExchanges.length} conversation exchanges (total: ${summaryArray.length})`);
-    } else {
-      // Fallback to raw messages if summary not populated yet (limit to last 10)
-      const recentMessages = state.messages.slice(-10);
-      conversationHistory = recentMessages
-        .map((m, idx) => `${idx + 1}. ${m.role.toUpperCase()}: ${m.content}`)
-        .join('\n');
-      console.log(`[WorkerMCPAgent] ⚠️ Summary array empty, using last ${recentMessages.length} raw messages (total: ${state.messages.length})`);
-    }
-
-    // Format current context
-    const contextData = JSON.stringify({
-      customers_main_ask: context.customers_main_ask || '(not set)',
-      customer_name: context.customer_name || '(not set)',
-      customer_phone_number: context.customer_phone_number || '(not set)',
-    }, null, 2);
-
-    return `You are ${nodeRole}.
-
-Your goal is: ${nodeGoal}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FULL CONVERSATION HISTORY:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${conversationHistory}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Current context (may be incomplete):
-${contextData}
-
-Instructions / Example Tone:
-${exampleTone}
-
-CRITICAL EXTRACTION RULES:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Read the ENTIRE conversation history above
-2. Extract the customer's main issue/problem from ANY customer message
-3. Look for patterns:
-   - "pipe broke" → "Broken pipe repair needed"
-   - "my lawn is brown" → "Lawn care - brown grass issue"
-   - "drywall holes" → "Drywall patching and repair"
-4. Extract customer name if mentioned ("my name is X", "I'm X")
-5. Extract phone number if mentioned (patterns: 555-1234, (555) 123-4567, etc.)
-6. Return ONLY valid JSON with extracted fields
-7. If a field is NOT found, use empty string "", NOT "(not set)"
-
-Example output:
-{
-  "customers_main_ask": "Broken pipe repair needed",
-  "customer_name": "",
-  "customer_phone_number": ""
-}
-
-Extract now (return ONLY JSON):`;
-  }
-
-  /**
    * Set auth token for MCP calls
    */
   setAuthToken(token: string): void {
     this.authToken = token;
+  }
+
+  /**
+   * LEGACY METHOD: Maintain backward compatibility during transition
+   * Maps old executeNode to new executeGoal
+   * TODO: Remove after full migration
+   */
+  async executeNode(
+    nodeName: string,
+    state: AgentContextState
+  ): Promise<WorkerMCPResult> {
+    console.log(`[WorkerMCPAgent] ⚠️  Legacy executeNode called, mapping to executeGoal`);
+    // Map node name to goal ID (temporary)
+    return this.executeGoal(nodeName, state);
   }
 }
 
@@ -451,9 +414,10 @@ Extract now (return ONLY JSON):`;
  * Create worker MCP agent instance
  */
 export function createWorkerMCPAgent(
-  dagConfig: DAGConfiguration,
+  config: AgentConfigV3,
   mcpAdapter?: MCPAdapterService,
-  authToken?: string
+  authToken?: string,
+  agentProfileId: string = 'mcp_agent'
 ): WorkerMCPAgent {
-  return new WorkerMCPAgent(dagConfig, mcpAdapter, authToken);
+  return new WorkerMCPAgent(config, mcpAdapter, authToken, agentProfileId);
 }
