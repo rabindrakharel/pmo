@@ -40,7 +40,8 @@ export async function voiceOrchestratorRoutes(fastify: FastifyInstance) {
       // Detect audio format from mimetype or filename
       const audioFormat = data.mimetype || 'audio/webm';
 
-      console.log(`🎤 Received voice message: ${audioBuffer.length} bytes, format: ${audioFormat}`);
+      // ✅ REMOVED: Verbose log - happens on every voice API call
+      // console.log(`🎤 Received voice message: ${audioBuffer.length} bytes, format: ${audioFormat}`);
 
       // Process voice message through orchestrator
       const result = await processVoiceMessage({
@@ -68,7 +69,8 @@ export async function voiceOrchestratorRoutes(fastify: FastifyInstance) {
         .header('X-End-Reason', result.endReason || '')
         .send(result.audioBuffer);
 
-      console.log(`✅ Voice response sent: ${result.audioBuffer.length} bytes`);
+      // ✅ REMOVED: Verbose log - happens on every voice API call
+      // console.log(`✅ Voice response sent: ${result.audioBuffer.length} bytes`);
     } catch (error) {
       console.error('❌ Voice processing error:', error);
       reply.code(500).send({
@@ -96,7 +98,8 @@ export async function voiceOrchestratorRoutes(fastify: FastifyInstance) {
       // Detect audio format
       const audioFormat = data.mimetype || 'audio/webm';
 
-      console.log(`🎤 STT request: ${audioBuffer.length} bytes, format: ${audioFormat}`);
+      // ✅ REMOVED: Verbose log - happens on every STT API call
+      // console.log(`🎤 STT request: ${audioBuffer.length} bytes, format: ${audioFormat}`);
 
       // Convert speech to text
       const transcript = await speechToText(audioBuffer, audioFormat);
@@ -106,7 +109,8 @@ export async function voiceOrchestratorRoutes(fastify: FastifyInstance) {
         success: true
       });
 
-      console.log(`✅ STT complete: "${transcript}"`);
+      // ✅ REMOVED: Verbose log - happens on every STT API call
+      // console.log(`✅ STT complete: "${transcript}"`);
     } catch (error) {
       console.error('❌ STT error:', error);
       reply.code(500).send({
@@ -133,7 +137,8 @@ export async function voiceOrchestratorRoutes(fastify: FastifyInstance) {
         return reply.code(400).send({ error: 'text is required' });
       }
 
-      console.log(`🔊 TTS request: "${text.substring(0, 50)}...", voice: ${voice}`);
+      // ✅ REMOVED: Verbose log - happens on every TTS API call
+      // console.log(`🔊 TTS request: "${text.substring(0, 50)}...", voice: ${voice}`);
 
       // Convert text to speech
       const audioBuffer = await textToSpeech(text, voice);
@@ -143,7 +148,8 @@ export async function voiceOrchestratorRoutes(fastify: FastifyInstance) {
         .header('Content-Type', 'audio/mpeg')
         .send(audioBuffer);
 
-      console.log(`✅ TTS complete: ${audioBuffer.length} bytes`);
+      // ✅ REMOVED: Verbose log - happens on every TTS API call
+      // console.log(`✅ TTS complete: ${audioBuffer.length} bytes`);
     } catch (error) {
       console.error('❌ TTS error:', error);
       reply.code(500).send({

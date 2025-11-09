@@ -28,7 +28,8 @@ export async function speechToText(audioBuffer: Buffer, audioFormat: string = 'w
   }
 
   try {
-    console.log(`🎤 Deepgram STT: Processing ${audioBuffer.length} bytes of ${audioFormat} audio`);
+    // ✅ REMOVED: Verbose log - happens on every STT call
+    // console.log(`🎤 Deepgram STT: Processing ${audioBuffer.length} bytes of ${audioFormat} audio`);
 
     // Determine MIME type based on format
     const mimeType = audioFormat.includes('webm') ? 'audio/webm' :
@@ -80,7 +81,8 @@ export async function textToSpeech(text: string, voice: string = 'nova'): Promis
   }
 
   try {
-    console.log(`🔊 ElevenLabs TTS: Generating audio for "${text.substring(0, 50)}..." using ${voice} voice`);
+    // ✅ REMOVED: Verbose log - happens on every TTS call
+    // console.log(`🔊 ElevenLabs TTS: Generating audio for "${text.substring(0, 50)}..." using ${voice} voice`);
 
     // Voice ID mapping
     const voiceIds: Record<string, string> = {
@@ -116,7 +118,8 @@ export async function textToSpeech(text: string, voice: string = 'nova'): Promis
 
     const audioBuffer = Buffer.concat(chunks);
 
-    console.log(`🔊 ElevenLabs TTS Generated: ${audioBuffer.length} bytes audio (${voice} voice)`);
+    // ✅ REMOVED: Verbose log - happens on every TTS call
+    // console.log(`🔊 ElevenLabs TTS Generated: ${audioBuffer.length} bytes audio (${voice} voice)`);
 
     return audioBuffer;
   } catch (error: any) {
@@ -159,7 +162,8 @@ export async function processVoiceMessage(args: {
 
   try {
     // Step 1: Speech-to-Text (Deepgram Nova-2)
-    console.log('🎤 Step 1: Converting speech to text (Deepgram Nova-2)...');
+    // ✅ REMOVED: Verbose log - happens on every voice message
+    // console.log('🎤 Step 1: Converting speech to text (Deepgram Nova-2)...');
     const transcript = await speechToText(args.audioBuffer, args.audioFormat);
 
     if (!transcript || transcript.trim().length === 0) {
@@ -167,7 +171,8 @@ export async function processVoiceMessage(args: {
     }
 
     // Step 2: Process through agent orchestrator
-    console.log('🎯 Step 2: Processing through agent orchestrator...');
+    // ✅ REMOVED: Verbose log - happens on every voice message
+    // console.log('🎯 Step 2: Processing through agent orchestrator...');
     const orchestrator = getAgentOrchestratorService();
     const orchestratorResult = await orchestrator.processMessage({
       sessionId: args.sessionId,
@@ -178,11 +183,13 @@ export async function processVoiceMessage(args: {
     });
 
     // Step 3: Text-to-Speech (ElevenLabs Flash v2.5)
-    console.log('🔊 Step 3: Converting response to speech (ElevenLabs Flash v2.5)...');
+    // ✅ REMOVED: Verbose log - happens on every voice message
+    // console.log('🔊 Step 3: Converting response to speech (ElevenLabs Flash v2.5)...');
     const audioBuffer = await textToSpeech(orchestratorResult.response, args.voice || 'nova');
 
     const duration = Date.now() - startTime;
-    console.log(`✅ Voice message processed in ${duration}ms (STT: Deepgram, TTS: ElevenLabs)`);
+    // ✅ REMOVED: Verbose log - happens on every voice message
+    // console.log(`✅ Voice message processed in ${duration}ms (STT: Deepgram, TTS: ElevenLabs)`);
 
     return {
       sessionId: orchestratorResult.sessionId,

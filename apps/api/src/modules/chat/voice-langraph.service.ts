@@ -146,7 +146,7 @@ export class VoiceLangraphSession {
         // Accumulate audio data
         const audioChunk = Buffer.from(message.audio, 'base64');
         this.audioBuffer.push(audioChunk);
-        console.log(`📥 Received audio chunk: ${audioChunk.length} bytes (total chunks: ${this.audioBuffer.length})`);
+        // ✅ REMOVED: Noisy log - audio chunks received continuously during voice calls
       } else if (message.type === 'audio.commit') {
         // Process accumulated audio
         await this.processAudio();
@@ -187,11 +187,13 @@ export class VoiceLangraphSession {
       const rawPcmBuffer = Buffer.concat(this.audioBuffer);
       this.audioBuffer = []; // Clear buffer
 
-      console.log(`🎤 Processing audio: ${rawPcmBuffer.length} bytes raw PCM for session ${this.sessionId}`);
+      // ✅ REMOVED: Verbose logs - happens frequently during voice calls
+      // console.log(`🎤 Processing audio: ${rawPcmBuffer.length} bytes raw PCM for session ${this.sessionId}`);
 
       // Convert raw PCM16 to WAV format with headers
       const wavBuffer = pcm16ToWav(rawPcmBuffer);
-      console.log(`🔄 Converted to WAV: ${wavBuffer.length} bytes (added ${wavBuffer.length - rawPcmBuffer.length} byte header)`);
+      // ✅ REMOVED: Verbose logs - happens frequently during voice calls
+      // console.log(`🔄 Converted to WAV: ${wavBuffer.length} bytes (added ${wavBuffer.length - rawPcmBuffer.length} byte header)`);
 
       // Send processing indicator to client
       this.clientWs.send(JSON.stringify({
