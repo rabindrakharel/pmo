@@ -515,7 +515,8 @@ Evaluate which transition condition (if any) is satisfied.`;
         id: fields.customer?.id,
         name: fields.customer?.name,
         phone: fields.customer?.phone,
-        email: fields.customer?.email
+        email: fields.customer?.email,
+        address: fields.customer?.address
       },
       service: {
         primary_request: fields.service?.primary_request,

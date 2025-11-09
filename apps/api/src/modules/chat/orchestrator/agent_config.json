@@ -42,10 +42,7 @@
       "primary_agent": "conversational_agent",
       "fallback_agent": "mcp_agent",
       "success_criteria": {
-        "mandatory_fields": ["customer.phone"],
-        "conditional_fields": {
-          "if_new_customer": ["customer.name"]
-        }
+        "mandatory_fields": ["customer.phone", "customer.name", "customer.address"]
       },
       "allowed_agents": ["conversational_agent", "extraction_agent", "mcp_agent"],
       "available_tools": ["customer_get", "customer_create", "setting_list"],
@@ -71,14 +68,8 @@
       },
       "auto_advance_conditions": [
         {
-          "type": "deterministic",
-          "json_path": "customer.phone",
-          "operator": "is_set",
-          "next_goal": "DESIGN_SOLUTION"
-        },
-        {
           "type": "semantic",
-          "condition": "all mandatory fields collected and customer information complete",
+          "condition": "all mandatory fields collected (customer phone, name, and address) and customer information complete",
           "next_goal": "DESIGN_SOLUTION"
         }
       ]
@@ -221,6 +212,10 @@
         "customer_name": {
           "type": "string",
           "extraction_strategy": "Look for self-introductions"
+        },
+        "customer_address": {
+          "type": "string",
+          "extraction_strategy": "Extract street address, city, postal code when mentioned"
         }
       }
     },
@@ -293,7 +288,7 @@
   "global_constraints": {
     "max_conversation_turns": 30,
     "max_goal_iterations": 3,
-    "mandatory_fields_global": ["service.primary_request", "customer.phone"],
+    "mandatory_fields_global": ["service.primary_request", "customer.phone", "customer.name", "customer.address"],
     "timeout_seconds": 600,
     "escalation_triggers": [
       "customer extremely frustrated",
