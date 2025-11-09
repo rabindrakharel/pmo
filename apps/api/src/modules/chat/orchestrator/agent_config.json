@@ -69,21 +69,47 @@
         {
           "type": "semantic",
           "condition": "all mandatory fields collected (customer phone, name, and address) and customer information complete",
+          "next_goal": "MANAGE_CUSTOMER_PROFILE"
+        }
+      ]
+    },
+    {
+      "goal_id": "MANAGE_CUSTOMER_PROFILE",
+      "description": "Look up existing customer or create new customer profile",
+      "goal_type": "execution",
+      "is_terminal": false,
+      "primary_agent": "mcp_agent",
+      "fallback_agent": "conversational_agent",
+      "success_criteria": {
+        "mandatory_fields": ["customer.id"]
+      },
+      "allowed_agents": ["mcp_agent", "conversational_agent"],
+      "conversation_tactics": ["progress_updates"],
+      "max_turns": 3,
+      "retry_strategy": {
+        "approach": "retry_operation",
+        "escalation_turns": [2]
+      },
+      "auto_advance_conditions": [
+        {
+          "type": "semi_deterministic",
+          "json_path": "customer.id",
+          "operator": "is_set",
           "next_goal": "DESIGN_SOLUTION"
         }
       ]
     },
     {
       "goal_id": "DESIGN_SOLUTION",
-      "description": "Create plan to resolve customer request",
-      "goal_type": "planning",
+      "description": "Create plan to resolve customer request and find available employees",
+      "goal_type": "planning_with_mcp",
       "is_terminal": false,
-      "primary_agent": "planner_agent",
-      "fallback_agent": "mcp_agent",
+      "primary_agent": "mcp_agent",
+      "fallback_agent": "conversational_agent",
       "success_criteria": {
-        "mandatory_fields": ["operations.solution_plan"]
+        "mandatory_fields": ["operations.solution_plan", "assignment.employee_id"]
       },
-      "allowed_agents": ["planner_agent", "mcp_agent", "conversational_agent"],
+      "allowed_agents": ["mcp_agent", "conversational_agent", "planner_agent"],
       "conversation_tactics": ["solution_explanation", "consent_gathering"],
       "max_turns": 6,
       "retry_strategy": {
@@ -92,10 +118,12 @@
       },
       "auto_advance_conditions": [
         {
-          "condition": "solution plan created and customer consents",
+          "type": "semantic",
+          "condition": "solution plan created with assigned employee and customer consents",
           "next_goal": "EXECUTE_SOLUTION"
         },
         {
+          "type": "semantic",
           "condition": "customer rejects plan",
           "next_goal": "DESIGN_SOLUTION",
           "loop_prevention": { "max_iterations": 2 }
@@ -244,7 +272,7 @@
     "mcp_agent": {
       "identity": "External systems integration specialist",
       "capabilities": ["entity_scoped_tool_access", "tool_selection", "tool_execution", "customer_profile_management"],
-      "system_prompt": "Execute external calls via MCP tools. Analyze context, select tool, execute with correct parameters, handle errors gracefully. PRIORITY: Create/update customer profiles with complete data (name, phone, email, fine-grained address) before proceeding to task creation. SCOPE: Only use tools within entity_boundary.",
+      "system_prompt": "Execute external calls via MCP tools. Analyze context, select tool, execute with correct parameters, handle errors gracefully.\n\n**CUSTOMER PROFILE WORKFLOW (MANAGE_CUSTOMER_PROFILE goal):**\n1. Search for existing customer: Call customer_get with phone number from context\n2. If customer found: Call customer_update with any new data (name, email, address fields)\n3. If customer NOT found: Call customer_create with complete profile (name, phone, email, address_street, address_city, address_state, address_zipcode)\n4. Extract customer.id from response and update context\n5. Confirm to user: \"I've updated your profile\" or \"I've created your profile\"\n\n**SOLUTION DESIGN WORKFLOW (DESIGN_SOLUTION goal):**\n1. Search for matching service: Call setting_list or service_list based on service.primary_request\n2. Search for available employees: Call employee_list to find qualified employees\n3. Select best match employee and store assignment.employee_id\n4. Create solution plan with: service type, assigned employee, estimated timeline\n5. Present plan to customer and ask for consent\n\n**IMPORTANT:** Always execute customer lookup/create BEFORE task creation. Use fine-grained address fields. Only use tools within entity_boundary.",
       "entity_boundary": {
         "description": "Dynamically limit MCP tools to relevant entities based on conversation context. Reduces LLM token usage and improves tool selection accuracy.",
         "default_entities": ["Customer", "Task", "Employee", "Calendar", "Settings"],
