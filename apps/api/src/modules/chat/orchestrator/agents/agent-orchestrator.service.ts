@@ -11,7 +11,7 @@ import path from 'path';
 import { StateManager } from '../state/state-manager.service.js';
 import { MCPAdapterService } from '../../mcp-adapter.service.js';
 import { getAgentConfigLoader } from './dag-loader.service.js';
-import type { DAGConfiguration } from './dag-types.js';
+import type { AgentConfigV3 } from '../config/agent-config.schema.js';
 import {
   AgentContextManager,
   getAgentContextManager,
@@ -19,7 +19,7 @@ import {
 } from './agent-context.service.js';
 import { WorkerReplyAgent, createWorkerReplyAgent } from './worker-reply-agent.service.js';
 import { WorkerMCPAgent, createWorkerMCPAgent } from './worker-mcp-agent.service.js';
-import { NavigatorAgent, createNavigatorAgent } from './navigator-agent.service.js';
+import { GoalTransitionEngine } from '../engines/goal-transition.engine.js';
 import { DataExtractionAgent, createDataExtractionAgent } from './data-extraction-agent.service.js';
 import { getLLMLogger } from '../services/llm-logger.service.js';
 import { createAgentLogger, type AgentLogger } from '../services/agent-logger.service.js';
@@ -34,12 +34,12 @@ export class AgentOrchestratorService {
   private stateManager: StateManager;
   private mcpAdapter: MCPAdapterService;
   private contextManager: AgentContextManager;
-  private dagConfig!: DAGConfiguration;
+  private config!: AgentConfigV3;
   private logger = getLLMLogger();
 
   private workerReplyAgent!: WorkerReplyAgent;
   private workerMCPAgent!: WorkerMCPAgent;
-  private navigatorAgent!: NavigatorAgent;
+  private transitionEngine!: GoalTransitionEngine;
   private dataExtractionAgent!: DataExtractionAgent;
 
   // In-memory state cache (replace LangGraph checkpointer)
@@ -165,26 +165,28 @@ export class AgentOrchestratorService {
   private async initializeAgents(): Promise<void> {
     try {
       const configLoader = getAgentConfigLoader();
-      this.dagConfig = await configLoader.loadAgentConfig();
+      this.config = await configLoader.loadAgentConfig();
 
       // Pass agent config to context manager for deterministic initialization
-      this.contextManager.setDAGConfig(this.dagConfig);
+      this.contextManager.setDAGConfig(this.config as any); // TODO: Update context manager to use AgentConfigV3
 
-      // Initialize THREE worker agents:
+      // Initialize worker agents and transition engine:
       // 1. WorkerReplyAgent - generates customer-facing responses
       // 2. WorkerMCPAgent - executes MCP tools and updates context
       // 3. DataExtractionAgent - extracts context from conversation (called AFTER worker agents)
-      this.workerReplyAgent = createWorkerReplyAgent(this.dagConfig);
-      this.workerMCPAgent = createWorkerMCPAgent(this.dagConfig, this.mcpAdapter);
-      this.navigatorAgent = createNavigatorAgent(this.dagConfig);
+      // 4. GoalTransitionEngine - evaluates goal transitions using semantic routing
+      this.workerReplyAgent = createWorkerReplyAgent(this.config as any); // TODO: Update worker agent to use AgentConfigV3
+      this.workerMCPAgent = createWorkerMCPAgent(this.config as any, this.mcpAdapter); // TODO: Update worker agent to use AgentConfigV3
+      this.transitionEngine = new GoalTransitionEngine(this.config);
       this.dataExtractionAgent = createDataExtractionAgent();
 
-      console.log('[AgentOrchestrator] ✅ Agents initialized');
+      console.log('[AgentOrchestrator] ✅ Agents initialized (Goal-Oriented Architecture v3.0)');
       console.log('[AgentOrchestrator]    - WorkerReplyAgent: Customer-facing responses');
       console.log('[AgentOrchestrator]    - WorkerMCPAgent: MCP tool execution');
       console.log('[AgentOrchestrator]    - DataExtractionAgent: Context extraction (post-processing)');
-      console.log('[AgentOrchestrator]    - NavigatorAgent: Routing decisions');
-      console.log(`[AgentOrchestrator] Total nodes: ${this.dagConfig.nodes.length}`);
+      console.log('[AgentOrchestrator]    - GoalTransitionEngine: Semantic goal routing');
+      console.log(`[AgentOrchestrator] Total goals: ${this.config.goals.length}`);
+      console.log(`[AgentOrchestrator] Agent profiles: ${Object.keys(this.config.agent_profiles).join(', ')}`);
     } catch (error: any) {
       console.error('[AgentOrchestrator] ❌ Failed to initialize agents:', error.message);
       throw error;
@@ -215,7 +217,7 @@ export class AgentOrchestratorService {
       await this.initializeSessionMemoryData();
 
       // Ensure agents are initialized
-      if (!this.dagConfig) {
+      if (!this.config) {
         await this.initializeAgents();
       }
 
@@ -375,45 +377,18 @@ export class AgentOrchestratorService {
         break;
       }
 
-      // Detect loop-back intention BEFORE executing node
-      // Check if current node was reached via a loop-back condition
-      loopBackIntention = undefined; // Reset for this iteration
-      state.loopBackIntention = undefined; // Clear from state
-      if (iterations > 1 && state.previousNode) {
-        const prevNodeConfig = this.dagConfig.nodes.find(n => n.node_name === state.previousNode);
-        if (prevNodeConfig?.branching_conditions) {
-          const matchedCondition = prevNodeConfig.branching_conditions.find(
-            (bc: any) => bc.child_node === state.currentNode
-          );
-          if (matchedCondition?.loop_back_intention) {
-            loopBackIntention = matchedCondition.loop_back_intention;
-            state.loopBackIntention = loopBackIntention; // Set in state for agents to use
+      // Goal-based architecture: No explicit loop-back intentions
+      // Goals are more flexible - agents can revisit goals based on context
+      loopBackIntention = undefined;
+      state.loopBackIntention = undefined;
 
-            if (this.VERBOSE_LOGS) {
-              console.log(`\n🔄 [LOOP-BACK CONTEXT]`);
-              console.log(`   Previous node: ${state.previousNode}`);
-              console.log(`   Current node: ${state.currentNode}`);
-              console.log(`   Loop-back intention: ${loopBackIntention}`);
-            }
-
-            // Reset context fields if specified in branching condition
-            if (matchedCondition?.context_reset && Array.isArray(matchedCondition.context_reset)) {
-              if (this.VERBOSE_LOGS) {
-                console.log(`   🔄 Resetting context fields: ${matchedCondition.context_reset.join(', ')}`);
-              }
-              const resetUpdates: any = {};
-              matchedCondition.context_reset.forEach((field: string) => {
-                resetUpdates[field] = ''; // Reset to empty string
-              });
-              state = this.contextManager.updateContext(state, resetUpdates);
-            }
-          }
-        }
-      }
-
-      // STEP 1: Choose correct worker agent based on node.agent_profile_type
-      const currentNodeConfig = this.dagConfig.nodes.find(n => n.node_name === state.currentNode);
-      const agentProfileType = currentNodeConfig?.agent_profile_type || 'worker_reply_agent';
+      // STEP 1: Choose correct worker agent based on current goal
+      // TODO: In future, use goal.allowed_agents to determine which agent to use
+      // For now, default to worker_reply_agent unless context indicates MCP operation needed
+      const needsMCP = state.context.next_course_of_action?.toLowerCase().includes('mcp') ||
+                       state.context.next_course_of_action?.toLowerCase().includes('book') ||
+                       state.context.next_course_of_action?.toLowerCase().includes('create task');
+      const agentProfileType = needsMCP ? 'worker_mcp_agent' : 'worker_reply_agent';
 
       let response: string = '';
       let contextUpdates: any = {};
@@ -614,77 +589,87 @@ export class AgentOrchestratorService {
         console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
       }
 
-      // STEP 2: Navigator Agent decides next node AFTER execution
-      // ✅ FIX: Pass current exchange to Navigator to avoid stale context
-      const navCurrentExchange = (iterations === 1 && userMessage && response) ? {
-        customer: userMessage,
-        agent: response
-      } : undefined;
+      // STEP 2: GoalTransitionEngine evaluates if we should transition to next goal
+      // Build conversation history for semantic evaluation
+      const conversationHistory = (state.context.summary_of_conversation_on_each_step_until_now || []).map(
+        (entry: any) => ({ customer: entry.customer, agent: entry.agent })
+      );
 
-      const navigatorDecision = await this.navigatorAgent.decideNextNode(state, false, navCurrentExchange);
-      logger.navigate(state.currentNode, navigatorDecision.nextNode, navigatorDecision.reason);
+      // Use migration utility to build v3 context (temporary until full migration)
+      const { migrateContextV2toV3 } = await import('../migrations/context-migration-v2-to-v3.js');
+      const contextV3 = migrateContextV2toV3(state.context, state.sessionId, state.chatSessionId, state.userId);
+
+      // Evaluate transition
+      const transitionResult = await this.transitionEngine.evaluateTransition(
+        contextV3.conversation.current_goal,
+        contextV3,
+        conversationHistory
+      );
+
+      logger.navigate(
+        contextV3.conversation.current_goal,
+        transitionResult.nextGoal || contextV3.conversation.current_goal,
+        transitionResult.reason
+      );
 
       if (this.VERBOSE_LOGS) {
-        console.log(`\n🧭 [NAVIGATOR DECISION]`);
-        console.log(`   Validation: ${navigatorDecision.validationStatus.onTrack ? '✅ ON TRACK' : '⚠️ OFF TRACK'}`);
-        console.log(`   Reason: ${navigatorDecision.validationStatus.reason}`);
-        console.log(`   Current Node: ${state.currentNode}`);
-        console.log(`   Next Node: ${navigatorDecision.nextNode}`);
-        console.log(`   Matched Condition: ${navigatorDecision.matchedCondition || 'Using default_next_node'}`);
-        console.log(`   Next Action: ${navigatorDecision.nextCourseOfAction}`);
-        console.log(`   Routing Reason: ${navigatorDecision.reason}`);
-        if (navigatorDecision.mcpToolsNeeded && navigatorDecision.mcpToolsNeeded.length > 0) {
-          console.log(`   MCP Tools Needed: ${navigatorDecision.mcpToolsNeeded.join(', ')}`);
+        console.log(`\n🧭 [GOAL TRANSITION EVALUATION]`);
+        console.log(`   Current Goal: ${contextV3.conversation.current_goal}`);
+        console.log(`   Should Transition: ${transitionResult.shouldTransition ? '✅ YES' : '❌ NO'}`);
+        console.log(`   Reason: ${transitionResult.reason}`);
+        if (transitionResult.shouldTransition && transitionResult.nextGoal) {
+          console.log(`   Next Goal: ${transitionResult.nextGoal}`);
+        }
+        if (transitionResult.confidence !== undefined) {
+          console.log(`   Confidence: ${(transitionResult.confidence * 100).toFixed(1)}%`);
         }
       }
 
-      // Log navigator decision to llm.log
+      // Log transition decision to llm.log
       await this.logger.logNavigatorDecision({
-        currentNode: state.currentNode,
-        decision: navigatorDecision.validationStatus.onTrack ? 'On Track' : 'Off Track',
-        nextNode: navigatorDecision.nextNode,
-        reason: navigatorDecision.reason,
+        currentNode: contextV3.conversation.current_goal,
+        decision: transitionResult.shouldTransition ? 'Transition' : 'Stay in Goal',
+        nextNode: transitionResult.nextGoal || contextV3.conversation.current_goal,
+        reason: transitionResult.reason,
         sessionId: state.sessionId,
       });
 
-      // Log validation status if off-track
-      if (!navigatorDecision.validationStatus.onTrack) {
-        console.log(`\n⚠️ [VALIDATION WARNING]`);
-        console.log(`   Off-track reason: ${navigatorDecision.validationStatus.reason}`);
-      }
+      // Update context with next goal (use old currentNode field for now)
+      const nextNodeOrGoal = transitionResult.shouldTransition && transitionResult.nextGoal
+        ? transitionResult.nextGoal
+        : contextV3.conversation.current_goal;
 
-      // Update context with navigator decisions
       state = this.contextManager.updateContext(state, {
-        next_node_to_go_to: navigatorDecision.nextNode,
-        next_course_of_action: navigatorDecision.nextCourseOfAction,
+        next_node_to_go_to: nextNodeOrGoal,
+        next_course_of_action: transitionResult.reason,
       });
 
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       // LOOP DETECTION & RETRY GUIDANCE
-      // Track repeated visits to same node and provide guidance to try differently
+      // Track repeated visits to same goal and provide guidance to try differently
       // Data is NEVER erased - only approach varies
       // Uses node_traversed array to count visits (enables loop detection)
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       const allTraversedNodes = state.context.node_traversed || [];
-      const recentNodes = allTraversedNodes.slice(-10); // Last 10 nodes
+      const recentNodes = allTraversedNodes.slice(-10); // Last 10 goals
 
-      // Count how many times the NEXT node appears in recent history
-      const nextNodeVisitCount = recentNodes.filter(n => n === navigatorDecision.nextNode).length;
+      // Count how many times the NEXT goal appears in recent history
+      const nextNodeVisitCount = recentNodes.filter(n => n === nextNodeOrGoal).length;
 
-      // Count total visits to next node across entire conversation
-      const totalNextNodeVisits = allTraversedNodes.filter(n => n === navigatorDecision.nextNode).length;
+      // Count total visits to next goal across entire conversation
+      const totalNextNodeVisits = allTraversedNodes.filter(n => n === nextNodeOrGoal).length;
       const attemptNumber = totalNextNodeVisits + 1; // Next visit will be attempt N+1
 
       if (nextNodeVisitCount >= 2) {
-        console.log(`\n🔄 [LOOP DETECTED] ${navigatorDecision.nextNode} visited ${nextNodeVisitCount} times in last 10 nodes (attempt #${attemptNumber} total)`);
+        console.log(`\n🔄 [LOOP DETECTED] ${nextNodeOrGoal} visited ${nextNodeVisitCount} times in last 10 goals (attempt #${attemptNumber} total)`);
         console.log(`   Recent path (last 10): ${JSON.stringify(recentNodes)}`);
         console.log(`   ℹ️  Providing retry guidance to try different approach...`);
         console.log(`   ⚠️  IMPORTANT: Data collected so far is PRESERVED`);
 
-        // Generate retry guidance based on node type and attempt number
+        // Generate retry guidance based on goal type and attempt number
         let retryGuidance = '';
 
-        if (navigatorDecision.nextNode === 'Try_To_Gather_Customers_Data') {
+        if (nextNodeOrGoal === 'GATHER_REQUIREMENTS') {
           const dataFields = state.context.data_extraction_fields || {};
 
           if (attemptNumber === 3) {
@@ -704,7 +689,7 @@ export class AgentOrchestratorService {
             retryGuidance = `Try rephrasing the question differently. Current data: ${JSON.stringify(dataFields)}`;
           }
 
-        } else if (navigatorDecision.nextNode === 'ASK_CUSTOMER_ABOUT_THEIR_NEED') {
+        } else if (nextNodeOrGoal === 'UNDERSTAND_REQUEST') {
           if (attemptNumber === 3) {
             retryGuidance = `Customer response unclear. Try:\n`;
             retryGuidance += `- Ask more specific questions about their issue\n`;
@@ -716,7 +701,7 @@ export class AgentOrchestratorService {
           }
 
         } else {
-          retryGuidance = `Attempt #${attemptNumber}. Try varying your approach to gather required information.`;
+          retryGuidance = `Attempt #${attemptNumber}. Try varying your approach to achieve goal: ${nextNodeOrGoal}`;
         }
 
         // Update context with retry guidance (NEVER reset data)
@@ -733,7 +718,7 @@ export class AgentOrchestratorService {
             attemptNumber,
             recentVisits: nextNodeVisitCount,
             totalVisits: totalNextNodeVisits,
-            nextNode: navigatorDecision.nextNode,
+            nextNode: nextNodeOrGoal,
             retryGuidance,
             dataPreserved: true,
             recentPath: recentNodes,
@@ -763,13 +748,13 @@ export class AgentOrchestratorService {
       console.log(`   ✓ task_id: ${state.context.data_extraction_fields?.task_id || '(not set)'}`);
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
-      // Log Navigator's decision
-      console.log(`[AgentOrchestrator] ➡️  Navigator decision: ${state.currentNode} → ${navigatorDecision.nextNode}`);
+      // Log Transition decision
+      console.log(`[AgentOrchestrator] ➡️  Goal transition: ${state.currentNode} → ${nextNodeOrGoal}`);
 
-      // STEP 3: FORCE transition to next node (no questions asked)
+      // STEP 3: Transition to next goal if needed
 
       // Check if we should end conversation
-      if (navigatorDecision.nextNode === 'END') {
+      if (nextNodeOrGoal === 'END') {
         // Special case: If we're coming from Execute_Call_Hangup, end the entire conversation
         if (state.currentNode === 'Execute_Call_Hangup') {
           console.log(`\n📞 [CALL HANGUP COMPLETE]`);
@@ -806,8 +791,8 @@ export class AgentOrchestratorService {
         break;
       }
 
-      if (navigatorDecision.nextNode === 'Goodbye_And_Hangup') {
-        console.log(`\n👋 [CONVERSATION ENDING]`);
+      if (nextNodeOrGoal === 'CONFIRM_RESOLUTION' && transitionResult.shouldTransition) {
+        console.log(`\n👋 [CONVERSATION ENDING - RESOLUTION CONFIRMED]`);
         console.log(`   Ending conversation with status: Completed`);
         state = this.contextManager.endConversation(state, 'Completed');
         console.log(`   conversationEnded: ${state.conversationEnded}`);
@@ -816,7 +801,7 @@ export class AgentOrchestratorService {
         // Log iteration end
         await this.logger.logIterationEnd({
           iteration: iterations,
-          nextNode: navigatorDecision.nextNode,
+          nextNode: nextNodeOrGoal,
           conversationEnded: true,
           endReason: state.endReason,
           sessionId: state.sessionId,
@@ -824,68 +809,51 @@ export class AgentOrchestratorService {
         break;
       }
 
-      // FORCE move to next node - Navigator's decision is final
-      console.log(`\n🚀 [STATE TRANSITION]`);
-      console.log(`   FROM: ${state.currentNode}`);
-      console.log(`   TO: ${navigatorDecision.nextNode}`);
+      // Move to next goal if transition is needed
+      if (transitionResult.shouldTransition && transitionResult.nextGoal) {
+        console.log(`\n🚀 [GOAL TRANSITION]`);
+        console.log(`   FROM: ${state.currentNode}`);
+        console.log(`   TO: ${transitionResult.nextGoal}`);
 
-      const previousNode = state.currentNode;
-      state = this.contextManager.updateCurrentNode(state, navigatorDecision.nextNode);
+        const previousGoal = state.currentNode;
+        state = this.contextManager.updateCurrentNode(state, transitionResult.nextGoal);
 
-      // Write context file after navigation
-      await this.writeContextFile(state, `navigation:${previousNode}→${navigatorDecision.nextNode}`);
+        // Write context file after navigation
+        await this.writeContextFile(state, `goal_transition:${previousGoal}→${transitionResult.nextGoal}`);
 
-      console.log(`   ✅ Transition complete`);
-      console.log(`   New current node: ${state.currentNode}`);
-      console.log(`   Previous node: ${state.previousNode || 'N/A'}`);
+        console.log(`   ✅ Transition complete`);
+        console.log(`   New current goal: ${state.currentNode}`);
+        console.log(`   Previous goal: ${state.previousNode || 'N/A'}`);
 
-      // Check advance_type from the matched branching condition
-      // If the transition was made via a branching condition with advance_type='auto', continue
-      // If advance_type='stepwise' or no match, break and wait for user
-      const prevNodeConfig = this.dagConfig.nodes.find(n => n.node_name === previousNode);
-      let shouldAutoAdvance = false;
-      let matchedBranchingCondition: any = null;
+        // In goal-based architecture, transitions between goals are typically stepwise
+        // (wait for user input between goals). Auto-advance would be within a goal's sub-tasks.
+        // For now, always break after goal transition.
+        console.log(`\n💬 [TURN COMPLETE - GOAL TRANSITION]`);
+        console.log(`   Transitioned to new goal: ${transitionResult.nextGoal}`);
+        console.log(`   Breaking loop to wait for next user message`);
+        console.log(`   Final state context:`);
+        console.log(`     - currentGoal: ${state.currentNode}`);
+        console.log(`     - customers_main_ask: ${state.context.data_extraction_fields?.customers_main_ask || '(not set)'}`);
+        console.log(`     - customer_phone_number: ${state.context.data_extraction_fields?.customer_phone_number || '(not set)'}`);
 
-      // Find the branching condition that led to the current node
-      if (prevNodeConfig?.branching_conditions) {
-        matchedBranchingCondition = prevNodeConfig.branching_conditions.find(
-          (bc: any) => bc.child_node === state.currentNode
-        );
-
-        if (matchedBranchingCondition) {
-          shouldAutoAdvance = matchedBranchingCondition.advance_type === 'auto';
-          console.log(`\n🔀 [ROUTING TYPE]`);
-          console.log(`   Matched branching condition: ${matchedBranchingCondition.condition || '(no condition text)'}`);
-          console.log(`   Advance type: ${matchedBranchingCondition.advance_type || '(not set)'}`);
-          console.log(`   Child node: ${matchedBranchingCondition.child_node}`);
-        }
+        // Log iteration end
+        await this.logger.logIterationEnd({
+          iteration: iterations,
+          nextNode: state.currentNode,
+          conversationEnded: false,
+          sessionId: state.sessionId,
+        });
+        break;
       }
 
-      // If no matching condition found, check if transition was via default_next_node
-      if (!matchedBranchingCondition && prevNodeConfig?.default_next_node === state.currentNode) {
-        console.log(`\n🔀 [ROUTING TYPE]`);
-        console.log(`   Used default_next_node (no branching condition matched)`);
-        console.log(`   Advance type: stepwise (default behavior)`);
-        shouldAutoAdvance = false;
-      }
-
-      // Auto-advance: continue to next iteration immediately
-      if (shouldAutoAdvance && iterations < maxIterations) {
-        console.log(`\n⚡ [AUTO-ADVANCE ENABLED]`);
-        console.log(`   Transition has advance_type='auto'`);
-        console.log(`   Continuing to execute next node without waiting for user input...`);
-        continue; // Don't break - continue the loop
-      }
-
-      // Stepwise: break and wait for user response
-      console.log(`\n💬 [TURN COMPLETE - STEPWISE]`);
-      console.log(`   Transition has advance_type='stepwise' or default`);
+      // No transition: stay in current goal and wait for user input
+      console.log(`\n💬 [TURN COMPLETE - STAYING IN GOAL]`);
+      console.log(`   Remaining in goal: ${state.currentNode}`);
       console.log(`   Breaking loop to wait for next user message`);
       console.log(`   Final state context:`);
-      console.log(`     - currentNode: ${state.currentNode}`);
+      console.log(`     - currentGoal: ${state.currentNode}`);
       console.log(`     - customers_main_ask: ${state.context.data_extraction_fields?.customers_main_ask || '(not set)'}`);
       console.log(`     - customer_phone_number: ${state.context.data_extraction_fields?.customer_phone_number || '(not set)'}`);
-      console.log(`     - flags: ${JSON.stringify(state.context.flags || {}, null, 2)}`);
 
       // Log iteration end
       await this.logger.logIterationEnd({
