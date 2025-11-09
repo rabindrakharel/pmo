@@ -144,13 +144,24 @@ export class ContextInitializer {
     // Ensure nested data_extraction_fields is initialized with proper structure
     if (!context.data_extraction_fields || typeof context.data_extraction_fields !== 'object') {
       context.data_extraction_fields = {
-        customer: { name: '', phone: '', email: '', address: '', id: '' },
+        customer: {
+          name: '',
+          phone: '',
+          email: '',
+          address: '',  // Fallback for full address
+          address_street: '',
+          address_city: '',
+          address_state: '',
+          address_zipcode: '',
+          address_country: '',
+          id: ''
+        },
         service: { primary_request: '', catalog_match: '', related_entities: '' },
         operations: { solution_plan: '', task_id: '', task_name: '', appointment_details: '' },
         project: { id: '' },
         assignment: { employee_id: '', employee_name: '' }
       };
-      console.log(`   - data_extraction_fields: initialized with nested structure (customer, service, operations, project, assignment)`);
+      console.log(`   - data_extraction_fields: initialized with nested structure (customer with fine-grained address, service, operations, project, assignment)`);
     }
 
     // Merge additional fields if provided
@@ -237,7 +248,12 @@ export class ContextInitializer {
           name: '',
           phone: '',
           email: '',
-          address: '',
+          address: '',  // Fallback for full address
+          address_street: '',
+          address_city: '',
+          address_state: '',
+          address_zipcode: '',
+          address_country: '',
           id: ''
         },
         service: {

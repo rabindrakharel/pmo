@@ -412,18 +412,39 @@ Agent: "I can help with that roof issue"
 
 ---
 
-Example 3 - Address extraction:
+Example 3 - Fine-grained address extraction:
 Conversation:
 Customer: "My address is 353531 Edmonton Avenue, Palo Alto, California"
 Agent: "Thank you for providing your address"
 
 → Call: updateContext({
-  "customer.address": "353531 Edmonton Avenue, Palo Alto, California"
+  "customer.address": "353531 Edmonton Avenue, Palo Alto, California",
+  "customer.address_street": "353531 Edmonton Avenue",
+  "customer.address_city": "Palo Alto",
+  "customer.address_state": "California"
 })
+
+Note: Extract BOTH full address AND components when possible
 
 ---
 
-Example 4 - Issue only:
+Example 4 - Partial address extraction:
+Conversation:
+Customer: "I'm in Toronto"
+Agent: "Great, which street are you on?"
+Customer: "123 Main Street, postal code M5V 3A8"
+
+→ Call: updateContext({
+  "customer.address_city": "Toronto",
+  "customer.address_street": "123 Main Street",
+  "customer.address_zipcode": "M5V 3A8"
+})
+
+Note: Extract components incrementally as customer provides them
+
+---
+
+Example 5 - Service request only:
 Conversation:
 Customer: "The backyard has a hole that needs to be patched"
 Agent: "I understand, we can help patch that hole"
@@ -434,7 +455,7 @@ Agent: "I understand, we can help patch that hole"
 
 ---
 
-Example 5 - Nothing to extract:
+Example 6 - Nothing to extract:
 Conversation:
 Customer: "Okay, sounds good"
 Agent: "Great, let me proceed"
@@ -444,13 +465,17 @@ Agent: "Great, let me proceed"
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ IMPORTANT RULES:
 
-1. Use NESTED field names: customer.name, customer.phone, customer.address, service.primary_request, etc.
+1. Use NESTED field names: customer.name, customer.phone, customer.address, customer.address_street, customer.address_city, customer.address_state, customer.address_zipcode, service.primary_request, etc.
 2. ONLY extract from CUSTOMER messages (not agent responses)
 3. ONLY extract information explicitly mentioned
 4. Do NOT update fields that are already populated (check CURRENT CONTEXT)
 5. Extract ALL relevant fields in ONE call (don't call multiple times)
 6. If NO extractable information found, do NOT call the tool
-7. For addresses, capture FULL address including street, city, state/province when provided
+7. For addresses:
+   - Extract BOTH full address (customer.address) AND components (street, city, state, zipcode)
+   - Components help with service area validation and routing
+   - Extract incrementally as customer provides partial address info
+   - Examples: "Palo Alto" → customer.address_city, "California" → customer.address_state
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

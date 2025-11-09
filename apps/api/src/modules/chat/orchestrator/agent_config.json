@@ -215,7 +215,27 @@
         },
         "customer_address": {
           "type": "string",
-          "extraction_strategy": "Extract street address, city, postal code when mentioned"
+          "extraction_strategy": "Extract complete address when provided as single statement (fallback if components not available)"
+        },
+        "customer_address_street": {
+          "type": "string",
+          "extraction_strategy": "Extract street number and street name (e.g., '353531 Edmonton Avenue')"
+        },
+        "customer_address_city": {
+          "type": "string",
+          "extraction_strategy": "Extract city name (e.g., 'Palo Alto', 'Toronto')"
+        },
+        "customer_address_state": {
+          "type": "string",
+          "extraction_strategy": "Extract state/province (e.g., 'California', 'CA', 'Ontario', 'ON')"
+        },
+        "customer_address_zipcode": {
+          "type": "string",
+          "extraction_strategy": "Extract postal/zip code (e.g., '94301', 'M5V 3A8')"
+        },
+        "customer_address_country": {
+          "type": "string",
+          "extraction_strategy": "Extract country if explicitly mentioned (e.g., 'Canada', 'USA')"
         }
       }
     },
