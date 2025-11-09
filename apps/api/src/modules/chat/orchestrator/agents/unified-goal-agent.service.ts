@@ -492,8 +492,9 @@ Generate your JSON response now:`;
       }
     }
 
-    // Customer operations
+    // Customer operations - Update BOTH flat fields AND nested data_extraction_fields
     if (toolName.includes('customer') || toolName.includes('cust')) {
+      // Flat fields (for backward compatibility and MCP context)
       if (results.id) {
         updates.customer_id = results.id;
       }
@@ -506,6 +507,21 @@ Generate your JSON response now:`;
       if (results.primary_email) {
         updates.customer_email = results.primary_email;
       }
+
+      // ⚠️ FIX: Also update nested data_extraction_fields structure
+      // This is what prompts read from in buildSessionMemoryDataSection()
+      updates.data_extraction_fields = {
+        customer: {
+          id: results.id,
+          name: results.name || results.primary_contact_name,
+          phone: results.primary_phone,
+          email: results.primary_email,
+          address_street: results.primary_address,
+          address_city: results.city,
+          address_state: results.province,
+          address_postal_code: results.postal_code,
+        }
+      };
     }
 
     // Employee operations

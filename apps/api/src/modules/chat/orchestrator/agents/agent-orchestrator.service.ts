@@ -621,13 +621,45 @@ export class AgentOrchestratorService {
             console.log(`[UnifiedAgent] ✅ No MCP tools to execute`);
           }
 
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          // STEP 5: Extract customer data from conversation
+          // Run DataExtractionAgent to extract fields like customer.name, customer.phone
+          // ⚠️ CRITICAL: Must run AFTER reply generation to capture customer responses
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          if (response) {
+            console.log(`[UnifiedAgent] 🔍 Running data extraction...`);
+
+            // Build current exchange from user message and agent response
+            const currentExchange = (iterations === 1 && userMessage) ? {
+              customer: userMessage,
+              agent: response
+            } : undefined;
+
+            try {
+              const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(state, currentExchange);
+
+              if (extractionResult.contextUpdates) {
+                // Merge extraction updates with MCP updates
+                contextUpdates = { ...contextUpdates, ...extractionResult.contextUpdates };
+                console.log(`[UnifiedAgent] ✅ Data extraction complete: ${extractionResult.fieldsUpdated?.length || 0} fields updated`);
+
+                if (extractionResult.fieldsUpdated && extractionResult.fieldsUpdated.length > 0) {
+                  console.log(`   Extracted fields: ${extractionResult.fieldsUpdated.join(', ')}`);
+                }
+              }
+            } catch (extractionError: any) {
+              console.error(`[UnifiedAgent] ⚠️ Data extraction failed: ${extractionError.message}`);
+              // Continue execution - extraction failure is not critical
+            }
+          }
+
           // Log unified agent execution
           await this.logger.logAgentExecution({
             agentType: 'unified_goal',
             nodeName: state.currentNode,
             result: {
               ...unifiedResult,
-              contextUpdates, // Include final context updates after MCP completion
+              contextUpdates, // Include final context updates after MCP completion + extraction
             },
             sessionId: state.sessionId,
           });
