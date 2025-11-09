@@ -17,6 +17,7 @@ import type { AgentConfigV3, ConversationGoal, AgentProfile } from '../config/ag
 import type { MCPAdapterService } from '../../mcp-adapter.service.js';
 import { getMCPTools } from '../../mcp-adapter.service.js';
 import type { DAGContext } from './dag-types.js';
+import { createToolEnrichmentEngine, type ToolEnrichmentEngine } from '../lib/tool-enrichment-engine.service.js';
 
 /**
  * Worker MCP Agent Result
@@ -37,6 +38,7 @@ export class WorkerMCPAgent {
   private agentProfile: AgentProfile;
   private mcpAdapter?: MCPAdapterService;
   private authToken?: string;
+  private enrichmentEngine: ToolEnrichmentEngine;
 
   constructor(
     config: AgentConfigV3,
@@ -54,6 +56,9 @@ export class WorkerMCPAgent {
       throw new Error(`Agent profile not found: ${agentProfileId}`);
     }
     this.agentProfile = profile;
+
+    // Initialize generic enrichment engine from config (LOOSELY COUPLED!)
+    this.enrichmentEngine = createToolEnrichmentEngine(config);
 
     console.log(`[WorkerMCPAgent] 🎭 Initialized with profile: ${this.agentProfile.identity}`);
   }
@@ -90,9 +95,13 @@ export class WorkerMCPAgent {
     // OBSERVE: Analyze what's missing
     const observation = this.observe(goal, state);
 
-    // Get available MCP tools
-    const availableTools = getMCPTools();
-    console.log(`[WorkerMCPAgent] 📋 Available MCP tools: ${availableTools.length}`);
+    // Get available MCP tools (SCOPED BY ENTITY_BOUNDARY)
+    const entityBoundary = this.determineEntityBoundary(state);
+    const availableTools = getMCPTools({
+      categories: entityBoundary,
+      maxTools: 40  // Limit to prevent token overflow
+    });
+    console.log(`[WorkerMCPAgent] 📋 Available MCP tools: ${availableTools.length} (scoped to entities: ${entityBoundary.join(', ')})`);
 
     // THINK + ACT: Select and execute tool
     const systemPrompt = this.buildReActPrompt(goal, observation, availableTools);
@@ -129,9 +138,9 @@ export class WorkerMCPAgent {
         try {
           const { executeMCPTool } = await import('../../mcp-adapter.service.js');
 
-          // Parse arguments and enrich them with context data
+          // Parse arguments and enrich them with context data (GENERIC ENGINE - NO HARDCODING!)
           let toolArgs = JSON.parse(toolCall.function.arguments);
-          toolArgs = this.enrichMCPToolArguments(toolCall.function.name, toolArgs, state);
+          toolArgs = this.enrichmentEngine.enrichToolArguments(toolCall.function.name, toolArgs, state);
 
           const toolResult = await executeMCPTool(
             toolCall.function.name,
@@ -377,146 +386,56 @@ Select and call appropriate MCP tool(s) to fetch missing data.`;
   }
 
   /**
-   * Enrich MCP tool arguments with session context data
-   * Adds extracted data + conversation history to task descriptions
-   * Adds task references + attendees to calendar bookings
+   * Determine entity boundary dynamically based on session context
+   *
+   * Reads entity_boundary config and applies expansion rules based on:
+   * - Current goal
+   * - Extracted data (service catalog, project mentions, etc.)
+   * - Conversation context
+   *
+   * @returns Array of entity categories to scope MCP tools
    */
-  private enrichMCPToolArguments(
-    toolName: string,
-    args: Record<string, any>,
-    state: AgentContextState
-  ): Record<string, any> {
-    console.log(`[WorkerMCPAgent] 🔍 Enriching arguments for tool: ${toolName}`);
-
-    // Enrich task_create with extracted data + conversation history
-    if (toolName === 'task_create') {
-      console.log(`[WorkerMCPAgent] 📋 Enriching task description with extracted data + conversation`);
-
-      const extracted = state.context.data_extraction_fields || {};
-      const conversations = state.context.summary_of_conversation_on_each_step_until_now || [];
-
-      // Build rich description
-      let richDescription = args.body_descr || '';
-
-      // Add extracted customer data
-      if (extracted.customer) {
-        richDescription += '\n\n## Customer Information\n';
-        if (extracted.customer.name) richDescription += `- Name: ${extracted.customer.name}\n`;
-        if (extracted.customer.phone) richDescription += `- Phone: ${extracted.customer.phone}\n`;
-        if (extracted.customer.email) richDescription += `- Email: ${extracted.customer.email}\n`;
-
-        // Fine-grained address fields
-        const addressParts: string[] = [];
-        if (extracted.customer.address_street) addressParts.push(extracted.customer.address_street);
-        if (extracted.customer.address_city) addressParts.push(extracted.customer.address_city);
-        if (extracted.customer.address_state) addressParts.push(extracted.customer.address_state);
-        if (extracted.customer.address_zipcode) addressParts.push(extracted.customer.address_zipcode);
-        if (extracted.customer.address_country) addressParts.push(extracted.customer.address_country);
-
-        if (addressParts.length > 0) {
-          richDescription += `- Address: ${addressParts.join(', ')}\n`;
-        }
-      }
-
-      // Add service request details
-      if (extracted.service) {
-        richDescription += '\n## Service Request\n';
-        if (extracted.service.primary_request) {
-          richDescription += `- Request: ${extracted.service.primary_request}\n`;
-        }
-        if (extracted.service.catalog_match) {
-          richDescription += `- Service Type: ${extracted.service.catalog_match}\n`;
-        }
-      }
-
-      // Add conversation history
-      if (conversations.length > 0) {
-        richDescription += '\n## Conversation History\n';
-        conversations.forEach((exchange: any, index: number) => {
-          richDescription += `\n**Exchange ${index + 1}:**\n`;
-          richDescription += `Customer: ${exchange.customer}\n`;
-          richDescription += `Agent: ${exchange.agent}\n`;
-        });
-      }
-
-      args.body_descr = richDescription.trim();
-      console.log(`[WorkerMCPAgent] ✅ Enhanced task description (${richDescription.length} chars)`);
+  private determineEntityBoundary(state: AgentContextState): string[] {
+    const entityBoundaryConfig = (this.agentProfile as any).entity_boundary;
+    if (!entityBoundaryConfig) {
+      // No config - return default categories
+      return ['Customer', 'Task', 'Employee', 'Calendar', 'Settings'];
     }
 
-    // Enrich person_calendar_book with task reference + attendees
-    if (toolName === 'person_calendar_book') {
-      console.log(`[WorkerMCPAgent] 📅 Enriching calendar event with task details + attendees`);
+    // Start with default entities
+    let entities = new Set<string>(entityBoundaryConfig.default_entities || []);
 
-      const extracted = state.context.data_extraction_fields || {};
+    // Always include certain categories
+    const alwaysInclude = entityBoundaryConfig.always_include_categories || [];
+    alwaysInclude.forEach((cat: string) => entities.add(cat));
 
-      // Build event title if not provided
-      if (!args.body_title && extracted.service?.primary_request) {
-        args.body_title = `Service: ${extracted.service.primary_request}`;
-      }
+    // Apply expansion rules based on context
+    const extracted = state.context.data_extraction_fields || {};
+    const expansionRules = entityBoundaryConfig.expansion_rules || {};
 
-      // Build event instructions/details
-      let eventInstructions = args.body_instructions || '';
-
-      // Add task reference if available
-      if (extracted.operations?.task_id) {
-        eventInstructions += `\n\nTask ID: ${extracted.operations.task_id}`;
-        if (extracted.operations.task_name) {
-          eventInstructions += `\nTask: ${extracted.operations.task_name}`;
-        }
-      }
-
-      // Add service details
-      if (extracted.service?.primary_request) {
-        eventInstructions += `\n\nService: ${extracted.service.primary_request}`;
-      }
-
-      // Add customer info
-      if (extracted.customer?.name) {
-        eventInstructions += `\n\nCustomer: ${extracted.customer.name}`;
-        if (extracted.customer.phone) {
-          eventInstructions += `\nPhone: ${extracted.customer.phone}`;
-        }
-      }
-
-      args.body_instructions = eventInstructions.trim();
-
-      // Build attendees list for metadata
-      const attendees: Array<{ name: string; email?: string; phone?: string; type: string }> = [];
-
-      // Add customer as attendee
-      if (extracted.customer?.name) {
-        attendees.push({
-          name: extracted.customer.name,
-          email: extracted.customer.email || undefined,
-          phone: extracted.customer.phone || undefined,
-          type: 'customer'
-        });
-      }
-
-      // Add employee as attendee
-      if (extracted.assignment?.employee_name) {
-        attendees.push({
-          name: extracted.assignment.employee_name,
-          email: undefined, // Will need to fetch from employee record
-          type: 'employee'
-        });
-      }
-
-      // Merge attendees into metadata
-      const existingMetadata = args.body_metadata ? JSON.parse(args.body_metadata) : {};
-      const enrichedMetadata = {
-        ...existingMetadata,
-        attendees,
-        task_id: extracted.operations?.task_id,
-        service_type: extracted.service?.catalog_match
-      };
-
-      args.body_metadata = JSON.stringify(enrichedMetadata);
-
-      console.log(`[WorkerMCPAgent] ✅ Enhanced calendar event with ${attendees.length} attendees`);
+    // Rule: If service catalog matched
+    if (extracted.service?.catalog_match && expansionRules.if_service_catalog_matched) {
+      expansionRules.if_service_catalog_matched.add_entities.forEach((e: string) => entities.add(e));
     }
 
-    return args;
+    // Rule: If project mentioned
+    if (extracted.project?.id && expansionRules.if_project_mentioned) {
+      expansionRules.if_project_mentioned.add_entities.forEach((e: string) => entities.add(e));
+    }
+
+    // Rule: If appointment booking
+    if (state.context.currentGoal?.includes('appointment') && expansionRules.if_appointment_booking) {
+      expansionRules.if_appointment_booking.add_entities.forEach((e: string) => entities.add(e));
+    }
+
+    // Remove never include categories
+    const neverInclude = entityBoundaryConfig.never_include_categories || [];
+    neverInclude.forEach((cat: string) => entities.delete(cat));
+
+    const result = Array.from(entities);
+    console.log(`[WorkerMCPAgent] 🔍 Entity boundary determined: ${result.join(', ')}`);
+
+    return result;
   }
 
   /**

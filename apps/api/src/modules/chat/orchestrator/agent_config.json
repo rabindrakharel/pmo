@@ -42,7 +42,7 @@
       "primary_agent": "conversational_agent",
       "fallback_agent": "mcp_agent",
       "success_criteria": {
-        "mandatory_fields": ["customer.phone", "customer.name", "customer.address"]
+        "mandatory_fields": ["customer.phone", "customer.name", "customer.address_street", "customer.address_city", "customer.address_state"]
       },
       "allowed_agents": ["conversational_agent", "extraction_agent", "mcp_agent"],
       "available_tools": ["customer_get", "customer_create", "setting_list"],
@@ -247,13 +247,156 @@
     },
     "mcp_agent": {
       "identity": "External systems integration specialist",
-      "capabilities": ["tool_selection", "api_execution"],
-      "system_prompt": "Execute external calls via MCP tools. Analyze context, select tool, execute with correct parameters, handle errors gracefully.",
+      "capabilities": ["entity_scoped_tool_access", "tool_selection", "tool_execution", "customer_profile_management"],
+      "system_prompt": "Execute external calls via MCP tools. Analyze context, select tool, execute with correct parameters, handle errors gracefully. PRIORITY: Create/update customer profiles with complete data (name, phone, email, fine-grained address) before proceeding to task creation. SCOPE: Only use tools within entity_boundary.",
+      "entity_boundary": {
+        "description": "Dynamically limit MCP tools to relevant entities based on conversation context. Reduces LLM token usage and improves tool selection accuracy.",
+        "default_entities": ["Customer", "Task", "Employee", "Calendar", "Settings"],
+        "expansion_rules": {
+          "if_service_catalog_matched": {
+            "add_entities": ["Product", "Sales"]
+          },
+          "if_project_mentioned": {
+            "add_entities": ["Project", "Wiki", "Artifact", "Form"]
+          },
+          "if_appointment_booking": {
+            "add_entities": ["Booking", "Interaction"]
+          }
+        },
+        "always_include_categories": ["Settings", "Linkage"],
+        "never_include_categories": ["Authentication", "System"]
+      },
       "tool_selection_strategy": {
-        "customer_get": "Use when customer.phone exists but customer.id empty",
-        "customer_create": "Use after customer_get returns no results",
-        "task_create": "Use when solution approved and service identified",
-        "person_calendar_book": "Use when task_id exists"
+        "customer_get": "Use when customer.phone or customer.email exists but customer.id is empty. Search by phone or email.",
+        "customer_create": "Use after customer_get returns no results. Create customer with name (required), phone, email, and fine-grained address (street, city, state, zipcode, country).",
+        "customer_update": "Use when customer.id exists and new customer data is available. Update incrementally with fine-grained address fields (street, city, state, zipcode, country).",
+        "task_create": "Use when solution approved and service identified. Task description is auto-enriched with customer data + conversation history.",
+        "person_calendar_book": "Use when task_id exists and calendar slot available. Event is auto-enriched with task reference + attendees (customer email, employee email)."
+      },
+      "customer_profile_workflow": {
+        "step_1": "Search for existing customer via customer_get (by phone or email)",
+        "step_2": "If found: Update customer profile via customer_update with any new data (address components, email, etc.)",
+        "step_3": "If not found: Create new customer profile via customer_create with all extracted data",
+        "step_4": "Store customer.id in context for task/project linking",
+        "required_fields_for_creation": ["name", "phone"],
+        "optional_fields_for_creation": ["email", "address_street", "address_city", "address_state", "address_zipcode", "address_country"],
+        "update_incrementally": true
+      },
+      "tool_enrichment_rules": {
+        "task_create": {
+          "enrich_field": "body_descr",
+          "enrichment_type": "append_markdown",
+          "sections": [
+            {
+              "title": "Customer Information",
+              "source_paths": [
+                { "label": "Name", "path": "customer.name" },
+                { "label": "Phone", "path": "customer.phone" },
+                { "label": "Email", "path": "customer.email" },
+                { "label": "Address", "path": "customer.address", "format": "address_components", "components": ["address_street", "address_city", "address_state", "address_zipcode", "address_country"] }
+              ]
+            },
+            {
+              "title": "Service Request",
+              "source_paths": [
+                { "label": "Request", "path": "service.primary_request" },
+                { "label": "Service Type", "path": "service.catalog_match" }
+              ]
+            },
+            {
+              "title": "Conversation History",
+              "source_path": "summary_of_conversation_on_each_step_until_now",
+              "format": "conversation_exchanges"
+            }
+          ]
+        },
+        "customer_create": {
+          "enrichment_type": "field_mapping",
+          "field_mappings": [
+            { "source": "customer.name", "target": "body_name" },
+            { "source": "customer.phone", "target": "body_primary_phone" },
+            { "source": "customer.email", "target": "body_primary_email" },
+            { "source": "customer.address_street", "target": "body_primary_address" },
+            { "source": "customer.address_city", "target": "body_city" },
+            { "source": "customer.address_state", "target": "body_province" },
+            { "source": "customer.address_zipcode", "target": "body_postal_code" },
+            { "source": "customer.address_country", "target": "body_country" }
+          ],
+          "overwrite_existing": false
+        },
+        "customer_update": {
+          "enrichment_type": "field_mapping",
+          "field_mappings": [
+            { "source": "customer.name", "target": "body_name" },
+            { "source": "customer.phone", "target": "body_primary_phone" },
+            { "source": "customer.email", "target": "body_primary_email" },
+            { "source": "customer.address_street", "target": "body_primary_address" },
+            { "source": "customer.address_city", "target": "body_city" },
+            { "source": "customer.address_state", "target": "body_province" },
+            { "source": "customer.address_zipcode", "target": "body_postal_code" },
+            { "source": "customer.address_country", "target": "body_country" }
+          ],
+          "overwrite_existing": false
+        },
+        "person_calendar_book": {
+          "enrichment_type": "composite",
+          "enrichments": [
+            {
+              "enrich_field": "body_title",
+              "condition": "field_empty",
+              "source_path": "service.primary_request",
+              "format": "template",
+              "template": "Service: ${value}"
+            },
+            {
+              "enrich_field": "body_instructions",
+              "enrichment_type": "append_text",
+              "sections": [
+                {
+                  "condition": "field_exists:operations.task_id",
+                  "template": "\n\nTask ID: ${operations.task_id}\nTask: ${operations.task_name}"
+                },
+                {
+                  "condition": "field_exists:service.primary_request",
+                  "template": "\n\nService: ${service.primary_request}"
+                },
+                {
+                  "condition": "field_exists:customer.name",
+                  "template": "\n\nCustomer: ${customer.name}\nPhone: ${customer.phone}"
+                }
+              ]
+            },
+            {
+              "enrich_field": "body_metadata",
+              "enrichment_type": "merge_json",
+              "additions": {
+                "attendees": {
+                  "build_from": [
+                    {
+                      "condition": "field_exists:customer.name",
+                      "object": {
+                        "name": "${customer.name}",
+                        "email": "${customer.email}",
+                        "phone": "${customer.phone}",
+                        "type": "customer"
+                      }
+                    },
+                    {
+                      "condition": "field_exists:assignment.employee_name",
+                      "object": {
+                        "name": "${assignment.employee_name}",
+                        "email": null,
+                        "type": "employee"
+                      }
+                    }
+                  ]
+                },
+                "task_id": "${operations.task_id}",
+                "service_type": "${service.catalog_match}"
+              }
+            }
+          ]
+        }
       }
     }
   },
@@ -304,7 +447,7 @@
   "global_constraints": {
     "max_conversation_turns": 30,
     "max_goal_iterations": 3,
-    "mandatory_fields_global": ["service.primary_request", "customer.phone", "customer.name", "customer.address"],
+    "mandatory_fields_global": ["service.primary_request", "customer.phone", "customer.name", "customer.address_street", "customer.address_city", "customer.address_state"],
     "timeout_seconds": 600,
     "escalation_triggers": [
       "customer extremely frustrated",
