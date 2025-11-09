@@ -7,12 +7,16 @@ Access how current state of things work, understand the current state of truth, 
 
 Document struction:
 1. [Semantics & Business Context](#semantics--business-context)
-2. [Architecture, Block diagrams & DRY Design Patterns](#architecture--design-patterns), user interaction journey, how front end request are served step by step, explain the plumbing and system design step by step. 
+2. Tooling and framework architecture(in very short)
+2. [Architecture, Block diagrams, Flow diagram](#architecture--design-patterns),Crisp  diagrams, explain the plumbing and system design step by step. 
 3. [Database, API & UI/UX Mapping](#database-api--uiux-mapping) - Only if it involves api, database, uiux!
 4. [Entity Relationships](#dry-principles--entity-relationships) - only if .ddl has changed
-5. [Central Configuration & Middleware](#central-configuration--middleware) - if entity config, auth, or any middleware has changed. 
+5. [Central Configuration & Middleware, API factory pattern, Auth, Reusable backend code blocks (Don't include code)](#central-configuration--middleware) - if entity config, auth, or any middleware has changed. 
 6. [User Interaction Flow Examples](#user-interaction-flow-examples) - how it impacts end user's interaction!
-7. [Critical Considerations When building](#critical-considerations-when-editing) - Short crisp technical rundown for developers who build or extend this functionality, they need crisp knowledge! 
+7. [Critical Considerations When building](#critical-considerations-when-editing) - Short crisp technical rundown for developers who build or 
+extend this functionality, they need crisp knowledge! 
+8. DO NOT INCLUDE LONG CODE OR CODING LINES. 
+9. STRICTLY INCLUDE DATA FLOW DIAGRAM, SYSTEM DESIGN DIAGRAM, TOOLING, ARCHITECTURE
 
 Action: You must update all the other .md file that are referred here below:
 (donot update instruction file)
