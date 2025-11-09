@@ -275,33 +275,32 @@ export class AgentContextManager {
 
   /**
    * Get last user message
+   * ✅ UPDATED: Use summary instead of messages array (no longer populated)
    */
   getLastUserMessage(state: AgentContextState): string | undefined {
-    const userMessages = state.messages.filter(m => m.role === 'user');
-    return userMessages.length > 0 ? userMessages[userMessages.length - 1].content : undefined;
+    const summary = state.context.summary_of_conversation_on_each_step_until_now || [];
+    return summary.length > 0 ? summary[summary.length - 1].customer : undefined;
   }
 
   /**
    * Get last assistant message
+   * ✅ UPDATED: Use summary instead of messages array (no longer populated)
    */
   getLastAssistantMessage(state: AgentContextState): string | undefined {
-    const assistantMessages = state.messages.filter(m => m.role === 'assistant');
-    return assistantMessages.length > 0 ? assistantMessages[assistantMessages.length - 1].content : undefined;
+    const summary = state.context.summary_of_conversation_on_each_step_until_now || [];
+    return summary.length > 0 ? summary[summary.length - 1].agent : undefined;
   }
 
   /**
    * Convert to plain object for serialization
+   * ✅ UPDATED: No longer serialize messages array (redundant with summary)
    */
   toPlainObject(state: AgentContextState): any {
     return {
       sessionId: state.sessionId,
       chatSessionId: state.chatSessionId,
       userId: state.userId,
-      messages: state.messages.map(m => ({
-        role: m.role,
-        content: m.content,
-        timestamp: m.timestamp.toISOString(),
-      })),
+      // ✅ REMOVED: messages array no longer serialized (redundant with summary_of_conversation_on_each_step_until_now)
       context: state.context,
       currentNode: state.currentNode,
       previousNode: state.previousNode,

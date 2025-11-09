@@ -340,10 +340,11 @@ Return your routing decision as strict JSON.`;
 
   /**
    * Get last user message
+   * ✅ UPDATED: Use summary instead of messages array (no longer populated)
    */
   private getLastUserMessage(state: AgentContextState): string {
-    const userMessages = state.messages.filter(m => m.role === 'user');
-    return userMessages.length > 0 ? userMessages[userMessages.length - 1].content : '';
+    const summary = state.context.summary_of_conversation_on_each_step_until_now || [];
+    return summary.length > 0 ? summary[summary.length - 1].customer : '';
   }
 
   /**

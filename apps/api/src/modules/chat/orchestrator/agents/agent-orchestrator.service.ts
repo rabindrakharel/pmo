@@ -111,11 +111,7 @@ export class AgentOrchestratorService {
         conversationEnded: state.conversationEnded,
         endReason: state.endReason,
         context: state.context,
-        messages: state.messages.map(m => ({
-          role: m.role,
-          content: m.content,
-          timestamp: m.timestamp.toISOString(),
-        })),
+        // ✅ REMOVED: messages array no longer saved (redundant with summary_of_conversation_on_each_step_until_now)
         lastUpdated: new Date().toISOString(),
         action,
       };
@@ -260,10 +256,8 @@ export class AgentOrchestratorService {
         state = await this.loadState(sessionId);
       }
 
-      // Add user message to state
-      if (args.message) {
-        state = this.contextManager.addUserMessage(state, args.message);
-      }
+      // ✅ REMOVED: No longer add to messages array - conversation tracked in summary_of_conversation_on_each_step_until_now
+      // User message will be added to summary after worker execution (lines 543-566)
 
       // Execute conversation loop
       state = await this.executeConversationLoop(state, args.message);
@@ -288,7 +282,7 @@ export class AgentOrchestratorService {
           sessionId,
           endReason: state.endReason || 'unknown',
           totalIterations: state.context.node_traversed?.length || 0,
-          totalMessages: state.messages.length,
+          totalMessages: (state.context.summary_of_conversation_on_each_step_until_now || []).length,
         });
       }
 
@@ -483,10 +477,10 @@ export class AgentOrchestratorService {
         console.log(`[AgentOrchestrator] 🤖 AI_RESPONSE: ${response}`);
       }
 
-      // Update state with worker results FIRST
-      if (response) {
-        state = this.contextManager.addAssistantMessage(state, response);
-      }
+      // ✅ REMOVED: No longer add to messages array - conversation tracked in summary_of_conversation_on_each_step_until_now
+      // Assistant response will be added to summary after worker execution (lines 543-566)
+
+      // Update state with worker context updates
       if (Object.keys(contextUpdates).length > 0) {
         state = this.contextManager.updateContext(state, contextUpdates);
       }
@@ -615,9 +609,8 @@ export class AgentOrchestratorService {
         console.log(`   ✓ appointment_details: ${state.context.data_extraction_fields?.appointment_details || '(not set)'}`);
         console.log(`\n🗺️  NAVIGATION HISTORY (${state.context.node_traversed?.length || 0} nodes):`);
         console.log(`   ${JSON.stringify(state.context.node_traversed || [], null, 2)}`);
-        const msgCount = Math.floor((state.messages?.length || 0) / 2);
         const summaryCount = state.context.summary_of_conversation_on_each_step_until_now?.length || 0;
-        console.log(`\n💬 CONVERSATION (${summaryCount} indexed exchanges in summary, ${msgCount} exchanges in messages array)`);
+        console.log(`\n💬 CONVERSATION (${summaryCount} indexed exchanges)`);
         console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
       }
 
