@@ -318,7 +318,34 @@ export class AgentOrchestratorService {
             state = this.contextManager.updateContext(state, extractionResult.contextUpdates || {});
           }
 
-          // Save state
+          // ✅ FIX: Evaluate goal transition (same logic as executeConversationLoop)
+          // Build conversation history for semantic evaluation
+          const conversationHistory = (state.context.summary_of_conversation_on_each_step_until_now || []).map(
+            (entry: any) => ({ customer: entry.customer, agent: entry.agent })
+          );
+
+          // Evaluate transition
+          const transitionResult = await this.transitionEngine.evaluateTransition(
+            state.currentNode,
+            state.context,
+            conversationHistory,
+            state.sessionId
+          );
+
+          console.log(`[AgentOrchestrator] 🧭 Transition Evaluation:`);
+          console.log(`[AgentOrchestrator]    Current Goal: ${state.currentNode}`);
+          console.log(`[AgentOrchestrator]    Should Transition: ${transitionResult.shouldTransition ? '✅ YES' : '❌ NO'}`);
+          console.log(`[AgentOrchestrator]    Reason: ${transitionResult.reason}`);
+
+          if (transitionResult.shouldTransition && transitionResult.nextGoal) {
+            console.log(`[AgentOrchestrator]    Next Goal: ${transitionResult.nextGoal}`);
+
+            // Update current goal
+            state = this.contextManager.updateCurrentNode(state, transitionResult.nextGoal);
+            console.log(`[AgentOrchestrator] ✅ Goal transitioned: ${state.currentNode}`);
+          }
+
+          // Save state (now includes potentially updated goal)
           await this.saveState(state);
 
           // Update session in database
