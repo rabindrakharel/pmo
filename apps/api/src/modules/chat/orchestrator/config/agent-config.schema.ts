@@ -33,6 +33,27 @@ export interface ConversationGoal {
   fallback_goal?: string;
   auto_advance_conditions: AdvanceCondition[];
   constraints?: Constraint[];
+  termination_sequence?: TerminationSequence;
+}
+
+/**
+ * Termination Sequence - Declarative steps for ending conversation
+ * Used by terminal goals to specify goodbye message and MCP cleanup
+ */
+export interface TerminationSequence {
+  enabled: boolean;
+  steps: TerminationStep[];
+  on_completion: 'END';
+}
+
+export interface TerminationStep {
+  step: number;
+  action: 'conversational_goodbye' | 'execute_mcp_hangup' | 'custom';
+  agent: string;
+  message_template?: string;
+  required_tool?: string;
+  description?: string;
+  tactics?: string[];
 }
 
 /**

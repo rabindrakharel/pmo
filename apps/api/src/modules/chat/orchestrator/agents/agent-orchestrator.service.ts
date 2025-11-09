@@ -864,7 +864,70 @@ export class AgentOrchestratorService {
         console.log(`\n👋 [CONVERSATION ENDING - TERMINAL GOAL REACHED]`);
         console.log(`   Terminal Goal: ${nextNodeOrGoal}`);
         console.log(`   Description: ${nextGoalConfig?.description}`);
-        console.log(`   Ending conversation with status: Completed`);
+
+        // Execute termination sequence if configured (declarative goodbye + MCP hangup)
+        const terminationSequence = (nextGoalConfig as any)?.termination_sequence;
+        if (terminationSequence?.enabled) {
+          console.log(`\n🔚 [EXECUTING TERMINATION SEQUENCE]`);
+          console.log(`   ${terminationSequence.steps.length} steps configured`);
+
+          let goodbyeMessage = '';
+
+          for (const step of terminationSequence.steps) {
+            console.log(`\n   Step ${step.step}: ${step.action}`);
+
+            if (step.action === 'conversational_goodbye') {
+              // Generate goodbye message using conversational agent
+              console.log(`   Agent: ${step.agent}`);
+              console.log(`   Template: "${step.message_template}"`);
+
+              try {
+                const goodbyeResult = await this.workerReplyAgent.executeNode(
+                  nextNodeOrGoal,
+                  state,
+                  undefined
+                );
+                goodbyeMessage = goodbyeResult.response || step.message_template || 'Thank you! Goodbye!';
+                console.log(`   ✅ Goodbye message generated: "${goodbyeMessage}"`);
+
+                // Add goodbye message to conversation summary
+                state = this.contextManager.appendConversationSummary(
+                  state,
+                  '(system: ending conversation)',
+                  goodbyeMessage
+                );
+              } catch (error: any) {
+                console.error(`   ❌ Error generating goodbye message: ${error.message}`);
+                goodbyeMessage = step.message_template || 'Thank you! Goodbye!';
+              }
+
+            } else if (step.action === 'execute_mcp_hangup') {
+              // Execute MCP hangup tool
+              console.log(`   Agent: ${step.agent}`);
+              console.log(`   Tool: ${step.required_tool}`);
+
+              try {
+                const mcpResult = await this.workerMCPAgent.executeNode(nextNodeOrGoal, state);
+                console.log(`   ✅ MCP hangup executed successfully`);
+
+                // Log MCP execution
+                await this.logger.logAgentExecution({
+                  agentType: 'worker_mcp',
+                  nodeName: `${nextNodeOrGoal}_hangup`,
+                  result: mcpResult,
+                  sessionId: state.sessionId,
+                });
+              } catch (error: any) {
+                console.error(`   ❌ Error executing MCP hangup: ${error.message}`);
+              }
+            }
+          }
+
+          // Set final response to goodbye message
+          response = goodbyeMessage;
+        }
+
+        console.log(`\n   Ending conversation with status: Completed`);
         state = this.contextManager.endConversation(state, 'Completed');
         console.log(`   conversationEnded: ${state.conversationEnded}`);
         console.log(`   endReason: ${state.endReason}`);

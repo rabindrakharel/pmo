@@ -121,6 +121,7 @@
       "goal_type": "terminal",
       "is_terminal": true,
       "primary_agent": "conversational_agent",
+      "fallback_agent": "mcp_agent",
       "success_criteria": {
         "mandatory_fields": []
       },
@@ -131,6 +132,26 @@
       "retry_strategy": {
         "approach": "gentle_wrap_up",
         "escalation_turns": [2]
+      },
+      "termination_sequence": {
+        "enabled": true,
+        "steps": [
+          {
+            "step": 1,
+            "action": "conversational_goodbye",
+            "agent": "conversational_agent",
+            "message_template": "Thank you for choosing Huron Home Services! We'll take care of everything. Have a great day!",
+            "tactics": ["graceful_closure"]
+          },
+          {
+            "step": 2,
+            "action": "execute_mcp_hangup",
+            "agent": "mcp_agent",
+            "required_tool": "call_hangup",
+            "description": "Terminate chat session via MCP"
+          }
+        ],
+        "on_completion": "END"
       },
       "auto_advance_conditions": [
         {
