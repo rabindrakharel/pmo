@@ -5,7 +5,6 @@
  */
 
 import WebSocket from 'ws';
-import { processVoiceMessage } from './orchestrator/voice-orchestrator.service.js';
 
 /**
  * Convert raw PCM16 audio to WAV format with proper headers

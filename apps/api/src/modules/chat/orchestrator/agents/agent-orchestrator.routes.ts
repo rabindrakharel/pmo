@@ -11,52 +11,6 @@ export async function agentOrchestratorRoutes(fastify: FastifyInstance) {
   const orchestrator = getAgentOrchestratorService();
 
   /**
-   * POST /api/v1/chat/agent/message
-   * Process a message through pure agent orchestrator
-   */
-  fastify.post('/message', async (request, reply) => {
-    try {
-      const {
-        session_id,
-        message,
-        chat_session_id,
-        user_id,
-      } = request.body as {
-        session_id?: string;
-        message: string;
-        chat_session_id?: string;
-        user_id?: string;
-      };
-
-      if (!message) {
-        return reply.code(400).send({
-          error: 'Message is required',
-        });
-      }
-
-      // Get auth token from header
-      const authToken = request.headers.authorization?.replace('Bearer ', '');
-
-      // Process message through agent orchestrator
-      const result = await orchestrator.processMessage({
-        sessionId: session_id,
-        message,
-        chatSessionId: chat_session_id,
-        userId: user_id,
-        authToken,
-      });
-
-      return reply.code(200).send(result);
-    } catch (error: any) {
-      console.error('[AgentRoutes] Error processing message:', error);
-      return reply.code(500).send({
-        error: 'Internal server error',
-        message: error.message,
-      });
-    }
-  });
-
-  /**
    * GET /api/v1/chat/agent/session/:id/status
    * Get session status
    */
