@@ -25,8 +25,12 @@ import type { DAGContext } from './dag-types.js';
 export interface UnifiedGoalResult {
   commands_to_run: string[];               // MCP tools to execute (parallel)
   ask_talk_reply_to_customer: string;      // Single customer response (not array)
-  contextUpdates?: Partial<DAGContext>;    // Context updates from MCP execution
-  mcpResults?: any;                        // Raw MCP results
+  contextUpdates?: Partial<DAGContext>;    // Context updates from MCP execution (empty until promise resolves)
+  mcpResults?: any;                        // Raw MCP results (null until promise resolves)
+  mcpExecutionPromise?: Promise<{          // Promise for MCP execution (orchestrator awaits before state transition)
+    contextUpdates: Partial<DAGContext>;
+    mcpResults: any;
+  }> | null;
 }
 
 /**
@@ -147,63 +151,94 @@ export class UnifiedGoalAgent {
     console.log(`   commands_to_run: ${llmOutput.commands_to_run.length} tools`);
     console.log(`   ask_talk_reply_to_customer: "${llmOutput.ask_talk_reply_to_customer.substring(0, 80)}..."`);
 
-    // Execute commands in parallel
-    let contextUpdates: Partial<DAGContext> = {};
-    let mcpResults: any = null;
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // PARALLEL EXECUTION: MCP commands + Customer reply
+    // 1. Start MCP execution (async, don't await yet)
+    // 2. Return reply immediately
+    // 3. Orchestrator can send reply while MCP executes in background
+    // 4. Await MCP completion via mcpExecutionPromise before state transition
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    let mcpExecutionPromise: Promise<{
+      contextUpdates: Partial<DAGContext>;
+      mcpResults: any;
+    }> | null = null;
 
     if (llmOutput.commands_to_run.length > 0 && this.mcpAdapter) {
-      console.log(`\n⚡ [PARALLEL MCP EXECUTION] Running ${llmOutput.commands_to_run.length} tools...`);
+      console.log(`\n⚡ [PARALLEL MCP EXECUTION] Starting ${llmOutput.commands_to_run.length} tools (async)...`);
 
-      const mcpPromises = llmOutput.commands_to_run.map(async (toolName: string) => {
-        try {
-          console.log(`   Executing: ${toolName}`);
-
-          // Get tool arguments from LLM output (if provided)
-          const toolArgs = llmOutput[`${toolName}_args`] || {};
-
-          // Enrich arguments with context data
-          const enrichedArgs = this.enrichmentEngine.enrichToolArguments(
-            toolName,
-            toolArgs,
-            state
-          );
-
-          const toolResult = await executeMCPTool(
-            toolName,
-            enrichedArgs,
-            this.authToken || ''
-          );
-
-          console.log(`   ✅ ${toolName} succeeded`);
-          return { toolName, result: toolResult, error: null };
-        } catch (error: any) {
-          console.error(`   ❌ ${toolName} failed: ${error.message}`);
-          return { toolName, result: null, error: error.message };
-        }
-      });
-
-      const mcpResultsArray = await Promise.all(mcpPromises);
-
-      // Process results and update context
-      for (const { toolName, result, error } of mcpResultsArray) {
-        if (result && !error) {
-          const updates = this.mapMCPResultsToContext(toolName, result);
-          contextUpdates = { ...contextUpdates, ...updates };
-        }
-      }
-
-      mcpResults = mcpResultsArray;
-
-      const successCount = mcpResultsArray.filter(r => !r.error).length;
-      console.log(`\n   ✅ Parallel execution complete: ${successCount}/${llmOutput.commands_to_run.length} tools succeeded`);
-      this.logContextUpdates(contextUpdates);
+      // Start MCP execution but DON'T await - let it run in background
+      mcpExecutionPromise = this.executeMCPCommands(llmOutput, state);
     }
 
+    // Return immediately with reply + MCP execution promise
+    // Orchestrator can send reply while MCP executes
     return {
       commands_to_run: llmOutput.commands_to_run,
       ask_talk_reply_to_customer: llmOutput.ask_talk_reply_to_customer,
+      contextUpdates: {}, // Will be populated after MCP completion
+      mcpResults: null,   // Will be populated after MCP completion
+      mcpExecutionPromise, // Orchestrator awaits this before state transition
+    };
+  }
+
+  /**
+   * Execute MCP commands in parallel (background)
+   * Returns promise that resolves with context updates
+   */
+  private async executeMCPCommands(
+    llmOutput: any,
+    state: AgentContextState
+  ): Promise<{
+    contextUpdates: Partial<DAGContext>;
+    mcpResults: any;
+  }> {
+    const mcpPromises = llmOutput.commands_to_run.map(async (toolName: string) => {
+      try {
+        console.log(`   Executing: ${toolName}`);
+
+        // Get tool arguments from LLM output (if provided)
+        const toolArgs = llmOutput[`${toolName}_args`] || {};
+
+        // Enrich arguments with context data
+        const enrichedArgs = this.enrichmentEngine.enrichToolArguments(
+          toolName,
+          toolArgs,
+          state
+        );
+
+        const toolResult = await executeMCPTool(
+          toolName,
+          enrichedArgs,
+          this.authToken || ''
+        );
+
+        console.log(`   ✅ ${toolName} succeeded`);
+        return { toolName, result: toolResult, error: null };
+      } catch (error: any) {
+        console.error(`   ❌ ${toolName} failed: ${error.message}`);
+        return { toolName, result: null, error: error.message };
+      }
+    });
+
+    const mcpResultsArray = await Promise.all(mcpPromises);
+
+    // Process results and update context
+    let contextUpdates: Partial<DAGContext> = {};
+    for (const { toolName, result, error } of mcpResultsArray) {
+      if (result && !error) {
+        const updates = this.mapMCPResultsToContext(toolName, result);
+        contextUpdates = { ...contextUpdates, ...updates };
+      }
+    }
+
+    const successCount = mcpResultsArray.filter(r => !r.error).length;
+    console.log(`\n   ✅ MCP execution complete: ${successCount}/${llmOutput.commands_to_run.length} tools succeeded`);
+    this.logContextUpdates(contextUpdates);
+
+    return {
       contextUpdates,
-      mcpResults
+      mcpResults: mcpResultsArray
     };
   }
 

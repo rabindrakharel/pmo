@@ -589,25 +589,46 @@ export class AgentOrchestratorService {
         console.log(`\n🎯 [UNIFIED AGENT EXECUTION] Goal: ${state.currentNode}`);
 
         try {
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          // STEP 1: Get reply + start MCP execution (both parallel)
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           const unifiedResult = await this.unifiedGoalAgent.executeGoal(
             state.currentNode,
             state,
             iterations === 1 ? userMessage : undefined
           );
 
+          // STEP 2: Reply is available immediately
           response = unifiedResult.ask_talk_reply_to_customer;
-          contextUpdates = unifiedResult.contextUpdates || {};
 
-          console.log(`[UnifiedAgent] ✅ Execution complete`);
-          console.log(`   Response: "${response.substring(0, 80)}..."`);
-          console.log(`   MCP tools executed: ${unifiedResult.commands_to_run.length}`);
-          console.log(`   Context updates: ${Object.keys(contextUpdates).length} fields`);
+          console.log(`[UnifiedAgent] 📤 Reply ready: "${response.substring(0, 80)}..."`);
+          console.log(`[UnifiedAgent] ⏳ MCP tools executing in background: ${unifiedResult.commands_to_run.length}`);
+
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          // STEP 3: Customer can receive reply while MCP executes
+          // (In streaming mode, this reply streams to customer immediately)
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+          // STEP 4: Await MCP completion before state transition
+          if (unifiedResult.mcpExecutionPromise) {
+            console.log(`[UnifiedAgent] ⏳ Waiting for MCP completion before state transition...`);
+            const mcpResult = await unifiedResult.mcpExecutionPromise;
+            contextUpdates = mcpResult.contextUpdates || {};
+
+            console.log(`[UnifiedAgent] ✅ MCP execution complete`);
+            console.log(`   Context updates: ${Object.keys(contextUpdates).length} fields`);
+          } else {
+            console.log(`[UnifiedAgent] ✅ No MCP tools to execute`);
+          }
 
           // Log unified agent execution
           await this.logger.logAgentExecution({
             agentType: 'unified_goal',
             nodeName: state.currentNode,
-            result: unifiedResult,
+            result: {
+              ...unifiedResult,
+              contextUpdates, // Include final context updates after MCP completion
+            },
             sessionId: state.sessionId,
           });
         } catch (error: any) {
