@@ -287,21 +287,6 @@ Generate your response now:`;
     }
     return `Generate appropriate response to progress toward goal: ${goal?.description}`;
   }
-
-  /**
-   * LEGACY METHOD: Maintain backward compatibility during transition
-   * Maps old executeNode to new executeGoal
-   * TODO: Remove after full migration
-   */
-  async executeNode(
-    nodeName: string,
-    state: AgentContextState,
-    userMessage?: string
-  ): Promise<WorkerReplyResult> {
-    console.log(`[WorkerReplyAgent] ⚠️  Legacy executeNode called, mapping to executeGoal`);
-    // Map node name to goal ID (temporary)
-    return this.executeGoal(nodeName, state, userMessage);
-  }
 }
 
 /**

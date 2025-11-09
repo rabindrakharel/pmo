@@ -394,20 +394,6 @@ Select and call appropriate MCP tool(s) to fetch missing data.`;
   setAuthToken(token: string): void {
     this.authToken = token;
   }
-
-  /**
-   * LEGACY METHOD: Maintain backward compatibility during transition
-   * Maps old executeNode to new executeGoal
-   * TODO: Remove after full migration
-   */
-  async executeNode(
-    nodeName: string,
-    state: AgentContextState
-  ): Promise<WorkerMCPResult> {
-    console.log(`[WorkerMCPAgent] ⚠️  Legacy executeNode called, mapping to executeGoal`);
-    // Map node name to goal ID (temporary)
-    return this.executeGoal(nodeName, state);
-  }
 }
 
 /**
