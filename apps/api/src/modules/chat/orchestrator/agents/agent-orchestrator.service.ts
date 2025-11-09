@@ -456,7 +456,7 @@ export class AgentOrchestratorService {
         agentExecutors.set('conversational_agent', {
           agentId: 'conversational_agent',
           execute: async (state: AgentContextState, userMessage?: string) => {
-            return await this.workerReplyAgent.executeNode(state.currentNode, state, userMessage);
+            return await this.workerReplyAgent.executeGoal(state.currentNode, state, userMessage);
           }
         });
 
@@ -473,7 +473,7 @@ export class AgentOrchestratorService {
         agentExecutors.set('mcp_agent', {
           agentId: 'mcp_agent',
           execute: async (state: AgentContextState) => {
-            return await this.workerMCPAgent.executeNode(state.currentNode, state);
+            return await this.workerMCPAgent.executeGoal(state.currentNode, state);
           }
         });
 
@@ -538,7 +538,7 @@ export class AgentOrchestratorService {
       if (agentProfileType === 'worker_mcp_agent') {
         // Use WorkerMCPAgent for MCP operations
         try {
-          const mcpResult = await this.workerMCPAgent.executeNode(state.currentNode, state);
+          const mcpResult = await this.workerMCPAgent.executeGoal(state.currentNode, state);
           logger.agent('worker_mcp', state.currentNode, mcpResult.statusMessage);
 
           if (this.VERBOSE_LOGS) {
@@ -572,7 +572,7 @@ export class AgentOrchestratorService {
       } else if (agentProfileType === 'worker_reply_agent') {
         // Use WorkerReplyAgent for customer-facing responses
         try {
-          const replyResult = await this.workerReplyAgent.executeNode(
+          const replyResult = await this.workerReplyAgent.executeGoal(
             state.currentNode,
             state,
             iterations === 1 ? userMessage : undefined
@@ -620,7 +620,7 @@ export class AgentOrchestratorService {
 
         try {
           if (fallbackAgentType === 'worker_mcp_agent') {
-            const mcpResult = await this.workerMCPAgent.executeNode(state.currentNode, state);
+            const mcpResult = await this.workerMCPAgent.executeGoal(state.currentNode, state);
             response = mcpResult.statusMessage || '';
             contextUpdates = mcpResult.contextUpdates;
             console.log(`[AgentOrchestrator] ✅ Fallback MCP agent succeeded`);
@@ -632,7 +632,7 @@ export class AgentOrchestratorService {
               sessionId: state.sessionId,
             });
           } else if (fallbackAgentType === 'worker_reply_agent') {
-            const replyResult = await this.workerReplyAgent.executeNode(
+            const replyResult = await this.workerReplyAgent.executeGoal(
               state.currentNode,
               state,
               iterations === 1 ? userMessage : undefined
@@ -808,26 +808,23 @@ export class AgentOrchestratorService {
         (entry: any) => ({ customer: entry.customer, agent: entry.agent })
       );
 
-      // Use migration utility to build v3 context (temporary until full migration)
-      const { migrateContextV2toV3 } = await import('../migrations/context-migration-v2-to-v3.js');
-      const contextV3 = migrateContextV2toV3(state.context, state.sessionId, state.chatSessionId, state.userId);
-
       // Evaluate transition
       const transitionResult = await this.transitionEngine.evaluateTransition(
-        contextV3.conversation.current_goal,
-        contextV3,
-        conversationHistory
+        state.currentNode,
+        state.context,
+        conversationHistory,
+        state.sessionId
       );
 
       logger.navigate(
-        contextV3.conversation.current_goal,
-        transitionResult.nextGoal || contextV3.conversation.current_goal,
+        state.currentNode,
+        transitionResult.nextGoal || state.currentNode,
         transitionResult.reason
       );
 
       if (this.VERBOSE_LOGS) {
         console.log(`\n🧭 [GOAL TRANSITION EVALUATION]`);
-        console.log(`   Current Goal: ${contextV3.conversation.current_goal}`);
+        console.log(`   Current Goal: ${state.currentNode}`);
         console.log(`   Should Transition: ${transitionResult.shouldTransition ? '✅ YES' : '❌ NO'}`);
         console.log(`   Reason: ${transitionResult.reason}`);
         if (transitionResult.shouldTransition && transitionResult.nextGoal) {
@@ -837,17 +834,17 @@ export class AgentOrchestratorService {
 
       // Log transition decision to llm.log
       await this.logger.logNavigatorDecision({
-        currentNode: contextV3.conversation.current_goal,
+        currentNode: state.currentNode,
         decision: transitionResult.shouldTransition ? 'Transition' : 'Stay in Goal',
-        nextNode: transitionResult.nextGoal || contextV3.conversation.current_goal,
+        nextNode: transitionResult.nextGoal || state.currentNode,
         reason: transitionResult.reason,
         sessionId: state.sessionId,
       });
 
-      // Update context with next goal (use old currentNode field for now)
+      // Update context with next goal
       const nextNodeOrGoal = transitionResult.shouldTransition && transitionResult.nextGoal
         ? transitionResult.nextGoal
-        : contextV3.conversation.current_goal;
+        : state.currentNode;
 
       state = this.contextManager.updateContext(state, {
         next_node_to_go_to: nextNodeOrGoal,
@@ -1023,7 +1020,7 @@ export class AgentOrchestratorService {
               console.log(`   Template: "${step.message_template}"`);
 
               try {
-                const goodbyeResult = await this.workerReplyAgent.executeNode(
+                const goodbyeResult = await this.workerReplyAgent.executeGoal(
                   nextNodeOrGoal,
                   state,
                   undefined
@@ -1048,7 +1045,7 @@ export class AgentOrchestratorService {
               console.log(`   Tool: ${step.required_tool}`);
 
               try {
-                const mcpResult = await this.workerMCPAgent.executeNode(nextNodeOrGoal, state);
+                const mcpResult = await this.workerMCPAgent.executeGoal(nextNodeOrGoal, state);
                 console.log(`   ✅ MCP hangup executed successfully`);
 
                 // Log MCP execution

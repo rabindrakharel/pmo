@@ -13,9 +13,9 @@ import type {
   ConversationGoal,
   AdvanceCondition,
   GoalTransitionResult,
-  CriteriaCheckResult,
-  ConversationContextV3
+  CriteriaCheckResult
 } from '../config/agent-config.schema.js';
+import type { DAGContext } from '../agents/dag-types.js';
 import { evaluateDeterministicCondition } from '../utils/json-path-resolver.js';
 
 interface AdvanceEvaluationResult {
@@ -40,8 +40,9 @@ export class GoalTransitionEngine {
    */
   async evaluateTransition(
     currentGoalId: string,
-    context: ConversationContextV3,
-    conversationHistory: Array<{ customer: string; agent: string }>
+    context: DAGContext,
+    conversationHistory: Array<{ customer: string; agent: string }>,
+    sessionId?: string
   ): Promise<GoalTransitionResult> {
     console.log(`\n🎯 [GoalTransitionEngine] Evaluating goal: ${currentGoalId}`);
 
@@ -105,8 +106,9 @@ export class GoalTransitionEngine {
    */
   private async checkSuccessCriteria(
     goal: ConversationGoal,
-    context: ConversationContextV3,
-    conversationHistory: Array<{ customer: string; agent: string }>
+    context: DAGContext,
+    conversationHistory: Array<{ customer: string; agent: string }>,
+    sessionId?: string
   ): Promise<CriteriaCheckResult> {
     const missing: string[] = [];
     const satisfied: string[] = [];
@@ -167,8 +169,9 @@ export class GoalTransitionEngine {
    */
   private async evaluateQualityChecks(
     goal: ConversationGoal,
-    context: ConversationContextV3,
-    conversationHistory: Array<{ customer: string; agent: string }>
+    context: DAGContext,
+    conversationHistory: Array<{ customer: string; agent: string }>,
+    sessionId?: string
   ): Promise<{ passed: boolean; passedChecks: string[]; failedChecks: string[] }> {
     const qualityChecks = goal.success_criteria.quality_checks || [];
 
@@ -236,7 +239,7 @@ Evaluate which quality checks are satisfied.`;
         ],
         temperature: 0.1,
         jsonMode: true,
-        sessionId: context.session.id
+        sessionId: sessionId || context.agent_session_id || ''
       });
 
       const evaluation = JSON.parse(result.content || '{"checks": []}');
@@ -279,8 +282,9 @@ Evaluate which quality checks are satisfied.`;
    */
   private async evaluateAdvanceConditions(
     goal: ConversationGoal,
-    context: ConversationContextV3,
-    conversationHistory: Array<{ customer: string; agent: string }>
+    context: DAGContext,
+    conversationHistory: Array<{ customer: string; agent: string }>,
+    sessionId?: string
   ): Promise<AdvanceEvaluationResult> {
     const conditions = goal.auto_advance_conditions;
 
@@ -353,7 +357,7 @@ Evaluate which quality checks are satisfied.`;
         ],
         temperature: 0.1,
         jsonMode: true,
-        sessionId: context.session.id
+        sessionId: sessionId || context.agent_session_id || ''
       });
 
       const decision = JSON.parse(result.content || '{"matched": false, "reason": "Unable to parse response"}');
@@ -439,7 +443,7 @@ Critical Rules:
    * Build user prompt with context and conversation
    */
   private buildConditionEvaluationUserPrompt(
-    context: ConversationContextV3,
+    context: DAGContext,
     conversationHistory: Array<{ customer: string; agent: string }>
   ): string {
     const recentHistory = conversationHistory.slice(-5); // Last 5 exchanges
@@ -454,19 +458,21 @@ Exchange ${i + 1}:
   Agent: ${ex.agent}
 `).join('\n')}
 
-Current Goal Status:
-- Total Turns in Conversation: ${context.metadata.total_turns}
-- Current Goal: ${context.conversation.current_goal}
-- Completed Goals: ${context.conversation.completed_goals.join(', ') || 'None'}
+Current Conversation Context:
+- Total Conversation Exchanges: ${context.summary_of_conversation_on_each_step_until_now?.length || 0}
+- Nodes Traversed: ${context.node_traversed?.length || 0}
 
 Evaluate which transition condition (if any) is satisfied.`;
   }
 
   /**
    * Get nested field from context (supports dot notation)
+   * Fields like "customer.phone" are looked up in data_extraction_fields.customer.phone
    */
   private getNestedField(context: any, field: string): any {
-    const parts = field.split('.');
+    // Prepend data_extraction_fields for goal field paths
+    const fullPath = `data_extraction_fields.${field}`;
+    const parts = fullPath.split('.');
     let value = context;
     for (const part of parts) {
       if (value && typeof value === 'object') {
@@ -482,16 +488,18 @@ Evaluate which transition condition (if any) is satisfied.`;
    * Simple condition evaluation (for conditional fields)
    * This is for simple boolean checks, not semantic conditions
    */
-  private evaluateSimpleCondition(condition: string, context: ConversationContextV3): boolean {
+  private evaluateSimpleCondition(condition: string, context: DAGContext): boolean {
+    const fields = context.data_extraction_fields || {};
+
     // Example: "if_new_customer" → check if customer_id is empty
     if (condition === 'if_new_customer') {
-      return !context.customer?.id;
+      return !fields.customer?.id;
     }
     if (condition === 'if_service_request') {
-      return !!context.service?.primary_request;
+      return !!fields.service?.primary_request;
     }
     if (condition === 'if_existing_customer') {
-      return !!context.customer?.id;
+      return !!fields.customer?.id;
     }
     return false;
   }
@@ -499,27 +507,33 @@ Evaluate which transition condition (if any) is satisfied.`;
   /**
    * Extract relevant context fields for condition evaluation
    */
-  private getRelevantContext(context: ConversationContextV3): any {
+  private getRelevantContext(context: DAGContext): any {
+    const fields = context.data_extraction_fields || {};
+
     return {
       customer: {
-        id: context.customer?.id,
-        name: context.customer?.name,
-        phone: context.customer?.phone
+        id: fields.customer?.id,
+        name: fields.customer?.name,
+        phone: fields.customer?.phone,
+        email: fields.customer?.email
       },
       service: {
-        primary_request: context.service?.primary_request,
-        service_category: context.service?.service_category,
-        urgency: context.service?.urgency
+        primary_request: fields.service?.primary_request,
+        catalog_match: fields.service?.catalog_match,
+        related_entities: fields.service?.related_entities
       },
       operations: {
-        task_id: context.operations?.task_id,
-        appointment: context.operations?.appointment,
-        solution_plan: context.operations?.solution_plan
+        task_id: fields.operations?.task_id,
+        task_name: fields.operations?.task_name,
+        solution_plan: fields.operations?.solution_plan,
+        appointment_details: fields.operations?.appointment_details
       },
-      state: context.state,
-      metadata: {
-        total_turns: context.metadata.total_turns,
-        total_goals_completed: context.metadata.total_goals_completed
+      project: {
+        id: fields.project?.id
+      },
+      assignment: {
+        employee_id: fields.assignment?.employee_id,
+        employee_name: fields.assignment?.employee_name
       }
     };
   }
