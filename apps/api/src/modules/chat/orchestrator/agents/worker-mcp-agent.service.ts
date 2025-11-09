@@ -516,6 +516,87 @@ Select and call appropriate MCP tool(s) to fetch missing data.`;
       console.log(`[WorkerMCPAgent] ✅ Enhanced calendar event with ${attendees.length} attendees`);
     }
 
+    // Enrich customer_create with fine-grained address
+    if (toolName === 'customer_create') {
+      console.log(`[WorkerMCPAgent] 👤 Enriching customer_create with fine-grained address`);
+
+      const extracted = state.context.data_extraction_fields || {};
+
+      // Map extracted customer data to API fields
+      if (extracted.customer) {
+        if (extracted.customer.name && !args.body_name) {
+          args.body_name = extracted.customer.name;
+        }
+        if (extracted.customer.phone && !args.body_primary_phone) {
+          args.body_primary_phone = extracted.customer.phone;
+        }
+        if (extracted.customer.email && !args.body_primary_email) {
+          args.body_primary_email = extracted.customer.email;
+        }
+
+        // Fine-grained address mapping
+        // Combine address components into primary_address field for customer table
+        const addressParts: string[] = [];
+        if (extracted.customer.address_street) {
+          addressParts.push(extracted.customer.address_street);
+          args.body_primary_address = extracted.customer.address_street; // Street goes to primary_address
+        }
+        if (extracted.customer.address_city && !args.body_city) {
+          args.body_city = extracted.customer.address_city;
+        }
+        if (extracted.customer.address_state && !args.body_province) {
+          args.body_province = extracted.customer.address_state;
+        }
+        if (extracted.customer.address_zipcode && !args.body_postal_code) {
+          args.body_postal_code = extracted.customer.address_zipcode;
+        }
+        if (extracted.customer.address_country && !args.body_country) {
+          args.body_country = extracted.customer.address_country;
+        }
+
+        console.log(`[WorkerMCPAgent] ✅ Mapped customer data with fine-grained address`);
+      }
+    }
+
+    // Enrich customer_update with fine-grained address
+    if (toolName === 'customer_update') {
+      console.log(`[WorkerMCPAgent] 👤 Enriching customer_update with fine-grained address`);
+
+      const extracted = state.context.data_extraction_fields || {};
+
+      // Map extracted customer data to API fields (incremental update)
+      if (extracted.customer) {
+        if (extracted.customer.name && !args.body_name) {
+          args.body_name = extracted.customer.name;
+        }
+        if (extracted.customer.phone && !args.body_primary_phone) {
+          args.body_primary_phone = extracted.customer.phone;
+        }
+        if (extracted.customer.email && !args.body_primary_email) {
+          args.body_primary_email = extracted.customer.email;
+        }
+
+        // Fine-grained address mapping (incremental)
+        if (extracted.customer.address_street && !args.body_primary_address) {
+          args.body_primary_address = extracted.customer.address_street;
+        }
+        if (extracted.customer.address_city && !args.body_city) {
+          args.body_city = extracted.customer.address_city;
+        }
+        if (extracted.customer.address_state && !args.body_province) {
+          args.body_province = extracted.customer.address_state;
+        }
+        if (extracted.customer.address_zipcode && !args.body_postal_code) {
+          args.body_postal_code = extracted.customer.address_zipcode;
+        }
+        if (extracted.customer.address_country && !args.body_country) {
+          args.body_country = extracted.customer.address_country;
+        }
+
+        console.log(`[WorkerMCPAgent] ✅ Mapped customer update with fine-grained address`);
+      }
+    }
+
     return args;
   }
 

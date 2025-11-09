@@ -247,13 +247,23 @@
     },
     "mcp_agent": {
       "identity": "External systems integration specialist",
-      "capabilities": ["tool_selection", "api_execution"],
-      "system_prompt": "Execute external calls via MCP tools. Analyze context, select tool, execute with correct parameters, handle errors gracefully.",
+      "capabilities": ["tool_selection", "api_execution", "customer_profile_management"],
+      "system_prompt": "Execute external calls via MCP tools. Analyze context, select tool, execute with correct parameters, handle errors gracefully. PRIORITY: Create/update customer profiles with complete data (name, phone, email, fine-grained address) before proceeding to task creation.",
       "tool_selection_strategy": {
-        "customer_get": "Use when customer.phone exists but customer.id empty",
-        "customer_create": "Use after customer_get returns no results",
-        "task_create": "Use when solution approved and service identified",
-        "person_calendar_book": "Use when task_id exists"
+        "customer_get": "Use when customer.phone or customer.email exists but customer.id is empty. Search by phone or email.",
+        "customer_create": "Use after customer_get returns no results. Create customer with name (required), phone, email, and fine-grained address (street, city, state, zipcode, country).",
+        "customer_update": "Use when customer.id exists and new customer data is available. Update incrementally with fine-grained address fields (street, city, state, zipcode, country).",
+        "task_create": "Use when solution approved and service identified. Task description is auto-enriched with customer data + conversation history.",
+        "person_calendar_book": "Use when task_id exists and calendar slot available. Event is auto-enriched with task reference + attendees (customer email, employee email)."
+      },
+      "customer_profile_workflow": {
+        "step_1": "Search for existing customer via customer_get (by phone or email)",
+        "step_2": "If found: Update customer profile via customer_update with any new data (address components, email, etc.)",
+        "step_3": "If not found: Create new customer profile via customer_create with all extracted data",
+        "step_4": "Store customer.id in context for task/project linking",
+        "required_fields_for_creation": ["name", "phone"],
+        "optional_fields_for_creation": ["email", "address_street", "address_city", "address_state", "address_zipcode", "address_country"],
+        "update_incrementally": true
       }
     }
   },
