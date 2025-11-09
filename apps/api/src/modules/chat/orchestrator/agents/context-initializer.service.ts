@@ -144,7 +144,7 @@ export class ContextInitializer {
     // Ensure nested data_extraction_fields is initialized with proper structure
     if (!context.data_extraction_fields || typeof context.data_extraction_fields !== 'object') {
       context.data_extraction_fields = {
-        customer: { name: '', phone: '', email: '', id: '' },
+        customer: { name: '', phone: '', email: '', address: '', id: '' },
         service: { primary_request: '', catalog_match: '', related_entities: '' },
         operations: { solution_plan: '', task_id: '', task_name: '', appointment_details: '' },
         project: { id: '' },
