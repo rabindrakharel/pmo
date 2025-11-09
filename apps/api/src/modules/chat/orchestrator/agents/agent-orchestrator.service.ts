@@ -27,6 +27,7 @@ import { createAgentLogger, type AgentLogger } from '../services/agent-logger.se
 import { getSessionMemoryDataService } from '../services/session-memory-data.service.js';
 import type { SessionMemoryData } from '../services/session-memory-data.service.js';
 import { getSessionMemoryQueueService } from '../services/session-memory-queue.service.js';
+import { getSessionRequestQueueService } from '../services/session-request-queue.service.js';
 
 /**
  * Agent Orchestrator Service
@@ -240,7 +241,82 @@ export class AgentOrchestratorService {
     endReason?: string;
     error?: string;
   }> {
-    // Note: Race conditions now handled by RabbitMQ queue (sequential processing per session)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // SESSION-LEVEL REQUEST QUEUE
+    // Ensures sequential processing per session to prevent race conditions
+    // and provide coherent agent execution
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const requestQueue = getSessionRequestQueueService();
+    let sessionId = args.sessionId || 'temp-' + uuidv4(); // Generate temp ID for queue coordination
+
+    // Create a generator wrapper to buffer results from queued execution
+    const resultBuffer: Array<{
+      type: 'token' | 'done' | 'error';
+      token?: string;
+      sessionId?: string;
+      response?: string;
+      currentNode?: string;
+      conversationEnded?: boolean;
+      endReason?: string;
+      error?: string;
+    }> = [];
+    let processingComplete = false;
+    let processingError: Error | null = null;
+
+    // Enqueue the processing - this ensures sequential execution per session
+    const processPromise = requestQueue.enqueue(sessionId, async () => {
+      return await this._processMessageStreamInternal(args, resultBuffer);
+    }).then(result => {
+      processingComplete = true;
+      return result;
+    }).catch(error => {
+      processingError = error;
+      processingComplete = true;
+      throw error;
+    });
+
+    // Yield buffered results as they become available
+    let lastYieldedIndex = 0;
+
+    while (!processingComplete || lastYieldedIndex < resultBuffer.length) {
+      // Yield any new buffered results
+      while (lastYieldedIndex < resultBuffer.length) {
+        yield resultBuffer[lastYieldedIndex];
+        lastYieldedIndex++;
+      }
+
+      // If processing is complete, exit loop
+      if (processingComplete) {
+        break;
+      }
+
+      // Wait a bit before checking for new results (prevent busy-waiting)
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+
+    // Check for errors
+    if (processingError) {
+      yield {
+        type: 'error',
+        error: processingError.message
+      };
+    }
+  }
+
+  /**
+   * Internal streaming processing (wrapped by session queue)
+   * This is where the actual message processing happens
+   */
+  private async _processMessageStreamInternal(
+    args: {
+      sessionId?: string;
+      message: string;
+      chatSessionId?: string;
+      userId?: string;
+      authToken?: string;
+    },
+    resultBuffer: Array<any>
+  ): Promise<void> {
     let sessionId = args.sessionId;
 
     try {
@@ -354,30 +430,30 @@ export class AgentOrchestratorService {
             status: state.completed ? 'completed' : 'active',
           });
 
-          // Yield final metadata
-          yield {
+          // Push final metadata to result buffer
+          resultBuffer.push({
             type: 'done',
             sessionId,
             response: fullResponse,
             currentNode: state.currentNode,
             conversationEnded: state.conversationEnded,
             endReason: state.endReason,
-          };
+          });
         } else {
-          // Token chunk - yield to client immediately
+          // Token chunk - push to result buffer
           fullResponse += chunk.token;
-          yield {
+          resultBuffer.push({
             type: 'token',
             token: chunk.token,
-          };
+          });
         }
       }
     } catch (error: any) {
       console.error('[AgentOrchestrator] ❌ Error streaming message:', error);
-      yield {
+      resultBuffer.push({
         type: 'error',
         error: error.message,
-      };
+      });
     }
   }
 
