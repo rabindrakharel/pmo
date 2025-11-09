@@ -15,6 +15,7 @@
 import { getOpenAIService } from '../services/openai.service.js';
 import type { AgentContextState } from './agent-context.service.js';
 import { getLocalTools, executeUpdateContext } from '../tools/local-tools.js';
+import { getConfigLoader } from '../config/config-loader.service.js';
 
 /**
  * Data Extraction Result
@@ -95,16 +96,11 @@ export class DataExtractionAgent {
     // Identify which context fields are still empty (nested structure)
     const dataFields = state.context.data_extraction_fields || {};
 
-    // Define extractable fields with nested paths (ALL possible conversational fields)
-    const extractableFields = [
-      { path: 'customer.name', key: 'customer_name' },
-      { path: 'customer.phone', key: 'customer_phone' },
-      { path: 'customer.email', key: 'customer_email' },
-      { path: 'customer.address', key: 'customer_address' },
-      { path: 'service.primary_request', key: 'service_primary_request' }
-      // NOTE: service.catalog_match, service.related_entities should come from MCP (not conversation)
-      // NOTE: operations.* fields should come from MCP (not conversation)
-    ];
+    // ✅ LOAD extractable fields from agent_config.json (config-driven, not hardcoded)
+    const extractableFields = this.getExtractableFieldsFromConfig();
+
+    // NOTE: service.catalog_match, service.related_entities should come from MCP (not conversation)
+    // NOTE: operations.* fields should come from MCP (not conversation)
 
     // ⚠️ IMPORTANT: Data extraction is PASSIVE, NOT active
     // - This agent ONLY extracts information customer ALREADY SAID
@@ -236,6 +232,118 @@ export class DataExtractionAgent {
   }
 
   /**
+   * Get extractable fields from agent_config.json (config-driven)
+   * Maps extraction_schema field names to nested paths
+   */
+  private getExtractableFieldsFromConfig(): Array<{ path: string; key: string }> {
+    try {
+      const configLoader = getConfigLoader();
+      const config = configLoader.getConfig();
+
+      // Get extraction_schema from extraction_agent profile
+      const extractionAgent = config.agent_profiles?.extraction_agent;
+      if (!extractionAgent?.extraction_schema) {
+        console.warn('[DataExtractionAgent] ⚠️  No extraction_schema found in config, using defaults');
+        return this.getDefaultExtractableFields();
+      }
+
+      const schema = extractionAgent.extraction_schema;
+      const extractableFields: Array<{ path: string; key: string }> = [];
+
+      // Map each field in extraction_schema to nested path
+      // Field naming convention: customer_phone -> customer.phone, primary_request -> service.primary_request
+      Object.keys(schema).forEach(fieldKey => {
+        const nestedPath = this.mapFieldKeyToNestedPath(fieldKey);
+        extractableFields.push({
+          path: nestedPath,
+          key: fieldKey
+        });
+      });
+
+      console.log(`[DataExtractionAgent] 📋 Loaded ${extractableFields.length} extractable fields from config`);
+      return extractableFields;
+    } catch (error: any) {
+      console.error(`[DataExtractionAgent] ❌ Failed to load extraction schema from config: ${error.message}`);
+      console.warn('[DataExtractionAgent] ⚠️  Falling back to default fields');
+      return this.getDefaultExtractableFields();
+    }
+  }
+
+  /**
+   * Map extraction_schema field key to nested path
+   * Examples:
+   * - customer_phone -> customer.phone
+   * - customer_name -> customer.name
+   * - primary_request -> service.primary_request
+   */
+  private mapFieldKeyToNestedPath(fieldKey: string): string {
+    // Handle customer_* fields
+    if (fieldKey.startsWith('customer_')) {
+      const subfield = fieldKey.replace('customer_', '');
+      return `customer.${subfield}`;
+    }
+
+    // Handle service fields (primary_request, etc.)
+    if (fieldKey === 'primary_request') {
+      return 'service.primary_request';
+    }
+
+    // Default: assume it's already in nested format or service field
+    if (fieldKey.includes('.')) {
+      return fieldKey;
+    }
+
+    // If no prefix, assume it's a service field
+    return `service.${fieldKey}`;
+  }
+
+  /**
+   * Get default extractable fields (fallback if config fails)
+   */
+  private getDefaultExtractableFields(): Array<{ path: string; key: string }> {
+    return [
+      { path: 'customer.name', key: 'customer_name' },
+      { path: 'customer.phone', key: 'customer_phone' },
+      { path: 'customer.email', key: 'customer_email' },
+      { path: 'customer.address', key: 'customer_address' },
+      { path: 'service.primary_request', key: 'primary_request' }
+    ];
+  }
+
+  /**
+   * Build extraction strategies from config for LLM prompt
+   */
+  private buildExtractionStrategies(emptyFields: Array<{ path: string; key: string }>): string {
+    try {
+      const configLoader = getConfigLoader();
+      const config = configLoader.getConfig();
+      const extractionAgent = config.agent_profiles?.extraction_agent;
+
+      if (!extractionAgent?.extraction_schema) {
+        return ''; // No strategies available
+      }
+
+      const schema = extractionAgent.extraction_schema;
+      const strategies: string[] = [];
+
+      emptyFields.forEach(field => {
+        const fieldConfig = schema[field.key];
+        if (fieldConfig?.extraction_strategy) {
+          strategies.push(`  • ${field.path}: ${fieldConfig.extraction_strategy}`);
+        }
+      });
+
+      if (strategies.length === 0) {
+        return '';
+      }
+
+      return `📖 EXTRACTION STRATEGIES (from config):\n${strategies.join('\n')}\n`;
+    } catch (error) {
+      return ''; // Fail silently, not critical
+    }
+  }
+
+  /**
    * Build extraction prompt for LLM
    * ✅ Updated for nested field structure (customer.*, service.*, etc.)
    */
@@ -262,6 +370,8 @@ ${recentExchanges.map((exchange, idx) => {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📊 EMPTY DATA EXTRACTION FIELDS (not yet extracted):
 ${emptyFieldPaths.join(', ')}
+
+${this.buildExtractionStrategies(emptyFields)}
 
 🔍 CURRENT DATA EXTRACTION FIELDS (already populated):
 ${JSON.stringify(dataFields, null, 2)}
