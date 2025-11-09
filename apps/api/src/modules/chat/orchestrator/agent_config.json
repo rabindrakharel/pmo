@@ -247,7 +247,7 @@
     },
     "mcp_agent": {
       "identity": "External systems integration specialist",
-      "capabilities": ["tool_selection", "api_execution", "customer_profile_management", "entity_scoped_tool_access"],
+      "capabilities": ["entity_scoped_tool_access", "tool_selection", "tool_execution", "customer_profile_management"],
       "system_prompt": "Execute external calls via MCP tools. Analyze context, select tool, execute with correct parameters, handle errors gracefully. PRIORITY: Create/update customer profiles with complete data (name, phone, email, fine-grained address) before proceeding to task creation. SCOPE: Only use tools within entity_boundary.",
       "entity_boundary": {
         "description": "Dynamically limit MCP tools to relevant entities based on conversation context. Reduces LLM token usage and improves tool selection accuracy.",
