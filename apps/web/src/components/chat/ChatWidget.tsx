@@ -347,79 +347,107 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
         };
       };
 
+      // Helper function to play audio from base64 MP3
+      const playAudioFromBase64 = async (base64Audio: string, onComplete?: () => void) => {
+        try {
+          const audioData = atob(base64Audio);
+          const audioArray = new Uint8Array(audioData.length);
+          for (let i = 0; i < audioData.length; i++) {
+            audioArray[i] = audioData.charCodeAt(i);
+          }
+
+          // Create audio blob and play
+          const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+
+          audio.onended = () => {
+            URL.revokeObjectURL(audioUrl);
+            if (onComplete) onComplete();
+          };
+
+          audio.onerror = (err) => {
+            console.error('Audio playback error:', err);
+            URL.revokeObjectURL(audioUrl);
+            if (onComplete) onComplete();
+          };
+
+          // Resume AudioContext if suspended (fixes autoplay restrictions)
+          if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+            try {
+              await audioContextRef.current.resume();
+              console.log('✅ AudioContext resumed');
+            } catch (err) {
+              console.error('Failed to resume AudioContext:', err);
+            }
+          }
+
+          // Play audio with proper error handling
+          try {
+            await audio.play();
+            console.log('🔊 Audio playing');
+          } catch (playError) {
+            console.error('Audio play failed:', playError);
+            // If autoplay is blocked, show a message
+            if (playError instanceof DOMException && playError.name === 'NotAllowedError') {
+              console.warn('⚠️  Autoplay blocked - user interaction required');
+              setVoiceStatus('🎙️ Click to hear response');
+              // Try to play again (user might have interacted)
+              setTimeout(() => {
+                audio.play().catch(() => {
+                  console.log('Second play attempt failed - truly blocked');
+                });
+              }, 100);
+            }
+            if (onComplete) onComplete();
+          }
+        } catch (err) {
+          console.error('Failed to decode/play audio:', err);
+          if (onComplete) onComplete();
+        }
+      };
+
       ws.onmessage = async (event) => {
         try {
           const data = JSON.parse(event.data);
           console.log('Voice message:', data.type, data);
 
           if (data.type === 'audio.response') {
-            // AI response with audio and transcript
+            // AI response with audio and transcript (initial greeting)
             console.log('🤖 AI response:', data.transcript);
             console.log('👤 User said:', data.user_transcript);
 
             setVoiceStatus('🔊 AI is speaking...');
 
-            // Decode and play audio response (base64 MP3)
-            try {
-              const audioData = atob(data.audio);
-              const audioArray = new Uint8Array(audioData.length);
-              for (let i = 0; i < audioData.length; i++) {
-                audioArray[i] = audioData.charCodeAt(i);
-              }
-
-              // Create audio blob and play
-              const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
-              const audioUrl = URL.createObjectURL(audioBlob);
-              const audio = new Audio(audioUrl);
-
-              audio.onended = () => {
-                URL.revokeObjectURL(audioUrl);
-                setVoiceStatus('🎙️ Voice call active - Speak now!');
-
-                // Check if conversation ended
-                if (data.conversation_ended) {
-                  console.log('🔚 Conversation ended:', data.end_reason);
-                  endVoiceCall();
-                }
-              };
-
-              audio.onerror = (err) => {
-                console.error('Audio playback error:', err);
-                setVoiceStatus('🎙️ Voice call active - Speak now!');
-              };
-
-              // Resume AudioContext if suspended (fixes autoplay restrictions)
-              if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-                try {
-                  await audioContextRef.current.resume();
-                  console.log('✅ AudioContext resumed');
-                } catch (err) {
-                  console.error('Failed to resume AudioContext:', err);
-                }
-              }
-
-              // Play audio with proper error handling
-              try {
-                await audio.play();
-                console.log('🔊 Audio playing');
-              } catch (playError) {
-                console.error('Audio play failed:', playError);
-                // If autoplay is blocked, show a message
-                if (playError instanceof DOMException && playError.name === 'NotAllowedError') {
-                  console.warn('⚠️  Autoplay blocked - user interaction required');
-                  setVoiceStatus('🎙️ Click to hear response');
-                  // Try to play again (user might have interacted)
-                  setTimeout(() => {
-                    audio.play().catch(() => {
-                      console.log('Second play attempt failed - truly blocked');
-                    });
-                  }, 100);
-                }
-                setVoiceStatus('🎙️ Voice call active - Speak now!');
-              }
-            } catch (err) {
-              console.error('Failed to decode audio:', err);
+            // Play audio and reset status when done
+            await playAudioFromBase64(data.audio, () => {
               setVoiceStatus('🎙️ Voice call active - Speak now!');
+
+              // Check if conversation ended
+              if (data.conversation_ended) {
+                console.log('🔚 Conversation ended:', data.end_reason);
+                endVoiceCall();
+              }
+            });
+          } else if (data.type === 'audio.chunk') {
+            // Streaming audio chunk from AI response
+            console.log('🎵 Audio chunk received');
+            setVoiceStatus('🔊 AI is speaking...');
+
+            // Play audio chunk immediately (streaming playback)
+            await playAudioFromBase64(data.audio);
+          } else if (data.type === 'audio.done') {
+            // Final metadata after streaming audio complete
+            console.log('✅ Voice streaming complete');
+            console.log('🤖 AI said:', data.transcript);
+            console.log('👤 User said:', data.user_transcript);
+
+            setVoiceStatus('🎙️ Voice call active - Speak now!');
+
+            // Check if conversation ended
+            if (data.conversation_ended) {
+              console.log('🔚 Conversation ended:', data.end_reason);
+              endVoiceCall();
             }
           } else if (data.type === 'processing.started') {
             setVoiceStatus('⏳ Processing your message...');
