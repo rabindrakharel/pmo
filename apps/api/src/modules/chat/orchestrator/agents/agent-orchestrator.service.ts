@@ -26,6 +26,7 @@ import { getLLMLogger } from '../services/llm-logger.service.js';
 import { createAgentLogger, type AgentLogger } from '../services/agent-logger.service.js';
 import { getSessionMemoryDataService } from '../services/session-memory-data.service.js';
 import type { SessionMemoryData } from '../services/session-memory-data.service.js';
+import { getSessionMemoryQueueService } from '../services/session-memory-queue.service.js';
 
 /**
  * Agent Orchestrator Service
@@ -58,8 +59,9 @@ export class AgentOrchestratorService {
     this.mcpAdapter = new MCPAdapterService();
     this.contextManager = getAgentContextManager();
 
-    console.log('[AgentOrchestrator] 🚀 Initializing pure agent-based system with LowDB');
+    console.log('[AgentOrchestrator] 🚀 Initializing pure agent-based system with LowDB + RabbitMQ');
     this.initializeSessionMemoryData();
+    this.initializeSessionMemoryQueue();
     this.initializeContextDir();
     this.initializeAgents();
   }
@@ -75,6 +77,17 @@ export class AgentOrchestratorService {
     } catch (error: any) {
       console.error(`[AgentOrchestrator] ❌ Failed to initialize LowDB: ${error.message}`);
     }
+  }
+
+  /**
+   * Initialize RabbitMQ for session memory queue
+   * RabbitMQ is required - no fallback
+   */
+  private async initializeSessionMemoryQueue(): Promise<void> {
+    const queueService = getSessionMemoryQueueService();
+    await queueService.initialize();
+    await queueService.startConsumer();
+    console.log(`[AgentOrchestrator] 🐰 RabbitMQ queue initialized and consumer started`);
   }
 
   /**
@@ -112,8 +125,12 @@ export class AgentOrchestratorService {
         completed: state.completed,
         conversationEnded: state.conversationEnded,
         endReason: state.endReason,
-        context: state.context,
-        // ✅ REMOVED: messages array no longer saved (redundant with summary_of_conversation_on_each_step_until_now)
+        context: state.context as any, // DAGContext is dynamically initialized from config
+        messages: (state.messages || []).map(msg => ({
+          role: msg.role as 'user' | 'assistant' | 'system',
+          content: msg.content,
+          timestamp: msg.timestamp instanceof Date ? msg.timestamp.toISOString() : msg.timestamp
+        })),
         lastUpdated: new Date().toISOString(),
         action,
       };
@@ -199,120 +216,6 @@ export class AgentOrchestratorService {
   }
 
   /**
-   * Process user message through agent system
-   */
-  async processMessage(args: {
-    sessionId?: string;
-    message: string;
-    chatSessionId?: string;
-    userId?: string;
-    authToken?: string;
-  }): Promise<{
-    sessionId: string;
-    response: string;
-    intent: string;
-    currentNode: string;
-    requiresUserInput: boolean;
-    completed: boolean;
-    conversationEnded: boolean;
-    endReason?: string;
-  }> {
-    try {
-      // Ensure SessionMemoryDataService is initialized before processing
-      await this.initializeSessionMemoryData();
-
-      // Ensure agents are initialized
-      if (!this.config) {
-        await this.initializeAgents();
-      }
-
-      let sessionId = args.sessionId;
-      let state: AgentContextState;
-
-      if (!sessionId) {
-        // New session
-        sessionId = uuidv4();
-        console.log(`\n[AgentOrchestrator] 🆕 New session ${sessionId}`);
-
-        // Log session start
-        await this.logger.logSessionStart(sessionId, args.chatSessionId, args.userId);
-
-        // Initialize context
-        state = this.contextManager.initializeContext(
-          sessionId,
-          args.chatSessionId,
-          args.userId,
-          args.authToken
-        );
-
-        // Write initial context to JSON file
-        await this.writeContextFile(state, 'initialize');
-
-        // Create session in database
-        await this.stateManager.createSession({
-          session_id: sessionId,
-          chat_session_id: args.chatSessionId,
-          user_id: args.userId,
-          current_intent: 'CalendarBooking',
-          current_node: 'GREET_CUSTOMER',
-          auth_metadata: { authToken: args.authToken },
-        });
-      } else {
-        // Existing session - load from cache or database
-        console.log(`\n[AgentOrchestrator] 📂 Resuming session ${sessionId}`);
-        state = await this.loadState(sessionId);
-      }
-
-      // ✅ REMOVED: No longer add to messages array - conversation tracked in summary_of_conversation_on_each_step_until_now
-      // User message will be added to summary after worker execution (lines 543-566)
-
-      // Execute conversation loop
-      state = await this.executeConversationLoop(state, args.message);
-
-      // Save state
-      await this.saveState(state);
-
-      // Update session in database
-      await this.stateManager.updateSession(sessionId, {
-        current_node: state.currentNode,
-        status: state.completed ? 'completed' : 'active',
-      });
-
-      // Auto-disconnect voice if needed
-      if (state.conversationEnded && args.chatSessionId) {
-        await this.autoDisconnectVoice(args.chatSessionId, state.endReason);
-        // Finalize context file
-        await this.writeContextFile(state, 'finalize');
-
-        // Log session end
-        await this.logger.logSessionEnd({
-          sessionId,
-          endReason: state.endReason || 'unknown',
-          totalIterations: state.context.node_traversed?.length || 0,
-          totalMessages: (state.context.summary_of_conversation_on_each_step_until_now || []).length,
-        });
-      }
-
-      // Get last assistant message
-      const lastAssistantMessage = this.contextManager.getLastAssistantMessage(state);
-
-      return {
-        sessionId,
-        response: lastAssistantMessage || '',
-        intent: 'CalendarBooking',
-        currentNode: state.currentNode,
-        requiresUserInput: !state.conversationEnded,
-        completed: state.completed,
-        conversationEnded: state.conversationEnded,
-        endReason: state.endReason,
-      };
-    } catch (error: any) {
-      console.error('[AgentOrchestrator] ❌ Error processing message:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Process user message with STREAMING (yields tokens as they arrive)
    * Same as processMessage but streams the agent's response
    */
@@ -332,6 +235,9 @@ export class AgentOrchestratorService {
     endReason?: string;
     error?: string;
   }> {
+    // Note: Race conditions now handled by RabbitMQ queue (sequential processing per session)
+    let sessionId = args.sessionId;
+
     try {
       // Ensure SessionMemoryDataService is initialized
       await this.initializeSessionMemoryData();
@@ -341,7 +247,6 @@ export class AgentOrchestratorService {
         await this.initializeAgents();
       }
 
-      let sessionId = args.sessionId;
       let state: AgentContextState;
 
       if (!sessionId) {
@@ -1262,34 +1167,39 @@ export class AgentOrchestratorService {
   }
 
   /**
-   * Save state to cache and database
+   * Save state to cache and queue for database persistence
+   * Uses RabbitMQ queue to prevent race conditions on session memory data writes
+   * No fallback - RabbitMQ is required for proper operation
    */
   private async saveState(state: AgentContextState): Promise<void> {
-    // Save to cache
+    // Save to cache (immediate)
     this.stateCache.set(state.sessionId, state);
 
-    // Save to database
-    const plainState = this.contextManager.toPlainObject(state);
-    await this.stateManager.setState(
-      state.sessionId,
-      'context',
-      plainState.context,
-      { source: 'agent-orchestrator', validated: true }
-    );
-    await this.stateManager.setState(
-      state.sessionId,
-      'messages',
-      plainState.messages,
-      { source: 'agent-orchestrator', validated: true }
-    );
-    await this.stateManager.setState(
-      state.sessionId,
-      'current_node',
-      plainState.currentNode,
-      { source: 'agent-orchestrator', validated: true }
-    );
+    // Publish to RabbitMQ queue (sequential processing per session)
+    const queueService = getSessionMemoryQueueService();
 
-    console.log(`[AgentOrchestrator] 💾 State saved for session ${state.sessionId}`);
+    // Build session memory data from state
+    const sessionData = {
+      sessionId: state.sessionId,
+      chatSessionId: state.chatSessionId,
+      userId: state.userId,
+      currentNode: state.currentNode,
+      previousNode: state.previousNode,
+      completed: state.completed,
+      conversationEnded: state.conversationEnded,
+      endReason: state.endReason,
+      conversations: state.context.summary_of_conversation_on_each_step_until_now || [],
+      context: state.context
+    };
+
+    await queueService.publishUpdate({
+      sessionId: state.sessionId,
+      operation: 'update',
+      data: sessionData,
+      timestamp: new Date().toISOString()
+    });
+
+    console.log(`[AgentOrchestrator] 📤 State queued for session ${state.sessionId}`);
   }
 
   /**

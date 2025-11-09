@@ -141,10 +141,16 @@ export class ContextInitializer {
       console.log(`   - summary_of_conversation_on_each_step_until_now: initialized as empty array`);
     }
 
-    // Ensure nested data_extraction_fields is initialized
+    // Ensure nested data_extraction_fields is initialized with proper structure
     if (!context.data_extraction_fields || typeof context.data_extraction_fields !== 'object') {
-      context.data_extraction_fields = {};
-      console.log(`   - data_extraction_fields: initialized as empty object`);
+      context.data_extraction_fields = {
+        customer: { name: '', phone: '', email: '', id: '' },
+        service: { primary_request: '', catalog_match: '', related_entities: '' },
+        operations: { solution_plan: '', task_id: '', task_name: '', appointment_details: '' },
+        project: { id: '' },
+        assignment: { employee_id: '', employee_name: '' }
+      };
+      console.log(`   - data_extraction_fields: initialized with nested structure (customer, service, operations, project, assignment)`);
     }
 
     // Merge additional fields if provided
@@ -227,19 +233,30 @@ export class ContextInitializer {
       agent_session_id: sessionId,
       who_are_you: 'You are a polite customer service agent',
       data_extraction_fields: {
-        customer_name: '',
-        customer_phone_number: '',
-        customer_email: '',
-        customer_id: '',
-        customers_main_ask: '',
-        matching_service_catalog_to_solve_customers_issue: '',
-        related_entities_for_customers_ask: '',
-        task_id: '',
-        task_name: '',
-        appointment_details: '',
-        project_id: '',
-        assigned_employee_id: '',
-        assigned_employee_name: '',
+        customer: {
+          name: '',
+          phone: '',
+          email: '',
+          id: ''
+        },
+        service: {
+          primary_request: '',
+          catalog_match: '',
+          related_entities: ''
+        },
+        operations: {
+          solution_plan: '',
+          task_id: '',
+          task_name: '',
+          appointment_details: ''
+        },
+        project: {
+          id: ''
+        },
+        assignment: {
+          employee_id: '',
+          employee_name: ''
+        }
       },
       next_course_of_action: '',
       next_node_to_go_to: '',

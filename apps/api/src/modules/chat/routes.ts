@@ -4,7 +4,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { getAIResponse, calculateCost, generateGreeting } from './openai.service.js';
+import { generateGreeting } from './openai.service.js';
 import {
   createSession,
   getSession,
@@ -87,110 +87,6 @@ export async function chatRoutes(fastify: FastifyInstance) {
       console.error('Error creating session:', error);
       reply.code(500).send({
         error: 'Failed to create session',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
-
-  /**
-   * POST /api/v1/chat/message
-   * Send a message and get AI response
-   */
-  fastify.post<{
-    Body: ChatMessageRequest;
-    Reply: ChatMessageResponse | { error: string };
-  }>('/message', async (request, reply) => {
-    try {
-      const { session_id, message, customer_id, customer_email, customer_name } = request.body;
-
-      if (!session_id || !message) {
-        return reply.code(400).send({ error: 'session_id and message are required' });
-      }
-
-      // Get existing session
-      const session = await getSession(session_id);
-      if (!session) {
-        return reply.code(404).send({ error: 'Session not found' });
-      }
-
-      // Add user message to conversation
-      const userMessage: ChatMessage = {
-        role: 'user',
-        content: message,
-        timestamp: new Date().toISOString()
-      };
-
-      const conversationHistory = [...session.conversation_history, userMessage];
-
-      // Use agent orchestrator for text chat (same as voice)
-      const token = request.headers.authorization?.replace('Bearer ', '') || '';
-
-      // Log token status for debugging
-      if (!token) {
-        console.warn(`⚠️ No auth token for session ${session_id} - AI will have limited tool access`);
-      } else {
-        console.log(`🔐 Chat session ${session_id} using authenticated MCP tools`);
-      }
-
-      // Import agent orchestrator
-      const { getAgentOrchestratorService } = await import('./orchestrator/agents/agent-orchestrator.service.js');
-      const orchestrator = getAgentOrchestratorService();
-
-      // Get or create orchestrator session
-      const orchestratorSessionId = session.metadata?.orchestrator_session_id;
-
-      // Process message through agent orchestrator
-      const orchestratorResult = await orchestrator.processMessage({
-        sessionId: orchestratorSessionId,
-        message,
-        chatSessionId: session_id,
-        userId: customer_id || session.metadata?.customer_id,
-        authToken: token
-      });
-
-      // Add assistant message to conversation
-      const assistantMessage: ChatMessage = {
-        role: 'assistant',
-        content: orchestratorResult.response,
-        timestamp: new Date().toISOString()
-      };
-
-      const updatedConversation = [...conversationHistory, assistantMessage];
-
-      // Check if booking was created (based on node context)
-      const bookingCreated = orchestratorResult.currentNode === 'confirm_booking' && orchestratorResult.completed;
-
-      // Update session in database
-      await updateSession(session_id, updatedConversation, {
-        total_tokens: (session.total_tokens || 0) + 100, // Estimated - will add proper tracking
-        total_cost_cents: (session.total_cost_cents || 0) + 2, // ~$0.02 per conversation with GPT-3.5
-        model_used: 'gpt-3.5-turbo',
-        metadata: {
-          ...session.metadata,
-          orchestrator_session_id: orchestratorResult.sessionId,
-          current_intent: orchestratorResult.intent,
-          current_node: orchestratorResult.currentNode
-        }
-      });
-
-      // Prepare response
-      const response: ChatMessageResponse = {
-        session_id,
-        response: orchestratorResult.response,
-        function_calls: undefined, // LangGraph handles this internally
-        booking_created: bookingCreated,
-        booking_number: undefined, // Will extract from state if needed
-        tokens_used: 100, // Estimated - will add proper tracking
-        timestamp: new Date().toISOString()
-      };
-
-      reply.code(200).send(response);
-
-      console.log(`✅ Message processed for session ${session_id} via Agent Orchestrator (intent: ${orchestratorResult.intent}, node: ${orchestratorResult.currentNode})`);
-    } catch (error) {
-      console.error('Error processing message:', error);
-      reply.code(500).send({
-        error: 'Failed to process message',
         message: error instanceof Error ? error.message : 'Unknown error'
       });
     }
