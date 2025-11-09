@@ -171,12 +171,12 @@ export class AgentOrchestratorService {
       this.contextManager.setDAGConfig(this.config as any); // TODO: Update context manager to use AgentConfigV3
 
       // Initialize worker agents and transition engine:
-      // 1. WorkerReplyAgent - generates customer-facing responses
+      // 1. WorkerReplyAgent - generates customer-facing responses (uses agent profile)
       // 2. WorkerMCPAgent - executes MCP tools and updates context
       // 3. DataExtractionAgent - extracts context from conversation (called AFTER worker agents)
       // 4. GoalTransitionEngine - evaluates goal transitions using semantic routing
-      this.workerReplyAgent = createWorkerReplyAgent(this.config as any); // TODO: Update worker agent to use AgentConfigV3
-      this.workerMCPAgent = createWorkerMCPAgent(this.config as any, this.mcpAdapter); // TODO: Update worker agent to use AgentConfigV3
+      this.workerReplyAgent = createWorkerReplyAgent(this.config, 'conversational_agent');
+      this.workerMCPAgent = createWorkerMCPAgent(this.config as any, this.mcpAdapter); // TODO: Update worker-mcp-agent
       this.transitionEngine = new GoalTransitionEngine(this.config);
       this.dataExtractionAgent = createDataExtractionAgent();
 

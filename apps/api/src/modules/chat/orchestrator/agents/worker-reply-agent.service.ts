@@ -1,71 +1,90 @@
 /**
- * Worker Reply Agent
- * Generates customer-facing responses ONLY
+ * Worker Reply Agent - Goal-Oriented with ReAct Pattern
+ *
  * Responsibilities:
- * - Read conversation context
- * - Understand node role, goal, and prompt examples
- * - Reply in 1-2 natural sentences
- * - NO context extraction (handled by DataExtractionAgent)
+ * - Observe: Current goal, context, conversation history
+ * - Think: Determine what to say to progress toward goal
+ * - Act: Generate natural customer-facing response
+ * - Uses agent profile for consistent identity/behavior
+ *
  * @module orchestrator/agents/worker-reply-agent
+ * @version 3.0.0
  */
 
 import { getOpenAIService } from '../services/openai.service.js';
 import type { AgentContextState } from './agent-context.service.js';
-import type { DAGConfiguration, DAGContext } from './dag-types.js';
+import type { AgentConfigV3, ConversationGoal, AgentProfile } from '../config/agent-config.schema.js';
 
 /**
  * Worker Reply Agent Result
  */
 export interface WorkerReplyResult {
   response: string;
+  thought?: string; // ReAct pattern: agent's reasoning
 }
 
 /**
  * Worker Reply Agent Service
- * Role: Generate natural customer responses based on node prompts
+ * Uses ReAct pattern with persistent agent identity
  */
 export class WorkerReplyAgent {
-  private dagConfig: DAGConfiguration;
+  private config: AgentConfigV3;
+  private agentProfile: AgentProfile;
 
-  constructor(dagConfig: DAGConfiguration) {
-    this.dagConfig = dagConfig;
+  constructor(config: AgentConfigV3, agentProfileId: string = 'conversational_agent') {
+    this.config = config;
+
+    // Get agent profile from config
+    const profile = config.agent_profiles[agentProfileId];
+    if (!profile) {
+      throw new Error(`Agent profile not found: ${agentProfileId}`);
+    }
+    this.agentProfile = profile;
+
+    console.log(`[WorkerReplyAgent] 🎭 Initialized with profile: ${this.agentProfile.identity}`);
   }
 
   /**
-   * Execute node: Generate customer response ONLY
-   * Context extraction is handled by DataExtractionAgent after this completes
+   * Execute goal: Generate customer response using ReAct pattern
+   *
+   * ReAct Steps:
+   * 1. OBSERVE: Current goal, context, conversation
+   * 2. THINK: What needs to be done to progress toward goal
+   * 3. ACT: Generate response to customer
    */
-  async executeNode(
-    nodeName: string,
+  async executeGoal(
+    goalId: string,
     state: AgentContextState,
     userMessage?: string
   ): Promise<WorkerReplyResult> {
-    console.log(`\n🗣️  [WorkerReplyAgent] Executing node: ${nodeName}`);
+    console.log(`\n🗣️  [WorkerReplyAgent] Executing goal: ${goalId}`);
 
-    // Get node configuration
-    const node = this.dagConfig.nodes.find(n => n.node_name === nodeName);
-    if (!node) {
-      throw new Error(`Node not found in DAG: ${nodeName}`);
+    // Get goal configuration
+    const goal = this.config.goals.find(g => g.goal_id === goalId);
+    if (!goal) {
+      throw new Error(`Goal not found: ${goalId}`);
     }
 
-    // Build prompts using node's configuration
-    // ✅ FIX: Pass current user message to buildSystemPrompt to ensure it's included
-    const systemPrompt = this.buildSystemPrompt(node, state.context, userMessage);
-    const userPrompt = this.buildUserPrompt(node, state.context, userMessage);
+    // OBSERVE: Gather relevant context
+    const observation = this.observe(goal, state, userMessage);
 
-    console.log(`[WorkerReplyAgent] Node Goal: ${node.node_goal}`);
+    // THINK + ACT: Generate response (combined for efficiency)
+    const systemPrompt = this.buildReActPrompt(goal, observation);
+    const userPrompt = this.buildUserPrompt(userMessage, goal);
 
-    // Call LLM to generate customer response (NO tools - just response)
+    console.log(`[WorkerReplyAgent] Goal: ${goal.description}`);
+    console.log(`[WorkerReplyAgent] Agent Identity: ${this.agentProfile.identity}`);
+
+    // Call LLM to generate response
     const openaiService = getOpenAIService();
     const result = await openaiService.callAgent({
-      agentType: 'worker',
+      agentType: 'worker_reply',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.7,
       sessionId: state.sessionId,
-      // NO tools parameter - this agent only generates responses
     });
 
     const response = result.content || '';
@@ -78,97 +97,142 @@ export class WorkerReplyAgent {
   }
 
   /**
-   * Build system prompt for customer-facing response
-   * OPTIMIZED: Only passes role, goal, prompt example, and actively tracked context fields
-   * ✅ FIX: Now includes current user message to prevent stale context issues
+   * OBSERVE: Gather relevant context for decision-making
    */
-  private buildSystemPrompt(node: any, context: DAGContext, currentUserMessage?: string): string {
-    // Node provides role and goal (business operation state)
-    const nodeRole = node.node_role || node.role || 'a customer service agent';
-    const nodeGoal = node.node_goal || '';
-    const exampleTone = node.example_tone_of_reply || '';
+  private observe(goal: ConversationGoal, state: AgentContextState, userMessage?: string) {
+    // Recent conversation (last 3 exchanges for context)
+    const recentConversation = (state.context.summary_of_conversation_on_each_step_until_now || []).slice(-3);
 
-    // CRITICAL: Only last 3 conversation exchanges (not all 255!)
-    // Reduced from 5 to 3 to leave more room for current message context
-    const recentConversation = (context.summary_of_conversation_on_each_step_until_now || []).slice(-3);
+    // Success criteria (what we need to accomplish)
+    const successCriteria = goal.success_criteria;
 
-    // Format ONLY actively tracked context fields (mandatory + non-empty fields)
-    const mandatoryFields = this.dagConfig.graph_config?.mandatory_fields || ['customers_main_ask', 'customer_phone_number'];
-    const activeContext: Record<string, any> = {
-      recent_conversation: recentConversation,
-      flags: context.flags || {}
+    // Current context fields
+    const contextData = {
+      customer: {
+        name: state.context.data_extraction_fields?.customer_name || '(unknown)',
+        phone: state.context.data_extraction_fields?.customer_phone_number || '(unknown)',
+        id: state.context.data_extraction_fields?.customer_id || '(unknown)',
+      },
+      service: {
+        request: state.context.data_extraction_fields?.customers_main_ask || '(not stated)',
+        matching_catalog: state.context.data_extraction_fields?.matching_service_catalog_to_solve_customers_issue || '(not matched)',
+      },
+      operations: {
+        task_id: state.context.data_extraction_fields?.task_id || '(not created)',
+        appointment: state.context.data_extraction_fields?.appointment_details || '(not scheduled)',
+      },
+      next_action: state.context.next_course_of_action || '(no guidance)',
     };
 
-    for (const field of mandatoryFields) {
-      if (context[field]) activeContext[field] = context[field];
-    }
-
-    const trackingFields = ['customer_name', 'customer_id', 'task_id', 'appointment_details', 'matching_service_catalog_to_solve_customers_issue'];
-    for (const field of trackingFields) {
-      if (context[field] && context[field] !== '' && context[field] !== '(not set)') {
-        activeContext[field] = context[field];
-      }
-    }
-
-    // ✅ FIX: Build comprehensive context including current message
-    let prompt = `NODE ROLE: ${nodeRole}
-
-NODE GOAL: ${nodeGoal}
-
-EXAMPLE TONE/STYLE OF REPLY:
-${exampleTone}
-
-RECENT CONVERSATION HISTORY (last 3 exchanges):
-${recentConversation.map((ex: any) => `Customer: "${ex.customer}"\nAgent: "${ex.agent}"`).join('\n\n')}
-
-CURRENT CONTEXT (fields already populated):
-${JSON.stringify(activeContext, null, 2)}`;
-
-    // ✅ CRITICAL: Include current user message if available
-    if (currentUserMessage) {
-      prompt += `
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔴 CURRENT CUSTOMER MESSAGE (MOST IMPORTANT - RESPOND TO THIS):
-"${currentUserMessage}"
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
-    }
-
-    prompt += `
-
-RESPONSE GENERATION RULES:
-- Review CURRENT CUSTOMER MESSAGE first (most important!)
-- Check recent_conversation to avoid repetition
-- NEVER ask questions already answered
-- Generate natural 1-2 sentence response ONLY
-- NO technical details, JSON, or metadata in customer-facing response
-- Focus ONLY on generating helpful, empathetic customer response
-- Base your response on the CURRENT message, not old conversation
-
-Please generate appropriate response to the CURRENT customer message:`;
-
-    return prompt;
+    return {
+      currentMessage: userMessage,
+      recentConversation,
+      successCriteria,
+      contextData,
+      conversationTactics: goal.conversation_tactics || [],
+    };
   }
 
   /**
-   * Build user prompt
+   * BUILD REACT PROMPT: Combines THINK and ACT stages
+   * Uses declarative agent profile and goal configuration
    */
-  private buildUserPrompt(node: any, context: DAGContext, userMessage?: string): string {
-    let prompt = `Node: ${node.node_name}\nGoal: ${node.node_goal}\n`;
+  private buildReActPrompt(goal: ConversationGoal, observation: any): string {
+    // Get conversation tactics from config
+    const tactics = observation.conversationTactics
+      .map((tacticId: string) => {
+        const tactic = this.config.conversation_tactics[tacticId];
+        return tactic ? `- ${tactic.description}` : '';
+      })
+      .filter(Boolean)
+      .join('\n');
 
+    return `# AGENT IDENTITY
+${this.agentProfile.system_prompt}
+
+# CURRENT GOAL
+**Objective:** ${goal.description}
+
+**Success Criteria (what we need):**
+${goal.success_criteria.mandatory_fields.map(f => `- ${f}`).join('\n')}
+
+**Conversation Tactics to Use:**
+${tactics}
+
+# REACT: OBSERVE → THINK → ACT
+
+## 1. OBSERVE (Current Situation)
+
+**Recent Conversation (last 3 exchanges):**
+${observation.recentConversation.map((ex: any, i: number) =>
+  `[${i + 1}] Customer: "${ex.customer}"\n    Agent: "${ex.agent}"`
+).join('\n\n')}
+
+**Current Context:**
+\`\`\`json
+${JSON.stringify(observation.contextData, null, 2)}
+\`\`\`
+
+**Guidance from System:** ${observation.contextData.next_action}
+
+${observation.currentMessage ? `
+**🔴 CURRENT CUSTOMER MESSAGE (MOST IMPORTANT):**
+"${observation.currentMessage}"
+` : ''}
+
+## 2. THINK (Reasoning)
+
+Based on observations:
+- What is the customer trying to accomplish?
+- What information do we have vs. what do we need (success criteria)?
+- Which conversation tactic best fits this situation?
+- Have we already asked this question? (check recent conversation!)
+
+## 3. ACT (Generate Response)
+
+**Response Guidelines:**
+- Be natural, empathetic, and conversational
+- Use appropriate tactic from the list above
+- Address the CURRENT message first
+- NEVER repeat questions from recent conversation
+- Keep response to 1-2 sentences
+- Focus on progressing toward goal: ${goal.description}
+
+Generate your response now:`;
+  }
+
+  /**
+   * Build user prompt (simple task instruction)
+   */
+  private buildUserPrompt(userMessage?: string, goal?: ConversationGoal): string {
     if (userMessage) {
-      prompt += `\nUser said: "${userMessage}"\n`;
+      return `Customer just said: "${userMessage}"\n\nRespond appropriately to help achieve goal: ${goal?.description}`;
     }
+    return `Generate appropriate response to progress toward goal: ${goal?.description}`;
+  }
 
-    prompt += `\nGenerate a natural, empathetic response (1-2 sentences):`;
-
-    return prompt;
+  /**
+   * LEGACY METHOD: Maintain backward compatibility during transition
+   * Maps old executeNode to new executeGoal
+   * TODO: Remove after full migration
+   */
+  async executeNode(
+    nodeName: string,
+    state: AgentContextState,
+    userMessage?: string
+  ): Promise<WorkerReplyResult> {
+    console.log(`[WorkerReplyAgent] ⚠️  Legacy executeNode called, mapping to executeGoal`);
+    // Map node name to goal ID (temporary)
+    return this.executeGoal(nodeName, state, userMessage);
   }
 }
 
 /**
  * Create worker reply agent instance
  */
-export function createWorkerReplyAgent(dagConfig: DAGConfiguration): WorkerReplyAgent {
-  return new WorkerReplyAgent(dagConfig);
+export function createWorkerReplyAgent(
+  config: AgentConfigV3,
+  agentProfileId: string = 'conversational_agent'
+): WorkerReplyAgent {
+  return new WorkerReplyAgent(config, agentProfileId);
 }
