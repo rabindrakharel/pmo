@@ -178,6 +178,11 @@ export class WorkerReplyAgent {
       customer: {
         name: extractionFields.customer?.name || '(unknown)',
         phone: extractionFields.customer?.phone || '(unknown)',
+        email: extractionFields.customer?.email || '(unknown)',
+        address_street: extractionFields.customer?.address_street || '(unknown)',
+        address_city: extractionFields.customer?.address_city || '(unknown)',
+        address_state: extractionFields.customer?.address_state || '(unknown)',
+        address_zipcode: extractionFields.customer?.address_zipcode || '(unknown)',
         id: extractionFields.customer?.id || '(unknown)',
       },
       service: {
