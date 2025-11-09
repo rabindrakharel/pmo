@@ -47,6 +47,9 @@ export class AgentOrchestratorService {
   // In-memory state cache (replace LangGraph checkpointer)
   private stateCache: Map<string, AgentContextState> = new Map();
 
+  // Session lock mechanism to prevent race conditions on concurrent requests
+  private sessionLocks: Map<string, Promise<void>> = new Map();
+
   // Context file directory
   private contextDir: string = './logs/contexts';
 
@@ -218,6 +221,12 @@ export class AgentOrchestratorService {
     endReason?: string;
     error?: string;
   }> {
+    // Determine session ID first (needed for lock)
+    let sessionId = args.sessionId || uuidv4();
+
+    // Acquire session lock to prevent race conditions
+    const releaseLock = await this.acquireSessionLock(sessionId);
+
     try {
       // Ensure SessionMemoryDataService is initialized
       await this.initializeSessionMemoryData();
@@ -227,12 +236,11 @@ export class AgentOrchestratorService {
         await this.initializeAgents();
       }
 
-      let sessionId = args.sessionId;
       let state: AgentContextState;
 
-      if (!sessionId) {
+      if (!args.sessionId) {
         // New session
-        sessionId = uuidv4();
+        sessionId = sessionId; // Already created above
         console.log(`\n[AgentOrchestrator] 🆕 New streaming session ${sessionId}`);
 
         // Log session start
@@ -327,6 +335,9 @@ export class AgentOrchestratorService {
         type: 'error',
         error: error.message,
       };
+    } finally {
+      // Always release session lock, even on error
+      releaseLock();
     }
   }
 
@@ -1176,6 +1187,33 @@ export class AgentOrchestratorService {
     );
 
     console.log(`[AgentOrchestrator] 💾 State saved for session ${state.sessionId}`);
+  }
+
+  /**
+   * Acquire session lock to prevent concurrent processing of the same session
+   * Returns a release function that must be called when processing is complete
+   */
+  private async acquireSessionLock(sessionId: string): Promise<() => void> {
+    // Wait for any existing lock to be released
+    while (this.sessionLocks.has(sessionId)) {
+      await this.sessionLocks.get(sessionId);
+    }
+
+    // Create new lock promise with resolver
+    let releaseLock: () => void;
+    const lockPromise = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+
+    this.sessionLocks.set(sessionId, lockPromise);
+    console.log(`[AgentOrchestrator] 🔒 Session lock acquired: ${sessionId}`);
+
+    // Return release function
+    return () => {
+      this.sessionLocks.delete(sessionId);
+      releaseLock!();
+      console.log(`[AgentOrchestrator] 🔓 Session lock released: ${sessionId}`);
+    };
   }
 
   /**
