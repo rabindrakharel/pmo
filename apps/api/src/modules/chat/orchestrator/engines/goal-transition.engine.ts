@@ -50,8 +50,8 @@ export class GoalTransitionEngine {
       throw new Error(`Goal not found: ${currentGoalId}`);
     }
 
-    // 1. Check success criteria (mandatory fields) - Deterministic
-    const criteriaResult = this.checkSuccessCriteria(currentGoal, context);
+    // 1. Check success criteria (mandatory fields + quality checks)
+    const criteriaResult = await this.checkSuccessCriteria(currentGoal, context, conversationHistory);
 
     if (!criteriaResult.met) {
       console.log(`[GoalTransitionEngine] ❌ Success criteria not met: ${criteriaResult.missing.join(', ')}`);
@@ -99,17 +99,19 @@ export class GoalTransitionEngine {
   }
 
   /**
-   * Check mandatory fields and conditional fields
-   * This is deterministic (no LLM needed)
+   * Check mandatory fields, conditional fields, and quality checks
+   * Mandatory/conditional fields are deterministic (instant)
+   * Quality checks are semantic (LLM-based)
    */
-  private checkSuccessCriteria(
+  private async checkSuccessCriteria(
     goal: ConversationGoal,
-    context: ConversationContextV3
-  ): CriteriaCheckResult {
+    context: ConversationContextV3,
+    conversationHistory: Array<{ customer: string; agent: string }>
+  ): Promise<CriteriaCheckResult> {
     const missing: string[] = [];
     const satisfied: string[] = [];
 
-    // Check mandatory fields
+    // Check mandatory fields (deterministic)
     for (const field of goal.success_criteria.mandatory_fields) {
       const value = this.getNestedField(context, field);
       if (!value || value === '' || value === '(not set)') {
@@ -119,7 +121,7 @@ export class GoalTransitionEngine {
       }
     }
 
-    // Check conditional fields (if applicable)
+    // Check conditional fields (deterministic)
     if (goal.success_criteria.conditional_fields) {
       for (const [condition, fields] of Object.entries(goal.success_criteria.conditional_fields)) {
         if (this.evaluateSimpleCondition(condition, context)) {
@@ -135,11 +137,136 @@ export class GoalTransitionEngine {
       }
     }
 
+    // Check quality checks (semantic - requires LLM)
+    if (goal.success_criteria.quality_checks && goal.success_criteria.quality_checks.length > 0) {
+      const qualityCheckResult = await this.evaluateQualityChecks(
+        goal,
+        context,
+        conversationHistory
+      );
+
+      if (!qualityCheckResult.passed) {
+        // Quality checks failed - add to missing
+        missing.push(...qualityCheckResult.failedChecks);
+      } else {
+        // Quality checks passed
+        satisfied.push(...qualityCheckResult.passedChecks);
+      }
+    }
+
     return {
       met: missing.length === 0,
       missing,
       satisfied
     };
+  }
+
+  /**
+   * Evaluate quality checks using LLM
+   * Quality checks are semantic conditions like "issue_is_clear", "customer_consents", etc.
+   */
+  private async evaluateQualityChecks(
+    goal: ConversationGoal,
+    context: ConversationContextV3,
+    conversationHistory: Array<{ customer: string; agent: string }>
+  ): Promise<{ passed: boolean; passedChecks: string[]; failedChecks: string[] }> {
+    const qualityChecks = goal.success_criteria.quality_checks || [];
+
+    if (qualityChecks.length === 0) {
+      return { passed: true, passedChecks: [], failedChecks: [] };
+    }
+
+    console.log(`[GoalTransitionEngine] 🔍 Evaluating quality checks: ${qualityChecks.join(', ')}`);
+
+    const systemPrompt = `You are a quality evaluator for a customer service AI system.
+
+Current Goal: ${goal.goal_id}
+Description: ${goal.description}
+
+Quality Checks to Evaluate:
+${qualityChecks.map((check, i) => `${i + 1}. ${check}`).join('\n')}
+
+Your Task:
+Evaluate each quality check based on the conversation context and history.
+Return JSON indicating which checks passed.
+
+Output JSON Schema:
+{
+  "checks": [
+    {
+      "name": string,           // Quality check name
+      "passed": boolean,         // True if check is satisfied
+      "reason": string,          // Brief explanation
+      "confidence": number       // 0.0 to 1.0 confidence score
+    }
+  ]
+}
+
+Quality Check Interpretations:
+- "issue_is_clear": Customer's problem is specific, actionable, and understood
+- "customer_consents": Customer has agreed to proceed (affirmative response)
+- "solution_accepted": Customer has accepted the proposed solution
+- "customer_satisfied": Customer expresses satisfaction with outcome
+
+Evaluation Guidelines:
+- Mark as passed ONLY if confident (>0.7) the check is satisfied
+- Use recent conversation to determine current state
+- Consider customer's latest message as primary signal
+- Be conservative - if uncertain, mark as not passed`;
+
+    const userPrompt = `Context Data:
+${JSON.stringify(this.getRelevantContext(context), null, 2)}
+
+Recent Conversation (last 5 exchanges):
+${conversationHistory.slice(-5).map((ex, i) => `
+Exchange ${i + 1}:
+  Customer: ${ex.customer}
+  Agent: ${ex.agent}
+`).join('\n')}
+
+Evaluate which quality checks are satisfied.`;
+
+    try {
+      const openaiService = getOpenAIService();
+      const result = await openaiService.callAgent({
+        agentType: 'planner',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.1,
+        jsonMode: true,
+        sessionId: context.session.id
+      });
+
+      const evaluation = JSON.parse(result.content || '{"checks": []}');
+      const passedChecks: string[] = [];
+      const failedChecks: string[] = [];
+
+      for (const check of evaluation.checks || []) {
+        if (check.passed && check.confidence >= 0.7) {
+          passedChecks.push(check.name);
+          console.log(`[GoalTransitionEngine]    ✅ ${check.name}: ${check.reason} (confidence: ${check.confidence})`);
+        } else {
+          failedChecks.push(check.name);
+          console.log(`[GoalTransitionEngine]    ❌ ${check.name}: ${check.reason} (confidence: ${check.confidence})`);
+        }
+      }
+
+      return {
+        passed: failedChecks.length === 0,
+        passedChecks,
+        failedChecks
+      };
+    } catch (error: any) {
+      console.error(`[GoalTransitionEngine] ❌ Error evaluating quality checks: ${error.message}`);
+      // On error, assume checks failed to be conservative
+      return {
+        passed: false,
+        passedChecks: [],
+        failedChecks: qualityChecks
+      };
+    }
   }
 
   /**
