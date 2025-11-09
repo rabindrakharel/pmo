@@ -45,7 +45,6 @@
         "mandatory_fields": ["customer.phone", "customer.name", "customer.address_street", "customer.address_city", "customer.address_state"]
       },
       "allowed_agents": ["conversational_agent", "extraction_agent", "mcp_agent"],
-      "available_tools": ["customer_get", "customer_create", "setting_list"],
       "conversation_tactics": ["incremental_data_gathering", "rapport_building"],
       "max_turns": 8,
       "agent_execution_strategy": {
@@ -85,7 +84,6 @@
         "mandatory_fields": ["operations.solution_plan"]
       },
       "allowed_agents": ["planner_agent", "mcp_agent", "conversational_agent"],
-      "available_tools": ["setting_list", "task_create"],
       "conversation_tactics": ["solution_explanation", "consent_gathering"],
       "max_turns": 6,
       "retry_strategy": {
@@ -115,7 +113,6 @@
         "mandatory_fields": ["operations.task_id"]
       },
       "allowed_agents": ["mcp_agent", "conversational_agent"],
-      "available_tools": ["task_create", "person_calendar_book"],
       "conversation_tactics": ["progress_updates", "success_confirmation"],
       "max_turns": 6,
       "retry_strategy": {
@@ -140,7 +137,6 @@
         "mandatory_fields": []
       },
       "allowed_agents": ["conversational_agent", "mcp_agent"],
-      "available_tools": ["call_hangup"],
       "conversation_tactics": ["satisfaction_check", "graceful_closure"],
       "max_turns": 3,
       "retry_strategy": {
