@@ -16,6 +16,7 @@ import type {
   CriteriaCheckResult,
   ConversationContextV3
 } from '../config/agent-config.schema.js';
+import { evaluateDeterministicCondition } from '../utils/json-path-resolver.js';
 
 interface AdvanceEvaluationResult {
   matched: boolean;
@@ -142,8 +143,12 @@ export class GoalTransitionEngine {
   }
 
   /**
-   * Evaluate advance conditions using LLM for semantic understanding
-   * This is where "soft semantic routing" happens
+   * Evaluate advance conditions with hybrid branching:
+   * 1. DETERMINISTIC: Fast JSON path checks (instant, no LLM)
+   * 2. SEMI-DETERMINISTIC: Field presence checks (instant, no LLM)
+   * 3. SEMANTIC: LLM-evaluated natural language conditions (flexible but slower)
+   *
+   * Deterministic conditions are checked first for performance
    */
   private async evaluateAdvanceConditions(
     goal: ConversationGoal,
@@ -156,8 +161,59 @@ export class GoalTransitionEngine {
       return { matched: false, nextGoal: null, reason: 'No advance conditions defined' };
     }
 
-    // Build prompt for LLM to evaluate conditions
-    const systemPrompt = this.buildConditionEvaluationPrompt(goal, conditions);
+    // STEP 1: Evaluate DETERMINISTIC and SEMI-DETERMINISTIC conditions first (no LLM, instant)
+    console.log(`[GoalTransitionEngine] 🔍 Checking deterministic conditions (${conditions.length} total)`);
+
+    for (let i = 0; i < conditions.length; i++) {
+      const condition = conditions[i];
+      const conditionType = condition.type || 'semantic'; // Default to semantic for backward compatibility
+
+      // Skip semantic conditions in this pass
+      if (conditionType === 'semantic') {
+        continue;
+      }
+
+      // Evaluate deterministic/semi-deterministic condition
+      if (condition.json_path && condition.operator) {
+        const result = evaluateDeterministicCondition(
+          context,
+          condition.json_path,
+          condition.operator,
+          condition.value
+        );
+
+        console.log(`[GoalTransitionEngine]    [${i}] ${conditionType}: ${condition.json_path} ${condition.operator}${condition.value !== undefined ? ' ' + condition.value : ''} → ${result ? '✅ TRUE' : '❌ FALSE'}`);
+
+        if (result) {
+          // Deterministic condition matched!
+          console.log(`[GoalTransitionEngine] ✅ DETERMINISTIC MATCH: Transition to ${condition.next_goal}`);
+          return {
+            matched: true,
+            nextGoal: condition.next_goal,
+            reason: `Deterministic condition met: ${condition.json_path} ${condition.operator}${condition.value !== undefined ? ' ' + condition.value : ''}`,
+            condition: `${condition.json_path} ${condition.operator}`,
+            conditionIndex: i,
+            confidence: 1.0  // Deterministic = 100% confidence
+          };
+        }
+      }
+    }
+
+    // STEP 2: No deterministic conditions matched, try SEMANTIC conditions (LLM-based)
+    const semanticConditions = conditions.filter(c => !c.type || c.type === 'semantic');
+
+    if (semanticConditions.length === 0) {
+      return {
+        matched: false,
+        nextGoal: null,
+        reason: 'No deterministic conditions matched and no semantic conditions defined'
+      };
+    }
+
+    console.log(`[GoalTransitionEngine] 🤖 Evaluating semantic conditions with LLM (${semanticConditions.length} conditions)`);
+
+    // Build prompt for LLM to evaluate semantic conditions
+    const systemPrompt = this.buildConditionEvaluationPrompt(goal, semanticConditions);
     const userPrompt = this.buildConditionEvaluationUserPrompt(context, conversationHistory);
 
     try {
@@ -176,7 +232,8 @@ export class GoalTransitionEngine {
       const decision = JSON.parse(result.content || '{"matched": false, "reason": "Unable to parse response"}');
 
       if (decision.matched && decision.condition_index !== undefined) {
-        const condition = conditions[decision.condition_index];
+        const condition = semanticConditions[decision.condition_index];
+        console.log(`[GoalTransitionEngine] ✅ SEMANTIC MATCH: Transition to ${condition.next_goal}`);
         return {
           matched: true,
           nextGoal: condition.next_goal,
@@ -190,10 +247,10 @@ export class GoalTransitionEngine {
       return {
         matched: false,
         nextGoal: null,
-        reason: decision.reason || 'No conditions matched'
+        reason: decision.reason || 'No conditions matched (deterministic or semantic)'
       };
     } catch (error: any) {
-      console.error(`[GoalTransitionEngine] ❌ Error evaluating conditions: ${error.message}`);
+      console.error(`[GoalTransitionEngine] ❌ Error evaluating semantic conditions: ${error.message}`);
       return {
         matched: false,
         nextGoal: null,

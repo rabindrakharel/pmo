@@ -14,6 +14,7 @@
 import { getOpenAIService } from '../services/openai.service.js';
 import type { AgentContextState } from './agent-context.service.js';
 import type { AgentConfigV3, ConversationGoal, AgentProfile } from '../config/agent-config.schema.js';
+import { replacePlaceholders } from '../utils/json-path-resolver.js';
 
 /**
  * Worker Reply Agent Result
@@ -69,7 +70,7 @@ export class WorkerReplyAgent {
     const observation = this.observe(goal, state, userMessage);
 
     // THINK + ACT: Generate response (combined for efficiency)
-    const systemPrompt = this.buildReActPrompt(goal, observation);
+    const systemPrompt = this.buildReActPrompt(goal, observation, state.context);
     const userPrompt = this.buildUserPrompt(userMessage, goal);
 
     console.log(`[WorkerReplyAgent] Goal: ${goal.description}`);
@@ -136,8 +137,9 @@ export class WorkerReplyAgent {
   /**
    * BUILD REACT PROMPT: Combines THINK and ACT stages
    * Uses declarative agent profile and goal configuration
+   * Supports placeholder replacement from session memory (e.g., {{customer.name}})
    */
-  private buildReActPrompt(goal: ConversationGoal, observation: any): string {
+  private buildReActPrompt(goal: ConversationGoal, observation: any, context: any): string {
     // Get conversation tactics from config
     const tactics = observation.conversationTactics
       .map((tacticId: string) => {
@@ -147,11 +149,15 @@ export class WorkerReplyAgent {
       .filter(Boolean)
       .join('\n');
 
+    // Replace placeholders in system prompt and goal description with actual session values
+    const systemPromptWithValues = replacePlaceholders(this.agentProfile.system_prompt, context);
+    const goalDescriptionWithValues = replacePlaceholders(goal.description, context);
+
     return `# AGENT IDENTITY
-${this.agentProfile.system_prompt}
+${systemPromptWithValues}
 
 # CURRENT GOAL
-**Objective:** ${goal.description}
+**Objective:** ${goalDescriptionWithValues}
 
 **Success Criteria (what we need):**
 ${goal.success_criteria.mandatory_fields.map(f => `- ${f}`).join('\n')}
@@ -196,7 +202,7 @@ Based on observations:
 - Address the CURRENT message first
 - NEVER repeat questions from recent conversation
 - Keep response to 1-2 sentences
-- Focus on progressing toward goal: ${goal.description}
+- Focus on progressing toward goal: ${goalDescriptionWithValues}
 
 Generate your response now:`;
   }

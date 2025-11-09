@@ -67,11 +67,27 @@ export interface SuccessCriteria {
 
 /**
  * Conditions for advancing to next goal
- * Uses semantic evaluation instead of rigid pattern matching
+ * Supports three types of branching:
+ * 1. deterministic: Fast JSON path checks (if field exists, if value > N)
+ * 2. semi_deterministic: Field presence checks (if customer.phone is set)
+ * 3. semantic: LLM-evaluated natural language conditions (if customer satisfied)
  */
 export interface AdvanceCondition {
-  condition: string;  // Semantic condition description (evaluated by LLM)
+  // Condition type (deterministic is fastest, semantic is most flexible)
+  type?: 'deterministic' | 'semi_deterministic' | 'semantic';
+
+  // For semantic conditions (LLM-evaluated)
+  condition?: string;  // Natural language description
+
+  // For deterministic/semi-deterministic conditions (no LLM needed)
+  json_path?: string;  // Path in session memory (e.g., "customer.phone", "service.urgency_level")
+  operator?: 'is_set' | 'is_not_set' | '==' | '!=' | '>' | '<' | '>=' | '<=';
+  value?: string | number | boolean;  // Expected value for comparison
+
+  // Target goal
   next_goal: string;
+
+  // Loop prevention
   loop_prevention?: {
     max_iterations?: number;
     cooldown_turns?: number;
