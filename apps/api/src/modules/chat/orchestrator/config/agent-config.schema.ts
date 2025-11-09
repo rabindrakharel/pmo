@@ -147,7 +147,7 @@ export interface AgentProfile {
 export interface ExtractionField {
   type: string;
   extraction_strategy: string;
-  validation: string;
+  validation?: string;  // Optional - not all fields need validation
 }
 
 /**

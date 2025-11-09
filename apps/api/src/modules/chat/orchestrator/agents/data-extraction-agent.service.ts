@@ -15,6 +15,7 @@
 import { getOpenAIService } from '../services/openai.service.js';
 import type { AgentContextState } from './agent-context.service.js';
 import { getLocalTools, executeUpdateContext } from '../tools/local-tools.js';
+import { getConfigLoader } from '../config/config-loader.service.js';
 
 /**
  * Data Extraction Result
@@ -95,15 +96,11 @@ export class DataExtractionAgent {
     // Identify which context fields are still empty (nested structure)
     const dataFields = state.context.data_extraction_fields || {};
 
-    // Define extractable fields with nested paths (ALL possible conversational fields)
-    const extractableFields = [
-      { path: 'customer.name', key: 'customer_name' },
-      { path: 'customer.phone', key: 'customer_phone' },
-      { path: 'customer.email', key: 'customer_email' },
-      { path: 'service.primary_request', key: 'service_primary_request' }
-      // NOTE: service.catalog_match, service.related_entities should come from MCP (not conversation)
-      // NOTE: operations.* fields should come from MCP (not conversation)
-    ];
+    // ✅ LOAD extractable fields from agent_config.json (config-driven, not hardcoded)
+    const extractableFields = this.getExtractableFieldsFromConfig();
+
+    // NOTE: service.catalog_match, service.related_entities should come from MCP (not conversation)
+    // NOTE: operations.* fields should come from MCP (not conversation)
 
     // ⚠️ IMPORTANT: Data extraction is PASSIVE, NOT active
     // - This agent ONLY extracts information customer ALREADY SAID
@@ -235,6 +232,121 @@ export class DataExtractionAgent {
   }
 
   /**
+   * Get extractable fields from agent_config.json (config-driven)
+   * Maps extraction_schema field names to nested paths
+   */
+  private getExtractableFieldsFromConfig(): Array<{ path: string; key: string }> {
+    try {
+      const configLoader = getConfigLoader();
+      const config = configLoader.getConfig();
+
+      // Get extraction_schema from extraction_agent profile
+      const extractionAgent = config.agent_profiles?.extraction_agent;
+      if (!extractionAgent?.extraction_schema) {
+        console.warn('[DataExtractionAgent] ⚠️  No extraction_schema found in config, using defaults');
+        return this.getDefaultExtractableFields();
+      }
+
+      const schema = extractionAgent.extraction_schema;
+      const extractableFields: Array<{ path: string; key: string }> = [];
+
+      // Map each field in extraction_schema to nested path
+      // Field naming convention: customer_phone -> customer.phone, primary_request -> service.primary_request
+      Object.keys(schema).forEach(fieldKey => {
+        const nestedPath = this.mapFieldKeyToNestedPath(fieldKey);
+        extractableFields.push({
+          path: nestedPath,
+          key: fieldKey
+        });
+      });
+
+      console.log(`[DataExtractionAgent] 📋 Loaded ${extractableFields.length} extractable fields from config`);
+      return extractableFields;
+    } catch (error: any) {
+      console.error(`[DataExtractionAgent] ❌ Failed to load extraction schema from config: ${error.message}`);
+      console.warn('[DataExtractionAgent] ⚠️  Falling back to default fields');
+      return this.getDefaultExtractableFields();
+    }
+  }
+
+  /**
+   * Map extraction_schema field key to nested path
+   * Examples:
+   * - customer_phone -> customer.phone
+   * - customer_name -> customer.name
+   * - primary_request -> service.primary_request
+   */
+  private mapFieldKeyToNestedPath(fieldKey: string): string {
+    // Handle customer_* fields
+    if (fieldKey.startsWith('customer_')) {
+      const subfield = fieldKey.replace('customer_', '');
+      return `customer.${subfield}`;
+    }
+
+    // Handle service fields (primary_request, etc.)
+    if (fieldKey === 'primary_request') {
+      return 'service.primary_request';
+    }
+
+    // Default: assume it's already in nested format or service field
+    if (fieldKey.includes('.')) {
+      return fieldKey;
+    }
+
+    // If no prefix, assume it's a service field
+    return `service.${fieldKey}`;
+  }
+
+  /**
+   * Get default extractable fields (fallback if config fails)
+   */
+  private getDefaultExtractableFields(): Array<{ path: string; key: string }> {
+    return [
+      { path: 'customer.name', key: 'customer_name' },
+      { path: 'customer.phone', key: 'customer_phone' },
+      { path: 'customer.email', key: 'customer_email' },
+      { path: 'customer.address_street', key: 'customer_address_street' },
+      { path: 'customer.address_city', key: 'customer_address_city' },
+      { path: 'customer.address_state', key: 'customer_address_state' },
+      { path: 'customer.address_zipcode', key: 'customer_address_zipcode' },
+      { path: 'service.primary_request', key: 'primary_request' }
+    ];
+  }
+
+  /**
+   * Build extraction strategies from config for LLM prompt
+   */
+  private buildExtractionStrategies(emptyFields: Array<{ path: string; key: string }>): string {
+    try {
+      const configLoader = getConfigLoader();
+      const config = configLoader.getConfig();
+      const extractionAgent = config.agent_profiles?.extraction_agent;
+
+      if (!extractionAgent?.extraction_schema) {
+        return ''; // No strategies available
+      }
+
+      const schema = extractionAgent.extraction_schema;
+      const strategies: string[] = [];
+
+      emptyFields.forEach(field => {
+        const fieldConfig = schema[field.key];
+        if (fieldConfig?.extraction_strategy) {
+          strategies.push(`  • ${field.path}: ${fieldConfig.extraction_strategy}`);
+        }
+      });
+
+      if (strategies.length === 0) {
+        return '';
+      }
+
+      return `📖 EXTRACTION STRATEGIES (from config):\n${strategies.join('\n')}\n`;
+    } catch (error) {
+      return ''; // Fail silently, not critical
+    }
+  }
+
+  /**
    * Build extraction prompt for LLM
    * ✅ Updated for nested field structure (customer.*, service.*, etc.)
    */
@@ -261,6 +373,8 @@ ${recentExchanges.map((exchange, idx) => {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📊 EMPTY DATA EXTRACTION FIELDS (not yet extracted):
 ${emptyFieldPaths.join(', ')}
+
+${this.buildExtractionStrategies(emptyFields)}
 
 🔍 CURRENT DATA EXTRACTION FIELDS (already populated):
 ${JSON.stringify(dataFields, null, 2)}
@@ -301,7 +415,38 @@ Agent: "I can help with that roof issue"
 
 ---
 
-Example 3 - Issue only:
+Example 3 - Address component extraction:
+Conversation:
+Customer: "My address is 353531 Edmonton Avenue, Palo Alto, California"
+Agent: "Thank you for providing your address"
+
+→ Call: updateContext({
+  "customer.address_street": "353531 Edmonton Avenue",
+  "customer.address_city": "Palo Alto",
+  "customer.address_state": "California"
+})
+
+Note: Extract address as structured components for validation and routing
+
+---
+
+Example 4 - Partial address extraction:
+Conversation:
+Customer: "I'm in Toronto"
+Agent: "Great, which street are you on?"
+Customer: "123 Main Street, postal code M5V 3A8"
+
+→ Call: updateContext({
+  "customer.address_city": "Toronto",
+  "customer.address_street": "123 Main Street",
+  "customer.address_zipcode": "M5V 3A8"
+})
+
+Note: Extract components incrementally as customer provides them
+
+---
+
+Example 5 - Service request only:
 Conversation:
 Customer: "The backyard has a hole that needs to be patched"
 Agent: "I understand, we can help patch that hole"
@@ -312,7 +457,7 @@ Agent: "I understand, we can help patch that hole"
 
 ---
 
-Example 4 - Nothing to extract:
+Example 6 - Nothing to extract:
 Conversation:
 Customer: "Okay, sounds good"
 Agent: "Great, let me proceed"
@@ -322,12 +467,17 @@ Agent: "Great, let me proceed"
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ IMPORTANT RULES:
 
-1. Use NESTED field names: customer.name, customer.phone, service.primary_request, etc.
+1. Use NESTED field names: customer.name, customer.phone, customer.address, customer.address_street, customer.address_city, customer.address_state, customer.address_zipcode, service.primary_request, etc.
 2. ONLY extract from CUSTOMER messages (not agent responses)
 3. ONLY extract information explicitly mentioned
 4. Do NOT update fields that are already populated (check CURRENT CONTEXT)
 5. Extract ALL relevant fields in ONE call (don't call multiple times)
 6. If NO extractable information found, do NOT call the tool
+7. For addresses:
+   - Extract BOTH full address (customer.address) AND components (street, city, state, zipcode)
+   - Components help with service area validation and routing
+   - Extract incrementally as customer provides partial address info
+   - Examples: "Palo Alto" → customer.address_city, "California" → customer.address_state
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
