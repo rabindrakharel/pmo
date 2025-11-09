@@ -42,7 +42,7 @@
       "primary_agent": "conversational_agent",
       "fallback_agent": "mcp_agent",
       "success_criteria": {
-        "mandatory_fields": ["customer.phone", "customer.name", "customer.address"]
+        "mandatory_fields": ["customer.phone", "customer.name", "customer.address_street", "customer.address_city", "customer.address_state"]
       },
       "allowed_agents": ["conversational_agent", "extraction_agent", "mcp_agent"],
       "available_tools": ["customer_get", "customer_create", "setting_list"],
@@ -254,13 +254,13 @@
         "default_entities": ["Customer", "Task", "Employee", "Calendar", "Settings"],
         "expansion_rules": {
           "if_service_catalog_matched": {
-            "add_entities": ["Product", "Service", "Quote"]
+            "add_entities": ["Product", "Sales"]
           },
           "if_project_mentioned": {
-            "add_entities": ["Project", "Wiki", "Artifact"]
+            "add_entities": ["Project", "Wiki", "Artifact", "Form"]
           },
           "if_appointment_booking": {
-            "add_entities": ["Booking", "Calendar"]
+            "add_entities": ["Booking", "Interaction"]
           }
         },
         "always_include_categories": ["Settings", "Linkage"],
@@ -447,7 +447,7 @@
   "global_constraints": {
     "max_conversation_turns": 30,
     "max_goal_iterations": 3,
-    "mandatory_fields_global": ["service.primary_request", "customer.phone", "customer.name", "customer.address"],
+    "mandatory_fields_global": ["service.primary_request", "customer.phone", "customer.name", "customer.address_street", "customer.address_city", "customer.address_state"],
     "timeout_seconds": 600,
     "escalation_triggers": [
       "customer extremely frustrated",

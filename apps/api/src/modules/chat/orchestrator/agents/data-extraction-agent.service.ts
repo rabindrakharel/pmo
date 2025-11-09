@@ -467,17 +467,17 @@ Agent: "Great, let me proceed"
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ IMPORTANT RULES:
 
-1. Use NESTED field names: customer.name, customer.phone, customer.address, customer.address_street, customer.address_city, customer.address_state, customer.address_zipcode, service.primary_request, etc.
+1. Use NESTED field names: customer.name, customer.phone, customer.address_street, customer.address_city, customer.address_state, customer.address_zipcode, customer.address_country, service.primary_request, etc.
 2. ONLY extract from CUSTOMER messages (not agent responses)
 3. ONLY extract information explicitly mentioned
 4. Do NOT update fields that are already populated (check CURRENT CONTEXT)
 5. Extract ALL relevant fields in ONE call (don't call multiple times)
 6. If NO extractable information found, do NOT call the tool
 7. For addresses:
-   - Extract BOTH full address (customer.address) AND components (street, city, state, zipcode)
+   - Extract fine-grained address components: customer.address_street, customer.address_city, customer.address_state, customer.address_zipcode, customer.address_country
    - Components help with service area validation and routing
    - Extract incrementally as customer provides partial address info
-   - Examples: "Palo Alto" → customer.address_city, "California" → customer.address_state
+   - Examples: "353531 Edmonton Avenue" → customer.address_street, "Palo Alto" → customer.address_city, "California" → customer.address_state
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
