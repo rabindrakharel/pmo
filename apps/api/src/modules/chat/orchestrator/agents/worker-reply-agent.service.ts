@@ -210,6 +210,7 @@ export class WorkerReplyAgent {
    * BUILD REACT PROMPT: Combines THINK and ACT stages
    * Uses declarative agent profile and goal configuration
    * Supports placeholder replacement from session memory (e.g., {{customer.name}})
+   * ✅ FIX #5: Now supports sequential field collection
    */
   private buildReActPrompt(goal: ConversationGoal, observation: any, context: any): string {
     // Get conversation tactics from config
@@ -225,6 +226,51 @@ export class WorkerReplyAgent {
     const systemPromptWithValues = replacePlaceholders(this.agentProfile.system_prompt, context);
     const goalDescriptionWithValues = replacePlaceholders(goal.description, context);
 
+    // ✅ FIX #5: Determine next field to collect based on field_collection_order
+    const fieldCollectionOrder = (goal.success_criteria as any).field_collection_order;
+    let sequentialFieldGuidance = '';
+
+    if (fieldCollectionOrder && Array.isArray(fieldCollectionOrder)) {
+      // Find the first empty field in the collection order
+      const dataFields = context.data_extraction_fields || {};
+      let nextFieldToCollect: string | null = null;
+      const collectedFields: string[] = [];
+      const remainingFields: string[] = [];
+
+      for (const fieldPath of fieldCollectionOrder) {
+        const [category, field] = fieldPath.split('.');
+        const value = dataFields[category]?.[field];
+        const isPopulated = value && value !== '' && value !== '(unknown)' && value !== '(not set)';
+
+        if (isPopulated) {
+          collectedFields.push(fieldPath);
+        } else if (!nextFieldToCollect) {
+          nextFieldToCollect = fieldPath; // First empty field
+          remainingFields.push(fieldPath);
+        } else {
+          remainingFields.push(fieldPath);
+        }
+      }
+
+      if (nextFieldToCollect) {
+        sequentialFieldGuidance = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 SEQUENTIAL FIELD COLLECTION (Follow this order):
+
+✅ Already Collected: ${collectedFields.length > 0 ? collectedFields.join(', ') : '(none yet)'}
+
+🎯 NEXT FIELD TO COLLECT: **${nextFieldToCollect}**
+
+⏭️ After this: ${remainingFields.slice(1).join(', ') || '(none - this is the last field)'}
+
+⚠️ CRITICAL RULE: ONLY ask for the NEXT FIELD (${nextFieldToCollect}). Do NOT jump ahead to ask for fields that come later in the sequence. Follow the order to maintain natural conversation flow.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+      } else {
+        sequentialFieldGuidance = `\n✅ All fields in collection order have been collected.\n`;
+      }
+    }
+
     return `# AGENT IDENTITY
 ${systemPromptWithValues}
 
@@ -235,6 +281,7 @@ ${systemPromptWithValues}
 ${goal.success_criteria.mandatory_fields.map(f => `- ${f}`).join('\n')}
 
 ⚠️ **IMPORTANT:** ONLY focus on the fields listed above. Do NOT ask for other information yet (it will be collected in future goals).
+${sequentialFieldGuidance}
 
 **Conversation Tactics to Use:**
 ${tactics}
@@ -265,9 +312,12 @@ ${observation.currentMessage ? `
 Based on observations:
 - What is the customer trying to accomplish?
 - What MANDATORY FIELDS (from success criteria) do we still need?
+- If sequential collection is enabled: What is the NEXT field to collect? (Don't skip ahead!)
 - Which conversation tactic best fits this situation?
 - Have we already asked this question? (check recent conversation!)
 - ⚠️ CRITICAL: Don't ask for fields NOT in success criteria - other goals will handle them
+- ⚠️ CRITICAL: If sequential collection is shown above, ONLY ask for the NEXT field, not fields that come later
+- 🔍 INCOMPLETE UTTERANCE CHECK: Is the customer's message incomplete? (Examples: "The name is", "My phone is", "It's" without completing the sentence)
 
 ## 3. ACT (Generate Response)
 
@@ -279,6 +329,31 @@ Based on observations:
 - Keep response to 1-2 sentences
 - ONLY ask for fields in success criteria (ignore other empty fields you see in context)
 - Focus on progressing toward goal: ${goalDescriptionWithValues}
+
+**🚨 INCOMPLETE UTTERANCE DETECTION:**
+
+If the customer's message ends with incomplete phrasing like:
+- "The name is" / "My name is" (without the actual name)
+- "The phone number is" / "My phone is" (without the number)
+- "The address is" / "I live at" (without the address)
+- "It's" / "That's" (without completing the thought)
+- Any sentence fragment that signals the customer is about to provide information but hasn't yet
+
+→ DO NOT acknowledge or thank them for providing the information
+→ DO NOT extract anything (there's nothing to extract yet)
+→ Instead: Wait silently (respond with "I'm listening" or similar) or gently prompt them to continue ("Yes, please go ahead")
+
+**Example - WRONG response to incomplete utterance:**
+Customer: "The name is"
+Agent: "Thank you for sharing your name!" ❌ WRONG - customer hasn't provided name yet
+
+**Example - CORRECT response to incomplete utterance:**
+Customer: "The name is"
+Agent: "Yes, I'm listening. Please go ahead." ✅ CORRECT - waiting for customer to complete
+
+**Example - COMPLETE utterance (normal response):**
+Customer: "The name is John Smith"
+Agent: "Thank you, John! May I also get your phone number?" ✅ CORRECT - customer provided complete information
 
 Generate your response now:`;
   }
