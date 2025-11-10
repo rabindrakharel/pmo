@@ -329,7 +329,21 @@ export class UnifiedGoalAgent {
             console.log(`   session_memory_data_update: ${categories.length} categories (${categories.join(', ')})`);
           }
 
-          // Now stream the customer response token by token
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          // START MCP EXECUTION IMMEDIATELY (IN PARALLEL WITH VOICE STREAMING)
+          // Customer hears response while tools execute in background
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          let mcpExecutionPromise: Promise<{
+            contextUpdates: Partial<DAGContext>;
+            mcpResults: any;
+          }> | null = null;
+
+          if (llmOutput.commands_to_run.length > 0 && this.mcpAdapter) {
+            console.log(`\n⚡ [PARALLEL MCP EXECUTION] Starting ${llmOutput.commands_to_run.length} tools (async)...`);
+            mcpExecutionPromise = this.executeMCPCommands(llmOutput, state);
+          }
+
+          // Now stream the customer response token by token (PARALLEL with MCP execution)
           const customerResponse = llmOutput.ask_talk_reply_to_customer;
 
           // Split response into words for progressive streaming
@@ -347,17 +361,6 @@ export class UnifiedGoalAgent {
           // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           conversation.messages.push({ role: 'assistant', content: fullResponse });
           console.log(`[UnifiedGoalAgent] 📝 Added assistant response to conversation (${conversation.messages.length} total messages)`);
-
-          // Start MCP execution in background (if needed)
-          let mcpExecutionPromise: Promise<{
-            contextUpdates: Partial<DAGContext>;
-            mcpResults: any;
-          }> | null = null;
-
-          if (llmOutput.commands_to_run.length > 0 && this.mcpAdapter) {
-            console.log(`\n⚡ [PARALLEL MCP EXECUTION] Starting ${llmOutput.commands_to_run.length} tools (async)...`);
-            mcpExecutionPromise = this.executeMCPCommands(llmOutput, state);
-          }
 
           // Yield final done chunk
           console.log(`[UnifiedGoalAgent] ✅ Streaming complete (${customerResponse.length} chars)`);
