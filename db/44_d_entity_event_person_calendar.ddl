@@ -65,7 +65,7 @@
 
 CREATE TABLE app.d_entity_event_person_calendar (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code varchar(50) UNIQUE NOT NULL,
+  code varchar(50) NOT NULL,
   name varchar(200),
   descr text,
   metadata jsonb DEFAULT '{}'::jsonb,

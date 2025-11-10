@@ -87,7 +87,7 @@
 
 CREATE TABLE app.d_event (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code varchar(50) UNIQUE NOT NULL,
+  code varchar(50) NOT NULL,
   name varchar(200) NOT NULL,
   descr text,
   active_flag boolean DEFAULT true,

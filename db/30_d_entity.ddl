@@ -45,11 +45,6 @@ CREATE TABLE app.d_entity (
     updated_ts timestamptz DEFAULT now()
 );
 
--- Create indexes for common query patterns
-CREATE INDEX idx_d_entity_active ON app.d_entity(active_flag) WHERE active_flag = true;
-CREATE INDEX idx_d_entity_display_order ON app.d_entity(display_order);
-CREATE INDEX idx_d_entity_child_entities_gin ON app.d_entity USING gin(child_entities);
-
 COMMENT ON TABLE app.d_entity IS 'Entity TYPE metadata with parent-child relationships and icons - single source of truth for entity type definitions';
 COMMENT ON COLUMN app.d_entity.code IS 'Entity type identifier (office, business, project, task, etc.)';
 COMMENT ON COLUMN app.d_entity.name IS 'Entity name (Office, Business, Project, Task, etc.)';

@@ -26,7 +26,6 @@
 -- • child_entity_type, child_entity_id: varchar(20), text
 -- • relationship_type: varchar(50) (contains, owns, assigned_to)
 -- • active_flag: boolean (soft delete)
--- • UNIQUE(parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
 --
 -- VALID RELATIONSHIPS:
 -- • event → task, project, service, cust, employee, business, artifact, form, wiki, office
@@ -53,14 +52,8 @@ CREATE TABLE app.d_entity_id_map (
     to_ts timestamptz,
     active_flag boolean NOT NULL DEFAULT true,
     created_ts timestamptz NOT NULL DEFAULT now(),
-    updated_ts timestamptz NOT NULL DEFAULT now(),
-    UNIQUE(parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
+    updated_ts timestamptz NOT NULL DEFAULT now()
 );
-
--- Indexes for common query patterns
-CREATE INDEX idx_d_entity_id_map_parent ON app.d_entity_id_map(parent_entity_type, parent_entity_id) WHERE active_flag = true;
-CREATE INDEX idx_d_entity_id_map_child ON app.d_entity_id_map(child_entity_type, child_entity_id) WHERE active_flag = true;
-CREATE INDEX idx_d_entity_id_map_active ON app.d_entity_id_map(active_flag) WHERE active_flag = true;
 
 COMMENT ON TABLE app.d_entity_id_map IS 'Parent-child relationships between specific entity instances for navigation, filtering, and linkage management';
 
