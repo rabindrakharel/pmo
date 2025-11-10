@@ -279,6 +279,28 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       console.log(`✅ Created event: ${newEvent.code}`);
 
+      // Grant full Owner permissions to event creator via RBAC
+      // Owner permission [5] allows full control including permission management
+      const creatorEmpId = request.user?.sub;
+      if (creatorEmpId) {
+        await client`
+          INSERT INTO app.entity_id_rbac_map (
+            empid,
+            entity,
+            entity_id,
+            permission,
+            granted_by_empid
+          ) VALUES (
+            ${creatorEmpId}::uuid,
+            'event',
+            ${newEvent.id},
+            ARRAY[0,1,2,3,4,5],
+            ${creatorEmpId}::uuid
+          )
+        `;
+        console.log(`✅ Granted Owner permissions to creator (empid: ${creatorEmpId})`);
+      }
+
       // Create event-person mappings if attendees provided
       let attendees = [];
       if (eventData.attendees && eventData.attendees.length > 0) {

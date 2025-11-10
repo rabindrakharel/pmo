@@ -13,6 +13,7 @@
 --   [2] = Share:  Share entity with others
 --   [3] = Delete: Soft delete entity
 --   [4] = Create: Create new entities (requires entity_id='all')
+--   [5] = Owner:  Full control including permission management (typically granted to creator)
 --
 -- DATABASE BEHAVIOR:
 -- • GRANT TYPE-LEVEL PERMISSION: entity_id='all' grants access to ALL instances
@@ -77,7 +78,7 @@ CREATE TABLE app.entity_id_rbac_map (
   empid uuid NOT NULL, -- References app.d_employee (via entity_id_hierarchy_mapping)
   entity varchar(50) NOT NULL, -- Entity type: office, biz, project, task, worksite, client, role, position, etc.
   entity_id text NOT NULL, -- Specific entity UUID or 'all' for type-level permissions
-  permission integer[] NOT NULL DEFAULT '{}', -- Array: [0=View, 1=Edit, 2=Share, 3=Delete, 4=Create]
+  permission integer[] NOT NULL DEFAULT '{}', -- Array: [0=View, 1=Edit, 2=Share, 3=Delete, 4=Create, 5=Owner]
 
   -- Permission lifecycle management
   granted_by_empid uuid, -- Who granted this permission (delegation tracking)

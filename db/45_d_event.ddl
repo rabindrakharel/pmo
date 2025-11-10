@@ -16,6 +16,11 @@
 -- 3. LOCATION-AWARE: event_addr stores physical address OR virtual meeting URL
 -- 4. PLATFORM-SPECIFIC: event_platform_provider_name identifies the platform (Zoom, Teams, Google Meet, physical hall, etc.)
 -- 5. POLYMORPHIC LINKAGE: d_entity_id_map tracks all parent-child relationships
+-- 6. RBAC-BASED OWNERSHIP: Event ownership is tracked via entity_id_rbac_map with permission array position [5]
+--    - Event creator automatically receives Owner permission: [0,1,2,3,4,5] (View, Edit, Share, Delete, Create, Owner)
+--    - Owner permission [5] grants full control including permission management
+--    - No owner column exists in d_event table - ownership is determined by querying entity_id_rbac_map
+--    - To find event creator/owner: SELECT empid FROM entity_id_rbac_map WHERE entity='event' AND entity_id=:event_id AND permission @> ARRAY[5]
 --
 -- USE CASES:
 -- 1. SERVICE EVENT: Event → Service, Customer, Employee (e.g., HVAC repair for customer, assigned to employee)
@@ -26,6 +31,8 @@
 --
 -- WORKFLOW:
 -- 1. CREATE EVENT: Define event details (type, platform, address, time slot)
+--    - API automatically grants Owner permission to creator via entity_id_rbac_map
+--    - Creator receives full permissions: [0,1,2,3,4,5] (View, Edit, Share, Delete, Create, Owner)
 -- 2. LINK TO ENTITIES: Add entries to d_entity_id_map (event as parent, other entities as children)
 --    Example: INSERT INTO d_entity_id_map (parent_entity_type='event', parent_entity_id=event_id, child_entity_type='service', child_entity_id=service_id)
 -- 3. LINK TO PEOPLE: Add entries to d_entity_event_person_calendar (who is involved, RSVP status)
