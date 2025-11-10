@@ -11,22 +11,29 @@ import {
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
 
-// Schema based on actual d_office table structure
+// Schema based on actual d_office table structure (physical locations only)
+// NOTE: Hierarchy fields (parent_id, dl__office_hierarchy_level) are in d_office_hierarchy
+// Use /api/v1/office-hierarchy for organizational hierarchy management
 const OfficeSchema = Type.Object({
   id: Type.String(),
   code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Any()),
-  parent_id: Type.Optional(Type.String()),
-  parent_name: Type.Optional(Type.String()),
-  dl__office_level: Type.String(),
+  // Physical location fields
   address_line1: Type.Optional(Type.String()),
   address_line2: Type.Optional(Type.String()),
   city: Type.Optional(Type.String()),
   province: Type.Optional(Type.String()),
   postal_code: Type.Optional(Type.String()),
   country: Type.Optional(Type.String()),
+  // Contact and operational fields
+  phone: Type.Optional(Type.String()),
+  email: Type.Optional(Type.String()),
+  office_type: Type.Optional(Type.String()),
+  capacity_employees: Type.Optional(Type.Number()),
+  square_footage: Type.Optional(Type.Number()),
+  // Temporal audit fields
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
   active_flag: Type.Boolean(),
@@ -40,28 +47,35 @@ const CreateOfficeSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Any()),
-  parent_id: Type.Optional(Type.String({ format: 'uuid' })),
-  dl__office_level: Type.String(),
+  // Physical location fields
   address_line1: Type.Optional(Type.String()),
   address_line2: Type.Optional(Type.String()),
   city: Type.Optional(Type.String()),
   province: Type.Optional(Type.String()),
   postal_code: Type.Optional(Type.String()),
   country: Type.Optional(Type.String()),
+  // Contact and operational fields
+  phone: Type.Optional(Type.String()),
+  email: Type.Optional(Type.String()),
+  office_type: Type.Optional(Type.String()),
+  capacity_employees: Type.Optional(Type.Number()),
+  square_footage: Type.Optional(Type.Number()),
   active_flag: Type.Optional(Type.Boolean()),
 });
 
 const UpdateOfficeSchema = Type.Partial(CreateOfficeSchema);
 
 export async function officeRoutes(fastify: FastifyInstance) {
-  // List organizations with filtering
+  // List physical office locations with filtering
   fastify.get('/api/v1/office', {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         active_flag: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
-        parent_id: Type.Optional(Type.String()),
+        office_type: Type.Optional(Type.String()),
+        city: Type.Optional(Type.String()),
+        province: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
@@ -79,7 +93,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      active_flag, search, parent_id,
+      active_flag, search, office_type, city, province,
       limit = 20, offset: queryOffset, page
     } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
@@ -90,7 +104,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Direct RBAC filtering - only show orgs user has access to
+      // Direct RBAC filtering - only show offices user has access to
       const baseConditions = [
         sql`(
           EXISTS (
@@ -108,20 +122,29 @@ export async function officeRoutes(fastify: FastifyInstance) {
       const conditions = [...baseConditions];
 
       if (active_flag !== undefined) {
-        conditions.push(sql`active_flag = ${active_flag}`);
+        conditions.push(sql`o.active_flag = ${active_flag}`);
       }
 
-      if (parent_id) {
-        conditions.push(sql`parent_id = ${parent_id}`);
+      if (office_type) {
+        conditions.push(sql`o.office_type = ${office_type}`);
+      }
+
+      if (city) {
+        conditions.push(sql`o.city ILIKE ${`%${city}%`}`);
+      }
+
+      if (province) {
+        conditions.push(sql`o.province ILIKE ${`%${province}%`}`);
       }
 
       if (search) {
         const searchConditions = [
-          sql`COALESCE(name, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE("descr", '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(code, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(city, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(province, '') ILIKE ${`%${search}%`}`
+          sql`COALESCE(o.name, '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(o."descr", '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(o.code, '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(o.city, '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(o.province, '') ILIKE ${`%${search}%`}`,
+          sql`COALESCE(o.address_line1, '') ILIKE ${`%${search}%`}`
         ];
 
         conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
@@ -134,14 +157,12 @@ export async function officeRoutes(fastify: FastifyInstance) {
       `);
       const total = Number(countResult[0]?.total || 0);
 
-      const orgs = await db.execute(sql`
+      const offices = await db.execute(sql`
         SELECT
           o.id, o.code, o.name, o."descr", o.metadata,
-          o.parent_id, o.dl__office_level,
           o.address_line1, o.address_line2, o.city, o.province, o.postal_code, o.country,
-          o.from_ts, o.to_ts, o.active_flag, o.created_ts, o.updated_ts, o.version,
-          -- Include parent org name for display
-          (SELECT name FROM app.d_office parent WHERE parent.id = o.parent_id) as parent_name
+          o.phone, o.email, o.office_type, o.capacity_employees, o.square_footage,
+          o.from_ts, o.to_ts, o.active_flag, o.created_ts, o.updated_ts, o.version
         FROM app.d_office o
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY o.name ASC NULLS LAST, o.created_ts DESC
@@ -155,8 +176,8 @@ export async function officeRoutes(fastify: FastifyInstance) {
         canSeeSafetyInfo: true,
       };
 
-      const filteredData = orgs.map(org =>
-        filterUniversalColumns(org, userPermissions)
+      const filteredData = offices.map(office =>
+        filterUniversalColumns(office, userPermissions)
       );
 
       return {
@@ -171,7 +192,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get single organization
+  // Get single office location
   fastify.get('/api/v1/office/:id', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -209,20 +230,18 @@ export async function officeRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const org = await db.execute(sql`
+      const office = await db.execute(sql`
         SELECT
           id, code, name, "descr", metadata,
-          parent_id, dl__office_level,
           address_line1, address_line2, city, province, postal_code, country,
-          from_ts, to_ts, active_flag, created_ts, updated_ts, version,
-          -- Include parent org name for display
-          (SELECT name FROM app.d_office parent WHERE parent.id = d_office.parent_id) as parent_name
+          phone, email, office_type, capacity_employees, square_footage,
+          from_ts, to_ts, active_flag, created_ts, updated_ts, version
         FROM app.d_office
         WHERE id = ${id}
       `);
 
-      if (org.length === 0) {
-        return reply.status(404).send({ error: 'Organization not found' });
+      if (office.length === 0) {
+        return reply.status(404).send({ error: 'Office not found' });
       }
 
       const userPermissions = {
@@ -232,7 +251,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
         canSeeSafetyInfo: true,
       };
 
-      return filterUniversalColumns(org[0], userPermissions);
+      return filterUniversalColumns(office[0], userPermissions);
     } catch (error) {
       (fastify.log as any).error('Error fetching organization:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -346,7 +365,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Create organization
+  // Create office location
   fastify.post('/api/v1/office', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -367,51 +386,46 @@ export async function officeRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Check for unique organization code if provided
+      // Check for unique office code if provided
       if (data.code) {
-        const existingOrg = await db.execute(sql`
+        const existingOffice = await db.execute(sql`
           SELECT id FROM app.d_office WHERE code = ${data.code} AND active_flag = true
         `);
-        if (existingOrg.length > 0) {
-          return reply.status(400).send({ error: 'Organization with this code already exists' });
-        }
-      }
-
-      // Validate parent organization if provided
-      if (data.parent_id) {
-        const parentOrg = await db.execute(sql`
-          SELECT id FROM app.d_office WHERE id = ${data.parent_id} AND active_flag = true
-        `);
-        if (parentOrg.length === 0) {
-          return reply.status(400).send({ error: 'Parent organization not found' });
+        if (existingOffice.length > 0) {
+          return reply.status(400).send({ error: 'Office with this code already exists' });
         }
       }
 
       const result = await db.execute(sql`
         INSERT INTO app.d_office (
-          code, name, "descr", metadata, parent_id, dl__office_level,
-          address_line1, address_line2, city, province, postal_code, country, active_flag
+          code, name, "descr", metadata,
+          address_line1, address_line2, city, province, postal_code, country,
+          phone, email, office_type, capacity_employees, square_footage,
+          active_flag
         )
         VALUES (
           ${data.code},
           ${data.name},
           ${data.descr || null},
           ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
-          ${data.parent_id || null},
-          ${data.dl__office_level},
           ${data.address_line1 || null},
           ${data.address_line2 || null},
           ${data.city || null},
           ${data.province || null},
           ${data.postal_code || null},
           ${data.country || 'Canada'},
+          ${data.phone || null},
+          ${data.email || null},
+          ${data.office_type || null},
+          ${data.capacity_employees || null},
+          ${data.square_footage || null},
           ${data.active_flag !== false}
         )
         RETURNING *
       `);
 
       if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to create organization' });
+        return reply.status(500).send({ error: 'Failed to create office' });
       }
 
       const userPermissions = {
@@ -428,7 +442,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update organization
+  // Update office location
   fastify.put('/api/v1/office/:id', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -482,14 +496,17 @@ export async function officeRoutes(fastify: FastifyInstance) {
       if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
       if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
       if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
-      if (data.parent_id !== undefined) updateFields.push(sql`parent_id = ${data.parent_id}`);
-      if (data.dl__office_level !== undefined) updateFields.push(sql`dl__office_level = ${data.dl__office_level}`);
       if (data.address_line1 !== undefined) updateFields.push(sql`address_line1 = ${data.address_line1}`);
       if (data.address_line2 !== undefined) updateFields.push(sql`address_line2 = ${data.address_line2}`);
       if (data.city !== undefined) updateFields.push(sql`city = ${data.city}`);
       if (data.province !== undefined) updateFields.push(sql`province = ${data.province}`);
       if (data.postal_code !== undefined) updateFields.push(sql`postal_code = ${data.postal_code}`);
       if (data.country !== undefined) updateFields.push(sql`country = ${data.country}`);
+      if (data.phone !== undefined) updateFields.push(sql`phone = ${data.phone}`);
+      if (data.email !== undefined) updateFields.push(sql`email = ${data.email}`);
+      if (data.office_type !== undefined) updateFields.push(sql`office_type = ${data.office_type}`);
+      if (data.capacity_employees !== undefined) updateFields.push(sql`capacity_employees = ${data.capacity_employees}`);
+      if (data.square_footage !== undefined) updateFields.push(sql`square_footage = ${data.square_footage}`);
       if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
 
       if (updateFields.length === 0) {
@@ -506,7 +523,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       `);
 
       if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to update organization' });
+        return reply.status(500).send({ error: 'Failed to update office' });
       }
 
       const userPermissions = {

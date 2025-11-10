@@ -6,14 +6,14 @@
 
 ## Semantics
 
-The PMO data model is a **NO FOREIGN KEY** PostgreSQL architecture (app schema) supporting 48 tables across 18 entity types with polymorphic relationships, granular RBAC, and DDL standardization. All entity relationships flow through `d_entity_id_map` for flexibility. Settings drive UI via `setting_datalabel`. All tables follow strict naming, column, and documentation conventions for consistency.
+The PMO data model is a **NO FOREIGN KEY** PostgreSQL architecture (app schema) supporting 50 tables across 27+ entity types with polymorphic relationships, granular RBAC, and DDL standardization. All entity relationships flow through `d_entity_id_map` for flexibility. Settings drive UI via `setting_datalabel`. All tables follow strict naming, column, and documentation conventions for consistency.
 
 **Key Principles:**
 - **NO Foreign Keys** - All relationships via `d_entity_id_map` (polymorphic linking)
 - **Soft Deletes** - `active_flag=false`, `to_ts=now()` preserves history
 - **In-Place Updates** - Same ID, `version++`, `updated_ts` refreshes
 - **Convention-Based** - Naming patterns eliminate configuration
-- **DDL Standardization** - All 48 DDL files follow identical structure
+- **DDL Standardization** - All 46 DDL files follow identical structure (some files contain multiple tables)
 
 ---
 
@@ -196,15 +196,17 @@ d_artifact, d_form, d_wiki, d_quote, d_work_order
 
 ---
 
-## Table Catalog (48 Tables)
+## Table Catalog (50 Tables)
 
-### Core Entity Tables (13)
+### Core Entity Tables (17)
 
 | Table | Type | Relationships | Key Fields |
 |-------|------|---------------|------------|
 | `d_employee` | Dimension | role, position (via map) | email, password_hash, department |
-| `d_business` | Dimension | office → business (via map) | business_number, dl__business_type |
-| `d_office` | Dimension | Hierarchy root | office_code, addr, latitude, longitude |
+| `d_business` | Dimension | office → business (via map), links to d_business_hierarchy | business_number, operational_status |
+| `d_business_hierarchy` | Hierarchy | Self-referential (parent_id), linked to d_business (via map) | dl__business_hierarchy_level, parent_id, manager_employee_id |
+| `d_office` | Dimension | Links to d_office_hierarchy (via map) | office_code, address_line1, city, province |
+| `d_office_hierarchy` | Hierarchy | Self-referential (parent_id), linked to d_office (via map) | dl__office_hierarchy_level, parent_id |
 | `d_project` | Dimension | business → project → task (via map) | project_code, dl__project_stage, budget_amt |
 | `d_task` | Dimension | project → task (via map) | dl__task_status, dl__task_priority, assignee_id |
 | `d_cust` | Dimension | cust → project (via map) | cust_number, cust_type, dl__customer_tier |
@@ -215,19 +217,22 @@ d_artifact, d_form, d_wiki, d_quote, d_work_order
 | `d_service` | Dimension | Service catalog | service_code, dl__service_category, hourly_rate_amt |
 | `d_artifact` | Dimension | File attachments | s3_key, presigned_url, file_size_bytes |
 | `d_wiki` | Dimension | Documentation | content_html, tags |
+| `d_reports` | Dimension | Business intelligence reports | report_code, report_type |
+| `d_event` | Dimension | Universal events | event_type, start_ts, end_ts |
 
-### Form & Workflow Tables (6)
+### Form & Workflow Tables (5)
 
 | Table | Purpose | Schema |
 |-------|---------|--------|
 | `d_form_head` | Form definitions | JSONB schema: `{"steps": [...]}` |
-| `d_form_data` | Form submissions | JSONB data: `{"step-1": {...}}` |
 | `d_industry_workflow_graph_head` | Workflow templates | JSONB graph: `[{id, entity_name, parent_ids}]` |
 | `d_industry_workflow_graph_data` | Workflow instances | JSONB entities: `[{id, entity_id, entity_stage}]` |
 | `f_industry_workflow_events` | Workflow event log | event_type, from_state_id, to_state_id |
 | `d_workflow_automation` | Automation rules | trigger_conditions, actions |
 
-### Financial Tables (4)
+**Note:** `d_form_data` is categorized under Infrastructure Tables as it provides versioned data storage.
+
+### Financial Tables (5)
 
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
@@ -235,29 +240,45 @@ d_artifact, d_form, d_wiki, d_quote, d_work_order
 | `fact_work_order` | Work performed | dl__work_order_status, labor_hours, total_cost_amt |
 | `f_invoice` | Invoices | invoice_number, dl__invoice_status, total_amt |
 | `f_order` | Orders | order_number, dl__order_status, total_amt |
+| `f_shipment` | Shipments | shipment_number, tracking_number, status |
 
-### Event & Calendar Tables (3)
+### Inventory Tables (1)
+
+| Table | Purpose | Key Fields |
+|-------|---------|------------|
+| `f_inventory` | Inventory tracking | product_id, quantity_on_hand, warehouse_location |
+
+### Event & Calendar Tables (2)
 
 | Table | Purpose | Polymorphic Links |
 |-------|---------|-------------------|
-| `d_event` | Universal events | Links to any entity via d_entity_id_map |
 | `d_entity_person_calendar` | Availability slots | person_entity_type, person_entity_id, event_id |
 | `d_entity_event_person_calendar` | Event attendees | event_id, person_entity_id, event_rsvp_status |
 
-### Infrastructure Tables (16)
+**Note:** `d_event` is categorized under Core Entity Tables.
+
+### Infrastructure Tables (18)
 
 | Table | Purpose | Pattern |
 |-------|---------|---------|
 | `d_entity_id_map` | Polymorphic links | parent_entity_type + child_entity_type |
 | `entity_id_rbac_map` | RBAC permissions | empid + entity + entity_id + permission[] |
 | `d_entity_instance_id` | Entity registry | entity_type + entity_id + entity_name |
+| `d_entity_instance_backfill` | Entity backfill tracking | Tracks entity instance creation |
 | `d_entity` | Entity type catalog | code, ui_icon, child_entities (JSONB) |
+| `d_entity_map` | Entity type metadata | Entity configuration and relationships |
 | `setting_datalabel` | Universal settings | datalabel_name, datalabel_value, display_order |
-| `orchestrator_session` | AI orchestrator | session_id, context (JSONB) |
-| `orchestrator_state` | Workflow state | state_name, state_data (JSONB) |
-| `orchestrator_agents` | AI agents | agent_type, capabilities (JSONB) |
-| `orchestrator_agent_log` | Agent logs | log_level, message, metadata |
-| `orchestrator_summary` | Session summary | summary_type, summary_data (JSONB) |
+| `d_task_data` | Task versioned data | Task history and audit trail |
+| `d_artifact_data` | Artifact versioned data | Artifact history and audit trail |
+| `d_wiki_data` | Wiki versioned data | Wiki history and audit trail |
+| `d_report_data` | Report versioned data | Report history and audit trail |
+| `orchestrator_session` | AI orchestrator sessions | session_id, context (JSONB) |
+| `orchestrator_state` | AI orchestrator state | state_name, state_data (JSONB) |
+| `orchestrator_agents` | AI agent definitions | agent_type, capabilities (JSONB) |
+| `orchestrator_agent_log` | AI agent logs | log_level, message, metadata |
+| `orchestrator_summary` | AI session summaries | summary_type, summary_data (JSONB) |
+| `d_email_template` | Email templates | template_code, subject, body_html |
+| `f_interaction` | Customer interactions | interaction_type, interaction_ts |
 
 ### Settings Tables (6)
 
@@ -394,8 +415,11 @@ SELECT datalabel_value, datalabel_value_label, display_order
 ## Verification & Compliance
 
 **Current Standardization Status:**
-- **Compliant Files:** 21/48 (43%)
+- **Compliant Files:** 14/46 DDL files (30.4%)
+- **Actual Tables:** 50 tables (46 DDL files, some contain multiple tables)
 - **Target:** 100% standardization
+
+**Note:** Some DDL files create multiple tables (e.g., IV_d_office.ddl creates both d_office and d_office_hierarchy).
 
 **Verification Command:**
 ```bash

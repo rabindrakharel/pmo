@@ -1,20 +1,8 @@
 import React from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { getIconComponent } from '../../../lib/iconMapping';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
-import {
-  FileText,
-  CheckSquare,
-  BookOpen,
-  FolderOpen,
-  Building2,
-  Users,
-  UserCheck,
-  MapPin,
-  Crown,
-  Star,
-  ArrowLeft
-} from 'lucide-react';
 
 export interface HeaderTab {
   id: string;
@@ -37,30 +25,6 @@ interface DynamicChildEntityTabsProps {
   showBackButton?: boolean;
   onBackClick?: () => void;
 }
-
-const getEntityIcon = (entityType: string) => {
-  const iconMap = {
-    task: CheckSquare,
-    tasks: CheckSquare,
-    artifact: FileText,
-    artifacts: FileText,
-    wiki: BookOpen,
-    form: FileText,
-    forms: FileText,
-    project: FolderOpen,
-    projects: FolderOpen,
-    biz: Building2,
-    employee: Users,
-    employees: Users,
-    role: UserCheck,
-    roles: UserCheck,
-    org: MapPin,
-    hr: Crown,
-    client: Star,
-    worksite: Building2,
-  };
-  return iconMap[entityType as keyof typeof iconMap] || FileText;
-};
 
 export function DynamicChildEntityTabs({
   title,
@@ -91,7 +55,7 @@ export function DynamicChildEntityTabs({
         <nav className="flex flex-wrap gap-2" aria-label="Tabs">
           {tabs.map((tab) => {
             const isActive = activeTab?.id === tab.id;
-            const IconComponent = tab.icon || getEntityIcon(tab.id);
+            const IconComponent = tab.icon || getIconComponent(null);
 
             return (
               <button
@@ -129,95 +93,6 @@ export function DynamicChildEntityTabs({
   );
 }
 
-// Default action entity configuration for fallback
-const getDefaultTabs = (parentType: string, parentId: string): HeaderTab[] => {
-  // Helper function to get the correct route path for each entity type
-  const getEntityRoutePath = (parentType: string, parentId: string, entityType: string): string => {
-    // Handle entity type to route mapping with singular naming
-    const entityRouteMap: Record<string, string> = {
-      'task': 'task',
-      'tasks': 'task',
-      'wiki': 'wiki',
-      'form': 'form',
-      'forms': 'form',
-      'artifact': 'artifact',
-      'artifacts': 'artifact',
-      'project': 'project',
-      'projects': 'project',
-      'employee': 'employee',
-      'employees': 'employee',
-      'worksite': 'worksite',
-      'worksites': 'worksite',
-      'role': 'role',
-      'roles': 'role',
-    };
-
-    const routeSegment = entityRouteMap[entityType] || entityType;
-    return `/${parentType}/${parentId}/${routeSegment}`;
-  };
-
-  const entityConfig: Record<string, Array<{ id: string; label: string; icon?: React.ComponentType<any> }>> = {
-    project: [
-      { id: 'wiki', label: 'Wiki', icon: BookOpen },
-      { id: 'form', label: 'Form', icon: FileText },
-      { id: 'task', label: 'Task', icon: CheckSquare },
-      { id: 'artifact', label: 'Artifact', icon: FileText },
-    ],
-    biz: [
-      { id: 'wiki', label: 'Wiki', icon: BookOpen },
-      { id: 'form', label: 'Form', icon: FileText },
-      { id: 'task', label: 'Task', icon: CheckSquare },
-      { id: 'project', label: 'Project', icon: FolderOpen },
-      { id: 'artifact', label: 'Artifact', icon: FileText },
-    ],
-    org: [
-      { id: 'worksite', label: 'Worksite', icon: Building2 },
-      { id: 'employee', label: 'Employee', icon: Users },
-    ],
-    hr: [
-      { id: 'employee', label: 'Employee', icon: Users },
-      { id: 'role', label: 'Role', icon: UserCheck },
-    ],
-    client: [
-      { id: 'project', label: 'Project', icon: FolderOpen },
-      { id: 'task', label: 'Task', icon: CheckSquare },
-    ],
-    worksite: [
-      { id: 'task', label: 'Task', icon: CheckSquare },
-      { id: 'form', label: 'Form', icon: FileText },
-    ],
-    role: [
-      { id: 'employee', label: 'Employee', icon: Users },
-    ],
-    task: [
-      { id: 'form', label: 'Form', icon: FileText },
-      { id: 'artifact', label: 'Artifact', icon: FileText },
-    ],
-    employee: [], // Employee typically has no child entities
-  };
-
-  const actionEntities = entityConfig[parentType] || [];
-
-  const tabs: HeaderTab[] = [
-    // Overview tab
-    {
-      id: 'overview',
-      label: 'Overview',
-      path: `/${parentType}/${parentId}`,
-      icon: getEntityIcon(parentType),
-    },
-    // Action entity tabs with corrected paths
-    ...actionEntities.map(entity => ({
-      id: entity.id,
-      label: entity.label,
-      path: getEntityRoutePath(parentType, parentId, entity.id),
-      icon: entity.icon,
-    }))
-  ];
-
-  return tabs;
-};
-
 // Hook for generating tabs from centralized entity metadata API
 export function useDynamicChildEntityTabs(parentType: string, parentId: string) {
   const [tabs, setTabs] = React.useState<HeaderTab[]>([]);
@@ -230,8 +105,15 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
         const token = localStorage.getItem('auth_token');
 
         if (!token || token === 'no-auth-needed') {
-          console.warn('No valid auth token found, using default tabs');
-          setTabs(getDefaultTabs(parentType, parentId));
+          console.warn('No valid auth token found, showing overview only');
+          setTabs([
+            {
+              id: 'overview',
+              label: 'Overview',
+              path: `/${parentType}/${parentId}`,
+              icon: getIconComponent(null),
+            }
+          ]);
           setLoading(false);
           return;
         }
@@ -254,7 +136,7 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
                 id: 'overview',
                 label: 'Overview',
                 path: `/${parentType}/${parentId}`,
-                icon: getEntityIcon(parentType),
+                icon: getIconComponent(data.parent_ui_icon),
               }
             ]);
             setLoading(false);
@@ -263,41 +145,56 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
 
           // Convert API data to tab format - tabs are already ordered from API by order field
           // API sorts by order field, so we preserve that order here
+          // IMPORTANT: Use ui_icon from API response (from d_entity table)
           const generatedTabs: HeaderTab[] = data.tabs.map((tab: any) => ({
             id: tab.entity,
             label: tab.ui_label,
             count: tab.count,
-            icon: getEntityIcon(tab.entity),
+            icon: getIconComponent(tab.ui_icon), // ✅ Uses API-provided icon from d_entity.ui_icon
             path: `/${parentType}/${parentId}/${tab.entity}`,
             disabled: false,
             order: tab.order || 999
           }));
 
-          // Add overview tab at the beginning
+          // Add overview tab at the beginning with parent icon from API
           setTabs([
             {
               id: 'overview',
               label: 'Overview',
               path: `/${parentType}/${parentId}`,
-              icon: getEntityIcon(parentType),
+              icon: getIconComponent(data.parent_ui_icon), // ✅ Uses parent icon from API
             },
             ...generatedTabs
           ]);
         } else {
-          // Fallback to default tabs if API call fails
-          console.warn(`API call failed with status ${response.status}: ${response.statusText}, using default tabs`);
+          // Fallback: show overview only if API call fails
+          console.warn(`API call failed with status ${response.status}: ${response.statusText}, showing overview only`);
 
           // If unauthorized, the token might be invalid
           if (response.status === 401) {
             console.warn('Unauthorized - token might be expired or invalid');
           }
 
-          setTabs(getDefaultTabs(parentType, parentId));
+          setTabs([
+            {
+              id: 'overview',
+              label: 'Overview',
+              path: `/${parentType}/${parentId}`,
+              icon: getIconComponent(null),
+            }
+          ]);
         }
       } catch (error) {
-        // Fallback to default tabs if API call fails
-        console.warn('Error fetching child tabs from entity metadata API, using default tabs:', error);
-        setTabs(getDefaultTabs(parentType, parentId));
+        // Fallback: show overview only if API call fails
+        console.warn('Error fetching child tabs from entity metadata API, showing overview only:', error);
+        setTabs([
+          {
+            id: 'overview',
+            label: 'Overview',
+            path: `/${parentType}/${parentId}`,
+            icon: getIconComponent(null),
+          }
+        ]);
       } finally {
         setLoading(false);
       }

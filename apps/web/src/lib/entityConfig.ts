@@ -729,6 +729,11 @@ export const entityConfigs: Record<string, EntityConfig> = {
   // --------------------------------------------------------------------------
   // BUSINESS (biz)
   // --------------------------------------------------------------------------
+  // --------------------------------------------------------------------------
+  // BUSINESS (Operational Teams Only)
+  // --------------------------------------------------------------------------
+  // NOTE: Business hierarchy management is separate (d_business_hierarchy table)
+  // This config is for operational business units (teams doing actual work)
   biz: {
     name: 'biz',
     displayName: 'Business Unit',
@@ -736,17 +741,17 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/biz',
 
     columns: generateStandardColumns(
-      ['name', 'code', 'dl__business_level', 'budget_allocated_amt', 'descr', 'active_flag', 'created_ts'],
+      ['name', 'code', 'operational_status', 'current_headcount', 'descr', 'active_flag', 'created_ts'],
       {
         overrides: {
-          dl__business_level: {
-            title: 'Level'
+          operational_status: {
+            title: 'Status'
           },
-          budget_allocated_amt: {
-            title: 'Budget'
+          current_headcount: {
+            title: 'Headcount'
           },
           active_flag: {
-            title: 'Status',
+            title: 'Active',
             render: (value) => value !== false
               ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
               : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800' }, 'Inactive')
@@ -759,11 +764,9 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'name', label: 'Business Unit Name', type: 'text', required: true },
       { key: 'code', label: 'Code', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'name', label: 'Level Name', type: 'select', required: true, loadOptionsFromSettings: true },
-      { key: 'parent_id', label: 'Parent Unit', type: 'select', options: [] },
       { key: 'office_id', label: 'Office', type: 'select', options: [] },
-      { key: 'budget_allocated_amt', label: 'Budget Allocated (CAD)', type: 'number' },
-      { key: 'manager_employee_id', label: 'Manager', type: 'select', options: [] },
+      { key: 'current_headcount', label: 'Current Headcount', type: 'number' },
+      { key: 'operational_status', label: 'Operational Status', type: 'text' },
       { key: 'active_flag', label: 'Active', type: 'select', options: [
         { value: 'true', label: 'Active' },
         { value: 'false', label: 'Inactive' }
@@ -774,26 +777,21 @@ export const entityConfigs: Record<string, EntityConfig> = {
     ],
 
     supportedViews: ['table'],
-    defaultView: 'table',
-
-    hierarchical: {
-      levels: 3,
-      levelNames: ['Department', 'Division', 'Corporate'],
-      metaTable: 'dl__business_level',
-      levelField: 'name'
-    }
+    defaultView: 'table'
   },
 
   // --------------------------------------------------------------------------
-  // OFFICE
+  // OFFICE (Physical Locations Only)
   // --------------------------------------------------------------------------
+  // NOTE: Office hierarchy management is separate (d_office_hierarchy table)
+  // This config is for operational office locations (addresses, contacts, etc.)
   office: {
     name: 'office',
     displayName: 'Office',
     pluralName: 'Offices',
     apiEndpoint: '/api/v1/office',
 
-    columns: generateColumns(['name', 'dl__office_level', 'active_flag'], {
+    columns: generateColumns(['name', 'city', 'province', 'office_type', 'active_flag'], {
       overrides: {
         name: {
           title: 'Office Name',
@@ -801,11 +799,17 @@ export const entityConfigs: Record<string, EntityConfig> = {
             'div',
             null,
             React.createElement('div', { className: 'font-medium text-dark-600' }, value),
-            record.addr && React.createElement('div', { className: 'text-sm text-dark-700 truncate max-w-xs' }, record.addr)
+            record.address_line1 && React.createElement('div', { className: 'text-sm text-dark-700 truncate max-w-xs' }, record.address_line1)
           )
         },
-        dl__office_level: {
-          title: 'Level'
+        city: {
+          title: 'City'
+        },
+        province: {
+          title: 'Province'
+        },
+        office_type: {
+          title: 'Type'
         },
         active_flag: {
           title: 'Status',
@@ -817,25 +821,27 @@ export const entityConfigs: Record<string, EntityConfig> = {
     }),
 
     fields: [
-      { key: 'name', label: 'Name', type: 'text', required: true },
-      { key: 'addr', label: 'Address', type: 'textarea' },
+      { key: 'name', label: 'Office Name', type: 'text', required: true },
+      { key: 'code', label: 'Office Code', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'dl__office_level', label: 'Level', type: 'select', loadOptionsFromSettings: true },
-      { key: 'parent_id', label: 'Parent Office', type: 'select', options: [] },
+      { key: 'address_line1', label: 'Address Line 1', type: 'text' },
+      { key: 'address_line2', label: 'Address Line 2', type: 'text' },
+      { key: 'city', label: 'City', type: 'text' },
+      { key: 'province', label: 'Province', type: 'text' },
+      { key: 'postal_code', label: 'Postal Code', type: 'text' },
+      { key: 'country', label: 'Country', type: 'text' },
+      { key: 'phone', label: 'Phone', type: 'text' },
+      { key: 'email', label: 'Email', type: 'text' },
+      { key: 'office_type', label: 'Office Type', type: 'text' },
+      { key: 'capacity_employees', label: 'Employee Capacity', type: 'number' },
+      { key: 'square_footage', label: 'Square Footage', type: 'number' },
       { key: 'metadata', label: 'Metadata', type: 'jsonb' },
       { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
       { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
 
     supportedViews: ['table'],
-    defaultView: 'table',
-
-    hierarchical: {
-      levels: 4,
-      levelNames: ['Office', 'District', 'Region', 'Corporate'],
-      metaTable: 'dl__office_level',
-      levelField: 'level_id'
-    }
+    defaultView: 'table'
   },
 
   // --------------------------------------------------------------------------

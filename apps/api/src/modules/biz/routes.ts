@@ -13,18 +13,20 @@ import {
 } from '../rbac/entity-permission-rbac-gate.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 
-// Schema based on actual d_business table structure
+// Schema based on actual d_business table structure (operational teams only)
+// NOTE: Hierarchy fields (parent_id, dl__business_hierarchy_level, budget, manager) are in d_business_hierarchy
+// Use /api/v1/business-hierarchy for organizational hierarchy management
 const BizSchema = Type.Object({
   id: Type.String(),
   code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Any()),
-  parent_id: Type.Optional(Type.String()),
-  dl__business_level: Type.String(),
+  // Operational fields
   office_id: Type.Optional(Type.String()),
-  budget_allocated_amt: Type.Optional(Type.Number()),
-  manager_employee_id: Type.Optional(Type.String()),
+  current_headcount: Type.Optional(Type.Number()),
+  operational_status: Type.Optional(Type.String()),
+  // Temporal audit fields
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
   active_flag: Type.Boolean(),
@@ -38,26 +40,25 @@ const CreateBizSchema = Type.Object({
   name: Type.Optional(Type.String({ minLength: 1 })),
   descr: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Any()),
-  parent_id: Type.Optional(Type.String({ format: 'uuid' })),
-  dl__business_level: Type.Optional(Type.String({ minLength: 1 })),
+  // Operational fields
   office_id: Type.Optional(Type.String({ format: 'uuid' })),
-  budget_allocated: Type.Optional(Type.Number()),
-  manager_employee_id: Type.Optional(Type.String({ format: 'uuid' })),
+  current_headcount: Type.Optional(Type.Number()),
+  operational_status: Type.Optional(Type.String()),
   active_flag: Type.Optional(Type.Boolean()),
 });
 
 const UpdateBizSchema = Type.Partial(CreateBizSchema);
 
 export async function bizRoutes(fastify: FastifyInstance) {
-  // List business units with filtering and hierarchy support
+  // List operational business units with filtering
   fastify.get('/api/v1/biz', {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         active_flag: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
-        dl__business_level: Type.Optional(Type.String()),
-        parent_id: Type.Optional(Type.String()),
+        operational_status: Type.Optional(Type.String()),
+        office_id: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
@@ -75,7 +76,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      active_flag, search, dl__business_level, parent_id,
+      active_flag, search, operational_status, office_id,
       limit = 20, offset: queryOffset, page
     } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
@@ -104,12 +105,12 @@ export async function bizRoutes(fastify: FastifyInstance) {
         baseConditions.push(sql`b.active_flag = ${active_flag}`);
       }
 
-      if (dl__business_level !== undefined) {
-        baseConditions.push(sql`b.dl__business_level = ${dl__business_level}`);
+      if (operational_status) {
+        baseConditions.push(sql`b.operational_status = ${operational_status}`);
       }
 
-      if (parent_id) {
-        baseConditions.push(sql`b.parent_id = ${parent_id}::uuid`);
+      if (office_id) {
+        baseConditions.push(sql`b.office_id = ${office_id}::uuid`);
       }
 
       if (search) {
@@ -130,12 +131,12 @@ export async function bizRoutes(fastify: FastifyInstance) {
 
       const bizUnits = await db.execute(sql`
         SELECT
-          b.id, b.code, b.name, b.descr, b.metadata, b.parent_id,
-          b.dl__business_level, b.office_id, b.budget_allocated_amt, b.manager_employee_id,
+          b.id, b.code, b.name, b.descr, b.metadata,
+          b.office_id, b.current_headcount, b.operational_status,
           b.from_ts, b.to_ts, b.active_flag, b.created_ts, b.updated_ts, b.version
         FROM app.d_business b
         WHERE ${sql.join(baseConditions, sql` AND `)}
-        ORDER BY b.dl__business_level ASC, b.name ASC
+        ORDER BY b.name ASC, b.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
@@ -163,69 +164,10 @@ export async function bizRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get business unit hierarchy children
-  fastify.get('/api/v1/biz/:id/children', {
-    
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      querystring: Type.Object({
-        active: Type.Optional(Type.Boolean()),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 })),
-      }),
-    },
-  }, async function (request, reply) {
-    try {
-      const { id: parentId } = request.params as { id: string };
-      const { active_flag = true, limit = 50, offset = 0 } = request.query as any;
-      const userId = request.user?.sub;
-
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // Check if user has access to parent business unit
-      const hasAccess = await hasPermissionOnEntityId(userId, 'biz', parentId, 'view');
-      if (!hasAccess) {
-        return reply.status(403).send({ error: 'Access denied for this business unit' });
-      }
-
-      const conditions = [sql`parent_id = ${parentId}`];
-      if (active_flag !== undefined) {
-        conditions.push(sql`active_flag = ${active_flag}`);
-      }
-
-      const children = await db.execute(sql`
-        SELECT
-          id, code, name, descr, dl__business_level, parent_id, metadata,
-          budget_allocated_amt, manager_employee_id, office_id,
-          from_ts, to_ts, active_flag, created_ts, updated_ts, version
-        FROM app.d_business
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY dl__business_level ASC, name ASC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total 
-        FROM app.d_business
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-      `);
-
-      return {
-        data: children,
-        total: Number(countResult[0]?.total || 0),
-        limit,
-        offset,
-        parent_id: parentId,
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching business unit children:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
+  // NOTE: Business hierarchy children endpoint removed
+  // Hierarchy relationships are managed through d_business_hierarchy table
+  // Use /api/v1/business-hierarchy/:id/children for hierarchy navigation
+  // d_business table only contains operational teams without parent-child relationships
 
   // Get projects within a business unit
   fastify.get('/api/v1/biz/:id/project', {
@@ -581,19 +523,11 @@ export async function bizRoutes(fastify: FastifyInstance) {
     }
 
     // Auto-generate required fields if missing
-    if (!data.name) data.name = 'Untitled';
+    if (!data.name) data.name = 'Untitled Business Unit';
     if (!data.code) data.code = `BIZ-${Date.now()}`;
-    if (!data.dl__business_level) data.dl__business_level = 'Department'; // Default to Department level
+    if (!data.operational_status) data.operational_status = 'Active'; // Default status
 
     try {
-      // If creating under a parent, check create permissions
-      if (data.parent_id) {
-        const hasCreateAccess = await hasCreatePermissionForEntityType(userId, 'biz');
-        if (!hasCreateAccess) {
-          return reply.status(403).send({ error: 'Insufficient permissions to create business unit under this parent' });
-        }
-      }
-
       // Check for unique code if provided
       if (data.code) {
         const existingCode = await db.execute(sql`
@@ -604,34 +538,28 @@ export async function bizRoutes(fastify: FastifyInstance) {
         }
       }
 
-      // Validate parent exists if parent_id is provided
-      if (data.parent_id) {
-        const parentExists = await db.execute(sql`
-          SELECT id FROM app.d_business WHERE id = ${data.parent_id} AND active_flag = true
+      // Validate office exists if office_id is provided
+      if (data.office_id) {
+        const officeExists = await db.execute(sql`
+          SELECT id FROM app.d_office WHERE id = ${data.office_id} AND active_flag = true
         `);
-        if (parentExists.length === 0) {
-          return reply.status(400).send({ error: 'Parent business unit not found' });
+        if (officeExists.length === 0) {
+          return reply.status(400).send({ error: 'Office not found' });
         }
       }
 
-      // Determine hierarchy flags
-      const is_root_level = !data.parent_id;
-      const is_leaf_level = false; // Will be updated based on actual hierarchy rules
-
       const result = await db.execute(sql`
         INSERT INTO app.d_business (
-          name, descr, code, dl__business_level, parent_id,
-          office_id, budget_allocated_amt, manager_employee_id, metadata, active_flag
+          name, descr, code, office_id, current_headcount, operational_status,
+          metadata, active_flag
         )
         VALUES (
           ${data.name},
           ${data.descr || null},
           ${data.code || null},
-          ${data.dl__business_level},
-          ${data.parent_id || null},
           ${data.office_id || null},
-          ${data.budget_allocated || data.budget_allocated_amt || null},
-          ${data.manager_employee_id || null},
+          ${data.current_headcount || 0},
+          ${data.operational_status || 'Active'},
           ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
           ${data.active_flag !== false}
         )
@@ -700,13 +628,9 @@ export async function bizRoutes(fastify: FastifyInstance) {
       if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
       if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
       if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
-      if (data.dl__business_level !== undefined) updateFields.push(sql`dl__business_level = ${data.dl__business_level}`);
-      if (data.parent_id !== undefined) updateFields.push(sql`parent_id = ${data.parent_id}`);
       if (data.office_id !== undefined) updateFields.push(sql`office_id = ${data.office_id}`);
-      if (data.budget_allocated !== undefined || data.budget_allocated_amt !== undefined) {
-        updateFields.push(sql`budget_allocated_amt = ${data.budget_allocated_amt || data.budget_allocated}`);
-      }
-      if (data.manager_employee_id !== undefined) updateFields.push(sql`manager_employee_id = ${data.manager_employee_id}`);
+      if (data.current_headcount !== undefined) updateFields.push(sql`current_headcount = ${data.current_headcount}`);
+      if (data.operational_status !== undefined) updateFields.push(sql`operational_status = ${data.operational_status}`);
       if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
       if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
 

@@ -16,9 +16,9 @@ API test must always be run using /home/rabin/projects/pmo/tools/test-api.sh
 
 The **PMO Platform** is an enterprise-grade project management and operations system built with a **DRY-first, config-driven architecture**. It features:
 
-- **18 Entity Types** (Projects, Tasks, Employees, Clients, Forms, Wiki, etc.)
-- **52 Database Tables** (13 core entities, 16 settings, 23 infrastructure)
-- **31+ API Modules** with unified RBAC and JWT authentication
+- **27+ Entity Types** (Projects, Tasks, Employees, Clients, Forms, Wiki, Events, etc.)
+- **50 Database Tables** (17 core entities, 5 financial, 5 workflow, 18 infrastructure, 5 other)
+- **45 API Modules** with unified RBAC and JWT authentication
 - **3 Universal Pages** handling all CRUD operations
 - **Inline Create-Then-Link** - Automatic parent-child linkage in `d_entity_id_map` (v3.1)
 - **Default-Editable Pattern** - All fields editable with smart input detection (v3.1)
@@ -39,7 +39,7 @@ The **PMO Platform** is an enterprise-grade project management and operations sy
 
 ```bash
 # 1. DATA IMPORT - Run after ANY database schema change
-./tools/db-import.sh                              # Imports all 52 DDL files, resets data
+./tools/db-import.sh                              # Imports all 46 DDL files (50 tables), resets data
 
 # 2. API TESTING - Never use curl/postman directly
 ./tools/test-api.sh GET /api/v1/project          # Test GET endpoints
@@ -518,6 +518,7 @@ Database (PostgreSQL, 52 tables)
 |----------|---------|-------------|------------|
 | **[📖 Documentation Index](./docs/README.md)** | **⭐ Complete navigation guide for all 40+ docs** | Finding any documentation quickly by task, keyword, or folder | Folder index, keyword search, reading order, quick reference |
 | **[Universal Entity System](./docs/entity_design_pattern/universal_entity_system.md)** | **⭐ Complete DRY entity architecture guide** | Understanding universal pages, inline editing, create-then-link patterns | 3 universal pages, Default-editable pattern, Column consistency, Inline create-then-link, Entity configuration (v3.1) |
+| **[Entity Metadata Coherence](./docs/entity_design_pattern/ENTITY_METADATA_COHERENCE.md)** | Dynamic entity metadata from d_entity table | Understanding entity metadata API loading, sidebar/tabs/settings | d_entity table, /api/v1/entity/* endpoints, Dynamic icons/labels, Child entity tabs |
 | **[UI/UX Architecture](./docs/entity_ui_ux_route_api.md)** | Complete system architecture from DB to frontend | Understanding the entire platform, data flows, routing | Database layer, API modules, Frontend components, Data flow examples, DRY principles |
 | **[Infrastructure Design](./docs/infra_docs/INFRASTRUCTURE_DESIGN.md)** | AWS cloud infrastructure and deployment | Setting up AWS resources, deployment pipeline | Terraform, EC2, S3, Lambda, EventBridge, Deployment automation |
 | **[Deployment Design](./docs/infra_docs/DEPLOYMENT_DESIGN.md)** | Deployment strategies and procedures | Deploying to production, CI/CD setup | Deployment flow, Environment configuration, Release management |
@@ -526,7 +527,7 @@ Database (PostgreSQL, 52 tables)
 
 | Document | Purpose | When to Use | Key Topics |
 |----------|---------|-------------|------------|
-| **[Data Model](./docs/datamodel/datamodel.md)** | Complete database schema and relationships | Understanding entities, tables, relationships | 52 DDL files, Entity relationships, RBAC model, Settings tables |
+| **[Data Model](./docs/datamodel/datamodel.md)** | Complete database schema and relationships | Understanding entities, tables, relationships | 46 DDL files (50 tables), Entity relationships, RBAC model, Settings tables |
 | **[Settings System](./docs/settings/settings.md)** | Settings/datalabel architecture | Managing dropdowns, workflows, hierarchies | 16 settings tables, Sequential states, Dropdown integration |
 
 ### 🔌 API & Services
@@ -620,6 +621,8 @@ Form builder: form/form.md
 | **file upload, attachments, S3, presigned URLs** | `s3_service/S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md` |
 | **tools, scripts, db-import, test-api** | `tools.md` |
 | **entity configuration, DRY, entity config** | `entity_design_pattern/universal_entity_system.md`, `entity_ui_ux_route_api.md` |
+| **d_entity, entity metadata, dynamic icons, child tabs, sidebar navigation** | `entity_design_pattern/ENTITY_METADATA_COHERENCE.md` ⭐ |
+| **entity API, /api/v1/entity/types, entity registry, ui_icon, child_entities** | `entity_design_pattern/ENTITY_METADATA_COHERENCE.md`, `datamodel/datamodel.md` |
 | **AI chat, voice calling, MCP, function tools, booking automation, session memory** | `ai_chat/AI_CHAT_SYSTEM.md` ⭐ |
 | **OpenAI, GPT-4o mini, semantic routing, chat widget, customer service, unified goal agent** | `ai_chat/AI_CHAT_SYSTEM.md` |
 | **Deepgram, ElevenLabs, STT, TTS, voice streaming, audio playback** | `ai_chat/AI_CHAT_SYSTEM.md` |
@@ -666,7 +669,7 @@ Form builder: form/form.md
 | Metric | Count |
 |--------|-------|
 | **Documentation Files** | 11 comprehensive guides |
-| **Database Tables** | 52 DDL files (13 entities, 16 settings, 23 support) |
+| **Database Tables** | 50 tables (17 core entities, 5 financial, 5 workflow, 18 infrastructure, 5 other) |
 | **API Modules** | 31+ modules with 125+ endpoints |
 | **Entity Types** | 18 (13 core + 5 product/operations) |
 | **Frontend Pages** | 3 universal pages handling all entities |
@@ -693,7 +696,7 @@ pmo/
 ├── apps/
 │   ├── api/                          # Backend (31+ modules)
 │   └── web/                          # Frontend (React 19)
-├── db/                               # 52 DDL files
+├── db/                               # 46 DDL files (50 tables total)
 ├── docs/                             # 11 documentation files
 │   ├── ui_ux_route_api.md           # ⭐ Complete architecture
 │   ├── datamodel.md                 # Database schema
@@ -717,7 +720,7 @@ pmo/
 ```bash
 # Platform Management
 ./tools/start-all.sh              # Start all services
-./tools/db-import.sh              # Import/reset database (52 DDL files)
+./tools/db-import.sh              # Import/reset database (46 DDL files, 50 tables)
 
 # Testing
 ./tools/test-api.sh GET /api/v1/project              # Test API endpoints
