@@ -47,6 +47,7 @@ import { bookingRoutes } from './booking/routes.js';
 import { personCalendarRoutes } from './person-calendar/routes.js';
 import { interactionRoutes } from './interaction/routes.js';
 import { eventRoutes } from './event/routes.js';
+import { eventPersonCalendarRoutes } from './event-person-calendar/routes.js';
 
 // Pure Agent Orchestrator API module (No LangGraph)
 import { registerAgentOrchestratorRoutes } from './chat/orchestrator/agents/agent-orchestrator.routes.js';
@@ -157,8 +158,11 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   // Person Calendar routes (universal availability/booking calendar)
   await personCalendarRoutes(fastify);
 
-  // Event routes (meetings/appointments with calendar invites)
+  // Event routes (meetings/appointments as universal parent entities)
   await eventRoutes(fastify);
+
+  // Event-Person-Calendar routes (event RSVP management)
+  await eventPersonCalendarRoutes(fastify);
 
   // Interaction routes (customer interactions across channels)
   await interactionRoutes(fastify);

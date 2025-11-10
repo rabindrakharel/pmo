@@ -142,49 +142,54 @@ validate_all_ddls() {
     print_status $BLUE "📋 Validating DDL files..."
 
     local ddl_files=(
-        "setting_datalabel.ddl"
-        "11_d_employee.ddl"
-        "12_d_office.ddl"
-        "13_d_business.ddl"
-        "14_d_cust.ddl"
-        "15_d_role.ddl"
-        "16_d_position.ddl"
-        "17_d_worksite.ddl"
-        "d_product.ddl"
-        "18_d_project.ddl"
-        "19_d_task.ddl"
-        "20_d_task_data.ddl"
-        "21_d_artifact.ddl"
-        "22_d_artifact_data.ddl"
-        "23_d_form_head.ddl"
-        "24_d_form_data.ddl"
-        "25_d_wiki.ddl"
-        "26_d_wiki_data.ddl"
-        "27_d_reports.ddl"
-        "28_d_report_data.ddl"
-        "d_workflow_automation.ddl"
-        "29_d_entity_map.ddl"
-        "30_d_entity.ddl"
-        "31_d_entity_instance_id.ddl"
-        "32_d_entity_instance_backfill.ddl"
-        "33_d_entity_id_map.ddl"
-        "34_d_entity_id_rbac_map.ddl"
-        "35_d_email_template.ddl"
-        "f_inventory.ddl"
-        "f_order.ddl"
-        "f_invoice.ddl"
-        "f_shipment.ddl"
-        "38_d_industry_workflow_graph_head.ddl"
-        "39_d_industry_workflow_graph_data.ddl"
-        "40_f_industry_workflow_events.ddl"
-        "41_f_interaction.ddl"
-        "45_d_event.ddl"
-        "44_d_entity_person_calendar.ddl"
-        "60_orchestrator_session.ddl"
-        "61_orchestrator_state.ddl"
-        "62_orchestrator_agent_log.ddl"
-        "63_orchestrator_summary.ddl"
-        "40_orchestrator_agents.ddl"
+        "I_schemaCreate.ddl"
+        "II_setting_datalabel.ddl"
+        "III_d_employee.ddl"
+        "IV_d_office.ddl"
+        "V_d_business.ddl"
+        "VI_d_cust.ddl"
+        "VII_d_role.ddl"
+        "VIII_d_position.ddl"
+        "IX_d_worksite.ddl"
+        "X_d_service.ddl"
+        "XI_d_product.ddl"
+        "XII_d_project.ddl"
+        "XIII_d_task.ddl"
+        "XIV_d_task_data.ddl"
+        "XV_d_artifact.ddl"
+        "XVI_d_artifact_data.ddl"
+        "XVII_d_form_head.ddl"
+        "XVIII_d_form_data.ddl"
+        "XIX_d_wiki.ddl"
+        "XX_d_wiki_data.ddl"
+        "XXI_d_reports.ddl"
+        "XXII_d_report_data.ddl"
+        "XXIII_d_workflow_automation.ddl"
+        "XXIV_d_industry_workflow_graph_head.ddl"
+        "XXV_d_industry_workflow_graph_data.ddl"
+        "XXVI_f_inventory.ddl"
+        "XXVII_f_order.ddl"
+        "XXVIII_f_shipment.ddl"
+        "XXIX_f_invoice.ddl"
+        "XXX_fact_quote.ddl"
+        "XXXI_fact_work_order.ddl"
+        "XXXII_f_industry_workflow_events.ddl"
+        "XXXIII_f_interaction.ddl"
+        "XXXIV_d_event.ddl"
+        "XXXV_d_entity_person_calendar.ddl"
+        "XXXVI_d_entity_event_person_calendar.ddl"
+        "XXXVII_orchestrator_session.ddl"
+        "XXXVIII_orchestrator_state.ddl"
+        "XXXIX_orchestrator_agent_log.ddl"
+        "XL_orchestrator_summary.ddl"
+        "XLI_orchestrator_agents.ddl"
+        "XLII_d_email_template.ddl"
+        "XLIII_d_entity_map.ddl"
+        "XLIV_d_entity.ddl"
+        "XLV_d_entity_instance_id.ddl"
+        "XLVI_d_entity_instance_backfill.ddl"
+        "XLVII_d_entity_id_map.ddl"
+        "XLVIII_d_entity_id_rbac_map.ddl"
     )
 
     for file in "${ddl_files[@]}"; do
@@ -214,87 +219,87 @@ drop_schema() {
 
 # Function to import all DDL files
 import_ddls() {
-    print_status $BLUE "📥 Importing DDL files in dependency order..."
+    print_status $BLUE "📥 Importing 48 DDL files in dependency order (Roman numerals)..."
 
-    # Initial setup - Drop and recreate schema
-    execute_sql "$DB_PATH/0_schemaCreate.ddl" "Initial schema setup (drop and recreate)"
+    # I: Initial setup - Drop and recreate schema
+    execute_sql "$DB_PATH/I_schemaCreate.ddl" "I: Schema setup (drop and recreate)"
 
-    # Unified setting configuration table - Foundation layer (DRY - Single table for all labels)
-    execute_sql "$DB_PATH/setting_datalabel.ddl" "Unified data label settings (all entity labels)"
+    # II: Unified setting configuration table - Foundation layer
+    execute_sql "$DB_PATH/II_setting_datalabel.ddl" "II: Unified data label settings"
 
-    # Core personnel - Must come before organizational assignments
-    execute_sql "$DB_PATH/11_d_employee.ddl" "Employee entities with authentication"
+    # III: Core personnel
+    execute_sql "$DB_PATH/III_d_employee.ddl" "III: Employee entities with authentication"
 
-    # Organizational hierarchy - Office first, then business units
-    execute_sql "$DB_PATH/12_d_office.ddl" "Office entity with 4-level hierarchy"
-    execute_sql "$DB_PATH/13_d_business.ddl" "Business entity with 3-level hierarchy"
+    # IV-V: Organizational hierarchy
+    execute_sql "$DB_PATH/IV_d_office.ddl" "IV: Office entity (4-level hierarchy)"
+    execute_sql "$DB_PATH/V_d_business.ddl" "V: Business entity (3-level hierarchy)"
 
-    # Supporting entities - Independent of core hierarchy
-    execute_sql "$DB_PATH/14_d_cust.ddl" "Customer entities"
-    execute_sql "$DB_PATH/15_d_role.ddl" "Role entities"
-    execute_sql "$DB_PATH/16_d_position.ddl" "Position entities"
-    execute_sql "$DB_PATH/17_d_worksite.ddl" "Worksite entities"
+    # VI-IX: Supporting entities
+    execute_sql "$DB_PATH/VI_d_cust.ddl" "VI: Customer entities"
+    execute_sql "$DB_PATH/VII_d_role.ddl" "VII: Role entities"
+    execute_sql "$DB_PATH/VIII_d_position.ddl" "VIII: Position entities"
+    execute_sql "$DB_PATH/IX_d_worksite.ddl" "IX: Worksite entities"
 
-    # Product & Operations dimension tables - Products and services catalog
-    execute_sql "$DB_PATH/d_service.ddl" "Service dimension table (service catalog)"
-    execute_sql "$DB_PATH/d_product.ddl" "Product dimension table (materials, equipment)"
+    # X-XI: Product & Operations dimensions
+    execute_sql "$DB_PATH/X_d_service.ddl" "X: Service dimension (catalog)"
+    execute_sql "$DB_PATH/XI_d_product.ddl" "XI: Product dimension (materials, equipment)"
 
-    # Core project entities - Projects before tasks
-    execute_sql "$DB_PATH/18_d_project.ddl" "Project entities"
-    execute_sql "$DB_PATH/19_d_task.ddl" "Task head entities"
-    execute_sql "$DB_PATH/20_d_task_data.ddl" "Task data entities"
+    # XII-XIV: Core project entities
+    execute_sql "$DB_PATH/XII_d_project.ddl" "XII: Project entities"
+    execute_sql "$DB_PATH/XIII_d_task.ddl" "XIII: Task head entities"
+    execute_sql "$DB_PATH/XIV_d_task_data.ddl" "XIV: Task data entities"
 
-    # Content entity tables - Documents and knowledge base
-    execute_sql "$DB_PATH/21_d_artifact.ddl" "Artifact head entities"
-    execute_sql "$DB_PATH/22_d_artifact_data.ddl" "Artifact data entities"
-    execute_sql "$DB_PATH/23_d_form_head.ddl" "Form head entities"
-    execute_sql "$DB_PATH/24_d_form_data.ddl" "Form data entities"
-    execute_sql "$DB_PATH/25_d_wiki.ddl" "Wiki entities"
-    execute_sql "$DB_PATH/26_d_wiki_data.ddl" "Wiki data entities"
-    execute_sql "$DB_PATH/27_d_reports.ddl" "Report entities"
-    execute_sql "$DB_PATH/28_d_report_data.ddl" "Report data entities"
+    # XV-XXII: Content entities
+    execute_sql "$DB_PATH/XV_d_artifact.ddl" "XV: Artifact head entities"
+    execute_sql "$DB_PATH/XVI_d_artifact_data.ddl" "XVI: Artifact data entities"
+    execute_sql "$DB_PATH/XVII_d_form_head.ddl" "XVII: Form head entities"
+    execute_sql "$DB_PATH/XVIII_d_form_data.ddl" "XVIII: Form data entities"
+    execute_sql "$DB_PATH/XIX_d_wiki.ddl" "XIX: Wiki entities"
+    execute_sql "$DB_PATH/XX_d_wiki_data.ddl" "XX: Wiki data entities"
+    execute_sql "$DB_PATH/XXI_d_reports.ddl" "XXI: Report entities"
+    execute_sql "$DB_PATH/XXII_d_report_data.ddl" "XXII: Report data entities"
 
-    # Workflow automation - Business process automation
-    execute_sql "$DB_PATH/d_workflow_automation.ddl" "Workflow automation entities"
+    # XXIII: Workflow automation
+    execute_sql "$DB_PATH/XXIII_d_workflow_automation.ddl" "XXIII: Workflow automation entities"
 
-    # Industry workflow graph system - Workflow state graphs and lifecycle tracking
-    execute_sql "$DB_PATH/38_d_industry_workflow_graph_head.ddl" "Industry workflow template entities"
-    execute_sql "$DB_PATH/39_d_industry_workflow_graph_data.ddl" "Industry workflow instance data"
+    # XXIV-XXV: Industry workflow system
+    execute_sql "$DB_PATH/XXIV_d_industry_workflow_graph_head.ddl" "XXIV: Industry workflow template entities"
+    execute_sql "$DB_PATH/XXV_d_industry_workflow_graph_data.ddl" "XXV: Industry workflow instance data"
 
-    # Fact tables - Transaction-level analytics (after all dimensions loaded)
-    # Note: Cost and revenue are transactional data (fact tables), not dimensions
-    execute_sql "$DB_PATH/f_inventory.ddl" "Inventory fact table (stock levels by location)"
-    execute_sql "$DB_PATH/f_order.ddl" "Order fact table (customer orders)"
-    execute_sql "$DB_PATH/f_shipment.ddl" "Shipment fact table (deliveries/logistics)"
-    execute_sql "$DB_PATH/f_invoice.ddl" "Invoice fact table (billing/revenue)"
-    execute_sql "$DB_PATH/fact_quote.ddl" "Quote fact table (customer quotes with line items)"
-    execute_sql "$DB_PATH/fact_work_order.ddl" "Work order fact table (service delivery tracking)"
-    execute_sql "$DB_PATH/40_f_industry_workflow_events.ddl" "Workflow events fact table (process analytics)"
-    execute_sql "$DB_PATH/41_f_interaction.ddl" "Customer interaction fact table (omnichannel communications)"
+    # XXVI-XXXIII: Fact tables
+    execute_sql "$DB_PATH/XXVI_f_inventory.ddl" "XXVI: Inventory fact table"
+    execute_sql "$DB_PATH/XXVII_f_order.ddl" "XXVII: Order fact table"
+    execute_sql "$DB_PATH/XXVIII_f_shipment.ddl" "XXVIII: Shipment fact table"
+    execute_sql "$DB_PATH/XXIX_f_invoice.ddl" "XXIX: Invoice fact table"
+    execute_sql "$DB_PATH/XXX_fact_quote.ddl" "XXX: Quote fact table"
+    execute_sql "$DB_PATH/XXXI_fact_work_order.ddl" "XXXI: Work order fact table"
+    execute_sql "$DB_PATH/XXXII_f_industry_workflow_events.ddl" "XXXII: Workflow events fact table"
+    execute_sql "$DB_PATH/XXXIII_f_interaction.ddl" "XXXIII: Customer interaction fact table"
 
-    # Event and calendar system - Events first, then calendar slots that reference events
-    execute_sql "$DB_PATH/45_d_event.ddl" "Event entities (meetings, appointments, service calls)"
-    execute_sql "$DB_PATH/44_d_entity_person_calendar.ddl" "Universal person calendar (employee/customer availability slots)"
+    # XXXIV-XXXVI: Event & calendar system
+    execute_sql "$DB_PATH/XXXIV_d_event.ddl" "XXXIV: Event entities (meetings, appointments)"
+    execute_sql "$DB_PATH/XXXV_d_entity_person_calendar.ddl" "XXXV: Person calendar (availability slots)"
+    execute_sql "$DB_PATH/XXXVI_d_entity_event_person_calendar.ddl" "XXXVI: Event-person calendar (RSVP tracking)"
 
-    # AI Orchestrator session management (order matters - session first, then dependent tables)
-    execute_sql "$DB_PATH/60_orchestrator_session.ddl" "AI orchestrator session state management"
-    execute_sql "$DB_PATH/61_orchestrator_state.ddl" "AI orchestrator state key-value store"
-    execute_sql "$DB_PATH/62_orchestrator_agent_log.ddl" "AI orchestrator agent execution logs"
-    execute_sql "$DB_PATH/63_orchestrator_summary.ddl" "AI orchestrator conversation summaries"
-    execute_sql "$DB_PATH/40_orchestrator_agents.ddl" "Multi-agent orchestrator (circuit breaker, agent execution, checkpoints)"
+    # XXXVII-XLI: AI Orchestrator
+    execute_sql "$DB_PATH/XXXVII_orchestrator_session.ddl" "XXXVII: AI orchestrator session state"
+    execute_sql "$DB_PATH/XXXVIII_orchestrator_state.ddl" "XXXVIII: AI orchestrator state key-value store"
+    execute_sql "$DB_PATH/XXXIX_orchestrator_agent_log.ddl" "XXXIX: AI orchestrator agent execution logs"
+    execute_sql "$DB_PATH/XL_orchestrator_summary.ddl" "XL: AI orchestrator conversation summaries"
+    execute_sql "$DB_PATH/XLI_orchestrator_agents.ddl" "XLI: Multi-agent orchestrator"
 
-    # Marketing entities - Email templates
-    execute_sql "$DB_PATH/35_d_email_template.ddl" "Email template entities"
+    # XLII: Marketing entities
+    execute_sql "$DB_PATH/XLII_d_email_template.ddl" "XLII: Email template entities"
 
-    # Final layer - Entity type metadata, instance registry, type mappings, relationships, and RBAC (must come last in specific order)
-    execute_sql "$DB_PATH/29_d_entity_map.ddl" "Entity type linkage rules (valid parent-child types)"
-    execute_sql "$DB_PATH/30_d_entity.ddl" "Entity TYPE metadata (parent-child relationships, icons)"
-    execute_sql "$DB_PATH/31_d_entity_instance_id.ddl" "Entity INSTANCE registry (all entity instances with UUIDs)"
-    execute_sql "$DB_PATH/32_d_entity_instance_backfill.ddl" "Backfill entity instances (quote, work_order, service, product)"
-    execute_sql "$DB_PATH/33_d_entity_id_map.ddl" "Entity instance relationships (parent-child linkages)"
-    execute_sql "$DB_PATH/34_d_entity_id_rbac_map.ddl" "RBAC permission mapping"
+    # XLIII-XLVIII: Entity metadata layer (MUST BE LAST in this order)
+    execute_sql "$DB_PATH/XLIII_d_entity_map.ddl" "XLIII: Entity type linkage rules"
+    execute_sql "$DB_PATH/XLIV_d_entity.ddl" "XLIV: Entity TYPE metadata (parent-child, icons)"
+    execute_sql "$DB_PATH/XLV_d_entity_instance_id.ddl" "XLV: Entity INSTANCE registry"
+    execute_sql "$DB_PATH/XLVI_d_entity_instance_backfill.ddl" "XLVI: Entity instance backfill"
+    execute_sql "$DB_PATH/XLVII_d_entity_id_map.ddl" "XLVII: Entity instance relationships"
+    execute_sql "$DB_PATH/XLVIII_d_entity_id_rbac_map.ddl" "XLVIII: RBAC permission mapping"
 
-    print_status $GREEN "✅ All DDL files imported successfully"
+    print_status $GREEN "✅ All 48 DDL files imported successfully (Roman numerals I-XLVIII)"
 }
 
 # Function to validate schema after import
@@ -409,18 +414,21 @@ validate_schema() {
 print_summary() {
     print_status $PURPLE "📋 IMPORT SUMMARY"
     print_status $PURPLE "=================="
-    print_status $CYAN "• PMO Enterprise schema with 47 DDL files imported"
+    print_status $CYAN "• PMO Enterprise schema with 48 DDL files (Roman numerals I-XLVIII)"
+    print_status $CYAN "• Dependency-ordered import in 15 logical layers"
     print_status $CYAN "• Head/data pattern for temporal entities"
     print_status $CYAN "• 4-level office hierarchy (Office → District → Region → Corporate)"
     print_status $CYAN "• 3-level business hierarchy"
-    print_status $CYAN "• Product catalog dimension (16 curated products)"
-    print_status $CYAN "• Fact tables: Orders, Invoices, Inventory, Shipments"
+    print_status $CYAN "• Product & Service catalogs (dimensions)"
+    print_status $CYAN "• Fact tables: Inventory, Orders, Shipments, Invoices, Quotes, Work Orders, Interactions"
+    print_status $CYAN "• Event & Calendar system (meetings, appointments, RSVP tracking)"
     print_status $CYAN "• Entity TYPE metadata (d_entity) with parent-child relationships and icons"
     print_status $CYAN "• Entity INSTANCE registry (d_entity_instance_id) for all entity instances"
     print_status $CYAN "• Entity mapping framework for parent-child relationships"
-    print_status $CYAN "• RBAC permission system"
+    print_status $CYAN "• RBAC permission system with Owner [5] permission"
     print_status $CYAN "• Full content management (Tasks, Artifacts, Forms, Wiki, Reports)"
-    print_status $CYAN "• AI Orchestrator (LangGraph checkpoints auto-created by library)"
+    print_status $CYAN "• AI Orchestrator (Multi-agent session management)"
+    print_status $CYAN "• Industry workflow graphs (state machines)"
     print_status $CYAN "• Canadian business context data"
     print_status $PURPLE "=================="
     print_status $GREEN "🎉 Database import completed successfully!"
@@ -436,8 +444,8 @@ print_summary() {
 
 # Main execution
 main() {
-    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 47 DDL FILES"
-    print_status $PURPLE "==============================================="
+    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 48 DDL FILES (Roman Numerals I-XLVIII)"
+    print_status $PURPLE "==========================================================================="
 
     if [ "$DRY_RUN" = true ]; then
         print_status $YELLOW "🔍 DRY RUN MODE - No changes will be made"

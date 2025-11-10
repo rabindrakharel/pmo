@@ -1,17 +1,12 @@
 /**
  * Event API Routes
- * Manages events/meetings/appointments with calendar invite email support
+ * Manages events/meetings/appointments as universal parent entities
  * @module event/routes
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { client, db } from '../../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
-import {
-  sendEventInvitesToAttendees,
-  sendEventInviteToEmployee,
-  sendEventInviteToCustomer
-} from '../email/email.service.js';
 import { paginateQuery, getPaginationParams } from '../../lib/pagination.js';
 
 /**
@@ -21,25 +16,20 @@ interface CreateEventRequest {
   code: string;
   name: string;
   descr?: string;
-  event_entity_action?: string;
-  event_medium: 'onsite' | 'virtual';
-  event_addr?: string;
+  event_type: 'onsite' | 'virtual';
+  event_platform_provider_name: string; // 'zoom', 'teams', 'google_meet', 'physical_hall', 'office', etc.
+  event_addr?: string; // Physical address OR meeting URL
   event_instructions?: string;
-  event_metadata?: {
-    project_id?: string;
-    task_id?: string;
-    customer_id?: string;
-    attendee_ids?: string[];
-    [key: string]: any;
-  };
-  // Calendar slot details
-  start_time?: string; // ISO timestamp
-  end_time?: string; // ISO timestamp
-  timezone?: string;
-  // Email notification options
-  send_invites?: boolean; // Default: true
-  organizer_name?: string;
-  organizer_email?: string;
+  from_ts: string; // ISO timestamp (event start time)
+  to_ts: string; // ISO timestamp (event end time)
+  timezone?: string; // Default: 'America/Toronto'
+  event_metadata?: Record<string, any>;
+  // Optional: Attendees to automatically create event-person mappings
+  attendees?: Array<{
+    person_entity_type: 'employee' | 'client' | 'customer';
+    person_entity_id: string;
+    event_rsvp_status?: 'pending' | 'accepted' | 'declined';
+  }>;
 }
 
 /**
@@ -48,13 +38,14 @@ interface CreateEventRequest {
 interface UpdateEventRequest {
   name?: string;
   descr?: string;
-  event_entity_action?: string;
-  event_medium?: 'onsite' | 'virtual';
+  event_type?: 'onsite' | 'virtual';
+  event_platform_provider_name?: string;
   event_addr?: string;
   event_instructions?: string;
+  from_ts?: string;
+  to_ts?: string;
+  timezone?: string;
   event_metadata?: Record<string, any>;
-  reminder_sent_flag?: boolean;
-  confirmation_sent_flag?: boolean;
 }
 
 /**
@@ -63,28 +54,38 @@ interface UpdateEventRequest {
 export async function eventRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/v1/event
-   * Get all active events
+   * Get all active events with optional filters
    */
   fastify.get<{
     Querystring: {
-      event_medium?: string;
-      event_entity_action?: string;
+      event_type?: string;
+      event_platform_provider_name?: string;
+      from_ts?: string;
+      to_ts?: string;
       page?: number;
       limit?: number;
     };
   }>('/api/v1/event', async (request, reply) => {
     try {
-      const { event_medium, event_entity_action } = request.query;
+      const { event_type, event_platform_provider_name, from_ts, to_ts } = request.query;
       const { page, limit, offset } = getPaginationParams(request.query);
 
       let whereConditions = client`WHERE active_flag = true`;
 
-      if (event_medium) {
-        whereConditions = client`${whereConditions} AND event_medium = ${event_medium}`;
+      if (event_type) {
+        whereConditions = client`${whereConditions} AND event_type = ${event_type}`;
       }
 
-      if (event_entity_action) {
-        whereConditions = client`${whereConditions} AND event_entity_action = ${event_entity_action}`;
+      if (event_platform_provider_name) {
+        whereConditions = client`${whereConditions} AND event_platform_provider_name = ${event_platform_provider_name}`;
+      }
+
+      if (from_ts) {
+        whereConditions = client`${whereConditions} AND from_ts >= ${from_ts}::timestamptz`;
+      }
+
+      if (to_ts) {
+        whereConditions = client`${whereConditions} AND to_ts <= ${to_ts}::timestamptz`;
       }
 
       const dataQuery = client`
@@ -93,23 +94,21 @@ export async function eventRoutes(fastify: FastifyInstance) {
           code,
           name,
           descr,
-          metadata,
-          event_entity_action,
-          event_medium,
+          event_type,
+          event_platform_provider_name,
           event_addr,
           event_instructions,
+          from_ts::text,
+          to_ts::text,
+          timezone,
           event_metadata,
-          reminder_sent_flag,
-          reminder_sent_ts::text,
-          confirmation_sent_flag,
-          confirmation_sent_ts::text,
           active_flag,
           created_ts::text,
           updated_ts::text,
           version
         FROM app.d_event
         ${whereConditions}
-        ORDER BY created_ts DESC
+        ORDER BY from_ts DESC, created_ts DESC
         LIMIT ${limit}
         OFFSET ${offset}
       `;
@@ -130,7 +129,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
   /**
    * GET /api/v1/event/:id
-   * Get event by ID with linked calendar slots
+   * Get event by ID with linked people (attendees)
    */
   fastify.get<{
     Params: { id: string };
@@ -145,16 +144,14 @@ export async function eventRoutes(fastify: FastifyInstance) {
           code,
           name,
           descr,
-          metadata,
-          event_entity_action,
-          event_medium,
+          event_type,
+          event_platform_provider_name,
           event_addr,
           event_instructions,
+          from_ts::text,
+          to_ts::text,
+          timezone,
           event_metadata,
-          reminder_sent_flag,
-          reminder_sent_ts::text,
-          confirmation_sent_flag,
-          confirmation_sent_ts::text,
           active_flag,
           created_ts::text,
           updated_ts::text,
@@ -171,30 +168,44 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       const event = eventResult[0];
 
-      // Get linked calendar slots
-      const slotsQuery = client`
+      // Get linked people (attendees) from d_entity_event_person_calendar
+      const attendeesQuery = client`
         SELECT
           id::text,
           code,
+          name,
           person_entity_type,
           person_entity_id::text,
+          event_rsvp_status,
           from_ts::text,
           to_ts::text,
-          timezone,
-          availability_flag,
-          title,
-          appointment_medium,
-          appointment_addr
-        FROM app.d_entity_person_calendar
+          timezone
+        FROM app.d_entity_event_person_calendar
         WHERE event_id = ${id}::uuid AND active_flag = true
-        ORDER BY from_ts ASC
+        ORDER BY person_entity_type, event_rsvp_status
       `;
 
-      const slotsResult = await slotsQuery;
+      const attendeesResult = await attendeesQuery;
+
+      // Get linked entities from d_entity_id_map
+      const linkedEntitiesQuery = client`
+        SELECT
+          child_entity_type,
+          child_entity_id,
+          relationship_type
+        FROM app.d_entity_id_map
+        WHERE parent_entity_type = 'event'
+          AND parent_entity_id = ${id}
+          AND active_flag = true
+        ORDER BY child_entity_type
+      `;
+
+      const linkedEntitiesResult = await linkedEntitiesQuery;
 
       reply.code(200).send({
         ...event,
-        calendar_slots: slotsResult
+        attendees: attendeesResult,
+        linked_entities: linkedEntitiesResult
       });
     } catch (error) {
       console.error('Error fetching event:', error);
@@ -204,7 +215,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
   /**
    * POST /api/v1/event
-   * Create a new event and optionally send calendar invites
+   * Create a new event and optionally link attendees
    */
   fastify.post<{
     Body: CreateEventRequest;
@@ -220,29 +231,36 @@ export async function eventRoutes(fastify: FastifyInstance) {
           code,
           name,
           descr,
-          event_entity_action,
-          event_medium,
+          event_type,
+          event_platform_provider_name,
           event_addr,
           event_instructions,
+          from_ts,
+          to_ts,
+          timezone,
           event_metadata
         ) VALUES (
           ${eventId}::uuid,
           ${eventData.code},
           ${eventData.name},
           ${eventData.descr || null},
-          ${eventData.event_entity_action || null},
-          ${eventData.event_medium},
+          ${eventData.event_type},
+          ${eventData.event_platform_provider_name},
           ${eventData.event_addr || null},
           ${eventData.event_instructions || null},
+          ${eventData.from_ts}::timestamptz,
+          ${eventData.to_ts}::timestamptz,
+          ${eventData.timezone || 'America/Toronto'},
           ${eventData.event_metadata ? JSON.stringify(eventData.event_metadata) : '{}'}::jsonb
         )
         RETURNING
           id::text,
           code,
           name,
-          event_medium,
-          event_addr,
-          event_metadata,
+          event_type,
+          event_platform_provider_name,
+          from_ts::text,
+          to_ts::text,
           created_ts::text
       `;
 
@@ -261,140 +279,79 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       console.log(`✅ Created event: ${newEvent.code}`);
 
-      // Create calendar slots if start_time and end_time provided
-      let calendarSlots = [];
-      if (eventData.start_time && eventData.end_time) {
-        const startTime = new Date(eventData.start_time);
-        const endTime = new Date(eventData.end_time);
-
-        // Create calendar slots for attendees if provided
-        const attendeeIds = eventData.event_metadata?.attendee_ids || [];
-        const customerId = eventData.event_metadata?.customer_id;
-
-        for (const attendeeId of attendeeIds) {
-          const slotCode = `CAL-${eventData.code}-${attendeeId.substring(0, 8)}`;
-
-          const slotQuery = client`
-            INSERT INTO app.d_entity_person_calendar (
-              code,
-              name,
-              person_entity_type,
-              person_entity_id,
-              from_ts,
-              to_ts,
-              timezone,
-              availability_flag,
-              title,
-              appointment_medium,
-              appointment_addr,
-              event_id,
-              metadata
-            ) VALUES (
-              ${slotCode},
-              ${eventData.name},
-              'employee',
-              ${attendeeId}::uuid,
-              ${eventData.start_time}::timestamptz,
-              ${eventData.end_time}::timestamptz,
-              ${eventData.timezone || 'America/Toronto'},
-              false,
-              ${eventData.name},
-              ${eventData.event_medium},
-              ${eventData.event_addr || null},
-              ${newEvent.id}::uuid,
-              ${eventData.event_metadata ? JSON.stringify(eventData.event_metadata) : '{}'}::jsonb
-            )
-            RETURNING id::text, code
-          `;
-
-          const slotResult = await slotQuery;
-          calendarSlots.push(slotResult[0]);
-        }
-
-        // Create calendar slot for customer if provided
-        if (customerId) {
-          const custSlotCode = `CAL-${eventData.code}-CUST`;
-
-          const custSlotQuery = client`
-            INSERT INTO app.d_entity_person_calendar (
-              code,
-              name,
-              person_entity_type,
-              person_entity_id,
-              from_ts,
-              to_ts,
-              timezone,
-              availability_flag,
-              title,
-              appointment_medium,
-              appointment_addr,
-              event_id,
-              metadata
-            ) VALUES (
-              ${custSlotCode},
-              ${eventData.name},
-              'customer',
-              ${customerId}::uuid,
-              ${eventData.start_time}::timestamptz,
-              ${eventData.end_time}::timestamptz,
-              ${eventData.timezone || 'America/Toronto'},
-              false,
-              ${eventData.name},
-              ${eventData.event_medium},
-              ${eventData.event_addr || null},
-              ${newEvent.id}::uuid,
-              ${eventData.event_metadata ? JSON.stringify(eventData.event_metadata) : '{}'}::jsonb
-            )
-            RETURNING id::text, code
-          `;
-
-          const custSlotResult = await custSlotQuery;
-          calendarSlots.push(custSlotResult[0]);
-        }
-
-        console.log(`✅ Created ${calendarSlots.length} calendar slots for event ${newEvent.code}`);
+      // Grant full Owner permissions to event creator via RBAC
+      // Owner permission [5] allows full control including permission management
+      const creatorEmpId = request.user?.sub;
+      if (creatorEmpId) {
+        await client`
+          INSERT INTO app.entity_id_rbac_map (
+            empid,
+            entity,
+            entity_id,
+            permission,
+            granted_by_empid
+          ) VALUES (
+            ${creatorEmpId}::uuid,
+            'event',
+            ${newEvent.id},
+            ARRAY[0,1,2,3,4,5],
+            ${creatorEmpId}::uuid
+          )
+        `;
+        console.log(`✅ Granted Owner permissions to creator (empid: ${creatorEmpId})`);
       }
 
-      // Send calendar invites if requested (default: true)
-      const sendInvites = eventData.send_invites !== false;
-      let inviteResults = { totalSent: 0, totalFailed: 0, results: [] };
+      // Create event-person mappings if attendees provided
+      let attendees = [];
+      if (eventData.attendees && eventData.attendees.length > 0) {
+        for (const attendee of eventData.attendees) {
+          const attendeeCode = `EPC-${eventData.code}-${attendee.person_entity_type.toUpperCase()}-${attendee.person_entity_id.substring(0, 8)}`;
 
-      if (sendInvites && eventData.start_time && eventData.end_time) {
-        const organizerName = eventData.organizer_name || 'Huron Home Services';
-        const organizerEmail = eventData.organizer_email || 'noreply@huronhome.ca';
+          const attendeeQuery = client`
+            INSERT INTO app.d_entity_event_person_calendar (
+              code,
+              name,
+              person_entity_type,
+              person_entity_id,
+              event_id,
+              event_rsvp_status,
+              from_ts,
+              to_ts,
+              timezone
+            ) VALUES (
+              ${attendeeCode},
+              ${`${eventData.name} - ${attendee.person_entity_type}`},
+              ${attendee.person_entity_type},
+              ${attendee.person_entity_id}::uuid,
+              ${newEvent.id}::uuid,
+              ${attendee.event_rsvp_status || 'pending'},
+              ${eventData.from_ts}::timestamptz,
+              ${eventData.to_ts}::timestamptz,
+              ${eventData.timezone || 'America/Toronto'}
+            )
+            RETURNING id::text, code, person_entity_type, event_rsvp_status
+          `;
 
-        inviteResults = await sendEventInvitesToAttendees({
-          eventId: newEvent.id,
-          eventTitle: eventData.name,
-          eventDescription: eventData.descr,
-          eventLocation: eventData.event_addr,
-          startTime: new Date(eventData.start_time),
-          endTime: new Date(eventData.end_time),
-          organizerName,
-          organizerEmail,
-          meetingUrl: eventData.event_medium === 'virtual' ? eventData.event_addr : undefined,
-          attendeeIds: eventData.event_metadata?.attendee_ids,
-          customerId: eventData.event_metadata?.customer_id
-        });
+          const attendeeResult = await attendeeQuery;
+          attendees.push(attendeeResult[0]);
 
-        // Update confirmation_sent_flag if at least one invite was sent
-        if (inviteResults.totalSent > 0) {
+          // Register in entity_instance_id
           await client`
-            UPDATE app.d_event
-            SET
-              confirmation_sent_flag = true,
-              confirmation_sent_ts = now()
-            WHERE id = ${newEvent.id}::uuid
+            INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+            VALUES ('event_person_calendar', ${attendeeResult[0].id}::uuid, ${attendeeCode}, ${attendeeCode})
+            ON CONFLICT (entity_type, entity_id) DO UPDATE
+            SET entity_name = EXCLUDED.entity_name,
+                entity_code = EXCLUDED.entity_code,
+                updated_ts = now()
           `;
         }
 
-        console.log(`✅ Sent ${inviteResults.totalSent} calendar invites for event ${newEvent.code}`);
+        console.log(`✅ Created ${attendees.length} event-person mappings for event ${newEvent.code}`);
       }
 
       reply.code(201).send({
         ...newEvent,
-        calendar_slots: calendarSlots,
-        invite_results: sendInvites ? inviteResults : null
+        attendees
       });
     } catch (error) {
       console.error('Error creating event:', error);
@@ -419,15 +376,14 @@ export async function eventRoutes(fastify: FastifyInstance) {
         SET
           name = COALESCE(${updates.name || null}, name),
           descr = COALESCE(${updates.descr || null}, descr),
-          event_entity_action = COALESCE(${updates.event_entity_action || null}, event_entity_action),
-          event_medium = COALESCE(${updates.event_medium || null}, event_medium),
+          event_type = COALESCE(${updates.event_type || null}, event_type),
+          event_platform_provider_name = COALESCE(${updates.event_platform_provider_name || null}, event_platform_provider_name),
           event_addr = COALESCE(${updates.event_addr || null}, event_addr),
           event_instructions = COALESCE(${updates.event_instructions || null}, event_instructions),
+          from_ts = COALESCE(${updates.from_ts ? `${updates.from_ts}::timestamptz` : null}, from_ts),
+          to_ts = COALESCE(${updates.to_ts ? `${updates.to_ts}::timestamptz` : null}, to_ts),
+          timezone = COALESCE(${updates.timezone || null}, timezone),
           event_metadata = COALESCE(${updates.event_metadata ? JSON.stringify(updates.event_metadata) : null}::jsonb, event_metadata),
-          reminder_sent_flag = COALESCE(${updates.reminder_sent_flag !== undefined ? updates.reminder_sent_flag : null}, reminder_sent_flag),
-          reminder_sent_ts = CASE WHEN ${updates.reminder_sent_flag} = true THEN now() ELSE reminder_sent_ts END,
-          confirmation_sent_flag = COALESCE(${updates.confirmation_sent_flag !== undefined ? updates.confirmation_sent_flag : null}, confirmation_sent_flag),
-          confirmation_sent_ts = CASE WHEN ${updates.confirmation_sent_flag} = true THEN now() ELSE confirmation_sent_ts END,
           updated_ts = now(),
           version = version + 1
         WHERE id = ${id}::uuid AND active_flag = true
@@ -435,7 +391,9 @@ export async function eventRoutes(fastify: FastifyInstance) {
           id::text,
           code,
           name,
-          event_medium,
+          event_type,
+          from_ts::text,
+          to_ts::text,
           updated_ts::text
       `;
 
@@ -456,7 +414,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
   /**
    * DELETE /api/v1/event/:id
-   * Soft delete event and cancel linked calendar slots
+   * Soft delete event and linked event-person mappings
    */
   fastify.delete<{
     Params: { id: string };
@@ -480,21 +438,32 @@ export async function eventRoutes(fastify: FastifyInstance) {
         return reply.code(404).send({ error: 'Event not found' });
       }
 
-      // Also mark linked calendar slots as cancelled (available)
+      // Also soft delete linked event-person mappings
       await client`
-        UPDATE app.d_entity_person_calendar
+        UPDATE app.d_entity_event_person_calendar
         SET
-          availability_flag = true,
-          event_id = NULL,
+          active_flag = false,
           updated_ts = now()
         WHERE event_id = ${id}::uuid AND active_flag = true
       `;
 
-      console.log(`✅ Deleted event and cancelled calendar slots: ${result[0].code}`);
+      // Soft delete entity linkages in d_entity_id_map
+      await client`
+        UPDATE app.d_entity_id_map
+        SET
+          active_flag = false,
+          to_ts = now(),
+          updated_ts = now()
+        WHERE parent_entity_type = 'event'
+          AND parent_entity_id = ${id}
+          AND active_flag = true
+      `;
+
+      console.log(`✅ Deleted event and linked data: ${result[0].code}`);
 
       reply.code(200).send({
         success: true,
-        message: 'Event deleted and calendar slots cancelled successfully',
+        message: 'Event deleted successfully',
         event: result[0]
       });
     } catch (error) {
@@ -504,96 +473,116 @@ export async function eventRoutes(fastify: FastifyInstance) {
   });
 
   /**
-   * POST /api/v1/event/:id/send-invites
-   * Manually send/resend calendar invites for an event
+   * GET /api/v1/event/:id/attendees
+   * Get all attendees for a specific event
    */
-  fastify.post<{
+  fastify.get<{
     Params: { id: string };
-    Body: {
-      organizer_name?: string;
-      organizer_email?: string;
-    };
-  }>('/api/v1/event/:id/send-invites', async (request, reply) => {
+  }>('/api/v1/event/:id/attendees', async (request, reply) => {
     try {
       const { id } = request.params;
-      const { organizer_name, organizer_email } = request.body;
 
-      // Get event details
-      const eventQuery = client`
-        SELECT
-          id::text,
-          code,
-          name,
-          descr,
-          event_medium,
-          event_addr,
-          event_metadata
-        FROM app.d_event
+      // Check if event exists
+      const eventCheck = await client`
+        SELECT id FROM app.d_event
         WHERE id = ${id}::uuid AND active_flag = true
       `;
 
-      const eventResult = await eventQuery;
-
-      if (eventResult.length === 0) {
+      if (eventCheck.length === 0) {
         return reply.code(404).send({ error: 'Event not found' });
       }
 
-      const event = eventResult[0];
-
-      // Get calendar slots to determine start/end time
-      const slotsQuery = client`
+      // Get attendees with enriched person details
+      const attendeesQuery = client`
         SELECT
-          MIN(from_ts) as start_time,
-          MAX(to_ts) as end_time
-        FROM app.d_entity_person_calendar
-        WHERE event_id = ${id}::uuid AND active_flag = true
+          epc.id::text,
+          epc.code,
+          epc.person_entity_type,
+          epc.person_entity_id::text,
+          epc.event_rsvp_status,
+          epc.from_ts::text,
+          epc.to_ts::text,
+          epc.timezone,
+          CASE
+            WHEN epc.person_entity_type = 'employee' THEN emp.name
+            WHEN epc.person_entity_type = 'customer' THEN cust.name
+            WHEN epc.person_entity_type = 'client' THEN NULL -- Add client name if d_client exists
+          END as person_name,
+          CASE
+            WHEN epc.person_entity_type = 'employee' THEN emp.email
+            WHEN epc.person_entity_type = 'customer' THEN cust.email
+            WHEN epc.person_entity_type = 'client' THEN NULL
+          END as person_email
+        FROM app.d_entity_event_person_calendar epc
+        LEFT JOIN app.d_employee emp ON epc.person_entity_type = 'employee' AND epc.person_entity_id = emp.id
+        LEFT JOIN app.d_cust cust ON epc.person_entity_type = 'customer' AND epc.person_entity_id = cust.id
+        WHERE epc.event_id = ${id}::uuid AND epc.active_flag = true
+        ORDER BY epc.event_rsvp_status, epc.person_entity_type
       `;
 
-      const slotsResult = await slotsQuery;
-
-      if (!slotsResult[0]?.start_time || !slotsResult[0]?.end_time) {
-        return reply.code(400).send({ error: 'Event has no calendar slots with time information' });
-      }
-
-      const startTime = new Date(slotsResult[0].start_time);
-      const endTime = new Date(slotsResult[0].end_time);
-
-      // Send invites
-      const inviteResults = await sendEventInvitesToAttendees({
-        eventId: event.id,
-        eventTitle: event.name,
-        eventDescription: event.descr,
-        eventLocation: event.event_addr,
-        startTime,
-        endTime,
-        organizerName: organizer_name || 'Huron Home Services',
-        organizerEmail: organizer_email || 'noreply@huronhome.ca',
-        meetingUrl: event.event_medium === 'virtual' ? event.event_addr : undefined,
-        attendeeIds: event.event_metadata?.attendee_ids,
-        customerId: event.event_metadata?.customer_id
-      });
-
-      // Update confirmation_sent_flag
-      if (inviteResults.totalSent > 0) {
-        await client`
-          UPDATE app.d_event
-          SET
-            confirmation_sent_flag = true,
-            confirmation_sent_ts = now()
-          WHERE id = ${id}::uuid
-        `;
-      }
-
-      console.log(`✅ Sent ${inviteResults.totalSent} calendar invites for event ${event.code}`);
+      const attendees = await attendeesQuery;
 
       reply.code(200).send({
-        success: true,
-        event_code: event.code,
-        ...inviteResults
+        event_id: id,
+        total_attendees: attendees.length,
+        rsvp_summary: {
+          accepted: attendees.filter(a => a.event_rsvp_status === 'accepted').length,
+          declined: attendees.filter(a => a.event_rsvp_status === 'declined').length,
+          pending: attendees.filter(a => a.event_rsvp_status === 'pending').length
+        },
+        attendees
       });
     } catch (error) {
-      console.error('Error sending event invites:', error);
-      reply.code(500).send({ error: 'Failed to send event invites' });
+      console.error('Error fetching event attendees:', error);
+      reply.code(500).send({ error: 'Failed to fetch event attendees' });
+    }
+  });
+
+  /**
+   * GET /api/v1/event/:id/entities
+   * Get all linked entities for a specific event (from d_entity_id_map)
+   */
+  fastify.get<{
+    Params: { id: string };
+  }>('/api/v1/event/:id/entities', async (request, reply) => {
+    try {
+      const { id } = request.params;
+
+      // Check if event exists
+      const eventCheck = await client`
+        SELECT id FROM app.d_event
+        WHERE id = ${id}::uuid AND active_flag = true
+      `;
+
+      if (eventCheck.length === 0) {
+        return reply.code(404).send({ error: 'Event not found' });
+      }
+
+      // Get linked entities
+      const entitiesQuery = client`
+        SELECT
+          child_entity_type,
+          child_entity_id,
+          relationship_type,
+          from_ts::text,
+          to_ts::text
+        FROM app.d_entity_id_map
+        WHERE parent_entity_type = 'event'
+          AND parent_entity_id = ${id}
+          AND active_flag = true
+        ORDER BY child_entity_type, relationship_type
+      `;
+
+      const entities = await entitiesQuery;
+
+      reply.code(200).send({
+        event_id: id,
+        total_linked_entities: entities.length,
+        linked_entities: entities
+      });
+    } catch (error) {
+      console.error('Error fetching event entities:', error);
+      reply.code(500).send({ error: 'Failed to fetch event entities' });
     }
   });
 
