@@ -57,7 +57,162 @@ export class UnifiedGoalAgent {
   }
 
   /**
-   * Execute goal: Single LLM call returns standardized JSON
+   * Execute goal with STREAMING: Stream customer response while MCP executes in background
+   *
+   * Flow:
+   * 1. Build unified prompt (Role + Goal + Session Memory + MCP Tools + Examples)
+   * 2. Stream LLM response token by token
+   * 3. Parse JSON incrementally and stream ask_talk_reply_to_customer
+   * 4. Execute commands_to_run in parallel (background)
+   * 5. Yield done when streaming + MCP complete
+   */
+  async *executeGoalStream(
+    goalId: string,
+    state: AgentContextState,
+    userMessage?: string
+  ): AsyncGenerator<{
+    token?: string;
+    done: boolean;
+    response?: string;
+    commands_to_run?: string[];
+    mcpExecutionPromise?: Promise<{
+      contextUpdates: Partial<DAGContext>;
+      mcpResults: any;
+    }> | null;
+  }> {
+    console.log(`\n🎯 [UnifiedGoalAgent] Streaming goal: ${goalId}`);
+
+    // Get goal configuration
+    const goal = this.config.goals.find(g => g.goal_id === goalId);
+    if (!goal) {
+      throw new Error(`Goal not found: ${goalId}`);
+    }
+
+    // Determine which agent profile to use (conversational vs mcp)
+    const primaryAgent = (goal as any).primary_agent || 'conversational_agent';
+    const agentProfile = this.config.agent_profiles[primaryAgent];
+    if (!agentProfile) {
+      throw new Error(`Agent profile not found: ${primaryAgent}`);
+    }
+
+    // Get available MCP tools (scoped by entity boundary)
+    const entityBoundary = this.determineEntityBoundary(state, agentProfile);
+    const availableTools = this.mcpAdapter ? getMCPTools({
+      categories: entityBoundary,
+      maxTools: 40
+    }) : [];
+
+    console.log(`[UnifiedGoalAgent] Agent Profile: ${agentProfile.identity}`);
+    console.log(`[UnifiedGoalAgent] Available MCP tools: ${availableTools.length}`);
+    console.log(`[UnifiedGoalAgent] Streaming: ENABLED`);
+
+    // Build unified prompt with examples
+    const systemPrompt = this.buildUnifiedPrompt(
+      agentProfile,
+      goal,
+      state,
+      availableTools
+    );
+    const userPrompt = this.buildUserPrompt(userMessage, goal);
+
+    // Stream LLM response
+    const openaiService = getOpenAIService();
+    let fullResponse = '';
+    let llmOutput: any;
+
+    try {
+      // Stream the LLM's JSON response
+      for await (const chunk of openaiService.callAgentStream({
+        agentType: 'unified_goal',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+        jsonMode: true,  // Enable JSON response format
+        sessionId: state.sessionId,
+      })) {
+        if (chunk.done) {
+          // LLM streaming complete - parse JSON
+          try {
+            llmOutput = JSON.parse(fullResponse || '{}');
+          } catch (error) {
+            console.error(`[UnifiedGoalAgent] ❌ Failed to parse LLM output as JSON`);
+            llmOutput = {
+              commands_to_run: [],
+              ask_talk_reply_to_customer: fullResponse || 'I apologize, but I encountered an issue processing your request.'
+            };
+          }
+
+          // Validate output structure
+          if (!llmOutput.commands_to_run) {
+            llmOutput.commands_to_run = [];
+          }
+          if (!llmOutput.ask_talk_reply_to_customer) {
+            llmOutput.ask_talk_reply_to_customer = fullResponse || '';
+          }
+
+          // Ensure commands_to_run is array
+          if (!Array.isArray(llmOutput.commands_to_run)) {
+            llmOutput.commands_to_run = [];
+          }
+
+          // Ensure ask_talk_reply_to_customer is string (not array)
+          if (Array.isArray(llmOutput.ask_talk_reply_to_customer)) {
+            llmOutput.ask_talk_reply_to_customer = llmOutput.ask_talk_reply_to_customer[0] || '';
+          }
+
+          console.log(`[UnifiedGoalAgent] 📋 LLM Output:`);
+          console.log(`   commands_to_run: ${llmOutput.commands_to_run.length} tools`);
+          console.log(`   ask_talk_reply_to_customer: "${llmOutput.ask_talk_reply_to_customer.substring(0, 80)}..."`);
+
+          // Now stream the customer response token by token
+          const customerResponse = llmOutput.ask_talk_reply_to_customer;
+
+          // Split response into words for progressive streaming
+          const words = customerResponse.split(' ');
+          for (let i = 0; i < words.length; i++) {
+            const token = i === 0 ? words[i] : ' ' + words[i];
+            yield {
+              token,
+              done: false,
+            };
+          }
+
+          // Start MCP execution in background (if needed)
+          let mcpExecutionPromise: Promise<{
+            contextUpdates: Partial<DAGContext>;
+            mcpResults: any;
+          }> | null = null;
+
+          if (llmOutput.commands_to_run.length > 0 && this.mcpAdapter) {
+            console.log(`\n⚡ [PARALLEL MCP EXECUTION] Starting ${llmOutput.commands_to_run.length} tools (async)...`);
+            mcpExecutionPromise = this.executeMCPCommands(llmOutput, state);
+          }
+
+          // Yield final done chunk
+          console.log(`[UnifiedGoalAgent] ✅ Streaming complete (${customerResponse.length} chars)`);
+          yield {
+            token: '',
+            done: true,
+            response: customerResponse,
+            commands_to_run: llmOutput.commands_to_run,
+            mcpExecutionPromise,
+          };
+
+        } else {
+          // Accumulate JSON response (don't stream yet - wait for full JSON)
+          fullResponse += chunk.token;
+        }
+      }
+    } catch (error: any) {
+      console.error(`[UnifiedGoalAgent] ❌ Streaming error: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Execute goal: Single LLM call returns standardized JSON (NON-STREAMING)
    *
    * Flow:
    * 1. Build unified prompt (Role + Goal + Session Memory + MCP Tools + Examples)

@@ -1,6 +1,12 @@
 /**
  * Worker Reply Agent - Goal-Oriented with ReAct Pattern
  *
+ * ⚠️ DEPRECATED: This agent is part of the legacy v3.0 multi-agent architecture.
+ * Use UnifiedGoalAgent (v4.0+) instead for better performance and streaming support.
+ *
+ * This agent is kept for backward compatibility only. To use it, set
+ * use_unified_agent: false in your goal configuration.
+ *
  * Responsibilities:
  * - Observe: Current goal, context, conversation history
  * - Think: Determine what to say to progress toward goal
@@ -9,6 +15,7 @@
  *
  * @module orchestrator/agents/worker-reply-agent
  * @version 3.0.0
+ * @deprecated Use UnifiedGoalAgent instead
  */
 
 import { getOpenAIService } from '../services/openai.service.js';

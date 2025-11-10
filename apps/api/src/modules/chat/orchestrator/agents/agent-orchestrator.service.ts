@@ -198,26 +198,35 @@ export class AgentOrchestratorService {
       this.contextManager.setDAGConfig(this.config as any); // TODO: Update context manager to use AgentConfigV3
 
       // Initialize worker agents and transition engine:
-      // 1. WorkerReplyAgent - generates customer-facing responses (uses conversational_agent profile)
-      // 2. WorkerMCPAgent - executes MCP tools and updates context (uses mcp_agent profile)
-      // 3. DataExtractionAgent - extracts context from conversation (called AFTER worker agents)
-      // 4. GoalTransitionEngine - evaluates goal transitions using semantic routing
-      // 5. ParallelAgentExecutor - executes agents in parallel for 50%+ performance boost
-      // 6. UnifiedGoalAgent - NEW v4.0: Single LLM session per goal (replaces multi-agent orchestration)
+      // PRIMARY (v4.0+):
+      // 1. UnifiedGoalAgent - NEW v4.0: Single LLM session per goal with streaming support
+      // 2. DataExtractionAgent - Extracts context from conversation (post-processing)
+      // 3. GoalTransitionEngine - Evaluates goal transitions using semantic routing
+      //
+      // LEGACY (v3.0 - Deprecated, kept for backward compatibility):
+      // 4. WorkerReplyAgent - Customer-facing responses (use UnifiedGoalAgent instead)
+      // 5. WorkerMCPAgent - MCP tool execution (use UnifiedGoalAgent instead)
+      // 6. ParallelAgentExecutor - Parallel agent execution (use UnifiedGoalAgent instead)
+      //
+      // Set use_unified_agent: false in goal config to use legacy mode
+      this.unifiedGoalAgent = createUnifiedGoalAgent(this.config, this.mcpAdapter, undefined);
+      this.dataExtractionAgent = createDataExtractionAgent();
+      this.transitionEngine = new GoalTransitionEngine(this.config);
+
+      // Legacy agents (for backward compatibility only)
       this.workerReplyAgent = createWorkerReplyAgent(this.config, 'conversational_agent');
       this.workerMCPAgent = createWorkerMCPAgent(this.config, this.mcpAdapter, undefined, 'mcp_agent');
-      this.transitionEngine = new GoalTransitionEngine(this.config);
-      this.dataExtractionAgent = createDataExtractionAgent();
       this.parallelExecutor = createParallelAgentExecutor();
-      this.unifiedGoalAgent = createUnifiedGoalAgent(this.config, this.mcpAdapter, undefined);
 
-      console.log('[AgentOrchestrator] ✅ Agents initialized (Goal-Oriented Architecture v4.0 - Single Session Pattern)');
-      console.log('[AgentOrchestrator]    - UnifiedGoalAgent: Single LLM session per goal (NEW)');
-      console.log('[AgentOrchestrator]    - WorkerReplyAgent: Customer-facing responses (legacy)');
-      console.log('[AgentOrchestrator]    - WorkerMCPAgent: MCP tool execution (legacy)');
-      console.log('[AgentOrchestrator]    - DataExtractionAgent: Context extraction (post-processing)');
-      console.log('[AgentOrchestrator]    - GoalTransitionEngine: Semantic goal routing');
-      console.log('[AgentOrchestrator]    - ParallelAgentExecutor: Parallel agent execution (legacy)');
+      console.log('[AgentOrchestrator] ✅ Agents initialized (Goal-Oriented Architecture v4.0 - Unified Streaming Pattern)');
+      console.log('[AgentOrchestrator]    PRIMARY:');
+      console.log('[AgentOrchestrator]      - UnifiedGoalAgent: Single LLM session with streaming (v4.0+)');
+      console.log('[AgentOrchestrator]      - DataExtractionAgent: Context extraction');
+      console.log('[AgentOrchestrator]      - GoalTransitionEngine: Semantic goal routing');
+      console.log('[AgentOrchestrator]    LEGACY (Deprecated):');
+      console.log('[AgentOrchestrator]      - WorkerReplyAgent: Customer responses (use UnifiedGoalAgent)');
+      console.log('[AgentOrchestrator]      - WorkerMCPAgent: MCP execution (use UnifiedGoalAgent)');
+      console.log('[AgentOrchestrator]      - ParallelAgentExecutor: Parallel execution (use UnifiedGoalAgent)');
       console.log(`[AgentOrchestrator] Total goals: ${this.config.goals.length}`);
       console.log(`[AgentOrchestrator] Agent profiles: ${Object.keys(this.config.agent_profiles).join(', ')}`);
     } catch (error: any) {
@@ -370,118 +379,183 @@ export class AgentOrchestratorService {
       }
 
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // STREAMING FIX: Check goal's primary_agent configuration
-      // If goal uses mcp_agent, execute it first (non-streaming) before streaming response
+      // UNIFIED AGENT STREAMING (v4.0)
+      // Single LLM session per goal with parallel MCP + customer response
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       const currentGoalConfig = this.config.goals.find(g => g.goal_id === state.currentNode);
-      const primaryAgent = currentGoalConfig?.primary_agent || 'conversational_agent';
+      const useUnifiedAgent = (currentGoalConfig as any)?.use_unified_agent !== false; // Default: true
 
-      console.log(`[AgentOrchestrator] 🎯 Goal ${state.currentNode} uses primary_agent: ${primaryAgent}`);
+      console.log(`[AgentOrchestrator] 🎯 Goal ${state.currentNode} - Unified Agent: ${useUnifiedAgent ? 'ENABLED' : 'LEGACY'}`);
 
-      // Execute MCP agent first if goal requires it
-      if (primaryAgent === 'mcp_agent' && this.mcpAdapter) {
-        console.log(`[AgentOrchestrator] 🔧 Executing MCP agent for goal: ${state.currentNode}`);
-        try {
-          const mcpResult = await this.workerMCPAgent.executeGoal(state.currentNode, state);
-
-          // Apply context updates from MCP execution
-          if (mcpResult.contextUpdates && Object.keys(mcpResult.contextUpdates).length > 0) {
-            console.log(`[AgentOrchestrator] 📝 Applying MCP context updates`);
-            state = this.contextManager.updateContext(state, mcpResult.contextUpdates);
-          }
-
-          console.log(`[AgentOrchestrator] ✅ MCP agent execution complete`);
-        } catch (error: any) {
-          console.error(`[AgentOrchestrator] ❌ MCP agent execution failed: ${error.message}`);
-        }
-      }
-
-      // Stream response from worker agent
       let fullResponse = '';
+      let mcpExecutionPromise: Promise<any> | null = null;
 
-      for await (const chunk of this.workerReplyAgent.executeGoalStream(
-        state.currentNode,
-        state,
-        args.message
-      )) {
-        if (chunk.done) {
-          // Final chunk - prepare completion data
-          fullResponse = chunk.response || fullResponse;
+      if (useUnifiedAgent) {
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // NEW v4.0: UNIFIED AGENT STREAMING
+        // Streams customer response while MCP tools execute in background
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        console.log(`\n🌊 [UNIFIED AGENT STREAMING] Goal: ${state.currentNode}`);
 
-          // ✅ FIX: Run data extraction BEFORE appending to summary to avoid duplication
-          // Data extraction analyzes recent exchanges + adds current exchange for analysis
-          // If we append first, it will see the exchange twice (once in summary, once in currentExchange)
-          const currentExchange = { customer: args.message, agent: fullResponse };
-          const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(
-            state,
-            currentExchange
-          );
+        for await (const chunk of this.unifiedGoalAgent.executeGoalStream(
+          state.currentNode,
+          state,
+          args.message
+        )) {
+          if (chunk.done) {
+            // Final chunk - prepare completion data
+            fullResponse = chunk.response || fullResponse;
+            mcpExecutionPromise = chunk.mcpExecutionPromise || null;
 
-          // Update conversation summary AFTER extraction
-          state = this.contextManager.appendConversationSummary(
-            state,
-            args.message,
-            fullResponse
-          );
-
-          if (extractionResult.fieldsUpdated && extractionResult.fieldsUpdated.length > 0) {
-            state = this.contextManager.updateContext(state, extractionResult.contextUpdates || {});
+            console.log(`[UnifiedAgent] 📤 Streaming complete: "${fullResponse.substring(0, 80)}..."`);
+            if (mcpExecutionPromise) {
+              console.log(`[UnifiedAgent] ⏳ Awaiting MCP completion before state transition...`);
+            }
+          } else {
+            // Token chunk - push to result buffer
+            fullResponse += chunk.token;
+            resultBuffer.push({
+              type: 'token',
+              token: chunk.token,
+            });
           }
+        }
 
-          // ✅ FIX: Evaluate goal transition (same logic as executeConversationLoop)
-          // Build conversation history for semantic evaluation
-          const conversationHistory = (state.context.summary_of_conversation_on_each_step_until_now || []).map(
-            (entry: any) => ({ customer: entry.customer, agent: entry.agent })
-          );
+      } else {
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // LEGACY: Multi-agent streaming (v3.0)
+        // Deprecated - kept for backward compatibility
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        console.log(`\n🔀 [LEGACY STREAMING MODE] Goal: ${state.currentNode}`);
+        console.warn(`[AgentOrchestrator] ⚠️ Using legacy streaming mode - consider enabling use_unified_agent`);
 
-          // Evaluate transition
-          const transitionResult = await this.transitionEngine.evaluateTransition(
-            state.currentNode,
-            state.context,
-            conversationHistory,
-            state.sessionId
-          );
+        const primaryAgent = (currentGoalConfig as any)?.primary_agent || 'conversational_agent';
 
-          console.log(`[AgentOrchestrator] 🧭 Transition Evaluation:`);
-          console.log(`[AgentOrchestrator]    Current Goal: ${state.currentNode}`);
-          console.log(`[AgentOrchestrator]    Should Transition: ${transitionResult.shouldTransition ? '✅ YES' : '❌ NO'}`);
-          console.log(`[AgentOrchestrator]    Reason: ${transitionResult.reason}`);
+        // Execute MCP agent first if goal requires it
+        if (primaryAgent === 'mcp_agent' && this.mcpAdapter) {
+          console.log(`[AgentOrchestrator] 🔧 Executing MCP agent for goal: ${state.currentNode}`);
+          try {
+            const mcpResult = await this.workerMCPAgent.executeGoal(state.currentNode, state);
 
-          if (transitionResult.shouldTransition && transitionResult.nextGoal) {
-            console.log(`[AgentOrchestrator]    Next Goal: ${transitionResult.nextGoal}`);
+            // Apply context updates from MCP execution
+            if (mcpResult.contextUpdates && Object.keys(mcpResult.contextUpdates).length > 0) {
+              console.log(`[AgentOrchestrator] 📝 Applying MCP context updates`);
+              state = this.contextManager.updateContext(state, mcpResult.contextUpdates);
+            }
 
-            // Update current goal
-            state = this.contextManager.updateCurrentNode(state, transitionResult.nextGoal);
-            console.log(`[AgentOrchestrator] ✅ Goal transitioned: ${state.currentNode}`);
+            console.log(`[AgentOrchestrator] ✅ MCP agent execution complete`);
+          } catch (error: any) {
+            console.error(`[AgentOrchestrator] ❌ MCP agent execution failed: ${error.message}`);
           }
+        }
 
-          // Save state (now includes potentially updated goal)
-          await this.saveState(state);
+        // Stream response from legacy worker agent
+        for await (const chunk of this.workerReplyAgent.executeGoalStream(
+          state.currentNode,
+          state,
+          args.message
+        )) {
+          if (chunk.done) {
+            // Final chunk - prepare completion data
+            fullResponse = chunk.response || fullResponse;
 
-          // Update session in database
-          await this.stateManager.updateSession(sessionId, {
-            current_node: state.currentNode,
-            status: state.completed ? 'completed' : 'active',
-          });
-
-          // Push final metadata to result buffer
-          resultBuffer.push({
-            type: 'done',
-            sessionId,
-            response: fullResponse,
-            currentNode: state.currentNode,
-            conversationEnded: state.conversationEnded,
-            endReason: state.endReason,
-          });
-        } else {
-          // Token chunk - push to result buffer
-          fullResponse += chunk.token;
-          resultBuffer.push({
-            type: 'token',
-            token: chunk.token,
-          });
+            // Legacy worker agent streaming complete
+            console.log(`[WorkerReplyAgent] ✅ Streaming complete: "${fullResponse.substring(0, 80)}..."`);
+          } else {
+            // Token chunk - push to result buffer
+            fullResponse += chunk.token;
+            resultBuffer.push({
+              type: 'token',
+              token: chunk.token,
+            });
+          }
         }
       }
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // POST-STREAMING PROCESSING
+      // Runs after streaming completes (for both unified and legacy modes)
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+      // ✅ FIX: Run data extraction BEFORE appending to summary to avoid duplication
+      // Data extraction analyzes recent exchanges + adds current exchange for analysis
+      // If we append first, it will see the exchange twice (once in summary, once in currentExchange)
+      const currentExchange = { customer: args.message, agent: fullResponse };
+      const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(
+        state,
+        currentExchange
+      );
+
+      // Update conversation summary AFTER extraction
+      state = this.contextManager.appendConversationSummary(
+        state,
+        args.message,
+        fullResponse
+      );
+
+      if (extractionResult.fieldsUpdated && extractionResult.fieldsUpdated.length > 0) {
+        state = this.contextManager.updateContext(state, extractionResult.contextUpdates || {});
+      }
+
+      // Await MCP completion if unified agent is being used
+      if (useUnifiedAgent && mcpExecutionPromise) {
+        console.log(`[UnifiedAgent] ⏳ Waiting for MCP completion...`);
+        const mcpResult = await mcpExecutionPromise;
+
+        // Apply context updates from MCP execution
+        if (mcpResult.contextUpdates && Object.keys(mcpResult.contextUpdates).length > 0) {
+          console.log(`[UnifiedAgent] 📝 Applying MCP context updates`);
+          state = this.contextManager.updateContext(state, mcpResult.contextUpdates);
+        }
+
+        console.log(`[UnifiedAgent] ✅ MCP execution complete`);
+      }
+
+      // ✅ FIX: Evaluate goal transition (same logic as executeConversationLoop)
+      // Build conversation history for semantic evaluation
+      const conversationHistory = (state.context.summary_of_conversation_on_each_step_until_now || []).map(
+        (entry: any) => ({ customer: entry.customer, agent: entry.agent })
+      );
+
+      // Evaluate transition
+      const transitionResult = await this.transitionEngine.evaluateTransition(
+        state.currentNode,
+        state.context,
+        conversationHistory,
+        state.sessionId
+      );
+
+      console.log(`[AgentOrchestrator] 🧭 Transition Evaluation:`);
+      console.log(`[AgentOrchestrator]    Current Goal: ${state.currentNode}`);
+      console.log(`[AgentOrchestrator]    Should Transition: ${transitionResult.shouldTransition ? '✅ YES' : '❌ NO'}`);
+      console.log(`[AgentOrchestrator]    Reason: ${transitionResult.reason}`);
+
+      if (transitionResult.shouldTransition && transitionResult.nextGoal) {
+        console.log(`[AgentOrchestrator]    Next Goal: ${transitionResult.nextGoal}`);
+
+        // Update current goal
+        state = this.contextManager.updateCurrentNode(state, transitionResult.nextGoal);
+        console.log(`[AgentOrchestrator] ✅ Goal transitioned: ${state.currentNode}`);
+      }
+
+      // Save state (now includes potentially updated goal)
+      await this.saveState(state);
+
+      // Update session in database
+      await this.stateManager.updateSession(sessionId, {
+        current_node: state.currentNode,
+        status: state.completed ? 'completed' : 'active',
+      });
+
+      // Push final metadata to result buffer
+      resultBuffer.push({
+        type: 'done',
+        sessionId,
+        response: fullResponse,
+        currentNode: state.currentNode,
+        conversationEnded: state.conversationEnded,
+        endReason: state.endReason,
+      });
     } catch (error: any) {
       console.error('[AgentOrchestrator] ❌ Error streaming message:', error);
       resultBuffer.push({
