@@ -1,9 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, FileText } from 'lucide-react';
 import { useNavigationHistory } from '../../../contexts/NavigationHistoryContext';
-import { getEntityIcon } from '../../../lib/entityIcons';
-import { getEntityConfig } from '../../../lib/entityConfig';
+import { useEntityMetadata } from '../../../contexts/EntityMetadataContext';
 
 /**
  * NavigationBreadcrumb Component
@@ -16,10 +15,12 @@ import { getEntityConfig } from '../../../lib/entityConfig';
  * - Click to navigate to any entity in the path
  * - Shows entity icons and types only (names not displayed)
  * - Compact design for header
+ * - Uses API-driven entity metadata from d_entity table
  */
 
 export function NavigationBreadcrumb() {
   const { history, popEntity } = useNavigationHistory();
+  const { getEntityMetadata } = useEntityMetadata();
   const navigate = useNavigate();
 
   // Don't show if history is empty
@@ -45,8 +46,11 @@ export function NavigationBreadcrumb() {
       {history.map((node, index) => {
         const isLast = index === history.length - 1;
         const isCurrent = isLast;
-        const config = getEntityConfig(node.entityType);
-        const EntityIcon = getEntityIcon(node.entityType);
+
+        // Get entity metadata from API-driven context (loaded from d_entity table)
+        const entityMetadata = getEntityMetadata(node.entityType);
+        const EntityIcon = entityMetadata?.icon || FileText; // Lucide icon component
+        const displayName = entityMetadata?.name || node.entityType;
 
         return (
           <React.Fragment key={`${node.entityType}-${node.entityId}-${index}`}>
@@ -88,7 +92,7 @@ export function NavigationBreadcrumb() {
                   letterSpacing: '-0.01em'
                 }}
               >
-                [{config?.displayName || node.entityType}]
+                [{displayName}]
               </span>
             </button>
           </React.Fragment>

@@ -5,6 +5,7 @@ import { SidebarProvider } from './contexts/SidebarContext';
 import { NavigationHistoryProvider } from './contexts/NavigationHistoryContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { EntityPreviewProvider } from './contexts/EntityPreviewContext';
+import { EntityMetadataProvider } from './contexts/EntityMetadataContext';
 import { LoginForm } from './components/shared';
 import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPanel';
 
@@ -298,18 +299,20 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <SidebarProvider>
-          <SettingsProvider>
-            <NavigationHistoryProvider>
-              <EntityPreviewProvider>
-                <AppRoutes />
-                <EntityPreviewPanel />
-              </EntityPreviewProvider>
-            </NavigationHistoryProvider>
-          </SettingsProvider>
-        </SidebarProvider>
-      </Router>
+      <EntityMetadataProvider>
+        <Router>
+          <SidebarProvider>
+            <SettingsProvider>
+              <NavigationHistoryProvider>
+                <EntityPreviewProvider>
+                  <AppRoutes />
+                  <EntityPreviewPanel />
+                </EntityPreviewProvider>
+              </NavigationHistoryProvider>
+            </SettingsProvider>
+          </SidebarProvider>
+        </Router>
+      </EntityMetadataProvider>
     </AuthProvider>
   );
 }
