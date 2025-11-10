@@ -14,10 +14,11 @@
 -- • Relationship: d_product links to d_product_hierarchy via d_entity_id_map
 -- • Example: Product "Carrier 3-Ton AC" links to hierarchy "HVAC Equipment > Residential HVAC > Central AC > 3-Ton Units"
 --
--- DATABASE BEHAVIOR:
--- • CREATE: INSERT with version=1, active_flag=true
--- • UPDATE: Same ID, version++, updated_ts refreshes
--- • SOFT DELETE: active_flag=false, to_ts=now()
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/product, INSERT with version=1, active_flag=true
+-- • UPDATE: PUT /api/v1/product/{id}, same ID, version++, updated_ts refreshes
+-- • DELETE: active_flag=false, to_ts=now() (soft delete)
+-- • LIST: GET /api/v1/product, filters by category/brand, RBAC enforced
 --
 -- KEY FIELDS:
 -- • id: uuid PRIMARY KEY (stable, never changes)

@@ -23,7 +23,7 @@
 -- • manager_employee_id: uuid (self-ref for hierarchy)
 -- • skills_service_categories: text[] (HVAC, Plumbing, Electrical, etc.)
 --
--- RELATIONSHIPS:
+-- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • Parent: role (via d_entity_id_map)
 -- • Self: manager_employee_id → d_employee.id
 -- • RBAC: entity_id_rbac_map.empid
@@ -54,10 +54,10 @@ CREATE TABLE app.d_employee (
   last_name varchar(100),
 
   -- Contact information
-  phone varchar(20),
-  mobile varchar(20),
+  phone varchar(50),
+  mobile_phone varchar(50),
   emergency_contact_name varchar(200),
-  emergency_contact_phone varchar(20),
+  emergency_contact_phone varchar(50),
 
   -- Address information
   address_line1 varchar(200),
@@ -101,7 +101,11 @@ CREATE TABLE app.d_employee (
   skills_service_categories text[] DEFAULT ARRAY[]::text[] -- Array of service categories from d_service (HVAC, Plumbing, Electrical, Landscaping, General Contracting, etc.)
 );
 
+COMMENT ON TABLE app.d_employee IS 'Employee entities with authentication, contact info, and organizational assignments';
 
+-- =====================================================
+-- DATA CURATION
+-- =====================================================
 
 -- Insert sample employee data for James Miller CEO
 INSERT INTO app.d_employee (
@@ -199,7 +203,7 @@ INSERT INTO app.d_employee (
 ('EMP-004', 'Lisa Rodriguez', 'Vice President of Sales managing client relationships and revenue_amt', 'lisa.rodriguez@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Lisa', 'Rodriguez', '+1-519-555-0004', 'Full-time', 'Sales', 'Vice President of Sales', '2020-04-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping', 'General Contracting']::text[]),
 ('EMP-005', 'David Thompson', 'Senior Project Manager for landscaping and maintenance projects', 'david.thompson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'David', 'Thompson', '+1-519-555-0005', 'Full-time', 'Operations', 'Senior Project Manager', '2020-05-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['Landscaping']::text[]);
 
-COMMENT ON TABLE app.d_employee IS 'Employee entities with authentication, contact info, and organizational assignments';-- =====================================================
+-- =====================================================
 -- COMPREHENSIVE EMPLOYEE DATA GENERATION (500+ Employees)
 -- Programmatic generation with realistic Canadian names and addresses
 -- =====================================================
@@ -527,5 +531,3 @@ WHERE eim.parent_entity_type = 'role'
   AND eim.active_flag = true
 GROUP BY r.name
 ORDER BY employee_count DESC;
-
-COMMENT ON TABLE app.d_employee IS 'Employee table with 500+ curated records across all departments and roles';
