@@ -1,13 +1,14 @@
 /**
- * Unified Goal Agent - Single LLM Session Pattern
+ * Unified Goal Agent - Reusable LLM Session Pattern
  *
  * Responsibilities:
- * - Execute goal with ONE LLM call
+ * - Maintain ONE conversation thread per goal session
+ * - Load MCP tools ONCE during goal initialization
+ * - Incrementally build context through conversation
  * - Return standardized JSON: { commands_to_run: [...], ask_talk_reply_to_customer: "..." }
- * - Combines MCP tool execution + customer response in single session
  *
  * @module orchestrator/agents/unified-goal-agent
- * @version 4.0.0
+ * @version 5.0.0 - Session-Based Conversation Management
  */
 
 import { getOpenAIService } from '../services/openai.service.js';
@@ -34,14 +35,34 @@ export interface UnifiedGoalResult {
 }
 
 /**
+ * Goal conversation session
+ * Stores conversation history and MCP tools for a specific goal
+ */
+interface GoalConversationSession {
+  goalId: string;
+  sessionId: string;
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+  mcpTools: any[];  // MCP tools loaded once during initialization
+  initialized: boolean;
+  initTimestamp: Date;
+}
+
+/**
  * Unified Goal Agent Service
- * ONE LLM session per goal, standardized output structure
+ * ONE reusable LLM conversation per goal session, MCP tools loaded once
  */
 export class UnifiedGoalAgent {
   private config: AgentConfigV3;
   private mcpAdapter?: MCPAdapterService;
   private authToken?: string;
   private enrichmentEngine: ToolEnrichmentEngine;
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // SESSION-LEVEL CONVERSATION MANAGEMENT
+  // Key: `${sessionId}_${goalId}` → Conversation thread
+  // MCP tools sent ONCE in system message during initialization
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  private goalConversations: Map<string, GoalConversationSession> = new Map();
 
   constructor(
     config: AgentConfigV3,
@@ -53,18 +74,157 @@ export class UnifiedGoalAgent {
     this.authToken = authToken;
     this.enrichmentEngine = createToolEnrichmentEngine(config);
 
-    console.log(`[UnifiedGoalAgent] 🎯 Initialized with single-session pattern`);
+    console.log(`[UnifiedGoalAgent] 🎯 Initialized with session-based conversation management (v5.0)`);
+    console.log(`[UnifiedGoalAgent] ✨ MCP tools loaded ONCE per goal, context builds incrementally`);
   }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // SESSION MANAGEMENT METHODS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /**
+   * Initialize conversation for a goal (called once per goal session)
+   * Loads MCP tools and creates system message with goal context
+   */
+  private initializeGoalConversation(
+    goalId: string,
+    sessionId: string,
+    state: AgentContextState
+  ): GoalConversationSession {
+    console.log(`\n🆕 [UnifiedGoalAgent] Initializing conversation for goal: ${goalId}`);
+
+    // Get goal configuration
+    const goal = this.config.goals.find(g => g.goal_id === goalId);
+    if (!goal) {
+      throw new Error(`Goal not found: ${goalId}`);
+    }
+
+    // Determine agent profile
+    const primaryAgent = (goal as any).primary_agent || 'conversational_agent';
+    const agentProfile = this.config.agent_profiles[primaryAgent];
+    if (!agentProfile) {
+      throw new Error(`Agent profile not found: ${primaryAgent}`);
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // LOAD MCP TOOLS ONCE (sent in system message)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const entityBoundary = this.determineEntityBoundary(state, agentProfile);
+    let mcpTools = this.mcpAdapter ? getMCPTools({
+      categories: entityBoundary,
+      maxTools: 40
+    }) : [];
+
+    // Filter by goal's mcp_tool_boundary (v3.1 feature)
+    if ((goal as any).mcp_tool_boundary && Array.isArray((goal as any).mcp_tool_boundary)) {
+      const toolBoundary = (goal as any).mcp_tool_boundary as string[];
+      mcpTools = mcpTools.filter((tool: any) => toolBoundary.includes(tool.name));
+      console.log(`[UnifiedGoalAgent] 🔒 Applied mcp_tool_boundary filter: ${toolBoundary.length} allowed tools`);
+    }
+
+    console.log(`[UnifiedGoalAgent] 📦 Loaded ${mcpTools.length} MCP tools for goal ${goalId}`);
+    console.log(`[UnifiedGoalAgent] 🎯 Agent Profile: ${agentProfile.identity}`);
+
+    // Build system message with goal + MCP tools
+    const systemPrompt = this.buildUnifiedPrompt(
+      agentProfile,
+      goal,
+      state,
+      mcpTools
+    );
+
+    const conversation: GoalConversationSession = {
+      goalId,
+      sessionId,
+      messages: [{ role: 'system', content: systemPrompt }],
+      mcpTools,
+      initialized: true,
+      initTimestamp: new Date()
+    };
+
+    const conversationKey = `${sessionId}_${goalId}`;
+    this.goalConversations.set(conversationKey, conversation);
+
+    console.log(`[UnifiedGoalAgent] ✅ Conversation initialized for ${goalId} (${mcpTools.length} tools)`);
+    console.log(`[UnifiedGoalAgent] 📝 System message length: ${systemPrompt.length} chars`);
+
+    return conversation;
+  }
+
+  /**
+   * Get or initialize conversation for a goal
+   */
+  private getOrInitializeConversation(
+    goalId: string,
+    sessionId: string,
+    state: AgentContextState
+  ): GoalConversationSession {
+    const conversationKey = `${sessionId}_${goalId}`;
+    let conversation = this.goalConversations.get(conversationKey);
+
+    // Check if conversation exists and matches goal
+    if (!conversation || conversation.goalId !== goalId) {
+      conversation = this.initializeGoalConversation(goalId, sessionId, state);
+    } else {
+      console.log(`[UnifiedGoalAgent] ♻️  Reusing existing conversation for ${goalId} (${conversation.messages.length} messages)`);
+    }
+
+    return conversation;
+  }
+
+  /**
+   * Clear conversation for a goal (called on goal transition)
+   */
+  clearGoalConversation(sessionId: string, goalId: string): void {
+    const conversationKey = `${sessionId}_${goalId}`;
+    const conversation = this.goalConversations.get(conversationKey);
+
+    if (conversation) {
+      console.log(`[UnifiedGoalAgent] 🗑️  Clearing conversation for goal: ${goalId} (${conversation.messages.length} messages)`);
+      this.goalConversations.delete(conversationKey);
+    }
+  }
+
+  /**
+   * Clear all conversations for a session (on session end)
+   */
+  clearSessionConversations(sessionId: string): void {
+    const keysToDelete: string[] = [];
+
+    this.goalConversations.forEach((conversation, key) => {
+      if (conversation.sessionId === sessionId) {
+        keysToDelete.push(key);
+      }
+    });
+
+    keysToDelete.forEach(key => {
+      const conversation = this.goalConversations.get(key);
+      if (conversation) {
+        console.log(`[UnifiedGoalAgent] 🗑️  Clearing conversation for goal: ${conversation.goalId}`);
+        this.goalConversations.delete(key);
+      }
+    });
+
+    if (keysToDelete.length > 0) {
+      console.log(`[UnifiedGoalAgent] 🧹 Cleared ${keysToDelete.length} conversations for session ${sessionId}`);
+    }
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // GOAL EXECUTION METHODS (Updated to use session management)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   /**
    * Execute goal with STREAMING: Stream customer response while MCP executes in background
    *
    * Flow:
-   * 1. Build unified prompt (Role + Goal + Session Memory + MCP Tools + Examples)
-   * 2. Stream LLM response token by token
-   * 3. Parse JSON incrementally and stream ask_talk_reply_to_customer
-   * 4. Execute commands_to_run in parallel (background)
-   * 5. Yield done when streaming + MCP complete
+   * 1. Get or initialize conversation (MCP tools loaded ONCE)
+   * 2. Append user message to conversation
+   * 3. Stream LLM response token by token (using full conversation history)
+   * 4. Parse JSON and stream ask_talk_reply_to_customer
+   * 5. Execute commands_to_run in parallel (background)
+   * 6. Append assistant response to conversation
+   * 7. Yield done when streaming + MCP complete
    */
   async *executeGoalStream(
     goalId: string,
@@ -82,61 +242,35 @@ export class UnifiedGoalAgent {
   }> {
     console.log(`\n🎯 [UnifiedGoalAgent] Streaming goal: ${goalId}`);
 
-    // Get goal configuration
-    const goal = this.config.goals.find(g => g.goal_id === goalId);
-    if (!goal) {
-      throw new Error(`Goal not found: ${goalId}`);
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // SESSION-BASED CONVERSATION MANAGEMENT
+    // Get or initialize conversation (MCP tools loaded ONCE on first call)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const conversation = this.getOrInitializeConversation(goalId, state.sessionId, state);
+
+    // Build user prompt (if user message provided)
+    if (userMessage) {
+      const goal = this.config.goals.find(g => g.goal_id === goalId)!;
+      const userPrompt = this.buildUserPrompt(userMessage, goal);
+      conversation.messages.push({ role: 'user', content: userPrompt });
+      console.log(`[UnifiedGoalAgent] 💬 Added user message to conversation (${conversation.messages.length} total messages)`);
     }
 
-    // Determine which agent profile to use (conversational vs mcp)
-    const primaryAgent = (goal as any).primary_agent || 'conversational_agent';
-    const agentProfile = this.config.agent_profiles[primaryAgent];
-    if (!agentProfile) {
-      throw new Error(`Agent profile not found: ${primaryAgent}`);
-    }
+    console.log(`[UnifiedGoalAgent] 📤 Streaming with ${conversation.messages.length} messages (${conversation.mcpTools.length} tools available)`);
 
-    // Get available MCP tools (scoped by entity boundary)
-    const entityBoundary = this.determineEntityBoundary(state, agentProfile);
-    let availableTools = this.mcpAdapter ? getMCPTools({
-      categories: entityBoundary,
-      maxTools: 40
-    }) : [];
-
-    // Filter by goal's mcp_tool_boundary (new v3.1 feature)
-    if ((goal as any).mcp_tool_boundary && Array.isArray((goal as any).mcp_tool_boundary)) {
-      const toolBoundary = (goal as any).mcp_tool_boundary as string[];
-      availableTools = availableTools.filter((tool: any) =>
-        toolBoundary.includes(tool.name)
-      );
-      console.log(`[UnifiedGoalAgent] 🔒 Applied mcp_tool_boundary filter: ${toolBoundary.length} allowed tools`);
-    }
-
-    console.log(`[UnifiedGoalAgent] Agent Profile: ${agentProfile.identity}`);
-    console.log(`[UnifiedGoalAgent] Available MCP tools: ${availableTools.length}`);
-    console.log(`[UnifiedGoalAgent] Streaming: ENABLED`);
-
-    // Build unified prompt with examples
-    const systemPrompt = this.buildUnifiedPrompt(
-      agentProfile,
-      goal,
-      state,
-      availableTools
-    );
-    const userPrompt = this.buildUserPrompt(userMessage, goal);
-
-    // Stream LLM response
+    // Stream LLM response using FULL conversation history
     const openaiService = getOpenAIService();
     let fullResponse = '';
     let llmOutput: any;
 
     try {
-      // Stream the LLM's JSON response
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // STREAM LLM RESPONSE USING CONVERSATION HISTORY
+      // System message with MCP tools already in conversation (sent once)
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       for await (const chunk of openaiService.callAgentStream({
         agentType: 'unified_goal',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
+        messages: conversation.messages,  // ✅ Incremental context building!
         temperature: 0.7,
         jsonMode: true,  // Enable JSON response format
         sessionId: state.sessionId,
@@ -188,6 +322,12 @@ export class UnifiedGoalAgent {
             };
           }
 
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          // APPEND ASSISTANT RESPONSE TO CONVERSATION (for next iteration)
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          conversation.messages.push({ role: 'assistant', content: fullResponse });
+          console.log(`[UnifiedGoalAgent] 📝 Added assistant response to conversation (${conversation.messages.length} total messages)`);
+
           // Start MCP execution in background (if needed)
           let mcpExecutionPromise: Promise<{
             contextUpdates: Partial<DAGContext>;
@@ -224,67 +364,44 @@ export class UnifiedGoalAgent {
    * Execute goal: Single LLM call returns standardized JSON (NON-STREAMING)
    *
    * Flow:
-   * 1. Build unified prompt (Role + Goal + Session Memory + MCP Tools + Examples)
-   * 2. Call LLM once to get { commands_to_run, ask_talk_reply_to_customer }
-   * 3. Execute commands_to_run in parallel
-   * 4. Return ask_talk_reply_to_customer as response
+   * 1. Get or initialize conversation (MCP tools loaded ONCE)
+   * 2. Append user message to conversation
+   * 3. Call LLM with full conversation history to get { commands_to_run, ask_talk_reply_to_customer }
+   * 4. Append assistant response to conversation
+   * 5. Execute commands_to_run in parallel
+   * 6. Return ask_talk_reply_to_customer as response
    */
   async executeGoal(
     goalId: string,
     state: AgentContextState,
     userMessage?: string
   ): Promise<UnifiedGoalResult> {
-    console.log(`\n🎯 [UnifiedGoalAgent] Executing goal: ${goalId} (single session)`);
+    console.log(`\n🎯 [UnifiedGoalAgent] Executing goal: ${goalId}`);
 
-    // Get goal configuration
-    const goal = this.config.goals.find(g => g.goal_id === goalId);
-    if (!goal) {
-      throw new Error(`Goal not found: ${goalId}`);
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // SESSION-BASED CONVERSATION MANAGEMENT
+    // Get or initialize conversation (MCP tools loaded ONCE on first call)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const conversation = this.getOrInitializeConversation(goalId, state.sessionId, state);
+
+    // Build user prompt (if user message provided)
+    if (userMessage) {
+      const goal = this.config.goals.find(g => g.goal_id === goalId)!;
+      const userPrompt = this.buildUserPrompt(userMessage, goal);
+      conversation.messages.push({ role: 'user', content: userPrompt });
+      console.log(`[UnifiedGoalAgent] 💬 Added user message to conversation (${conversation.messages.length} total messages)`);
     }
 
-    // Determine which agent profile to use (conversational vs mcp)
-    const primaryAgent = (goal as any).primary_agent || 'conversational_agent';
-    const agentProfile = this.config.agent_profiles[primaryAgent];
-    if (!agentProfile) {
-      throw new Error(`Agent profile not found: ${primaryAgent}`);
-    }
+    console.log(`[UnifiedGoalAgent] 📤 Calling LLM with ${conversation.messages.length} messages (${conversation.mcpTools.length} tools available)`);
 
-    // Get available MCP tools (scoped by entity boundary)
-    const entityBoundary = this.determineEntityBoundary(state, agentProfile);
-    let availableTools = this.mcpAdapter ? getMCPTools({
-      categories: entityBoundary,
-      maxTools: 40
-    }) : [];
-
-    // Filter by goal's mcp_tool_boundary (new v3.1 feature)
-    if ((goal as any).mcp_tool_boundary && Array.isArray((goal as any).mcp_tool_boundary)) {
-      const toolBoundary = (goal as any).mcp_tool_boundary as string[];
-      availableTools = availableTools.filter((tool: any) =>
-        toolBoundary.includes(tool.name)
-      );
-      console.log(`[UnifiedGoalAgent] 🔒 Applied mcp_tool_boundary filter: ${toolBoundary.length} allowed tools`);
-    }
-
-    console.log(`[UnifiedGoalAgent] Agent Profile: ${agentProfile.identity}`);
-    console.log(`[UnifiedGoalAgent] Available MCP tools: ${availableTools.length}`);
-
-    // Build unified prompt with examples
-    const systemPrompt = this.buildUnifiedPrompt(
-      agentProfile,
-      goal,
-      state,
-      availableTools
-    );
-    const userPrompt = this.buildUserPrompt(userMessage, goal);
-
-    // Call LLM once to get standardized JSON output
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // CALL LLM USING CONVERSATION HISTORY
+    // System message with MCP tools already in conversation (sent once)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     const openaiService = getOpenAIService();
     const result = await openaiService.callAgent({
       agentType: 'unified_goal',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
+      messages: conversation.messages,  // ✅ Incremental context building!
       temperature: 0.7,
       jsonMode: true,  // Enable JSON response format
       sessionId: state.sessionId,
@@ -323,6 +440,12 @@ export class UnifiedGoalAgent {
     console.log(`[UnifiedGoalAgent] 📋 LLM Output:`);
     console.log(`   commands_to_run: ${llmOutput.commands_to_run.length} tools`);
     console.log(`   ask_talk_reply_to_customer: "${llmOutput.ask_talk_reply_to_customer.substring(0, 80)}..."`);
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // APPEND ASSISTANT RESPONSE TO CONVERSATION (for next iteration)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    conversation.messages.push({ role: 'assistant', content: result.content || '' });
+    console.log(`[UnifiedGoalAgent] 📝 Added assistant response to conversation (${conversation.messages.length} total messages)`);
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // PARALLEL EXECUTION: MCP commands + Customer reply

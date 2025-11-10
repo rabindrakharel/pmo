@@ -448,6 +448,11 @@ export class AgentOrchestratorService {
       if (transitionResult.shouldTransition && transitionResult.nextGoal) {
         console.log(`[AgentOrchestrator]    Next Goal: ${transitionResult.nextGoal}`);
 
+        // Clear old goal's conversation (session-based management v5.0)
+        const previousGoal = state.currentNode;
+        this.unifiedGoalAgent.clearGoalConversation(state.sessionId, previousGoal);
+        console.log(`[AgentOrchestrator] 🗑️  Cleared conversation for previous goal: ${previousGoal}`);
+
         // Update current goal
         state = this.contextManager.updateCurrentNode(state, transitionResult.nextGoal);
         console.log(`[AgentOrchestrator] ✅ Goal transitioned: ${state.currentNode}`);
@@ -1040,6 +1045,10 @@ export class AgentOrchestratorService {
         console.log(`   conversationEnded: ${state.conversationEnded}`);
         console.log(`   endReason: ${state.endReason}`);
 
+        // Clear all conversations for this session (session-based management v5.0)
+        this.unifiedGoalAgent.clearSessionConversations(state.sessionId);
+        console.log(`   🧹 Cleared all goal conversations for session`);
+
         // Log iteration end
         await this.logger.logIterationEnd({
           iteration: iterations,
@@ -1059,6 +1068,13 @@ export class AgentOrchestratorService {
 
         const previousGoal = state.currentNode;
         state = this.contextManager.updateCurrentNode(state, transitionResult.nextGoal);
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // CLEAR OLD GOAL'S CONVERSATION (session-based management v5.0)
+        // New goal will initialize fresh conversation with its own MCP tools
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        this.unifiedGoalAgent.clearGoalConversation(state.sessionId, previousGoal);
+        console.log(`   🗑️  Cleared conversation for previous goal: ${previousGoal}`);
 
         // Write context file after navigation
         await this.writeContextFile(state, `goal_transition:${previousGoal}→${transitionResult.nextGoal}`);
