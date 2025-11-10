@@ -20,7 +20,8 @@
 -- • Customer: dl__customer_tier, dl__customer_opportunity_funnel
 -- • Quote/Work: dl__quote_stage, dl__work_order_status
 -- • Services: dl__service_category, dl__client_service
--- • Org: dl__business_level, dl__office_level, dl__position_level
+-- • Org: dl__business_hierarchy_level, dl__office_hierarchy_level, dl__position_level
+-- • Product: dl__product_hierarchy_level
 -- • Other: dl__industry_sector, dl__acquisition_channel
 --
 -- API INTEGRATION:
@@ -130,17 +131,25 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
 ]'::jsonb),
 
 -- Organizational Labels
-('dl__business_level', 'Business Levels', 'Building2', '[
+('dl__business_hierarchy_level', 'Business Hierarchy Levels', 'Building2', '[
   {"id": 0, "name": "Corporate", "descr": "Corporate headquarters level", "parent_ids": [], "color_code": "purple"},
   {"id": 1, "name": "Division", "descr": "Business division level", "parent_ids": [0], "color_code": "blue"},
   {"id": 2, "name": "Department", "descr": "Department level within division", "parent_ids": [1], "color_code": "green"}
 ]'::jsonb),
 
-('dl__office_level', 'Office Levels', 'MapPin', '[
+('dl__office_hierarchy_level', 'Office Hierarchy Levels', 'MapPin', '[
   {"id": 0, "name": "Corporate", "descr": "Corporate headquarters office", "parent_ids": [], "color_code": "purple"},
   {"id": 1, "name": "Region", "descr": "Regional office", "parent_ids": [0], "color_code": "blue"},
   {"id": 2, "name": "District", "descr": "District office", "parent_ids": [1], "color_code": "green"},
   {"id": 3, "name": "Office", "descr": "Local office or branch", "parent_ids": [2], "color_code": "gray"}
+]'::jsonb),
+
+-- Product Hierarchy Labels
+('dl__product_hierarchy_level', 'Product Hierarchy Levels', 'Package', '[
+  {"id": 0, "name": "Division", "descr": "Product division level (top-level categorization)", "parent_ids": [], "color_code": "purple"},
+  {"id": 1, "name": "Department", "descr": "Product department within division", "parent_ids": [0], "color_code": "blue"},
+  {"id": 2, "name": "Class", "descr": "Product class within department", "parent_ids": [1], "color_code": "green"},
+  {"id": 3, "name": "Sub-Class", "descr": "Product sub-class (finest categorization)", "parent_ids": [2], "color_code": "cyan"}
 ]'::jsonb),
 
 ('dl__position_level', 'Position Levels', 'Briefcase', '[
