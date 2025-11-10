@@ -410,3 +410,54 @@ VALUES (
   child_entities = EXCLUDED.child_entities,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
+
+-- Office Hierarchy entity type (Organizational structure hierarchy - separate from operational office)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'office_hierarchy',
+  'Office Hierarchy',
+  'Office Hierarchies',
+  'Network',
+  '[]'::jsonb,
+  220
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  child_entities = EXCLUDED.child_entities,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- Business Hierarchy entity type (Organizational structure hierarchy - separate from operational business)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'business_hierarchy',
+  'Business Hierarchy',
+  'Business Hierarchies',
+  'Network',
+  '[]'::jsonb,
+  225
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  child_entities = EXCLUDED.child_entities,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- Product Hierarchy entity type (Product categorization hierarchy - separate from SKU-level products)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'product_hierarchy',
+  'Product Hierarchy',
+  'Product Hierarchies',
+  'Network',
+  '[]'::jsonb,
+  230
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  child_entities = EXCLUDED.child_entities,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
