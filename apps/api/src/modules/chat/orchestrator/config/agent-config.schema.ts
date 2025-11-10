@@ -27,15 +27,13 @@ export interface ConversationGoal {
   description: string;
   goal_type?: string;
   is_terminal?: boolean;
-  primary_agent?: string;
+  primary_agent: string;
   fallback_agent?: string;
 
-  // Success criteria (supports both old and new naming)
-  success_criteria?: SuccessCriteria;
-  goal_success_criteria?: GoalSuccessCriteria;
+  // Success criteria (v3.0)
+  goal_success_criteria: GoalSuccessCriteria;
 
   // Agent configuration
-  allowed_agents?: string[];
   agent_profile?: AgentProfile;  // Single unified agent profile per goal
 
   // MCP tool boundary - limits which tools are available for this goal
@@ -45,57 +43,22 @@ export interface ConversationGoal {
   field_collection_order?: string[];
   field_validation?: Record<string, FieldValidation>;
 
-  // Available tools (legacy)
-  available_tools?: string[];
-
   // Conversation tactics
   conversation_tactics: string[];
   max_turns: number;
 
   // Goal transitions
   fallback_goal?: string;
-  auto_advance_conditions?: AdvanceCondition[];  // Deprecated - use goal_branching_condition
   goal_branching_condition?: GoalBranchingCondition;
 
   // Constraints and termination
   constraints?: Constraint[];
   termination_sequence?: TerminationSequence;
 
-  // Execution strategy (deprecated - single agent per goal now)
-  agent_execution_strategy?: AgentExecutionStrategy;
-
-  // Retry strategy (deprecated - handled by orchestrator)
-  retry_strategy?: RetryStrategy;
-
   // Examples for LLM learning
   examples?: ConversationExample[];
 }
 
-/**
- * Agent Execution Strategy - Defines how agents run for this goal
- * Parallel execution can dramatically improve performance
- */
-export interface AgentExecutionStrategy {
-  // Execution mode
-  mode: 'sequential' | 'parallel' | 'dependency_graph';
-
-  // For parallel mode: agents that can run simultaneously
-  parallel_groups?: ParallelAgentGroup[];
-
-  // For dependency_graph mode: execution order based on dependencies
-  execution_graph?: AgentExecutionNode[];
-}
-
-export interface ParallelAgentGroup {
-  agents: string[];  // Agent IDs that run in parallel
-  description?: string;
-}
-
-export interface AgentExecutionNode {
-  agent: string;
-  depends_on?: string[];  // Agent IDs this agent depends on
-  required: boolean;  // If false, failure doesn't stop execution
-}
 
 /**
  * Termination Sequence - Declarative steps for ending conversation
@@ -117,15 +80,6 @@ export interface TerminationStep {
   tactics?: string[];
 }
 
-/**
- * Success criteria for goal completion (legacy)
- */
-export interface SuccessCriteria {
-  mandatory_fields: string[];
-  conditional_fields?: Record<string, string[]>;
-  quality_checks?: string[];
-  field_collection_order?: string[];  // Added for backward compatibility
-}
 
 /**
  * Goal Success Criteria (new format)
@@ -178,14 +132,6 @@ export interface FieldValidation {
   required?: boolean;
 }
 
-/**
- * Retry strategy configuration
- */
-export interface RetryStrategy {
-  approach: 'provide_examples' | 'vary_phrasing' | 'retry_operation' | 'revise_plan' | 'gentle_wrap_up';
-  escalation_turns: number[];
-  escalation_messages?: string[];
-}
 
 /**
  * Conversation example for LLM learning
@@ -206,34 +152,6 @@ export interface MCPCommand {
   params: Record<string, any>;
 }
 
-/**
- * Conditions for advancing to next goal
- * Supports three types of branching:
- * 1. deterministic: Fast JSON path checks (if field exists, if value > N)
- * 2. semi_deterministic: Field presence checks (if customer.phone is set)
- * 3. semantic: LLM-evaluated natural language conditions (if customer satisfied)
- */
-export interface AdvanceCondition {
-  // Condition type (deterministic is fastest, semantic is most flexible)
-  type?: 'deterministic' | 'semi_deterministic' | 'semantic';
-
-  // For semantic conditions (LLM-evaluated)
-  condition?: string;  // Natural language description
-
-  // For deterministic/semi-deterministic conditions (no LLM needed)
-  json_path?: string;  // Path in session memory (e.g., "customer.phone", "service.urgency_level")
-  operator?: 'is_set' | 'is_not_set' | '==' | '!=' | '>' | '<' | '>=' | '<=';
-  value?: string | number | boolean;  // Expected value for comparison
-
-  // Target goal
-  next_goal: string;
-
-  // Loop prevention
-  loop_prevention?: {
-    max_iterations?: number;
-    cooldown_turns?: number;
-  };
-}
 
 /**
  * Agent Profile - Persistent identity and capabilities
@@ -479,11 +397,30 @@ export function validateAgentConfigV3(config: AgentConfigV3): { valid: boolean; 
     if (!goal.goal_id) {
       errors.push(`Goal missing goal_id: ${JSON.stringify(goal)}`);
     }
-    if (!goal.allowed_agents || goal.allowed_agents.length === 0) {
-      errors.push(`Goal ${goal.goal_id} has no allowed_agents`);
+
+    // Check for description (required)
+    if (!goal.description) {
+      errors.push(`Goal ${goal.goal_id} missing description`);
     }
-    if (!goal.success_criteria) {
-      errors.push(`Goal ${goal.goal_id} missing success_criteria`);
+
+    // Check for primary_agent (required in v3.0)
+    if (!goal.primary_agent) {
+      errors.push(`Goal ${goal.goal_id} missing primary_agent`);
+    }
+
+    // Check for goal_success_criteria (required in v3.0)
+    if (!goal.goal_success_criteria) {
+      errors.push(`Goal ${goal.goal_id} missing goal_success_criteria`);
+    }
+
+    // Check for conversation tactics (required)
+    if (!goal.conversation_tactics || goal.conversation_tactics.length === 0) {
+      errors.push(`Goal ${goal.goal_id} missing conversation_tactics`);
+    }
+
+    // Check for max_turns (required)
+    if (goal.max_turns === undefined || goal.max_turns === null) {
+      errors.push(`Goal ${goal.goal_id} missing max_turns`);
     }
   }
 

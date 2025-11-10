@@ -95,6 +95,18 @@ export const AGENT_MODEL_CONFIG: Record<string, AgentModelConfig> = {
     maxTokens: 800,
     costPer1KTokens: 0.0004,
     rationale: 'Needs good summarization capabilities'
+  },
+
+  /**
+   * Decision Engine - Fast yes/no semantic condition evaluation
+   * Uses GPT-4o mini with low temperature for consistent binary decisions
+   */
+  decision_engine: {
+    model: process.env.DECISION_ENGINE_MODEL || 'gpt-4o-mini',
+    temperature: 0.1,
+    maxTokens: 150,
+    costPer1KTokens: 0.0004,
+    rationale: 'Fast binary decisions for goal transition routing'
   }
 };
 
