@@ -19,8 +19,10 @@
         "evaluation_mode": "deterministic"
       },
       "mcp_tool_boundary": [
-        "update_session_memory",
-        "get_session_memory"
+        "update_data_extraction_fields",
+        "get_session_memory_data",
+        "get_context_data",
+        "update_session_memory_data"
       ],
       "conversation_tactics": ["empathetic_listening", "clarifying_questions", "issue_confirmation"],
       "max_turns": 5,
@@ -120,8 +122,10 @@
         }
       },
       "mcp_tool_boundary": [
-        "update_session_memory",
-        "get_session_memory"
+        "update_data_extraction_fields",
+        "get_session_memory_data",
+        "get_context_data",
+        "update_session_memory_data"
       ],
       "conversation_tactics": ["incremental_data_gathering", "rapport_building"],
       "max_turns": 8,
@@ -130,22 +134,29 @@
         "rules": [
           {
             "condition": {
-              "json_path": "customer.phone",
-              "operator": "is_set"
+              "all_of": [
+                {
+                  "json_path": "customer.phone",
+                  "operator": "is_set"
+                },
+                {
+                  "json_path": "customer.name",
+                  "operator": "is_set"
+                },
+                {
+                  "json_path": "customer.address_street",
+                  "operator": "is_set"
+                },
+                {
+                  "json_path": "customer.address_city",
+                  "operator": "is_set"
+                },
+                {
+                  "json_path": "customer.address_state",
+                  "operator": "is_set"
+                }
+              ]
             },
-            "next_goal": "ELICIT_STRUCTURED_INFO",
-            "priority": 3
-          },
-          {
-            "condition": {
-              "json_path": "customer.name",
-              "operator": "is_set"
-            },
-            "next_goal": "ELICIT_STRUCTURED_INFO",
-            "priority": 2
-          },
-          {
-            "condition": "all(customer.phone, customer.name, customer.address_street, customer.address_city, customer.address_state are set)",
             "next_goal": "LOOKUP_UPDATE_CREATE_RECORDS",
             "priority": 1
           }
@@ -212,8 +223,10 @@
         "customer_get",
         "customer_create",
         "customer_update",
-        "update_session_memory",
-        "get_session_memory"
+        "update_data_extraction_fields",
+        "get_session_memory_data",
+        "get_context_data",
+        "update_session_memory_data"
       ],
       "conversation_tactics": ["progress_updates"],
       "max_turns": 3,
@@ -320,8 +333,10 @@
         "employee_list",
         "service_list",
         "setting_list",
-        "update_session_memory",
-        "get_session_memory"
+        "update_data_extraction_fields",
+        "get_session_memory_data",
+        "get_context_data",
+        "update_session_memory_data"
       ],
       "conversation_tactics": ["solution_explanation", "consent_gathering"],
       "max_turns": 6,
@@ -402,8 +417,10 @@
       "mcp_tool_boundary": [
         "task_create",
         "person_calendar_book",
-        "update_session_memory",
-        "get_session_memory"
+        "update_data_extraction_fields",
+        "get_session_memory_data",
+        "get_context_data",
+        "update_session_memory_data"
       ],
       "conversation_tactics": ["progress_updates", "success_confirmation"],
       "max_turns": 6,
@@ -471,8 +488,10 @@
       },
       "mcp_tool_boundary": [
         "call_hangup",
-        "update_session_memory",
-        "get_session_memory"
+        "update_data_extraction_fields",
+        "get_session_memory_data",
+        "get_context_data",
+        "update_session_memory_data"
       ],
       "conversation_tactics": ["satisfaction_check", "graceful_closure"],
       "max_turns": 3,
