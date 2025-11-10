@@ -134,28 +134,8 @@
         "rules": [
           {
             "condition": {
-              "all_of": [
-                {
-                  "json_path": "customer.phone",
-                  "operator": "is_set"
-                },
-                {
-                  "json_path": "customer.name",
-                  "operator": "is_set"
-                },
-                {
-                  "json_path": "customer.address_street",
-                  "operator": "is_set"
-                },
-                {
-                  "json_path": "customer.address_city",
-                  "operator": "is_set"
-                },
-                {
-                  "json_path": "customer.address_state",
-                  "operator": "is_set"
-                }
-              ]
+              "json_path": "customer.address_state",
+              "operator": "is_set"
             },
             "next_goal": "LOOKUP_UPDATE_CREATE_RECORDS",
             "priority": 1
