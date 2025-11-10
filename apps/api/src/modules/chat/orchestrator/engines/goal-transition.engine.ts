@@ -218,6 +218,30 @@ export class GoalTransitionEngine {
             confidence: 1.0
           };
         }
+      } else if (typeof rule.condition === 'string') {
+        // Semantic condition - evaluate using fast yes/no LLM call
+        const semanticResult = await this.evaluateSemanticCondition(
+          rule.condition,
+          context,
+          conversationHistory,
+          sessionId
+        );
+
+        console.log(`[GoalTransitionEngine]    [${i}] SEMANTIC (priority: ${rule.priority || 0}): "${rule.condition}" → ${semanticResult.result ? '✅ YES' : '❌ NO'} (confidence: ${semanticResult.confidence})`);
+
+        if (semanticResult.result) {
+          console.log(`[GoalTransitionEngine] ✅ MATCHED: Transition to ${rule.next_goal}`);
+          return {
+            matched: true,
+            nextGoal: rule.next_goal,
+            reason: `Semantic condition met: ${rule.condition}. ${semanticResult.reasoning}`,
+            condition: rule.condition,
+            conditionIndex: i,
+            confidence: semanticResult.confidence
+          };
+        }
+      } else {
+        console.log(`[GoalTransitionEngine]    [${i}] UNKNOWN CONDITION TYPE - Skipping`);
       }
     }
 
@@ -226,6 +250,80 @@ export class GoalTransitionEngine {
       nextGoal: null,
       reason: 'No branching conditions matched'
     };
+  }
+
+  /**
+   * Evaluate semantic condition using fast yes/no LLM question
+   * Uses a lightweight prompt to minimize latency and cost
+   */
+  private async evaluateSemanticCondition(
+    condition: string,
+    context: DAGContext,
+    conversationHistory: Array<{ customer: string; agent: string }>,
+    sessionId?: string
+  ): Promise<{ result: boolean; confidence: number; reasoning: string }> {
+    const openai = getOpenAIService();
+    const relevantContext = this.getRelevantContext(context);
+
+    // Format conversation history
+    const recentHistory = conversationHistory.slice(-3); // Last 3 turns for context
+    const historyText = recentHistory
+      .map(turn => `Customer: ${turn.customer}\nAgent: ${turn.agent}`)
+      .join('\n\n');
+
+    // Fast yes/no evaluation prompt
+    const systemPrompt = `You are a decision engine for a conversation routing system.
+Your task is to evaluate whether a specific condition is TRUE or FALSE based on the conversation context.
+
+Answer in JSON format:
+{
+  "result": true/false,
+  "confidence": 0.0-1.0,
+  "reasoning": "brief explanation"
+}
+
+Be decisive and fast. If unsure, prefer false with lower confidence.`;
+
+    const userPrompt = `CONDITION TO EVALUATE:
+"${condition}"
+
+CONVERSATION CONTEXT:
+${JSON.stringify(relevantContext, null, 2)}
+
+RECENT CONVERSATION:
+${historyText || 'No conversation history yet'}
+
+Is the condition TRUE or FALSE?`;
+
+    try {
+      const response = await openai.callAgent({
+        agentType: 'decision_engine',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.1, // Low temperature for consistent yes/no decisions
+        maxTokens: 150,   // Short response for speed
+        jsonMode: true,
+        sessionId
+      });
+
+      const parsed = JSON.parse(response.content);
+
+      return {
+        result: parsed.result === true,
+        confidence: parsed.confidence || 0.5,
+        reasoning: parsed.reasoning || 'No reasoning provided'
+      };
+    } catch (error: any) {
+      console.error(`[GoalTransitionEngine] ❌ Semantic condition evaluation failed:`, error.message);
+      // On error, default to false with low confidence
+      return {
+        result: false,
+        confidence: 0.0,
+        reasoning: `Evaluation error: ${error.message}`
+      };
+    }
   }
 
   /**
