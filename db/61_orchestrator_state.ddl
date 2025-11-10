@@ -21,9 +21,6 @@ CREATE TABLE IF NOT EXISTS app.orchestrator_state (
   updated_ts timestamptz DEFAULT now()
 );
 
--- Indexes
-CREATE INDEX idx_orchestrator_state_session ON app.orchestrator_state(session_id);
-CREATE INDEX idx_orchestrator_state_key ON app.orchestrator_state(key);
 -- Unique constraint to prevent duplicate state keys per session
 ALTER TABLE app.orchestrator_state ADD CONSTRAINT orchestrator_state_session_id_key_key UNIQUE (session_id, key);
 

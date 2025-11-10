@@ -45,18 +45,8 @@ CREATE TABLE app.d_workflow_automation (
     modified_by UUID,
 
     -- Constraints
-    CONSTRAINT valid_trigger_entity CHECK (trigger_entity_type IN ('project', 'task', 'client', 'worksite', 'employee', 'office', 'business', 'role', 'position', 'artifact', 'wiki', 'form', 'report')),
-    CONSTRAINT valid_action_entity CHECK (action_entity_type IN ('project', 'task', 'client', 'worksite', 'employee', 'office', 'business', 'role', 'position', 'artifact', 'wiki', 'form', 'report', 'notification', 'email')),
-    CONSTRAINT valid_trigger_action CHECK (trigger_action_type IN ('create', 'update', 'delete', 'status_change', 'field_change', 'assign', 'complete')),
-    CONSTRAINT valid_trigger_scope CHECK (trigger_scope IN ('all', 'specific')),
-    CONSTRAINT valid_action_scope CHECK (action_scope IN ('same', 'related', 'specific', 'all'))
 );
 
--- Indexes
-CREATE INDEX idx_workflow_trigger_entity ON app.d_workflow_automation(trigger_entity_type);
-CREATE INDEX idx_workflow_trigger_action ON app.d_workflow_automation(trigger_action_type);
-CREATE INDEX idx_workflow_active ON app.d_workflow_automation(active_flag) WHERE active_flag = true;
-CREATE INDEX idx_workflow_execution_order ON app.d_workflow_automation(execution_order);
 
 -- Comments
 COMMENT ON TABLE app.d_workflow_automation IS 'Workflow automation system with trigger-action patterns';

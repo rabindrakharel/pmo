@@ -166,18 +166,6 @@ CREATE TABLE app.f_invoice (
     tags TEXT[]                                         -- Searchable tags
 );
 
--- Indexes for performance
-CREATE INDEX idx_f_invoice_number ON app.f_invoice(invoice_number);
-CREATE INDEX idx_f_invoice_date ON app.f_invoice(invoice_date);
-CREATE INDEX idx_f_invoice_due_date ON app.f_invoice(due_date);
-CREATE INDEX idx_f_invoice_status ON app.f_invoice(invoice_status);
-CREATE INDEX idx_f_invoice_payment_status ON app.f_invoice(payment_status);
-CREATE INDEX idx_f_invoice_client ON app.f_invoice(client_id);
-CREATE INDEX idx_f_invoice_product ON app.f_invoice(product_id);
-CREATE INDEX idx_f_invoice_project ON app.f_invoice(project_id);
-CREATE INDEX idx_f_invoice_order ON app.f_invoice(order_id);
-CREATE INDEX idx_f_invoice_aging ON app.f_invoice(aging_bucket, days_outstanding);
-CREATE INDEX idx_f_invoice_accounting_period ON app.f_invoice(accounting_period);
 
 -- Trigger to calculate extended values and aging
 CREATE OR REPLACE FUNCTION app.calculate_f_invoice_extended() RETURNS TRIGGER AS $$

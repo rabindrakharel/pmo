@@ -179,17 +179,6 @@ CREATE TABLE app.f_shipment (
     tags TEXT[]                                         -- Searchable tags
 );
 
--- Indexes for performance
-CREATE INDEX idx_f_shipment_number ON app.f_shipment(shipment_number);
-CREATE INDEX idx_f_shipment_date ON app.f_shipment(shipment_date, shipped_date);
-CREATE INDEX idx_f_shipment_delivery_date ON app.f_shipment(estimated_delivery_date, actual_delivery_date);
-CREATE INDEX idx_f_shipment_status ON app.f_shipment(shipment_status);
-CREATE INDEX idx_f_shipment_tracking ON app.f_shipment(tracking_number);
-CREATE INDEX idx_f_shipment_client ON app.f_shipment(client_id);
-CREATE INDEX idx_f_shipment_product ON app.f_shipment(product_id);
-CREATE INDEX idx_f_shipment_order ON app.f_shipment(order_id);
-CREATE INDEX idx_f_shipment_project ON app.f_shipment(project_id);
-CREATE INDEX idx_f_shipment_carrier ON app.f_shipment(carrier_name);
 
 -- Trigger to calculate shipping costs and delivery performance
 CREATE OR REPLACE FUNCTION app.calculate_f_shipment_metrics() RETURNS TRIGGER AS $$

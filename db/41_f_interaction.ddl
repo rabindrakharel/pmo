@@ -140,19 +140,8 @@ CREATE TABLE app.f_customer_interaction (
 -- INDEXES FOR PERFORMANCE
 -- =====================================================
 
-CREATE INDEX idx_f_cust_interaction_number ON app.f_customer_interaction(interaction_number);
-CREATE INDEX idx_f_cust_interaction_ts ON app.f_customer_interaction(interaction_ts);
-CREATE INDEX idx_f_cust_interaction_type ON app.f_customer_interaction(interaction_type);
-CREATE INDEX idx_f_cust_interaction_channel ON app.f_customer_interaction(channel);
-CREATE INDEX idx_f_cust_interaction_parent ON app.f_customer_interaction(parent_interaction_id);
-CREATE INDEX idx_f_cust_interaction_sentiment ON app.f_customer_interaction(sentiment_label) WHERE sentiment_label IS NOT NULL;
 
 -- GIN indexes for array and JSONB columns
-CREATE INDEX idx_f_cust_interaction_person_entities ON app.f_customer_interaction USING gin(interaction_person_entities);
-CREATE INDEX idx_f_cust_interaction_metadata ON app.f_customer_interaction USING gin(metadata);
-CREATE INDEX idx_f_cust_interaction_emotion_tags ON app.f_customer_interaction USING gin(emotion_tags);
-CREATE INDEX idx_f_cust_interaction_attachment_ids ON app.f_customer_interaction USING gin(attachment_ids);
-CREATE INDEX idx_f_cust_interaction_related_ids ON app.f_customer_interaction USING gin(related_interaction_ids);
 
 -- =====================================================
 -- TRIGGERS

@@ -22,9 +22,6 @@ CREATE TABLE IF NOT EXISTS app.orchestrator_summary (
   created_ts timestamptz DEFAULT now()
 );
 
--- Indexes
-CREATE INDEX idx_orchestrator_summary_session ON app.orchestrator_summary(session_id);
-CREATE INDEX idx_orchestrator_summary_created ON app.orchestrator_summary(session_id, created_ts DESC);
 
 -- Comments
 COMMENT ON TABLE app.orchestrator_summary IS 'LLM-generated conversation summaries for context retention';

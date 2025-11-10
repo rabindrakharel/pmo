@@ -10,39 +10,33 @@
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS app.orchestrator_agent_execution (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  session_id uuid NOT NULL REFERENCES app.orchestrator_session(id) ON DELETE CASCADE,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4()
+  session_id uuid NOT NULL REFERENCES app.orchestrator_session(id) ON DELETE CASCADE
   agent_type text NOT NULL, -- 'planner', 'worker', 'critic', 'summarizer', 'orchestrator'
   execution_order int NOT NULL, -- Sequential order within session
 
   -- Input/Output
-  input_state jsonb NOT NULL,
-  output_state jsonb,
+  input_state jsonb NOT NULL
+  output_state jsonb
   decision jsonb, -- For planner decisions
 
   -- Status tracking
   status text NOT NULL, -- 'running', 'success', 'failed', 'skipped'
-  error_details jsonb,
-  retry_count int DEFAULT 0,
+  error_details jsonb
+  retry_count int DEFAULT 0
 
   -- Performance metrics
-  duration_ms int,
-  tokens_used int,
-  cost_cents numeric(10, 2),
+  duration_ms int
+  tokens_used int
+  cost_cents numeric(10, 2)
 
   -- Timestamps
-  created_ts timestamptz NOT NULL DEFAULT now(),
-  completed_ts timestamptz,
+  created_ts timestamptz NOT NULL DEFAULT now()
+  completed_ts timestamptz
 
   -- Indexes
-  CONSTRAINT valid_status CHECK (status IN ('running', 'success', 'failed', 'skipped')),
-  CONSTRAINT valid_agent_type CHECK (agent_type IN ('planner', 'worker', 'critic', 'summarizer', 'orchestrator'))
 );
 
-CREATE INDEX idx_agent_execution_session ON app.orchestrator_agent_execution(session_id);
-CREATE INDEX idx_agent_execution_type ON app.orchestrator_agent_execution(agent_type);
-CREATE INDEX idx_agent_execution_status ON app.orchestrator_agent_execution(status);
-CREATE INDEX idx_agent_execution_order ON app.orchestrator_agent_execution(session_id, execution_order);
 
 COMMENT ON TABLE app.orchestrator_agent_execution IS 'Tracks every agent invocation for audit and debugging';
 COMMENT ON COLUMN app.orchestrator_agent_execution.execution_order IS 'Sequential order of execution within session';
@@ -54,33 +48,29 @@ COMMENT ON COLUMN app.orchestrator_agent_execution.decision IS 'Planner agent de
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS app.orchestrator_circuit_breaker (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  session_id uuid NOT NULL REFERENCES app.orchestrator_session(id) ON DELETE CASCADE,
-  agent_type text NOT NULL,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4()
+  session_id uuid NOT NULL REFERENCES app.orchestrator_session(id) ON DELETE CASCADE
+  agent_type text NOT NULL
 
   -- Failure tracking
-  failure_count int NOT NULL DEFAULT 0,
-  last_failure_ts timestamptz,
-  failure_threshold int NOT NULL DEFAULT 3,
+  failure_count int NOT NULL DEFAULT 0
+  last_failure_ts timestamptz
+  failure_threshold int NOT NULL DEFAULT 3
 
   -- Circuit state
   circuit_state text NOT NULL, -- 'closed', 'open', 'half_open'
-  opened_ts timestamptz,
+  opened_ts timestamptz
   timeout_ms int NOT NULL DEFAULT 60000, -- 60 seconds default
 
   -- Reset tracking
-  last_success_ts timestamptz,
-  consecutive_successes int DEFAULT 0,
+  last_success_ts timestamptz
+  consecutive_successes int DEFAULT 0
 
-  created_ts timestamptz NOT NULL DEFAULT now(),
-  updated_ts timestamptz NOT NULL DEFAULT now(),
+  created_ts timestamptz NOT NULL DEFAULT now()
+  updated_ts timestamptz NOT NULL DEFAULT now()
 
-  UNIQUE(session_id, agent_type),
-  CONSTRAINT valid_circuit_state CHECK (circuit_state IN ('closed', 'open', 'half_open'))
 );
 
-CREATE INDEX idx_circuit_breaker_session ON app.orchestrator_circuit_breaker(session_id);
-CREATE INDEX idx_circuit_breaker_state ON app.orchestrator_circuit_breaker(circuit_state);
 
 COMMENT ON TABLE app.orchestrator_circuit_breaker IS 'Circuit breaker pattern for agent failure handling';
 COMMENT ON COLUMN app.orchestrator_circuit_breaker.circuit_state IS 'closed=normal, open=failing, half_open=testing';
@@ -91,26 +81,23 @@ COMMENT ON COLUMN app.orchestrator_circuit_breaker.circuit_state IS 'closed=norm
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS app.orchestrator_checkpoint (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  session_id uuid NOT NULL REFERENCES app.orchestrator_session(id) ON DELETE CASCADE,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4()
+  session_id uuid NOT NULL REFERENCES app.orchestrator_session(id) ON DELETE CASCADE
 
   -- Checkpoint identification
-  checkpoint_name text NOT NULL,
-  workflow_state text NOT NULL,
+  checkpoint_name text NOT NULL
+  workflow_state text NOT NULL
 
   -- State snapshot
-  state_snapshot jsonb NOT NULL,
-  variables_snapshot jsonb NOT NULL,
+  state_snapshot jsonb NOT NULL
+  variables_snapshot jsonb NOT NULL
 
   -- Metadata
-  description text,
-  created_by text DEFAULT 'system',
+  description text
+  created_by text DEFAULT 'system'
   created_ts timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_checkpoint_session ON app.orchestrator_checkpoint(session_id);
-CREATE INDEX idx_checkpoint_created ON app.orchestrator_checkpoint(created_ts DESC);
-CREATE INDEX idx_checkpoint_name ON app.orchestrator_checkpoint(session_id, checkpoint_name);
 
 COMMENT ON TABLE app.orchestrator_checkpoint IS 'Conversation checkpoints for rollback capability';
 COMMENT ON COLUMN app.orchestrator_checkpoint.workflow_state IS 'State machine state at checkpoint time';

@@ -37,8 +37,6 @@ CREATE TABLE app.setting_datalabel (
     updated_ts TIMESTAMPTZ DEFAULT now()
 );
 
--- Index for JSONB queries (for filtering by color_code, searching names, etc.)
-CREATE INDEX idx_setting_datalabel_metadata ON app.setting_datalabel USING GIN (metadata);
 
 -- Trigger to update updated_ts on modification
 CREATE TRIGGER trg_setting_datalabel_updated_ts

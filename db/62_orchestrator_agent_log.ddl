@@ -40,10 +40,6 @@ CREATE TABLE IF NOT EXISTS app.orchestrator_agent_log (
   created_ts timestamptz DEFAULT now()
 );
 
--- Indexes
-CREATE INDEX idx_orchestrator_log_session ON app.orchestrator_agent_log(session_id);
-CREATE INDEX idx_orchestrator_log_agent_role ON app.orchestrator_agent_log(agent_role);
-CREATE INDEX idx_orchestrator_log_created ON app.orchestrator_agent_log(created_ts DESC);
 
 -- Comments
 COMMENT ON TABLE app.orchestrator_agent_log IS 'Audit trail of all multi-agent orchestrator actions';

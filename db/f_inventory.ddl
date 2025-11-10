@@ -46,11 +46,6 @@ CREATE TABLE app.f_inventory (
     notes TEXT                                          -- Optional notes
 );
 
--- Indexes for performance
-CREATE INDEX idx_f_inventory_store ON app.f_inventory(store_id);
-CREATE INDEX idx_f_inventory_product ON app.f_inventory(product_id);
-CREATE INDEX idx_f_inventory_store_product ON app.f_inventory(store_id, product_id);
-CREATE INDEX idx_f_inventory_active ON app.f_inventory(active_flag);
 
 -- Trigger to update timestamp
 CREATE OR REPLACE FUNCTION app.update_f_inventory_timestamp() RETURNS TRIGGER AS $$

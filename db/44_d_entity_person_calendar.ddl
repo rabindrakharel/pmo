@@ -133,15 +133,9 @@ CREATE TABLE app.d_entity_person_calendar (
 -- INDEXES FOR PERFORMANCE
 -- =====================================================
 
-CREATE INDEX idx_person_calendar_person ON app.d_entity_person_calendar(person_entity_type, person_entity_id) WHERE active_flag = true;
-CREATE INDEX idx_person_calendar_availability ON app.d_entity_person_calendar(availability_flag, from_ts, to_ts) WHERE active_flag = true;
-CREATE INDEX idx_person_calendar_time_range ON app.d_entity_person_calendar(from_ts, to_ts) WHERE active_flag = true;
-CREATE INDEX idx_person_calendar_employee_available ON app.d_entity_person_calendar(person_entity_id, from_ts)
   WHERE active_flag = true AND person_entity_type = 'employee' AND availability_flag = true;
-CREATE INDEX idx_person_calendar_event ON app.d_entity_person_calendar(event_id) WHERE active_flag = true AND event_id IS NOT NULL;
 
 -- GIN index for JSONB metadata queries
-CREATE INDEX idx_person_calendar_metadata ON app.d_entity_person_calendar USING gin(metadata);
 
 -- =====================================================
 -- HELPER FUNCTION: Generate 15-minute slots for date range

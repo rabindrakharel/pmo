@@ -102,11 +102,6 @@ CREATE TABLE app.d_entity_instance_id (
     PRIMARY KEY (entity_type, entity_id)
 );
 
--- Create indexes for common query patterns
-CREATE INDEX idx_d_entity_instance_id_type ON app.d_entity_instance_id(entity_type);
-CREATE INDEX idx_d_entity_instance_id_active ON app.d_entity_instance_id(active_flag) WHERE active_flag = true;
-CREATE INDEX idx_d_entity_instance_id_name_search ON app.d_entity_instance_id USING gin(to_tsvector('english', entity_name));
-CREATE INDEX idx_d_entity_instance_id_code ON app.d_entity_instance_id(entity_code) WHERE entity_code IS NOT NULL;
 
 COMMENT ON TABLE app.d_entity_instance_id IS 'Central registry of all entity INSTANCES with their UUIDs for relationship mapping and global operations';
 

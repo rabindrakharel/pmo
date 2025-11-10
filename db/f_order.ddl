@@ -150,16 +150,6 @@ CREATE TABLE app.f_order (
     tags TEXT[]                                         -- Searchable tags
 );
 
--- Indexes for performance
-CREATE INDEX idx_f_order_number ON app.f_order(order_number);
-CREATE INDEX idx_f_order_date ON app.f_order(order_date);
-CREATE INDEX idx_f_order_status ON app.f_order(order_status);
-CREATE INDEX idx_f_order_client ON app.f_order(client_id);
-CREATE INDEX idx_f_order_product ON app.f_order(product_id);
-CREATE INDEX idx_f_order_project ON app.f_order(project_id);
-CREATE INDEX idx_f_order_sales_rep ON app.f_order(sales_rep_id);
-CREATE INDEX idx_f_order_datetime ON app.f_order(order_datetime);
-CREATE INDEX idx_f_order_delivery_date ON app.f_order(requested_delivery_date, promised_delivery_date);
 
 -- Trigger to calculate extended values
 CREATE OR REPLACE FUNCTION app.calculate_f_order_extended() RETURNS TRIGGER AS $$
