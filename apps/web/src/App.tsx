@@ -42,6 +42,7 @@ import { DevelopersPage } from './pages/DevelopersPage';
 import { ProfilePage } from './pages/profile';
 import { LabelsPage } from './pages/labels';
 import { DataLabelPage, IntegrationsPage, SettingsOverviewPage, EntityLinkagePage, SettingDetailPage } from './pages/setting';
+import { EntityDesignerPage } from './pages/setting/EntityDesignerPage';
 import { SecurityPage } from './pages/security';
 import { BillingPage } from './pages/billing';
 import { LinkagePage } from './pages/LinkagePage';
@@ -271,6 +272,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <SettingDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/entity-designer/:entityCode?"
+        element={
+          <ProtectedRoute>
+            <EntityDesignerPage />
           </ProtectedRoute>
         }
       />
