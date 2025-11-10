@@ -167,7 +167,7 @@ export class GoalTransitionEngine {
   /**
    * Evaluate advance conditions with hybrid branching:
    * 1. DETERMINISTIC: Fast JSON path checks (instant, no LLM)
-   * 2. SEMI-DETERMINISTIC: Field presence checks (instant, no LLM)
+   * 2. COMPOUND: all_of/any_of nested conditions (instant, no LLM)
    * 3. SEMANTIC: LLM-evaluated natural language conditions (flexible but slower)
    *
    * Deterministic conditions are checked first for performance
@@ -195,53 +195,26 @@ export class GoalTransitionEngine {
     for (let i = 0; i < sortedRules.length; i++) {
       const rule = sortedRules[i];
 
-      // Check if condition is a GoalCondition object (deterministic) or string (semantic)
-      if (typeof rule.condition === 'object' && rule.condition.json_path) {
-        // Deterministic condition
-        const result = evaluateDeterministicCondition(
-          context,
-          rule.condition.json_path,
-          rule.condition.operator,
-          rule.condition.value
-        );
+      // Evaluate compound condition (supports all_of, any_of, single json_path, or string)
+      const result = await this.evaluateCompoundCondition(
+        rule.condition,
+        context,
+        conversationHistory,
+        i,
+        rule.priority || 0,
+        sessionId
+      );
 
-        console.log(`[GoalTransitionEngine]    [${i}] DETERMINISTIC (priority: ${rule.priority || 0}): ${rule.condition.json_path} ${rule.condition.operator} → ${result ? '✅ TRUE' : '❌ FALSE'}`);
-
-        if (result) {
-          console.log(`[GoalTransitionEngine] ✅ MATCHED: Transition to ${rule.next_goal}`);
-          return {
-            matched: true,
-            nextGoal: rule.next_goal,
-            reason: `Deterministic condition met: ${rule.condition.json_path} ${rule.condition.operator}`,
-            condition: `${rule.condition.json_path} ${rule.condition.operator}`,
-            conditionIndex: i,
-            confidence: 1.0
-          };
-        }
-      } else if (typeof rule.condition === 'string') {
-        // Semantic condition - evaluate using fast yes/no LLM call
-        const semanticResult = await this.evaluateSemanticCondition(
-          rule.condition,
-          context,
-          conversationHistory,
-          sessionId
-        );
-
-        console.log(`[GoalTransitionEngine]    [${i}] SEMANTIC (priority: ${rule.priority || 0}): "${rule.condition}" → ${semanticResult.result ? '✅ YES' : '❌ NO'} (confidence: ${semanticResult.confidence})`);
-
-        if (semanticResult.result) {
-          console.log(`[GoalTransitionEngine] ✅ MATCHED: Transition to ${rule.next_goal}`);
-          return {
-            matched: true,
-            nextGoal: rule.next_goal,
-            reason: `Semantic condition met: ${rule.condition}. ${semanticResult.reasoning}`,
-            condition: rule.condition,
-            conditionIndex: i,
-            confidence: semanticResult.confidence
-          };
-        }
-      } else {
-        console.log(`[GoalTransitionEngine]    [${i}] UNKNOWN CONDITION TYPE - Skipping`);
+      if (result.matched) {
+        console.log(`[GoalTransitionEngine] ✅ MATCHED: Transition to ${rule.next_goal}`);
+        return {
+          matched: true,
+          nextGoal: rule.next_goal,
+          reason: result.reason,
+          condition: result.conditionSummary,
+          conditionIndex: i,
+          confidence: result.confidence
+        };
       }
     }
 
@@ -249,6 +222,132 @@ export class GoalTransitionEngine {
       matched: false,
       nextGoal: null,
       reason: 'No branching conditions matched'
+    };
+  }
+
+  /**
+   * Evaluate compound conditions recursively
+   * Supports: all_of, any_of, single json_path conditions, and semantic strings
+   */
+  private async evaluateCompoundCondition(
+    condition: any,
+    context: DAGContext,
+    conversationHistory: Array<{ customer: string; agent: string }>,
+    ruleIndex: number,
+    priority: number,
+    sessionId?: string
+  ): Promise<{ matched: boolean; reason: string; conditionSummary: string; confidence: number }> {
+    // Case 1: Semantic condition (string)
+    if (typeof condition === 'string') {
+      const semanticResult = await this.evaluateSemanticCondition(
+        condition,
+        context,
+        conversationHistory,
+        sessionId
+      );
+
+      console.log(`[GoalTransitionEngine]    [${ruleIndex}] SEMANTIC (priority: ${priority}): "${condition}" → ${semanticResult.result ? '✅ YES' : '❌ NO'} (confidence: ${semanticResult.confidence})`);
+
+      return {
+        matched: semanticResult.result,
+        reason: `Semantic condition: ${condition}. ${semanticResult.reasoning}`,
+        conditionSummary: condition,
+        confidence: semanticResult.confidence
+      };
+    }
+
+    // Case 2: Single deterministic condition (json_path)
+    if (typeof condition === 'object' && condition.json_path) {
+      const result = evaluateDeterministicCondition(
+        context,
+        condition.json_path,
+        condition.operator,
+        condition.value
+      );
+
+      console.log(`[GoalTransitionEngine]    [${ruleIndex}] DETERMINISTIC (priority: ${priority}): ${condition.json_path} ${condition.operator} → ${result ? '✅ TRUE' : '❌ FALSE'}`);
+
+      return {
+        matched: result,
+        reason: `Deterministic condition: ${condition.json_path} ${condition.operator}`,
+        conditionSummary: `${condition.json_path} ${condition.operator}`,
+        confidence: 1.0
+      };
+    }
+
+    // Case 3: all_of compound condition (ALL must be true)
+    if (typeof condition === 'object' && condition.all_of && Array.isArray(condition.all_of)) {
+      const results: boolean[] = [];
+      const summaries: string[] = [];
+
+      console.log(`[GoalTransitionEngine]    [${ruleIndex}] COMPOUND all_of (priority: ${priority}): ${condition.all_of.length} sub-conditions`);
+
+      for (const subCondition of condition.all_of) {
+        const subResult = await this.evaluateCompoundCondition(
+          subCondition,
+          context,
+          conversationHistory,
+          ruleIndex,
+          priority,
+          sessionId
+        );
+        results.push(subResult.matched);
+        summaries.push(subResult.conditionSummary);
+      }
+
+      const allTrue = results.every(r => r === true);
+      console.log(`[GoalTransitionEngine]       → all_of result: ${allTrue ? '✅ ALL TRUE' : '❌ SOME FALSE'} (${results.filter(r => r).length}/${results.length})`);
+
+      return {
+        matched: allTrue,
+        reason: allTrue
+          ? `All conditions met: ${summaries.join(', ')}`
+          : `Not all conditions met (${results.filter(r => r).length}/${results.length})`,
+        conditionSummary: `all_of[${summaries.join(', ')}]`,
+        confidence: 1.0
+      };
+    }
+
+    // Case 4: any_of compound condition (ANY must be true)
+    if (typeof condition === 'object' && condition.any_of && Array.isArray(condition.any_of)) {
+      const results: boolean[] = [];
+      const summaries: string[] = [];
+
+      console.log(`[GoalTransitionEngine]    [${ruleIndex}] COMPOUND any_of (priority: ${priority}): ${condition.any_of.length} sub-conditions`);
+
+      for (const subCondition of condition.any_of) {
+        const subResult = await this.evaluateCompoundCondition(
+          subCondition,
+          context,
+          conversationHistory,
+          ruleIndex,
+          priority,
+          sessionId
+        );
+        results.push(subResult.matched);
+        summaries.push(subResult.conditionSummary);
+      }
+
+      const anyTrue = results.some(r => r === true);
+      console.log(`[GoalTransitionEngine]       → any_of result: ${anyTrue ? '✅ ANY TRUE' : '❌ ALL FALSE'} (${results.filter(r => r).length}/${results.length})`);
+
+      return {
+        matched: anyTrue,
+        reason: anyTrue
+          ? `At least one condition met: ${summaries.filter((_, idx) => results[idx]).join(', ')}`
+          : 'No conditions met',
+        conditionSummary: `any_of[${summaries.join(', ')}]`,
+        confidence: 1.0
+      };
+    }
+
+    // Unknown condition type
+    console.log(`[GoalTransitionEngine]    [${ruleIndex}] UNKNOWN CONDITION TYPE - Skipping`);
+    return {
+      matched: false,
+      reason: 'Unknown condition type',
+      conditionSummary: 'unknown',
+      confidence: 0.0
     };
   }
 
