@@ -9,19 +9,12 @@
 -- Work orders can be linked to quotes or created independently for service calls.
 -- In-place updates (same ID, version++), soft delete preserves historical data.
 --
--- DATABASE BEHAVIOR:
--- • CREATE: INSERT with version=1, active_flag=true
---   Example: INSERT INTO fact_work_order (id, code, name, descr, dl__work_order_status,
---                                          scheduled_date, assigned_technician_name)
---            VALUES ('w1111111-...', 'WO-2024-001', 'HVAC Installation Work Order',
---                    'Complete HVAC installation per quote QT-2024-001', 'Scheduled', '2024-11-15', 'John Smith')
---
--- • UPDATE: Same ID, version++, updated_ts refreshes
---   Example: UPDATE fact_work_order SET dl__work_order_status='In Progress', started_ts=now(), version=version+1
---            WHERE id='w1111111-...'
---
--- • SOFT DELETE: active_flag=false, to_ts=now()
---   Example: UPDATE fact_work_order SET active_flag=false, to_ts=now() WHERE id='w1111111-...'
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/work-order, INSERT with version=1, active_flag=true
+-- • UPDATE: PUT /api/v1/work-order/{id}, same ID, version++, updated_ts refreshes
+-- • DELETE: active_flag=false, to_ts=now() (soft delete)
+-- • LIST: GET /api/v1/work-order, filters by dl__work_order_status/technician, RBAC enforced
+-- • STATUS TRANSITIONS: Scheduled → In Progress → Completed
 --
 -- KEY FIELDS:
 -- • id: uuid PRIMARY KEY (stable, never changes)

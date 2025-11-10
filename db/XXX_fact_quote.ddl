@@ -9,21 +9,12 @@
 -- Quotes track total revenue, stage progression, validity period, and approval status.
 -- In-place updates (same ID, version++), soft delete preserves historical data.
 --
--- DATABASE BEHAVIOR:
--- • CREATE: INSERT with version=1, active_flag=true
---   Example: INSERT INTO fact_quote (id, code, name, descr, dl__quote_stage,
---                                     quote_total_amt, quote_items, valid_until_date)
---            VALUES ('q1111111-...', 'QT-2024-001', 'HVAC Installation Quote',
---                    'Complete HVAC installation for residential client', 'Draft',
---                    8500.00, '[{"item_type":"service","item_id":"s1111111-...","quantity":1.0,"unit_rate":5500.00}]'::jsonb,
---                    '2024-12-31')
---
--- • UPDATE: Same ID, version++, updated_ts refreshes
---   Example: UPDATE fact_quote SET dl__quote_stage='Sent', sent_date=now(), version=version+1
---            WHERE id='q1111111-...'
---
--- • SOFT DELETE: active_flag=false, to_ts=now()
---   Example: UPDATE fact_quote SET active_flag=false, to_ts=now() WHERE id='q1111111-...'
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/quote, INSERT with version=1, active_flag=true
+-- • UPDATE: PUT /api/v1/quote/{id}, same ID, version++, updated_ts refreshes
+-- • DELETE: active_flag=false, to_ts=now() (soft delete)
+-- • LIST: GET /api/v1/quote, filters by dl__quote_stage/customer, RBAC enforced
+-- • STAGE TRANSITIONS: Draft → Sent → Accepted/Rejected
 --
 -- KEY FIELDS:
 -- • id: uuid PRIMARY KEY (stable, never changes)

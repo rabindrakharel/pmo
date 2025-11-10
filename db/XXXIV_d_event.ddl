@@ -41,12 +41,13 @@
 -- 5. UPDATE: Modify event details, which affects all linked entities
 -- 6. CANCEL: Set active_flag=false to soft-delete the event
 --
--- DATABASE BEHAVIOR:
--- • CREATE: Define event with all details (type, platform, address, time, instructions, metadata)
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/event, auto-grant Owner permission [5] to creator
+-- • UPDATE: PUT /api/v1/event/{id}, same ID, version++, updated_ts refreshes
+-- • DELETE: active_flag=false, to_ts=now() (soft delete)
+-- • LIST: GET /api/v1/event, filters by event_type/platform, RBAC enforced
 -- • LINK ENTITIES: Use d_entity_id_map to establish event → entity relationships
 -- • LINK PEOPLE: Use d_entity_event_person_calendar to track who is involved and their RSVP status
--- • UPDATE: Modify event details, cascades conceptually to all linked entities
--- • CANCEL: Set active_flag=false, handle cleanup in application logic
 --
 -- KEY FIELDS:
 -- • id: uuid PRIMARY KEY (stable identifier)

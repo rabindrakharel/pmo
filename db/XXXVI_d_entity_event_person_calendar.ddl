@@ -21,11 +21,12 @@
 -- 4. QUERY ATTENDANCE: Find all people for an event, or all events for a person
 -- 5. UPDATE STATUS: Change RSVP status as people respond
 --
--- DATABASE BEHAVIOR:
--- • CREATE: When event is created, add entries for all invited people with status='pending'
--- • UPDATE: When person responds, update event_rsvp_status to 'accepted' or 'declined'
--- • QUERY: Find all people for an event, or all events for a person
--- • DELETE: Set active_flag=false to remove person from event
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/event/:id/invite, add person to event with status='pending'
+-- • UPDATE: PUT /api/v1/event/:id/rsvp, update event_rsvp_status (accepted/declined)
+-- • DELETE: active_flag=false (remove person from event)
+-- • LIST: GET /api/v1/event/:id/attendees, list all people for an event
+-- • QUERY: GET /api/v1/person/:id/events, list all events for a person
 --
 -- KEY FIELDS:
 -- • id: uuid PRIMARY KEY (stable identifier)
