@@ -39,7 +39,7 @@ CREATE TABLE app.d_worksite (
   active_flag boolean NOT NULL DEFAULT true,
   created_ts timestamptz NOT NULL DEFAULT now(),
   updated_ts timestamptz NOT NULL DEFAULT now(),
-  version int DEFAULT 1,
+  version integer DEFAULT 1,
 
   -- Entity metadata (new standard)
   metadata jsonb DEFAULT '{}'::jsonb,
