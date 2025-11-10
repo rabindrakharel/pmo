@@ -9,18 +9,11 @@
 -- Updates are in-place (same ID, version++), enabling stable URLs while tracking schema evolution.
 -- Submissions (d_form_data) reference form_id; old submissions preserve original schema structure.
 --
--- DATABASE BEHAVIOR:
--- • CREATE: INSERT with version=1, generates internal + shared URLs
---   Example: INSERT INTO d_form_head (id, name, internal_url, shared_url, form_schema)
---            VALUES ('ee8a6cfd-...', 'Landscapingform', '/form/ee8a6cfd-...', '/form/aB3xK9mZ',
---                    '{"steps": [{"id": "step-1", "fields": [...]}]}'::jsonb)
---
--- • UPDATE: Same ID, version++, form_schema overwritten (NO archival)
---   Example: UPDATE d_form_head SET form_schema='{"steps": [...]}'::jsonb, version=version+1
---            WHERE id='ee8a6cfd-...'
---
--- • SOFT DELETE: active_flag=false, to_ts=now(), disables both URLs
---   Example: UPDATE d_form_head SET active_flag=false, to_ts=now() WHERE id='ee8a6cfd-...'
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/form, INSERT with version=1, generates internal + shared URLs
+-- • UPDATE: PUT /api/v1/form/{id}, same ID, version++, form_schema updated, updated_ts refreshes
+-- • DELETE: DELETE /api/v1/form/{id}, active_flag=false, to_ts=now() (soft delete, disables URLs)
+-- • LIST: GET /api/v1/form, filters by form_type/active_flag, RBAC enforced
 --
 -- KEY FIELDS:
 -- • id: uuid PRIMARY KEY (stable, never changes - critical for URL permanence)
@@ -60,6 +53,7 @@ CREATE TABLE app.d_form_head (
     code varchar(50),   -- No unique constraint
     name varchar(200) NOT NULL,
     descr text,
+    metadata jsonb DEFAULT '{}'::jsonb,
     internal_url varchar(500),   -- Internal form URL: /form/{id} (authenticated access)
     shared_url varchar(500),     -- Public shared URL: /form/{8-char-random} (presigned, no auth required)
     -- Form Type
@@ -82,7 +76,7 @@ CREATE TABLE app.d_form_head (
 );
 
 -- =====================================================
--- SAMPLE DATA - Form Definitions
+-- DATA CURATION:
 -- =====================================================
 
 -- Landscaping Form

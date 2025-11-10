@@ -8,25 +8,11 @@
 -- Follows the same structure as workflow_graph_head but with actual entity IDs and stages.
 -- Links workflow templates (graph structure) to actual business entity records.
 --
--- DATABASE BEHAVIOR:
--- • CREATE: INSERT new workflow instance with initial entities
---   Example: INSERT INTO d_industry_workflow_graph_data
---            (workflow_instance_id, code, name, workflow_head_id, workflow_graph_data)
---            VALUES ('WFI-2024-001', 'WF-001', 'Landscaping Project', '550e8400-...',
---                    '[{"id": 0, "entity_name": "cust", "entity_id": "cust-uuid", "parent_ids": []}]'::jsonb)
---
--- • UPDATE: Update workflow_graph_data as entities are added or stages change
---   Example: UPDATE d_industry_workflow_graph_data
---            SET workflow_graph_data = '[...]'::jsonb, updated_ts=now()
---            WHERE workflow_instance_id='WFI-2024-001'
---
--- • SOFT DELETE: Mark workflow instance as inactive
---   Example: UPDATE d_industry_workflow_graph_data SET active_flag=false, to_ts=now()
---            WHERE workflow_instance_id='WFI-2024-001'
---
--- • QUERY: Get workflow instance with all entities
---   Example: SELECT * FROM d_industry_workflow_graph_data
---            WHERE workflow_instance_id='WFI-2024-001' AND active_flag=true
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/workflow-instance, INSERT with workflow_graph_data, version=1, active_flag=true
+-- • UPDATE: PUT /api/v1/workflow-instance/{id}, update workflow_graph_data, version++, updated_ts refreshes
+-- • DELETE: DELETE /api/v1/workflow-instance/{id}, active_flag=false, to_ts=now() (soft delete)
+-- • LIST: GET /api/v1/workflow-instance, filters by workflow_head_id/terminal_state_flag, RBAC enforced
 --
 -- KEY FIELDS:
 -- • id: uuid PRIMARY KEY (unique identifier for workflow instance)
@@ -77,6 +63,7 @@ CREATE TABLE app.d_industry_workflow_graph_data (
     code varchar(50) UNIQUE NOT NULL,
     name text NOT NULL,
     descr text,
+    metadata jsonb DEFAULT '{}'::jsonb,
 
     -- Workflow template reference
     workflow_head_id uuid NOT NULL,
@@ -102,7 +89,7 @@ CREATE TABLE app.d_industry_workflow_graph_data (
 );
 
 -- =====================================================
--- CURATED SEED DATA
+-- DATA CURATION:
 -- =====================================================
 
 -- Home Services Workflow Instance 1: Complete residential service cycle
