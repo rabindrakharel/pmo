@@ -3,10 +3,27 @@
 -- Customer relationship management across residential, commercial, municipal, industrial sectors
 -- ============================================================================
 --
--- BUSINESS PURPOSE:
--- Manages customer entities representing service recipients across all sectors (residential,
--- commercial, municipal, industrial). Provides foundation for relationship management, service
--- delivery, contract tracking, and revenue attribution. Customers own projects and receive services.
+-- SEMANTICS:
+-- Customer entities representing service recipients across residential, commercial, municipal,
+-- and industrial sectors. Foundation for relationship management, service delivery, contract
+-- tracking, and revenue attribution. Customers own projects and receive services.
+--
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/cust, INSERT with version=1, active_flag=true
+-- • UPDATE: PUT /api/v1/cust/{id}, same ID, version++, updated_ts refreshes
+-- • DELETE: DELETE /api/v1/cust/{id}, active_flag=false, to_ts=now() (soft delete)
+-- • LIST: GET /api/v1/cust, filters by cust_type/cust_status/customer_tier, RBAC enforced
+--
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY (stable identifier)
+-- • code: varchar(50) UNIQUE NOT NULL
+-- • name: varchar(200) NOT NULL (customer name)
+-- • cust_number: varchar(50) UNIQUE (CL-RES-001, CL-COM-002)
+-- • cust_type: varchar(50) (residential, commercial, municipal, industrial)
+-- • cust_status: varchar(50) (active, inactive, prospect, former)
+-- • dl__customer_opportunity_funnel: text (sales pipeline stage)
+-- • dl__customer_tier: text (Bronze, Silver, Gold, Platinum)
+-- • primary_contact_name, primary_email, primary_phone: contact details
 --
 -- API SEMANTICS & LIFECYCLE:
 --
@@ -150,9 +167,9 @@
 --   - Controls which entities appear in sidebar navigation
 --   - Configured on first-time login or via settings
 --
--- RELATIONSHIPS:
+-- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • cust_id ← entity_id_map (projects/tasks/forms linked to customers via mapping table)
--- • NO direct foreign keys (follows flexible relationship model)
+-- • Follows flexible relationship model via entity_id_map
 --
 -- ============================================================================
 -- DDL:

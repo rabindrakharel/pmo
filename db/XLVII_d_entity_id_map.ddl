@@ -27,7 +27,11 @@
 -- • relationship_type: varchar(50) (contains, owns, assigned_to)
 -- • active_flag: boolean (soft delete)
 --
--- VALID RELATIONSHIPS:
+-- RELATIONSHIPS (NO FOREIGN KEYS):
+-- • Polymorphic linkage table connecting any entity type to any other
+-- • No direct foreign keys - uses text-based entity_type + entity_id pattern
+--
+-- VALID RELATIONSHIP EXAMPLES:
 -- • event → task, project, service, cust, employee, business, artifact, form, wiki, office
 -- • business → project
 -- • project → task, wiki, artifact, form, cost, revenue
@@ -48,11 +52,13 @@ CREATE TABLE app.d_entity_id_map (
     child_entity_type varchar(20) NOT NULL,
     child_entity_id text NOT NULL,
     relationship_type varchar(50) DEFAULT 'contains',
+    metadata jsonb DEFAULT '{}'::jsonb,
     from_ts timestamptz NOT NULL DEFAULT now(),
     to_ts timestamptz,
     active_flag boolean NOT NULL DEFAULT true,
     created_ts timestamptz NOT NULL DEFAULT now(),
-    updated_ts timestamptz NOT NULL DEFAULT now()
+    updated_ts timestamptz NOT NULL DEFAULT now(),
+    version integer DEFAULT 1
 );
 
 COMMENT ON TABLE app.d_entity_id_map IS 'Parent-child relationships between specific entity instances for navigation, filtering, and linkage management';
