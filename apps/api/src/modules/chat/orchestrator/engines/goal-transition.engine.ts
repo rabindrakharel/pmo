@@ -113,8 +113,70 @@ export class GoalTransitionEngine {
     const missing: string[] = [];
     const satisfied: string[] = [];
 
+    // Support both old and new success criteria formats
+    const successCriteria = (goal as any).goal_success_criteria || goal.success_criteria;
+
+    // If no criteria defined, consider it met
+    if (!successCriteria) {
+      return { met: true, missing: [], satisfied: [] };
+    }
+
+    // New format (goal_success_criteria with deterministic all_of/any_of)
+    if ((goal as any).goal_success_criteria) {
+      const goalCriteria = (goal as any).goal_success_criteria;
+
+      // Check all_of conditions
+      if (goalCriteria.all_of && Array.isArray(goalCriteria.all_of)) {
+        for (const condition of goalCriteria.all_of) {
+          const result = evaluateDeterministicCondition(
+            context,
+            condition.json_path,
+            condition.operator,
+            condition.value
+          );
+          if (!result) {
+            missing.push(condition.json_path);
+          } else {
+            satisfied.push(condition.json_path);
+          }
+        }
+      }
+
+      // Check any_of conditions (at least one must be true)
+      if (goalCriteria.any_of && Array.isArray(goalCriteria.any_of)) {
+        let anyMatched = false;
+        for (const condition of goalCriteria.any_of) {
+          const result = evaluateDeterministicCondition(
+            context,
+            condition.json_path,
+            condition.operator,
+            condition.value
+          );
+          if (result) {
+            anyMatched = true;
+            satisfied.push(condition.json_path);
+          }
+        }
+        if (!anyMatched) {
+          missing.push('any_of conditions');
+        }
+      }
+
+      return {
+        met: missing.length === 0,
+        missing,
+        satisfied
+      };
+    }
+
+    // Old format (success_criteria with mandatory_fields)
+    const oldCriteria = goal.success_criteria;
+    if (!oldCriteria) {
+      return { met: true, missing: [], satisfied: [] };
+    }
+
     // Check mandatory fields (deterministic)
-    for (const field of goal.success_criteria.mandatory_fields) {
+    for (const field of oldCriteria.mandatory_fields || []) {
       const value = this.getNestedField(context, field);
       if (!value || value === '' || value === '(not set)') {
         missing.push(field);
@@ -286,7 +348,57 @@ Evaluate which quality checks are satisfied.`;
     conversationHistory: Array<{ customer: string; agent: string }>,
     sessionId?: string
   ): Promise<AdvanceEvaluationResult> {
-    const conditions = goal.auto_advance_conditions;
+    // Support both new goal_branching_condition and old auto_advance_conditions
+    const branchingCondition = (goal as any).goal_branching_condition;
+
+    // NEW FORMAT: goal_branching_condition
+    if (branchingCondition && branchingCondition.rules) {
+      console.log(`[GoalTransitionEngine] 🔍 Using goal_branching_condition (${branchingCondition.rules.length} rules)`);
+
+      // Sort rules by priority (higher priority first)
+      const sortedRules = [...branchingCondition.rules].sort((a: any, b: any) =>
+        (b.priority || 0) - (a.priority || 0)
+      );
+
+      // Evaluate each rule in priority order
+      for (let i = 0; i < sortedRules.length; i++) {
+        const rule = sortedRules[i];
+
+        // Check if condition is a GoalCondition object (deterministic) or string (semantic)
+        if (typeof rule.condition === 'object' && rule.condition.json_path) {
+          // Deterministic condition
+          const result = evaluateDeterministicCondition(
+            context,
+            rule.condition.json_path,
+            rule.condition.operator,
+            rule.condition.value
+          );
+
+          console.log(`[GoalTransitionEngine]    [${i}] DETERMINISTIC (priority: ${rule.priority || 0}): ${rule.condition.json_path} ${rule.condition.operator} → ${result ? '✅ TRUE' : '❌ FALSE'}`);
+
+          if (result) {
+            console.log(`[GoalTransitionEngine] ✅ MATCHED: Transition to ${rule.next_goal}`);
+            return {
+              matched: true,
+              nextGoal: rule.next_goal,
+              reason: `Deterministic condition met: ${rule.condition.json_path} ${rule.condition.operator}`,
+              condition: `${rule.condition.json_path} ${rule.condition.operator}`,
+              conditionIndex: i,
+              confidence: 1.0
+            };
+          }
+        }
+      }
+
+      return {
+        matched: false,
+        nextGoal: null,
+        reason: 'No branching conditions matched'
+      };
+    }
+
+    // LEGACY FORMAT: auto_advance_conditions
+    const conditions = (goal as any).auto_advance_conditions;
 
     if (!conditions || conditions.length === 0) {
       return { matched: false, nextGoal: null, reason: 'No advance conditions defined' };

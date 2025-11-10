@@ -25,16 +25,50 @@ export interface AgentConfigV3 {
 export interface ConversationGoal {
   goal_id: string;
   description: string;
-  success_criteria: SuccessCriteria;
-  allowed_agents: string[];
+  goal_type?: string;
+  is_terminal?: boolean;
+  primary_agent?: string;
+  fallback_agent?: string;
+
+  // Success criteria (supports both old and new naming)
+  success_criteria?: SuccessCriteria;
+  goal_success_criteria?: GoalSuccessCriteria;
+
+  // Agent configuration
+  allowed_agents?: string[];
+  agent_profile?: AgentProfile;  // Single unified agent profile per goal
+
+  // MCP tool boundary - limits which tools are available for this goal
+  mcp_tool_boundary?: string[];
+
+  // Field collection (replaces extraction schema in agent profiles)
+  field_collection_order?: string[];
+  field_validation?: Record<string, FieldValidation>;
+
+  // Available tools (legacy)
   available_tools?: string[];
+
+  // Conversation tactics
   conversation_tactics: string[];
   max_turns: number;
+
+  // Goal transitions
   fallback_goal?: string;
-  auto_advance_conditions: AdvanceCondition[];
+  auto_advance_conditions?: AdvanceCondition[];  // Deprecated - use goal_branching_condition
+  goal_branching_condition?: GoalBranchingCondition;
+
+  // Constraints and termination
   constraints?: Constraint[];
   termination_sequence?: TerminationSequence;
+
+  // Execution strategy (deprecated - single agent per goal now)
   agent_execution_strategy?: AgentExecutionStrategy;
+
+  // Retry strategy (deprecated - handled by orchestrator)
+  retry_strategy?: RetryStrategy;
+
+  // Examples for LLM learning
+  examples?: ConversationExample[];
 }
 
 /**
@@ -84,12 +118,92 @@ export interface TerminationStep {
 }
 
 /**
- * Success criteria for goal completion
+ * Success criteria for goal completion (legacy)
  */
 export interface SuccessCriteria {
   mandatory_fields: string[];
   conditional_fields?: Record<string, string[]>;
   quality_checks?: string[];
+  field_collection_order?: string[];  // Added for backward compatibility
+}
+
+/**
+ * Goal Success Criteria (new format)
+ * Uses JSON path conditions for deterministic validation
+ */
+export interface GoalSuccessCriteria {
+  all_of?: GoalCondition[];
+  any_of?: GoalCondition[];
+  evaluation_mode?: 'deterministic' | 'semantic';
+}
+
+/**
+ * Goal condition for success criteria and branching
+ */
+export interface GoalCondition {
+  json_path: string;
+  operator: 'is_set' | 'is_not_set' | 'is_empty' | '==' | '!=' | '>' | '<' | '>=' | '<=';
+  value?: string | number | boolean;
+}
+
+/**
+ * Goal Branching Condition
+ * Replaces auto_advance_conditions with unified branching logic
+ */
+export interface GoalBranchingCondition {
+  type: 'deterministic' | 'semantic' | 'hybrid';
+  rules: BranchingRule[];
+}
+
+/**
+ * Branching rule for goal transitions
+ */
+export interface BranchingRule {
+  condition: GoalCondition | string;  // GoalCondition for deterministic, string for semantic
+  next_goal: string;
+  priority?: number;  // Higher priority rules evaluated first
+  loop_prevention?: {
+    max_iterations?: number;
+    cooldown_turns?: number;
+  };
+}
+
+/**
+ * Field validation configuration
+ */
+export interface FieldValidation {
+  format: 'phone_number' | 'email' | 'street_address' | 'zipcode' | 'url' | 'custom';
+  mcp_tool?: string;  // MCP tool to use for validation
+  regex?: string;  // Custom regex for validation
+  required?: boolean;
+}
+
+/**
+ * Retry strategy configuration
+ */
+export interface RetryStrategy {
+  approach: 'provide_examples' | 'vary_phrasing' | 'retry_operation' | 'revise_plan' | 'gentle_wrap_up';
+  escalation_turns: number[];
+  escalation_messages?: string[];
+}
+
+/**
+ * Conversation example for LLM learning
+ */
+export interface ConversationExample {
+  input: string;
+  output: {
+    commands_to_run: MCPCommand[];
+    ask_talk_reply_to_customer: string;
+  };
+}
+
+/**
+ * MCP command structure in examples
+ */
+export interface MCPCommand {
+  tool: string;
+  params: Record<string, any>;
 }
 
 /**

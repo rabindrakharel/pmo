@@ -4,159 +4,321 @@
 
   "goals": [
     {
-      "goal_id": "UNDERSTAND_REQUEST",
-      "description": "Understand what the customer needs help with",
+      "goal_id": "WARM_GREETINGS_EMPATHY_UNDERSTAND",
+      "description": "Greet customer warmly, show empathy, and understand their request",
       "goal_type": "conversational",
       "is_terminal": false,
       "primary_agent": "conversational_agent",
-      "success_criteria": {
-        "mandatory_fields": ["service.primary_request"],
-        "quality_checks": ["issue_is_clear"]
+      "goal_success_criteria": {
+        "all_of": [
+          {
+            "json_path": "service.primary_request",
+            "operator": "is_set"
+          }
+        ],
+        "evaluation_mode": "deterministic"
       },
-      "allowed_agents": ["conversational_agent", "extraction_agent"],
+      "mcp_tool_boundary": [
+        "update_session_memory",
+        "get_session_memory"
+      ],
       "conversation_tactics": ["empathetic_listening", "clarifying_questions", "issue_confirmation"],
       "max_turns": 5,
-      "retry_strategy": {
-        "approach": "provide_examples",
-        "escalation_turns": [3, 5]
+      "goal_branching_condition": {
+        "type": "deterministic",
+        "rules": [
+          {
+            "condition": {
+              "json_path": "service.primary_request",
+              "operator": "is_set"
+            },
+            "next_goal": "ELICIT_STRUCTURED_INFO"
+          },
+          {
+            "condition": {
+              "json_path": "service.primary_request",
+              "operator": "is_empty"
+            },
+            "next_goal": "WARM_GREETINGS_EMPATHY_UNDERSTAND"
+          }
+        ]
       },
-      "auto_advance_conditions": [
-        {
-          "type": "semi_deterministic",
-          "json_path": "service.primary_request",
-          "operator": "is_set",
-          "next_goal": "GATHER_REQUIREMENTS"
-        },
-        {
-          "type": "semantic",
-          "condition": "customer has clearly stated their issue and we understand what help they need",
-          "next_goal": "GATHER_REQUIREMENTS"
-        }
-      ],
       "examples": [
         {
           "input": "Customer says: 'My heater is broken and it's freezing in here!'",
           "output": {
-            "commands_to_run": [],
+            "commands_to_run": [
+              {
+                "tool": "update_session_memory",
+                "params": {
+                  "path": "service.primary_request",
+                  "value": "Heater is broken and customer is cold"
+                }
+              }
+            ],
             "ask_talk_reply_to_customer": "I'm so sorry to hear your heater isn't working! That must be really uncomfortable. Let me help you get this fixed right away. Can you tell me a bit more about what's happening with the heater?"
           }
         },
         {
           "input": "Customer says: 'I need someone to fix my sink'",
           "output": {
-            "commands_to_run": [],
+            "commands_to_run": [
+              {
+                "tool": "update_session_memory",
+                "params": {
+                  "path": "service.primary_request",
+                  "value": "Sink repair needed"
+                }
+              }
+            ],
             "ask_talk_reply_to_customer": "I can definitely help with that! Is it a leak, a clog, or something else going on with your sink?"
           }
         }
       ]
     },
     {
-      "goal_id": "GATHER_REQUIREMENTS",
-      "description": "Collect necessary customer information",
+      "goal_id": "ELICIT_STRUCTURED_INFO",
+      "description": "Collect customer contact information (phone, name, address) in natural conversation",
       "goal_type": "conversational_with_mcp",
       "is_terminal": false,
       "primary_agent": "conversational_agent",
       "fallback_agent": "mcp_agent",
-      "success_criteria": {
-        "mandatory_fields": ["customer.phone", "customer.name", "customer.address_street", "customer.address_city", "customer.address_state"],
-        "field_collection_order": [
-          "customer.phone",
-          "customer.name",
-          "customer.address_street",
-          "customer.address_city",
-          "customer.address_state"
-        ]
+      "goal_success_criteria": {
+        "all_of": [
+          {
+            "json_path": "customer.phone",
+            "operator": "is_set"
+          },
+          {
+            "json_path": "customer.name",
+            "operator": "is_set"
+          },
+          {
+            "json_path": "customer.address_street",
+            "operator": "is_set"
+          },
+          {
+            "json_path": "customer.address_city",
+            "operator": "is_set"
+          },
+          {
+            "json_path": "customer.address_state",
+            "operator": "is_set"
+          }
+        ],
+        "evaluation_mode": "deterministic"
       },
-      "allowed_agents": ["conversational_agent", "extraction_agent", "mcp_agent"],
+      "field_collection_order": [
+        "customer.phone",
+        "customer.name",
+        "customer.address_street",
+        "customer.address_city",
+        "customer.address_state"
+      ],
+      "field_validation": {
+        "customer.phone": {
+          "format": "phone_number",
+          "required": true
+        },
+        "customer.address_street": {
+          "format": "street_address",
+          "required": true
+        }
+      },
+      "mcp_tool_boundary": [
+        "update_session_memory",
+        "get_session_memory"
+      ],
       "conversation_tactics": ["incremental_data_gathering", "rapport_building"],
       "max_turns": 8,
-      "agent_execution_strategy": {
-        "mode": "parallel",
-        "parallel_groups": [
+      "goal_branching_condition": {
+        "type": "deterministic",
+        "rules": [
           {
-            "agents": ["conversational_agent", "extraction_agent"],
-            "description": "Reply to customer while extracting data in parallel"
+            "condition": {
+              "json_path": "customer.phone",
+              "operator": "is_set"
+            },
+            "next_goal": "ELICIT_STRUCTURED_INFO",
+            "priority": 3
+          },
+          {
+            "condition": {
+              "json_path": "customer.name",
+              "operator": "is_set"
+            },
+            "next_goal": "ELICIT_STRUCTURED_INFO",
+            "priority": 2
+          },
+          {
+            "condition": "all(customer.phone, customer.name, customer.address_street, customer.address_city, customer.address_state are set)",
+            "next_goal": "LOOKUP_UPDATE_CREATE_RECORDS",
+            "priority": 1
           }
         ]
       },
-      "retry_strategy": {
-        "approach": "vary_phrasing",
-        "escalation_turns": [3, 5, 7],
-        "escalation_messages": [
-          "Try a different approach to ask for contact information",
-          "Offer value - explain why you need their info",
-          "Offer to proceed with partial information"
-        ]
-      },
-      "auto_advance_conditions": [
-        {
-          "type": "semantic",
-          "condition": "context shows all mandatory fields are populated: customer.phone, customer.name, customer.address_street, customer.address_city, customer.address_state (check context data, not conversation flow)",
-          "next_goal": "MANAGE_CUSTOMER_PROFILE"
-        }
-      ],
       "examples": [
         {
           "input": "Customer says: 'My phone number is 650-555-1234'",
           "output": {
-            "commands_to_run": [],
+            "commands_to_run": [
+              {
+                "tool": "update_session_memory",
+                "params": {
+                  "path": "customer.phone",
+                  "value": "650-555-1234"
+                }
+              }
+            ],
             "ask_talk_reply_to_customer": "Thank you! And may I have your name please?"
           }
         },
         {
           "input": "Customer says: 'I'm John Smith'",
           "output": {
-            "commands_to_run": [],
+            "commands_to_run": [
+              {
+                "tool": "update_session_memory",
+                "params": {
+                  "path": "customer.name",
+                  "value": "John Smith"
+                }
+              }
+            ],
             "ask_talk_reply_to_customer": "Great, John! What's the address where you need the service?"
+          }
+        },
+        {
+          "input": "Customer says: '123 Main Street, Palo Alto, California'",
+          "output": {
+            "commands_to_run": [
+              {
+                "tool": "update_session_memory",
+                "params": {
+                  "path": "customer.address_street",
+                  "value": "123 Main Street"
+                }
+              },
+              {
+                "tool": "update_session_memory",
+                "params": {
+                  "path": "customer.address_city",
+                  "value": "Palo Alto"
+                }
+              },
+              {
+                "tool": "update_session_memory",
+                "params": {
+                  "path": "customer.address_state",
+                  "value": "California"
+                }
+              }
+            ],
+            "ask_talk_reply_to_customer": "Perfect! I've got all your information. Let me look up your profile."
           }
         }
       ]
     },
     {
-      "goal_id": "MANAGE_CUSTOMER_PROFILE",
-      "description": "Look up existing customer or create new customer profile using phone/name/address from previous step",
+      "goal_id": "LOOKUP_UPDATE_CREATE_RECORDS",
+      "description": "Lookup existing customer record, update if found, or create new customer profile",
       "goal_type": "execution",
       "is_terminal": false,
       "primary_agent": "mcp_agent",
       "fallback_agent": "conversational_agent",
-      "success_criteria": {
-        "mandatory_fields": [],
-        "quality_checks": [
-          "Customer lookup/creation has been attempted using available customer data (phone, name, address)"
-        ]
+      "goal_success_criteria": {
+        "all_of": [
+          {
+            "json_path": "customer.id",
+            "operator": "is_set"
+          }
+        ],
+        "evaluation_mode": "deterministic"
       },
-      "allowed_agents": ["mcp_agent", "conversational_agent"],
+      "mcp_tool_boundary": [
+        "customer_get",
+        "customer_create",
+        "customer_update",
+        "update_session_memory",
+        "get_session_memory"
+      ],
       "conversation_tactics": ["progress_updates"],
       "max_turns": 3,
-      "retry_strategy": {
-        "approach": "retry_operation",
-        "escalation_turns": [2]
+      "goal_branching_condition": {
+        "type": "deterministic",
+        "rules": [
+          {
+            "condition": {
+              "json_path": "customer.id",
+              "operator": "is_set"
+            },
+            "next_goal": "DESIGN_SOLUTION"
+          },
+          {
+            "condition": {
+              "json_path": "customer.id",
+              "operator": "is_empty"
+            },
+            "next_goal": "LOOKUP_UPDATE_CREATE_RECORDS"
+          }
+        ]
       },
-      "auto_advance_conditions": [
-        {
-          "type": "semi_deterministic",
-          "json_path": "customer.id",
-          "operator": "is_set",
-          "next_goal": "DESIGN_SOLUTION",
-          "description": "Advance when customer.id is obtained (either from lookup or creation)"
-        }
-      ],
       "examples": [
         {
           "input": "We have customer.phone='650-555-1234', customer.name='John Smith', customer.address_street='123 Main St', customer.address_city='Palo Alto', customer.address_state='CA'",
           "output": {
-            "commands_to_run": ["customer_get", "customer_create"],
-            "customer_get_args": {
-              "body_primary_phone": "650-555-1234"
-            },
-            "customer_create_args": {
-              "body_name": "John Smith",
-              "body_primary_phone": "650-555-1234",
-              "body_primary_address": "123 Main St",
-              "body_city": "Palo Alto",
-              "body_province": "CA"
-            },
-            "ask_talk_reply_to_customer": "Perfect, John! I've got your information. Let me find the best solution for your heating issue."
+            "commands_to_run": [
+              {
+                "tool": "customer_get",
+                "params": {
+                  "body_primary_phone": "650-555-1234"
+                }
+              }
+            ],
+            "ask_talk_reply_to_customer": "Let me check if you're already in our system..."
+          }
+        },
+        {
+          "input": "customer_get returned customer with id='cust-123'",
+          "output": {
+            "commands_to_run": [
+              {
+                "tool": "update_session_memory",
+                "params": {
+                  "path": "customer.id",
+                  "value": "cust-123"
+                }
+              },
+              {
+                "tool": "customer_update",
+                "params": {
+                  "id": "cust-123",
+                  "body_name": "John Smith",
+                  "body_primary_address": "123 Main St",
+                  "body_city": "Palo Alto",
+                  "body_province": "CA"
+                }
+              }
+            ],
+            "ask_talk_reply_to_customer": "Great! I've updated your profile. Let me find the best solution for your heating issue."
+          }
+        },
+        {
+          "input": "customer_get returned no results",
+          "output": {
+            "commands_to_run": [
+              {
+                "tool": "customer_create",
+                "params": {
+                  "body_name": "John Smith",
+                  "body_primary_phone": "650-555-1234",
+                  "body_primary_address": "123 Main St",
+                  "body_city": "Palo Alto",
+                  "body_province": "CA"
+                }
+              }
+            ],
+            "ask_talk_reply_to_customer": "I've created your profile in our system. Let me find the best solution for you."
           }
         }
       ]
@@ -168,35 +330,81 @@
       "is_terminal": false,
       "primary_agent": "mcp_agent",
       "fallback_agent": "conversational_agent",
-      "success_criteria": {
-        "mandatory_fields": ["operations.solution_plan", "assignment.employee_id"]
+      "goal_success_criteria": {
+        "all_of": [
+          {
+            "json_path": "operations.solution_plan",
+            "operator": "is_set"
+          },
+          {
+            "json_path": "assignment.employee_id",
+            "operator": "is_set"
+          }
+        ],
+        "evaluation_mode": "deterministic"
       },
-      "allowed_agents": ["mcp_agent", "conversational_agent", "planner_agent"],
+      "mcp_tool_boundary": [
+        "employee_list",
+        "service_list",
+        "setting_list",
+        "update_session_memory",
+        "get_session_memory"
+      ],
       "conversation_tactics": ["solution_explanation", "consent_gathering"],
       "max_turns": 6,
-      "retry_strategy": {
-        "approach": "revise_plan",
-        "escalation_turns": [2, 4]
+      "goal_branching_condition": {
+        "type": "hybrid",
+        "rules": [
+          {
+            "condition": {
+              "json_path": "operations.solution_plan",
+              "operator": "is_set"
+            },
+            "next_goal": "EXECUTE_SOLUTION",
+            "priority": 1
+          },
+          {
+            "condition": "customer rejects plan",
+            "next_goal": "DESIGN_SOLUTION",
+            "priority": 2,
+            "loop_prevention": {
+              "max_iterations": 2
+            }
+          }
+        ]
       },
-      "auto_advance_conditions": [
-        {
-          "type": "semantic",
-          "condition": "solution plan created with assigned employee and customer consents",
-          "next_goal": "EXECUTE_SOLUTION"
-        },
-        {
-          "type": "semantic",
-          "condition": "customer rejects plan",
-          "next_goal": "DESIGN_SOLUTION",
-          "loop_prevention": { "max_iterations": 2 }
-        }
-      ],
       "examples": [
         {
           "input": "We have service.primary_request='heater repair', customer.id='cust-123'",
           "output": {
-            "commands_to_run": ["employee_list"],
-            "employee_list_args": {},
+            "commands_to_run": [
+              {
+                "tool": "employee_list",
+                "params": {}
+              }
+            ],
+            "ask_talk_reply_to_customer": "Let me find an available technician for your heater repair..."
+          }
+        },
+        {
+          "input": "employee_list returned 3 technicians. We need to select one and create a plan.",
+          "output": {
+            "commands_to_run": [
+              {
+                "tool": "update_session_memory",
+                "params": {
+                  "path": "assignment.employee_id",
+                  "value": "emp-456"
+                }
+              },
+              {
+                "tool": "update_session_memory",
+                "params": {
+                  "path": "operations.solution_plan",
+                  "value": "Assign technician emp-456 for heater repair tomorrow at 9 AM"
+                }
+              }
+            ],
             "ask_talk_reply_to_customer": "I've found a great technician for your heater repair! We can schedule them for tomorrow morning at 9 AM. Does that work for you?"
           }
         }
@@ -204,36 +412,75 @@
     },
     {
       "goal_id": "EXECUTE_SOLUTION",
-      "description": "Execute the planned actions",
+      "description": "Execute the planned actions (create task, book appointment)",
       "goal_type": "execution",
       "is_terminal": false,
       "primary_agent": "mcp_agent",
       "fallback_agent": "conversational_agent",
-      "success_criteria": {
-        "mandatory_fields": ["operations.task_id"]
+      "goal_success_criteria": {
+        "all_of": [
+          {
+            "json_path": "operations.task_id",
+            "operator": "is_set"
+          }
+        ],
+        "evaluation_mode": "deterministic"
       },
-      "allowed_agents": ["mcp_agent", "conversational_agent"],
+      "mcp_tool_boundary": [
+        "task_create",
+        "person_calendar_book",
+        "update_session_memory",
+        "get_session_memory"
+      ],
       "conversation_tactics": ["progress_updates", "success_confirmation"],
       "max_turns": 6,
-      "retry_strategy": {
-        "approach": "retry_operation",
-        "escalation_turns": [2, 4]
+      "goal_branching_condition": {
+        "type": "deterministic",
+        "rules": [
+          {
+            "condition": {
+              "json_path": "operations.task_id",
+              "operator": "is_set"
+            },
+            "next_goal": "CONFIRM_RESOLUTION"
+          },
+          {
+            "condition": {
+              "json_path": "operations.task_id",
+              "operator": "is_empty"
+            },
+            "next_goal": "EXECUTE_SOLUTION"
+          }
+        ]
       },
-      "auto_advance_conditions": [
-        {
-          "condition": "all actions executed successfully",
-          "next_goal": "CONFIRM_RESOLUTION"
-        }
-      ],
       "examples": [
         {
           "input": "Customer consented to the plan. We have customer.id='cust-123', service.primary_request='heater repair', assignment.employee_id='emp-456'",
           "output": {
-            "commands_to_run": ["task_create"],
-            "task_create_args": {
-              "body_name": "Heater Repair",
-              "body_assignee": "emp-456"
-            },
+            "commands_to_run": [
+              {
+                "tool": "task_create",
+                "params": {
+                  "body_name": "Heater Repair",
+                  "body_assignee": "emp-456"
+                }
+              }
+            ],
+            "ask_talk_reply_to_customer": "Creating your service ticket now..."
+          }
+        },
+        {
+          "input": "task_create returned task with id='task-789'",
+          "output": {
+            "commands_to_run": [
+              {
+                "tool": "update_session_memory",
+                "params": {
+                  "path": "operations.task_id",
+                  "value": "task-789"
+                }
+              }
+            ],
             "ask_talk_reply_to_customer": "Perfect! I've created your service ticket and assigned our technician. You'll receive a confirmation shortly. Is there anything else you need help with?"
           }
         }
@@ -241,21 +488,21 @@
     },
     {
       "goal_id": "CONFIRM_RESOLUTION",
-      "description": "Verify satisfaction and close",
+      "description": "Verify satisfaction and close conversation",
       "goal_type": "terminal",
       "is_terminal": true,
       "primary_agent": "conversational_agent",
       "fallback_agent": "mcp_agent",
-      "success_criteria": {
-        "mandatory_fields": []
+      "goal_success_criteria": {
+        "evaluation_mode": "semantic"
       },
-      "allowed_agents": ["conversational_agent", "mcp_agent"],
+      "mcp_tool_boundary": [
+        "call_hangup",
+        "update_session_memory",
+        "get_session_memory"
+      ],
       "conversation_tactics": ["satisfaction_check", "graceful_closure"],
       "max_turns": 3,
-      "retry_strategy": {
-        "approach": "gentle_wrap_up",
-        "escalation_turns": [2]
-      },
       "termination_sequence": {
         "enabled": true,
         "steps": [
@@ -276,12 +523,15 @@
         ],
         "on_completion": "END"
       },
-      "auto_advance_conditions": [
-        {
-          "condition": "customer satisfied and conversation closed",
-          "next_goal": "END"
-        }
-      ]
+      "goal_branching_condition": {
+        "type": "semantic",
+        "rules": [
+          {
+            "condition": "customer satisfied and no additional requests",
+            "next_goal": "END"
+          }
+        ]
+      }
     }
   ],
 
@@ -305,59 +555,10 @@
         "graceful_closure": "End professionally and warmly"
       }
     },
-    "extraction_agent": {
-      "identity": "Information extraction specialist",
-      "capabilities": ["entity_extraction", "intent_classification"],
-      "system_prompt": "Extract structured information from conversations. Return JSON with extracted fields. Only extract explicitly stated information.",
-      "extraction_schema": {
-        "primary_request": {
-          "type": "string",
-          "extraction_strategy": "Extract MAIN issue customer wants help with"
-        },
-        "customer_phone": {
-          "type": "string",
-          "extraction_strategy": "Detect phone patterns or natural language numbers"
-        },
-        "customer_name": {
-          "type": "string",
-          "extraction_strategy": "Look for self-introductions"
-        },
-        "customer_address_street": {
-          "type": "string",
-          "extraction_strategy": "Extract street number and street name (e.g., '353531 Edmonton Avenue')"
-        },
-        "customer_address_city": {
-          "type": "string",
-          "extraction_strategy": "Extract city name (e.g., 'Palo Alto', 'Toronto')"
-        },
-        "customer_address_state": {
-          "type": "string",
-          "extraction_strategy": "Extract state/province (e.g., 'California', 'CA', 'Ontario', 'ON')"
-        },
-        "customer_address_zipcode": {
-          "type": "string",
-          "extraction_strategy": "Extract postal/zip code (e.g., '94301', 'M5V 3A8')"
-        },
-        "customer_address_country": {
-          "type": "string",
-          "extraction_strategy": "Extract country if explicitly mentioned (e.g., 'Canada', 'USA')"
-        }
-      }
-    },
-    "planner_agent": {
-      "identity": "Service planning specialist",
-      "capabilities": ["solution_design", "resource_matching"],
-      "system_prompt": "Design solutions for service requests. Generate actionable plans with resources and timeline. Always provide alternatives.",
-      "planning_strategies": {
-        "service_matching": "Match issue to service catalog semantically",
-        "resource_allocation": "Check employee availability",
-        "timeline_estimation": "Estimate based on service complexity"
-      }
-    },
     "mcp_agent": {
       "identity": "External systems integration specialist",
       "capabilities": ["entity_scoped_tool_access", "tool_selection", "tool_execution", "customer_profile_management"],
-      "system_prompt": "Execute external calls via MCP tools. Analyze context, select tool, execute with correct parameters, handle errors gracefully.\n\n**CUSTOMER PROFILE WORKFLOW (MANAGE_CUSTOMER_PROFILE goal):**\n1. Search for existing customer: Call customer_get with phone number from context\n2. If customer found: Call customer_update with any new data (name, email, address fields)\n3. If customer NOT found: Call customer_create with complete profile (name, phone, email, address_street, address_city, address_state, address_zipcode)\n4. Extract customer.id from response and update context\n5. Confirm to user: \"I've updated your profile\" or \"I've created your profile\"\n\n**SOLUTION DESIGN WORKFLOW (DESIGN_SOLUTION goal):**\n1. Search for matching service: Call setting_list or service_list based on service.primary_request\n2. Search for available employees: Call employee_list to find qualified employees\n3. Select best match employee and store assignment.employee_id\n4. Create solution plan with: service type, assigned employee, estimated timeline\n5. Present plan to customer and ask for consent\n\n**IMPORTANT:** Always execute customer lookup/create BEFORE task creation. Use fine-grained address fields. Only use tools within entity_boundary.",
+      "system_prompt": "Execute external calls via MCP tools. Analyze context, select tool, execute with correct parameters, handle errors gracefully.\n\n**CUSTOMER PROFILE WORKFLOW (LOOKUP_UPDATE_CREATE_RECORDS goal):**\n1. Search for existing customer: Call customer_get with phone number from context\n2. If customer found: Call customer_update with any new data (name, email, address fields)\n3. If customer NOT found: Call customer_create with complete profile (name, phone, email, address_street, address_city, address_state, address_zipcode)\n4. Extract customer.id from response and update session memory\n5. Confirm to user: \"I've updated your profile\" or \"I've created your profile\"\n\n**SOLUTION DESIGN WORKFLOW (DESIGN_SOLUTION goal):**\n1. Search for matching service: Call setting_list or service_list based on service.primary_request\n2. Search for available employees: Call employee_list to find qualified employees\n3. Select best match employee and store assignment.employee_id in session memory\n4. Create solution plan with: service type, assigned employee, estimated timeline\n5. Present plan to customer and ask for consent\n\n**IMPORTANT:** Always execute customer lookup/create BEFORE task creation. Use fine-grained address fields. Only use tools specified in mcp_tool_boundary for the current goal.",
       "entity_boundary": {
         "description": "Dynamically limit MCP tools to relevant entities based on conversation context. Reduces LLM token usage and improves tool selection accuracy.",
         "default_entities": ["Customer", "Task", "Employee", "Calendar", "Settings"],
