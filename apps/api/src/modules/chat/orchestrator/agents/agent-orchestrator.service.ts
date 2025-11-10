@@ -17,11 +17,9 @@ import {
   getAgentContextManager,
   type AgentContextState
 } from './agent-context.service.js';
-import { WorkerReplyAgent, createWorkerReplyAgent } from './worker-reply-agent.service.js';
-import { WorkerMCPAgent, createWorkerMCPAgent } from './worker-mcp-agent.service.js';
 import { GoalTransitionEngine } from '../engines/goal-transition.engine.js';
 import { DataExtractionAgent, createDataExtractionAgent } from './data-extraction-agent.service.js';
-import { ParallelAgentExecutor, createParallelAgentExecutor, type AgentExecutor } from '../engines/parallel-agent-executor.js';
+import { UnifiedGoalAgent, createUnifiedGoalAgent } from './unified-goal-agent.service.js';
 import { getLLMLogger } from '../services/llm-logger.service.js';
 import { createAgentLogger, type AgentLogger } from '../services/agent-logger.service.js';
 import { getSessionMemoryDataService } from '../services/session-memory-data.service.js';
@@ -40,11 +38,9 @@ export class AgentOrchestratorService {
   private config!: AgentConfigV3;
   private logger = getLLMLogger();
 
-  private workerReplyAgent!: WorkerReplyAgent;
-  private workerMCPAgent!: WorkerMCPAgent;
   private transitionEngine!: GoalTransitionEngine;
   private dataExtractionAgent!: DataExtractionAgent;
-  private parallelExecutor!: ParallelAgentExecutor;
+  private unifiedGoalAgent!: UnifiedGoalAgent;  // Single-session agent (v4.0+)
 
   // In-memory state cache (replace LangGraph checkpointer)
   private stateCache: Map<string, AgentContextState> = new Map();
@@ -195,24 +191,18 @@ export class AgentOrchestratorService {
       // Pass agent config to context manager for deterministic initialization
       this.contextManager.setDAGConfig(this.config as any); // TODO: Update context manager to use AgentConfigV3
 
-      // Initialize worker agents and transition engine:
-      // 1. WorkerReplyAgent - generates customer-facing responses (uses conversational_agent profile)
-      // 2. WorkerMCPAgent - executes MCP tools and updates context (uses mcp_agent profile)
-      // 3. DataExtractionAgent - extracts context from conversation (called AFTER worker agents)
-      // 4. GoalTransitionEngine - evaluates goal transitions using semantic routing
-      // 5. ParallelAgentExecutor - executes agents in parallel for 50%+ performance boost
-      this.workerReplyAgent = createWorkerReplyAgent(this.config, 'conversational_agent');
-      this.workerMCPAgent = createWorkerMCPAgent(this.config, this.mcpAdapter, undefined, 'mcp_agent');
-      this.transitionEngine = new GoalTransitionEngine(this.config);
+      // Initialize agents and transition engine (v4.0 - Unified Streaming Pattern):
+      // 1. UnifiedGoalAgent - Single LLM session per goal with streaming support
+      // 2. DataExtractionAgent - Extracts context from conversation (post-processing)
+      // 3. GoalTransitionEngine - Evaluates goal transitions using semantic routing
+      this.unifiedGoalAgent = createUnifiedGoalAgent(this.config, this.mcpAdapter, undefined);
       this.dataExtractionAgent = createDataExtractionAgent();
-      this.parallelExecutor = createParallelAgentExecutor();
+      this.transitionEngine = new GoalTransitionEngine(this.config);
 
-      console.log('[AgentOrchestrator] ✅ Agents initialized (Goal-Oriented Architecture v3.0)');
-      console.log('[AgentOrchestrator]    - WorkerReplyAgent: Customer-facing responses');
-      console.log('[AgentOrchestrator]    - WorkerMCPAgent: MCP tool execution');
-      console.log('[AgentOrchestrator]    - DataExtractionAgent: Context extraction (post-processing)');
-      console.log('[AgentOrchestrator]    - GoalTransitionEngine: Semantic goal routing');
-      console.log('[AgentOrchestrator]    - ParallelAgentExecutor: Parallel agent execution');
+      console.log('[AgentOrchestrator] ✅ Agents initialized (Goal-Oriented Architecture v4.0 - Unified Streaming Pattern)');
+      console.log('[AgentOrchestrator]      - UnifiedGoalAgent: Single LLM session with streaming');
+      console.log('[AgentOrchestrator]      - DataExtractionAgent: Context extraction');
+      console.log('[AgentOrchestrator]      - GoalTransitionEngine: Semantic goal routing');
       console.log(`[AgentOrchestrator] Total goals: ${this.config.goals.length}`);
       console.log(`[AgentOrchestrator] Agent profiles: ${Object.keys(this.config.agent_profiles).join(', ')}`);
     } catch (error: any) {
@@ -365,36 +355,15 @@ export class AgentOrchestratorService {
       }
 
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // STREAMING FIX: Check goal's primary_agent configuration
-      // If goal uses mcp_agent, execute it first (non-streaming) before streaming response
+      // UNIFIED AGENT STREAMING (v4.0)
+      // Single LLM session per goal with parallel MCP + customer response
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      const currentGoalConfig = this.config.goals.find(g => g.goal_id === state.currentNode);
-      const primaryAgent = currentGoalConfig?.primary_agent || 'conversational_agent';
+      console.log(`\n🌊 [UNIFIED AGENT STREAMING] Goal: ${state.currentNode}`);
 
-      console.log(`[AgentOrchestrator] 🎯 Goal ${state.currentNode} uses primary_agent: ${primaryAgent}`);
-
-      // Execute MCP agent first if goal requires it
-      if (primaryAgent === 'mcp_agent' && this.mcpAdapter) {
-        console.log(`[AgentOrchestrator] 🔧 Executing MCP agent for goal: ${state.currentNode}`);
-        try {
-          const mcpResult = await this.workerMCPAgent.executeGoal(state.currentNode, state);
-
-          // Apply context updates from MCP execution
-          if (mcpResult.contextUpdates && Object.keys(mcpResult.contextUpdates).length > 0) {
-            console.log(`[AgentOrchestrator] 📝 Applying MCP context updates`);
-            state = this.contextManager.updateContext(state, mcpResult.contextUpdates);
-          }
-
-          console.log(`[AgentOrchestrator] ✅ MCP agent execution complete`);
-        } catch (error: any) {
-          console.error(`[AgentOrchestrator] ❌ MCP agent execution failed: ${error.message}`);
-        }
-      }
-
-      // Stream response from worker agent
       let fullResponse = '';
+      let mcpExecutionPromise: Promise<any> | null = null;
 
-      for await (const chunk of this.workerReplyAgent.executeGoalStream(
+      for await (const chunk of this.unifiedGoalAgent.executeGoalStream(
         state.currentNode,
         state,
         args.message
@@ -402,72 +371,12 @@ export class AgentOrchestratorService {
         if (chunk.done) {
           // Final chunk - prepare completion data
           fullResponse = chunk.response || fullResponse;
+          mcpExecutionPromise = chunk.mcpExecutionPromise || null;
 
-          // ✅ FIX: Run data extraction BEFORE appending to summary to avoid duplication
-          // Data extraction analyzes recent exchanges + adds current exchange for analysis
-          // If we append first, it will see the exchange twice (once in summary, once in currentExchange)
-          const currentExchange = { customer: args.message, agent: fullResponse };
-          const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(
-            state,
-            currentExchange
-          );
-
-          // Update conversation summary AFTER extraction
-          state = this.contextManager.appendConversationSummary(
-            state,
-            args.message,
-            fullResponse
-          );
-
-          if (extractionResult.fieldsUpdated && extractionResult.fieldsUpdated.length > 0) {
-            state = this.contextManager.updateContext(state, extractionResult.contextUpdates || {});
+          console.log(`[UnifiedAgent] 📤 Streaming complete: "${fullResponse.substring(0, 80)}..."`);
+          if (mcpExecutionPromise) {
+            console.log(`[UnifiedAgent] ⏳ Awaiting MCP completion before state transition...`);
           }
-
-          // ✅ FIX: Evaluate goal transition (same logic as executeConversationLoop)
-          // Build conversation history for semantic evaluation
-          const conversationHistory = (state.context.summary_of_conversation_on_each_step_until_now || []).map(
-            (entry: any) => ({ customer: entry.customer, agent: entry.agent })
-          );
-
-          // Evaluate transition
-          const transitionResult = await this.transitionEngine.evaluateTransition(
-            state.currentNode,
-            state.context,
-            conversationHistory,
-            state.sessionId
-          );
-
-          console.log(`[AgentOrchestrator] 🧭 Transition Evaluation:`);
-          console.log(`[AgentOrchestrator]    Current Goal: ${state.currentNode}`);
-          console.log(`[AgentOrchestrator]    Should Transition: ${transitionResult.shouldTransition ? '✅ YES' : '❌ NO'}`);
-          console.log(`[AgentOrchestrator]    Reason: ${transitionResult.reason}`);
-
-          if (transitionResult.shouldTransition && transitionResult.nextGoal) {
-            console.log(`[AgentOrchestrator]    Next Goal: ${transitionResult.nextGoal}`);
-
-            // Update current goal
-            state = this.contextManager.updateCurrentNode(state, transitionResult.nextGoal);
-            console.log(`[AgentOrchestrator] ✅ Goal transitioned: ${state.currentNode}`);
-          }
-
-          // Save state (now includes potentially updated goal)
-          await this.saveState(state);
-
-          // Update session in database
-          await this.stateManager.updateSession(sessionId, {
-            current_node: state.currentNode,
-            status: state.completed ? 'completed' : 'active',
-          });
-
-          // Push final metadata to result buffer
-          resultBuffer.push({
-            type: 'done',
-            sessionId,
-            response: fullResponse,
-            currentNode: state.currentNode,
-            conversationEnded: state.conversationEnded,
-            endReason: state.endReason,
-          });
         } else {
           // Token chunk - push to result buffer
           fullResponse += chunk.token;
@@ -477,6 +386,91 @@ export class AgentOrchestratorService {
           });
         }
       }
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // POST-STREAMING PROCESSING
+      // Runs after streaming completes
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+      // ✅ FIX: Run data extraction BEFORE appending to summary to avoid duplication
+      // Data extraction analyzes recent exchanges + adds current exchange for analysis
+      // If we append first, it will see the exchange twice (once in summary, once in currentExchange)
+      const currentExchange = { customer: args.message, agent: fullResponse };
+      const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(
+        state,
+        currentExchange
+      );
+
+      // Update conversation summary AFTER extraction
+      state = this.contextManager.appendConversationSummary(
+        state,
+        args.message,
+        fullResponse
+      );
+
+      if (extractionResult.fieldsUpdated && extractionResult.fieldsUpdated.length > 0) {
+        state = this.contextManager.updateContext(state, extractionResult.contextUpdates || {});
+      }
+
+      // Await MCP completion before transitioning
+      if (mcpExecutionPromise) {
+        console.log(`[UnifiedAgent] ⏳ Waiting for MCP completion...`);
+        const mcpResult = await mcpExecutionPromise;
+
+        // Apply context updates from MCP execution
+        if (mcpResult.contextUpdates && Object.keys(mcpResult.contextUpdates).length > 0) {
+          console.log(`[UnifiedAgent] 📝 Applying MCP context updates`);
+          state = this.contextManager.updateContext(state, mcpResult.contextUpdates);
+        }
+
+        console.log(`[UnifiedAgent] ✅ MCP execution complete`);
+      }
+
+      // ✅ FIX: Evaluate goal transition (same logic as executeConversationLoop)
+      // Build conversation history for semantic evaluation
+      const conversationHistory = (state.context.summary_of_conversation_on_each_step_until_now || []).map(
+        (entry: any) => ({ customer: entry.customer, agent: entry.agent })
+      );
+
+      // Evaluate transition
+      const transitionResult = await this.transitionEngine.evaluateTransition(
+        state.currentNode,
+        state.context,
+        conversationHistory,
+        state.sessionId
+      );
+
+      console.log(`[AgentOrchestrator] 🧭 Transition Evaluation:`);
+      console.log(`[AgentOrchestrator]    Current Goal: ${state.currentNode}`);
+      console.log(`[AgentOrchestrator]    Should Transition: ${transitionResult.shouldTransition ? '✅ YES' : '❌ NO'}`);
+      console.log(`[AgentOrchestrator]    Reason: ${transitionResult.reason}`);
+
+      if (transitionResult.shouldTransition && transitionResult.nextGoal) {
+        console.log(`[AgentOrchestrator]    Next Goal: ${transitionResult.nextGoal}`);
+
+        // Update current goal
+        state = this.contextManager.updateCurrentNode(state, transitionResult.nextGoal);
+        console.log(`[AgentOrchestrator] ✅ Goal transitioned: ${state.currentNode}`);
+      }
+
+      // Save state (now includes potentially updated goal)
+      await this.saveState(state);
+
+      // Update session in database
+      await this.stateManager.updateSession(sessionId, {
+        current_node: state.currentNode,
+        status: state.completed ? 'completed' : 'active',
+      });
+
+      // Push final metadata to result buffer
+      resultBuffer.push({
+        type: 'done',
+        sessionId,
+        response: fullResponse,
+        currentNode: state.currentNode,
+        conversationEnded: state.conversationEnded,
+        endReason: state.endReason,
+      });
     } catch (error: any) {
       console.error('[AgentOrchestrator] ❌ Error streaming message:', error);
       resultBuffer.push({
@@ -561,237 +555,97 @@ export class AgentOrchestratorService {
       loopBackIntention = undefined;
       state.loopBackIntention = undefined;
 
-      // STEP 1: Choose correct worker agent based on current goal configuration
-      // Use declarative goal.primary_agent instead of hardcoding logic
-      const currentGoalConfig = this.config.goals.find(g => g.goal_id === state.currentNode);
-      if (!currentGoalConfig) {
-        console.warn(`[AgentOrchestrator] ⚠️ Goal not found: ${state.currentNode}, using default`);
-      }
-
-      // Check if goal has parallel execution strategy
-      const executionStrategy = (currentGoalConfig as any)?.agent_execution_strategy;
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // STEP 1: Execute goal using UNIFIED AGENT (v4.0 Single Session Pattern)
+      // ONE LLM call per goal, returns { commands_to_run, ask_talk_reply_to_customer }
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      console.log(`\n🎯 [UNIFIED AGENT EXECUTION] Goal: ${state.currentNode}`);
 
       let response: string = '';
       let contextUpdates: any = {};
       let primaryAgentFailed = false;
 
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // PARALLEL EXECUTION: If goal has execution strategy, use it
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      if (executionStrategy && executionStrategy.mode !== 'sequential') {
-        console.log(`\n⚡ [PARALLEL EXECUTION] Mode: ${executionStrategy.mode}`);
-
-        // Build agent executor map
-        const agentExecutors = new Map<string, AgentExecutor>();
-
-        // Add worker reply agent
-        agentExecutors.set('conversational_agent', {
-          agentId: 'conversational_agent',
-          execute: async (state: AgentContextState, userMessage?: string) => {
-            return await this.workerReplyAgent.executeGoal(state.currentNode, state, userMessage);
-          }
-        });
-
-        // Add data extraction agent
-        agentExecutors.set('extraction_agent', {
-          agentId: 'extraction_agent',
-          execute: async (state: AgentContextState, userMessage?: string) => {
-            const currentExchange = userMessage ? { customer: userMessage, agent: '' } : undefined;
-            return await this.dataExtractionAgent.extractAndUpdateContext(state, currentExchange);
-          }
-        });
-
-        // Add MCP agent if needed
-        agentExecutors.set('mcp_agent', {
-          agentId: 'mcp_agent',
-          execute: async (state: AgentContextState) => {
-            return await this.workerMCPAgent.executeGoal(state.currentNode, state);
-          }
-        });
-
-        // Execute agents in parallel
-        const parallelResult = await this.parallelExecutor.executeAgents(
-          executionStrategy,
-          agentExecutors,
-          state,
-          iterations === 1 ? userMessage : undefined
-        );
-
-        console.log(`\n   Execution time: ${parallelResult.executionTimeMs}ms`);
-        console.log(`   Results: ${parallelResult.results.size} agents succeeded`);
-        console.log(`   Errors: ${parallelResult.errors.size} agents failed`);
-
-        // Process results
-        const replyResult = parallelResult.results.get('conversational_agent');
-        const extractionResult = parallelResult.results.get('extraction_agent');
-        const mcpResult = parallelResult.results.get('mcp_agent');
-
-        if (replyResult) {
-          response = replyResult.response || '';
-          console.log(`[ParallelExecution] ✅ Reply agent: "${response.substring(0, 50)}..."`);
-        }
-
-        if (extractionResult) {
-          if (extractionResult.contextUpdates && Object.keys(extractionResult.contextUpdates).length > 0) {
-            contextUpdates = { ...contextUpdates, ...extractionResult.contextUpdates };
-            console.log(`[ParallelExecution] ✅ Extraction agent: ${extractionResult.fieldsUpdated?.length || 0} fields updated`);
-          }
-        }
-
-        if (mcpResult) {
-          if (mcpResult.contextUpdates) {
-            contextUpdates = { ...contextUpdates, ...mcpResult.contextUpdates };
-          }
-          response = mcpResult.statusMessage || response;
-          console.log(`[ParallelExecution] ✅ MCP agent: ${mcpResult.statusMessage}`);
-        }
-
-        // Check for failures
-        if (parallelResult.errors.size > 0) {
-          console.warn(`[ParallelExecution] ⚠️ Some agents failed:`);
-          for (const [agentId, error] of parallelResult.errors.entries()) {
-            console.warn(`   - ${agentId}: ${error.message}`);
-          }
-        }
-
-      } else {
+      try {
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // SEQUENTIAL EXECUTION (original behavior)
+        // STEP 1: Get reply + start MCP execution (both parallel)
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-        // Use goal's primary_agent to determine which agent to use
-        const primaryAgent = (currentGoalConfig as any)?.primary_agent || 'conversational_agent';
-        const fallbackAgent = (currentGoalConfig as any)?.fallback_agent;
-        let agentProfileType = primaryAgent === 'mcp_agent' ? 'worker_mcp_agent' : 'worker_reply_agent';
-
-        console.log(`[AgentOrchestrator] 🎯 Goal: ${state.currentNode}, Primary Agent: ${primaryAgent}${fallbackAgent ? `, Fallback: ${fallbackAgent}` : ''}`);
-
-
-      if (agentProfileType === 'worker_mcp_agent') {
-        // Use WorkerMCPAgent for MCP operations
-        try {
-          const mcpResult = await this.workerMCPAgent.executeGoal(state.currentNode, state);
-          logger.agent('worker_mcp', state.currentNode, mcpResult.statusMessage);
-
-          if (this.VERBOSE_LOGS) {
-            console.log(`\n📝 [WORKER MCP RESULT]`);
-            console.log(`   Status: "${mcpResult.statusMessage}"`);
-            console.log(`   Context Updates: ${JSON.stringify(mcpResult.contextUpdates, null, 2)}`);
-            console.log(`   MCP Executed: ${mcpResult.mcpExecuted}`);
-          }
-
-          response = mcpResult.statusMessage || '';
-          contextUpdates = mcpResult.contextUpdates;
-
-          // Check if MCP agent failed (error in results or no response)
-          if (mcpResult.mcpResults?.error || (!response && Object.keys(contextUpdates).length === 0)) {
-            primaryAgentFailed = true;
-            console.log(`[AgentOrchestrator] ⚠️ Primary MCP agent failed or returned no results`);
-          }
-
-          // Log agent execution
-          await this.logger.logAgentExecution({
-            agentType: 'worker_mcp',
-            nodeName: state.currentNode,
-            result: mcpResult,
-            sessionId: state.sessionId,
-          });
-        } catch (error: any) {
-          primaryAgentFailed = true;
-          console.error(`[AgentOrchestrator] ❌ Primary MCP agent error: ${error.message}`);
-        }
-
-      } else if (agentProfileType === 'worker_reply_agent') {
-        // Use WorkerReplyAgent for customer-facing responses
-        try {
-          const replyResult = await this.workerReplyAgent.executeGoal(
+        const unifiedResult = await this.unifiedGoalAgent.executeGoal(
             state.currentNode,
             state,
             iterations === 1 ? userMessage : undefined
           );
-          logger.agent('worker_reply', state.currentNode, replyResult.response);
 
-          response = replyResult.response;
+          // STEP 2: Reply is available immediately
+          response = unifiedResult.ask_talk_reply_to_customer;
 
-          // Check if reply agent failed (no response)
-          if (!response || response.trim() === '') {
-            primaryAgentFailed = true;
-            console.log(`[AgentOrchestrator] ⚠️ Primary reply agent returned empty response`);
+          console.log(`[UnifiedAgent] 📤 Reply ready: "${response.substring(0, 80)}..."`);
+          console.log(`[UnifiedAgent] ⏳ MCP tools executing in background: ${unifiedResult.commands_to_run.length}`);
+
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          // STEP 3: Customer can receive reply while MCP executes
+          // (In streaming mode, this reply streams to customer immediately)
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+          // STEP 4: Await MCP completion before state transition
+          if (unifiedResult.mcpExecutionPromise) {
+            console.log(`[UnifiedAgent] ⏳ Waiting for MCP completion before state transition...`);
+            const mcpResult = await unifiedResult.mcpExecutionPromise;
+            contextUpdates = mcpResult.contextUpdates || {};
+
+            console.log(`[UnifiedAgent] ✅ MCP execution complete`);
+            console.log(`   Context updates: ${Object.keys(contextUpdates).length} fields`);
+          } else {
+            console.log(`[UnifiedAgent] ✅ No MCP tools to execute`);
           }
 
-          // Log agent execution
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          // STEP 5: Extract customer data from conversation
+          // Run DataExtractionAgent to extract fields like customer.name, customer.phone
+          // ⚠️ CRITICAL: Must run AFTER reply generation to capture customer responses
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          if (response) {
+            console.log(`[UnifiedAgent] 🔍 Running data extraction...`);
+
+            // Build current exchange from user message and agent response
+            const currentExchange = (iterations === 1 && userMessage) ? {
+              customer: userMessage,
+              agent: response
+            } : undefined;
+
+            try {
+              const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(state, currentExchange);
+
+              if (extractionResult.contextUpdates) {
+                // Merge extraction updates with MCP updates
+                contextUpdates = { ...contextUpdates, ...extractionResult.contextUpdates };
+                console.log(`[UnifiedAgent] ✅ Data extraction complete: ${extractionResult.fieldsUpdated?.length || 0} fields updated`);
+
+                if (extractionResult.fieldsUpdated && extractionResult.fieldsUpdated.length > 0) {
+                  console.log(`   Extracted fields: ${extractionResult.fieldsUpdated.join(', ')}`);
+                }
+              }
+            } catch (extractionError: any) {
+              console.error(`[UnifiedAgent] ⚠️ Data extraction failed: ${extractionError.message}`);
+              // Continue execution - extraction failure is not critical
+            }
+          }
+
+          // Log unified agent execution
           await this.logger.logAgentExecution({
-            agentType: 'worker_reply',
+            agentType: 'unified_goal',
             nodeName: state.currentNode,
-            result: replyResult,
+            result: {
+              ...unifiedResult,
+              contextUpdates, // Include final context updates after MCP completion + extraction
+            },
             sessionId: state.sessionId,
           });
         } catch (error: any) {
           primaryAgentFailed = true;
-          console.error(`[AgentOrchestrator] ❌ Primary reply agent error: ${error.message}`);
+          console.error(`[UnifiedAgent] ❌ Execution failed: ${error.message}`);
+          response = "I apologize, but I encountered an issue processing your request. Could you please try again?";
         }
 
-      } else if (agentProfileType === 'internal') {
-        // Internal nodes (wait_for_customers_reply) - no agent execution needed
-        console.log(`[AgentOrchestrator] ⏸️  Internal node - skipping agent execution`);
-
-      } else if (agentProfileType === 'summarizer_agent') {
-        // Summarizer agent - could be implemented later
-        console.log(`[AgentOrchestrator] 📋 Summarizer node - skipping for now`);
-
-      } else {
-        console.warn(`[AgentOrchestrator] ⚠️  Unknown agent_profile_type: ${agentProfileType}`);
-      }
-
-      // FALLBACK AGENT: If primary agent failed and fallback is configured, try fallback agent
-      if (primaryAgentFailed && fallbackAgent) {
-        console.log(`\n🔄 [FALLBACK AGENT TRIGGERED]`);
-        console.log(`   Primary agent (${primaryAgent}) failed, trying fallback: ${fallbackAgent}`);
-
-        const fallbackAgentType = fallbackAgent === 'mcp_agent' ? 'worker_mcp_agent' : 'worker_reply_agent';
-
-        try {
-          if (fallbackAgentType === 'worker_mcp_agent') {
-            const mcpResult = await this.workerMCPAgent.executeGoal(state.currentNode, state);
-            response = mcpResult.statusMessage || '';
-            contextUpdates = mcpResult.contextUpdates;
-            console.log(`[AgentOrchestrator] ✅ Fallback MCP agent succeeded`);
-
-            await this.logger.logAgentExecution({
-              agentType: 'worker_mcp',
-              nodeName: `${state.currentNode}_fallback`,
-              result: mcpResult,
-              sessionId: state.sessionId,
-            });
-          } else if (fallbackAgentType === 'worker_reply_agent') {
-            const replyResult = await this.workerReplyAgent.executeGoal(
-              state.currentNode,
-              state,
-              iterations === 1 ? userMessage : undefined
-            );
-            response = replyResult.response;
-            console.log(`[AgentOrchestrator] ✅ Fallback reply agent succeeded`);
-
-            await this.logger.logAgentExecution({
-              agentType: 'worker_reply',
-              nodeName: `${state.currentNode}_fallback`,
-              result: replyResult,
-              sessionId: state.sessionId,
-            });
-          }
-        } catch (fallbackError: any) {
-          console.error(`[AgentOrchestrator] ❌ Fallback agent also failed: ${fallbackError.message}`);
-          // Use a default response if both agents fail
-          response = "I apologize, but I'm having trouble processing your request. Could you please try rephrasing?";
-        }
-      }
-
-      // Log full AI response for log parsing
-      if (response) {
-        console.log(`[AgentOrchestrator] 🤖 AI_RESPONSE: ${response}`);
-      }
-
-      } // End of parallel/sequential execution conditional
 
       // ✅ REMOVED: No longer add to messages array - conversation tracked in summary_of_conversation_on_each_step_until_now
       // Assistant response will be added to summary after worker execution (lines 543-566)
@@ -801,51 +655,6 @@ export class AgentOrchestratorService {
         state = this.contextManager.updateContext(state, contextUpdates);
       }
 
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // STEP: Call DataExtractionAgent AFTER worker agents complete
-      // This agent analyzes conversation and extracts missing context fields
-      // ✅ FIX: Pass current exchange to avoid stale context issues
-      // ⚡ SKIP if parallel execution already ran extraction agent
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // Skip extraction if we used parallel execution (extraction already ran in parallel)
-      const usedParallelExecution = executionStrategy && executionStrategy.mode !== 'sequential';
-
-      if (!usedParallelExecution && response) {
-        // Build current exchange from latest user message and agent response
-        const currentExchange = (iterations === 1 && userMessage && response) ? {
-          customer: userMessage,
-          agent: response
-        } : undefined;
-
-        const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(state, currentExchange);
-
-        if (extractionResult.fieldsUpdated && extractionResult.fieldsUpdated.length > 0) {
-          logger.extraction(extractionResult.fieldsUpdated);
-
-          if (this.VERBOSE_LOGS) {
-            console.log(`\n📊 [DATA EXTRACTION RESULT]`);
-            console.log(`   Extraction Reason: ${extractionResult.extractionReason}`);
-            console.log(`   Fields Updated: ${extractionResult.fieldsUpdated.join(', ')}`);
-            console.log(`   Context Updates: ${JSON.stringify(extractionResult.contextUpdates, null, 2)}`);
-          }
-
-          // Merge extraction results into context
-          state = this.contextManager.updateContext(state, extractionResult.contextUpdates || {});
-
-          // CRITICAL: Write context to persistent JSON file immediately after extraction
-          await this.writeContextFile(state, `extraction:${extractionResult.fieldsUpdated.join(',')}`);
-
-          // Log extraction to llm.log
-          await this.logger.logAgentExecution({
-            agentType: 'data_extraction',
-            nodeName: state.currentNode,
-            result: extractionResult,
-            sessionId: state.sessionId,
-          });
-        } else {
-          console.log(`   No new fields extracted`);
-        }
-      }
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
       // Log conversation turn to llm.log (only on first iteration)
@@ -1181,12 +990,12 @@ export class AgentOrchestratorService {
               console.log(`   Template: "${step.message_template}"`);
 
               try {
-                const goodbyeResult = await this.workerReplyAgent.executeGoal(
+                const goodbyeResult = await this.unifiedGoalAgent.executeGoal(
                   nextNodeOrGoal,
                   state,
                   undefined
                 );
-                goodbyeMessage = goodbyeResult.response || step.message_template || 'Thank you! Goodbye!';
+                goodbyeMessage = goodbyeResult.ask_talk_reply_to_customer || step.message_template || 'Thank you! Goodbye!';
                 console.log(`   ✅ Goodbye message generated: "${goodbyeMessage}"`);
 
                 // Add goodbye message to conversation summary
@@ -1206,12 +1015,12 @@ export class AgentOrchestratorService {
               console.log(`   Tool: ${step.required_tool}`);
 
               try {
-                const mcpResult = await this.workerMCPAgent.executeGoal(nextNodeOrGoal, state);
+                const mcpResult = await this.unifiedGoalAgent.executeGoal(nextNodeOrGoal, state);
                 console.log(`   ✅ MCP hangup executed successfully`);
 
                 // Log MCP execution
                 await this.logger.logAgentExecution({
-                  agentType: 'worker_mcp',
+                  agentType: 'unified_goal',
                   nodeName: `${nextNodeOrGoal}_hangup`,
                   result: mcpResult,
                   sessionId: state.sessionId,
