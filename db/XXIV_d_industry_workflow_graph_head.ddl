@@ -9,22 +9,11 @@
 -- the sequence of business events and which entities get created at each stage.
 -- Examples: Lead → Customer → Quote → Work Order → Task → Invoice → Payment
 --
--- DATABASE BEHAVIOR:
--- • CREATE: INSERT with version=1, active_flag=true, active_workflow_flag=true
---   Example: INSERT INTO d_industry_workflow_graph_head (id, code, name, industry_sector, workflow_graph)
---            VALUES ('550e8400-...', 'HS_STD', 'Home Services Standard', 'home_services', '[...]'::jsonb)
---
--- • UPDATE: Same ID persists, version increments, updated_ts refreshes
---   Example: UPDATE d_industry_workflow_graph_head SET workflow_graph='[...]'::jsonb, version=version+1
---            WHERE id='550e8400-...'
---
--- • SOFT DELETE: active_flag=false, to_ts=now() (rarely used, affects historical workflows)
---   Example: UPDATE d_industry_workflow_graph_head SET active_flag=false, to_ts=now()
---            WHERE id='550e8400-...'
---
--- • QUERY: Get active templates by industry
---   Example: SELECT * FROM d_industry_workflow_graph_head
---            WHERE active_flag=true AND active_workflow_flag=true AND industry_sector='home_services'
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/workflow-template, INSERT with version=1, active_flag=true
+-- • UPDATE: PUT /api/v1/workflow-template/{id}, same ID, version++, updated_ts refreshes
+-- • DELETE: DELETE /api/v1/workflow-template/{id}, active_flag=false, to_ts=now() (soft delete)
+-- • LIST: GET /api/v1/workflow-template, filters by industry_sector/active_workflow_flag, RBAC enforced
 --
 -- KEY FIELDS:
 -- • id: uuid PRIMARY KEY (stable, never changes)
@@ -94,7 +83,7 @@ CREATE TABLE app.d_industry_workflow_graph_head (
 );
 
 -- =====================================================
--- CURATED SEED DATA
+-- DATA CURATION:
 -- =====================================================
 
 -- Home Services Standard Workflow

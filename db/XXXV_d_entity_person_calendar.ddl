@@ -20,24 +20,13 @@
 -- 4. QUERY AVAILABILITY: Find open slots by filtering availability_flag=true
 -- 5. CANCEL BOOKING: Set availability_flag=true, clear event_id
 --
--- DATABASE BEHAVIOR:
--- • SEED: Pre-populate with 15-minute intervals for all active employees (9am-8pm, next 5 days)
---   Example: Employee ID '8260b1b0-...' gets slots:
---            2025-11-06 09:00-09:15, 09:15-09:30, ..., 19:45-20:00 (all availability_flag=true)
---            Repeated for 5 days
---
--- • BOOK: When customer/employee books, update matching slot(s):
---   Example: UPDATE d_entity_person_calendar
---            SET availability_flag=false,
---                event_id='<event-uuid>'
---            WHERE person_entity_id='emp-uuid'
---              AND from_ts >= '2025-11-06 14:00' AND to_ts <= '2025-11-06 16:00'
---
--- • CANCEL: Set availability_flag=true, clear event_id
---   Example: UPDATE d_entity_person_calendar
---            SET availability_flag=true,
---                event_id=NULL
---            WHERE event_id='<event-uuid>'
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/calendar-slot, INSERT 15-minute slots with availability_flag=true
+-- • UPDATE: PUT /api/v1/calendar-slot/{id}, book/unbook slots, update availability_flag
+-- • DELETE: DELETE /api/v1/calendar-slot/{id}, active_flag=false (soft delete)
+-- • LIST: GET /api/v1/calendar-slot, filters by person_entity_id/availability_flag/date range, RBAC enforced
+-- • BOOK: POST /api/v1/calendar-slot/book, set availability_flag=false and link event_id
+-- • CANCEL: POST /api/v1/calendar-slot/cancel, set availability_flag=true and clear event_id
 --
 -- KEY FIELDS:
 -- • id: uuid PRIMARY KEY (stable identifier)
@@ -207,7 +196,7 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION app.generate_calendar_slots IS 'Generate 15-minute calendar slots (9am-8pm) for a person across date range';
 
 -- =====================================================
--- SAMPLE DATA: Generate slots for next 5 days for key employees
+-- DATA CURATION:
 -- =====================================================
 
 DO $$
