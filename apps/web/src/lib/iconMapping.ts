@@ -24,6 +24,9 @@ import {
   Wrench,
   ClipboardCheck,
   Calendar,
+  Network,
+  MessageSquare,
+  GitBranch,
   type LucideIcon
 } from 'lucide-react';
 
@@ -50,6 +53,9 @@ const iconMap: Record<string, LucideIcon> = {
   'Wrench': Wrench,
   'ClipboardCheck': ClipboardCheck,
   'Calendar': Calendar,
+  'Network': Network,
+  'MessageSquare': MessageSquare,
+  'GitBranch': GitBranch,
 };
 
 /**
