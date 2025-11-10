@@ -8,13 +8,15 @@ import { CalendarEventPopover } from './CalendarEventPopover';
  * CalendarView Component with Drag-and-Drop
  *
  * Displays calendar slots in a weekly calendar grid format with person entity filtering.
- * Designed for the person-calendar entity to show availability and bookings.
+ * Designed for the person-calendar entity to show booked events only.
  *
  * Features:
  * - Week-based calendar view
  * - Multi-select person filter with checkboxes (employees, customers)
  * - Collapsible sidebar for person selection
- * - Color-coded availability (green=available, red=booked)
+ * - Shows only booked events (availability_flag = false) for selected people
+ * - Empty calendar until user selects at least one person
+ * - Color-coded by person type (blue=employee, purple=customer)
  * - Drag-and-drop to create new events
  * - Drag-and-drop to move existing events
  * - Click to edit event details
@@ -136,11 +138,8 @@ export function CalendarView({
 
         setPeople(allPeople);
 
-        // Auto-select first few people
-        if (allPeople.length > 0) {
-          const initialSelected = new Set(allPeople.slice(0, Math.min(3, allPeople.length)).map(p => p.id));
-          setSelectedPersonIds(initialSelected);
-        }
+        // Start with empty selection - user must explicitly select people
+        setSelectedPersonIds(new Set());
       } catch (error) {
         console.error('Failed to fetch people:', error);
       } finally {
@@ -193,10 +192,13 @@ export function CalendarView({
     });
   };
 
-  // Filter data by selected people
+  // Filter data by selected people and show only booked events
   const filteredData = useMemo(() => {
-    if (selectedPersonIds.size === 0) return data;
-    return data.filter(slot => selectedPersonIds.has(slot.person_entity_id));
+    if (selectedPersonIds.size === 0) return [];
+    return data.filter(slot =>
+      selectedPersonIds.has(slot.person_entity_id) &&
+      slot.availability_flag === false // Only show booked events
+    );
   }, [data, selectedPersonIds]);
 
   // Group people by type
@@ -745,7 +747,7 @@ export function CalendarView({
                 {selectedPersonIds.size} {selectedPersonIds.size === 1 ? 'person' : 'people'} selected
               </span>
               <span className="text-xs text-dark-700 ml-2">
-                (Click events to view • Drag empty slots to create • Drag events to reschedule)
+                (Showing booked events only • Select person(s) to view their calendar)
               </span>
             </div>
 
@@ -900,10 +902,6 @@ export function CalendarView({
           {/* Legend */}
           <div className="flex items-center gap-4 text-xs text-dark-700 flex-wrap">
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-green-100 border border-green-200 rounded" />
-              <span>Available</span>
-            </div>
-            <div className="flex items-center gap-1">
               <div className="w-3 h-3 bg-blue-100 border border-blue-200 rounded" />
               <span>Employee Booked</span>
             </div>
@@ -911,21 +909,26 @@ export function CalendarView({
               <div className="w-3 h-3 bg-purple-100 border border-purple-300 rounded" />
               <span>Customer Booked</span>
             </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-blue-100 border border-blue-400 rounded" />
-              <span>Drag Selection</span>
-            </div>
           </div>
 
           {/* Empty State */}
           {filteredData.length === 0 && (
             <div className="text-center py-12">
               <CalendarIcon className="h-12 w-12 text-dark-400 mx-auto mb-3" />
-              <p className="text-dark-600 text-sm">{emptyMessage}</p>
-              {selectedPersonIds.size > 0 && (
-                <p className="text-dark-700 text-xs mt-1">
-                  No calendar slots found for the selected {selectedPersonIds.size === 1 ? 'person' : 'people'}
-                </p>
+              {selectedPersonIds.size === 0 ? (
+                <>
+                  <p className="text-dark-600 text-sm font-medium">Select a person to view their calendar</p>
+                  <p className="text-dark-700 text-xs mt-1">
+                    Use the sidebar to select employees or customers
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-dark-600 text-sm">{emptyMessage}</p>
+                  <p className="text-dark-700 text-xs mt-1">
+                    No booked events found for the selected {selectedPersonIds.size === 1 ? 'person' : 'people'}
+                  </p>
+                </>
               )}
             </div>
           )}
