@@ -345,6 +345,12 @@ export class AgentOrchestratorService {
           current_node: 'GREET_CUSTOMER',
           auth_metadata: { authToken: args.authToken },
         });
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // WARM UP INITIAL GOAL SESSION (reduces first-message latency)
+        // Loads agent profile, MCP tools, and goal context into memory
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        this.unifiedGoalAgent.warmUpGoalSession(state.currentNode, sessionId, state);
       } else {
         // Existing session - load from cache or database
         console.log(`\n[AgentOrchestrator] 📂 Resuming streaming session ${sessionId}`);
@@ -472,6 +478,12 @@ export class AgentOrchestratorService {
         // Update current goal
         state = this.contextManager.updateCurrentNode(state, transitionResult.nextGoal);
         console.log(`[AgentOrchestrator] ✅ Goal transitioned: ${state.currentNode}`);
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // WARM UP NEW GOAL SESSION IMMEDIATELY (reduces first-message latency)
+        // Loads agent profile, MCP tools, and goal context into memory
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        this.unifiedGoalAgent.warmUpGoalSession(state.currentNode, state.sessionId, state);
       }
 
       // Save state (now includes potentially updated goal)

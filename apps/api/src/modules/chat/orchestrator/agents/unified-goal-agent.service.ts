@@ -198,6 +198,25 @@ export class UnifiedGoalAgent {
   }
 
   /**
+   * Warm up (pre-initialize) conversation session for a goal
+   * Called immediately on goal transition to reduce first-message latency
+   * Loads agent profile, MCP tools, and goal context into memory
+   */
+  warmUpGoalSession(goalId: string, sessionId: string, state: AgentContextState): void {
+    const conversationKey = `${sessionId}_${goalId}`;
+
+    // Check if already initialized
+    if (this.goalConversations.has(conversationKey)) {
+      console.log(`[UnifiedGoalAgent] ♨️  Session already warm for goal: ${goalId}`);
+      return;
+    }
+
+    // Proactively initialize conversation (loads MCP tools + agent profile)
+    this.getOrInitializeConversation(goalId, sessionId, state);
+    console.log(`[UnifiedGoalAgent] 🔥 Warmed up session for goal: ${goalId} (MCP tools + agent profile loaded)`);
+  }
+
+  /**
    * Clear all conversations for a session (on session end)
    */
   clearSessionConversations(sessionId: string): void {
