@@ -391,3 +391,27 @@ VALUES (
   '[]'::jsonb,
   210
 );
+
+-- Event entity type (Universal parent - can have many child entities)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'event',
+  'Event',
+  'Events',
+  'Calendar',
+  '[
+    {"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1},
+    {"entity": "project", "ui_icon": "FolderOpen", "ui_label": "Projects", "order": 2},
+    {"entity": "service", "ui_icon": "Wrench", "ui_label": "Services", "order": 3},
+    {"entity": "cust", "ui_icon": "Users", "ui_label": "Customers", "order": 4},
+    {"entity": "employee", "ui_icon": "Users", "ui_label": "Employees", "order": 5},
+    {"entity": "business", "ui_icon": "Building2", "ui_label": "Businesses", "order": 6}
+  ]'::jsonb,
+  215
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  child_entities = EXCLUDED.child_entities,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();

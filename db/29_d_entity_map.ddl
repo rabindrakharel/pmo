@@ -12,6 +12,7 @@
 -- PARENT-CHILD ENTITY RELATIONSHIPS:
 --   PARENT ENTITY     → CHILD ENTITIES
 --   =====================================
+--   event             → task, project, service, cust, employee, business, artifact, form, wiki, office
 --   business (biz)    → project
 --   project           → task, artifact, wiki, form
 --   office            → task, artifact, wiki, form
@@ -83,3 +84,17 @@ INSERT INTO app.d_entity_map (id, parent_entity_type, child_entity_type) VALUES
 -- Form → Artifact
 INSERT INTO app.d_entity_map (id, parent_entity_type, child_entity_type) VALUES
 ('77777777-0000-0000-0000-000000000001', 'form', 'artifact');
+
+-- Event → Task, Project, Service, Customer, Employee, Business, Supplier, Equipment
+-- Event is a universal parent entity that can be linked to any entity type
+INSERT INTO app.d_entity_map (id, parent_entity_type, child_entity_type) VALUES
+('88888888-0000-0000-0000-000000000001', 'event', 'task'),
+('88888888-0000-0000-0000-000000000002', 'event', 'project'),
+('88888888-0000-0000-0000-000000000003', 'event', 'service'),
+('88888888-0000-0000-0000-000000000004', 'event', 'cust'),
+('88888888-0000-0000-0000-000000000005', 'event', 'employee'),
+('88888888-0000-0000-0000-000000000006', 'event', 'business'),
+('88888888-0000-0000-0000-000000000007', 'event', 'artifact'),
+('88888888-0000-0000-0000-000000000008', 'event', 'form'),
+('88888888-0000-0000-0000-000000000009', 'event', 'wiki'),
+('88888888-0000-0000-0000-000000000010', 'event', 'office');

@@ -29,6 +29,7 @@
 -- • UNIQUE(parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
 --
 -- VALID RELATIONSHIPS:
+-- • event → task, project, service, cust, employee, business, artifact, form, wiki, office
 -- • business → project
 -- • project → task, wiki, artifact, form, cost, revenue
 -- • office → business, task, artifact, wiki, form, cost, revenue
@@ -144,3 +145,45 @@ VALUES
     ('task', 'd1111111-1111-1111-1111-111111111111', 'work_order', 'w3333331-3333-3333-3333-333333333331', 'contains'),
     ('task', 'e1111111-1111-1111-1111-111111111111', 'work_order', 'w4444441-4444-4444-4444-444444444441', 'contains'),
     ('task', 'b2222222-2222-2222-2222-222222222222', 'work_order', 'w5555551-5555-5555-5555-555555555551', 'contains');
+
+-- Event → Entity relationships
+-- Events are universal parent entities that can be linked to multiple entity types
+-- Example: HVAC Consultation event linked to project, customer, employee
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+SELECT 'event', e.id::text, 'project', '93106ffb-402e-43a7-8b26-5287e37a1b0e'::text, 'relates_to'
+FROM app.d_event e
+WHERE e.code = 'EVT-HVAC-001'
+ON CONFLICT (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id) DO NOTHING;
+
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+SELECT 'event', e.id::text, 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'::text, 'assigned_to'
+FROM app.d_event e
+WHERE e.code = 'EVT-HVAC-001'
+ON CONFLICT (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id) DO NOTHING;
+
+-- Example: Virtual Project Review event linked to project, task
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+SELECT 'event', e.id::text, 'project', p.id::text, 'relates_to'
+FROM app.d_event e
+CROSS JOIN app.d_project p
+WHERE e.code = 'EVT-PROJ-002'
+  AND p.code = 'PROJ-004'
+ON CONFLICT (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id) DO NOTHING;
+
+INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+SELECT 'event', e.id::text, 'task', t.id::text, 'relates_to'
+FROM app.d_event e
+CROSS JOIN app.d_task t
+WHERE e.code = 'EVT-PROJ-002'
+  AND t.code = 'TASK-001'
+ON CONFLICT (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id) DO NOTHING;
+
+-- Example: Emergency Service event linked to service (if service entity exists)
+-- Note: Add more linkages as services are created
+-- INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+-- SELECT 'event', e.id::text, 'service', s.id::text, 'provides'
+-- FROM app.d_event e
+-- CROSS JOIN app.d_service s
+-- WHERE e.code = 'EVT-EMERG-003'
+--   AND s.code = 'SVC-PLUMBING-001'
+-- ON CONFLICT (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id) DO NOTHING;
