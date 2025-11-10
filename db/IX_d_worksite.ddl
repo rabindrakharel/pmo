@@ -8,10 +8,10 @@
 -- • Categories: headquarters, branch, project, storage, seasonal
 --
 -- OPERATIONS:
--- • CREATE: INSERT with version=1, active_flag=true
--- • UPDATE: Same ID, version++, in-place
--- • DELETE: active_flag=false, to_ts=now()
--- • LIST: Filter by worksite_type, geocoding
+-- • CREATE: POST /api/v1/worksite, INSERT with version=1, active_flag=true
+-- • UPDATE: PUT /api/v1/worksite/{id}, same ID, version++, updated_ts refreshes
+-- • DELETE: DELETE /api/v1/worksite/{id}, active_flag=false, to_ts=now() (soft delete)
+-- • LIST: GET /api/v1/worksite, filters by worksite_type/geocoding, RBAC enforced
 --
 -- KEY FIELDS:
 -- • id: uuid PRIMARY KEY

@@ -8,9 +8,10 @@
 -- • Self-referencing hierarchy with dl__position_level
 --
 -- OPERATIONS:
--- • CREATE: INSERT with version=1, active_flag=true
--- • UPDATE: Same ID, version++, in-place
--- • DELETE: active_flag=false, to_ts=now()
+-- • CREATE: POST /api/v1/position, INSERT with version=1, active_flag=true
+-- • UPDATE: PUT /api/v1/position/{id}, same ID, version++, updated_ts refreshes
+-- • DELETE: DELETE /api/v1/position/{id}, active_flag=false, to_ts=now() (soft delete)
+-- • LIST: GET /api/v1/position, filters by dl__position_level, RBAC enforced
 -- • HIERARCHY: Recursive CTE on parent_id
 --
 -- KEY FIELDS:
