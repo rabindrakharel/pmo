@@ -504,74 +504,74 @@ export function SettingsOverviewPage() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Compact header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2.5">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Modern header with gradient and better spacing */}
+        <div className="mb-8">
+          <div className="flex items-center gap-4">
             <button
               onClick={exitSettingsMode}
-              className="p-1.5 rounded-lg text-dark-600 hover:text-dark-600 hover:bg-dark-100 transition-all"
+              className="p-2 rounded-lg text-dark-700 hover:bg-dark-200 transition-all hover:scale-105"
               title="Exit Settings"
             >
-              <LucideIcons.ArrowLeft className="h-4 w-4 stroke-[1.5]" />
+              <LucideIcons.ArrowLeft className="h-5 w-5 stroke-[2]" />
             </button>
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-gradient-to-br from-dark-100 to-dark-200 rounded-lg border border-dark-300">
-                <LucideIcons.Settings className="h-5 w-5 text-dark-600 stroke-[1.5]" />
+            <div className="flex items-center gap-3.5">
+              <div className="p-2.5 bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl border border-purple-200 shadow-sm">
+                <LucideIcons.Settings className="h-6 w-6 text-purple-600 stroke-[1.5]" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-dark-600">Settings</h1>
-                <p className="text-xs text-dark-700">Manage configuration and data labels</p>
+                <h1 className="text-xl font-bold text-dark-700 tracking-tight">Settings</h1>
+                <p className="text-sm text-dark-600 mt-0.5">Manage your system configuration and data labels</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Compact Configuration Section */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
+        {/* Configuration Section - Enhanced */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
             <button
               onClick={() => setConfigExpanded(!configExpanded)}
-              className="flex items-center gap-2 hover:opacity-70 transition-opacity"
+              className="flex items-center gap-2.5 hover:opacity-80 transition-all group"
             >
-              <h2 className="text-sm font-semibold text-dark-600">Configuration</h2>
-              <span className="px-1.5 py-0.5 text-xs font-medium text-dark-700 bg-dark-100 rounded-full">
+              <h2 className="text-base font-bold text-dark-700 tracking-tight">Configuration</h2>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200">
                 {filteredMainSettings.length}
               </span>
-              <LucideIcons.ChevronDown className={`h-4 w-4 text-dark-700 transition-transform ${configExpanded ? '' : '-rotate-90'}`} />
+              <LucideIcons.ChevronDown className={`h-4 w-4 text-dark-600 transition-transform duration-200 group-hover:text-dark-700 ${configExpanded ? 'rotate-0' : '-rotate-90'}`} />
             </button>
             {configExpanded && (
-              <div className="relative w-56">
-                <LucideIcons.Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-dark-600" />
+              <div className="relative w-64">
+                <LucideIcons.Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-600" />
                 <input
                   type="text"
-                  placeholder="Search..."
+                  placeholder="Search configuration..."
                   value={mainSearchQuery}
                   onChange={(e) => setMainSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs border border-dark-300 rounded-lg bg-dark-100 focus:outline-none focus:ring-2 focus:ring-dark-700/50 focus:border-dark-400 transition-all"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-dark-300 rounded-lg bg-dark-100 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 transition-all placeholder:text-dark-500"
                 />
               </div>
             )}
           </div>
           {configExpanded && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredMainSettings.map((card) => {
               const IconComponent = card.icon;
               return (
                 <button
                   key={card.href}
                   onClick={() => navigate(card.href)}
-                  className="group bg-dark-100 border border-dark-300 rounded-lg p-3.5 hover:border-dark-400 hover:shadow-md transition-all text-left"
+                  className="group bg-dark-100 border border-dark-300 rounded-xl p-4 hover:border-purple-400 hover:shadow-lg transition-all duration-200 text-left hover:scale-[1.02]"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-gradient-to-br from-dark-100 to-dark-200 rounded-md group-hover:from-dark-50 group-hover:to-dark-100 transition-all">
-                      <IconComponent className="h-4 w-4 text-dark-700 stroke-[1.5]" />
+                  <div className="flex items-start gap-3.5">
+                    <div className="p-2.5 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg group-hover:from-purple-100 group-hover:to-blue-100 transition-all duration-200 border border-purple-200 group-hover:border-purple-300">
+                      <IconComponent className="h-5 w-5 text-purple-600 stroke-[1.5]" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-dark-600 mb-0.5 group-hover:text-dark-600 transition-colors">
+                      <h3 className="text-sm font-bold text-dark-700 mb-1 group-hover:text-purple-700 transition-colors">
                         {card.title}
                       </h3>
-                      <p className="text-xs text-dark-700 line-clamp-2">{card.description}</p>
+                      <p className="text-xs text-dark-600 line-clamp-2 leading-relaxed">{card.description}</p>
                     </div>
                   </div>
                 </button>
@@ -580,63 +580,65 @@ export function SettingsOverviewPage() {
             </div>
           )}
           {configExpanded && filteredMainSettings.length === 0 && (
-            <div className="text-center py-8 bg-dark-100 rounded-lg border border-dark-300">
-              <LucideIcons.Search className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-              <p className="text-xs text-dark-700">No results for "{mainSearchQuery}"</p>
+            <div className="flex flex-col items-center justify-center py-12 bg-dark-100 rounded-xl border border-dark-300">
+              <LucideIcons.Search className="h-10 w-10 text-dark-500 mb-3" />
+              <p className="text-sm font-medium text-dark-700">No results found</p>
+              <p className="text-xs text-dark-600 mt-1">Try a different search term</p>
             </div>
           )}
         </div>
 
-        {/* Entities Section */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
+        {/* Entities Section - Enhanced */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
             <button
               onClick={() => setEntitiesExpanded(!entitiesExpanded)}
-              className="flex items-center gap-2 hover:opacity-70 transition-opacity"
+              className="flex items-center gap-2.5 hover:opacity-80 transition-all group"
             >
-              <h2 className="text-sm font-semibold text-dark-600">Entities</h2>
-              <span className="px-1.5 py-0.5 text-xs font-medium text-dark-700 bg-dark-100 rounded-full">
+              <h2 className="text-base font-bold text-dark-700 tracking-tight">Entities</h2>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
                 {entities.length}
               </span>
-              <LucideIcons.ChevronDown className={`h-4 w-4 text-dark-700 transition-transform ${entitiesExpanded ? '' : '-rotate-90'}`} />
+              <LucideIcons.ChevronDown className={`h-4 w-4 text-dark-600 transition-transform duration-200 group-hover:text-dark-700 ${entitiesExpanded ? 'rotate-0' : '-rotate-90'}`} />
             </button>
             {entitiesExpanded && (
-              <div className="relative w-56">
-                <LucideIcons.Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-dark-600" />
+              <div className="relative w-64">
+                <LucideIcons.Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-600" />
                 <input
                   type="text"
-                  placeholder="Search..."
+                  placeholder="Search entities..."
                   value={entitiesSearchQuery}
                   onChange={(e) => setEntitiesSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs border border-dark-300 rounded-lg bg-dark-100 focus:outline-none focus:ring-2 focus:ring-dark-700/50 focus:border-dark-400 transition-all"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-dark-300 rounded-lg bg-dark-100 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition-all placeholder:text-dark-500"
                 />
               </div>
             )}
           </div>
 
           {entitiesExpanded && entitiesLoading ? (
-            <div className="text-center py-10 bg-dark-100 rounded-lg border border-dark-300">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-dark-300 border-t-gray-400"></div>
-              <p className="text-xs text-dark-700 mt-2 font-medium">Loading...</p>
+            <div className="flex flex-col items-center justify-center py-16 bg-dark-100 rounded-xl border border-dark-300">
+              <div className="inline-block animate-spin rounded-full h-10 w-10 border-3 border-dark-300 border-t-green-500"></div>
+              <p className="text-sm font-medium text-dark-700 mt-4">Loading entities...</p>
             </div>
           ) : entitiesExpanded && filteredEntities.length === 0 && !isAddingEntity ? (
-            <div className="text-center py-8 bg-dark-100 rounded-lg border border-dark-300">
-              <LucideIcons.Tag className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-              <p className="text-xs text-dark-700">No entities found</p>
+            <div className="flex flex-col items-center justify-center py-12 bg-dark-100 rounded-xl border border-dark-300">
+              <LucideIcons.Tag className="h-10 w-10 text-dark-500 mb-3" />
+              <p className="text-sm font-medium text-dark-700">No entities found</p>
+              <p className="text-xs text-dark-600 mt-1">Try adjusting your search</p>
             </div>
           ) : entitiesExpanded ? (
-            <div className="bg-dark-100 border border-dark-300 rounded-lg overflow-hidden shadow-sm">
-              <table className="min-w-full divide-y divide-dark-400">
-                <thead className="bg-dark-100/80">
+            <div className="bg-dark-100 border border-dark-300 rounded-xl overflow-hidden shadow-sm">
+              <table className="min-w-full divide-y divide-dark-300">
+                <thead className="bg-dark-50">
                   <tr className="border-b border-dark-300">
-                    <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-dark-700 uppercase tracking-wider">Code</th>
-                    <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-dark-700 uppercase tracking-wider">Name</th>
-                    <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-dark-700 uppercase tracking-wider">UI Label</th>
-                    <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-dark-700 uppercase tracking-wider">Icon</th>
-                    <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-dark-700 uppercase tracking-wider">Order</th>
-                    <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-dark-700 uppercase tracking-wider">Enabled</th>
-                    <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-dark-700 uppercase tracking-wider">Children</th>
-                    <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-dark-700 uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-3.5 text-left text-[10px] font-bold text-dark-700 uppercase tracking-wider">Code</th>
+                    <th className="px-4 py-3.5 text-left text-[10px] font-bold text-dark-700 uppercase tracking-wider">Name</th>
+                    <th className="px-4 py-3.5 text-left text-[10px] font-bold text-dark-700 uppercase tracking-wider">UI Label</th>
+                    <th className="px-4 py-3.5 text-left text-[10px] font-bold text-dark-700 uppercase tracking-wider">Icon</th>
+                    <th className="px-4 py-3.5 text-center text-[10px] font-bold text-dark-700 uppercase tracking-wider">Order</th>
+                    <th className="px-4 py-3.5 text-center text-[10px] font-bold text-dark-700 uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3.5 text-left text-[10px] font-bold text-dark-700 uppercase tracking-wider">Children</th>
+                    <th className="px-4 py-3.5 text-center text-[10px] font-bold text-dark-700 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-dark-100 divide-y divide-dark-300">
@@ -1050,36 +1052,37 @@ export function SettingsOverviewPage() {
           ) : null}
         </div>
 
-        {/* Compact Data Labels Section */}
+        {/* Data Labels Section - Enhanced */}
         <div>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-4">
             <button
               onClick={() => setDataLabelsExpanded(!dataLabelsExpanded)}
-              className="flex items-center gap-2 hover:opacity-70 transition-opacity"
+              className="flex items-center gap-2.5 hover:opacity-80 transition-all group"
             >
-              <h2 className="text-sm font-semibold text-dark-600">Data Labels</h2>
-              <span className="px-1.5 py-0.5 text-xs font-medium text-dark-700 bg-dark-100 rounded-full">
+              <h2 className="text-base font-bold text-dark-700 tracking-tight">Data Labels</h2>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
                 {datalabelSettings.length}
               </span>
-              <LucideIcons.ChevronDown className={`h-4 w-4 text-dark-700 transition-transform ${dataLabelsExpanded ? '' : '-rotate-90'}`} />
+              <LucideIcons.ChevronDown className={`h-4 w-4 text-dark-600 transition-transform duration-200 group-hover:text-dark-700 ${dataLabelsExpanded ? 'rotate-0' : '-rotate-90'}`} />
             </button>
             {dataLabelsExpanded && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <button
                   onClick={() => handleOpenAddModal()}
-                  className="p-1.5 rounded-md text-dark-700 hover:text-dark-700 hover:bg-dark-100 transition-all"
-                  title="Add New Datalabel or Entity"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 border border-blue-600 hover:shadow-md transition-all"
+                  title="Add New Datalabel"
                 >
-                  <LucideIcons.Plus className="h-4 w-4 stroke-[2]" />
+                  <LucideIcons.Plus className="h-4 w-4 stroke-[2.5]" />
+                  <span>New Label</span>
                 </button>
-                <div className="relative w-56">
-                  <LucideIcons.Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-dark-600" />
+                <div className="relative w-64">
+                  <LucideIcons.Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-600" />
                   <input
                     type="text"
-                    placeholder="Search..."
+                    placeholder="Search data labels..."
                     value={dataLabelsSearchQuery}
                     onChange={(e) => setDataLabelsSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-dark-300 rounded-lg bg-dark-100 focus:outline-none focus:ring-2 focus:ring-dark-700/50 focus:border-dark-400 transition-all"
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-dark-300 rounded-lg bg-dark-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all placeholder:text-dark-500"
                   />
                 </div>
               </div>
@@ -1087,14 +1090,15 @@ export function SettingsOverviewPage() {
           </div>
 
           {dataLabelsExpanded && loading ? (
-            <div className="text-center py-10 bg-dark-100 rounded-lg border border-dark-300">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-dark-300 border-t-gray-400"></div>
-              <p className="text-xs text-dark-700 mt-2 font-medium">Loading...</p>
+            <div className="flex flex-col items-center justify-center py-16 bg-dark-100 rounded-xl border border-dark-300">
+              <div className="inline-block animate-spin rounded-full h-10 w-10 border-3 border-dark-300 border-t-blue-500"></div>
+              <p className="text-sm font-medium text-dark-700 mt-4">Loading data labels...</p>
             </div>
           ) : dataLabelsExpanded && Object.keys(groupedDataLabels).length === 0 ? (
-            <div className="text-center py-8 bg-dark-100 rounded-lg border border-dark-300">
-              <LucideIcons.Tag className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-              <p className="text-xs text-dark-700">No results for "{dataLabelsSearchQuery}"</p>
+            <div className="flex flex-col items-center justify-center py-12 bg-dark-100 rounded-xl border border-dark-300">
+              <LucideIcons.Tag className="h-10 w-10 text-dark-500 mb-3" />
+              <p className="text-sm font-medium text-dark-700">No results found</p>
+              <p className="text-xs text-dark-600 mt-1">Try a different search term</p>
             </div>
           ) : dataLabelsExpanded ? (
             <div className="space-y-4">
@@ -1106,25 +1110,25 @@ export function SettingsOverviewPage() {
                 ) : entityName.toLowerCase();
 
                 return (
-                  <div key={entityName} className="bg-dark-100 border border-dark-300 rounded-lg p-3.5">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-xs font-semibold text-dark-600 uppercase tracking-wide">
+                  <div key={entityName} className="bg-dark-100 border border-dark-300 rounded-xl p-4 shadow-sm hover:border-dark-400 transition-all">
+                    <div className="flex items-center justify-between mb-3.5">
+                      <div className="flex items-center gap-2.5">
+                        <h3 className="text-sm font-bold text-dark-700 uppercase tracking-wide">
                           {entityName}
                         </h3>
-                        <span className="px-1.5 py-0.5 text-xs font-medium text-dark-700 bg-dark-100 rounded-full">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-dark-200 text-dark-700 border border-dark-300">
                           {cards.length}
                         </span>
                       </div>
                       <button
                         onClick={() => handleOpenAddModal(entityCodeForGroup, entityName)}
-                        className="p-1 rounded text-dark-600 hover:text-dark-700 hover:bg-dark-100 transition-all"
+                        className="p-1.5 rounded-md text-dark-700 hover:bg-blue-100 hover:text-blue-700 transition-all hover:scale-110"
                         title={`Add datalabel to ${entityName}`}
                       >
-                        <LucideIcons.Plus className="h-3.5 w-3.5 stroke-[2]" />
+                        <LucideIcons.Plus className="h-4 w-4 stroke-[2.5]" />
                       </button>
                     </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
                     {cards.map((card) => {
                       // Get icon component dynamically using the stored icon name
                       const IconComponent = card.iconName ? getIconComponent(card.iconName) : card.icon;
@@ -1132,14 +1136,14 @@ export function SettingsOverviewPage() {
                         <button
                           key={card.href}
                           onClick={() => navigate(card.href)}
-                          className="group bg-dark-100 border border-dark-300 rounded-md p-2.5 hover:bg-dark-100 hover:border-dark-400 hover:shadow-sm transition-all text-left"
+                          className="group bg-dark-100 border border-dark-300 rounded-lg p-3 hover:bg-dark-50 hover:border-blue-400 hover:shadow-md transition-all text-left hover:scale-[1.02]"
                         >
                           <div className="flex items-center gap-2">
-                            <div className="p-1.5 bg-dark-100 rounded border border-dark-300 group-hover:border-dark-400 transition-all">
-                              <IconComponent className="h-3.5 w-3.5 text-dark-700 stroke-[1.5] flex-shrink-0" />
+                            <div className="p-1.5 bg-gradient-to-br from-blue-50 to-purple-50 rounded-md border border-blue-200 group-hover:border-blue-300 transition-all">
+                              <IconComponent className="h-4 w-4 text-blue-600 stroke-[1.5] flex-shrink-0" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h4 className="text-xs font-medium text-dark-600 group-hover:text-dark-600 transition-colors truncate">
+                              <h4 className="text-xs font-semibold text-dark-700 group-hover:text-blue-700 transition-colors truncate">
                                 {card.title}
                               </h4>
                             </div>

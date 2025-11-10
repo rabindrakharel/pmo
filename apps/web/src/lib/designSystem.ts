@@ -233,3 +233,211 @@ export function getBadgeClass(fieldKey: string, value: string): string {
 export function cx(...classes: (string | boolean | undefined)[]): string {
   return classes.filter(Boolean).join(' ');
 }
+
+// ============================================================================
+// ENHANCED STYLES FOR SETTINGS PAGE (v2.0)
+// ============================================================================
+
+/**
+ * Table Styles - Enhanced for settings data tables
+ */
+export const tableStyles = {
+  // Container with subtle border
+  container: 'border border-dark-300 rounded-lg overflow-hidden bg-dark-100',
+
+  // Table element
+  table: 'min-w-full divide-y divide-dark-300',
+
+  // Header with subtle background
+  thead: 'bg-dark-50',
+  th: 'px-4 py-3 text-left text-2xs font-semibold text-dark-700 uppercase tracking-wider',
+  thSortable: 'px-4 py-3 text-left text-2xs font-semibold text-dark-700 uppercase tracking-wider cursor-pointer hover:bg-dark-100 transition-colors group',
+
+  // Body rows with hover
+  tbody: 'bg-dark-100 divide-y divide-dark-300',
+  tr: 'transition-colors hover:bg-dark-50',
+  trEditing: 'bg-dark-50 ring-2 ring-dark-accent/20',
+  trDragging: 'opacity-40 bg-dark-200',
+  td: 'px-4 py-3 text-sm text-dark-700',
+
+  // Add row button
+  addRowButton: 'w-full px-4 py-3.5 text-left text-sm font-medium text-dark-700 hover:bg-dark-50 transition-colors flex items-center gap-2 border-t border-dark-300 group',
+  addRowIcon: 'flex items-center justify-center w-6 h-6 rounded-full bg-dark-200 group-hover:bg-dark-accent group-hover:text-white transition-all',
+} as const;
+
+/**
+ * Input Styles - Enhanced for inline editing
+ */
+export const inputStyles = {
+  // Base input for forms
+  base: 'w-full px-3 py-2 text-sm bg-dark-100 border border-dark-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-accent/20 focus:border-dark-accent transition-all placeholder:text-dark-500',
+
+  // Compact input for tables
+  compact: 'w-full px-2 py-1.5 text-xs bg-dark-100 border border-dark-300 rounded-md focus:outline-none focus:ring-2 focus:ring-dark-accent/20 focus:border-dark-accent transition-all',
+
+  // Search input with icon space
+  search: 'w-full pl-9 pr-3 py-2 text-sm bg-dark-100 border border-dark-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-accent/20 focus:border-dark-accent transition-all placeholder:text-dark-500',
+
+  // Inline table edit input
+  inline: 'w-full px-2.5 py-1.5 text-sm border border-dark-300 rounded-md focus:outline-none focus:ring-2 focus:ring-dark-accent/30 focus:border-dark-accent transition-all bg-dark-100',
+} as const;
+
+/**
+ * Modal Styles - Enhanced dialog design
+ */
+export const modalStyles = {
+  // Backdrop overlay with blur
+  overlay: 'fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm animate-in fade-in duration-200',
+
+  // Modal container with shadow
+  container: 'bg-dark-100 rounded-xl shadow-[0_12px_28px_0_rgba(0,0,0,0.08)] w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-dark-300 animate-in zoom-in-95 duration-200',
+
+  // Header
+  header: 'flex items-center justify-between px-6 py-4 border-b border-dark-300',
+  headerTitle: 'text-lg font-semibold text-dark-700',
+  headerSubtitle: 'text-xs text-dark-600 mt-0.5',
+
+  // Body with scroll
+  body: 'px-6 py-5 overflow-y-auto',
+
+  // Footer with actions
+  footer: 'flex items-center justify-end gap-3 px-6 py-4 border-t border-dark-300 bg-dark-50',
+} as const;
+
+/**
+ * Section Styles - Page section organization
+ */
+export const sectionStyles = {
+  // Container
+  container: 'mb-8',
+  containerCompact: 'mb-6',
+
+  // Header with expand/collapse
+  header: 'flex items-center justify-between mb-4',
+  headerButton: 'flex items-center gap-2 hover:opacity-70 transition-opacity',
+  headerTitle: 'text-base font-semibold text-dark-700',
+  headerTitleCompact: 'text-sm font-semibold text-dark-700',
+
+  // Count badge
+  badge: 'inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-medium bg-dark-200 text-dark-700',
+
+  // Actions in header
+  actions: 'flex items-center gap-2',
+} as const;
+
+/**
+ * Card Grid Styles - For settings cards
+ */
+export const cardGridStyles = {
+  // Grid layouts
+  grid: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3',
+  gridCompact: 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2',
+
+  // Card in grid
+  card: 'group bg-dark-100 border border-dark-300 rounded-lg p-3.5 hover:border-dark-400 hover:shadow-md transition-all cursor-pointer',
+  cardCompact: 'group bg-dark-100 border border-dark-300 rounded-md p-2.5 hover:bg-dark-50 hover:border-dark-400 hover:shadow-sm transition-all cursor-pointer',
+
+  // Card content
+  cardIcon: 'p-2 bg-gradient-to-br from-dark-100 to-dark-200 rounded-md group-hover:from-dark-50 group-hover:to-dark-100 transition-all',
+  cardTitle: 'text-sm font-semibold text-dark-700 mb-0.5 group-hover:text-dark-700 transition-colors',
+  cardDescription: 'text-xs text-dark-600 line-clamp-2',
+} as const;
+
+/**
+ * Action Button Styles - For table actions
+ */
+export const actionButtonStyles = {
+  // Icon buttons in tables
+  icon: 'p-1.5 text-dark-700 hover:bg-dark-200 rounded-md transition-colors',
+  iconSave: 'p-1.5 text-green-600 hover:bg-green-50 rounded-md transition-colors',
+  iconCancel: 'p-1.5 text-dark-700 hover:bg-dark-200 rounded-md transition-colors',
+  iconDelete: 'p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors',
+  iconEdit: 'p-1.5 text-dark-700 hover:bg-dark-200 rounded-md transition-colors',
+
+  // Button groups
+  group: 'flex items-center justify-center gap-1',
+} as const;
+
+/**
+ * Loading & Empty States
+ */
+export const loadingStyles = {
+  // Spinner
+  spinner: 'inline-block animate-spin rounded-full border-2 border-dark-300 border-t-dark-700',
+  spinnerSm: 'h-4 w-4',
+  spinnerMd: 'h-6 w-6',
+  spinnerLg: 'h-8 w-8',
+
+  // Container
+  container: 'flex items-center justify-center py-12',
+  containerCompact: 'flex items-center justify-center py-8',
+
+  // Skeleton
+  skeleton: 'animate-pulse bg-dark-200 rounded',
+  skeletonText: 'h-4 bg-dark-200 rounded mb-2',
+  skeletonTitle: 'h-6 bg-dark-200 rounded mb-3',
+  skeletonCard: 'h-24 bg-dark-200 rounded-lg',
+} as const;
+
+export const emptyStateStyles = {
+  container: 'flex flex-col items-center justify-center py-12 text-center bg-dark-100 rounded-lg border border-dark-300',
+  icon: 'h-12 w-12 text-dark-500 mb-3',
+  title: 'text-sm font-medium text-dark-700 mb-1',
+  description: 'text-sm text-dark-600',
+} as const;
+
+/**
+ * Icon Picker Styles - For icon selection dropdowns
+ */
+export const iconPickerStyles = {
+  // Dropdown container
+  dropdown: 'absolute left-0 top-full mt-1 z-50 bg-dark-100 rounded-lg shadow-xl border border-dark-300 p-3 w-96',
+
+  // Search input
+  search: 'w-full pl-7 pr-3 py-1.5 text-xs border border-dark-300 rounded-md focus:ring-2 focus:ring-dark-accent/30 focus:border-dark-accent',
+
+  // Icon grid
+  grid: 'grid grid-cols-8 gap-1 max-h-64 overflow-y-auto mt-2',
+  iconButton: 'p-2 rounded hover:bg-dark-200 transition-colors',
+  iconButtonSelected: 'p-2 rounded bg-dark-200 ring-2 ring-dark-accent',
+
+  // Footer
+  footer: 'mt-2 flex items-center justify-between border-t border-dark-300 pt-2',
+  footerText: 'text-xs text-dark-600',
+  footerClose: 'px-2 py-1 text-xs text-dark-700 hover:bg-dark-200 rounded',
+} as const;
+
+/**
+ * Toggle Switch Styles
+ */
+export const toggleStyles = {
+  // Switch container
+  container: 'relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-dark-accent/30 focus:ring-offset-2',
+  containerOn: 'bg-green-500',
+  containerOff: 'bg-dark-300',
+
+  // Switch knob
+  knob: 'inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm',
+  knobOn: 'translate-x-5',
+  knobOff: 'translate-x-0.5',
+} as const;
+
+/**
+ * Dropdown Indicator Styles
+ */
+export const dropdownIndicatorStyles = {
+  // Drop indicator line for drag & drop
+  line: 'absolute left-0 right-0 h-1 bg-dark-accent shadow-lg z-50 rounded-full',
+  lineContainer: 'pointer-events-none',
+} as const;
+
+/**
+ * Badge Enhancements - Modern badge with dot indicator
+ */
+export const enhancedBadgeStyles = {
+  // Badge with dot
+  withDot: 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border',
+
+  // Dot indicator
+  dot: 'h-1.5 w-1.5 rounded-full',
+} as const;
