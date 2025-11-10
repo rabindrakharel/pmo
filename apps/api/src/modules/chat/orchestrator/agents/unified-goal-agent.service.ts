@@ -97,10 +97,19 @@ export class UnifiedGoalAgent {
 
     // Get available MCP tools (scoped by entity boundary)
     const entityBoundary = this.determineEntityBoundary(state, agentProfile);
-    const availableTools = this.mcpAdapter ? getMCPTools({
+    let availableTools = this.mcpAdapter ? getMCPTools({
       categories: entityBoundary,
       maxTools: 40
     }) : [];
+
+    // Filter by goal's mcp_tool_boundary (new v3.1 feature)
+    if ((goal as any).mcp_tool_boundary && Array.isArray((goal as any).mcp_tool_boundary)) {
+      const toolBoundary = (goal as any).mcp_tool_boundary as string[];
+      availableTools = availableTools.filter((tool: any) =>
+        toolBoundary.includes(tool.name)
+      );
+      console.log(`[UnifiedGoalAgent] 🔒 Applied mcp_tool_boundary filter: ${toolBoundary.length} allowed tools`);
+    }
 
     console.log(`[UnifiedGoalAgent] Agent Profile: ${agentProfile.identity}`);
     console.log(`[UnifiedGoalAgent] Available MCP tools: ${availableTools.length}`);
@@ -242,10 +251,19 @@ export class UnifiedGoalAgent {
 
     // Get available MCP tools (scoped by entity boundary)
     const entityBoundary = this.determineEntityBoundary(state, agentProfile);
-    const availableTools = this.mcpAdapter ? getMCPTools({
+    let availableTools = this.mcpAdapter ? getMCPTools({
       categories: entityBoundary,
       maxTools: 40
     }) : [];
+
+    // Filter by goal's mcp_tool_boundary (new v3.1 feature)
+    if ((goal as any).mcp_tool_boundary && Array.isArray((goal as any).mcp_tool_boundary)) {
+      const toolBoundary = (goal as any).mcp_tool_boundary as string[];
+      availableTools = availableTools.filter((tool: any) =>
+        toolBoundary.includes(tool.name)
+      );
+      console.log(`[UnifiedGoalAgent] 🔒 Applied mcp_tool_boundary filter: ${toolBoundary.length} allowed tools`);
+    }
 
     console.log(`[UnifiedGoalAgent] Agent Profile: ${agentProfile.identity}`);
     console.log(`[UnifiedGoalAgent] Available MCP tools: ${availableTools.length}`);
