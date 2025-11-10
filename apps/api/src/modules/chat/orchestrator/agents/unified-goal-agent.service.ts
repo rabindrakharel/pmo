@@ -26,6 +26,13 @@ import type { DAGContext } from './dag-types.js';
 export interface UnifiedGoalResult {
   commands_to_run: string[];               // MCP tools to execute (parallel)
   ask_talk_reply_to_customer: string;      // Single customer response (not array)
+  session_memory_data_update?: {           // Session memory data updates (customer.*, service.*, etc.)
+    customer?: Record<string, any>;
+    service?: Record<string, any>;
+    operations?: Record<string, any>;
+    project?: Record<string, any>;
+    assignment?: Record<string, any>;
+  };
   contextUpdates?: Partial<DAGContext>;    // Context updates from MCP execution (empty until promise resolves)
   mcpResults?: any;                        // Raw MCP results (null until promise resolves)
   mcpExecutionPromise?: Promise<{          // Promise for MCP execution (orchestrator awaits before state transition)
@@ -235,6 +242,7 @@ export class UnifiedGoalAgent {
     done: boolean;
     response?: string;
     commands_to_run?: string[];
+    session_memory_data_update?: any;
     mcpExecutionPromise?: Promise<{
       contextUpdates: Partial<DAGContext>;
       mcpResults: any;
@@ -305,9 +313,16 @@ export class UnifiedGoalAgent {
             llmOutput.ask_talk_reply_to_customer = llmOutput.ask_talk_reply_to_customer[0] || '';
           }
 
+          // Extract session_memory_data_update (optional)
+          const sessionMemoryUpdate = llmOutput.session_memory_data_update || null;
+
           console.log(`[UnifiedGoalAgent] 📋 LLM Output:`);
           console.log(`   commands_to_run: ${llmOutput.commands_to_run.length} tools`);
           console.log(`   ask_talk_reply_to_customer: "${llmOutput.ask_talk_reply_to_customer.substring(0, 80)}..."`);
+          if (sessionMemoryUpdate) {
+            const categories = Object.keys(sessionMemoryUpdate);
+            console.log(`   session_memory_data_update: ${categories.length} categories (${categories.join(', ')})`);
+          }
 
           // Now stream the customer response token by token
           const customerResponse = llmOutput.ask_talk_reply_to_customer;
@@ -346,6 +361,7 @@ export class UnifiedGoalAgent {
             done: true,
             response: customerResponse,
             commands_to_run: llmOutput.commands_to_run,
+            session_memory_data_update: sessionMemoryUpdate,
             mcpExecutionPromise,
           };
 
@@ -437,9 +453,16 @@ export class UnifiedGoalAgent {
       llmOutput.ask_talk_reply_to_customer = llmOutput.ask_talk_reply_to_customer[0] || '';
     }
 
+    // Extract session_memory_data_update (optional)
+    const sessionMemoryUpdate = llmOutput.session_memory_data_update || null;
+
     console.log(`[UnifiedGoalAgent] 📋 LLM Output:`);
     console.log(`   commands_to_run: ${llmOutput.commands_to_run.length} tools`);
     console.log(`   ask_talk_reply_to_customer: "${llmOutput.ask_talk_reply_to_customer.substring(0, 80)}..."`);
+    if (sessionMemoryUpdate) {
+      const categories = Object.keys(sessionMemoryUpdate);
+      console.log(`   session_memory_data_update: ${categories.length} categories (${categories.join(', ')})`);
+    }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // APPEND ASSISTANT RESPONSE TO CONVERSATION (for next iteration)
@@ -472,6 +495,7 @@ export class UnifiedGoalAgent {
     return {
       commands_to_run: llmOutput.commands_to_run,
       ask_talk_reply_to_customer: llmOutput.ask_talk_reply_to_customer,
+      session_memory_data_update: sessionMemoryUpdate,
       contextUpdates: {}, // Will be populated after MCP completion
       mcpResults: null,   // Will be populated after MCP completion
       mcpExecutionPromise, // Orchestrator awaits this before state transition
@@ -625,16 +649,39 @@ You MUST respond with valid JSON matching this structure:
   "commands_to_run": ["tool1", "tool2"],  // Array of MCP tool names (parallel execution)
   "tool1_args": { "param": "value" },     // Arguments for each tool (optional, will be auto-enriched)
   "tool2_args": { "param": "value" },
-  "ask_talk_reply_to_customer": "Your response to customer here"  // Single string (NOT array)
+  "ask_talk_reply_to_customer": "Your response to customer here",  // Single string (NOT array)
+  "session_memory_data_update": {         // OPTIONAL: Extract customer data from conversation
+    "customer": {
+      "name": "John Doe",                 // Customer full name (if mentioned)
+      "phone": "555-1234",                // Phone number (if mentioned)
+      "email": "john@example.com",        // Email (if mentioned)
+      "address_street": "123 Main St",    // Street address component
+      "address_city": "Toronto",          // City component
+      "address_state": "Ontario",         // State/Province component
+      "address_zipcode": "M5V 3A8"        // Postal code component
+    },
+    "service": {
+      "primary_request": "Roof leak repair"  // Main issue (if mentioned, 5-10 words)
+    }
+  }
 }
 \`\`\`
 
 **CRITICAL RULES:**
 1. "ask_talk_reply_to_customer" MUST be a string (not array, not object)
 2. "commands_to_run" MUST be an array of tool names (can be empty [])
-3. Keep customer response natural, empathetic, and concise (1-3 sentences)
-4. Only include MCP tools if you need to fetch/update data
-5. Tools execute in parallel BEFORE your response is sent
+3. "session_memory_data_update" is OPTIONAL - only include if customer provides new information in THIS exchange
+4. Keep customer response natural, empathetic, and concise (1-3 sentences)
+5. Only include MCP tools if you need to fetch/update data
+6. Tools execute in parallel BEFORE your response is sent
+
+**SESSION MEMORY DATA UPDATE RULES:**
+- ONLY include "session_memory_data_update" if customer explicitly mentioned new information in THIS conversation turn
+- Extract from CUSTOMER messages ONLY (not your own agent responses)
+- Don't infer or assume - only extract explicitly stated information
+- For addresses, break into components: address_street, address_city, address_state, address_zipcode
+- Deep merge behavior: Only include fields you want to UPDATE (existing fields preserved)
+- Example: If customer says "My name is Jane", only include: { "customer": { "name": "Jane" } }
 
 Generate your JSON response now:`;
   }
