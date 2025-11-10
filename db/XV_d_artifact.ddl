@@ -23,7 +23,7 @@
 -- • visibility, security_classification: text
 -- • latest_version_flag: boolean
 --
--- RELATIONSHIPS:
+-- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • Parent: project, task, form, etc. (via entity_type/entity_id)
 -- • RBAC: entity_id_rbac_map
 --
@@ -57,6 +57,10 @@ CREATE TABLE app.d_artifact (
 );
 
 COMMENT ON TABLE app.d_artifact IS 'Artifact table for document and file management';
+
+-- =====================================================
+-- DATA CURATION
+-- =====================================================
 
 -- Sample artifact data
 -- Artifact 3: Client Service Agreement Template

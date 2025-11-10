@@ -21,7 +21,7 @@
 -- • salary_band_min_amt, salary_band_max_amt, bonus_target_pct: numeric
 -- • approval_limit_amt: numeric
 --
--- RELATIONSHIPS:
+-- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • Self: parent_id → d_position.id (8-level hierarchy)
 -- • RBAC: entity_id_rbac_map
 --
@@ -65,6 +65,8 @@ CREATE TABLE app.d_position (
   direct_reports_max int,
   remote_eligible_flag boolean DEFAULT false
 );
+
+COMMENT ON TABLE app.d_position IS 'Organizational positions with 8-level hierarchy, authority limits, and compensation bands';
 
 -- ============================================================================
 -- DATA CURATION:

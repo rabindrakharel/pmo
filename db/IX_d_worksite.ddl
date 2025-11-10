@@ -22,7 +22,7 @@
 -- • indoor_space_sqft, outdoor_space_sqft: numeric
 -- • power_available_flag, water_available_flag: boolean
 --
--- RELATIONSHIPS:
+-- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • RBAC: entity_id_rbac_map
 --
 -- ============================================================================
@@ -80,6 +80,8 @@ CREATE TABLE app.d_worksite (
   -- Management and emergency (no direct FK - use entity_id_hierarchy_mapping)
   emergency_contact jsonb DEFAULT '{}'::jsonb
 );
+
+COMMENT ON TABLE app.d_worksite IS 'Physical operational worksites including headquarters, branches, project sites, and storage facilities';
 
 -- ============================================================================
 -- DATA CURATION:

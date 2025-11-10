@@ -20,7 +20,7 @@
 -- • system_role_flag, management_role_flag, client_facing_flag, safety_critical_flag: boolean
 -- • background_check_required_flag, licensing_required_flag: boolean
 --
--- RELATIONSHIPS:
+-- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • Children: employee (via d_entity_id_map)
 -- • RBAC: entity_id_rbac_map
 --
@@ -69,6 +69,8 @@ CREATE TABLE app.d_role (
   required_experience_years int DEFAULT 0,
   education_requirements text
 );
+
+COMMENT ON TABLE app.d_role IS 'Organizational roles with permissions, requirements, and career progression mappings';
 
 -- ============================================================================
 -- DATA CURATION:
