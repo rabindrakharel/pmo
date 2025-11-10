@@ -1688,6 +1688,20 @@ export const API_MANIFEST: APIEndpoint[] = [
     category: 'Calendar'
   },
   {
+    name: 'person_calendar_get_available_by_service',
+    method: 'GET',
+    path: '/api/v1/person-calendar/available-by-service',
+    description: 'Get available employee slots filtered by service category (department). Use this to find available technicians by service type.',
+    requiresAuth: true,
+    category: 'Calendar',
+    parameters: {
+      query: {
+        service_category: 'Service category/department (required) - e.g., plumbing, electrical, hvac, carpentry',
+        limit: 'Number of slots to return (default: 1)'
+      }
+    }
+  },
+  {
     name: 'person_calendar_create',
     method: 'POST',
     path: '/api/v1/person-calendar',
@@ -1736,14 +1750,31 @@ export const API_MANIFEST: APIEndpoint[] = [
     name: 'person_calendar_book',
     method: 'POST',
     path: '/api/v1/person-calendar/book',
-    description: 'Book a calendar slot',
+    description: 'Book calendar slots by marking them as unavailable and adding booking details',
     requiresAuth: true,
     category: 'Calendar',
     parameters: {
       body: {
-        slot_id: 'Calendar slot UUID to book',
-        customer_id: 'Customer UUID',
-        event_details: 'Event details'
+        slot_ids: 'Array of calendar slot UUIDs to book',
+        title: 'Booking title (required)',
+        event_id: 'Associated event ID (optional)',
+        appointment_medium: 'Appointment medium: onsite or virtual',
+        appointment_addr: 'Appointment address/location',
+        instructions: 'Special instructions for the appointment',
+        metadata: 'Additional metadata (employee_ids, attendee_ids, etc.)'
+      }
+    }
+  },
+  {
+    name: 'person_calendar_cancel',
+    method: 'POST',
+    path: '/api/v1/person-calendar/cancel',
+    description: 'Cancel booked slots by marking them as available and clearing booking details',
+    requiresAuth: true,
+    category: 'Calendar',
+    parameters: {
+      body: {
+        slot_ids: 'Array of calendar slot UUIDs to cancel'
       }
     }
   },
