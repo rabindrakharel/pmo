@@ -247,12 +247,11 @@ export function SettingDetailPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-dark-100 shadow rounded-lg p-6">
-            <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700"></div>
-              <span className="ml-3 text-sm text-dark-700">Loading...</span>
-            </div>
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="flex flex-col items-center justify-center py-20 bg-dark-100 rounded-xl border border-dark-300 shadow-sm">
+            <div className="animate-spin rounded-full h-12 w-12 border-3 border-dark-300 border-t-purple-500"></div>
+            <p className="text-sm font-medium text-dark-700 mt-5">Loading settings...</p>
+            <p className="text-xs text-dark-600 mt-1">Please wait</p>
           </div>
         </div>
       </Layout>
@@ -262,9 +261,15 @@ export function SettingDetailPage() {
   if (error || !config) {
     return (
       <Layout>
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-dark-100 shadow rounded-lg p-6">
-            <p className="text-sm text-dark-700">{error || 'Setting not found'}</p>
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="flex flex-col items-center justify-center py-16 bg-dark-100 rounded-xl border border-dark-300 shadow-sm">
+            <div className="p-4 bg-red-50 rounded-full mb-4">
+              <svg className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <p className="text-base font-semibold text-dark-700 mb-1">{error || 'Setting not found'}</p>
+            <p className="text-sm text-dark-600">Please check the URL and try again</p>
           </div>
         </div>
       </Layout>
@@ -275,35 +280,37 @@ export function SettingDetailPage() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-dark-100 shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            {/* Header */}
-            <div className="flex items-center mb-6">
-              <ExitButton onClick={exitSettingsMode} className="mr-3" />
-              <IconComponent className="h-5 w-5 text-dark-700 stroke-[1.5] mr-3" />
-              <div className="flex-1">
-                <h1 className="text-sm font-normal text-dark-600">{config.title}</h1>
-                <p className="text-sm text-dark-700">Manage {config.title.toLowerCase()} settings</p>
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Enhanced Header with gradient icon */}
+        <div className="mb-8">
+          <div className="flex items-center gap-4">
+            <ExitButton onClick={exitSettingsMode} className="mr-1" />
+            <div className="flex items-center gap-3.5">
+              <div className="p-2.5 bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl border border-purple-200 shadow-sm">
+                <IconComponent className="h-6 w-6 text-purple-600 stroke-[1.5]" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-dark-700 tracking-tight">{config.title}</h1>
+                <p className="text-sm text-dark-600 mt-0.5">Manage {config.title.toLowerCase()} configuration</p>
               </div>
             </div>
-
-            {/* Data Table */}
-            <div className="mt-6">
-              <SettingsDataTable
-                data={data}
-                onRowUpdate={handleRowUpdate}
-                onInlineEdit={handleInlineEdit}
-                onAddRow={handleAddRow}
-                onDeleteRow={handleDeleteRow}
-                onReorder={handleReorder}
-                allowAddRow={true}
-                allowEdit={true}
-                allowDelete={true}
-                allowReorder={true}
-              />
-            </div>
           </div>
+        </div>
+
+        {/* Enhanced Data Table Container */}
+        <div className="bg-dark-100 shadow-sm rounded-xl border border-dark-300 overflow-hidden">
+          <SettingsDataTable
+            data={data}
+            onRowUpdate={handleRowUpdate}
+            onInlineEdit={handleInlineEdit}
+            onAddRow={handleAddRow}
+            onDeleteRow={handleDeleteRow}
+            onReorder={handleReorder}
+            allowAddRow={true}
+            allowEdit={true}
+            allowDelete={true}
+            allowReorder={true}
+          />
         </div>
       </div>
     </Layout>
