@@ -47,31 +47,25 @@
         {
           "input": "Customer says: 'My heater is broken and it's freezing in here!'",
           "output": {
-            "commands_to_run": [
-              {
-                "tool": "update_session_memory",
-                "params": {
-                  "path": "service.primary_request",
-                  "value": "Heater is broken and customer is cold"
-                }
+            "commands_to_run": [],
+            "ask_talk_reply_to_customer": "I'm so sorry to hear your heater isn't working! That must be really uncomfortable. Let me help you get this fixed right away. Can you tell me a bit more about what's happening with the heater?",
+            "session_memory_data_update": {
+              "service": {
+                "primary_request": "Heater is broken and customer is cold"
               }
-            ],
-            "ask_talk_reply_to_customer": "I'm so sorry to hear your heater isn't working! That must be really uncomfortable. Let me help you get this fixed right away. Can you tell me a bit more about what's happening with the heater?"
+            }
           }
         },
         {
           "input": "Customer says: 'I need someone to fix my sink'",
           "output": {
-            "commands_to_run": [
-              {
-                "tool": "update_session_memory",
-                "params": {
-                  "path": "service.primary_request",
-                  "value": "Sink repair needed"
-                }
+            "commands_to_run": [],
+            "ask_talk_reply_to_customer": "I can definitely help with that! Is it a leak, a clog, or something else going on with your sink?",
+            "session_memory_data_update": {
+              "service": {
+                "primary_request": "Sink repair needed"
               }
-            ],
-            "ask_talk_reply_to_customer": "I can definitely help with that! Is it a leak, a clog, or something else going on with your sink?"
+            }
           }
         }
       ]
@@ -161,60 +155,39 @@
         {
           "input": "Customer says: 'My phone number is 650-555-1234'",
           "output": {
-            "commands_to_run": [
-              {
-                "tool": "update_session_memory",
-                "params": {
-                  "path": "customer.phone",
-                  "value": "650-555-1234"
-                }
+            "commands_to_run": [],
+            "ask_talk_reply_to_customer": "Thank you! And may I have your name please?",
+            "session_memory_data_update": {
+              "customer": {
+                "phone": "650-555-1234"
               }
-            ],
-            "ask_talk_reply_to_customer": "Thank you! And may I have your name please?"
+            }
           }
         },
         {
           "input": "Customer says: 'I'm John Smith'",
           "output": {
-            "commands_to_run": [
-              {
-                "tool": "update_session_memory",
-                "params": {
-                  "path": "customer.name",
-                  "value": "John Smith"
-                }
+            "commands_to_run": [],
+            "ask_talk_reply_to_customer": "Great, John! What's the address where you need the service?",
+            "session_memory_data_update": {
+              "customer": {
+                "name": "John Smith"
               }
-            ],
-            "ask_talk_reply_to_customer": "Great, John! What's the address where you need the service?"
+            }
           }
         },
         {
           "input": "Customer says: '123 Main Street, Palo Alto, California'",
           "output": {
-            "commands_to_run": [
-              {
-                "tool": "update_session_memory",
-                "params": {
-                  "path": "customer.address_street",
-                  "value": "123 Main Street"
-                }
-              },
-              {
-                "tool": "update_session_memory",
-                "params": {
-                  "path": "customer.address_city",
-                  "value": "Palo Alto"
-                }
-              },
-              {
-                "tool": "update_session_memory",
-                "params": {
-                  "path": "customer.address_state",
-                  "value": "California"
-                }
+            "commands_to_run": [],
+            "ask_talk_reply_to_customer": "Perfect! I've got all your information. Let me look up your profile.",
+            "session_memory_data_update": {
+              "customer": {
+                "address_street": "123 Main Street",
+                "address_city": "Palo Alto",
+                "address_state": "California"
               }
-            ],
-            "ask_talk_reply_to_customer": "Perfect! I've got all your information. Let me look up your profile."
+            }
           }
         }
       ]
