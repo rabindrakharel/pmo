@@ -10,19 +10,11 @@
 -- Service categories reference dl__service_category settings for dropdown values.
 -- In-place updates (same ID, version++), soft delete preserves historical data.
 --
--- DATABASE BEHAVIOR:
--- • CREATE: INSERT with version=1, active_flag=true
---   Example: INSERT INTO d_service (id, code, name, descr, service_category,
---                                    standard_rate_amt, estimated_hours)
---            VALUES ('s1111111-...', 'SVC-HVAC-001', 'HVAC Installation',
---                    'Complete HVAC system installation', 'HVAC', 2500.00, 8.0)
---
--- • UPDATE: Same ID, version++, updated_ts refreshes
---   Example: UPDATE d_service SET standard_rate_amt=2750.00, version=version+1
---            WHERE id='s1111111-...'
---
--- • SOFT DELETE: active_flag=false, to_ts=now()
---   Example: UPDATE d_service SET active_flag=false, to_ts=now() WHERE id='s1111111-...'
+-- OPERATIONS:
+-- • CREATE: POST /api/v1/service, INSERT with version=1, active_flag=true
+-- • UPDATE: PUT /api/v1/service/{id}, same ID, version++, updated_ts refreshes
+-- • DELETE: active_flag=false, to_ts=now() (soft delete)
+-- • LIST: GET /api/v1/service, filters by service_category, RBAC enforced
 --
 -- KEY FIELDS:
 -- • id: uuid PRIMARY KEY (stable, never changes)

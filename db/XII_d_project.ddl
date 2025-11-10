@@ -22,7 +22,7 @@
 -- • manager_employee_id, sponsor_employee_id: uuid
 -- • stakeholder_employee_ids: uuid[]
 --
--- RELATIONSHIPS:
+-- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • Parent: business (via d_entity_id_map)
 -- • Children: task, artifact, wiki, form, cost, revenue
 -- • RBAC: entity_id_rbac_map
@@ -61,7 +61,11 @@ CREATE TABLE app.d_project (
     version integer DEFAULT 1
 );
 
+COMMENT ON TABLE app.d_project IS 'Project entities with budget tracking, schedule management, and team assignments';
 
+-- =====================================================
+-- DATA CURATION
+-- =====================================================
 
 -- Sample project data for James Miller as CEO/Project Sponsor
 -- Strategic Corporate Project

@@ -21,7 +21,7 @@
 -- • estimated_hours, actual_hours: numeric(10,2)
 -- • story_points: integer (agile estimation)
 --
--- RELATIONSHIPS:
+-- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • Parent: project (via d_entity_id_map)
 -- • Children: artifact, form, employee (assignees), cost, revenue
 -- • RBAC: entity_id_rbac_map
@@ -52,6 +52,10 @@ CREATE TABLE app.d_task (
 );
 
 COMMENT ON TABLE app.d_task IS 'Task head table with core task information';
+
+-- =====================================================
+-- DATA CURATION
+-- =====================================================
 
 -- Sample task data
 INSERT INTO app.d_task (
