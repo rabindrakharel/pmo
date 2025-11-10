@@ -2,9 +2,9 @@
 
 > **Comprehensive guide to the PMO Platform's universal entity architecture** - DRY-first, config-driven system handling 18+ entity types with 3 universal pages
 
-**Last Updated:** 2025-11-04
+**Last Updated:** 2025-11-10
 **Version:** 3.1.2 - Entity Active/Inactive Toggle Implementation Complete ✅
-**Related Docs:** [UI/UX Architecture](../ui_ux_route_api.md), [Data Model](../datamodel.md), [Column Consistency Update](./COLUMN_CONSISTENCY_UPDATE.md)
+**Related Docs:** [UI/UX Architecture](../ui_ux_route_api.md), [Data Model](../datamodel.md), [Column Consistency Update](./COLUMN_CONSISTENCY_UPDATE.md), [Entity Metadata Coherence](./ENTITY_METADATA_COHERENCE.md)
 
 ---
 

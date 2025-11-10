@@ -518,6 +518,7 @@ Database (PostgreSQL, 52 tables)
 |----------|---------|-------------|------------|
 | **[📖 Documentation Index](./docs/README.md)** | **⭐ Complete navigation guide for all 40+ docs** | Finding any documentation quickly by task, keyword, or folder | Folder index, keyword search, reading order, quick reference |
 | **[Universal Entity System](./docs/entity_design_pattern/universal_entity_system.md)** | **⭐ Complete DRY entity architecture guide** | Understanding universal pages, inline editing, create-then-link patterns | 3 universal pages, Default-editable pattern, Column consistency, Inline create-then-link, Entity configuration (v3.1) |
+| **[Entity Metadata Coherence](./docs/entity_design_pattern/ENTITY_METADATA_COHERENCE.md)** | Dynamic entity metadata from d_entity table | Understanding entity metadata API loading, sidebar/tabs/settings | d_entity table, /api/v1/entity/* endpoints, Dynamic icons/labels, Child entity tabs |
 | **[UI/UX Architecture](./docs/entity_ui_ux_route_api.md)** | Complete system architecture from DB to frontend | Understanding the entire platform, data flows, routing | Database layer, API modules, Frontend components, Data flow examples, DRY principles |
 | **[Infrastructure Design](./docs/infra_docs/INFRASTRUCTURE_DESIGN.md)** | AWS cloud infrastructure and deployment | Setting up AWS resources, deployment pipeline | Terraform, EC2, S3, Lambda, EventBridge, Deployment automation |
 | **[Deployment Design](./docs/infra_docs/DEPLOYMENT_DESIGN.md)** | Deployment strategies and procedures | Deploying to production, CI/CD setup | Deployment flow, Environment configuration, Release management |
@@ -620,6 +621,8 @@ Form builder: form/form.md
 | **file upload, attachments, S3, presigned URLs** | `s3_service/S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md` |
 | **tools, scripts, db-import, test-api** | `tools.md` |
 | **entity configuration, DRY, entity config** | `entity_design_pattern/universal_entity_system.md`, `entity_ui_ux_route_api.md` |
+| **d_entity, entity metadata, dynamic icons, child tabs, sidebar navigation** | `entity_design_pattern/ENTITY_METADATA_COHERENCE.md` ⭐ |
+| **entity API, /api/v1/entity/types, entity registry, ui_icon, child_entities** | `entity_design_pattern/ENTITY_METADATA_COHERENCE.md`, `datamodel/datamodel.md` |
 | **AI chat, voice calling, MCP, function tools, booking automation, session memory** | `ai_chat/AI_CHAT_SYSTEM.md` ⭐ |
 | **OpenAI, GPT-4o mini, semantic routing, chat widget, customer service, unified goal agent** | `ai_chat/AI_CHAT_SYSTEM.md` |
 | **Deepgram, ElevenLabs, STT, TTS, voice streaming, audio playback** | `ai_chat/AI_CHAT_SYSTEM.md` |
