@@ -199,24 +199,46 @@ export class AgentContextManager {
         merged.node_traversed = [...existing, ...newNodes];
         console.log(`[AgentContext] 🗺️  Node traversed appended: ${newNodes.join(' → ')}, total nodes: ${merged.node_traversed.length}`);
       } else if (key === 'data_extraction_fields') {
-        // ✅ MERGE nested data_extraction_fields object (not replace)
-        // ✅ IMPROVED: Only merge non-empty values (prevent empty strings from overwriting existing data)
+        // ✅ DEEP MERGE for nested structure (customer.*, service.*, operations.*, etc.)
+        // ✅ FIX: Properly merge nested objects instead of replacing them (prevents data loss)
         const existing = state.context.data_extraction_fields || {};
         const updates = value || {};
 
-        // Filter out empty/null/undefined values before merging
-        const filteredUpdates = Object.entries(updates).reduce((acc, [k, v]) => {
-          if (v !== undefined && v !== null && v !== '') {
-            acc[k] = v;
+        // Deep merge: merge nested category objects (customer, service, etc.)
+        const mergedData: any = { ...existing };
+
+        for (const [category, categoryData] of Object.entries(updates)) {
+          if (typeof categoryData === 'object' && !Array.isArray(categoryData) && categoryData !== null) {
+            // Merge nested object (customer, service, operations, etc.)
+            // Preserve existing fields while adding/updating new ones
+            mergedData[category] = {
+              ...(existing[category] || {}), // Preserve existing fields
+              ...categoryData                // Add/update new fields
+            };
+
+            // Filter out empty values from the update (but keep existing non-empty values)
+            for (const [field, val] of Object.entries(categoryData)) {
+              if (val === undefined || val === null || val === '') {
+                // Don't overwrite existing non-empty value with empty update
+                if (existing[category]?.[field]) {
+                  mergedData[category][field] = existing[category][field];
+                } else {
+                  // Keep the empty value if no existing value
+                  mergedData[category][field] = val;
+                }
+              }
+            }
+          } else {
+            // Not a nested object, just assign
+            mergedData[category] = categoryData;
           }
-          return acc;
-        }, {} as any);
+        }
 
-        merged.data_extraction_fields = { ...existing, ...filteredUpdates };
+        merged.data_extraction_fields = mergedData;
 
-        const updatedKeys = Object.keys(filteredUpdates);
-        if (updatedKeys.length > 0) {
-          console.log(`[AgentContext] 📝 Data extraction fields merged: ${updatedKeys.join(', ')}`);
+        const updatedCategories = Object.keys(updates);
+        if (updatedCategories.length > 0) {
+          console.log(`[AgentContext] 📝 Data extraction fields merged: ${updatedCategories.join(', ')}`);
         } else {
           console.log(`[AgentContext] ℹ️  Data extraction returned no new values (all empty)`);
         }

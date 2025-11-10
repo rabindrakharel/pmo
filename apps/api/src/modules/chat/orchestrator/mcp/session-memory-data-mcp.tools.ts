@@ -105,11 +105,22 @@ export async function updateDataExtractionFields(
     throw new Error(`Session ${sessionId} not found`);
   }
 
-  // Merge data_extraction_fields
-  const updatedFields = {
-    ...session.context.data_extraction_fields,
-    ...fields,
-  };
+  // ✅ DEEP MERGE: Merge nested categories (customer, service, operations, etc.)
+  const existingFields = session.context.data_extraction_fields || {};
+  const updatedFields: any = { ...existingFields };
+
+  for (const [category, categoryData] of Object.entries(fields)) {
+    if (typeof categoryData === 'object' && !Array.isArray(categoryData) && categoryData !== null) {
+      // Merge nested object (customer, service, operations, etc.)
+      updatedFields[category] = {
+        ...(existingFields[category] || {}), // Preserve existing fields
+        ...categoryData                      // Add/update new fields
+      };
+    } else {
+      // Not a nested object, just assign
+      updatedFields[category] = categoryData;
+    }
+  }
 
   await sessionMemoryDataService.updateSession(
     sessionId,
