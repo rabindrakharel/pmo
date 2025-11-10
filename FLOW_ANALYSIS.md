@@ -205,12 +205,10 @@ for await (const chunk of this.workerReplyAgent.executeGoalStream(...)) {
 }
 ```
 
-**Impact**:
-- Streaming mode bypasses unified agent entirely
-- Falls back to legacy multi-agent mode
-- Unified agent benefits lost in streaming
-
-**Fix Required**: Implement `executeGoalStream()` method in UnifiedGoalAgent
+**Status**: ✅ FIXED (v4.0)
+- Unified agent now supports streaming via `executeGoalStream()` method
+- Legacy multi-agent mode has been removed
+- All conversations use unified agent streaming pattern
 
 ---
 
