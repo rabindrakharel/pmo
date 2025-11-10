@@ -19,6 +19,7 @@ import { getMCPTools, executeMCPTool } from '../../mcp-adapter.service.js';
 import { replacePlaceholders } from '../utils/json-path-resolver.js';
 import { createToolEnrichmentEngine, type ToolEnrichmentEngine } from '../lib/tool-enrichment-engine.service.js';
 import type { DAGContext } from './dag-types.js';
+import { sessionMemoryDataMcpTools } from '../mcp/session-memory-data-mcp.tools.js';
 
 /**
  * Standardized goal execution output
@@ -122,10 +123,14 @@ export class UnifiedGoalAgent {
       maxTools: 40
     }) : [];
 
+    // ✅ Add session memory MCP tools (always available for all goals)
+    mcpTools = [...mcpTools, ...sessionMemoryDataMcpTools];
+    console.log(`[UnifiedGoalAgent] 💾 Added ${sessionMemoryDataMcpTools.length} session memory MCP tools`);
+
     // Filter by goal's mcp_tool_boundary (v3.1 feature)
     if ((goal as any).mcp_tool_boundary && Array.isArray((goal as any).mcp_tool_boundary)) {
       const toolBoundary = (goal as any).mcp_tool_boundary as string[];
-      mcpTools = mcpTools.filter((tool: any) => toolBoundary.includes(tool.name));
+      mcpTools = mcpTools.filter((tool: any) => toolBoundary.includes(tool.function.name));
       console.log(`[UnifiedGoalAgent] 🔒 Applied mcp_tool_boundary filter: ${toolBoundary.length} allowed tools`);
     }
 

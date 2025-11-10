@@ -544,7 +544,7 @@ Database (PostgreSQL, 52 tables)
 | **[Column Consistency Update](./docs/entity_design_pattern/COLUMN_CONSISTENCY_UPDATE.md)** | v3.1.1 Column consistency implementation | Understanding child entity table behavior | Context-independent columns, API filtering, Verification tests |
 | **[Kanban System](./docs/component_Kanban_System.md)** | Task board implementation | Building kanban views, task management | Drag-drop, Column configuration, State transitions |
 | **[Dynamic Forms](./docs/form/form.md)** | JSONB-based form builder | Creating custom forms, form workflows | Form schema, Multi-step wizards, Validation, Submissions |
-| **[AI Chat System](./docs/ai_chat/AI_CHAT_SYSTEM.md)** | Complete AI chat system with text & voice | Implementing AI-powered customer service | Text chat, Voice calling, MCP integration, Function tools, Booking automation |
+| **[AI Chat System](./docs/ai_chat/AI_CHAT_SYSTEM.md)** | Goal-oriented conversational AI platform (v6.0) | Implementing AI-powered customer service | Text chat (SSE), Voice (WebSocket+HTTP), MCP-driven session memory, 60+ API tools, Deep merge, Unified goal agent |
 
 ### 🛠️ Tools & Operations
 
@@ -620,8 +620,10 @@ Form builder: form/form.md
 | **file upload, attachments, S3, presigned URLs** | `s3_service/S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md` |
 | **tools, scripts, db-import, test-api** | `tools.md` |
 | **entity configuration, DRY, entity config** | `entity_design_pattern/universal_entity_system.md`, `entity_ui_ux_route_api.md` |
-| **AI chat, voice calling, MCP, function tools, booking automation** | `ai_chat/AI_CHAT_SYSTEM.md` ⭐ |
-| **OpenAI, GPT-4o mini, semantic routing, chat widget, customer service** | `ai_chat/AI_CHAT_SYSTEM.md` |
+| **AI chat, voice calling, MCP, function tools, booking automation, session memory** | `ai_chat/AI_CHAT_SYSTEM.md` ⭐ |
+| **OpenAI, GPT-4o mini, semantic routing, chat widget, customer service, unified goal agent** | `ai_chat/AI_CHAT_SYSTEM.md` |
+| **Deepgram, ElevenLabs, STT, TTS, voice streaming, audio playback** | `ai_chat/AI_CHAT_SYSTEM.md` |
+| **LowDB, deep merge, session context, goal transitions, hybrid branching** | `ai_chat/AI_CHAT_SYSTEM.md` |
 
 ---
 
