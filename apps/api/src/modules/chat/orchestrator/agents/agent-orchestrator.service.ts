@@ -18,7 +18,6 @@ import {
   type AgentContextState
 } from './agent-context.service.js';
 import { GoalTransitionEngine } from '../engines/goal-transition.engine.js';
-import { DataExtractionAgent, createDataExtractionAgent } from './data-extraction-agent.service.js';
 import { UnifiedGoalAgent, createUnifiedGoalAgent } from './unified-goal-agent.service.js';
 import { getLLMLogger } from '../services/llm-logger.service.js';
 import { createAgentLogger, type AgentLogger } from '../services/agent-logger.service.js';
@@ -39,7 +38,6 @@ export class AgentOrchestratorService {
   private logger = getLLMLogger();
 
   private transitionEngine!: GoalTransitionEngine;
-  private dataExtractionAgent!: DataExtractionAgent;
   private unifiedGoalAgent!: UnifiedGoalAgent;  // Single-session agent (v4.0+)
 
   // In-memory state cache (replace LangGraph checkpointer)
@@ -191,18 +189,17 @@ export class AgentOrchestratorService {
       // Pass agent config to context manager for deterministic initialization
       this.contextManager.setDAGConfig(this.config as any); // TODO: Update context manager to use AgentConfigV3
 
-      // Initialize agents and transition engine (v4.0 - Unified Streaming Pattern):
-      // 1. UnifiedGoalAgent - Single LLM session per goal with streaming support
-      // 2. DataExtractionAgent - Extracts context from conversation (post-processing)
-      // 3. GoalTransitionEngine - Evaluates goal transitions using semantic routing
+      // Initialize agents and transition engine (v6.0 - MCP-Driven Session Memory):
+      // 1. UnifiedGoalAgent - Single LLM session per goal with streaming + session_memory_data_update
+      // 2. GoalTransitionEngine - Evaluates goal transitions using semantic routing
+      // ✅ REMOVED: DataExtractionAgent - replaced by MCP-based session memory updates
       this.unifiedGoalAgent = createUnifiedGoalAgent(this.config, this.mcpAdapter, undefined);
-      this.dataExtractionAgent = createDataExtractionAgent();
       this.transitionEngine = new GoalTransitionEngine(this.config);
 
-      console.log('[AgentOrchestrator] ✅ Agents initialized (Goal-Oriented Architecture v4.0 - Unified Streaming Pattern)');
-      console.log('[AgentOrchestrator]      - UnifiedGoalAgent: Single LLM session with streaming');
-      console.log('[AgentOrchestrator]      - DataExtractionAgent: Context extraction');
+      console.log('[AgentOrchestrator] ✅ Agents initialized (Goal-Oriented Architecture v6.0 - MCP-Driven Session Memory)');
+      console.log('[AgentOrchestrator]      - UnifiedGoalAgent: Single LLM session with streaming + session_memory_data_update');
       console.log('[AgentOrchestrator]      - GoalTransitionEngine: Semantic goal routing');
+      console.log('[AgentOrchestrator]      ✅ Session memory updates via MCP (DataExtractionAgent removed)');
       console.log(`[AgentOrchestrator] Total goals: ${this.config.goals.length}`);
       console.log(`[AgentOrchestrator] Agent profiles: ${Object.keys(this.config.agent_profiles).join(', ')}`);
     } catch (error: any) {
@@ -362,6 +359,7 @@ export class AgentOrchestratorService {
 
       let fullResponse = '';
       let mcpExecutionPromise: Promise<any> | null = null;
+      let sessionMemoryDataUpdate: any = null;
 
       for await (const chunk of this.unifiedGoalAgent.executeGoalStream(
         state.currentNode,
@@ -372,6 +370,7 @@ export class AgentOrchestratorService {
           // Final chunk - prepare completion data
           fullResponse = chunk.response || fullResponse;
           mcpExecutionPromise = chunk.mcpExecutionPromise || null;
+          sessionMemoryDataUpdate = chunk.session_memory_data_update || null;
 
           console.log(`[UnifiedAgent] 📤 Streaming complete: "${fullResponse.substring(0, 80)}..."`);
           if (mcpExecutionPromise) {
@@ -392,25 +391,42 @@ export class AgentOrchestratorService {
       // Runs after streaming completes
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-      // ✅ FIX: Run data extraction BEFORE appending to summary to avoid duplication
-      // Data extraction analyzes recent exchanges + adds current exchange for analysis
-      // If we append first, it will see the exchange twice (once in summary, once in currentExchange)
-      const currentExchange = { customer: args.message, agent: fullResponse };
-      const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(
-        state,
-        currentExchange
-      );
+      // ✅ NEW: Update session memory via MCP (if agent extracted data)
+      // Agent returns session_memory_data_update in JSON output
+      if (sessionMemoryDataUpdate) {
+        console.log(`[UnifiedAgent] 💾 Updating session memory via MCP...`);
 
-      // Update conversation summary AFTER extraction
+        try {
+          // Import MCP tool executor
+          const { updateDataExtractionFields } = await import('../mcp/session-memory-data-mcp.tools.js');
+
+          // Call MCP tool to update session memory data
+          await updateDataExtractionFields(state.sessionId, sessionMemoryDataUpdate);
+
+          // Apply updates to state
+          state = this.contextManager.updateContext(state, {
+            data_extraction_fields: {
+              ...(state.context.data_extraction_fields || {}),
+              ...sessionMemoryDataUpdate
+            }
+          });
+
+          const categories = Object.keys(sessionMemoryDataUpdate);
+          console.log(`[UnifiedAgent] ✅ Session memory updated via MCP: ${categories.length} categories (${categories.join(', ')})`);
+        } catch (updateError: any) {
+          console.error(`[UnifiedAgent] ⚠️ Session memory update failed: ${updateError.message}`);
+          // Continue execution - session memory update failure is not critical
+        }
+      } else {
+        console.log(`[UnifiedAgent] ℹ️  No session memory updates from agent (customer didn't provide new information)`);
+      }
+
+      // Update conversation summary AFTER session memory update
       state = this.contextManager.appendConversationSummary(
         state,
         args.message,
         fullResponse
       );
-
-      if (extractionResult.fieldsUpdated && extractionResult.fieldsUpdated.length > 0) {
-        state = this.contextManager.updateContext(state, extractionResult.contextUpdates || {});
-      }
 
       // Await MCP completion before transitioning
       if (mcpExecutionPromise) {
@@ -604,35 +620,37 @@ export class AgentOrchestratorService {
           }
 
           // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          // STEP 5: Extract customer data from conversation
-          // Run DataExtractionAgent to extract fields like customer.name, customer.phone
-          // ⚠️ CRITICAL: Must run AFTER reply generation to capture customer responses
+          // STEP 5: Update session memory data via MCP (if agent extracted data)
+          // Agent returns session_memory_data_update in JSON output
+          // ⚠️ NEW: All session memory updates flow through MCP (no separate extraction agent)
           // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          if (response) {
-            console.log(`[UnifiedAgent] 🔍 Running data extraction...`);
-
-            // Build current exchange from user message and agent response
-            const currentExchange = (iterations === 1 && userMessage) ? {
-              customer: userMessage,
-              agent: response
-            } : undefined;
+          if (unifiedResult.session_memory_data_update) {
+            console.log(`[UnifiedAgent] 💾 Updating session memory via MCP...`);
 
             try {
-              const extractionResult = await this.dataExtractionAgent.extractAndUpdateContext(state, currentExchange);
+              // Import MCP tool executor
+              const { updateDataExtractionFields } = await import('../mcp/session-memory-data-mcp.tools.js');
 
-              if (extractionResult.contextUpdates) {
-                // Merge extraction updates with MCP updates
-                contextUpdates = { ...contextUpdates, ...extractionResult.contextUpdates };
-                console.log(`[UnifiedAgent] ✅ Data extraction complete: ${extractionResult.fieldsUpdated?.length || 0} fields updated`);
+              // Call MCP tool to update session memory data
+              await updateDataExtractionFields(state.sessionId, unifiedResult.session_memory_data_update);
 
-                if (extractionResult.fieldsUpdated && extractionResult.fieldsUpdated.length > 0) {
-                  console.log(`   Extracted fields: ${extractionResult.fieldsUpdated.join(', ')}`);
+              // Merge session memory updates into context
+              contextUpdates = {
+                ...contextUpdates,
+                data_extraction_fields: {
+                  ...(state.context.data_extraction_fields || {}),
+                  ...unifiedResult.session_memory_data_update
                 }
-              }
-            } catch (extractionError: any) {
-              console.error(`[UnifiedAgent] ⚠️ Data extraction failed: ${extractionError.message}`);
-              // Continue execution - extraction failure is not critical
+              };
+
+              const categories = Object.keys(unifiedResult.session_memory_data_update);
+              console.log(`[UnifiedAgent] ✅ Session memory updated via MCP: ${categories.length} categories (${categories.join(', ')})`);
+            } catch (updateError: any) {
+              console.error(`[UnifiedAgent] ⚠️ Session memory update failed: ${updateError.message}`);
+              // Continue execution - session memory update failure is not critical
             }
+          } else {
+            console.log(`[UnifiedAgent] ℹ️  No session memory updates from agent (customer didn't provide new information)`);
           }
 
           // Log unified agent execution

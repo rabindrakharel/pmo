@@ -268,7 +268,56 @@ export const sessionMemoryDataMcpTools = [
     type: 'function' as const,
     function: {
       name: 'update_data_extraction_fields',
-      description: 'Update specific data extraction fields (nested structure: customer.*, service.*, operations.*, etc.) in the session memory data',
+      description: `Update specific data extraction fields (nested structure: customer.*, service.*, operations.*, etc.) in the session memory data.
+
+WHEN TO USE:
+- Extract customer information from conversation (name, phone, email, address)
+- Capture service request details (primary_request, catalog_match)
+- Record operations data (solution_plan, appointment_details)
+- Store project/assignment references
+
+NESTED STRUCTURE (deep merge):
+- customer.*: Customer profile data (name, phone, email, address_street, address_city, address_state, address_zipcode)
+- service.*: Service request context (primary_request, catalog_match, related_entities)
+- operations.*: Operational tracking (solution_plan, task_id, appointment_details)
+- project.*: Project references (id)
+- assignment.*: Employee assignments (employee_id, employee_name)
+
+DEEP MERGE BEHAVIOR:
+- Preserves existing fields in each category
+- Only updates/adds specified fields
+- Example: Updating customer.phone does NOT erase customer.name
+- Supports incremental data collection
+
+EXTRACTION RULES:
+1. ONLY extract from CUSTOMER messages (not agent responses)
+2. Extract explicitly mentioned information (don't infer)
+3. Be precise and specific
+4. Extract ALL available fields in ONE call
+5. For addresses, extract as components: address_street, address_city, address_state, address_zipcode
+
+EXAMPLES:
+
+Example 1 - Name extraction:
+Customer: "My name is John Smith"
+→ fields: { customer: { name: "John Smith" } }
+
+Example 2 - Multiple fields:
+Customer: "I'm Jane Doe, 555-1234, need roof repair"
+→ fields: {
+  customer: { name: "Jane Doe", phone: "555-1234" },
+  service: { primary_request: "Roof leak repair" }
+}
+
+Example 3 - Address components:
+Customer: "353531 Edmonton Avenue, Palo Alto, CA"
+→ fields: {
+  customer: {
+    address_street: "353531 Edmonton Avenue",
+    address_city: "Palo Alto",
+    address_state: "California"
+  }
+}`,
       parameters: {
         type: 'object',
         properties: {
@@ -278,45 +327,55 @@ export const sessionMemoryDataMcpTools = [
           },
           fields: {
             type: 'object',
-            description: 'Nested object containing field categories and values to update',
+            description: 'Nested object containing field categories and values to update (deep merge preserves existing fields)',
             properties: {
               customer: {
                 type: 'object',
+                description: 'Customer profile fields',
                 properties: {
-                  name: { type: 'string' },
-                  phone: { type: 'string' },
-                  email: { type: 'string' },
-                  id: { type: 'string' },
+                  name: { type: 'string', description: 'Customer full name' },
+                  phone: { type: 'string', description: 'Phone number' },
+                  email: { type: 'string', description: 'Email address' },
+                  id: { type: 'string', description: 'Customer ID (from system lookup)' },
+                  address_street: { type: 'string', description: 'Street address' },
+                  address_city: { type: 'string', description: 'City' },
+                  address_state: { type: 'string', description: 'State/Province' },
+                  address_zipcode: { type: 'string', description: 'Postal/ZIP code' },
+                  address_country: { type: 'string', description: 'Country' },
                 },
               },
               service: {
                 type: 'object',
+                description: 'Service request context',
                 properties: {
-                  primary_request: { type: 'string' },
-                  catalog_match: { type: 'string' },
-                  related_entities: { type: 'string' },
+                  primary_request: { type: 'string', description: 'Main issue/service needed (5-10 words)' },
+                  catalog_match: { type: 'string', description: 'Matched service from catalog' },
+                  related_entities: { type: 'string', description: 'Related entities (JSON string)' },
                 },
               },
               operations: {
                 type: 'object',
+                description: 'Operational tracking data',
                 properties: {
-                  solution_plan: { type: 'string' },
-                  task_id: { type: 'string' },
-                  task_name: { type: 'string' },
-                  appointment_details: { type: 'string' },
+                  solution_plan: { type: 'string', description: 'Proposed solution' },
+                  task_id: { type: 'string', description: 'Created task ID' },
+                  task_name: { type: 'string', description: 'Task name' },
+                  appointment_details: { type: 'string', description: 'Appointment information' },
                 },
               },
               project: {
                 type: 'object',
+                description: 'Project references',
                 properties: {
-                  id: { type: 'string' },
+                  id: { type: 'string', description: 'Project ID' },
                 },
               },
               assignment: {
                 type: 'object',
+                description: 'Employee assignment data',
                 properties: {
-                  employee_id: { type: 'string' },
-                  employee_name: { type: 'string' },
+                  employee_id: { type: 'string', description: 'Assigned employee ID' },
+                  employee_name: { type: 'string', description: 'Assigned employee name' },
                 },
               },
             },
