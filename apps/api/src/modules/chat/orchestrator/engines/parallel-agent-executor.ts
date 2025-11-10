@@ -1,18 +1,33 @@
 /**
- * Parallel Agent Executor
+ * Parallel Agent Executor (DEPRECATED in v3.0)
  * Executes multiple agents in parallel based on execution strategy
  * Provides 50%+ performance improvement for independent agents
  *
+ * NOTE: v3.0 uses single agent per goal, so this file is legacy
+ *
  * @module orchestrator/engines/parallel-agent-executor
- * @version 1.0.0
+ * @version 1.0.0 (DEPRECATED)
  */
 
-import type {
-  AgentExecutionStrategy,
-  ParallelAgentGroup,
-  AgentExecutionNode
-} from '../config/agent-config.schema.js';
 import type { AgentContextState } from '../agents/agent-context.service.js';
+
+// Local type definitions (removed from main schema as they're deprecated in v3.0)
+export interface AgentExecutionStrategy {
+  mode: 'sequential' | 'parallel' | 'dependency_graph';
+  parallel_groups?: ParallelAgentGroup[];
+  execution_graph?: AgentExecutionNode[];
+}
+
+export interface ParallelAgentGroup {
+  agents: string[];
+  description?: string;
+}
+
+export interface AgentExecutionNode {
+  agent: string;
+  depends_on?: string[];
+  required: boolean;
+}
 
 export interface AgentExecutor {
   agentId: string;

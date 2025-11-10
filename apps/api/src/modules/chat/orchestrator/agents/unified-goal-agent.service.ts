@@ -593,7 +593,7 @@ ${agentProfile.identity}
 ${goalDescriptionWithValues}
 
 **Success Criteria (what we need to complete THIS goal):**
-${goal.success_criteria.mandatory_fields.map(f => `- ${f}`).join('\n')}
+${this.extractMandatoryFields(goal).map(f => `- ${f}`).join('\n')}
 
 # PROMPT WITH SESSION MEMORY DATA
 
@@ -650,11 +650,33 @@ Generate your JSON response now:`;
   }
 
   /**
+   * Extract mandatory fields from goal_success_criteria (v3.0 format)
+   */
+  private extractMandatoryFields(goal: ConversationGoal): string[] {
+    if (!goal.goal_success_criteria) {
+      return [];
+    }
+
+    const fields: string[] = [];
+
+    // Extract from all_of conditions
+    if (goal.goal_success_criteria.all_of) {
+      for (const condition of goal.goal_success_criteria.all_of) {
+        if (condition.json_path && condition.operator === 'is_set') {
+          fields.push(condition.json_path);
+        }
+      }
+    }
+
+    return fields;
+  }
+
+  /**
    * Build session memory data section showing collected fields
    */
   private buildSessionMemoryDataSection(goal: ConversationGoal, context: any): string {
     const dataFields = context.data_extraction_fields || {};
-    const mandatoryFields = goal.success_criteria?.mandatory_fields || [];
+    const mandatoryFields = this.extractMandatoryFields(goal);
 
     const collectedMandatory: string[] = [];
     const collectedOptional: string[] = [];

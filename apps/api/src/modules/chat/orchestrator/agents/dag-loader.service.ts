@@ -116,19 +116,30 @@ export class AgentConfigLoader {
     const goalIds = new Set(this.agentConfig.goals.map(g => g.goal_id));
     const agentIds = Object.keys(this.agentConfig.agent_profiles);
 
-    // Check all advance conditions reference valid goals
+    // Check all branching conditions reference valid goals (v3.0)
     for (const goal of this.agentConfig.goals) {
-      for (const condition of goal.auto_advance_conditions) {
-        if (condition.next_goal !== 'END' && !goalIds.has(condition.next_goal)) {
-          errors.push(`Goal "${goal.goal_id}" references non-existent next_goal: ${condition.next_goal}`);
+      // Check goal_branching_condition rules
+      if (goal.goal_branching_condition?.rules) {
+        for (const rule of goal.goal_branching_condition.rules) {
+          if (rule.next_goal !== 'END' && !goalIds.has(rule.next_goal)) {
+            errors.push(`Goal "${goal.goal_id}" references non-existent next_goal: ${rule.next_goal}`);
+          }
         }
       }
 
-      // Check allowed agents exist
-      for (const agentId of goal.allowed_agents) {
-        if (!agentIds.includes(agentId)) {
-          errors.push(`Goal "${goal.goal_id}" references non-existent agent: ${agentId}`);
-        }
+      // Check fallback_goal exists
+      if (goal.fallback_goal && goal.fallback_goal !== 'END' && !goalIds.has(goal.fallback_goal)) {
+        errors.push(`Goal "${goal.goal_id}" references non-existent fallback_goal: ${goal.fallback_goal}`);
+      }
+
+      // Check primary_agent exists
+      if (goal.primary_agent && !agentIds.includes(goal.primary_agent)) {
+        errors.push(`Goal "${goal.goal_id}" references non-existent primary_agent: ${goal.primary_agent}`);
+      }
+
+      // Check fallback_agent exists
+      if (goal.fallback_agent && !agentIds.includes(goal.fallback_agent)) {
+        errors.push(`Goal "${goal.goal_id}" references non-existent fallback_agent: ${goal.fallback_agent}`);
       }
     }
 
