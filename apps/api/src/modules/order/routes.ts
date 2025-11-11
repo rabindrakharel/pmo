@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import { createFilteredPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 
 export async function orderRoutes(fastify: FastifyInstance) {
   // List orders
@@ -42,7 +43,7 @@ export async function orderRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return { data: rows, total, limit, offset };
+      return createFilteredPaginatedResponse(rows, total, limit, offset);
     } catch (error) {
       fastify.log.error('Error listing orders:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

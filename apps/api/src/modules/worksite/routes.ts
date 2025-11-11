@@ -5,7 +5,8 @@ import { sql } from 'drizzle-orm';
 import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
-  getColumnsByMetadata
+  getColumnsByMetadata,
+  createFilteredPaginatedResponse
 } from '../../lib/universal-schema-metadata.js';
 
 // Schema based on d_worksite table structure
@@ -175,12 +176,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return {
-        data: worksites,
-        total,
-        limit,
-        offset,
-      };
+      return createFilteredPaginatedResponse(worksites, total, limit, offset);
     } catch (error) {
       fastify.log.error({ error, stack: (error as Error).stack }, 'Error fetching worksites');
       return reply.status(500).send({ error: 'Internal server error' });

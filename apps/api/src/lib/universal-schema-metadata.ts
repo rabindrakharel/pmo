@@ -824,11 +824,36 @@ export function filterSystemColumns<T extends Record<string, any>>(
   return filterObject(data);
 }
 
+/**
+ * Helper function to create a filtered paginated response
+ * DRY pattern for all entity list endpoints
+ *
+ * @param data - Array of entity records from database
+ * @param total - Total count of records
+ * @param limit - Number of records per page
+ * @param offset - Offset for pagination
+ * @returns Paginated response with system columns filtered
+ */
+export function createFilteredPaginatedResponse<T extends Record<string, any>>(
+  data: T[],
+  total: number,
+  limit: number,
+  offset: number
+) {
+  return {
+    data: filterSystemColumns(data) as T[],
+    total,
+    limit,
+    offset,
+  };
+}
+
 export default {
   getUniversalColumnMetadata,
   getColumnsByMetadata,
   filterUniversalColumns,
   filterSystemColumns,
+  createFilteredPaginatedResponse,
   getUniversalComponentProps,
   UNIVERSAL_COLUMN_PATTERNS,
   PATTERN_RULES

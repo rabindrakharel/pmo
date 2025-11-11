@@ -5,6 +5,7 @@ import { sql } from 'drizzle-orm';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
 import { s3AttachmentService } from '../../lib/s3-attachments.js';
+import { createFilteredPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 
 // Schema based on d_revenue table structure from db/37_d_revenue.ddl
 const RevenueSchema = Type.Object({
@@ -152,7 +153,7 @@ export async function revenueRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return { data: revenues, total, limit, offset };
+      return createFilteredPaginatedResponse(revenues, total, limit, offset);
     } catch (error: any) {
       fastify.log.error(`Revenue list error: ${error.message}`);
       return reply.code(500).send({ error: 'Failed to fetch revenues' });

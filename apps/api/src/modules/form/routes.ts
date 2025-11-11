@@ -3,6 +3,7 @@ import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+import { createFilteredPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 
 // Response schema matching minimalistic database structure
 const FormSchema = Type.Object({
@@ -140,7 +141,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           LIMIT ${limit} OFFSET ${offset}
         `);
 
-        return { data: forms, total, limit, offset };
+        return createFilteredPaginatedResponse(forms, total, limit, offset);
       } else {
         // Show only latest version (highest version per slug/code group)
         // Use DISTINCT ON to get one row per slug with max version
@@ -178,7 +179,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           LIMIT ${limit} OFFSET ${offset}
         `);
 
-        return { data: forms, total, limit, offset };
+        return createFilteredPaginatedResponse(forms, total, limit, offset);
       }
     } catch (error) {
       fastify.log.error('Error fetching forms: ' + String(error));

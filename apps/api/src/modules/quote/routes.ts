@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import { filterUniversalColumns } from '../../lib/universal-schema-metadata.js';
+import { filterUniversalColumns, createFilteredPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
 
@@ -130,7 +130,7 @@ export async function quoteRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return { data: quotes, total, limit, offset };
+      return createFilteredPaginatedResponse(quotes, total, limit, offset);
     } catch (error) {
       fastify.log.error('Error fetching quotes:', error);
       return reply.status(500).send({ error: 'Internal server error' });

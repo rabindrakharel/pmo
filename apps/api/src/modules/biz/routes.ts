@@ -5,7 +5,8 @@ import { sql } from 'drizzle-orm';
 import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
-  getColumnsByMetadata
+  getColumnsByMetadata,
+  createFilteredPaginatedResponse
 } from '../../lib/universal-schema-metadata.js';
 import {
   hasPermissionOnEntityId,
@@ -140,23 +141,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true,
-        canSeeSafetyInfo: true,
-      };
-      
-      const filteredData = bizUnits.map(biz => 
-        filterUniversalColumns(biz, userPermissions)
-      );
-
-      return {
-        data: filteredData,
-        total,
-        limit,
-        offset,
-      };
+      return createFilteredPaginatedResponse(bizUnits, total, limit, offset);
     } catch (error) {
       fastify.log.error('Error fetching business units:', error as any);
       console.error('Full error details:', error);
