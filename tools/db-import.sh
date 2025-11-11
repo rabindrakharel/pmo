@@ -149,7 +149,6 @@ validate_all_ddls() {
         "V_d_business.ddl"
         "VI_d_cust.ddl"
         "VII_d_role.ddl"
-        "VIII_d_position.ddl"
         "IX_d_worksite.ddl"
         "X_d_service.ddl"
         "XI_d_product.ddl"
@@ -446,7 +445,7 @@ print_summary() {
 
 # Main execution
 main() {
-    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 49 DDL FILES (Roman Numerals I-XLIX)"
+    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 48 DDL FILES (Roman Numerals I-XLIX, VIII Missing)"
     print_status $PURPLE "=========================================================================="
 
     if [ "$DRY_RUN" = true ]; then

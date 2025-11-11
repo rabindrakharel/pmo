@@ -64,6 +64,11 @@ import { linkageModule } from './linkage/index.js';
 import { sharedRoutes } from './shared/routes.js';
 import { entityOptionsRoutes } from './entity-options/routes.js';
 
+// Hierarchy entity API modules
+import { officeHierarchyRoutes } from './office-hierarchy/routes.js';
+import { businessHierarchyRoutes } from './business-hierarchy/routes.js';
+import { productHierarchyRoutes } from './product-hierarchy/routes.js';
+
 /**
  * Register all API route modules with entity-based RBAC functionality
  */
@@ -130,6 +135,11 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await messageDataRoutes(fastify);
   await workflowAutomationRoutes(fastify);
   await workflowRoutes(fastify);
+
+  // Hierarchy entity API routes
+  await officeHierarchyRoutes(fastify);
+  await businessHierarchyRoutes(fastify);
+  await productHierarchyRoutes(fastify);
 
   // Product & Operations API routes
   await serviceRoutes(fastify);

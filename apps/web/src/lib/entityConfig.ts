@@ -3167,6 +3167,88 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     supportedViews: ['table'],
     defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // OFFICE HIERARCHY (Organizational Structure)
+  // --------------------------------------------------------------------------
+  office_hierarchy: {
+    name: 'office_hierarchy',
+    displayName: 'Office Hierarchy',
+    pluralName: 'Office Hierarchies',
+    apiEndpoint: '/api/v1/office-hierarchy',
+
+    columns: generateStandardColumns(
+      ['name', 'code', 'dl__office_hierarchy_level', 'manager_name', 'parent_name', 'budget_allocated_amt']
+    ),
+
+    fields: [
+      { key: 'code', label: 'Code', type: 'text', required: true },
+      { key: 'name', label: 'Name', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
+      { key: 'parent_id', label: 'Parent Node', type: 'select', loadOptionsFromEntity: 'office_hierarchy' },
+      { key: 'dl__office_hierarchy_level', label: 'Level', type: 'select', loadOptionsFromSettings: true, required: true },
+      { key: 'manager_employee_id', label: 'Manager', type: 'select', loadOptionsFromEntity: 'employee' },
+      { key: 'budget_allocated_amt', label: 'Budget Allocated', type: 'number' },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
+    ],
+
+    supportedViews: ['table', 'graph'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // BUSINESS HIERARCHY (Organizational Structure)
+  // --------------------------------------------------------------------------
+  business_hierarchy: {
+    name: 'business_hierarchy',
+    displayName: 'Business Hierarchy',
+    pluralName: 'Business Hierarchies',
+    apiEndpoint: '/api/v1/business-hierarchy',
+
+    columns: generateStandardColumns(
+      ['name', 'code', 'dl__business_hierarchy_level', 'manager_name', 'parent_name', 'budget_allocated_amt']
+    ),
+
+    fields: [
+      { key: 'code', label: 'Code', type: 'text', required: true },
+      { key: 'name', label: 'Name', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
+      { key: 'parent_id', label: 'Parent Node', type: 'select', loadOptionsFromEntity: 'business_hierarchy' },
+      { key: 'dl__business_hierarchy_level', label: 'Level', type: 'select', loadOptionsFromSettings: true, required: true },
+      { key: 'manager_employee_id', label: 'Manager', type: 'select', loadOptionsFromEntity: 'employee' },
+      { key: 'budget_allocated_amt', label: 'Budget Allocated', type: 'number' },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
+    ],
+
+    supportedViews: ['table', 'graph'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // PRODUCT HIERARCHY (Product Categorization)
+  // --------------------------------------------------------------------------
+  product_hierarchy: {
+    name: 'product_hierarchy',
+    displayName: 'Product Hierarchy',
+    pluralName: 'Product Hierarchies',
+    apiEndpoint: '/api/v1/product-hierarchy',
+
+    columns: generateStandardColumns(
+      ['name', 'code', 'dl__product_hierarchy_level', 'parent_name']
+    ),
+
+    fields: [
+      { key: 'code', label: 'Code', type: 'text', required: true },
+      { key: 'name', label: 'Name', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
+      { key: 'parent_id', label: 'Parent Node', type: 'select', loadOptionsFromEntity: 'product_hierarchy' },
+      { key: 'dl__product_hierarchy_level', label: 'Level', type: 'select', loadOptionsFromSettings: true, required: true },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
+    ],
+
+    supportedViews: ['table', 'graph'],
+    defaultView: 'table'
   }
 };
 

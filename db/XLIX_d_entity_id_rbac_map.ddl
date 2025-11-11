@@ -376,4 +376,18 @@ WHERE e.email = 'jake.patterson@huronhome.ca';
 -- These entity-specific permissions would typically be managed through the application
 -- rather than static DDL, as they change frequently based on business assignments
 
+-- ==================== HIERARCHY ENTITY PERMISSIONS ====================
+-- CEO - Full access to all hierarchy entities
+INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid)
+SELECT
+  e.id, entity_type, 'all', permissions::integer[],
+  (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca')
+FROM app.d_employee e
+CROSS JOIN (VALUES
+  ('office_hierarchy', '{0,1,2,3,4}'),    -- Full office hierarchy management
+  ('business_hierarchy', '{0,1,2,3,4}'),  -- Full business hierarchy management
+  ('product_hierarchy', '{0,1,2,3,4}')    -- Full product hierarchy management
+) AS perms(entity_type, permissions)
+WHERE e.email = 'james.miller@huronhome.ca';
+
 COMMENT ON TABLE app.entity_id_rbac_map IS 'Simplified RBAC system with permission arrays: 0=View, 1=Edit, 2=Share, 3=Delete, 4=Create. Supports entity_id="all" for type-level permissions and specific UUIDs for instance-level permissions.';
