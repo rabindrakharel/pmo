@@ -183,13 +183,14 @@ validate_all_ddls() {
         "XXXIX_orchestrator_agent_log.ddl"
         "XL_orchestrator_summary.ddl"
         "XLI_orchestrator_agents.ddl"
-        "XLII_d_email_template.ddl"
-        "XLIII_d_entity_map.ddl"
-        "XLIV_d_entity.ddl"
-        "XLV_d_entity_instance_id.ddl"
-        "XLVI_d_entity_instance_backfill.ddl"
-        "XLVII_d_entity_id_map.ddl"
-        "XLVIII_d_entity_id_rbac_map.ddl"
+        "XLII_d_message_schema.ddl"
+        "XLIII_f_message_data.ddl"
+        "XLIV_d_entity_map.ddl"
+        "XLV_d_entity.ddl"
+        "XLVI_d_entity_instance_id.ddl"
+        "XLVII_d_entity_instance_backfill.ddl"
+        "XLVIII_d_entity_id_map.ddl"
+        "XLIX_d_entity_id_rbac_map.ddl"
     )
 
     for file in "${ddl_files[@]}"; do
@@ -219,7 +220,7 @@ drop_schema() {
 
 # Function to import all DDL files
 import_ddls() {
-    print_status $BLUE "📥 Importing 48 DDL files in dependency order (Roman numerals)..."
+    print_status $BLUE "📥 Importing 49 DDL files in dependency order (Roman numerals)..."
 
     # I: Initial setup - Drop and recreate schema
     execute_sql "$DB_PATH/I_schemaCreate.ddl" "I: Schema setup (drop and recreate)"
@@ -288,18 +289,19 @@ import_ddls() {
     execute_sql "$DB_PATH/XL_orchestrator_summary.ddl" "XL: AI orchestrator conversation summaries"
     execute_sql "$DB_PATH/XLI_orchestrator_agents.ddl" "XLI: Multi-agent orchestrator"
 
-    # XLII: Marketing entities
-    execute_sql "$DB_PATH/XLII_d_email_template.ddl" "XLII: Email template entities"
+    # XLII-XLIII: Messaging entities
+    execute_sql "$DB_PATH/XLII_d_message_schema.ddl" "XLII: Message schema (EMAIL, SMS, PUSH)"
+    execute_sql "$DB_PATH/XLIII_f_message_data.ddl" "XLIII: Message data fact table"
 
-    # XLIII-XLVIII: Entity metadata layer (MUST BE LAST in this order)
-    execute_sql "$DB_PATH/XLIII_d_entity_map.ddl" "XLIII: Entity type linkage rules"
-    execute_sql "$DB_PATH/XLIV_d_entity.ddl" "XLIV: Entity TYPE metadata (parent-child, icons)"
-    execute_sql "$DB_PATH/XLV_d_entity_instance_id.ddl" "XLV: Entity INSTANCE registry"
-    execute_sql "$DB_PATH/XLVI_d_entity_instance_backfill.ddl" "XLVI: Entity instance backfill"
-    execute_sql "$DB_PATH/XLVII_d_entity_id_map.ddl" "XLVII: Entity instance relationships"
-    execute_sql "$DB_PATH/XLVIII_d_entity_id_rbac_map.ddl" "XLVIII: RBAC permission mapping"
+    # XLIV-XLIX: Entity metadata layer (MUST BE LAST in this order)
+    execute_sql "$DB_PATH/XLIV_d_entity_map.ddl" "XLIV: Entity type linkage rules"
+    execute_sql "$DB_PATH/XLV_d_entity.ddl" "XLV: Entity TYPE metadata (parent-child, icons)"
+    execute_sql "$DB_PATH/XLVI_d_entity_instance_id.ddl" "XLVI: Entity INSTANCE registry"
+    execute_sql "$DB_PATH/XLVII_d_entity_instance_backfill.ddl" "XLVII: Entity instance backfill"
+    execute_sql "$DB_PATH/XLVIII_d_entity_id_map.ddl" "XLVIII: Entity instance relationships"
+    execute_sql "$DB_PATH/XLIX_d_entity_id_rbac_map.ddl" "XLIX: RBAC permission mapping"
 
-    print_status $GREEN "✅ All 48 DDL files imported successfully (Roman numerals I-XLVIII)"
+    print_status $GREEN "✅ All 49 DDL files imported successfully (Roman numerals I-XLIX)"
 }
 
 # Function to validate schema after import
@@ -414,7 +416,7 @@ validate_schema() {
 print_summary() {
     print_status $PURPLE "📋 IMPORT SUMMARY"
     print_status $PURPLE "=================="
-    print_status $CYAN "• PMO Enterprise schema with 48 DDL files (Roman numerals I-XLVIII)"
+    print_status $CYAN "• PMO Enterprise schema with 49 DDL files (Roman numerals I-XLIX)"
     print_status $CYAN "• Dependency-ordered import in 15 logical layers"
     print_status $CYAN "• Head/data pattern for temporal entities"
     print_status $CYAN "• 4-level office hierarchy (Office → District → Region → Corporate)"
@@ -444,8 +446,8 @@ print_summary() {
 
 # Main execution
 main() {
-    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 48 DDL FILES (Roman Numerals I-XLVIII)"
-    print_status $PURPLE "==========================================================================="
+    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 49 DDL FILES (Roman Numerals I-XLIX)"
+    print_status $PURPLE "=========================================================================="
 
     if [ "$DRY_RUN" = true ]; then
         print_status $YELLOW "🔍 DRY RUN MODE - No changes will be made"
