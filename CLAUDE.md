@@ -534,6 +534,7 @@ Database (PostgreSQL, 52 tables)
 
 | Document | Purpose | When to Use | Key Topics |
 |----------|---------|-------------|------------|
+| **[Person-Calendar System](./docs/PERSON_CALENDAR_SYSTEM.md)** | Unified person-calendar orchestration system | Implementing event booking, calendar management, notifications | Event + Person = Calendar, RBAC ownership, AWS SES/SNS messaging, d_entity_person_calendar, d_entity_event_person_calendar |
 | **[Entity Options API](./docs/ENTITY_OPTIONS_API.md)** | Universal dropdown/select options service | Building forms, filters, dropdowns | `/api/v1/entity/:type/options`, Dynamic options loading |
 | **[S3 Attachment Service](./docs/S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md)** | File upload and attachment management | Implementing file uploads, document management | Presigned URLs, Attachment metadata, S3/MinIO integration |
 
@@ -623,6 +624,10 @@ Form builder: form/form.md
 | **entity configuration, DRY, entity config** | `entity_design_pattern/universal_entity_system.md`, `entity_ui_ux_route_api.md` |
 | **d_entity, entity metadata, dynamic icons, child tabs, sidebar navigation** | `entity_design_pattern/ENTITY_METADATA_COHERENCE.md` ⭐ |
 | **entity API, /api/v1/entity/types, entity registry, ui_icon, child_entities** | `entity_design_pattern/ENTITY_METADATA_COHERENCE.md`, `datamodel/datamodel.md` |
+| **person-calendar, event booking, calendar system, RSVP, availability slots** | `PERSON_CALENDAR_SYSTEM.md` ⭐ |
+| **event ownership, RBAC permission[5], entity_id_rbac_map** | `PERSON_CALENDAR_SYSTEM.md`, `datamodel/datamodel.md` |
+| **calendar invites, AWS SES, AWS SNS, messaging service, .ics files** | `PERSON_CALENDAR_SYSTEM.md` |
+| **d_entity_person_calendar, d_entity_event_person_calendar, calendar construct** | `PERSON_CALENDAR_SYSTEM.md`, `calendar/README.md` |
 | **AI chat, voice calling, MCP, function tools, booking automation, session memory** | `ai_chat/AI_CHAT_SYSTEM.md` ⭐ |
 | **OpenAI, GPT-4o mini, semantic routing, chat widget, customer service, unified goal agent** | `ai_chat/AI_CHAT_SYSTEM.md` |
 | **Deepgram, ElevenLabs, STT, TTS, voice streaming, audio playback** | `ai_chat/AI_CHAT_SYSTEM.md` |
