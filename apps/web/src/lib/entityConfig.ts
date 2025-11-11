@@ -2380,6 +2380,59 @@ export const entityConfigs: Record<string, EntityConfig> = {
   },
 
   // --------------------------------------------------------------------------
+  // EVENT (Meetings, Appointments, Trainings, Consultations)
+  // --------------------------------------------------------------------------
+  event: {
+    name: 'event',
+    displayName: 'Event',
+    pluralName: 'Events',
+    apiEndpoint: '/api/v1/event',
+    shareable: true,
+
+    columns: generateStandardColumns(
+      ['name', 'code', 'event_type', 'event_platform_provider_name', 'from_ts', 'to_ts', 'event_addr']
+    ),
+
+    fields: [
+      { key: 'code', label: 'Event Code', type: 'text', required: true },
+      { key: 'name', label: 'Event Title', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
+      {
+        key: 'event_type',
+        label: 'Event Type',
+        type: 'select',
+        required: true,
+        options: [
+          { value: 'onsite', label: 'On-site' },
+          { value: 'virtual', label: 'Virtual' }
+        ]
+      },
+      {
+        key: 'event_platform_provider_name',
+        label: 'Platform/Venue',
+        type: 'select',
+        required: true,
+        options: [
+          { value: 'zoom', label: 'Zoom' },
+          { value: 'teams', label: 'Microsoft Teams' },
+          { value: 'google_meet', label: 'Google Meet' },
+          { value: 'physical_hall', label: 'Physical Hall' },
+          { value: 'office', label: 'Office' }
+        ]
+      },
+      { key: 'event_addr', label: 'Address or Meeting URL', type: 'text' },
+      { key: 'event_instructions', label: 'Special Instructions', type: 'textarea' },
+      { key: 'from_ts', label: 'Start Time', type: 'date', required: true },
+      { key: 'to_ts', label: 'End Time', type: 'date', required: true },
+      { key: 'timezone', label: 'Timezone', type: 'text' },
+      { key: 'event_metadata', label: 'Metadata', type: 'jsonb' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
   // BOOKING (Service Appointments)
   // --------------------------------------------------------------------------
   booking: {

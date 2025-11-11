@@ -39,7 +39,6 @@ import { invoiceRoutes } from './invoice/routes.js';
 
 // Financial API modules
 import { costRoutes } from './cost/routes.js';
-import { revenueRoutes } from './revenue/routes.js';
 
 // AI Chat Widget API module
 import { chatRoutes } from './chat/routes.js';
@@ -144,7 +143,6 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
 
   // Financial API routes
   await costRoutes(fastify);
-  await revenueRoutes(fastify);
 
   // AI Chat Widget routes
   await fastify.register(chatRoutes, { prefix: '/api/v1/chat' });
