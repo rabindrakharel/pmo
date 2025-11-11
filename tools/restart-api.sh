@@ -18,6 +18,17 @@ echo -e "${BLUE}🔄 Restarting API server...${NC}"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
+# Source environment variables from .env file
+if [[ -f "apps/api/.env" ]]; then
+    echo -e "${BLUE}🔧 Loading environment variables from apps/api/.env${NC}"
+    set -a  # automatically export all variables
+    source apps/api/.env
+    set +a  # stop auto-exporting
+    echo -e "${GREEN}✅ Environment variables loaded${NC}"
+else
+    echo -e "${YELLOW}⚠️  No .env file found at apps/api/.env${NC}"
+fi
+
 API_PORT=4000
 API_PID_FILE=".pids/api.pid"
 API_LOG_FILE="logs/api.log"
@@ -85,11 +96,6 @@ if [[ ! -d "node_modules" ]] || [[ ! -d "apps/api/node_modules" ]]; then
 fi
 
 echo -e "${BLUE}🔧 Starting API development server on port $API_PORT...${NC}"
-
-# Set environment variables for API
-export DATABASE_URL="${DATABASE_URL:-postgresql://app:app@localhost:5434/app}"
-export REDIS_URL="${REDIS_URL:-redis://localhost:6379}"
-export JWT_SECRET="${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}"
 
 # Start the API server in background and capture PID
 cd apps/api

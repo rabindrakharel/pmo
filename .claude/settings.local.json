@@ -32,7 +32,15 @@
       "Bash(git checkout:*)",
       "Bash(git cherry-pick:*)",
       "Bash(git push:*)",
-      "Bash(/home/rabin/projects/pmo/tools/db-import.sh:*)"
+      "Bash(/home/rabin/projects/pmo/tools/db-import.sh:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(/home/rabin/projects/pmo/tools/test-api.sh:*)",
+      "Bash(/home/rabin/projects/pmo/tools/logs-api.sh:*)",
+      "Bash(xargs kill -9)",
+      "Bash(/home/rabin/projects/pmo/tools/restart-api.sh:*)",
+      "Bash(timeout 30 /home/rabin/projects/pmo/tools/test-api.sh:*)"
     ],
     "deny": [],
     "ask": [],

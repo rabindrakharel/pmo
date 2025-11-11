@@ -21,6 +21,17 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_ROOT"
 
+# Source environment variables from .env file
+if [[ -f "apps/api/.env" ]]; then
+    echo -e "${BLUE}🔧 Loading environment variables from apps/api/.env${NC}"
+    set -a  # automatically export all variables
+    source apps/api/.env
+    set +a  # stop auto-exporting
+    echo -e "${GREEN}✅ Environment variables loaded${NC}"
+else
+    echo -e "${YELLOW}⚠️  No .env file found at apps/api/.env${NC}"
+fi
+
 # Start infrastructure first
 echo -e "${BLUE}1️⃣ Starting infrastructure services...${NC}"
 if command -v make >/dev/null 2>&1; then
