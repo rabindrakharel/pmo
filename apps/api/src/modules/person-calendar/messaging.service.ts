@@ -1,6 +1,6 @@
 /**
- * Booking Notification Service
- * Handles email calendar invites and SMS notifications for bookings
+ * Person Calendar Messaging Service
+ * Handles email calendar invites and SMS notifications for person-calendar bookings
  * Uses the unified messaging service (AWS SNS/SES)
  */
 
@@ -64,7 +64,7 @@ export interface NotificationResult {
   error?: string;
 }
 
-export class BookingNotificationService {
+export class PersonCalendarMessagingService {
   private messageService: MessageDeliveryService;
 
   constructor() {
@@ -72,9 +72,9 @@ export class BookingNotificationService {
   }
 
   /**
-   * Send complete booking notification (email with calendar invite + SMS)
+   * Send complete person-calendar notification (email with calendar invite + SMS)
    */
-  async sendBookingNotification(request: CalendarInviteRequest): Promise<NotificationResult> {
+  async sendPersonCalendarNotification(request: CalendarInviteRequest): Promise<NotificationResult> {
     const result: NotificationResult = {
       success: false,
       emailSent: false,
@@ -116,7 +116,7 @@ export class BookingNotificationService {
 
       return result;
     } catch (error) {
-      console.error('[BookingNotificationService] Error sending notifications:', error);
+      console.error('[PersonCalendarMessagingService] Error sending notifications:', error);
       result.error = error instanceof Error ? error.message : 'Unknown error';
       return result;
     }
@@ -395,7 +395,7 @@ export class BookingNotificationService {
       result.success = result.emailSent || result.smsSent;
       return result;
     } catch (error) {
-      console.error('[BookingNotificationService] Error sending cancellation:', error);
+      console.error('[PersonCalendarMessagingService] Error sending cancellation:', error);
       result.error = error instanceof Error ? error.message : 'Unknown error';
       return result;
     }

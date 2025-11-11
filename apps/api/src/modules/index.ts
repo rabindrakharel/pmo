@@ -43,8 +43,8 @@ import { costRoutes } from './cost/routes.js';
 // AI Chat Widget API module
 import { chatRoutes } from './chat/routes.js';
 import { bookingRoutes } from './booking/routes.js';
-import { personCalendarServiceRoutes } from './booking/person-calendar-service.routes.js';
 import { personCalendarRoutes } from './person-calendar/routes.js';
+import { personCalendarServiceRoutes } from './person-calendar/person-calendar-service.routes.js';
 import { enrichedCalendarRoutes } from './person-calendar/calendar-enriched.routes.js';
 import { interactionRoutes } from './interaction/routes.js';
 import { eventRoutes } from './event/routes.js';

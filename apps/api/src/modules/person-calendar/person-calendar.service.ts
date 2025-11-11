@@ -1,21 +1,21 @@
 /**
- * Unified Booking Service
- * Orchestrates the complete booking flow:
+ * Person Calendar Service
+ * Orchestrates the complete person-calendar booking flow:
  * 1. Create event in d_event
  * 2. Link attendees in d_entity_event_person_calendar (RSVP tracking)
  * 3. Book calendar slots in d_entity_person_calendar (mark unavailable)
  * 4. Link entities in d_entity_id_map (event → service, customer, etc.)
  * 5. Send email/SMS notifications with calendar invites
- * @module booking/booking.service
+ * @module booking/person-calendar.service
  */
 
 import { client } from '../../db/index.js';
-import { BookingNotificationService } from './notification.service.js';
+import { PersonCalendarMessagingService } from './messaging.service.js';
 
 /**
- * Booking request from customer or agent
+ * Person calendar booking request from customer or agent
  */
-export interface CreateBookingRequest {
+export interface CreatePersonCalendarRequest {
   // Customer details
   customerId?: string; // d_cust.id (optional - may be new customer)
   customerName: string;
@@ -55,9 +55,9 @@ export interface CreateBookingRequest {
 }
 
 /**
- * Booking confirmation response
+ * Person calendar confirmation response
  */
-export interface BookingConfirmation {
+export interface PersonCalendarConfirmation {
   success: boolean;
   eventId: string;
   eventCode: string;
@@ -92,9 +92,9 @@ async function generateBookingNumber(): Promise<string> {
 }
 
 /**
- * Create a complete booking with event, calendar, RSVP, and notifications
+ * Create a complete person-calendar booking with event, calendar, RSVP, and notifications
  */
-export async function createBooking(request: CreateBookingRequest): Promise<BookingConfirmation> {
+export async function createPersonCalendar(request: CreatePersonCalendarRequest): Promise<PersonCalendarConfirmation> {
   const {
     customerId,
     customerName,
@@ -312,7 +312,7 @@ export async function createBooking(request: CreateBookingRequest): Promise<Book
     // STEP 5: Send Notifications (Email + SMS with Calendar Invite)
     // ===============================================
 
-    const notificationService = new BookingNotificationService();
+    const messagingService = new PersonCalendarMessagingService();
     const notificationResults = {
       totalSent: 0,
       totalFailed: 0,
@@ -321,7 +321,7 @@ export async function createBooking(request: CreateBookingRequest): Promise<Book
 
     // Send notification to customer (if email/phone provided)
     if (customerEmail || customerPhone) {
-      const customerResult = await notificationService.sendBookingNotification({
+      const customerResult = await messagingService.sendPersonCalendarNotification({
         recipientEmail: customerEmail || '',
         recipientName: customerName,
         recipientPhone: customerPhone || '',
@@ -373,7 +373,7 @@ export async function createBooking(request: CreateBookingRequest): Promise<Book
       const employeeName = `${employee.first_name} ${employee.last_name}`;
 
       if (employeeEmail || employeePhone) {
-        const empResult = await notificationService.sendBookingNotification({
+        const empResult = await messagingService.sendPersonCalendarNotification({
           recipientEmail: employeeEmail || '',
           recipientName: employeeName,
           recipientPhone: employeePhone || '',
@@ -450,9 +450,9 @@ export async function createBooking(request: CreateBookingRequest): Promise<Book
 }
 
 /**
- * Cancel a booking (soft delete event, release calendar slots, send cancellation notices)
+ * Cancel a person-calendar booking (soft delete event, release calendar slots, send cancellation notices)
  */
-export async function cancelBooking(eventId: string, cancellationReason?: string): Promise<{
+export async function cancelPersonCalendar(eventId: string, cancellationReason?: string): Promise<{
   success: boolean;
   error?: string;
 }> {
@@ -528,10 +528,10 @@ export async function cancelBooking(eventId: string, cancellationReason?: string
     `;
 
     // Send cancellation notifications to all attendees
-    const notificationService = new BookingNotificationService();
+    const messagingService = new PersonCalendarMessagingService();
     for (const attendee of attendeesResult) {
       if (attendee.person_email || attendee.person_phone) {
-        await notificationService.sendCancellationNotification({
+        await messagingService.sendCancellationNotification({
           recipientEmail: attendee.person_email || undefined,
           recipientPhone: attendee.person_phone || undefined,
           recipientName: attendee.person_name,
@@ -558,9 +558,9 @@ export async function cancelBooking(eventId: string, cancellationReason?: string
 }
 
 /**
- * Reschedule a booking (update event times, move calendar slots, send update notices)
+ * Reschedule a person-calendar booking (update event times, move calendar slots, send update notices)
  */
-export async function rescheduleBooking(args: {
+export async function reschedulePersonCalendar(args: {
   eventId: string;
   newStartTime: Date;
   newEndTime: Date;

@@ -5,7 +5,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { createBooking, cancelBooking, rescheduleBooking, type CreateBookingRequest } from './booking.service.js';
+import { createPersonCalendar, cancelPersonCalendar, reschedulePersonCalendar, type CreatePersonCalendarRequest } from './person-calendar.service.js';
 
 /**
  * Register person-calendar service routes
@@ -13,67 +13,67 @@ import { createBooking, cancelBooking, rescheduleBooking, type CreateBookingRequ
 export async function personCalendarServiceRoutes(fastify: FastifyInstance) {
   /**
    * POST /api/v1/booking/create
-   * Create a complete booking with event, calendar, RSVP, and notifications
+   * Create a complete person-calendar booking with event, calendar, RSVP, and notifications
    */
   fastify.post<{
-    Body: CreateBookingRequest;
+    Body: CreatePersonCalendarRequest;
   }>('/api/v1/booking/create', async (request, reply) => {
     try {
-      const bookingRequest = request.body;
+      const personCalendarRequest = request.body;
 
       // Validate required fields
-      if (!bookingRequest.customerName) {
+      if (!personCalendarRequest.customerName) {
         return reply.code(400).send({ error: 'customerName is required' });
       }
-      if (!bookingRequest.customerPhone) {
+      if (!personCalendarRequest.customerPhone) {
         return reply.code(400).send({ error: 'customerPhone is required' });
       }
-      if (!bookingRequest.serviceId) {
+      if (!personCalendarRequest.serviceId) {
         return reply.code(400).send({ error: 'serviceId is required' });
       }
-      if (!bookingRequest.serviceName) {
+      if (!personCalendarRequest.serviceName) {
         return reply.code(400).send({ error: 'serviceName is required' });
       }
-      if (!bookingRequest.eventTitle) {
+      if (!personCalendarRequest.eventTitle) {
         return reply.code(400).send({ error: 'eventTitle is required' });
       }
-      if (!bookingRequest.eventType) {
+      if (!personCalendarRequest.eventType) {
         return reply.code(400).send({ error: 'eventType is required' });
       }
-      if (!bookingRequest.eventLocation) {
+      if (!personCalendarRequest.eventLocation) {
         return reply.code(400).send({ error: 'eventLocation is required' });
       }
-      if (!bookingRequest.startTime) {
+      if (!personCalendarRequest.startTime) {
         return reply.code(400).send({ error: 'startTime is required' });
       }
-      if (!bookingRequest.endTime) {
+      if (!personCalendarRequest.endTime) {
         return reply.code(400).send({ error: 'endTime is required' });
       }
-      if (!bookingRequest.assignedEmployeeId) {
+      if (!personCalendarRequest.assignedEmployeeId) {
         return reply.code(400).send({ error: 'assignedEmployeeId is required' });
       }
-      if (!bookingRequest.assignedEmployeeName) {
+      if (!personCalendarRequest.assignedEmployeeName) {
         return reply.code(400).send({ error: 'assignedEmployeeName is required' });
       }
 
       // Convert string dates to Date objects if needed
-      const startTime = typeof bookingRequest.startTime === 'string'
-        ? new Date(bookingRequest.startTime)
-        : bookingRequest.startTime;
+      const startTime = typeof personCalendarRequest.startTime === 'string'
+        ? new Date(personCalendarRequest.startTime)
+        : personCalendarRequest.startTime;
 
-      const endTime = typeof bookingRequest.endTime === 'string'
-        ? new Date(bookingRequest.endTime)
-        : bookingRequest.endTime;
+      const endTime = typeof personCalendarRequest.endTime === 'string'
+        ? new Date(personCalendarRequest.endTime)
+        : personCalendarRequest.endTime;
 
-      const result = await createBooking({
-        ...bookingRequest,
+      const result = await createPersonCalendar({
+        ...personCalendarRequest,
         startTime,
         endTime
       });
 
       if (!result.success) {
         return reply.code(500).send({
-          error: 'Failed to create booking',
+          error: 'Failed to create person-calendar',
           details: result.error
         });
       }
@@ -90,9 +90,9 @@ export async function personCalendarServiceRoutes(fastify: FastifyInstance) {
         }
       });
     } catch (error) {
-      console.error('Error creating booking:', error);
+      console.error('Error creating person-calendar:', error);
       reply.code(500).send({
-        error: 'Failed to create booking',
+        error: 'Failed to create person-calendar',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
@@ -100,7 +100,7 @@ export async function personCalendarServiceRoutes(fastify: FastifyInstance) {
 
   /**
    * POST /api/v1/booking/:eventId/cancel
-   * Cancel a booking (soft delete event, release calendar slots)
+   * Cancel a person-calendar (soft delete event, release calendar slots)
    */
   fastify.post<{
     Params: { eventId: string };
@@ -110,24 +110,24 @@ export async function personCalendarServiceRoutes(fastify: FastifyInstance) {
       const { eventId } = request.params;
       const { cancellationReason } = request.body;
 
-      const result = await cancelBooking(eventId, cancellationReason);
+      const result = await cancelPersonCalendar(eventId, cancellationReason);
 
       if (!result.success) {
         return reply.code(500).send({
-          error: 'Failed to cancel booking',
+          error: 'Failed to cancel person-calendar',
           details: result.error
         });
       }
 
       reply.code(200).send({
         success: true,
-        message: 'Booking cancelled successfully',
+        message: 'Person-calendar cancelled successfully',
         eventId: eventId
       });
     } catch (error) {
-      console.error('Error cancelling booking:', error);
+      console.error('Error cancelling person-calendar:', error);
       reply.code(500).send({
-        error: 'Failed to cancel booking',
+        error: 'Failed to cancel person-calendar',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
@@ -135,7 +135,7 @@ export async function personCalendarServiceRoutes(fastify: FastifyInstance) {
 
   /**
    * POST /api/v1/booking/:eventId/reschedule
-   * Reschedule a booking (update event times, move calendar slots)
+   * Reschedule a person-calendar (update event times, move calendar slots)
    */
   fastify.post<{
     Params: { eventId: string };
@@ -164,7 +164,7 @@ export async function personCalendarServiceRoutes(fastify: FastifyInstance) {
         ? new Date(newEndTime)
         : newEndTime;
 
-      const result = await rescheduleBooking({
+      const result = await reschedulePersonCalendar({
         eventId,
         newStartTime: startTime,
         newEndTime: endTime,
@@ -173,21 +173,21 @@ export async function personCalendarServiceRoutes(fastify: FastifyInstance) {
 
       if (!result.success) {
         return reply.code(500).send({
-          error: 'Failed to reschedule booking',
+          error: 'Failed to reschedule person-calendar',
           details: result.error
         });
       }
 
       reply.code(200).send({
         success: true,
-        message: 'Booking rescheduled successfully',
+        message: 'Person-calendar rescheduled successfully',
         eventId: eventId,
         calendarSlotsUpdated: result.calendarSlotsUpdated
       });
     } catch (error) {
-      console.error('Error rescheduling booking:', error);
+      console.error('Error rescheduling person-calendar:', error);
       reply.code(500).send({
-        error: 'Failed to reschedule booking',
+        error: 'Failed to reschedule person-calendar',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }

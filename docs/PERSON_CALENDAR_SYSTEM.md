@@ -1,15 +1,17 @@
-# 📅 Booking Calendar System - Complete Integration Guide
+# 📅 Person-Calendar System - Complete Integration Guide
 
-> **Unified booking system that integrates events, calendar slots, RSVP tracking, and email notifications**
+> **Unified person-calendar system that integrates events, calendar slots, RSVP tracking, and email/SMS notifications**
 
 ## 🎯 Overview
 
-The PMO platform implements a comprehensive booking calendar system that ties together:
-- **Events** (`d_event`) - What is happening
-- **Calendar Slots** (`d_entity_person_calendar`) - Who is available when
-- **RSVP Tracking** (`d_entity_event_person_calendar`) - Who is attending
+The PMO platform implements a comprehensive person-calendar system that ties together three independent but interrelated entities:
+- **Events** (`d_event`) - What is happening (independent entity)
+- **Calendar** (`d_entity_person_calendar`) - Who is available when (independent entity)
+- **Messages** - Email/SMS notifications (independent entity via messaging service)
+- **RSVP Tracking** (`d_entity_event_person_calendar`) - Who is attending events
 - **Entity Linkages** (`d_entity_id_map`) - Related entities (service, customer, project)
-- **Email Notifications** - Calendar invites (.ics files) sent via email/SMS
+
+The person-calendar service orchestrates these three entities to create a unified booking experience with calendar invites (.ics files) sent via AWS SES (email) and AWS SNS (SMS).
 
 ---
 
@@ -19,7 +21,7 @@ The PMO platform implements a comprehensive booking calendar system that ties to
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     BOOKING SYSTEM TABLES                       │
+│                 PERSON-CALENDAR SYSTEM TABLES                   │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────┐      ┌──────────────────────────────────┐
@@ -72,7 +74,7 @@ The PMO platform implements a comprehensive booking calendar system that ties to
 
 ## 🔄 End-to-End Booking Flow
 
-### Scenario: Customer Books HVAC Service Appointment
+### Scenario: Customer Books HVAC Service Appointment via Person-Calendar Service
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -177,46 +179,47 @@ Response:
 
 ## 🔌 API Endpoints
 
-### Unified Booking Service
+### Unified Person-Calendar Service
 
-#### Create Booking
+#### Create Person-Calendar Booking
 ```
 POST /api/v1/booking/create
 
-Creates complete booking with:
+Creates complete person-calendar booking with:
 - Event in d_event
 - Attendees in d_entity_event_person_calendar
 - Calendar slots booked in d_entity_person_calendar
 - Entity linkages in d_entity_id_map
-- Email/SMS notifications sent
+- Email calendar invites (.ics) via AWS SES
+- SMS notifications via AWS SNS
 
-Request: CreateBookingRequest
-Response: BookingConfirmation
+Request: CreatePersonCalendarRequest
+Response: PersonCalendarConfirmation
 ```
 
-#### Cancel Booking
+#### Cancel Person-Calendar
 ```
 POST /api/v1/booking/:eventId/cancel
 
-Cancels booking:
+Cancels person-calendar booking:
 - Soft deletes event
 - Releases calendar slots (availability_flag = true)
 - Updates RSVP status to 'cancelled'
-- Sends cancellation emails
+- Sends cancellation emails/SMS via messaging service
 
 Request: { cancellationReason?: string }
 Response: { success: boolean }
 ```
 
-#### Reschedule Booking
+#### Reschedule Person-Calendar
 ```
 POST /api/v1/booking/:eventId/reschedule
 
-Reschedules booking:
+Reschedules person-calendar booking:
 - Updates event times
 - Releases old calendar slots
 - Books new calendar slots
-- Sends reschedule notifications
+- Sends reschedule notifications via messaging service
 
 Request: { newStartTime: Date, newEndTime: Date, rescheduleReason?: string }
 Response: { success: boolean, calendarSlotsUpdated: number }
@@ -303,15 +306,17 @@ PATCH /api/v1/event-person-calendar/:id/rsvp - Update RSVP status
 
 ---
 
-## 📧 Email & Calendar Invites
+## 📧 Email & SMS Notifications
 
-### Email Service (`apps/api/src/modules/email/email.service.ts`)
+### Messaging Service (`apps/api/src/modules/person-calendar/messaging.service.ts`)
 
-The email service supports:
-- **SMTP Configuration** - Gmail, Outlook, AWS SES, etc.
+The PersonCalendarMessagingService supports:
+- **AWS SES** - Email delivery with calendar invite attachments
+- **AWS SNS** - SMS text message notifications
 - **.ics Calendar Invites** - Compatible with Outlook, Gmail, iCloud
 - **Multi-Attendee Invites** - Send to customer + employees
 - **Meeting URLs** - Virtual meeting links embedded
+- **MIME Multipart Construction** - Email attachments for .ics files
 
 ### Calendar Invite (.ics) Format
 
@@ -335,36 +340,38 @@ END:VEVENT
 END:VCALENDAR
 ```
 
-### Email Functions
+### Messaging Service Functions
 
 ```typescript
-// Send calendar invite to employee
-await sendEventInviteToEmployee({
-  employeeId: 'uuid',
+// Send complete person-calendar notification (email + SMS)
+const messagingService = new PersonCalendarMessagingService();
+
+await messagingService.sendPersonCalendarNotification({
+  recipientEmail: 'john.thompson@email.com',
+  recipientName: 'John Thompson',
+  recipientPhone: '+14165551234',
   eventId: 'uuid',
   eventTitle: 'HVAC Consultation',
-  startTime: new Date(),
-  endTime: new Date(),
+  eventDescription: 'Initial consultation for HVAC system',
+  eventLocation: '123 Main Street, Toronto',
+  startTime: new Date('2025-11-12T14:00:00Z'),
+  endTime: new Date('2025-11-12T16:00:00Z'),
+  timezone: 'America/Toronto',
   organizerName: 'Huron Home Services',
   organizerEmail: 'solutions@cohuron.com',
-  meetingUrl: 'https://zoom.us/j/...'
+  meetingUrl: 'https://zoom.us/j/...',
+  bookingNumber: 'BK-2025-001'
 });
 
-// Send calendar invite to customer
-await sendEventInviteToCustomer({
-  customerId: 'uuid',
-  eventId: 'uuid',
+// Send cancellation notification
+await messagingService.sendCancellationNotification({
+  recipientEmail: 'john.thompson@email.com',
+  recipientPhone: '+14165551234',
+  recipientName: 'John Thompson',
   eventTitle: 'HVAC Consultation',
-  eventLocation: '123 Main Street',
-  ...
-});
-
-// Send to multiple attendees
-await sendEventInvitesToAttendees({
-  eventId: 'uuid',
-  customerId: 'uuid',
-  attendeeIds: ['emp1-uuid', 'emp2-uuid'],
-  ...
+  originalStartTime: new Date('2025-11-12T14:00:00Z'),
+  cancellationReason: 'Weather conditions',
+  bookingNumber: 'BK-2025-001'
 });
 ```
 
@@ -487,20 +494,47 @@ AND parent_entity_id = 'your-event-uuid';
 ### Environment Variables
 
 ```env
-# SMTP Configuration (for email/calendar invites)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=your-email@example.com
-SMTP_PASS=your-app-password
-SMTP_FROM=solutions@cohuron.com
+# AWS Configuration (for email/SMS notifications)
+AWS_REGION=us-east-1
+AWS_SES_FROM_EMAIL=noreply@cohuron.com
+AWS_SES_FROM_NAME=Cohuron PMO
+AWS_SES_CONFIGURATION_SET=cohuron-email-tracking
+
+# AWS SNS (for SMS notifications)
+# Uses IAM role credentials from EC2 instance
+# Phone numbers must be in E.164 format (+14165551234)
 ```
 
-### Email Service Setup
+### AWS Services Setup
 
-1. **Gmail:** Create app password in Google Account settings
-2. **Outlook:** Use SMTP settings for Outlook.com
-3. **AWS SES:** Configure AWS credentials and verified domain
+1. **AWS SES (Email):**
+   - Verify sender domain (cohuron.com)
+   - Move out of sandbox mode for production
+   - Configure configuration set for tracking
+   - IAM role must have `ses:SendEmail` and `ses:SendRawEmail` permissions
+
+2. **AWS SNS (SMS):**
+   - IAM role must have `sns:Publish` permission
+   - SMS spending limits configured
+   - Phone numbers must be in E.164 format
+
+3. **IAM Role Permissions:**
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "ses:SendEmail",
+           "ses:SendRawEmail",
+           "sns:Publish"
+         ],
+         "Resource": "*"
+       }
+     ]
+   }
+   ```
 
 ---
 
@@ -535,26 +569,42 @@ SMTP_FROM=solutions@cohuron.com
 
 ### Best Practices
 
-✅ **Always use the unified booking service** (`/api/v1/booking/create`)
-✅ **Use enriched calendar API** for frontend displays
+✅ **Always use the unified person-calendar service** (`/api/v1/booking/create`)
+✅ **Use enriched calendar API** for frontend displays with full event details
 ✅ **Pre-seed calendar slots** for employees (9am-8pm, 15-min increments)
-✅ **Send notifications** after booking confirmation
+✅ **Send notifications via messaging service** (email + SMS) after booking confirmation
 ✅ **Track RSVP status** for attendance management
-✅ **Link related entities** via `d_entity_id_map`
+✅ **Link related entities** via `d_entity_id_map` (event → service, customer, project)
+✅ **Use AWS SES for email** and **AWS SNS for SMS** (not SMTP)
 
 ---
 
 ## 📚 Related Documentation
 
-- [Event Design](./XXXIV_d_event.ddl) - Event table DDL
-- [Person Calendar](./XXXV_d_entity_person_calendar.ddl) - Calendar table DDL
-- [Event RSVP](./XXXVI_d_entity_event_person_calendar.ddl) - RSVP table DDL
-- [Email Service](../apps/api/src/modules/email/email.service.ts) - Email implementation
-- [Booking Service](../apps/api/src/modules/booking/booking.service.ts) - Booking orchestration
+### Database Tables (DDL)
+- [Event Design](../db/XXXIV_d_event.ddl) - Event table DDL
+- [Person Calendar](../db/XXXV_d_entity_person_calendar.ddl) - Calendar table DDL
+- [Event RSVP](../db/XXXVI_d_entity_event_person_calendar.ddl) - RSVP table DDL
+- [Entity Linkages](../db/IX_d_entity_id_map.ddl) - Parent-child relationships
+
+### API Implementation
+- **Person-Calendar Service** (../apps/api/src/modules/person-calendar/person-calendar.service.ts) - Orchestration service
+- **Person-Calendar Routes** (../apps/api/src/modules/person-calendar/person-calendar-service.routes.ts) - API routes
+- **Messaging Service** (../apps/api/src/modules/person-calendar/messaging.service.ts) - Email/SMS notifications
+- **Enriched Calendar Routes** (../apps/api/src/modules/person-calendar/calendar-enriched.routes.ts) - Calendar with event details
+
+### Messaging Infrastructure
+- **AWS SES Provider** (../apps/api/src/modules/message-data/providers/ses.provider.ts) - Email delivery
+- **AWS SNS Provider** (../apps/api/src/modules/message-data/providers/sns.provider.ts) - SMS delivery
+- **Message Delivery Service** (../apps/api/src/modules/message-data/delivery.service.ts) - Unified messaging
+
+### Frontend
 - [Calendar View](../apps/web/src/components/shared/ui/CalendarView.tsx) - UI component
+- [Calendar Documentation](./calendar/README.md) - Calendar system guide
 
 ---
 
-**Version:** 1.0.0
+**Version:** 2.0.0
 **Last Updated:** 2025-11-11
 **Status:** ✅ Production Ready
+**Key Changes:** Renamed from "Booking" to "Person-Calendar", integrated AWS SES/SNS messaging
