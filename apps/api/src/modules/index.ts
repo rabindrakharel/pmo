@@ -21,7 +21,8 @@ import { positionRoutes } from './position/routes.js';
 import { worksiteRoutes } from './worksite/routes.js';
 import { reportsRoutes } from './reports/routes.js';
 import { taskDataRoutes } from './task-data/routes.js';
-import { emailTemplateRoutes } from './email-template/routes.js';
+import { messageSchemaRoutes } from './message-schema/routes.js';
+import { messageDataRoutes } from './message-data/routes.js';
 import { uploadRoutes } from './upload/routes.js';
 import s3BackendRoutes from './s3-backend/routes.js';
 import { workflowAutomationRoutes } from './workflow-automation/routes.js';
@@ -128,7 +129,8 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await worksiteRoutes(fastify);
   await reportsRoutes(fastify);
   await taskDataRoutes(fastify);
-  await emailTemplateRoutes(fastify);
+  await messageSchemaRoutes(fastify);
+  await messageDataRoutes(fastify);
   await workflowAutomationRoutes(fastify);
   await workflowRoutes(fastify);
 
