@@ -1,0 +1,1290 @@
+openapi: 3.0.3
+info:
+  title: PMO Platform API
+  version: 3.1.0
+  description: |
+    **PMO Platform RESTful API** - Complete API for managing 30+ entity types with unified RBAC
+
+    ## Key Features
+    - **JWT Authentication** - Bearer token authentication
+    - **Unified RBAC** - Scope-based permissions with entity-level access control
+    - **Universal Entity Patterns** - DRY route factories for all entities
+    - **Factory-Generated Routes** - Consistent CRUD operations across entities
+    - **Polymorphic Relationships** - d_entity_id_map linkage table
+    - **Soft Deletes** - active_flag-based deletion with audit trail
+    - **Pagination** - Standard page/limit query parameters
+    - **Full-Text Search** - Search across entity fields
+
+    ## Authentication
+    All endpoints (except `/api/v1/auth/*`) require JWT authentication via Bearer token:
+    ```
+    Authorization: Bearer <jwt_token>
+    ```
+
+    ## Base URL
+    - **Production**: `http://100.26.224.246:4000`
+    - **Local**: `http://localhost:4000`
+
+  contact:
+    name: PMO Platform API Support
+    email: support@pmo.example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:4000
+    description: Local Development Server
+  - url: http://100.26.224.246:4000
+    description: Production Server
+
+tags:
+  - name: Authentication
+    description: JWT authentication endpoints (login, register, refresh)
+  - name: Core Entities
+    description: Core business entities (project, task, employee, customer)
+  - name: Product & Operations
+    description: Product catalog, orders, inventory, shipments
+  - name: Financial
+    description: Financial entities (cost, invoice, quote)
+  - name: Collaboration
+    description: Forms, wiki, artifacts, chat
+  - name: Hierarchies
+    description: Organizational hierarchies (office, business, product)
+  - name: Calendar & Events
+    description: Events, bookings, person calendar
+  - name: Settings & Configuration
+    description: Settings, metadata, entity options
+  - name: RBAC & Permissions
+    description: Role-based access control
+  - name: Linkage
+    description: Entity relationship management
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token obtained from `/api/v1/auth/login` endpoint.
+        Include in all API requests via `Authorization: Bearer <token>` header.
+
+  schemas:
+    # ========================================================================
+    # AUTHENTICATION SCHEMAS
+    # ========================================================================
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: james.miller@huronhome.ca
+        password:
+          type: string
+          format: password
+          example: password123
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT access token
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        sub:
+          type: string
+          format: uuid
+          description: User ID (employee or customer ID)
+          example: 8260b1b0-5efc-4611-ad33-ee76c0cf7f13
+        email:
+          type: string
+          format: email
+          example: james.miller@huronhome.ca
+        name:
+          type: string
+          example: James Miller
+        type:
+          type: string
+          enum: [employee, customer]
+          example: employee
+
+    # ========================================================================
+    # UNIVERSAL ENTITY SCHEMAS
+    # ========================================================================
+    BaseEntity:
+      type: object
+      description: Base fields present in all entity types
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Primary identifier
+          example: 93106ffb-402e-43a7-8b26-5287e37a1b0e
+        code:
+          type: string
+          description: Business identifier (unique)
+          example: PROJ-001
+        name:
+          type: string
+          description: Display name
+          example: Solar Panel Installation
+        descr:
+          type: string
+          nullable: true
+          description: Detailed description
+          example: Large-scale solar panel installation project for commercial client
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Flexible JSONB metadata
+          example: { "priority": "high", "tags": ["solar", "commercial"] }
+        active_flag:
+          type: boolean
+          description: Soft delete flag (false = deleted)
+          example: true
+        from_ts:
+          type: string
+          format: date-time
+          description: Record validity start time (SCD Type 2)
+          example: 2025-01-01T00:00:00Z
+        to_ts:
+          type: string
+          format: date-time
+          nullable: true
+          description: Record validity end time (null = current)
+          example: null
+        created_ts:
+          type: string
+          format: date-time
+          description: Record creation timestamp
+          example: 2025-11-11T10:00:00Z
+        updated_ts:
+          type: string
+          format: date-time
+          description: Record last update timestamp
+          example: 2025-11-11T15:30:00Z
+        version:
+          type: integer
+          description: Version number for optimistic locking
+          example: 1
+
+    PaginatedResponse:
+      type: object
+      description: Standard paginated response wrapper
+      required:
+        - data
+        - total
+        - page
+        - limit
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+          description: Array of entity records
+        total:
+          type: integer
+          description: Total count of records (before pagination)
+          example: 150
+        page:
+          type: integer
+          description: Current page number (1-indexed)
+          example: 1
+        limit:
+          type: integer
+          description: Records per page
+          example: 20
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: Access denied
+        details:
+          type: string
+          description: Additional error details
+          example: Cannot view project (permission denied)
+
+    # ========================================================================
+    # ENTITY SPECIFIC SCHEMAS
+    # ========================================================================
+    Project:
+      allOf:
+        - $ref: '#/components/schemas/BaseEntity'
+        - type: object
+          properties:
+            project_status:
+              type: string
+              example: in_progress
+            manager_employee_id:
+              type: string
+              format: uuid
+              example: 8260b1b0-5efc-4611-ad33-ee76c0cf7f13
+            manager_name:
+              type: string
+              description: Computed field (JOIN with d_employee)
+              example: James Miller
+            budget_allocated_amt:
+              type: number
+              format: decimal
+              example: 150000.00
+            start_date:
+              type: string
+              format: date
+              example: 2025-01-15
+            end_date:
+              type: string
+              format: date
+              nullable: true
+              example: 2025-12-31
+
+    Task:
+      allOf:
+        - $ref: '#/components/schemas/BaseEntity'
+        - type: object
+          properties:
+            task_status:
+              type: string
+              example: in_progress
+            task_priority:
+              type: string
+              example: high
+            assignee_employee_id:
+              type: string
+              format: uuid
+              nullable: true
+              example: 8260b1b0-5efc-4611-ad33-ee76c0cf7f13
+            assignee_name:
+              type: string
+              description: Computed field (JOIN)
+              example: Sarah Johnson
+            due_date:
+              type: string
+              format: date
+              nullable: true
+              example: 2025-11-20
+            estimated_hours:
+              type: number
+              format: float
+              nullable: true
+              example: 8.5
+
+    Employee:
+      allOf:
+        - $ref: '#/components/schemas/BaseEntity'
+        - type: object
+          properties:
+            email:
+              type: string
+              format: email
+              example: james.miller@huronhome.ca
+            phone:
+              type: string
+              example: "+1 555-0100"
+            position_id:
+              type: string
+              format: uuid
+              nullable: true
+            office_id:
+              type: string
+              format: uuid
+              nullable: true
+            hire_date:
+              type: string
+              format: date
+              example: 2023-01-15
+
+    # ========================================================================
+    # HIERARCHY SCHEMAS
+    # ========================================================================
+    OfficeHierarchy:
+      allOf:
+        - $ref: '#/components/schemas/BaseEntity'
+        - type: object
+          properties:
+            parent_id:
+              type: string
+              format: uuid
+              nullable: true
+              description: Self-referential parent (null = root)
+              example: null
+            dl__office_hierarchy_level:
+              type: string
+              description: Hierarchy level (Corporate, Region, District, Office)
+              example: Corporate
+            manager_employee_id:
+              type: string
+              format: uuid
+              nullable: true
+            manager_name:
+              type: string
+              description: Computed field (JOIN)
+              example: James Miller
+            parent_name:
+              type: string
+              description: Computed field (JOIN)
+              nullable: true
+              example: Corporate Headquarters
+            budget_allocated_amt:
+              type: number
+              format: decimal
+              nullable: true
+              example: 10000000.00
+
+    # ========================================================================
+    # EVENT & CALENDAR SCHEMAS
+    # ========================================================================
+    Event:
+      allOf:
+        - $ref: '#/components/schemas/BaseEntity'
+        - type: object
+          properties:
+            event_type:
+              type: string
+              enum: [onsite, virtual]
+              example: virtual
+            event_platform_provider_name:
+              type: string
+              example: zoom
+            event_addr:
+              type: string
+              description: Physical address OR meeting URL
+              example: https://zoom.us/j/meeting-001
+            event_instructions:
+              type: string
+              nullable: true
+              example: Meeting password: Solar2025!
+            from_ts:
+              type: string
+              format: date-time
+              example: 2025-11-15T14:00:00Z
+            to_ts:
+              type: string
+              format: date-time
+              example: 2025-11-15T16:00:00Z
+            timezone:
+              type: string
+              example: America/Toronto
+
+    PersonCalendar:
+      allOf:
+        - $ref: '#/components/schemas/BaseEntity'
+        - type: object
+          properties:
+            person_entity_type:
+              type: string
+              enum: [employee, client, customer]
+              example: employee
+            person_entity_id:
+              type: string
+              format: uuid
+              example: 8260b1b0-5efc-4611-ad33-ee76c0cf7f13
+            from_ts:
+              type: string
+              format: date-time
+              example: 2025-11-15T09:00:00Z
+            to_ts:
+              type: string
+              format: date-time
+              example: 2025-11-15T09:30:00Z
+            availability_flag:
+              type: boolean
+              description: true = available, false = booked
+              example: false
+            title:
+              type: string
+              nullable: true
+              example: Client Meeting
+            appointment_medium:
+              type: string
+              enum: [onsite, virtual]
+              nullable: true
+              example: virtual
+
+    # ========================================================================
+    # LINKAGE SCHEMAS
+    # ========================================================================
+    EntityLinkage:
+      type: object
+      description: Polymorphic entity relationship via d_entity_id_map
+      required:
+        - parent_entity_type
+        - parent_entity_id
+        - child_entity_type
+        - child_entity_id
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 12345678-1234-1234-1234-123456789abc
+        parent_entity_type:
+          type: string
+          example: project
+        parent_entity_id:
+          type: string
+          format: uuid
+          example: 93106ffb-402e-43a7-8b26-5287e37a1b0e
+        child_entity_type:
+          type: string
+          example: task
+        child_entity_id:
+          type: string
+          format: uuid
+          example: a1b2c3d4-5678-90ab-cdef-1234567890ab
+        relationship_type:
+          type: string
+          nullable: true
+          example: contains
+        active_flag:
+          type: boolean
+          example: true
+        created_ts:
+          type: string
+          format: date-time
+
+    # ========================================================================
+    # SETTINGS & OPTIONS SCHEMAS
+    # ========================================================================
+    EntityOptions:
+      type: object
+      description: Dynamic dropdown options for entity fields
+      additionalProperties:
+        type: array
+        items:
+          $ref: '#/components/schemas/OptionItem'
+      example:
+        status:
+          - value: open
+            label: Open
+            display_order: 1
+          - value: in_progress
+            label: In Progress
+            display_order: 2
+        priority:
+          - value: low
+            label: Low
+            display_order: 1
+          - value: high
+            label: High
+            display_order: 2
+
+    OptionItem:
+      type: object
+      properties:
+        value:
+          type: string
+          example: open
+        label:
+          type: string
+          example: Open
+        display_order:
+          type: integer
+          example: 1
+        color:
+          type: string
+          nullable: true
+          example: "#10B981"
+
+  parameters:
+    # ========================================================================
+    # UNIVERSAL QUERY PARAMETERS
+    # ========================================================================
+    PageParam:
+      name: page
+      in: query
+      description: Page number (1-indexed)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      example: 1
+
+    LimitParam:
+      name: limit
+      in: query
+      description: Records per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      example: 20
+
+    SearchParam:
+      name: search
+      in: query
+      description: Full-text search query
+      schema:
+        type: string
+      example: solar installation
+
+    EntityIdParam:
+      name: id
+      in: path
+      description: Entity UUID
+      required: true
+      schema:
+        type: string
+        format: uuid
+      example: 93106ffb-402e-43a7-8b26-5287e37a1b0e
+
+  responses:
+    # ========================================================================
+    # UNIVERSAL RESPONSES
+    # ========================================================================
+    UnauthorizedError:
+      description: Authentication required or token invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Unauthorized
+            details: JWT token missing or invalid
+
+    ForbiddenError:
+      description: Access denied (insufficient permissions)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Access denied
+            details: Cannot view project (permission denied)
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Not found
+            details: Project with ID 93106ffb-402e-43a7-8b26-5287e37a1b0e not found
+
+    ValidationError:
+      description: Invalid request data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Validation failed
+            details: Field 'name' is required
+
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Internal server error
+            details: Database connection failed
+
+# ============================================================================
+# API ENDPOINTS
+# ============================================================================
+paths:
+  # ==========================================================================
+  # AUTHENTICATION ENDPOINTS
+  # ==========================================================================
+  /api/v1/auth/login:
+    post:
+      summary: User Login
+      description: |
+        Authenticate user with email and password, returns JWT token.
+        Token expires in 24 hours and must be refreshed using `/api/v1/auth/refresh`.
+      tags:
+        - Authentication
+      security: []  # No auth required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Invalid credentials
+                details: Email or password incorrect
+
+  /api/v1/auth/me:
+    get:
+      summary: Get Current User
+      description: Returns authenticated user information from JWT token
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: User information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/health:
+    get:
+      summary: Health Check
+      description: Check API server health status
+      tags:
+        - Authentication
+      security: []
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: 2025-11-11T10:00:00Z
+
+  # ==========================================================================
+  # UNIVERSAL ENTITY CRUD PATTERN
+  # ==========================================================================
+  /api/v1/project:
+    get:
+      summary: List Projects
+      description: |
+        Get paginated list of projects with RBAC filtering.
+        Only returns projects the user has permission to view.
+      tags:
+        - Core Entities
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SearchParam'
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Project'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      summary: Create Project
+      description: Create a new project with automatic entity registration and RBAC setup
+      tags:
+        - Core Entities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - name
+              properties:
+                code:
+                  type: string
+                  example: PROJ-001
+                name:
+                  type: string
+                  example: Solar Panel Installation
+                descr:
+                  type: string
+                  example: Large commercial solar installation
+                project_status:
+                  type: string
+                  example: planning
+                manager_employee_id:
+                  type: string
+                  format: uuid
+                  example: 8260b1b0-5efc-4611-ad33-ee76c0cf7f13
+                budget_allocated_amt:
+                  type: number
+                  example: 150000.00
+                start_date:
+                  type: string
+                  format: date
+                  example: 2025-01-15
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/v1/project/{id}:
+    get:
+      summary: Get Project
+      description: Get single project by ID with RBAC check
+      tags:
+        - Core Entities
+      parameters:
+        - $ref: '#/components/parameters/EntityIdParam'
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    patch:
+      summary: Update Project
+      description: Partially update project fields
+      tags:
+        - Core Entities
+      parameters:
+        - $ref: '#/components/parameters/EntityIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Solar Panel Installation - Phase 2
+                project_status:
+                  type: string
+                  example: in_progress
+                budget_allocated_amt:
+                  type: number
+                  example: 175000.00
+      responses:
+        '200':
+          description: Project updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    delete:
+      summary: Delete Project
+      description: |
+        Soft-delete project with cascading cleanup:
+        1. Sets active_flag=false in d_project
+        2. Removes from d_entity_instance_id registry
+        3. Removes linkages in d_entity_id_map
+      tags:
+        - Core Entities
+      parameters:
+        - $ref: '#/components/parameters/EntityIdParam'
+      responses:
+        '204':
+          description: Project deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ==========================================================================
+  # CHILD ENTITY ENDPOINTS (Factory Pattern)
+  # ==========================================================================
+  /api/v1/project/{id}/task:
+    get:
+      summary: Get Project Tasks
+      description: |
+        Get all tasks linked to a project via d_entity_id_map.
+        Uses universal child entity factory pattern.
+      tags:
+        - Core Entities
+      parameters:
+        - $ref: '#/components/parameters/EntityIdParam'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: List of project tasks
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ==========================================================================
+  # TASK ENDPOINTS (Example of another entity following same pattern)
+  # ==========================================================================
+  /api/v1/task:
+    get:
+      summary: List Tasks
+      tags:
+        - Core Entities
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SearchParam'
+      responses:
+        '200':
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      summary: Create Task
+      tags:
+        - Core Entities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - name
+              properties:
+                code:
+                  type: string
+                name:
+                  type: string
+                descr:
+                  type: string
+                task_status:
+                  type: string
+                task_priority:
+                  type: string
+                assignee_employee_id:
+                  type: string
+                  format: uuid
+                due_date:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+
+  /api/v1/task/{id}:
+    get:
+      summary: Get Task
+      tags:
+        - Core Entities
+      parameters:
+        - $ref: '#/components/parameters/EntityIdParam'
+      responses:
+        '200':
+          description: Task details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+
+    patch:
+      summary: Update Task
+      tags:
+        - Core Entities
+      parameters:
+        - $ref: '#/components/parameters/EntityIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                task_status:
+                  type: string
+                task_priority:
+                  type: string
+                assignee_employee_id:
+                  type: string
+                  format: uuid
+                due_date:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: Task updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+
+    delete:
+      summary: Delete Task
+      tags:
+        - Core Entities
+      parameters:
+        - $ref: '#/components/parameters/EntityIdParam'
+      responses:
+        '204':
+          description: Task deleted
+
+  # ==========================================================================
+  # HIERARCHY ENDPOINTS
+  # ==========================================================================
+  /api/v1/office-hierarchy:
+    get:
+      summary: List Office Hierarchy Nodes
+      description: Get office hierarchy nodes (Corporate → Region → District → Office)
+      tags:
+        - Hierarchies
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: parent_id
+          in: query
+          description: Filter by parent node ID (empty string for root nodes)
+          schema:
+            type: string
+        - name: dl__office_hierarchy_level
+          in: query
+          description: Filter by hierarchy level
+          schema:
+            type: string
+            enum: [Corporate, Region, District, Office]
+      responses:
+        '200':
+          description: List of hierarchy nodes
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OfficeHierarchy'
+
+    post:
+      summary: Create Office Hierarchy Node
+      tags:
+        - Hierarchies
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - name
+                - dl__office_hierarchy_level
+              properties:
+                code:
+                  type: string
+                name:
+                  type: string
+                descr:
+                  type: string
+                parent_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                dl__office_hierarchy_level:
+                  type: string
+                manager_employee_id:
+                  type: string
+                  format: uuid
+                budget_allocated_amt:
+                  type: number
+      responses:
+        '201':
+          description: Hierarchy node created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfficeHierarchy'
+
+  /api/v1/office-hierarchy/{id}:
+    get:
+      summary: Get Office Hierarchy Node
+      tags:
+        - Hierarchies
+      parameters:
+        - $ref: '#/components/parameters/EntityIdParam'
+      responses:
+        '200':
+          description: Hierarchy node details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfficeHierarchy'
+
+  # ==========================================================================
+  # EVENT & CALENDAR ENDPOINTS
+  # ==========================================================================
+  /api/v1/event:
+    get:
+      summary: List Events
+      tags:
+        - Calendar & Events
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: event_type
+          in: query
+          schema:
+            type: string
+            enum: [onsite, virtual]
+        - name: from_ts
+          in: query
+          description: Filter events after this timestamp
+          schema:
+            type: string
+            format: date-time
+        - name: to_ts
+          in: query
+          description: Filter events before this timestamp
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Event'
+
+  /api/v1/person-calendar:
+    get:
+      summary: List Calendar Slots
+      description: Get person calendar availability/booking slots
+      tags:
+        - Calendar & Events
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: availability_flag
+          in: query
+          description: Filter by availability (true=available, false=booked)
+          schema:
+            type: boolean
+        - name: person_entity_type
+          in: query
+          schema:
+            type: string
+            enum: [employee, client, customer]
+        - name: person_entity_id
+          in: query
+          description: Filter by specific person
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of calendar slots
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PersonCalendar'
+
+  # ==========================================================================
+  # LINKAGE ENDPOINTS
+  # ==========================================================================
+  /api/v1/linkage:
+    post:
+      summary: Create Entity Linkage
+      description: |
+        Create parent-child relationship in d_entity_id_map.
+        Enables polymorphic relationships between any entity types.
+      tags:
+        - Linkage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - parent_entity_type
+                - parent_entity_id
+                - child_entity_type
+                - child_entity_id
+              properties:
+                parent_entity_type:
+                  type: string
+                  example: project
+                parent_entity_id:
+                  type: string
+                  format: uuid
+                  example: 93106ffb-402e-43a7-8b26-5287e37a1b0e
+                child_entity_type:
+                  type: string
+                  example: task
+                child_entity_id:
+                  type: string
+                  format: uuid
+                  example: a1b2c3d4-5678-90ab-cdef-1234567890ab
+                relationship_type:
+                  type: string
+                  example: contains
+      responses:
+        '201':
+          description: Linkage created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/EntityLinkage'
+
+  # ==========================================================================
+  # SETTINGS & OPTIONS ENDPOINTS
+  # ==========================================================================
+  /api/v1/entity/{entityType}/options:
+    get:
+      summary: Get Entity Dropdown Options
+      description: |
+        Get dynamic dropdown options for entity fields (status, priority, etc.).
+        Options are loaded from settings tables (datalabel_*).
+      tags:
+        - Settings & Configuration
+      parameters:
+        - name: entityType
+          in: path
+          required: true
+          description: Entity type (project, task, employee, etc.)
+          schema:
+            type: string
+          example: project
+      responses:
+        '200':
+          description: Entity dropdown options
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityOptions'
+              example:
+                status:
+                  - value: open
+                    label: Open
+                    display_order: 1
+                  - value: in_progress
+                    label: In Progress
+                    display_order: 2
+                  - value: done
+                    label: Done
+                    display_order: 3
+                priority:
+                  - value: low
+                    label: Low
+                    display_order: 1
+                  - value: high
+                    label: High
+                    display_order: 2
+
+# ============================================================================
+# END OF OPENAPI SPECIFICATION
+# ============================================================================
