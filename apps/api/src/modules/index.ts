@@ -44,6 +44,8 @@ import { costRoutes } from './cost/routes.js';
 import { chatRoutes } from './chat/routes.js';
 import { bookingRoutes } from './booking/routes.js';
 import { personCalendarRoutes } from './person-calendar/routes.js';
+import { personCalendarServiceRoutes } from './person-calendar/person-calendar-service.routes.js';
+import { enrichedCalendarRoutes } from './person-calendar/calendar-enriched.routes.js';
 import { interactionRoutes } from './interaction/routes.js';
 import { eventRoutes } from './event/routes.js';
 import { eventPersonCalendarRoutes } from './event-person-calendar/routes.js';
@@ -163,8 +165,14 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   // Booking routes (service appointments)
   await bookingRoutes(fastify);
 
+  // Person-calendar service routes (unified booking with event/calendar/notification orchestration)
+  await personCalendarServiceRoutes(fastify);
+
   // Person Calendar routes (universal availability/booking calendar)
   await personCalendarRoutes(fastify);
+
+  // Enriched Calendar routes (calendar with full event details)
+  await enrichedCalendarRoutes(fastify);
 
   // Event routes (meetings/appointments as universal parent entities)
   await eventRoutes(fastify);
