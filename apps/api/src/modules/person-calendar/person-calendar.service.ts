@@ -309,7 +309,26 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     console.log(`✅ Created ${entityLinks.length} entity linkages`);
 
     // ===============================================
-    // STEP 5: Send Notifications (Email + SMS with Calendar Invite)
+    // STEP 5: Grant Event Ownership (RBAC)
+    // ===============================================
+
+    // Grant the assigned employee OWNER permission (permission[5]) for this event
+    await client`
+      INSERT INTO app.entity_id_rbac_map (
+        empid, entity, entity_id, permission, granted_by_empid
+      ) VALUES (
+        ${assignedEmployeeId}::uuid,
+        'event',
+        ${eventId}::uuid,
+        ARRAY[0,1,2,3,4,5]::integer[],
+        ${assignedEmployeeId}::uuid
+      )
+    `;
+
+    console.log(`✅ Granted event ownership to employee ${assignedEmployeeName}`);
+
+    // ===============================================
+    // STEP 6: Send Notifications (Email + SMS with Calendar Invite)
     // ===============================================
 
     const messagingService = new PersonCalendarMessagingService();
