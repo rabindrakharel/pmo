@@ -51,7 +51,13 @@
       "Bash(PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app -c \"DELETE FROM app.d_entity WHERE code = ''position'';\")",
       "Bash(mkdir:*)",
       "Bash(timeout 5 sh:*)",
-      "Bash(paste:*)"
+      "Bash(paste:*)",
+      "Bash(git mv:*)",
+      "Bash(git rm:*)",
+      "Bash(rmdir:*)",
+      "Bash(for dir in docs/*/)",
+      "Bash(done)",
+      "Bash(while read dir)"
     ],
     "deny": [],
     "ask": [],
