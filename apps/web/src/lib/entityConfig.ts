@@ -82,18 +82,29 @@ import {
  *      - 'budget_allocated_amt' → 'Budget Allocated Amount'
  *    - Handles special cases: *_ts → removes '_ts', *_amt → removes '_amt' suffix
  *
- * 3. **generateStandardColumns()** - Auto-Column Generation
+ * 3. **generateStandardColumns()** - Auto-Column Generation with FK Resolution
  *    - Takes array of field keys, returns full ColumnDef[] with all properties
  *    - Automatically detects field category from key pattern
- *    - Applies ALL category properties (width, align, sortable, filterable, render)
+ *    - Applies ALL category properties (width, align, sortable, filterable, render, visible)
  *    - Ensures standard fields (name, code, descr) appear first
  *    - Filters out system columns (id, from_ts, to_ts, active_flag, created_ts, updated_ts, version)
+ *    - **Foreign Key Intelligence:**
+ *      - Detects FK columns (*_id pattern): project_id, task_id, employee_id, etc.
+ *      - Marks FK columns as visible=false (data fetched but not displayed)
+ *      - Auto-generates corresponding *_name columns: project_name, task_name, employee_name
+ *      - Name columns are visible=true and show entity lookup values
  *    - Example usage:
  *      ```typescript
  *      columns: generateStandardColumns([
- *        'name', 'code', 'dl__project_stage', 'budget_allocated_amt', 'planned_start_date'
+ *        'name', 'code', 'project_id', 'dl__task_stage', 'budget_allocated_amt'
  *      ])
- *      // Auto-generates 5 columns with proper width, alignment, sorting, rendering
+ *      // Auto-generates:
+ *      // - name (visible)
+ *      // - code (visible)
+ *      // - project_id (invisible, for API)
+ *      // - project_name (auto-added, visible, shows d_project.name)
+ *      // - dl__task_stage (visible)
+ *      // - budget_allocated_amt (visible)
  *      ```
  *
  * 4. **settingsLoader.ts** - Dynamic Dropdown Options
@@ -111,16 +122,21 @@ import {
  * ✅ Type Safety: Field categories are enum-based with compile-time checking
  * ✅ Auto-Detection: New fields automatically get correct rendering based on name pattern
  * ✅ Minimal Code: Single-line column generation for entire entity tables
+ * ✅ Smart Visibility: System fields hidden, FK columns replaced with entity names
+ * ✅ Auto FK Resolution: project_id → auto-generates project_name column with lookup
  *
- * DATA FLOW EXAMPLE:
- * 1. Entity config specifies field keys: ['name', 'dl__project_stage', 'budget_allocated_amt']
+ * DATA FLOW EXAMPLE (with FK Resolution):
+ * 1. Entity config specifies: ['name', 'project_id', 'dl__task_stage', 'budget_allocated_amt']
  * 2. generateStandardColumns() processes each key:
- *    - 'name' → detects NAME category → 300px width, left-align, sortable, filterable
- *    - 'dl__project_stage' → detects LABEL category → loadOptionsFromSettings, colored badge, 150px
- *    - 'budget_allocated_amt' → detects AMOUNT category → currency render, right-align, 120px
- * 3. generateFieldTitle() creates titles: 'Name', 'Project Stage', 'Budget Allocated Amount'
- * 4. settingsLoader fetches dl__project_stage options from API on mount
- * 5. FilteredDataTable renders columns with all auto-applied properties
+ *    - 'name' → NAME category → 300px, left-align, visible=true
+ *    - 'project_id' → ENTITY_REF category → detects FK pattern → visible=false
+ *    - Auto-generates 'project_name' → 200px, left-align, visible=true (shows d_project.name)
+ *    - 'dl__task_stage' → LABEL category → loadOptionsFromSettings, colored badge, visible=true
+ *    - 'budget_allocated_amt' → AMOUNT category → currency render, right-align, visible=true
+ * 3. generateFieldTitle() creates titles: 'Name', 'Project Name', 'Task Stage', 'Budget'
+ * 4. API returns both project_id (for relationships) and project_name (for display)
+ * 5. FilteredDataTable renders only visible columns, hides project_id from UI
+ * 6. settingsLoader fetches dl__task_stage options from settings table
  *
  * HOW TO ADD NEW ENTITIES:
  *
@@ -163,9 +179,12 @@ import {
  * That's it! The system handles:
  * - Column widths, alignment, sorting, filtering
  * - Human-readable titles from field keys
+ * - Visibility control (visible vs hidden columns)
+ * - Foreign key detection and entity name generation
  * - Currency formatting, date rendering, badge colors
  * - Dropdown options from settings tables
  * - System column filtering (id, timestamps, etc.)
+ * - Automatic *_name column generation for all *_id fields
  *
  * SOURCE OF TRUTH: DDL CREATE TABLE Statements
  * - All field keys come from database schema (db/*.ddl files)
@@ -188,6 +207,19 @@ export interface ColumnDef {
   filterable?: boolean;
   align?: 'left' | 'center' | 'right';
   width?: string;
+  /**
+   * Controls column visibility in data table.
+   * - true: Column is visible (default for most fields)
+   * - false: Column data is fetched but hidden from UI
+   *
+   * Auto-set to false for:
+   * - Primary keys (id) - needed for API but shouldn't display
+   * - Foreign keys (*_id) - replaced by entity name columns (*_name)
+   * - System fields (created_ts, updated_ts, version, from_ts, to_ts, active_flag)
+   *
+   * Example: project_id (visible=false) is replaced by project_name (visible=true)
+   */
+  visible?: boolean;
   render?: (value: any, record: any) => React.ReactNode;
   /**
    * When true, options for this column will be dynamically loaded from settings tables

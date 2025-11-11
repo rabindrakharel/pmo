@@ -5,12 +5,17 @@
  * Field Category Registry - a SINGLE SOURCE OF TRUTH that defines:
  * - Width, alignment, sortable/filterable/searchable for each category
  * - Rendering logic (currency, dates, timestamps, badges, etc.)
+ * - Visibility control (visible vs hidden columns)
+ * - Foreign key detection and auto-generation of entity name columns
  * - Special features (dropdowns, colored badges, etc.)
  *
  * DRY Principle: All properties for a field category are defined in ONE place.
  * Change the category config, and ALL fields of that category update automatically.
  *
- * Eliminates 150+ manual column definitions across 13+ entities.
+ * Key Features:
+ * - System fields (id, timestamps) automatically hidden from UI
+ * - FK columns (*_id) marked invisible, auto-generates *_name columns
+ * - Example: project_id (hidden) + project_name (visible, shows d_project.name)
  */
 
 import React from 'react';
@@ -35,10 +40,60 @@ const SYSTEM_COLUMNS = new Set([
 ]);
 
 /**
- * Check if a column should be hidden from display
+ * Check if a column is a foreign key reference (*_id pattern)
+ * Examples: project_id, task_id, employee_id, client_id
+ * Note: 'id' alone is NOT a foreign key, it's the primary key
+ */
+function isForeignKeyColumn(columnKey: string): boolean {
+  return columnKey !== 'id' && columnKey.endsWith('_id');
+}
+
+/**
+ * Extract entity name from foreign key column
+ * Examples:
+ * - project_id → project
+ * - manager_employee_id → employee
+ * - assignee_employee_id → employee
+ */
+function getEntityNameFromForeignKey(columnKey: string): string {
+  // Remove _id suffix
+  const withoutId = columnKey.replace(/_id$/, '');
+
+  // Handle cases like manager_employee_id → extract "employee"
+  // Pattern: if it ends with _entityname, extract entityname
+  const parts = withoutId.split('_');
+
+  // Check if last part is a known entity type
+  const knownEntities = [
+    'employee', 'project', 'task', 'client', 'customer', 'cust',
+    'office', 'business', 'biz', 'supplier', 'product', 'service',
+    'artifact', 'wiki', 'form', 'event', 'calendar'
+  ];
+
+  const lastPart = parts[parts.length - 1];
+  if (knownEntities.includes(lastPart)) {
+    return lastPart;
+  }
+
+  // Otherwise, use the whole thing without _id
+  return withoutId;
+}
+
+/**
+ * Check if a column should be hidden from display (but still fetched)
  */
 function isSystemColumn(columnKey: string): boolean {
   return SYSTEM_COLUMNS.has(columnKey);
+}
+
+/**
+ * Check if a column should be visible in data table
+ * - System columns: invisible (id, timestamps, version, etc.)
+ * - Foreign keys: invisible (replaced by entity_name columns)
+ * - Everything else: visible by default
+ */
+function isVisibleColumn(columnKey: string): boolean {
+  return !isSystemColumn(columnKey) && !isForeignKeyColumn(columnKey);
 }
 
 /**
@@ -81,10 +136,15 @@ export function generateColumns(
 ): ColumnDef[] {
   const { overrides = {} } = options;
 
-  // Filter out system columns before generating column definitions
-  const filteredKeys = fieldKeys.filter(key => !isSystemColumn(key));
+  const columns: ColumnDef[] = [];
 
-  return filteredKeys.map(key => {
+  // Process each field key
+  for (const key of fieldKeys) {
+    // Skip system columns entirely - not even fetched from API
+    if (isSystemColumn(key)) {
+      continue;
+    }
+
     // Get ALL properties from category registry
     const categoryProps = getCategoryProperties(key);
 
@@ -96,7 +156,8 @@ export function generateColumns(
       filterable: categoryProps.filterable,
       width: categoryProps.width,
       align: categoryProps.align,
-      render: categoryProps.render
+      render: categoryProps.render,
+      visible: isVisibleColumn(key) // Auto-set visibility based on column type
     };
 
     // Add loadOptionsFromSettings if category requires it
@@ -109,8 +170,38 @@ export function generateColumns(
       Object.assign(column, overrides[key]);
     }
 
-    return column;
-  });
+    columns.push(column);
+
+    // If this is a foreign key column, auto-generate corresponding entity_name column
+    if (isForeignKeyColumn(key)) {
+      const entityName = getEntityNameFromForeignKey(key);
+      const nameColumnKey = key.replace(/_id$/, '_name');
+
+      // Check if user explicitly provided this name column
+      if (!fieldKeys.includes(nameColumnKey)) {
+        // Auto-generate entity name column
+        const nameColumn: ColumnDef = {
+          key: nameColumnKey,
+          title: generateFieldTitle(nameColumnKey),
+          sortable: true,
+          filterable: true,
+          width: '200px',
+          align: 'left',
+          visible: true, // Name columns are always visible
+          render: (value: string) => value || '-' // Simple text renderer
+        };
+
+        // Add override for name column if specified
+        if (overrides[nameColumnKey]) {
+          Object.assign(nameColumn, overrides[nameColumnKey]);
+        }
+
+        columns.push(nameColumn);
+      }
+    }
+  }
+
+  return columns;
 }
 
 /**
