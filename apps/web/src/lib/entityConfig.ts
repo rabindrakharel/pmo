@@ -320,21 +320,50 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/project',
 
     columns: generateStandardColumns(
-      ['name', 'code', 'descr', 'dl__project_stage', 'budget_allocated_amt', 'planned_start_date', 'planned_end_date'],
+      [
+        'name',
+        'code',
+        'descr',
+        'dl__project_stage',
+        'budget_allocated_amt',
+        'budget_spent_amt',
+        'planned_start_date',
+        'planned_end_date',
+        'actual_start_date',
+        'actual_end_date',
+        'manager_employee_id',
+        'sponsor_employee_id'
+      ],
       {
         overrides: {
           dl__project_stage: {
             title: 'Stage'
           },
           budget_allocated_amt: {
-            title: 'Budget',
+            title: 'Budget Allocated',
+            render: (value, record) => formatCurrency(value, record.budget_currency)
+          },
+          budget_spent_amt: {
+            title: 'Budget Spent',
             render: (value, record) => formatCurrency(value, record.budget_currency)
           },
           planned_start_date: {
-            title: 'Start Date'
+            title: 'Planned Start'
           },
           planned_end_date: {
-            title: 'End Date'
+            title: 'Planned End'
+          },
+          actual_start_date: {
+            title: 'Actual Start'
+          },
+          actual_end_date: {
+            title: 'Actual End'
+          },
+          manager_employee_id: {
+            title: 'Manager'
+          },
+          sponsor_employee_id: {
+            title: 'Sponsor'
           }
         }
       }
@@ -345,9 +374,14 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'code', label: 'Project Code', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'richtext' },
       { key: 'dl__project_stage', label: 'Stage', type: 'select', loadOptionsFromSettings: true },
-      { key: 'budget_allocated_amt', label: 'Budget', type: 'number' },
-      { key: 'planned_start_date', label: 'Start Date', type: 'date' },
-      { key: 'planned_end_date', label: 'End Date', type: 'date' },
+      { key: 'budget_allocated_amt', label: 'Budget Allocated', type: 'number' },
+      { key: 'budget_spent_amt', label: 'Budget Spent', type: 'number' },
+      { key: 'planned_start_date', label: 'Planned Start Date', type: 'date' },
+      { key: 'planned_end_date', label: 'Planned End Date', type: 'date' },
+      { key: 'actual_start_date', label: 'Actual Start Date', type: 'date' },
+      { key: 'actual_end_date', label: 'Actual End Date', type: 'date' },
+      { key: 'manager_employee_id', label: 'Manager', type: 'text' },
+      { key: 'sponsor_employee_id', label: 'Sponsor', type: 'text' },
       { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 

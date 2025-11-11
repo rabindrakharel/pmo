@@ -370,6 +370,8 @@ export function EntityDataTable<T = any>({
   const [showFilterDropdown, setShowFilterDropdown] = useState<boolean>(false);
   const filterContainerRef = useRef<HTMLDivElement | null>(null);
   const columnSelectorRef = useRef<HTMLDivElement | null>(null);
+  const columnSelectorButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [columnSelectorPosition, setColumnSelectorPosition] = useState({ top: 0, left: 0, width: 0 });
 
   // Bottom scrollbar refs (monday.com style)
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
@@ -523,6 +525,31 @@ export function EntityDataTable<T = any>({
     return Array.from(uniqueValues).sort();
   };
 
+  // Update column selector position when it opens
+  useEffect(() => {
+    if (showColumnSelector && columnSelectorButtonRef.current) {
+      const updatePosition = () => {
+        if (columnSelectorButtonRef.current) {
+          const rect = columnSelectorButtonRef.current.getBoundingClientRect();
+          setColumnSelectorPosition({
+            top: rect.bottom + window.scrollY + 8,
+            left: rect.left + window.scrollX,
+            width: 224, // w-56 = 224px
+          });
+        }
+      };
+
+      updatePosition();
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
+    }
+  }, [showColumnSelector]);
+
   // Handle clicking outside dropdowns to close
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -530,9 +557,14 @@ export function EntityDataTable<T = any>({
       if (filterContainerRef.current && !filterContainerRef.current.contains(event.target as Node)) {
         setShowFilterDropdown(false);
       }
-      
+
       // Close column selector dropdown
-      if (columnSelectorRef.current && !columnSelectorRef.current.contains(event.target as Node)) {
+      if (
+        columnSelectorRef.current &&
+        !columnSelectorRef.current.contains(event.target as Node) &&
+        columnSelectorButtonRef.current &&
+        !columnSelectorButtonRef.current.contains(event.target as Node)
+      ) {
         setShowColumnSelector(false);
       }
     };
@@ -1111,8 +1143,9 @@ export function EntityDataTable<T = any>({
               </div>
 
               {columnSelection && (
-                <div className="relative" ref={columnSelectorRef}>
+                <div className="relative">
                   <button
+                    ref={columnSelectorButtonRef}
                     onClick={() => setShowColumnSelector(!showColumnSelector)}
                     className="flex items-center px-3 py-1.5 text-sm text-dark-700 border border-dark-300 rounded hover:bg-dark-100 hover:border-dark-400 transition-colors"
                   >
@@ -1120,8 +1153,18 @@ export function EntityDataTable<T = any>({
                     Columns
                   </button>
 
-                  {showColumnSelector && (
-                    <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-lg shadow-lg z-50">
+                  {showColumnSelector && createPortal(
+                    <div
+                      ref={columnSelectorRef}
+                      className="bg-dark-100 border border-dark-300 rounded-lg shadow-lg"
+                      style={{
+                        position: 'absolute',
+                        top: `${columnSelectorPosition.top}px`,
+                        left: `${columnSelectorPosition.left}px`,
+                        width: `${columnSelectorPosition.width}px`,
+                        zIndex: 9999,
+                      }}
+                    >
                       <div className="p-2">
                         <div className="text-sm font-normal text-dark-700 mb-2 px-1">Show Columns</div>
                         {initialColumns.map(column => (
@@ -1136,7 +1179,8 @@ export function EntityDataTable<T = any>({
                           </label>
                         ))}
                       </div>
-                    </div>
+                    </div>,
+                    document.body
                   )}
                 </div>
               )}
@@ -1145,8 +1189,9 @@ export function EntityDataTable<T = any>({
 
           {!filterable && columnSelection && (
             <div className="flex items-center justify-end">
-              <div className="relative" ref={columnSelectorRef}>
+              <div className="relative">
                 <button
+                  ref={columnSelectorButtonRef}
                   onClick={() => setShowColumnSelector(!showColumnSelector)}
                   className="flex items-center px-3 py-1.5 text-sm text-dark-700 border border-dark-300 rounded hover:bg-dark-100 hover:border-dark-400 transition-colors"
                 >
@@ -1154,8 +1199,18 @@ export function EntityDataTable<T = any>({
                   Columns
                 </button>
 
-                {showColumnSelector && (
-                  <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-lg shadow-lg z-50">
+                {showColumnSelector && createPortal(
+                  <div
+                    ref={columnSelectorRef}
+                    className="bg-dark-100 border border-dark-300 rounded-lg shadow-lg"
+                    style={{
+                      position: 'absolute',
+                      top: `${columnSelectorPosition.top}px`,
+                      left: `${columnSelectorPosition.left}px`,
+                      width: `${columnSelectorPosition.width}px`,
+                      zIndex: 9999,
+                    }}
+                  >
                     <div className="p-2">
                       <div className="text-sm font-normal text-dark-700 mb-2 px-1">Show Columns</div>
                       {initialColumns.map(column => (
@@ -1170,7 +1225,8 @@ export function EntityDataTable<T = any>({
                         </label>
                       ))}
                     </div>
-                  </div>
+                  </div>,
+                  document.body
                 )}
               </div>
             </div>
