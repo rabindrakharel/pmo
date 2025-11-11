@@ -25,6 +25,7 @@
 -- • parent_entity_type, parent_entity_id: varchar(20), text
 -- • child_entity_type, child_entity_id: varchar(20), text
 -- • relationship_type: varchar(50) (contains, owns, assigned_to)
+-- • relationship_nature_id: integer (5 = owner/creator)
 -- • active_flag: boolean (soft delete)
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
@@ -52,6 +53,7 @@ CREATE TABLE app.d_entity_id_map (
     child_entity_type varchar(20) NOT NULL,
     child_entity_id text NOT NULL,
     relationship_type varchar(50) DEFAULT 'contains',
+    relationship_nature_id integer,
     metadata jsonb DEFAULT '{}'::jsonb,
     from_ts timestamptz NOT NULL DEFAULT now(),
     to_ts timestamptz,
@@ -62,6 +64,7 @@ CREATE TABLE app.d_entity_id_map (
 );
 
 COMMENT ON TABLE app.d_entity_id_map IS 'Parent-child relationships between specific entity instances for navigation, filtering, and linkage management';
+COMMENT ON COLUMN app.d_entity_id_map.relationship_nature_id IS 'Nature of relationship: 5 = owner/creator (event → employee means employee owns/created the event)';
 
 -- =====================================================
 -- DATA CURATION: Port Existing Relationships

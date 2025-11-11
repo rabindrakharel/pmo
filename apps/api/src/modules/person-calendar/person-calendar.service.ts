@@ -263,12 +263,24 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
 
     const entityLinks = [];
 
+    // Link event → assigned employee (OWNER with relationship_nature_id = 5)
+    entityLinks.push({
+      parent_entity_type: 'event',
+      parent_entity_id: eventId,
+      child_entity_type: 'employee',
+      child_entity_id: assignedEmployeeId,
+      relationship_type: 'owner',
+      relationship_nature_id: 5
+    });
+
     // Link event → service
     entityLinks.push({
       parent_entity_type: 'event',
       parent_entity_id: eventId,
       child_entity_type: 'service',
-      child_entity_id: serviceId
+      child_entity_id: serviceId,
+      relationship_type: 'relates_to',
+      relationship_nature_id: null
     });
 
     // Link event → customer
@@ -277,7 +289,9 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
         parent_entity_type: 'event',
         parent_entity_id: eventId,
         child_entity_type: 'customer',
-        child_entity_id: customerId
+        child_entity_id: customerId,
+        relationship_type: 'relates_to',
+        relationship_nature_id: null
       });
     }
 
@@ -287,7 +301,9 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
         parent_entity_type: 'event',
         parent_entity_id: eventId,
         child_entity_type: 'project',
-        child_entity_id: projectId
+        child_entity_id: projectId,
+        relationship_type: 'relates_to',
+        relationship_nature_id: null
       });
     }
 
@@ -296,17 +312,20 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
       await client`
         INSERT INTO app.d_entity_id_map (
           parent_entity_type, parent_entity_id,
-          child_entity_type, child_entity_id
+          child_entity_type, child_entity_id,
+          relationship_type, relationship_nature_id
         ) VALUES (
           ${link.parent_entity_type},
           ${link.parent_entity_id}::uuid,
           ${link.child_entity_type},
-          ${link.child_entity_id}::uuid
+          ${link.child_entity_id}::uuid,
+          ${link.relationship_type},
+          ${link.relationship_nature_id}
         )
       `;
     }
 
-    console.log(`✅ Created ${entityLinks.length} entity linkages`);
+    console.log(`✅ Created ${entityLinks.length} entity linkages (including event owner)`);
 
     // ===============================================
     // STEP 5: Send Notifications (Email + SMS with Calendar Invite)
