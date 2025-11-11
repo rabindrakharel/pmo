@@ -645,7 +645,15 @@ export function SettingsOverviewPage() {
                   {filteredEntities.map((entity) => {
                     const isEditing = editingEntityCode === entity.code;
                     return (
-                      <tr key={entity.code} className={isEditing ? 'bg-dark-100/30' : 'hover:bg-dark-100/50 transition-colors'}>
+                      <tr
+                        key={entity.code}
+                        onClick={() => {
+                          if (!isEditing) {
+                            navigate(`/entity-designer/${entity.code}`);
+                          }
+                        }}
+                        className={isEditing ? 'bg-dark-100/30' : 'hover:bg-dark-100/50 transition-colors cursor-pointer'}
+                      >
                         <td className="px-3 py-2.5">
                           <span className="text-[11px] font-mono font-medium text-dark-600">{entity.code}</span>
                         </td>
@@ -773,7 +781,10 @@ export function SettingsOverviewPage() {
                         </td>
                         <td className="px-3 py-2.5 text-center">
                           <button
-                            onClick={() => handleToggleEntityActive(entity.code, entity.active_flag)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleEntityActive(entity.code, entity.active_flag);
+                            }}
                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-dark-7000 focus:ring-offset-2 ${
                               entity.active_flag ? 'bg-green-500' : 'bg-dark-300'
                             }`}
@@ -789,7 +800,10 @@ export function SettingsOverviewPage() {
                         <td className="px-3 py-2.5">
                           <div className="group relative">
                             <button
-                              onClick={() => handleManageChildren(entity)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleManageChildren(entity);
+                              }}
                               className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] text-dark-700 hover:bg-dark-100 rounded border border-dark-400/60 transition-colors font-medium"
                               title="Manage child entities"
                             >
@@ -827,7 +841,10 @@ export function SettingsOverviewPage() {
                             {isEditing ? (
                               <>
                                 <button
-                                  onClick={() => handleUpdateEntity(entity.code)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateEntity(entity.code);
+                                  }}
                                   className="p-1 text-green-600 hover:bg-green-50 rounded"
                                   title="Save"
                                 >
@@ -836,7 +853,8 @@ export function SettingsOverviewPage() {
                                   </svg>
                                 </button>
                                 <button
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setEditingEntityCode(null);
                                     setEditingEntityData({});
                                   }}
@@ -851,7 +869,8 @@ export function SettingsOverviewPage() {
                             ) : (
                               <>
                                 <button
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setEditingEntityCode(entity.code);
                                     setEditingEntityData(entity);
                                   }}
@@ -863,7 +882,10 @@ export function SettingsOverviewPage() {
                                   </svg>
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteEntity(entity.code, entity.name)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteEntity(entity.code, entity.name);
+                                  }}
                                   className="p-1 text-red-600 hover:bg-red-50 rounded"
                                   title="Delete"
                                 >
