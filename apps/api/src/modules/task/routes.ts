@@ -7,7 +7,6 @@ import { sql } from 'drizzle-orm';
 import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
-  filterSystemColumns,
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
 import { universalEntityDelete, createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
@@ -243,11 +242,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      // Filter out system columns from data table response
-      const data = filterSystemColumns(tasks) as any[];
-
+      // Return all columns without filtering
       return {
-        data,
+        data: tasks,
         total,
         limit,
         offset,

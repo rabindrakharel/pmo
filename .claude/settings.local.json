@@ -40,7 +40,11 @@
       "Bash(/home/rabin/projects/pmo/tools/logs-api.sh:*)",
       "Bash(xargs kill -9)",
       "Bash(/home/rabin/projects/pmo/tools/restart-api.sh:*)",
-      "Bash(timeout 30 /home/rabin/projects/pmo/tools/test-api.sh:*)"
+      "Bash(timeout 30 /home/rabin/projects/pmo/tools/test-api.sh:*)",
+      "Bash(aws ses list-identities:*)",
+      "Bash(aws ses get-identity-verification-attributes:*)",
+      "Bash(aws ses verify-email-identity:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": [],

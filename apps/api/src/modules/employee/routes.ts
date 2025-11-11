@@ -6,7 +6,6 @@ import bcrypt from 'bcrypt';
 import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
-  filterSystemColumns,
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
 
@@ -289,7 +288,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       }));
 
       return {
-        data: filterSystemColumns(filteredData) as any[],
+        data: filteredData,
         total,
         limit,
         offset,

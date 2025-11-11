@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm';
-import { createFilteredPaginatedResponse } from '../../lib/universal-schema-metadata.js';
+import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 
 const RoleSchema = Type.Object({
   id: Type.String(),
@@ -120,7 +120,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
         attr: role.metadata
       }));
 
-      return createFilteredPaginatedResponse(transformedRoles, total, limit, offset);
+      return createPaginatedResponse(transformedRoles, total, limit, offset);
     } catch (error) {
       fastify.log.error('Error fetching roles:');
       return reply.status(500).send({ error: 'Internal server error' });

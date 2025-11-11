@@ -6,7 +6,7 @@ import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
   getColumnsByMetadata,
-  createFilteredPaginatedResponse
+  createPaginatedResponse
 } from '../../lib/universal-schema-metadata.js';
 import { transformRequestBody } from '../../lib/data-transformers.js';
 
@@ -165,7 +165,7 @@ export async function custRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${actualOffset}
       `);
 
-      return createFilteredPaginatedResponse(customers, total, limit, actualOffset);
+      return createPaginatedResponse(customers, total, limit, actualOffset);
     } catch (error) {
       fastify.log.error('Error fetching customers:', error);
       console.error('CUST API ERROR:', error);

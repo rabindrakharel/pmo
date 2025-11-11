@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import { createFilteredPaginatedResponse } from '../../lib/universal-schema-metadata.js';
+import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 
 export async function inventoryRoutes(fastify: FastifyInstance) {
   // List inventory
@@ -35,7 +35,7 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return createFilteredPaginatedResponse(rows, total, limit, offset);
+      return createPaginatedResponse(rows, total, limit, offset);
     } catch (error) {
       fastify.log.error('Error listing inventory:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

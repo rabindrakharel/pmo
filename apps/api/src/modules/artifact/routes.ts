@@ -5,7 +5,7 @@ import { sql } from 'drizzle-orm';
 import { s3AttachmentService } from '@/lib/s3-attachments.js';
 import { config } from '@/lib/config.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
-import { createFilteredPaginatedResponse } from '../../lib/universal-schema-metadata.js';
+import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 
 // Artifact schemas aligned with actual app.d_artifact columns
 const ArtifactSchema = Type.Object({
@@ -134,7 +134,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return createFilteredPaginatedResponse(rows, total, limit, offset);
+      return createPaginatedResponse(rows, total, limit, offset);
     } catch (error) {
       fastify.log.error('Error listing artifacts:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

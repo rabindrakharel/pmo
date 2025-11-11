@@ -784,64 +784,34 @@ export function getUniversalComponentProps(columnName: string): Record<string, a
 }
 
 /**
- * System columns that should be hidden from data table responses
- * These are infrastructure/audit fields that users don't need to see
- */
-const SYSTEM_COLUMNS = new Set([
-  'id',           // Primary key
-  'from_ts',      // SCD Type 2 start timestamp
-  'to_ts',        // SCD Type 2 end timestamp
-  'active_flag',  // SCD Type 2 active flag
-  'created_ts',   // Creation timestamp
-  'updated_ts',   // Update timestamp
-  'version'       // Optimistic locking version
-]);
-
-/**
- * Filter system columns from data table responses
- * Removes infrastructure/audit fields that users don't need to see
+ * NO COLUMN FILTERING IN API RESPONSES
+ * All columns are returned from the API without exclusions.
+ * The metadata system is used ONLY for frontend formatting,
+ * field widths, sorting, filtering, and UI rendering.
  *
- * @param data - Single object or array of objects to filter
- * @returns Filtered data with system columns removed
+ * Column visibility is handled entirely by the frontend based on
+ * UI metadata (ui:invisible, ui:readonly, etc.)
  */
-export function filterSystemColumns<T extends Record<string, any>>(
-  data: T | T[]
-): T | T[] {
-  const filterObject = (obj: T): T => {
-    const filtered = {} as T;
-    for (const [key, value] of Object.entries(obj)) {
-      if (!SYSTEM_COLUMNS.has(key)) {
-        filtered[key as keyof T] = value;
-      }
-    }
-    return filtered;
-  };
-
-  if (Array.isArray(data)) {
-    return data.map(item => filterObject(item));
-  }
-
-  return filterObject(data);
-}
 
 /**
- * Helper function to create a filtered paginated response
+ * Helper function to create a paginated response
  * DRY pattern for all entity list endpoints
+ * NOTE: No column filtering - returns all database columns
  *
  * @param data - Array of entity records from database
  * @param total - Total count of records
  * @param limit - Number of records per page
  * @param offset - Offset for pagination
- * @returns Paginated response with system columns filtered
+ * @returns Paginated response with all columns included
  */
-export function createFilteredPaginatedResponse<T extends Record<string, any>>(
+export function createPaginatedResponse<T extends Record<string, any>>(
   data: T[],
   total: number,
   limit: number,
   offset: number
 ) {
   return {
-    data: filterSystemColumns(data) as T[],
+    data,  // Return all columns without filtering
     total,
     limit,
     offset,
@@ -852,8 +822,7 @@ export default {
   getUniversalColumnMetadata,
   getColumnsByMetadata,
   filterUniversalColumns,
-  filterSystemColumns,
-  createFilteredPaginatedResponse,
+  createPaginatedResponse,
   getUniversalComponentProps,
   UNIVERSAL_COLUMN_PATTERNS,
   PATTERN_RULES

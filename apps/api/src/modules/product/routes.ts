@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import { filterUniversalColumns, createFilteredPaginatedResponse } from '../../lib/universal-schema-metadata.js';
+import { filterUniversalColumns, createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 
 const ProductSchema = Type.Object({
@@ -119,7 +119,7 @@ export async function productRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return createFilteredPaginatedResponse(products, total, limit, offset);
+      return createPaginatedResponse(products, total, limit, offset);
     } catch (error) {
       fastify.log.error('Error fetching products:', error);
       return reply.status(500).send({ error: 'Internal server error' });

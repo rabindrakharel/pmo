@@ -7,7 +7,7 @@ import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
   getColumnsByMetadata,
-  createFilteredPaginatedResponse
+  createPaginatedResponse
 } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
@@ -170,7 +170,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return createFilteredPaginatedResponse(offices, total, limit, offset);
+      return createPaginatedResponse(offices, total, limit, offset);
     } catch (error) {
       fastify.log.error({ error, stack: (error as Error).stack }, 'Error fetching organizations');
       return reply.status(500).send({ error: 'Internal server error' });

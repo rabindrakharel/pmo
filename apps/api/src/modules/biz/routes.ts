@@ -6,7 +6,7 @@ import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
   getColumnsByMetadata,
-  createFilteredPaginatedResponse
+  createPaginatedResponse
 } from '../../lib/universal-schema-metadata.js';
 import {
   hasPermissionOnEntityId,
@@ -141,7 +141,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return createFilteredPaginatedResponse(bizUnits, total, limit, offset);
+      return createPaginatedResponse(bizUnits, total, limit, offset);
     } catch (error) {
       fastify.log.error('Error fetching business units:', error as any);
       console.error('Full error details:', error);
