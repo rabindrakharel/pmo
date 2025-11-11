@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import { filterUniversalColumns } from '../../lib/universal-schema-metadata.js';
+import { filterUniversalColumns, createFilteredPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 
 const ServiceSchema = Type.Object({
@@ -116,7 +116,7 @@ export async function serviceRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return { data: services, total, limit, offset };
+      return createFilteredPaginatedResponse(services, total, limit, offset);
     } catch (error) {
       fastify.log.error('Error fetching services:', error);
       return reply.status(500).send({ error: 'Internal server error' });

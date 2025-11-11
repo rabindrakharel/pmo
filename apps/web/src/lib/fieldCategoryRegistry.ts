@@ -452,64 +452,195 @@ export const FIELD_CATEGORY_REGISTRY: Record<FieldCategory, FieldCategoryConfig>
 /**
  * Detect field category from field key using naming patterns
  *
- * This function categorizes API columns based on naming conventions:
- * - name, title → NAME
- * - code → CODE
- * - descr, description → DESCR
- * - *_amt, *_amount → AMOUNT
- * - *_date → DATE
- * - *_ts, *_timestamp → TIMESTAMP
- * - *_stage, *_status, *_priority, *_level → LABEL (settings-driven)
- * - *_flag, is_*, has_*, can_* → BOOLEAN
- * - etc.
+ * CENTRAL SEMANTIC PATTERN DETECTION (DRY Principle)
+ *
+ * This function is the SINGLE SOURCE OF TRUTH for mapping database column names
+ * to display formatting categories. It uses semantic patterns to automatically
+ * determine how each field should be rendered, sorted, filtered, and edited.
+ *
+ * Semantic Patterns Covered:
+ * - %name, %title → NAME (primary identifier text)
+ * - %code → CODE (entity code/reference)
+ * - %descr, %description → DESCR (long description text)
+ * - dl__% → LABEL (datalabel/settings-driven dropdown)
+ * - %_level, %_tier, %_rank, %_grade → LABEL (hierarchical classification)
+ * - %_stage, %_status, %_priority → LABEL (workflow states)
+ * - %_amt, %_amount, %_price, %_cost → AMOUNT (currency values)
+ * - %_ts, %_timestamp, %_time → TIMESTAMP (datetime with relative time)
+ * - %_date → DATE (date only, friendly format)
+ * - %_flag, is_%, has_%, can_% → BOOLEAN (true/false toggles)
+ * - metadata, attr, %_json, %_jsonb → JSON (structured data)
+ * - tags, %_ids, %_list, %_array → ARRAY (collections)
+ * - %_count, %_hours, %_qty, %_quantity, %_number → NUMBER (numeric values)
+ * - %_pct, %_percent, %_percentage → PERCENTAGE (0-100 values)
+ * - %_url, %_link → URL (clickable links)
+ * - %_email → EMAIL (mailto links)
+ * - %_id (entity references) → ENTITY_REF (foreign keys)
+ *
+ * This ensures ALL database columns automatically get proper formatting
+ * without manual configuration in entity configs.
  */
 export function detectFieldCategory(fieldKey: string): FieldCategory {
   const key = fieldKey.toLowerCase();
 
-  // Standard entity fields (highest priority)
-  if (key === 'name' || key === 'title') return FieldCategory.NAME;
-  if (key === 'code') return FieldCategory.CODE;
-  if (key === 'descr' || key === 'description') return FieldCategory.DESCR;
+  // =========================================================================
+  // STANDARD ENTITY FIELDS (Highest Priority)
+  // =========================================================================
 
-  // Temporal fields
-  if (key.endsWith('_ts') || key.endsWith('_timestamp')) return FieldCategory.TIMESTAMP;
-  if (key.endsWith('_date')) return FieldCategory.DATE;
+  if (key === 'name' || key === 'title' || key.endsWith('_name') || key.endsWith('_title')) {
+    return FieldCategory.NAME;
+  }
 
-  // Business/financial fields
-  if (key.endsWith('_amt') || key.endsWith('_amount')) return FieldCategory.AMOUNT;
-  if (key.endsWith('_currency')) return FieldCategory.CURRENCY;
-  if (key.endsWith('_pct') || key.endsWith('_percent') || key.endsWith('_percentage')) return FieldCategory.PERCENTAGE;
-  if (key.endsWith('_count') || key.endsWith('_hours') || key.endsWith('_quantity') || key.endsWith('_number')) return FieldCategory.NUMBER;
+  if (key === 'code' || key.endsWith('_code')) {
+    return FieldCategory.CODE;
+  }
 
-  // Settings-driven labels (datalabel fields)
-  // Matches: *_stage, *_status, *_priority, *_level, *_tier, *_sector, *_channel
-  // Also matches: dl__* prefix pattern for explicit datalabel fields
+  if (key === 'descr' || key === 'description' || key.endsWith('_descr') || key.endsWith('_description')) {
+    return FieldCategory.DESCR;
+  }
+
+  // =========================================================================
+  // TEMPORAL FIELDS (Date/Time)
+  // =========================================================================
+
+  // Timestamps: created_ts, updated_ts, scheduled_ts, etc.
+  if (key.endsWith('_ts') || key.endsWith('_timestamp') || key.endsWith('_time')) {
+    return FieldCategory.TIMESTAMP;
+  }
+
+  // Dates: start_date, end_date, birth_date, etc.
+  if (key.endsWith('_date')) {
+    return FieldCategory.DATE;
+  }
+
+  // =========================================================================
+  // BUSINESS/FINANCIAL FIELDS (Money & Numbers)
+  // =========================================================================
+
+  // Currency amounts: budget_amt, price_amt, total_amount, cost, revenue, etc.
+  if (key.endsWith('_amt') || key.endsWith('_amount') ||
+      key.endsWith('_price') || key.endsWith('_cost') ||
+      key.endsWith('_revenue') || key.endsWith('_fee') ||
+      key.includes('budget_') || key.includes('salary_')) {
+    return FieldCategory.AMOUNT;
+  }
+
+  // Currency codes: currency, budget_currency, etc.
+  if (key === 'currency' || key.endsWith('_currency')) {
+    return FieldCategory.CURRENCY;
+  }
+
+  // Percentages: completion_pct, tax_rate, discount_percent, etc.
+  if (key.endsWith('_pct') || key.endsWith('_percent') ||
+      key.endsWith('_percentage') || key.endsWith('_rate')) {
+    return FieldCategory.PERCENTAGE;
+  }
+
+  // Numbers: count, hours, quantity, points, score, etc.
+  if (key.endsWith('_count') || key.endsWith('_hours') ||
+      key.endsWith('_quantity') || key.endsWith('_qty') ||
+      key.endsWith('_number') || key.endsWith('_points') ||
+      key.endsWith('_score') || key.endsWith('_size') ||
+      key.endsWith('_bytes') || key.endsWith('_total')) {
+    return FieldCategory.NUMBER;
+  }
+
+  // =========================================================================
+  // SETTINGS-DRIVEN LABELS (Dropdowns with color badges)
+  // =========================================================================
+
+  // Explicit datalabel fields: dl__project_stage, dl__task_priority, etc.
+  // Hierarchical: level, tier, rank, grade, category
+  // Workflow: stage, status, priority, phase, step
+  // Classification: type, class, sector, channel, segment
   if (key.startsWith('dl__') ||
-      key.endsWith('_stage') ||
-      key.endsWith('_status') ||
-      key.endsWith('_priority') ||
-      key.endsWith('_level') ||
-      key.endsWith('_tier') ||
-      key.endsWith('_sector') ||
-      key.endsWith('_channel')) {
+      key.endsWith('_level') || key.endsWith('_tier') ||
+      key.endsWith('_rank') || key.endsWith('_grade') ||
+      key.endsWith('_stage') || key.endsWith('_status') ||
+      key.endsWith('_priority') || key.endsWith('_phase') ||
+      key.endsWith('_step') || key.endsWith('_type') ||
+      key.endsWith('_class') || key.endsWith('_category') ||
+      key.endsWith('_sector') || key.endsWith('_channel') ||
+      key.endsWith('_segment') || key.endsWith('_classification')) {
     return FieldCategory.LABEL;
   }
 
-  // Boolean/flag fields
-  if (key.endsWith('_flag') || key.startsWith('is_') || key.startsWith('has_') || key.startsWith('can_')) return FieldCategory.BOOLEAN;
+  // =========================================================================
+  // BOOLEAN/FLAG FIELDS (Toggles)
+  // =========================================================================
 
-  // Complex/structured fields
-  if (key === 'metadata' || key === 'attr' || key.endsWith('_json') || key.endsWith('_jsonb')) return FieldCategory.JSON;
-  if (key === 'tags' || key.endsWith('_ids') || key.endsWith('_list') || key.endsWith('_array')) return FieldCategory.ARRAY;
-  if (key === 'content' || key === 'notes' || key === 'body' || key.endsWith('_text')) return FieldCategory.LONG_TEXT;
+  // Flags: active_flag, is_active, has_permission, can_edit, etc.
+  if (key.endsWith('_flag') || key.endsWith('_enabled') ||
+      key.endsWith('_disabled') || key.endsWith('_allowed') ||
+      key.startsWith('is_') || key.startsWith('has_') ||
+      key.startsWith('can_') || key.startsWith('should_') ||
+      key.startsWith('enable_') || key.startsWith('require_')) {
+    return FieldCategory.BOOLEAN;
+  }
 
-  // Identity/key fields
-  if (key === 'id') return FieldCategory.ID;
-  if (key.endsWith('_url') || key.endsWith('_link')) return FieldCategory.URL;
-  if (key.endsWith('_email')) return FieldCategory.EMAIL;
+  // =========================================================================
+  // COMPLEX/STRUCTURED FIELDS (JSON, Arrays, Text)
+  // =========================================================================
 
-  // Entity reference (foreign key pattern)
-  if (key.endsWith('_employee_id') || key.endsWith('_client_id') || key.endsWith('_project_id') || key.endsWith('_task_id')) return FieldCategory.ENTITY_REF;
+  // JSON/JSONB: metadata, attr, config, settings, options, props, etc.
+  if (key === 'metadata' || key === 'attr' || key === 'config' ||
+      key === 'settings' || key === 'options' || key === 'props' ||
+      key.endsWith('_json') || key.endsWith('_jsonb') ||
+      key.endsWith('_config') || key.endsWith('_settings') ||
+      key.endsWith('_options') || key.endsWith('_metadata')) {
+    return FieldCategory.JSON;
+  }
+
+  // Arrays: tags, ids, list, array, values, items, etc.
+  if (key === 'tags' || key.endsWith('_tags') ||
+      key.endsWith('_ids') || key.endsWith('_list') ||
+      key.endsWith('_array') || key.endsWith('_values') ||
+      key.endsWith('_items')) {
+    return FieldCategory.ARRAY;
+  }
+
+  // Long text: content, notes, body, comments, remarks, etc.
+  if (key === 'content' || key === 'notes' || key === 'body' ||
+      key === 'comments' || key === 'remarks' || key === 'summary' ||
+      key.endsWith('_text') || key.endsWith('_content') ||
+      key.endsWith('_notes') || key.endsWith('_comments')) {
+    return FieldCategory.LONG_TEXT;
+  }
+
+  // =========================================================================
+  // IDENTITY/KEY FIELDS (IDs, URLs, Emails)
+  // =========================================================================
+
+  // Primary/system IDs
+  if (key === 'id') {
+    return FieldCategory.ID;
+  }
+
+  // URLs: url, link, website, etc.
+  if (key.endsWith('_url') || key.endsWith('_link') ||
+      key === 'url' || key === 'link' || key === 'website') {
+    return FieldCategory.URL;
+  }
+
+  // Emails: email, contact_email, etc.
+  if (key.endsWith('_email') || key === 'email') {
+    return FieldCategory.EMAIL;
+  }
+
+  // Entity references (foreign keys): project_id, employee_id, etc.
+  // Matches any *_id pattern that references an entity
+  if (key.endsWith('_employee_id') || key.endsWith('_client_id') ||
+      key.endsWith('_project_id') || key.endsWith('_task_id') ||
+      key.endsWith('_office_id') || key.endsWith('_business_id') ||
+      key.endsWith('_role_id') || key.endsWith('_user_id') ||
+      key.endsWith('_worksite_id') || key.endsWith('_form_id') ||
+      key.endsWith('_artifact_id') || key.endsWith('_wiki_id')) {
+    return FieldCategory.ENTITY_REF;
+  }
+
+  // =========================================================================
+  // DEFAULT (Unknown pattern - treat as plain text)
+  // =========================================================================
 
   return FieldCategory.UNKNOWN;
 }

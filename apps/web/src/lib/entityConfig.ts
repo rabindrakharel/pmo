@@ -320,7 +320,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/project',
 
     columns: generateStandardColumns(
-      ['name', 'code', 'descr', 'dl__project_stage', 'budget_allocated_amt', 'planned_start_date', 'planned_end_date', 'created_ts'],
+      ['name', 'code', 'descr', 'dl__project_stage', 'budget_allocated_amt', 'planned_start_date', 'planned_end_date'],
       {
         overrides: {
           dl__project_stage: {
@@ -348,9 +348,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'budget_allocated_amt', label: 'Budget', type: 'number' },
       { key: 'planned_start_date', label: 'Start Date', type: 'date' },
       { key: 'planned_end_date', label: 'End Date', type: 'date' },
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
-      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
-      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 
     supportedViews: ['table'],
@@ -368,7 +366,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     shareable: true,
 
     columns: generateStandardColumns(
-      ['name', 'code', 'descr', 'dl__task_stage', 'dl__task_priority', 'estimated_hours', 'actual_hours', 'assignee_employee_ids', 'created_ts'],
+      ['name', 'code', 'descr', 'dl__task_stage', 'dl__task_priority', 'estimated_hours', 'actual_hours', 'assignee_employee_ids'],
       {
         overrides: {
           dl__task_stage: {
@@ -403,9 +401,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'dl__task_priority', label: 'Priority', type: 'select', loadOptionsFromSettings: true },
       { key: 'estimated_hours', label: 'Estimated Hours', type: 'number' },
       { key: 'assignee_employee_ids', label: 'Assignees', type: 'multiselect', loadOptionsFromEntity: 'employee' },
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
-      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
-      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 
     supportedViews: ['table', 'kanban'],
@@ -428,7 +424,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/wiki',
     shareable: true,
 
-    columns: generateColumns(['title', 'wiki_type', 'publication_status', 'category', 'updated_ts'], {
+    columns: generateColumns(['title', 'wiki_type', 'publication_status', 'category'], {
       overrides: {
         title: {
           render: (value, record) => React.createElement(
@@ -467,9 +463,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
               'private': 'bg-purple-100 text-purple-800'
             });
           }
-        },
-        updated_ts: {
-          title: 'Last Updated'
         }
       }
     }),
@@ -496,9 +489,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       ]},
       { key: 'summary', label: 'Summary', type: 'textarea' },
       { key: 'keywords', label: 'Keywords', type: 'array' },
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
-      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
-      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 
     supportedViews: ['table'],
@@ -516,7 +507,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     shareable: true,
 
     columns: generateColumns(
-      ['name', 'artifact_type', 'visibility', 'security_classification', 'attachment_format', 'attachment_size_bytes', 'entity_type', 'created_ts'],
+      ['name', 'artifact_type', 'visibility', 'security_classification', 'attachment_format', 'attachment_size_bytes', 'entity_type'],
       {
         overrides: {
           name: {
@@ -613,9 +604,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
               'office': 'bg-violet-100 text-violet-800',
               'business': 'bg-fuchsia-100 text-fuchsia-800'
             }) : '-'
-          },
-          created_ts: {
-            width: '100px'
           }
         }
       }
@@ -672,9 +660,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       },
 
       // ========== ADDITIONAL ==========,
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
-      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
-      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 
     supportedViews: ['table'],
@@ -691,19 +677,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/form',
     shareable: true,
 
-    columns: generateColumns(['name', 'active_flag', 'version', 'updated_ts'], {
+    columns: generateColumns(['name'], {
       overrides: {
         name: {
           title: 'Form Name'
-        },
-        active_flag: {
-          title: 'Status',
-          render: (value) => value
-            ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
-            : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dark-100 text-dark-600' }, 'Inactive')
-        },
-        version: {
-          align: 'center' as const
         }
       }
     }),
@@ -713,13 +690,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'url', label: 'Public Form URL', type: 'text', readonly: true },
       { key: 'schema', label: 'Form Schema', type: 'jsonb', required: true },
-      { key: 'active_flag', label: 'Active', type: 'select', options: [
-        { value: 'true', label: 'Active' },
-        { value: 'false', label: 'Inactive' }
-      ]},
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
-      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
-      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 
     supportedViews: ['table'],
@@ -741,7 +712,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/biz',
 
     columns: generateStandardColumns(
-      ['name', 'code', 'operational_status', 'current_headcount', 'descr', 'active_flag', 'created_ts'],
+      ['name', 'code', 'operational_status', 'current_headcount', 'descr'],
       {
         overrides: {
           operational_status: {
@@ -749,12 +720,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
           },
           current_headcount: {
             title: 'Headcount'
-          },
-          active_flag: {
-            title: 'Active',
-            render: (value) => value !== false
-              ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
-              : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800' }, 'Inactive')
           }
         }
       }
@@ -767,13 +732,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'office_id', label: 'Office', type: 'select', options: [] },
       { key: 'current_headcount', label: 'Current Headcount', type: 'number' },
       { key: 'operational_status', label: 'Operational Status', type: 'text' },
-      { key: 'active_flag', label: 'Active', type: 'select', options: [
-        { value: 'true', label: 'Active' },
-        { value: 'false', label: 'Inactive' }
-      ], coerceBoolean: true },
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
-      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
-      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 
     supportedViews: ['table'],
@@ -791,7 +750,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     pluralName: 'Offices',
     apiEndpoint: '/api/v1/office',
 
-    columns: generateColumns(['name', 'city', 'province', 'office_type', 'active_flag'], {
+    columns: generateColumns(['name', 'city', 'province', 'office_type'], {
       overrides: {
         name: {
           title: 'Office Name',
@@ -810,12 +769,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         },
         office_type: {
           title: 'Type'
-        },
-        active_flag: {
-          title: 'Status',
-          render: (value) => value !== false
-            ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
-            : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800' }, 'Inactive')
         }
       }
     }),
@@ -835,9 +788,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'office_type', label: 'Office Type', type: 'text' },
       { key: 'capacity_employees', label: 'Employee Capacity', type: 'number' },
       { key: 'square_footage', label: 'Square Footage', type: 'number' },
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
-      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
-      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 
     supportedViews: ['table'],
@@ -853,7 +804,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     pluralName: 'Employees',
     apiEndpoint: '/api/v1/employee',
 
-    columns: generateColumns(['name', 'employee_number', 'active_flag'], {
+    columns: generateColumns(['name', 'employee_number'], {
       overrides: {
         name: {
           title: 'Employee Name',
@@ -866,12 +817,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
         },
         employee_number: {
           title: 'Employee #'
-        },
-        active_flag: {
-          title: 'Status',
-          render: (value) => value !== false
-            ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
-            : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800' }, 'Inactive')
         }
       }
     }),
@@ -902,8 +847,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'country', label: 'Country', type: 'text' },
       { key: 'emergency_contact_name', label: 'Emergency Contact Name', type: 'text' },
       { key: 'emergency_contact_phone', label: 'Emergency Contact Phone', type: 'text' },
-      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
-      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true },
       { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 
@@ -920,23 +863,12 @@ export const entityConfigs: Record<string, EntityConfig> = {
     pluralName: 'Roles',
     apiEndpoint: '/api/v1/role',
 
-    columns: generateColumns(['name', 'descr', 'active_flag', 'created_ts'], {
-      overrides: {
-        active_flag: {
-          title: 'Status',
-          render: (value) => value !== false
-            ? React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Active')
-            : React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800' }, 'Inactive')
-        }
-      }
-    }),
+    columns: generateColumns(['name', 'descr'], {}),
 
     fields: [
       { key: 'name', label: 'Role Name', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
-      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
-      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 
     supportedViews: ['table'],

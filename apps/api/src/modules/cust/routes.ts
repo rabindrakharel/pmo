@@ -5,7 +5,8 @@ import { sql } from 'drizzle-orm';
 import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
-  getColumnsByMetadata
+  getColumnsByMetadata,
+  createFilteredPaginatedResponse
 } from '../../lib/universal-schema-metadata.js';
 import { transformRequestBody } from '../../lib/data-transformers.js';
 
@@ -164,13 +165,7 @@ export async function custRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${actualOffset}
       `);
 
-      return {
-        data: customers,
-        total,
-        limit,
-        offset: actualOffset,
-        page: page || Math.floor(actualOffset / limit) + 1,
-      };
+      return createFilteredPaginatedResponse(customers, total, limit, actualOffset);
     } catch (error) {
       fastify.log.error('Error fetching customers:', error);
       console.error('CUST API ERROR:', error);

@@ -3,10 +3,11 @@ import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
-import { 
-  getUniversalColumnMetadata, 
+import {
+  getUniversalColumnMetadata,
   filterUniversalColumns,
-  getColumnsByMetadata 
+  filterSystemColumns,
+  getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
 
 // Schema aligned with DDL: db/11_d_employee.ddl
@@ -280,24 +281,15 @@ export async function empRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true,
-      };
-
-      const filteredData = employees.map(emp => {
-        // Ensure JSON fields are properly parsed as JavaScript arrays
-        const parsedEmp = {
-          ...emp,
-          tags: Array.isArray(emp.tags) ? emp.tags : (emp.tags ? JSON.parse(emp.tags) : []),
-          metadata: emp.metadata || {}
-        };
-        return filterUniversalColumns(parsedEmp, userPermissions);
-      });
+      // Ensure JSON fields are properly parsed and filter system columns
+      const filteredData = employees.map(emp => ({
+        ...emp,
+        tags: Array.isArray(emp.tags) ? emp.tags : (emp.tags ? JSON.parse(emp.tags) : []),
+        metadata: emp.metadata || {}
+      }));
 
       return {
-        data: filteredData,
+        data: filterSystemColumns(filteredData) as any[],
         total,
         limit,
         offset,

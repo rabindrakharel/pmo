@@ -6,7 +6,8 @@ import { sql } from 'drizzle-orm';
 import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
-  getColumnsByMetadata
+  getColumnsByMetadata,
+  createFilteredPaginatedResponse
 } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
@@ -169,23 +170,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true,
-        canSeeSafetyInfo: true,
-      };
-
-      const filteredData = offices.map(office =>
-        filterUniversalColumns(office, userPermissions)
-      );
-
-      return {
-        data: filteredData,
-        total,
-        limit,
-        offset,
-      };
+      return createFilteredPaginatedResponse(offices, total, limit, offset);
     } catch (error) {
       fastify.log.error({ error, stack: (error as Error).stack }, 'Error fetching organizations');
       return reply.status(500).send({ error: 'Internal server error' });

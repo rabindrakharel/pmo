@@ -6,6 +6,7 @@ import { sql } from 'drizzle-orm';
 import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
+  createFilteredPaginatedResponse,
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
@@ -152,12 +153,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return {
-        data: projects,
-        total,
-        limit,
-        offset,
-      };
+      return createFilteredPaginatedResponse(projects, total, limit, offset);
     } catch (error) {
       fastify.log.error('Error fetching projects:', error as any);
       console.error('Full error details:', error);
