@@ -6,6 +6,7 @@ import { sql } from 'drizzle-orm';
 import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
+  filterSystemColumns,
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
@@ -153,7 +154,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       `);
 
       return {
-        data: projects,
+        data: filterSystemColumns(projects) as any[],
         total,
         limit,
         offset,

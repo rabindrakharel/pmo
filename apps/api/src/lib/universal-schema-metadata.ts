@@ -783,10 +783,52 @@ export function getUniversalComponentProps(columnName: string): Record<string, a
   return props;
 }
 
+/**
+ * System columns that should be hidden from data table responses
+ * These are infrastructure/audit fields that users don't need to see
+ */
+const SYSTEM_COLUMNS = new Set([
+  'id',           // Primary key
+  'from_ts',      // SCD Type 2 start timestamp
+  'to_ts',        // SCD Type 2 end timestamp
+  'active_flag',  // SCD Type 2 active flag
+  'created_ts',   // Creation timestamp
+  'updated_ts',   // Update timestamp
+  'version'       // Optimistic locking version
+]);
+
+/**
+ * Filter system columns from data table responses
+ * Removes infrastructure/audit fields that users don't need to see
+ *
+ * @param data - Single object or array of objects to filter
+ * @returns Filtered data with system columns removed
+ */
+export function filterSystemColumns<T extends Record<string, any>>(
+  data: T | T[]
+): T | T[] {
+  const filterObject = (obj: T): T => {
+    const filtered = {} as T;
+    for (const [key, value] of Object.entries(obj)) {
+      if (!SYSTEM_COLUMNS.has(key)) {
+        filtered[key as keyof T] = value;
+      }
+    }
+    return filtered;
+  };
+
+  if (Array.isArray(data)) {
+    return data.map(item => filterObject(item));
+  }
+
+  return filterObject(data);
+}
+
 export default {
   getUniversalColumnMetadata,
   getColumnsByMetadata,
   filterUniversalColumns,
+  filterSystemColumns,
   getUniversalComponentProps,
   UNIVERSAL_COLUMN_PATTERNS,
   PATTERN_RULES

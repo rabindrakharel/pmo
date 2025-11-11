@@ -7,6 +7,7 @@ import { sql } from 'drizzle-orm';
 import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
+  filterSystemColumns,
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
 import { universalEntityDelete, createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
@@ -242,15 +243,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      // Apply universal column filtering and transform data
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true,
-        canSeeSafetyInfo: true,
-      };
-      
-      const data = tasks.map(task => filterUniversalColumns(task, userPermissions));
+      // Filter out system columns from data table response
+      const data = filterSystemColumns(tasks) as any[];
 
       return {
         data,
