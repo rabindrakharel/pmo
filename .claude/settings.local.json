@@ -29,7 +29,10 @@
       "Bash(PGPASSWORD='secureP@ssw0rd' psql:*)",
       "Bash(PGPASSWORD='app' psql:*)",
       "Bash(./tools/db-import.sh:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(git push:*)",
+      "Bash(/home/rabin/projects/pmo/tools/db-import.sh:*)"
     ],
     "deny": [],
     "ask": [],
