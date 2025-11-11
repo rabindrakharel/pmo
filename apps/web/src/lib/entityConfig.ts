@@ -63,7 +63,7 @@ import {
  * ============================================================================
  *
  * This file uses a sophisticated DRY (Don't Repeat Yourself) architecture for
- * column and field generation, eliminating 150+ manual column definitions.
+ * automatic column and field generation from database schema.
  *
  * CORE COMPONENTS:
  *
@@ -110,7 +110,7 @@ import {
  * ✅ Maintainability: Change currency format in ONE place, affects ALL amount fields
  * ✅ Type Safety: Field categories are enum-based with compile-time checking
  * ✅ Auto-Detection: New fields automatically get correct rendering based on name pattern
- * ✅ Reduced Code: Eliminated 150+ manual column definitions across 13+ entities
+ * ✅ Minimal Code: Single-line column generation for entire entity tables
  *
  * DATA FLOW EXAMPLE:
  * 1. Entity config specifies field keys: ['name', 'dl__project_stage', 'budget_allocated_amt']
@@ -122,33 +122,50 @@ import {
  * 4. settingsLoader fetches dl__project_stage options from API on mount
  * 5. FilteredDataTable renders columns with all auto-applied properties
  *
- * ADDING NEW ENTITIES - MINIMAL CODE:
- * ```typescript
- * // OLD WAY (150+ lines of manual definitions):
- * columns: [
- *   { key: 'name', title: 'Name', sortable: true, filterable: true, width: '300px', align: 'left' },
- *   { key: 'code', title: 'Code', sortable: true, filterable: true, width: '150px', align: 'left' },
- *   // ... 10+ more manual definitions
- * ]
+ * HOW TO ADD NEW ENTITIES:
  *
- * // NEW WAY (1 line, auto-generates everything):
- * columns: generateStandardColumns(['name', 'code', 'descr', 'dl__task_stage', 'budget_amt'])
+ * Basic entity configuration (auto-generates all column properties):
+ * ```typescript
+ * export const entityConfigs = {
+ *   project: {
+ *     name: 'project',
+ *     displayName: 'Project',
+ *     apiEndpoint: '/api/v1/project',
+ *
+ *     // Specify field keys - all properties auto-generated
+ *     columns: generateStandardColumns([
+ *       'name', 'code', 'descr', 'dl__project_stage',
+ *       'budget_allocated_amt', 'planned_start_date'
+ *     ]),
+ *
+ *     fields: generateEntityFields([
+ *       'name', 'code', 'descr', 'dl__project_stage'
+ *     ])
+ *   }
+ * }
  * ```
  *
- * OVERRIDE PATTERN (for special cases):
+ * With overrides for special cases:
  * ```typescript
  * columns: generateStandardColumns(
- *   ['name', 'budget_allocated_amt'],
+ *   ['name', 'budget_allocated_amt', 'budget_spent_amt'],
  *   {
  *     overrides: {
  *       budget_allocated_amt: {
- *         title: 'Budget', // Custom title
- *         render: (v, r) => formatCurrency(v, r.budget_currency) // Custom currency lookup
+ *         title: 'Budget',
+ *         render: (v, r) => formatCurrency(v, r.budget_currency)
  *       }
  *     }
  *   }
  * )
  * ```
+ *
+ * That's it! The system handles:
+ * - Column widths, alignment, sorting, filtering
+ * - Human-readable titles from field keys
+ * - Currency formatting, date rendering, badge colors
+ * - Dropdown options from settings tables
+ * - System column filtering (id, timestamps, etc.)
  *
  * SOURCE OF TRUTH: DDL CREATE TABLE Statements
  * - All field keys come from database schema (db/*.ddl files)
