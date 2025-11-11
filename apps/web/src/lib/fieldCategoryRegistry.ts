@@ -549,19 +549,11 @@ export function detectFieldCategory(fieldKey: string): FieldCategory {
   // SETTINGS-DRIVEN LABELS (Dropdowns with color badges)
   // =========================================================================
 
-  // Explicit datalabel fields: dl__project_stage, dl__task_priority, etc.
-  // Hierarchical: level, tier, rank, grade, category
-  // Workflow: stage, status, priority, phase, step
-  // Classification: type, class, sector, channel, segment
-  if (key.startsWith('dl__') ||
-      key.endsWith('_level') || key.endsWith('_tier') ||
-      key.endsWith('_rank') || key.endsWith('_grade') ||
-      key.endsWith('_stage') || key.endsWith('_status') ||
-      key.endsWith('_priority') || key.endsWith('_phase') ||
-      key.endsWith('_step') || key.endsWith('_type') ||
-      key.endsWith('_class') || key.endsWith('_category') ||
-      key.endsWith('_sector') || key.endsWith('_channel') ||
-      key.endsWith('_segment') || key.endsWith('_classification')) {
+  // ONLY fields with dl__ prefix are settings-driven
+  // This prevents false positives for plain text fields like operational_status, office_type
+  // All other fields ending in _status, _type, etc. are treated as plain text (UNKNOWN category)
+  // unless explicitly configured in entity configs
+  if (key.startsWith('dl__')) {
     return FieldCategory.LABEL;
   }
 
