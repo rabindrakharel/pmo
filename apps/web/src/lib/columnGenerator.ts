@@ -21,6 +21,27 @@ import {
 import { type ColumnDef } from './entityConfig';
 
 /**
+ * System columns that should be hidden from data tables
+ * These are audit/system fields that users should not see or edit
+ */
+const SYSTEM_COLUMNS = new Set([
+  'id',           // Primary key - ui:invisible
+  'from_ts',      // SCD Type 2 start timestamp - api:restrict
+  'to_ts',        // SCD Type 2 end timestamp - api:restrict
+  'active_flag',  // SCD Type 2 active flag - api:restrict
+  'created_ts',   // Creation timestamp - api:restrict, audit
+  'updated_ts',   // Update timestamp - api:restrict, audit
+  'version'       // Optimistic locking version - api:system_field
+]);
+
+/**
+ * Check if a column should be hidden from display
+ */
+function isSystemColumn(columnKey: string): boolean {
+  return SYSTEM_COLUMNS.has(columnKey);
+}
+
+/**
  * Column generation options
  */
 export interface ColumnGenerationOptions {
@@ -60,7 +81,10 @@ export function generateColumns(
 ): ColumnDef[] {
   const { overrides = {} } = options;
 
-  return fieldKeys.map(key => {
+  // Filter out system columns before generating column definitions
+  const filteredKeys = fieldKeys.filter(key => !isSystemColumn(key));
+
+  return filteredKeys.map(key => {
     // Get ALL properties from category registry
     const categoryProps = getCategoryProperties(key);
 
