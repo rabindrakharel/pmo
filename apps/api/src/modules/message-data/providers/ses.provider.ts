@@ -4,7 +4,7 @@
  */
 
 import { SESClient, SendEmailCommand, SendRawEmailCommand } from '@aws-sdk/client-ses';
-import type { IMessageProvider, SendEmailRequest, DeliveryResult } from '../types.js';
+import type { IMessageProvider, SendEmailRequest, DeliveryResult, EmailAttachment } from '../types.js';
 
 export class SESProvider implements IMessageProvider {
   private client: SESClient;
@@ -87,11 +87,44 @@ export class SESProvider implements IMessageProvider {
 
       } else {
         // For attachments, use SendRawEmailCommand with MIME construction
-        // This is a more complex implementation - for now, throw error
+        const rawEmail = this.buildMimeEmail({
+          from: sourceEmail,
+          to: request.recipient_email,
+          cc: request.cc,
+          bcc: request.bcc,
+          replyTo: request.reply_to,
+          subject: request.subject,
+          body: request.message_body,
+          attachments: request.attachments
+        });
+
+        const command = new SendRawEmailCommand({
+          Source: fromEmail,
+          Destinations: [
+            request.recipient_email,
+            ...(request.cc || []),
+            ...(request.bcc || [])
+          ],
+          RawMessage: {
+            Data: Buffer.from(rawEmail)
+          },
+          ConfigurationSetName: this.configurationSet
+        });
+
+        const sent_ts = new Date();
+        const response = await this.client.send(command);
+
+        console.log(`[SESProvider] Email with attachments sent successfully to ${request.recipient_email}`, {
+          messageId: response.MessageId,
+          attachmentCount: request.attachments.length
+        });
+
         return {
-          success: false,
-          error: 'Email attachments not yet implemented. Please use simple email without attachments.',
-          error_code: 'ATTACHMENTS_NOT_SUPPORTED'
+          success: true,
+          provider_message_id: response.MessageId,
+          provider_response: response,
+          sent_ts,
+          delivered_ts: undefined
         };
       }
 
@@ -126,6 +159,66 @@ export class SESProvider implements IMessageProvider {
   validateRecipient(email: string): boolean {
     // Basic email validation regex
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
+  /**
+   * Build MIME email with attachments
+   */
+  private buildMimeEmail(params: {
+    from: string;
+    to: string;
+    cc?: string[];
+    bcc?: string[];
+    replyTo?: string;
+    subject: string;
+    body: string;
+    attachments: EmailAttachment[];
+  }): string {
+    const boundary = `----=_Part${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const { from, to, cc, bcc, replyTo, subject, body, attachments } = params;
+
+    let mime = '';
+
+    // Email headers
+    mime += `From: ${from}\r\n`;
+    mime += `To: ${to}\r\n`;
+    if (cc && cc.length > 0) {
+      mime += `Cc: ${cc.join(', ')}\r\n`;
+    }
+    if (bcc && bcc.length > 0) {
+      mime += `Bcc: ${bcc.join(', ')}\r\n`;
+    }
+    if (replyTo) {
+      mime += `Reply-To: ${replyTo}\r\n`;
+    }
+    mime += `Subject: ${subject}\r\n`;
+    mime += `MIME-Version: 1.0\r\n`;
+    mime += `Content-Type: multipart/mixed; boundary="${boundary}"\r\n`;
+    mime += `\r\n`;
+
+    // Text body part
+    mime += `--${boundary}\r\n`;
+    mime += `Content-Type: text/plain; charset=UTF-8\r\n`;
+    mime += `Content-Transfer-Encoding: 7bit\r\n`;
+    mime += `\r\n`;
+    mime += `${body}\r\n`;
+    mime += `\r\n`;
+
+    // Attachment parts
+    for (const attachment of attachments) {
+      mime += `--${boundary}\r\n`;
+      mime += `Content-Type: ${attachment.contentType}; name="${attachment.filename}"\r\n`;
+      mime += `Content-Transfer-Encoding: base64\r\n`;
+      mime += `Content-Disposition: attachment; filename="${attachment.filename}"\r\n`;
+      mime += `\r\n`;
+      mime += `${attachment.content}\r\n`;
+      mime += `\r\n`;
+    }
+
+    // Final boundary
+    mime += `--${boundary}--\r\n`;
+
+    return mime;
   }
 
   /**

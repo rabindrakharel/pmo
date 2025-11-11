@@ -10,7 +10,7 @@
  */
 
 import { client } from '../../db/index.js';
-import { sendEventInvitesToAttendees, sendEventInviteToCustomer, sendEventInviteToEmployee } from '../email/email.service.js';
+import { BookingNotificationService } from './notification.service.js';
 
 /**
  * Booking request from customer or agent
@@ -309,22 +309,107 @@ export async function createBooking(request: CreateBookingRequest): Promise<Book
     console.log(`✅ Created ${entityLinks.length} entity linkages`);
 
     // ===============================================
-    // STEP 5: Send Notifications (Email + Calendar Invite)
+    // STEP 5: Send Notifications (Email + SMS with Calendar Invite)
     // ===============================================
 
-    const notificationResults = await sendEventInvitesToAttendees({
-      eventId: eventId,
-      eventTitle: eventTitle,
-      eventDescription: eventDescription || specialInstructions,
-      eventLocation: eventLocation,
-      startTime: startTime,
-      endTime: endTime,
-      organizerName: organizerName,
-      organizerEmail: organizerEmail,
-      meetingUrl: eventType === 'virtual' ? eventLocation : undefined,
-      attendeeIds: [assignedEmployeeId],
-      customerId: customerId
-    });
+    const notificationService = new BookingNotificationService();
+    const notificationResults = {
+      totalSent: 0,
+      totalFailed: 0,
+      results: [] as Array<{ id: string; success: boolean; error?: string }>
+    };
+
+    // Send notification to customer (if email/phone provided)
+    if (customerEmail || customerPhone) {
+      const customerResult = await notificationService.sendBookingNotification({
+        recipientEmail: customerEmail || '',
+        recipientName: customerName,
+        recipientPhone: customerPhone || '',
+        eventId: eventId,
+        eventTitle: eventTitle,
+        eventDescription: eventDescription,
+        eventLocation: eventLocation,
+        startTime: startTime,
+        endTime: endTime,
+        timezone: timezone,
+        organizerName: organizerName,
+        organizerEmail: organizerEmail,
+        meetingUrl: eventType === 'virtual' ? eventLocation : undefined,
+        instructions: eventInstructions || specialInstructions,
+        bookingNumber: bookingNumber,
+        serviceCategory: serviceCategory
+      });
+
+      if (customerResult.success) {
+        notificationResults.totalSent++;
+        notificationResults.results.push({
+          id: customerId || 'customer',
+          success: true
+        });
+      } else {
+        notificationResults.totalFailed++;
+        notificationResults.results.push({
+          id: customerId || 'customer',
+          success: false,
+          error: customerResult.error
+        });
+      }
+
+      console.log(`✅ Customer notification: Email=${customerResult.emailSent}, SMS=${customerResult.smsSent}`);
+    }
+
+    // Send notification to assigned employee
+    // First, get employee email
+    const employeeResult = await client`
+      SELECT first_name, last_name, email, phone
+      FROM app.d_employee
+      WHERE id = ${assignedEmployeeId}::uuid AND active_flag = true
+    `;
+
+    if (employeeResult.length > 0) {
+      const employee = employeeResult[0];
+      const employeeEmail = employee.email;
+      const employeePhone = employee.phone;
+      const employeeName = `${employee.first_name} ${employee.last_name}`;
+
+      if (employeeEmail || employeePhone) {
+        const empResult = await notificationService.sendBookingNotification({
+          recipientEmail: employeeEmail || '',
+          recipientName: employeeName,
+          recipientPhone: employeePhone || '',
+          eventId: eventId,
+          eventTitle: eventTitle,
+          eventDescription: eventDescription,
+          eventLocation: eventLocation,
+          startTime: startTime,
+          endTime: endTime,
+          timezone: timezone,
+          organizerName: organizerName,
+          organizerEmail: organizerEmail,
+          meetingUrl: eventType === 'virtual' ? eventLocation : undefined,
+          instructions: eventInstructions || specialInstructions,
+          bookingNumber: bookingNumber,
+          serviceCategory: serviceCategory
+        });
+
+        if (empResult.success) {
+          notificationResults.totalSent++;
+          notificationResults.results.push({
+            id: assignedEmployeeId,
+            success: true
+          });
+        } else {
+          notificationResults.totalFailed++;
+          notificationResults.results.push({
+            id: assignedEmployeeId,
+            success: false,
+            error: empResult.error
+          });
+        }
+
+        console.log(`✅ Employee notification: Email=${empResult.emailSent}, SMS=${empResult.smsSent}`);
+      }
+    }
 
     console.log(`✅ Sent ${notificationResults.totalSent} notifications, ${notificationResults.totalFailed} failed`);
 
@@ -372,6 +457,48 @@ export async function cancelBooking(eventId: string, cancellationReason?: string
   error?: string;
 }> {
   try {
+    // Get event details before deletion
+    const eventResult = await client`
+      SELECT
+        name, event_metadata, from_ts
+      FROM app.d_event
+      WHERE id = ${eventId}::uuid AND active_flag = true
+    `;
+
+    if (eventResult.length === 0) {
+      return { success: false, error: 'Event not found' };
+    }
+
+    const event = eventResult[0];
+    const metadata = event.event_metadata || {};
+    const bookingNumber = metadata.booking_number;
+
+    // Get attendees before cancellation
+    const attendeesResult = await client`
+      SELECT
+        epc.person_entity_type,
+        epc.person_entity_id::text,
+        CASE
+          WHEN epc.person_entity_type = 'employee' THEN emp.first_name || ' ' || emp.last_name
+          WHEN epc.person_entity_type = 'customer' THEN cust.name
+          ELSE NULL
+        END as person_name,
+        CASE
+          WHEN epc.person_entity_type = 'employee' THEN emp.email
+          WHEN epc.person_entity_type = 'customer' THEN cust.primary_email
+          ELSE NULL
+        END as person_email,
+        CASE
+          WHEN epc.person_entity_type = 'employee' THEN emp.phone
+          WHEN epc.person_entity_type = 'customer' THEN cust.primary_phone
+          ELSE NULL
+        END as person_phone
+      FROM app.d_entity_event_person_calendar epc
+      LEFT JOIN app.d_employee emp ON emp.id = epc.person_entity_id AND epc.person_entity_type = 'employee'
+      LEFT JOIN app.d_cust cust ON cust.id = epc.person_entity_id AND epc.person_entity_type = 'customer'
+      WHERE epc.event_id = ${eventId}::uuid AND epc.active_flag = true
+    `;
+
     // Soft delete event
     await client`
       UPDATE app.d_event
@@ -400,7 +527,23 @@ export async function cancelBooking(eventId: string, cancellationReason?: string
       WHERE event_id = ${eventId}::uuid AND active_flag = true
     `;
 
-    // TODO: Send cancellation emails with .ics CANCEL method
+    // Send cancellation notifications to all attendees
+    const notificationService = new BookingNotificationService();
+    for (const attendee of attendeesResult) {
+      if (attendee.person_email || attendee.person_phone) {
+        await notificationService.sendCancellationNotification({
+          recipientEmail: attendee.person_email || undefined,
+          recipientPhone: attendee.person_phone || undefined,
+          recipientName: attendee.person_name,
+          eventTitle: event.name,
+          originalStartTime: new Date(event.from_ts),
+          cancellationReason,
+          bookingNumber
+        });
+
+        console.log(`✅ Sent cancellation notification to ${attendee.person_name}`);
+      }
+    }
 
     console.log(`✅ Cancelled booking: ${eventId}`);
 
