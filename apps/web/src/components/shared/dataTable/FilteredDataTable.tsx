@@ -4,9 +4,11 @@ import { SettingsDataTable } from '../ui/SettingsDataTable';
 import type { Column, RowAction } from '../ui/EntityDataTable';
 import { useNavigate } from 'react-router-dom';
 import { ActionButtonsBar } from '../button/ActionButtonsBar';
+import { ColumnSelector } from '../ui/ColumnSelector';
 import { getEntityConfig, type EntityConfig } from '../../../lib/entityConfig';
 import { transformForApi, transformFromApi } from '../../../lib/data_transform_render';
 import { COLOR_OPTIONS } from '../../../lib/settingsConfig';
+import { useColumnVisibility } from '../../../lib/hooks/useColumnVisibility';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -68,15 +70,25 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     return config?.apiEndpoint?.includes('/api/v1/setting?datalabel=') || false;
   }, [config]);
 
-  // Use columns directly from config
-  const columns: Column[] = useMemo(() => {
+  // Get columns from config
+  const configuredColumns: Column[] = useMemo(() => {
     if (!config) return [];
-
-    // Return columns from entity config without modification
-    // When viewing child entities (e.g., /project/{id}/task), we don't need
-    // to show parent ID since it's already in the URL context
     return config.columns as Column[];
   }, [config]);
+
+  // Use column visibility hook for dynamic column management
+  const {
+    visibleColumns,
+    allColumns,
+    toggleColumn,
+    showAllColumns,
+    hideAllColumns,
+    isColumnVisible,
+    resetToDefault
+  } = useColumnVisibility(entityType, configuredColumns, data);
+
+  // Use visible columns for rendering
+  const columns: Column[] = visibleColumns;
 
   // Define row actions based on props
   const rowActions: RowAction[] = useMemo(() => {
@@ -713,18 +725,35 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Action buttons bar - only show if action buttons are enabled */}
-      {showActionButtons && (
-        <ActionButtonsBar
-          createLabel={createLabel}
-          onCreateClick={onCreateClick}
-          createHref={createHref}
-          selectedCount={selectedRows.length}
-          onBulkShare={onBulkShare ? handleBulkShare : undefined}
-          onBulkDelete={onBulkDelete ? handleBulkDelete : undefined}
-          entityType={entityType}
-        />
-      )}
+      {/* Top bar with action buttons and column selector */}
+      <div className="flex items-center justify-between px-6 pt-4">
+        {/* Action buttons bar - only show if action buttons are enabled */}
+        {showActionButtons && (
+          <ActionButtonsBar
+            createLabel={createLabel}
+            onCreateClick={onCreateClick}
+            createHref={createHref}
+            selectedCount={selectedRows.length}
+            onBulkShare={onBulkShare ? handleBulkShare : undefined}
+            onBulkDelete={onBulkDelete ? handleBulkDelete : undefined}
+            entityType={entityType}
+          />
+        )}
+
+        {/* Column selector - always visible for non-settings entities */}
+        {!isSettingsEntity && (
+          <div className={showActionButtons ? '' : 'ml-auto'}>
+            <ColumnSelector
+              allColumns={allColumns}
+              isColumnVisible={isColumnVisible}
+              toggleColumn={toggleColumn}
+              showAllColumns={showAllColumns}
+              hideAllColumns={hideAllColumns}
+              resetToDefault={resetToDefault}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Data table wrapper - provides padding and flex-1 to fill available space */}
       <div className="flex-1 p-6">

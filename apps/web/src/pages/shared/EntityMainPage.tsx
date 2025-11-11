@@ -6,6 +6,7 @@ import { KanbanView } from '../../components/shared/ui/KanbanView';
 import { GridView } from '../../components/shared/ui/GridView';
 import { CalendarView } from '../../components/shared/ui/CalendarView';
 import { DAGVisualizer } from '../../components/workflow/DAGVisualizer';
+import { HierarchyGraphView } from '../../components/hierarchy/HierarchyGraphView';
 import { useViewMode } from '../../lib/hooks/useViewMode';
 import { getEntityConfig, ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
@@ -223,25 +224,37 @@ export function EntityMainPage({ entityType }: EntityMainPageProps) {
       );
     }
 
-    // GRAPH VIEW (DAG visualization for stages/workflows)
+    // GRAPH VIEW - Hierarchies vs Workflows
     if (view === 'graph') {
-      // Transform data to DAGNode format for DAGVisualizer
-      const dagNodes = data.map((item: any) => ({
-        id: item.stage_id ?? item.level_id ?? item.id ?? 0,
-        name: item.stage_name || item.level_name || item.name || String(item.id),
-        descr: item.stage_descr || item.level_descr || item.descr,
-        entity_name: entityType,
-        parent_ids: item.parent_ids ? (Array.isArray(item.parent_ids) ? item.parent_ids : [item.parent_id].filter(Boolean)) : [],
-        terminal_flag: item.terminal_flag ?? false
-      }));
+      // Check if this is a hierarchy entity (has parent_id field)
+      const isHierarchyEntity = entityType.includes('hierarchy') ||
+                               (data.length > 0 && 'parent_id' in data[0]);
 
-      return (
-        <div className="bg-dark-100 rounded-lg shadow p-6">
-          <DAGVisualizer
-            nodes={dagNodes}
+      if (isHierarchyEntity) {
+        // Use HierarchyGraphView for parent_id-based hierarchies
+        return (
+          <HierarchyGraphView
+            data={data}
+            onNodeClick={handleRowClick}
+            emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
           />
-        </div>
-      );
+        );
+      } else {
+        // Use DAGVisualizer for workflow/stage visualizations
+        const dagNodes = data.map((item: any) => ({
+          id: item.stage_id ?? item.level_id ?? item.id ?? 0,
+          node_name: item.stage_name || item.level_name || item.name || String(item.id),
+          parent_ids: item.parent_ids ? (Array.isArray(item.parent_ids) ? item.parent_ids : [item.parent_id].filter(Boolean)) : []
+        }));
+
+        return (
+          <div className="bg-dark-100 rounded-lg shadow p-6">
+            <DAGVisualizer
+              nodes={dagNodes}
+            />
+          </div>
+        );
+      }
     }
 
     return null;

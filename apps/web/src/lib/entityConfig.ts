@@ -2428,7 +2428,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'event_metadata', label: 'Metadata', type: 'jsonb' }
     ],
 
-    supportedViews: ['table'],
+    supportedViews: ['table', 'calendar'],
     defaultView: 'table'
   },
 
