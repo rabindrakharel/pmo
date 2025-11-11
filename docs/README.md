@@ -320,11 +320,8 @@
 **When to use:** Architecture critique, feature suggestions, CRM extensions
 
 **Files:**
-- `ARCHITECTURE_CRITIQUE_AND_RECOMMENDATIONS.md` - Expert platform analysis (7.5/10 rating)
+- `ARCHITECTURE_CRITIQUE_AND_RECOMMENDATIONS.md` - Expert platform analysis (7.5/10 rating, Nov 2025)
 - `crm_featureadd.md` - CRM feature suggestions
-- `suggest.md` - Feature improvement ideas
-- `suggestions.md` - Additional feature suggestions
-- `critic.md` - Critical analysis and feedback
 - `FLOW_ANALYSIS.md` - System flow analysis
 
 **Keywords:** architecture review, recommendations, feature planning, critique, improvements, flow analysis
