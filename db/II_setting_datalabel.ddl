@@ -137,6 +137,12 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
   {"id": 2, "name": "Department", "descr": "Department level within division", "parent_ids": [1], "color_code": "green"}
 ]'::jsonb),
 
+('dl__business_operational_status', 'Business Operational Status', 'Activity', '[
+  {"id": 0, "name": "Active", "descr": "Business unit is currently active and operational", "parent_ids": [], "color_code": "green"},
+  {"id": 1, "name": "Restructuring", "descr": "Business unit is undergoing restructuring", "parent_ids": [], "color_code": "yellow"},
+  {"id": 2, "name": "Archived", "descr": "Business unit is archived and no longer active", "parent_ids": [], "color_code": "gray"}
+]'::jsonb),
+
 ('dl__office_hierarchy_level', 'Office Hierarchy Levels', 'MapPin', '[
   {"id": 0, "name": "Corporate", "descr": "Corporate headquarters office", "parent_ids": [], "color_code": "purple"},
   {"id": 1, "name": "Region", "descr": "Regional office", "parent_ids": [0], "color_code": "blue"},

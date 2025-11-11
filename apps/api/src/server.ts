@@ -59,7 +59,7 @@ await fastify.register(cors, {
 
 // Rate limiting
 await fastify.register(rateLimit, {
-  max: 100,
+  max: config.NODE_ENV === 'production' ? 100 : 1000, // Higher limit for development
   timeWindow: '1 minute',
 });
 

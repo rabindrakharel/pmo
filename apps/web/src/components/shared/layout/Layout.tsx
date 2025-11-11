@@ -16,6 +16,7 @@ import {
   Plug
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useSidebar } from '../../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../../contexts/NavigationHistoryContext';
@@ -47,7 +48,8 @@ export function Layout({ children, createButton }: LayoutProps) {
   const { user, logout } = useAuth();
   const { isVisible, isCollapsed, collapseSidebar, uncollapseSidebar } = useSidebar();
   const { isSettingsMode, enterSettingsMode, exitSettingsMode } = useSettings();
-  const [currentPage, setCurrentPage] = useState(window.location.pathname);
+  const location = useLocation();
+  const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [entityTypes, setEntityTypes] = useState<EntityType[]>([]);
   const [isLoadingEntities, setIsLoadingEntities] = useState(true);
@@ -115,7 +117,7 @@ export function Layout({ children, createButton }: LayoutProps) {
   ];
 
   const isCurrentPage = (href: string) => {
-    return currentPage === href;
+    return location.pathname === href;
   };
 
   return (
@@ -175,22 +177,21 @@ export function Layout({ children, createButton }: LayoutProps) {
               const IconComponent = item.icon;
               const isActive = isCurrentPage(item.href);
               return (
-                <a
+                <Link
                   key={item.href}
-                  href={item.href}
+                  to={item.href}
                   className={`${
                     isActive
                       ? 'bg-dark-100 text-dark-600 border-r-2 border-dark-400'
                       : 'text-dark-700 hover:bg-dark-100 hover:text-dark-600'
                   } group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-1.5 text-sm font-normal rounded-l-lg transition-all duration-200`}
-                  onClick={() => setCurrentPage(item.href)}
                   title={isCollapsed ? item.name : undefined}
                 >
                   <IconComponent className={`${
                     isActive ? 'text-dark-600' : 'text-dark-700 group-hover:text-dark-700'
                   } ${isCollapsed ? '' : 'mr-3'} h-5 w-5 stroke-[1.5] transition-colors duration-200`} />
                   {!isCollapsed && <span className="text-sm font-normal">{item.name}</span>}
-                </a>
+                </Link>
               );
             })}
 
@@ -226,11 +227,10 @@ export function Layout({ children, createButton }: LayoutProps) {
                       const IconComponent = item.icon;
                       const isActive = isCurrentPage(item.href);
                       return (
-                        <a
+                        <Link
                           key={item.href}
-                          href={item.href}
+                          to={item.href}
                           onClick={() => {
-                            setCurrentPage(item.href);
                             setIsUserMenuOpen(false);
                           }}
                           className={`${
@@ -243,7 +243,7 @@ export function Layout({ children, createButton }: LayoutProps) {
                             isActive ? 'text-dark-600' : 'text-dark-700'
                           } mr-3 h-5 w-5 stroke-[1.5]`} />
                           {item.name}
-                        </a>
+                        </Link>
                       );
                     })}
                     <hr className="my-2 border-dark-300" />

@@ -24,7 +24,12 @@
       "Bash(timeout 5 curl:*)",
       "Bash(git -C /home/rabin/projects/pmo branch:*)",
       "Bash(git -C /home/rabin/projects/pmo status)",
-      "Bash(git -C /home/rabin/projects/pmo pull --rebase --autostash origin main)"
+      "Bash(git -C /home/rabin/projects/pmo pull --rebase --autostash origin main)",
+      "Bash(psql:*)",
+      "Bash(PGPASSWORD='secureP@ssw0rd' psql:*)",
+      "Bash(PGPASSWORD='app' psql:*)",
+      "Bash(./tools/db-import.sh:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": [],

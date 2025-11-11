@@ -53,7 +53,7 @@ interface EntityGuide {
 
 export function WelcomePage() {
   const { user } = useAuth();
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('overview');
   const [activeGuide, setActiveGuide] = useState<'user' | 'developer'>('user');
 
   // Comprehensive entity documentation extracted from DDL semantics
@@ -411,26 +411,28 @@ export function WelcomePage() {
   ];
 
   const categories = [
-    { id: 'all', name: 'All Entities', icon: Database },
+    { id: 'overview', name: 'Overview', icon: Home },
     { id: 'core', name: 'Core Management', icon: FolderKanban },
-    { id: 'org', name: 'Organization', icon: Building2 },
-    { id: 'customer', name: 'Customers & Sites', icon: Globe },
-    { id: 'product', name: 'Products & Services', icon: Package },
-    { id: 'sales', name: 'Sales & Operations', icon: ShoppingCart },
-    { id: 'finance', name: 'Finance', icon: DollarSign },
+    { id: 'org', name: 'Organization', icon: Users },
+    { id: 'biz', name: 'Business', icon: Building2 },
+    { id: 'ops', name: 'Operations', icon: CheckSquare },
+    { id: 'customer', name: 'Customers', icon: Globe },
+    { id: 'retail', name: 'Retail', icon: Package },
+    { id: 'sales', name: 'Sales & Finance', icon: ShoppingCart },
     { id: 'content', name: 'Content & Docs', icon: FileText },
     { id: 'advanced', name: 'Advanced', icon: Zap }
   ];
 
   const getFilteredEntities = () => {
     const categoryMap: Record<string, string[]> = {
-      all: entityGuides.map(e => e.name),
+      overview: [],
       core: ['project', 'task'],
-      org: ['employee', 'office', 'biz', 'role', 'position'],
+      org: ['employee', 'office', 'role', 'position'],
+      biz: ['biz'],
+      ops: ['project', 'task', 'work_order', 'calendar', 'booking'],
       customer: ['cust', 'worksite'],
-      product: ['service', 'product', 'inventory'],
-      sales: ['quote', 'work_order', 'order', 'invoice', 'shipment'],
-      finance: ['cost', 'revenue'],
+      retail: ['service', 'product', 'inventory', 'order', 'shipment'],
+      sales: ['quote', 'invoice', 'cost', 'revenue'],
       content: ['artifact', 'form', 'wiki'],
       advanced: ['booking', 'calendar']
     };
@@ -574,99 +576,14 @@ export function WelcomePage() {
         {/* Conditional Content Based on Active Guide */}
         {activeGuide === 'user' && (
           <>
-            {/* Getting Started Section */}
-            <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
-              <h2 className="text-2xl font-bold text-dark-600 mb-4 flex items-center gap-2">
-                <Lightbulb className="h-6 w-6 text-yellow-600" />
-                Getting Started with Huron PMO
-              </h2>
-              <p className="text-dark-700 mb-6 leading-relaxed">
-                Huron PMO helps you manage every aspect of your home services business. Whether you're tracking projects,
-                managing teams, serving customers, or analyzing finances, this platform has everything you need in one place.
-                Let's get you started!
-              </p>
-
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="bg-dark-100 rounded-lg p-4 border border-dark-300">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="h-5 w-5 text-blue-600" />
-                    <h3 className="font-semibold text-dark-600">5 Minutes</h3>
-                  </div>
-                  <p className="text-sm text-dark-700">
-                    Complete setup and create your first project in just 5 minutes
-                  </p>
-                </div>
-                <div className="bg-dark-100 rounded-lg p-4 border border-dark-300">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users className="h-5 w-5 text-green-600" />
-                    <h3 className="font-semibold text-dark-600">Team Ready</h3>
-                  </div>
-                  <p className="text-sm text-dark-700">
-                    Invite your team members and assign roles immediately
-                  </p>
-                </div>
-                <div className="bg-dark-100 rounded-lg p-4 border border-dark-300">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Bot className="h-5 w-5 text-purple-600" />
-                    <h3 className="font-semibold text-dark-600">AI Powered</h3>
-                  </div>
-                  <p className="text-sm text-dark-700">
-                    Get instant help from our AI assistant anytime you need it
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Start Actions */}
-            <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
-              <h2 className="text-2xl font-bold text-dark-600 mb-4 flex items-center gap-2">
-                <Target className="h-6 w-6 text-green-600" />
-                What Would You Like to Do?
-              </h2>
-              <div className="grid md:grid-cols-2 gap-4">
-                {quickStartGuides.map((guide, idx) => (
-                  <Link
-                    key={idx}
-                    to={guide.link}
-                    className="bg-dark-100 rounded-lg p-5 border border-dark-300 hover:border-slate-500 hover:shadow-md transition-all group"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="h-12 w-12 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                        <guide.icon className="h-6 w-6 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-bold text-dark-600 mb-1 group-hover:text-slate-700">{guide.title}</h3>
-                        <p className="text-sm text-dark-700 mb-3">{guide.description}</p>
-                        <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 group-hover:gap-3 transition-all">
-                          Get Started
-                          <ArrowRight className="h-4 w-4" />
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {/* Explore Platform Features */}
-            <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-dark-600 mb-2 flex items-center gap-2">
-                  <BookOpen className="h-6 w-6 text-blue-600" />
-                  Explore What You Can Do
-                </h2>
-                <p className="text-dark-700">
-                  Discover all the features available to help you run your business more effectively.
-                </p>
-              </div>
-
-              {/* Category Filter */}
-              <div className="flex flex-wrap gap-2 mb-6">
+            {/* Category Filter - Moved to Top */}
+            <div className="bg-dark-100 rounded-xl p-4 border border-dark-300">
+              <div className="flex flex-wrap gap-2">
                 {categories.map((cat) => (
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
                       selectedCategory === cat.id
                         ? 'bg-slate-600 text-white shadow-md'
                         : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
@@ -677,35 +594,168 @@ export function WelcomePage() {
                   </button>
                 ))}
               </div>
-
-              {/* Simplified Entity Cards */}
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {getFilteredEntities().map((entity) => (
-                  <Link
-                    key={entity.name}
-                    to={entity.path}
-                    className="bg-dark-100 rounded-lg border border-dark-300 hover:border-slate-500 hover:shadow-md transition-all overflow-hidden group"
-                  >
-                    <div className={`h-2 bg-gradient-to-r ${entity.colorClass}`} />
-                    <div className="p-4">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className={`h-10 w-10 bg-gradient-to-br ${entity.colorClass} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                          <entity.icon className="h-5 w-5 text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-dark-600 mb-1 group-hover:text-slate-700">{entity.displayName}</h3>
-                          <p className="text-xs text-dark-700">{entity.description}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 text-xs font-medium text-slate-600 group-hover:gap-2 transition-all">
-                        <span>Explore</span>
-                        <ArrowRight className="h-3 w-3" />
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
             </div>
+
+            {/* Overview Tab Content */}
+            {selectedCategory === 'overview' && (
+              <>
+                {/* Getting Started Section */}
+                <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
+                  <h2 className="text-2xl font-bold text-dark-600 mb-4 flex items-center gap-2">
+                    <Lightbulb className="h-6 w-6 text-yellow-600" />
+                    Getting Started with Huron PMO
+                  </h2>
+                  <p className="text-dark-700 mb-6 leading-relaxed">
+                    Huron PMO helps you manage every aspect of your home services business. Whether you're tracking projects,
+                    managing teams, serving customers, or analyzing finances, this platform has everything you need in one place.
+                    Let's get you started!
+                  </p>
+
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div className="bg-dark-100 rounded-lg p-4 border border-dark-300">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Clock className="h-5 w-5 text-blue-600" />
+                        <h3 className="font-semibold text-dark-600">5 Minutes</h3>
+                      </div>
+                      <p className="text-sm text-dark-700">
+                        Complete setup and create your first project in just 5 minutes
+                      </p>
+                    </div>
+                    <div className="bg-dark-100 rounded-lg p-4 border border-dark-300">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="h-5 w-5 text-green-600" />
+                        <h3 className="font-semibold text-dark-600">Team Ready</h3>
+                      </div>
+                      <p className="text-sm text-dark-700">
+                        Invite your team members and assign roles immediately
+                      </p>
+                    </div>
+                    <div className="bg-dark-100 rounded-lg p-4 border border-dark-300">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Bot className="h-5 w-5 text-purple-600" />
+                        <h3 className="font-semibold text-dark-600">AI Powered</h3>
+                      </div>
+                      <p className="text-sm text-dark-700">
+                        Get instant help from our AI assistant anytime you need it
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Start Actions */}
+                <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
+                  <h2 className="text-2xl font-bold text-dark-600 mb-4 flex items-center gap-2">
+                    <Target className="h-6 w-6 text-green-600" />
+                    What Would You Like to Do?
+                  </h2>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {quickStartGuides.map((guide, idx) => (
+                      <Link
+                        key={idx}
+                        to={guide.link}
+                        className="bg-dark-100 rounded-lg p-5 border border-dark-300 hover:border-slate-500 hover:shadow-md transition-all group"
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="h-12 w-12 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                            <guide.icon className="h-6 w-6 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-bold text-dark-600 mb-1 group-hover:text-slate-700">{guide.title}</h3>
+                            <p className="text-sm text-dark-700 mb-3">{guide.description}</p>
+                            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 group-hover:gap-3 transition-all">
+                              Get Started
+                              <ArrowRight className="h-4 w-4" />
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Platform Highlights */}
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-6 text-white shadow-lg">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="h-12 w-12 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                        <FolderKanban className="h-6 w-6" />
+                      </div>
+                      <h3 className="text-xl font-bold">21+ Entities</h3>
+                    </div>
+                    <p className="text-blue-100">
+                      Comprehensive data model covering projects, tasks, customers, products, finances, and more
+                    </p>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl p-6 text-white shadow-lg">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="h-12 w-12 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                        <Shield className="h-6 w-6" />
+                      </div>
+                      <h3 className="text-xl font-bold">Secure RBAC</h3>
+                    </div>
+                    <p className="text-purple-100">
+                      Granular role-based access control with View, Edit, Share, Delete, and Create permissions
+                    </p>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-6 text-white shadow-lg">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="h-12 w-12 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                        <Zap className="h-6 w-6" />
+                      </div>
+                      <h3 className="text-xl font-bold">DRY Architecture</h3>
+                    </div>
+                    <p className="text-green-100">
+                      Config-driven universal pages handle all entities with zero code duplication
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Entity Cards for Other Categories */}
+            {selectedCategory !== 'overview' && (
+              <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-dark-600 mb-2 flex items-center gap-2">
+                    <BookOpen className="h-6 w-6 text-blue-600" />
+                    {categories.find(c => c.id === selectedCategory)?.name}
+                  </h2>
+                  <p className="text-dark-700">
+                    Discover all the features available to help you run your business more effectively.
+                  </p>
+                </div>
+
+                {/* Simplified Entity Cards */}
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {getFilteredEntities().map((entity) => (
+                    <Link
+                      key={entity.name}
+                      to={entity.path}
+                      className="bg-dark-100 rounded-lg border border-dark-300 hover:border-slate-500 hover:shadow-md transition-all overflow-hidden group"
+                    >
+                      <div className={`h-2 bg-gradient-to-r ${entity.colorClass}`} />
+                      <div className="p-4">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className={`h-10 w-10 bg-gradient-to-br ${entity.colorClass} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                            <entity.icon className="h-5 w-5 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-bold text-dark-600 mb-1 group-hover:text-slate-700">{entity.displayName}</h3>
+                            <p className="text-xs text-dark-700">{entity.description}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs font-medium text-slate-600 group-hover:gap-2 transition-all">
+                          <span>Explore</span>
+                          <ArrowRight className="h-3 w-3" />
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Help & Support */}
             <div className="bg-gradient-to-r from-slate-700 to-dark-900 rounded-xl p-8 text-center text-white">
@@ -736,6 +786,26 @@ export function WelcomePage() {
         {/* Developer Guide Content */}
         {activeGuide === 'developer' && (
           <>
+            {/* Category Filter - Moved to Top */}
+            <div className="bg-dark-100 rounded-xl p-4 border border-dark-300">
+              <div className="flex flex-wrap gap-2">
+                {categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                      selectedCategory === cat.id
+                        ? 'bg-slate-600 text-white shadow-md'
+                        : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                    }`}
+                  >
+                    <cat.icon className="h-4 w-4" />
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Technical Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-dark-100 rounded-lg p-6 border border-dark-300">
@@ -808,38 +878,21 @@ export function WelcomePage() {
             </div>
 
             {/* Entity Documentation */}
-            <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-dark-600 mb-2 flex items-center gap-2">
-                  <BookOpen className="h-6 w-6 text-blue-600" />
-                  Entity System Documentation
-                </h2>
-                <p className="text-dark-700">
-                  Comprehensive technical guide to all 21+ entity types, their business value, relationships, and common workflows.
-                </p>
-              </div>
+            {selectedCategory !== 'overview' && (
+              <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-dark-600 mb-2 flex items-center gap-2">
+                    <BookOpen className="h-6 w-6 text-blue-600" />
+                    {categories.find(c => c.id === selectedCategory)?.name} - Technical Documentation
+                  </h2>
+                  <p className="text-dark-700">
+                    Comprehensive technical guide to entity types, their business value, relationships, and common workflows.
+                  </p>
+                </div>
 
-              {/* Category Filter */}
-              <div className="flex flex-wrap gap-2 mb-6">
-                {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                      selectedCategory === cat.id
-                        ? 'bg-slate-600 text-white shadow-md'
-                        : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
-                    }`}
-                  >
-                    <cat.icon className="h-4 w-4" />
-                    {cat.name}
-                  </button>
-                ))}
-              </div>
-
-              {/* Entity Cards */}
-              <div className="grid md:grid-cols-2 gap-4">
-                {getFilteredEntities().map((entity) => (
+                {/* Entity Cards */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  {getFilteredEntities().map((entity) => (
                   <div
                     key={entity.name}
                     className="bg-dark-100 rounded-lg border border-dark-300 hover:border-dark-400 transition-all overflow-hidden"
@@ -893,9 +946,11 @@ export function WelcomePage() {
                   </div>
                 ))}
               </div>
-            </div>
+              </div>
+            )}
 
             {/* Entity Relationship Flow */}
+            {selectedCategory === 'overview' && (
             <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
               <h2 className="text-2xl font-bold text-dark-600 mb-4 flex items-center gap-2">
                 <GitBranch className="h-6 w-6 text-indigo-600" />
@@ -934,8 +989,10 @@ export function WelcomePage() {
                 (NO FOREIGN KEYS). This enables flexible, temporal, and cross-schema relationships without database constraints.
               </p>
             </div>
+            )}
 
             {/* Developer Resources */}
+            {selectedCategory === 'overview' && (
             <div className="bg-gradient-to-r from-slate-700 to-dark-900 rounded-xl p-8 text-white">
               <h2 className="text-2xl font-bold mb-2">Developer Resources</h2>
               <p className="text-slate-200 mb-6 max-w-2xl mx-auto">
@@ -959,6 +1016,7 @@ export function WelcomePage() {
                 </div>
               </div>
             </div>
+            )}
           </>
         )}
       </div>

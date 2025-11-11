@@ -84,6 +84,8 @@ export const FIELD_TO_SETTING_MAP: Record<string, string> = {
   'level_id': 'dl__business_level', // Context-dependent
   'name': 'dl__business_level',
   'business_level_id': 'dl__business_level',
+  'operational_status': 'dl__business_operational_status',
+  'dl__business_operational_status': 'dl__business_operational_status',
 
   // Office fields (dl__ prefix columns from database)
   'dl__office_level': 'dl__office_level',

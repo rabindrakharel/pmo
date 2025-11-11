@@ -55,7 +55,7 @@ CREATE TABLE app.d_employee (
 
   -- Contact information
   phone varchar(50),
-  mobile_phone varchar(50),
+  mobile varchar(50),
   emergency_contact_name varchar(200),
   emergency_contact_phone varchar(50),
 
