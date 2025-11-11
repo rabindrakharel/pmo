@@ -1,16 +1,16 @@
 /**
- * Booking Service API Routes
- * Unified booking API with event/calendar/notification orchestration
- * @module booking/booking-service.routes
+ * Person Calendar Service API Routes
+ * Unified person-calendar API with event/calendar/notification orchestration
+ * @module booking/person-calendar-service.routes
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createBooking, cancelBooking, rescheduleBooking, type CreateBookingRequest } from './booking.service.js';
 
 /**
- * Register booking service routes
+ * Register person-calendar service routes
  */
-export async function bookingServiceRoutes(fastify: FastifyInstance) {
+export async function personCalendarServiceRoutes(fastify: FastifyInstance) {
   /**
    * POST /api/v1/booking/create
    * Create a complete booking with event, calendar, RSVP, and notifications
@@ -193,7 +193,7 @@ export async function bookingServiceRoutes(fastify: FastifyInstance) {
     }
   });
 
-  console.log('✅ Booking service routes registered');
+  console.log('✅ Person-calendar service routes registered');
 }
 
-export default bookingServiceRoutes;
+export default personCalendarServiceRoutes;
