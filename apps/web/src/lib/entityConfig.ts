@@ -57,6 +57,105 @@ import {
  * // projectConfig.fields tells you WHAT fields exist
  * // data_transform_render.ts tells you HOW to process them
  * ```
+ *
+ * ============================================================================
+ * CENTRALIZED FORMATTING SYSTEM - DRY ARCHITECTURE
+ * ============================================================================
+ *
+ * This file uses a sophisticated DRY (Don't Repeat Yourself) architecture for
+ * column and field generation, eliminating 150+ manual column definitions.
+ *
+ * CORE COMPONENTS:
+ *
+ * 1. **fieldCategoryRegistry.ts** - SINGLE SOURCE OF TRUTH
+ *    - Defines ALL properties for each field category (NAME, CODE, AMOUNT, DATE, etc.)
+ *    - Each category specifies: width, alignment, sortable, filterable, render function
+ *    - Example: All *_amt fields automatically get right-alignment, currency formatting, 120px width
+ *    - Pattern matching: *_stage → LABEL category with dropdown + colored badge
+ *    - 15+ field categories covering all common patterns
+ *
+ * 2. **generateFieldTitle()** - Smart Title Generation
+ *    - Converts field keys to human-readable titles
+ *    - Examples:
+ *      - 'name' → 'Name'
+ *      - 'dl__task_stage' → 'Task Stage' (strips dl__ prefix, converts snake_case)
+ *      - 'budget_allocated_amt' → 'Budget Allocated Amount'
+ *    - Handles special cases: *_ts → removes '_ts', *_amt → removes '_amt' suffix
+ *
+ * 3. **generateStandardColumns()** - Auto-Column Generation
+ *    - Takes array of field keys, returns full ColumnDef[] with all properties
+ *    - Automatically detects field category from key pattern
+ *    - Applies ALL category properties (width, align, sortable, filterable, render)
+ *    - Ensures standard fields (name, code, descr) appear first
+ *    - Filters out system columns (id, from_ts, to_ts, active_flag, created_ts, updated_ts, version)
+ *    - Example usage:
+ *      ```typescript
+ *      columns: generateStandardColumns([
+ *        'name', 'code', 'dl__project_stage', 'budget_allocated_amt', 'planned_start_date'
+ *      ])
+ *      // Auto-generates 5 columns with proper width, alignment, sorting, rendering
+ *      ```
+ *
+ * 4. **settingsLoader.ts** - Dynamic Dropdown Options
+ *    - Loads dropdown options from settings tables at runtime
+ *    - API: GET /api/v1/entity/:type/options
+ *    - Returns options for all dl__* fields (stage, status, priority, etc.)
+ *    - Caches options per entity type to avoid repeated API calls
+ *    - Integrates with loadOptionsFromSettings flag in ColumnDef and FieldDef
+ *    - Example: dl__task_stage → loads from setting_task_stage table
+ *
+ * BENEFITS OF THIS ARCHITECTURE:
+ * ✅ DRY Principle: Define category once, all fields inherit properties
+ * ✅ Consistency: All *_amt fields behave identically across all entities
+ * ✅ Maintainability: Change currency format in ONE place, affects ALL amount fields
+ * ✅ Type Safety: Field categories are enum-based with compile-time checking
+ * ✅ Auto-Detection: New fields automatically get correct rendering based on name pattern
+ * ✅ Reduced Code: Eliminated 150+ manual column definitions across 13+ entities
+ *
+ * DATA FLOW EXAMPLE:
+ * 1. Entity config specifies field keys: ['name', 'dl__project_stage', 'budget_allocated_amt']
+ * 2. generateStandardColumns() processes each key:
+ *    - 'name' → detects NAME category → 300px width, left-align, sortable, filterable
+ *    - 'dl__project_stage' → detects LABEL category → loadOptionsFromSettings, colored badge, 150px
+ *    - 'budget_allocated_amt' → detects AMOUNT category → currency render, right-align, 120px
+ * 3. generateFieldTitle() creates titles: 'Name', 'Project Stage', 'Budget Allocated Amount'
+ * 4. settingsLoader fetches dl__project_stage options from API on mount
+ * 5. FilteredDataTable renders columns with all auto-applied properties
+ *
+ * ADDING NEW ENTITIES - MINIMAL CODE:
+ * ```typescript
+ * // OLD WAY (150+ lines of manual definitions):
+ * columns: [
+ *   { key: 'name', title: 'Name', sortable: true, filterable: true, width: '300px', align: 'left' },
+ *   { key: 'code', title: 'Code', sortable: true, filterable: true, width: '150px', align: 'left' },
+ *   // ... 10+ more manual definitions
+ * ]
+ *
+ * // NEW WAY (1 line, auto-generates everything):
+ * columns: generateStandardColumns(['name', 'code', 'descr', 'dl__task_stage', 'budget_amt'])
+ * ```
+ *
+ * OVERRIDE PATTERN (for special cases):
+ * ```typescript
+ * columns: generateStandardColumns(
+ *   ['name', 'budget_allocated_amt'],
+ *   {
+ *     overrides: {
+ *       budget_allocated_amt: {
+ *         title: 'Budget', // Custom title
+ *         render: (v, r) => formatCurrency(v, r.budget_currency) // Custom currency lookup
+ *       }
+ *     }
+ *   }
+ * )
+ * ```
+ *
+ * SOURCE OF TRUTH: DDL CREATE TABLE Statements
+ * - All field keys come from database schema (db/*.ddl files)
+ * - API SELECT queries match DDL columns exactly
+ * - Entity configs reference only columns that exist in CREATE TABLE
+ * - generateStandardColumns() validates against actual schema
+ * - fieldCategoryRegistry patterns align with database naming conventions
  */
 
 // ============================================================================
