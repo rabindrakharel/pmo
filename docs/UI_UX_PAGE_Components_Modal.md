@@ -1,90 +1,190 @@
-# UI/UX Reusable Components & Patterns
+# UI/UX Reusable Components Reference
 
-> **MANDATORY**: All entity development MUST use these standardized components. Never create custom components when reusable ones exist.
+> **MANDATORY**: Use standardized components. Never create entity-specific UI components.
 
 ---
 
-## 📋 Component Quick Reference
+## 🎯 Core Data Model Concepts
 
-### 1. **Data Tables** (Universal Display)
+### **Entity System Architecture**
 
-| Component | When to Use | Key Props | Location |
-|-----------|-------------|-----------|----------|
-| **FilteredDataTable** | Main wrapper for ALL entity tables | `entityType`, `parentType`, `parentId`, `inlineEditable`, `allowAddRow` | `apps/web/src/components/shared/dataTable/FilteredDataTable.tsx` |
-| **EntityDataTable** | Auto-routed from FilteredDataTable for entities | `data`, `columns`, `inlineEditable`, `onRowClick` | `apps/web/src/components/shared/ui/EntityDataTable.tsx` |
-| **SettingsDataTable** | Auto-routed from FilteredDataTable for settings | `data`, `columns`, reordering support | `apps/web/src/components/shared/ui/SettingsDataTable.tsx` |
+**Every domain is an entity** with CRUD operations stored in `d_{entity}` tables:
+- **Entity**: Business object (project, task, employee, client, etc.)
+- **Parent-Child**: Relationships stored in `d_entity_id_map` (not foreign keys)
+- **RBAC**: Permissions stored in `entity_id_rbac_map`
+- **Metadata**: All entity types defined in `d_entity` table
 
-**Usage Pattern**:
+**d_entity Table Role** (Source of Truth):
+```sql
+-- Central registry for ALL entity metadata
+CREATE TABLE app.d_entity (
+    code varchar(50) PRIMARY KEY,          -- 'project', 'task', 'office'
+    ui_icon varchar(50),                   -- Lucide icon: 'FolderOpen'
+    ui_label varchar(100),                 -- Display: 'Projects'
+    child_entities jsonb,                  -- Child entity metadata
+    display_order int4                     -- Menu order
+);
+```
+
+**What d_entity drives**:
+- Sidebar navigation (icons, labels, order)
+- Entity detail page tabs (child entities)
+- Entity pickers/dropdowns (ui_label + ui_icon)
+- Dynamic routing (child entity tabs auto-generated)
+
+**Parent-Child Relationship Pattern**:
+```sql
+-- All relationships stored in d_entity_id_map
+CREATE TABLE app.d_entity_id_map (
+    parent_entity_type varchar(50),  -- 'PROJECT'
+    parent_entity_id uuid,           -- project.id
+    child_entity_type varchar(50),   -- 'TASK'
+    child_entity_id uuid             -- task.id
+);
+
+-- Example: Project → Tasks
+INSERT INTO d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
+VALUES ('PROJECT', 'abc-123', 'TASK', 'def-456');
+```
+
+**RBAC Pattern**:
+```sql
+-- Permissions per entity instance
+CREATE TABLE app.entity_id_rbac_map (
+    entity_type varchar(50),
+    entity_id uuid,
+    user_id uuid,
+    permission_id int  -- 1=view, 2=edit, 3=delete, 4=share, 5=owner
+);
+```
+
+---
+
+## 📊 Data Tables (Universal Display)
+
+### **Use Case Decision**:
+| Use Case | Component | Why |
+|----------|-----------|-----|
+| **Entity records** (project, task, etc.) | `EntityDataTable` | Full CRUD, inline editing, parent-child filtering |
+| **Settings/datalabel** (dropdowns, stages) | `SettingsDataTable` | Reordering, color badges, settings-specific features |
+
+### **EntityDataTable** (Entity Records)
+
+**Location**: `apps/web/src/components/shared/ui/EntityDataTable.tsx`
+
+**Features**:
+- Inline editing (text, select, tags, currency, dates)
+- Parent-child filtering via `d_entity_id_map`
+- Add row with parent context pre-filled
+- Bulk selection and actions
+
+**Usage**:
 ```tsx
-// ✅ CORRECT: Always use FilteredDataTable
-<FilteredDataTable
+<EntityDataTable
   entityType="task"
-  parentType="project"
-  parentId={projectId}
+  data={tasks}
+  columns={columns}
   inlineEditable={true}
   allowAddRow={true}
+  parentType="project"
+  parentId={projectId}
 />
-
-// ❌ WRONG: Don't create custom tables
-<CustomTaskTable data={tasks} />
 ```
 
----
+### **SettingsDataTable** (Settings/Datalabel)
 
-### 2. **Visualizations** (Data Display Modes)
+**Location**: `apps/web/src/components/shared/ui/SettingsDataTable.tsx`
 
-| Component | When to Use | Data Format | Visual Output | Location |
-|-----------|-------------|-------------|---------------|----------|
-| **DAGVisualizer** | Stage/funnel fields (dl__*_stage, dl__*_funnel) | `DAGNode[]` with `id, node_name, parent_ids` | Topological graph with layers, arrows, highlighted current node | `apps/web/src/components/workflow/DAGVisualizer.tsx` |
-| **KanbanBoard** | Task boards, stage-based workflows | Grouped by status/stage column | Drag-drop cards across columns | `apps/web/src/components/shared/ui/KanbanBoard.tsx` |
-| **CalendarView** | Person availability, event booking | Calendar slots with person entities | Weekly grid, drag-drop events, person filter | `apps/web/src/components/shared/ui/CalendarView.tsx` |
-| **GridView** | Card-based entity display | Entity records | Responsive grid of cards | `apps/web/src/components/shared/ui/GridView.tsx` |
-| **HierarchyGraphView** | Tree structures (office, business) | Hierarchical entity data | Interactive tree with expand/collapse | `apps/web/src/components/shared/ui/HierarchyGraphView.tsx` |
+**Features**:
+- Drag-drop row reordering (for display_order)
+- Color badge editing
+- Specialized for `setting_datalabel` table
 
-**Visualization Selection**:
+**Usage**:
 ```tsx
-// DAG: Used in EntityFormContainer for stage fields
-if (fieldKey.startsWith('dl__') && (fieldKey.includes('stage') || fieldKey.includes('funnel'))) {
-  return <DAGVisualizer nodes={dagNodes} currentNodeId={value} />;
-}
-
-// Calendar: Used for person-calendar entities
-<CalendarView config={config} data={calendarSlots} />
-
-// Kanban: Used in EntityMainPage for task-like entities
-<KanbanBoard entityType="task" />
+<SettingsDataTable
+  entityType="setting"
+  data={settingRows}
+  columns={settingColumns}
+  onReorder={handleReorder}
+/>
 ```
 
 ---
 
-### 3. **Entity Form Data Container** (Universal Form)
+## 📈 Visualizations (Data Display)
 
-**Component**: `EntityFormContainer`
+| Component | When to Use | Data Type | Output |
+|-----------|-------------|-----------|--------|
+| **DAGVisualizer** | Workflow stages/funnels | `dl__{entity}_stage`, `dl__{entity}_funnel` fields | Topological graph with parent→child arrows |
+| **KanbanBoard** | Task boards | Status-based entities | Drag-drop cards across status columns |
+| **CalendarView** | Event scheduling | Time-based availability | Weekly grid with person filtering |
+| **DateRangeVisualizer** | Date ranges | `from_ts` + `to_ts` pairs | Timeline bars |
+
+### **DAGVisualizer** (Workflow Stages/Funnels)
+
+**Location**: `apps/web/src/components/workflow/DAGVisualizer.tsx`
+
+**Naming Convention**:
+```typescript
+// Stage fields (workflow states)
+dl__project_stage     // Project: initiation → planning → execution → closure
+dl__task_stage        // Task: backlog → in_progress → blocked → done
+dl__sales_funnel      // Sales: lead → qualified → proposal → won/lost
+
+// Pattern: dl__{entityname}_{stage|funnel}
+```
+
+**Data Source**: `setting_datalabel` table
+```sql
+SELECT id, name, parent_ids FROM app.setting_datalabel
+WHERE datalabel = 'dl__project_stage'
+ORDER BY display_order;
+
+-- Returns DAG nodes:
+-- {id: 0, name: 'Initiation', parent_ids: []}
+-- {id: 1, name: 'Planning', parent_ids: [0]}
+-- {id: 2, name: 'Execution', parent_ids: [1]}
+-- {id: 3, name: 'Closure', parent_ids: [2]}
+```
+
+**Usage**:
+```tsx
+// Auto-rendered in EntityFormContainer for dl__*_stage or dl__*_funnel fields
+const dagNodes = await loadDagNodes('dl__project_stage');
+
+<DAGVisualizer
+  nodes={dagNodes}
+  currentNodeId={project.dl__project_stage}  // Highlights current stage
+  onNodeClick={handleStageChange}
+/>
+```
+
+**How It Works**:
+1. Field key starts with `dl__` and contains `stage` or `funnel`
+2. EntityFormContainer detects pattern → loads DAG structure from settings API
+3. Renders DAGVisualizer with topological layout (parent nodes above children)
+4. Dropdown below DAG allows selecting stage (updates entity field)
+
+---
+
+## 📝 Entity Form Container (Universal Form)
+
 **Location**: `apps/web/src/components/shared/entity/EntityFormContainer.tsx`
 
-**Supported Field Types** (Auto-detected from entityConfig):
+**Auto-Detection Rules**:
+| Pattern | Field Type | Example |
+|---------|------------|---------|
+| `*_amt`, `*_price`, `*_cost` | Currency input ($ prefix) | `budget_allocated_amt` |
+| `dl__*_stage`, `dl__*_funnel` | DAGVisualizer + dropdown | `dl__project_stage` |
+| `*_ts`, `*_at` | Datetime input | `created_ts` |
+| `tags` | Tags input (array ↔ string) | `tags` |
+| `metadata` | JSONB editor (MetadataTable) | `metadata` |
+| `from_ts` + `to_ts` | DateRangeVisualizer | `from_ts`, `to_ts` |
+| `*_attachment`, `*_file` | S3 presigned upload | `artifact_attachment` |
 
-| Field Type | Input Component | Auto-Detection Pattern | Example Field |
-|------------|-----------------|------------------------|---------------|
-| **text** | `<input type="text">` | Default for string fields | `name`, `code`, `email` |
-| **number** | `<input type="number">` | Fields ending in `_qty`, `_count`, `headcount` | `current_headcount` |
-| **currency** | `<input type="number">` with $ prefix | Fields ending in `_amt`, `_price`, `_cost` | `budget_allocated_amt` |
-| **date** | `<input type="date">` | Fields ending in `_date` | `start_date`, `end_date` |
-| **datetime** | `<input type="datetime-local">` | Fields ending in `_ts`, `_at` | `created_ts`, `updated_at` |
-| **select** | `<select>` with options | `loadOptionsFromSettings: true` | `dl__project_stage`, `status` |
-| **multiselect** | SearchableMultiSelect | `type: 'multiselect'` | `employee_ids` |
-| **tags** | Tags input | `type: 'tags'` or field name is `tags` | `tags` |
-| **boolean** | Checkbox | `type: 'boolean'` | `active_flag`, `is_public` |
-| **textarea** | `<textarea>` | `type: 'textarea'` or field is `descr` | `descr`, `notes` |
-| **richtext** | Rich text editor (Quill Delta) | `type: 'richtext'` | `content`, `description_richtext` |
-| **file** | File upload with S3 presigned URL | Fields ending in `_attachment`, `_file` | `artifact_attachment` |
-| **metadata** | MetadataTable (JSONB editor) | Field name is `metadata` | `metadata` |
-| **DAG** | DAGVisualizer | `dl__` prefix + `stage`/`funnel` in name | `dl__project_stage`, `dl__sales_funnel` |
-| **date-range** | DateRangeVisualizer | Pair: `from_ts` + `to_ts` | `from_ts`, `to_ts` |
-
-**Usage Pattern**:
+**Usage**:
 ```tsx
-// ✅ CORRECT: EntityFormContainer auto-detects all field types
 <EntityFormContainer
   config={config}
   data={data}
@@ -93,205 +193,100 @@ if (fieldKey.startsWith('dl__') && (fieldKey.includes('stage') || fieldKey.inclu
   mode="edit"
 />
 
-// Field definitions in entityConfig.ts:
+// Config example:
 fields: [
   { key: 'name', type: 'text', required: true },
-  { key: 'dl__project_stage', type: 'select', loadOptionsFromSettings: true }, // Auto-renders DAG
-  { key: 'budget_allocated_amt', type: 'number' }, // Auto-renders with $ prefix
+  { key: 'dl__project_stage', type: 'select', loadOptionsFromSettings: true }, // DAG auto-renders
+  { key: 'budget_allocated_amt', type: 'number' }, // $ prefix auto-added
   { key: 'tags', type: 'tags' },
-  { key: 'metadata', type: 'metadata' } // Auto-renders JSONB editor
+  { key: 'metadata', type: 'metadata' } // JSONB editor
 ]
 ```
 
 ---
 
-### 4. **Navigation & Tabs**
+## 🧭 Navigation & Tabs
 
-| Component | Purpose | Data Source | Usage | Location |
-|-----------|---------|-------------|-------|----------|
-| **DynamicChildEntityTabs** | Auto-generate child entity tabs | `/api/v1/entity/:type/children` (from `d_entity` table) | Always use in EntityDetailPage | `apps/web/src/components/shared/layout/DynamicChildEntityTabs.tsx` |
-| **ViewSwitcher** | Toggle between table/kanban/grid/calendar | Config-driven | Use in EntityMainPage | `apps/web/src/components/shared/ui/ViewSwitcher.tsx` |
-| **NavigationBreadcrumb** | Breadcrumb trail | Navigation history context | Use in all entity pages | `apps/web/src/components/shared/navigation/NavigationBreadcrumb.tsx` |
+### **DynamicChildEntityTabs**
 
-**Tab Pattern**:
+**Location**: `apps/web/src/components/shared/layout/DynamicChildEntityTabs.tsx`
+
+**Data Source**: `/api/v1/entity/:type/children` (queries `d_entity.child_entities`)
+
+**Usage**:
 ```tsx
-// ✅ CORRECT: Dynamic tabs from d_entity metadata
-const { tabs } = useDynamicChildEntityTabs(entityType, id);
+// Loads child entities from d_entity table
+const { tabs } = useDynamicChildEntityTabs('project', projectId);
 
 <DynamicChildEntityTabs
-  tabs={[{ id: 'overview', label: 'Overview', path: `/${entityType}/${id}` }, ...tabs]}
+  tabs={[
+    { id: 'overview', label: 'Overview', path: `/project/${projectId}` },
+    ...tabs  // Auto-generated: Tasks, Wiki, Artifacts, Forms, etc.
+  ]}
   activeTab={currentTab}
 />
-
-// ❌ WRONG: Hardcoded tabs
-<Tabs>
-  <Tab label="Tasks">...</Tab>
-  <Tab label="Wiki">...</Tab>
-</Tabs>
 ```
 
----
-
-### 5. **Modals & Overlays**
-
-| Component | Purpose | Usage | Location |
-|-----------|---------|-------|----------|
-| **EntityEditModal** | Edit entity inline in modal | Wrap EntityFormContainer | `apps/web/src/components/shared/modal/EntityEditModal.tsx` |
-| **UnifiedLinkageModal** | Link entities (d_entity_id_map) | Parent-child relationships | `apps/web/src/components/shared/modal/UnifiedLinkageModal.tsx` |
-| **ShareModal** | Generate share links | Public entity sharing | `apps/web/src/components/shared/modal/ShareModal.tsx` |
-| **Modal** | Base modal component | Generic overlays | `apps/web/src/components/shared/ui/Modal.tsx` |
-
----
-
-## 🎨 Data Visualization Matrix
-
-| Data Type | Visualization | Component | Example Use Case |
-|-----------|---------------|-----------|------------------|
-| **Workflow stages** | DAG graph (nodes + arrows) | DAGVisualizer | Project stages, sales funnel, task workflow |
-| **Time-based events** | Weekly calendar grid | CalendarView | Employee availability, event booking, meetings |
-| **Date ranges** | Timeline bars | DateRangeVisualizer | Project validity (from_ts → to_ts) |
-| **Task status** | Kanban columns | KanbanBoard | Task board, project pipeline |
-| **Entity list** | Sortable table | EntityDataTable | All entity main pages |
-| **Hierarchical data** | Tree view | HierarchyGraphView | Office hierarchy, business hierarchy |
-| **Card layout** | Responsive grid | GridView | Project cards, employee cards |
-| **JSONB data** | Editable table | MetadataTable | metadata field editing |
-| **Rich text** | Quill Delta renderer | RichTextRenderer | Task updates, wiki content |
-
----
-
-## 🏗️ Entity Screen Architecture
-
-### **Universal Pages** (3 pages handle ALL 18+ entity types)
-
-1. **EntityMainPage** (`apps/web/src/pages/shared/EntityMainPage.tsx`)
-   - **Purpose**: List view for entity type
-   - **Components Used**:
-     - `FilteredDataTable` (primary view)
-     - `ViewSwitcher` (table/kanban/grid/calendar toggle)
-     - `KanbanBoard` (if view = kanban)
-     - `GridView` (if view = grid)
-     - `CalendarView` (if view = calendar)
-   - **Features**: Add row, inline editing, bulk delete, search, filter
-
-2. **EntityDetailPage** (`apps/web/src/pages/shared/EntityDetailPage.tsx`)
-   - **Purpose**: Single entity view with child tabs
-   - **Components Used**:
-     - `EntityFormContainer` (form fields)
-     - `DynamicChildEntityTabs` (child entity navigation)
-     - `FilteredDataTable` (child entity tables)
-     - `DAGVisualizer` (stage fields)
-     - `DateRangeVisualizer` (date range fields)
-     - `MetadataTable` (metadata field)
-     - `FilePreview` (attachment fields)
-   - **Features**: Edit mode, child entity tabs, linkage, share, file upload
-
-3. **EntityFormPage** (`apps/web/src/pages/shared/EntityFormPage.tsx`)
-   - **Purpose**: Create new entity
-   - **Components Used**:
-     - `EntityFormContainer` (same as detail page)
-   - **Features**: Pre-fill parent context, create-then-link pattern
-
----
-
-## 📐 Design Patterns for Entity Development
-
-### **Pattern 1: Add New Entity Type**
-```typescript
-// 1. Create entityConfig entry (apps/web/src/config/entityConfigs.ts)
-export const invoiceConfig: EntityConfig = {
-  type: 'invoice',
-  title: 'Invoice',
-  apiEndpoint: '/api/v1/invoice',
-  fields: [
-    { key: 'name', type: 'text', required: true },
-    { key: 'invoice_amt', type: 'number', required: true }, // Auto: currency input
-    { key: 'dl__invoice_status', type: 'select', loadOptionsFromSettings: true }, // Auto: dropdown
-    { key: 'from_ts', type: 'datetime' },
-    { key: 'to_ts', type: 'datetime' } // Auto: DateRangeVisualizer
-  ]
-};
-
-// 2. Add to routing (apps/web/src/App.tsx)
-<Route path="/invoice" element={<EntityMainPage entityType="invoice" />} />
-<Route path="/invoice/:id" element={<EntityDetailPage entityType="invoice" />} />
-
-// 3. Done! All components auto-configured:
-//    - FilteredDataTable for list view
-//    - EntityFormContainer for create/edit
-//    - DynamicChildEntityTabs for child entities (if any in d_entity)
-//    - DAGVisualizer for stage fields
-//    - All field types auto-detected
-```
-
-### **Pattern 2: Add Child Entity Tab**
+**Adding New Child Tab**:
 ```sql
--- 1. Update d_entity table to add child relationship
+-- Update d_entity table to add child relationship
 UPDATE app.d_entity
 SET child_entities = child_entities || '[{"entity": "invoice", "ui_icon": "FileText", "ui_label": "Invoices", "order": 7}]'::jsonb
 WHERE code = 'project';
 
--- 2. Done! DynamicChildEntityTabs auto-loads from API
--- No frontend code changes needed
-```
-
-### **Pattern 3: Add New Field Type**
-```typescript
-// 1. Add field to entityConfig
-{ key: 'new_field', type: 'select', loadOptionsFromSettings: true }
-
-// 2. EntityFormContainer auto-detects and renders correct input
-// 3. EntityDataTable auto-enables inline editing for this field
+-- Tabs auto-appear, no frontend code needed
 ```
 
 ---
 
-## ✅ Mandatory Checklist for New Entity Development
+## 🔧 Modals & Overlays
 
-- [ ] Use **FilteredDataTable** for all list views (never custom tables)
-- [ ] Use **EntityFormContainer** for all forms (never custom forms)
-- [ ] Use **DynamicChildEntityTabs** for child navigation (never hardcoded tabs)
-- [ ] Configure fields in **entityConfig.ts** (single source of truth)
-- [ ] Use **DAGVisualizer** for stage/funnel fields (`dl__*_stage`, `dl__*_funnel`)
-- [ ] Use **DateRangeVisualizer** for date range pairs (`from_ts`, `to_ts`)
-- [ ] Use **MetadataTable** for `metadata` JSONB field
-- [ ] Use **KanbanBoard** for task-like entities (status-based workflows)
-- [ ] Use **CalendarView** for time-based scheduling entities
-- [ ] Enable **inline editing** by default (`inlineEditable: true`)
-- [ ] Enable **add row** functionality (`allowAddRow: true`)
-- [ ] Load dropdown options from **settings API** (`loadOptionsFromSettings: true`)
-- [ ] Never hardcode entity icons/labels (query `d_entity` table via API)
-- [ ] All parent-child relationships MUST use **UnifiedLinkageModal**
-- [ ] All file uploads MUST use **S3 presigned URLs** (never direct upload)
+| Component | Purpose | Usage |
+|-----------|---------|-------|
+| **UnifiedLinkageModal** | Link parent-child entities | Creates `d_entity_id_map` records |
+| **EntityEditModal** | Edit entity in modal | Wraps EntityFormContainer |
+| **ShareModal** | Generate share links | Public entity sharing |
 
 ---
 
-## 🚨 Common Anti-Patterns (DO NOT DO)
+## ✅ Mandatory Checklist (All Entity Development)
+
+- [ ] Use **EntityDataTable** for entity records (not custom tables)
+- [ ] Use **SettingsDataTable** for settings/datalabel records
+- [ ] Use **EntityFormContainer** for all forms (auto-detects 15+ field types)
+- [ ] Use **DynamicChildEntityTabs** (loads from `d_entity` API, never hardcode)
+- [ ] Use **DAGVisualizer** for `dl__{entity}_stage` or `dl__{entity}_funnel` fields
+- [ ] Use **DateRangeVisualizer** for `from_ts` + `to_ts` pairs
+- [ ] Use **UnifiedLinkageModal** for all parent-child relationships
+- [ ] Load dropdowns from settings API (`loadOptionsFromSettings: true`)
+- [ ] Query `d_entity` API for metadata (icons, labels, child entities)
+- [ ] Store relationships in `d_entity_id_map` (not foreign keys)
+- [ ] Store permissions in `entity_id_rbac_map`
+
+---
+
+## 🚨 Anti-Patterns (DO NOT DO)
 
 | ❌ Anti-Pattern | ✅ Correct Pattern |
 |----------------|-------------------|
-| Creating custom entity-specific tables | Use FilteredDataTable with entityType prop |
-| Hardcoding dropdown options in frontend | Use loadOptionsFromSettings: true |
-| Custom form components per entity | Use EntityFormContainer with config |
-| Hardcoding child entity tabs | Use DynamicChildEntityTabs (loads from d_entity API) |
-| Direct S3 upload without presigned URL | Use useS3Upload hook with presigned URL workflow |
-| Storing files in database | Store attachment metadata, files in S3/MinIO |
+| Creating entity-specific tables/forms | Use EntityDataTable + EntityFormContainer |
+| Hardcoding dropdown options | Use `loadOptionsFromSettings: true` |
+| Hardcoding child entity tabs | Use DynamicChildEntityTabs (loads from d_entity) |
 | Adding foreign keys to entity tables | Use d_entity_id_map for relationships |
-| Creating entity-specific pages | Use EntityMainPage/EntityDetailPage with entityType |
-| Manual field type detection | Use EntityFormContainer auto-detection |
-| Custom workflow visualizations | Use DAGVisualizer for stages, KanbanBoard for statuses |
+| Hardcoding entity icons/labels | Query d_entity table via API |
+| Direct S3 upload without presigned URL | Use S3 presigned URL workflow |
+| Creating custom workflow visualizations | Use DAGVisualizer for stages/funnels |
 
 ---
 
 ## 📚 Related Documentation
 
-- **[DRY Factory Patterns](./entity_design_pattern/DRY_FACTORY_PATTERNS.md)** - Code generation patterns
-- **[Universal Entity System](./entity_design_pattern/universal_entity_system.md)** - Complete architecture
-- **[Entity Options API](./ENTITY_OPTIONS_API.md)** - Dropdown/select options
-- **[S3 Attachment Service](./S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md)** - File upload patterns
-- **[Data Model](./datamodel/datamodel.md)** - Database schema reference
+- **[Data Model](./datamodel/datamodel.md)** - DDL schemas, d_entity table, d_entity_id_map
+- **[Universal Entity System](./entity_design_pattern/universal_entity_system.md)** - Architecture patterns
+- **[DRY Factory Patterns](./entity_design_pattern/DRY_FACTORY_PATTERNS.md)** - Code generation
+- **[Settings System](./settings/settings.md)** - Datalabel tables, DAG structures
 
 ---
 
 **Last Updated**: 2025-11-11
-**Version**: 3.1.0
 **Status**: MANDATORY for all entity development
