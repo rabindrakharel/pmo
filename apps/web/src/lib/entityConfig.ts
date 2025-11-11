@@ -2972,6 +2972,148 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     supportedViews: ['table'],
     defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // MESSAGE SCHEMA (Email/SMS/Push Templates)
+  // --------------------------------------------------------------------------
+  message_schema: {
+    name: 'message_schema',
+    displayName: 'Message Schema',
+    pluralName: 'Message Schemas',
+    apiEndpoint: '/api/v1/message-schema',
+
+    columns: generateStandardColumns(
+      ['name', 'code', 'message_delivery_method', 'status', 'subject', 'from_email', 'sms_sender_id'],
+      {
+        overrides: {
+          message_delivery_method: {
+            title: 'Type',
+            render: (value) => renderBadge(value || 'EMAIL', {
+              'EMAIL': 'bg-blue-100 text-blue-800',
+              'SMS': 'bg-green-100 text-green-800',
+              'PUSH': 'bg-purple-100 text-purple-800'
+            })
+          },
+          status: {
+            title: 'Status',
+            render: (value) => renderBadge(value || 'draft', {
+              'published': 'bg-green-100 text-green-800',
+              'draft': 'bg-yellow-100 text-yellow-800',
+              'archived': 'bg-gray-100 text-gray-800'
+            })
+          }
+        }
+      }
+    ),
+
+    fields: [
+      { key: 'name', label: 'Template Name', type: 'text', required: true },
+      { key: 'code', label: 'Template Code', type: 'text', required: true },
+      {
+        key: 'message_delivery_method',
+        label: 'Delivery Method',
+        type: 'select',
+        required: true,
+        options: [
+          { value: 'EMAIL', label: 'Email' },
+          { value: 'SMS', label: 'SMS' },
+          { value: 'PUSH', label: 'Push Notification' }
+        ]
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: [
+          { value: 'draft', label: 'Draft' },
+          { value: 'published', label: 'Published' },
+          { value: 'archived', label: 'Archived' }
+        ]
+      },
+      { key: 'subject', label: 'Subject (Email Only)', type: 'text' },
+      { key: 'descr', label: 'Description', type: 'textarea' },
+      { key: 'from_name', label: 'From Name (Email)', type: 'text' },
+      { key: 'from_email', label: 'From Email', type: 'text' },
+      { key: 'reply_to_email', label: 'Reply To Email', type: 'text' },
+      { key: 'sms_sender_id', label: 'SMS Sender ID', type: 'text' },
+      { key: 'push_priority', label: 'Push Priority', type: 'select', options: [
+        { value: 'normal', label: 'Normal' },
+        { value: 'high', label: 'High' }
+      ]},
+      { key: 'push_ttl', label: 'Push TTL (seconds)', type: 'number' },
+      { key: 'template_schema', label: 'Template Schema', type: 'jsonb' },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // MESSAGE (Sent/Scheduled Messages)
+  // --------------------------------------------------------------------------
+  message: {
+    name: 'message',
+    displayName: 'Message',
+    pluralName: 'Messages',
+    apiEndpoint: '/api/v1/message-data',
+
+    columns: generateStandardColumns(
+      ['name', 'message_delivery_method', 'status', 'recipient_email', 'recipient_phone', 'recipient_name', 'scheduled_ts', 'sent_ts', 'delivered_ts'],
+      {
+        overrides: {
+          message_delivery_method: {
+            title: 'Type',
+            render: (value) => renderBadge(value || 'EMAIL', {
+              'EMAIL': 'bg-blue-100 text-blue-800',
+              'SMS': 'bg-green-100 text-green-800',
+              'PUSH': 'bg-purple-100 text-purple-800'
+            })
+          },
+          status: {
+            title: 'Status',
+            render: (value) => renderBadge(value || 'pending', {
+              'pending': 'bg-yellow-100 text-yellow-800',
+              'scheduled': 'bg-blue-100 text-blue-800',
+              'sent': 'bg-green-100 text-green-800',
+              'delivered': 'bg-emerald-100 text-emerald-800',
+              'failed': 'bg-red-100 text-red-800',
+              'bounced': 'bg-orange-100 text-orange-800'
+            })
+          },
+          recipient_email: {
+            title: 'Email',
+            render: (value) => value || '-'
+          },
+          recipient_phone: {
+            title: 'Phone',
+            render: (value) => value || '-'
+          }
+        }
+      }
+    ),
+
+    fields: [
+      { key: 'message_schema_id', label: 'Message Template', type: 'select', loadOptionsFromEntity: 'message_schema', required: true },
+      { key: 'recipient_email', label: 'Recipient Email', type: 'text' },
+      { key: 'recipient_phone', label: 'Recipient Phone', type: 'text' },
+      { key: 'recipient_device_token', label: 'Device Token (Push)', type: 'text' },
+      { key: 'recipient_name', label: 'Recipient Name', type: 'text' },
+      { key: 'recipient_entity_id', label: 'Recipient Entity ID', type: 'text' },
+      { key: 'scheduled_ts', label: 'Scheduled Time', type: 'date' },
+      { key: 'content_data', label: 'Content Data', type: 'jsonb', required: true },
+      { key: 'status', label: 'Status', type: 'text', readonly: true },
+      { key: 'sent_ts', label: 'Sent Time', type: 'date', readonly: true },
+      { key: 'delivered_ts', label: 'Delivered Time', type: 'date', readonly: true },
+      { key: 'error_code', label: 'Error Code', type: 'text', readonly: true },
+      { key: 'error_message', label: 'Error Message', type: 'textarea', readonly: true },
+      { key: 'retry_count', label: 'Retry Count', type: 'number', readonly: true },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
   }
 };
 
