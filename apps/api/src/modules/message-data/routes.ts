@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import { MessageDataService } from './service.js';
 
 // Response schema matching message data database structure
 const MessageDataResponseSchema = Type.Object({
@@ -71,6 +72,9 @@ const UpdateMessageDataSchema = Type.Object({
 });
 
 export async function messageDataRoutes(fastify: FastifyInstance) {
+  // Initialize service
+  const messageService = new MessageDataService();
+
   // List message data (sent/scheduled messages) with RBAC filtering
   fastify.get('/api/v1/message-data', {
     preHandler: [fastify.authenticate],
@@ -360,85 +364,26 @@ export async function messageDataRoutes(fastify: FastifyInstance) {
 
       const data = request.body as any;
 
-      // Fetch the message schema template
-      const schemaResult = await db.execute(sql`
-        SELECT * FROM app.d_message_schema
-        WHERE id = ${data.message_schema_id}::uuid
-          AND active_flag = true
-      `);
-
-      if (schemaResult.length === 0) {
-        return reply.status(404).send({ error: 'Message schema not found' });
-      }
-
-      const schema = schemaResult[0] as any;
-
-      // Determine status: scheduled if scheduled_ts provided, otherwise sent
-      const status = data.scheduled_ts ? 'scheduled' : 'sent';
-      const sent_ts = data.scheduled_ts ? null : new Date().toISOString();
-
-      // Determine recipient fields based on delivery method
-      const recipient_email = schema.message_delivery_method === 'EMAIL' ? data.content_data.recipient : data.recipient_email;
-      const recipient_phone = schema.message_delivery_method === 'SMS' ? data.content_data.recipient : data.recipient_phone;
-      const recipient_device_token = schema.message_delivery_method === 'PUSH' ? data.content_data.recipient : data.recipient_device_token;
-
-      const result = await db.execute(sql`
-        INSERT INTO app.f_message_data (
-          message_schema_id,
-          code,
-          name,
-          subject,
-          descr,
-          message_delivery_method,
-          status,
-          template_schema,
-          content_data,
-          preview_text,
-          from_name,
-          from_email,
-          reply_to_email,
-          sms_sender_id,
-          push_priority,
-          push_ttl,
-          recipient_email,
-          recipient_phone,
-          recipient_device_token,
-          recipient_name,
-          recipient_entity_id,
-          scheduled_ts,
-          sent_ts,
-          metadata
-        ) VALUES (
-          ${data.message_schema_id}::uuid,
-          ${schema.code},
-          ${schema.name},
-          ${schema.subject},
-          ${schema.descr},
-          ${schema.message_delivery_method},
-          ${status},
-          ${JSON.stringify(schema.template_schema)}::jsonb,
-          ${JSON.stringify(data.content_data)}::jsonb,
-          ${schema.preview_text},
-          ${schema.from_name},
-          ${schema.from_email},
-          ${schema.reply_to_email},
-          ${schema.sms_sender_id},
-          ${schema.push_priority},
-          ${schema.push_ttl},
-          ${recipient_email || null},
-          ${recipient_phone || null},
-          ${recipient_device_token || null},
-          ${data.recipient_name || data.content_data.recipientName || null},
-          ${data.recipient_entity_id ? `${data.recipient_entity_id}::uuid` : null},
-          ${data.scheduled_ts || null},
-          ${sent_ts},
-          ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb
-        )
-        RETURNING *
-      `);
+      // Send message via service (will handle delivery to AWS)
+      const result = await messageService.sendMessage({
+        message_schema_id: data.message_schema_id,
+        content_data: data.content_data,
+        recipient_email: data.recipient_email,
+        recipient_phone: data.recipient_phone,
+        recipient_device_token: data.recipient_device_token,
+        recipient_name: data.recipient_name,
+        recipient_entity_id: data.recipient_entity_id,
+        scheduled_ts: data.scheduled_ts,
+        metadata: data.metadata,
+        send_immediately: true // Send immediately unless scheduled
+      });
 
       reply.status(201);
-      return result[0];
+      return {
+        ...result.message,
+        delivery_status: result.delivery?.success ? 'sent' : 'failed',
+        provider_message_id: result.delivery?.provider_message_id
+      };
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to send message' });
@@ -587,6 +532,68 @@ export async function messageDataRoutes(fastify: FastifyInstance) {
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to delete message data' });
+    }
+  });
+
+  // Retry failed message delivery
+  fastify.post('/api/v1/message-data/:id/retry', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String(),
+      }),
+      response: {
+        200: Type.Object({
+          success: Type.Boolean(),
+          message: Type.String(),
+          delivery_status: Type.Optional(Type.String()),
+          provider_message_id: Type.Optional(Type.String()),
+        }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        400: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const userId = request.user?.sub;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const { id } = request.params as any;
+
+      // Check if user has edit permission (required to retry)
+      const rbacCheck = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map
+        WHERE empid = ${userId}
+          AND entity = 'marketing'
+          AND (entity_id = ${id} OR entity_id = 'all')
+          AND active_flag = true
+          AND (expires_ts IS NULL OR expires_ts > NOW())
+          AND 1 = ANY(permission)
+      `);
+
+      if (rbacCheck.length === 0) {
+        return reply.status(403).send({ error: 'Insufficient permissions to retry message' });
+      }
+
+      // Attempt retry via service
+      const result = await messageService.retryMessage(id);
+
+      if (!result.success) {
+        return reply.status(400).send({ error: result.error || 'Failed to retry message' });
+      }
+
+      return {
+        success: true,
+        message: 'Message retry successful',
+        delivery_status: result.delivery?.success ? 'sent' : 'failed',
+        provider_message_id: result.delivery?.provider_message_id
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to retry message' });
     }
   });
 }

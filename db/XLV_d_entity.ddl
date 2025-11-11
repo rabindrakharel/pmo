@@ -461,3 +461,37 @@ VALUES (
   child_entities = EXCLUDED.child_entities,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
+
+-- Message Schema entity type (Email/SMS/Push templates)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'message_schema',
+  'Message Schema',
+  'Message Schemas',
+  'Mail',
+  '[]'::jsonb,
+  240
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  child_entities = EXCLUDED.child_entities,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- Message entity type (Sent/scheduled messages)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'message',
+  'Message',
+  'Messages',
+  'Send',
+  '[]'::jsonb,
+  250
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  child_entities = EXCLUDED.child_entities,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
