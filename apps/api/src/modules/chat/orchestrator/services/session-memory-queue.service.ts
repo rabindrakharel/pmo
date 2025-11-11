@@ -30,16 +30,22 @@ export class SessionMemoryQueueService {
   private readonly RECONNECT_DELAY_MS = 5000;
 
   private isShuttingDown = false;
+  private isInitialized = false;
 
   constructor() {
     // RabbitMQ URL from environment or default to local
-    this.RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://localhost:5672';
+    this.RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://admin:admin123@localhost:5672';
   }
 
   /**
    * Initialize RabbitMQ connection and channels
    */
   async initialize(): Promise<void> {
+    if (this.isInitialized) {
+      console.log('[SessionMemoryQueue] Already initialized, skipping...');
+      return;
+    }
+
     try {
       console.log('[SessionMemoryQueue] 🐰 Connecting to RabbitMQ...');
 
@@ -95,15 +101,16 @@ export class SessionMemoryQueueService {
       console.log(`[SessionMemoryQueue]    Queue: ${this.QUEUE_NAME}`);
 
       this.reconnectAttempts = 0; // Reset reconnect counter on successful connection
+      this.isInitialized = true;
     } catch (error: any) {
       console.error('[SessionMemoryQueue] ❌ Failed to initialize:', error.message);
 
       if (this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
-        this.reconnect();
+        await this.reconnect();
       } else {
-        console.error('[SessionMemoryQueue] ❌ Max reconnection attempts reached. Giving up.');
-        console.warn('[SessionMemoryQueue] ⚠️  System will continue without RabbitMQ queue functionality.');
-        // Don't throw error - allow system to continue without queue
+        const fatalError = new Error(`Failed to initialize RabbitMQ after ${this.MAX_RECONNECT_ATTEMPTS} attempts: ${error.message}`);
+        console.error('[SessionMemoryQueue] ❌ FATAL:', fatalError.message);
+        throw fatalError;
       }
     }
   }
@@ -129,22 +136,16 @@ export class SessionMemoryQueueService {
    * Publish session memory update to queue
    */
   async publishUpdate(message: SessionMemoryUpdateMessage): Promise<void> {
-    if (!this.publishChannel) {
-      console.warn('[SessionMemoryQueue] ⚠️  Publish channel not ready, initializing...');
-      await this.initialize();
-
-      // If still no channel after initialization, RabbitMQ is not available
-      if (!this.publishChannel) {
-        console.warn('[SessionMemoryQueue] ⚠️  RabbitMQ not available, skipping message publish');
-        return;
-      }
+    if (!this.isInitialized || !this.publishChannel) {
+      console.warn('[SessionMemoryQueue] ⚠️  RabbitMQ not initialized, skipping message publish');
+      return;
     }
 
     try {
       const routingKey = `session.${message.sessionId}`;
       const messageBuffer = Buffer.from(JSON.stringify(message));
 
-      const published = this.publishChannel!.publish(
+      const published = this.publishChannel.publish(
         this.EXCHANGE_NAME,
         routingKey,
         messageBuffer,
@@ -163,7 +164,7 @@ export class SessionMemoryQueueService {
       console.log(`[SessionMemoryQueue] 📤 Published update for session ${message.sessionId} (operation: ${message.operation})`);
     } catch (error: any) {
       console.error('[SessionMemoryQueue] ❌ Failed to publish message:', error.message);
-      throw error;
+      // Don't throw error - allow system to continue without queue
     }
   }
 
@@ -171,16 +172,10 @@ export class SessionMemoryQueueService {
    * Start consuming messages from queue
    */
   async startConsumer(): Promise<void> {
-    if (!this.consumerChannel) {
-      console.warn('[SessionMemoryQueue] ⚠️  Consumer channel not ready, initializing...');
-      await this.initialize();
-    }
-
-    // Double-check channel is ready after initialization
-    if (!this.consumerChannel) {
-      console.warn('[SessionMemoryQueue] ⚠️  Consumer channel failed to initialize - RabbitMQ may not be available');
+    if (!this.isInitialized || !this.consumerChannel) {
+      console.warn('[SessionMemoryQueue] ⚠️  RabbitMQ not initialized, consumer will not start');
       console.warn('[SessionMemoryQueue] ⚠️  System will continue without message consumer');
-      return; // Don't throw error - allow system to continue without consumer
+      return;
     }
 
     try {
@@ -288,6 +283,8 @@ export class SessionMemoryQueueService {
         await this.connection.close();
         this.connection = null;
       }
+
+      this.isInitialized = false;
     } catch (error: any) {
       // Ignore cleanup errors
       console.warn('[SessionMemoryQueue] ⚠️  Cleanup error:', error.message);

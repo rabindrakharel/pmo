@@ -190,6 +190,7 @@ validate_all_ddls() {
         "XLVII_d_entity_instance_backfill.ddl"
         "XLVIII_d_entity_id_map.ddl"
         "XLIX_d_entity_id_rbac_map.ddl"
+        "L_d_cost.ddl"
     )
 
     for file in "${ddl_files[@]}"; do
@@ -219,7 +220,7 @@ drop_schema() {
 
 # Function to import all DDL files
 import_ddls() {
-    print_status $BLUE "📥 Importing 49 DDL files in dependency order (Roman numerals)..."
+    print_status $BLUE "📥 Importing 48 DDL files in dependency order (Roman numerals, VIII skipped)..."
 
     # I: Initial setup - Drop and recreate schema
     execute_sql "$DB_PATH/I_schemaCreate.ddl" "I: Schema setup (drop and recreate)"
@@ -234,10 +235,9 @@ import_ddls() {
     execute_sql "$DB_PATH/IV_d_office.ddl" "IV: Office entity (4-level hierarchy)"
     execute_sql "$DB_PATH/V_d_business.ddl" "V: Business entity (3-level hierarchy)"
 
-    # VI-IX: Supporting entities
+    # VI-VII, IX: Supporting entities (VIII skipped - position removed)
     execute_sql "$DB_PATH/VI_d_cust.ddl" "VI: Customer entities"
     execute_sql "$DB_PATH/VII_d_role.ddl" "VII: Role entities"
-    execute_sql "$DB_PATH/VIII_d_position.ddl" "VIII: Position entities"
     execute_sql "$DB_PATH/IX_d_worksite.ddl" "IX: Worksite entities"
 
     # X-XI: Product & Operations dimensions
@@ -300,7 +300,10 @@ import_ddls() {
     execute_sql "$DB_PATH/XLVIII_d_entity_id_map.ddl" "XLVIII: Entity instance relationships"
     execute_sql "$DB_PATH/XLIX_d_entity_id_rbac_map.ddl" "XLIX: RBAC permission mapping"
 
-    print_status $GREEN "✅ All 49 DDL files imported successfully (Roman numerals I-XLIX)"
+    # L: Cost tracking table
+    execute_sql "$DB_PATH/L_d_cost.ddl" "L: Cost tracking with attachments"
+
+    print_status $GREEN "✅ All 49 DDL files imported successfully (Roman numerals I-L, VIII skipped)"
 }
 
 # Function to validate schema after import
@@ -337,7 +340,6 @@ validate_schema() {
     local worksite_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_worksite;" 2>/dev/null | xargs || echo "0")
     local client_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_client;" 2>/dev/null | xargs || echo "0")
     local role_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_role;" 2>/dev/null | xargs || echo "0")
-    local position_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_position;" 2>/dev/null | xargs || echo "0")
 
     # Product dimension
     local product_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_product;" 2>/dev/null | xargs || echo "0")
@@ -372,7 +374,6 @@ validate_schema() {
     print_status $CYAN "     Worksites: $worksite_count"
     print_status $CYAN "     Clients: $client_count"
     print_status $CYAN "     Roles: $role_count"
-    print_status $CYAN "     Positions: $position_count"
 
     print_status $CYAN "   Product Catalog:"
     print_status $CYAN "     Products: $product_count"
@@ -415,7 +416,7 @@ validate_schema() {
 print_summary() {
     print_status $PURPLE "📋 IMPORT SUMMARY"
     print_status $PURPLE "=================="
-    print_status $CYAN "• PMO Enterprise schema with 49 DDL files (Roman numerals I-XLIX)"
+    print_status $CYAN "• PMO Enterprise schema with 49 DDL files (Roman numerals I-L, VIII skipped)"
     print_status $CYAN "• Dependency-ordered import in 15 logical layers"
     print_status $CYAN "• Head/data pattern for temporal entities"
     print_status $CYAN "• 4-level office hierarchy (Office → District → Region → Corporate)"
@@ -445,7 +446,7 @@ print_summary() {
 
 # Main execution
 main() {
-    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 48 DDL FILES (Roman Numerals I-XLIX, VIII Missing)"
+    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 49 DDL FILES (Roman Numerals I-L, VIII Missing)"
     print_status $PURPLE "=========================================================================="
 
     if [ "$DRY_RUN" = true ]; then

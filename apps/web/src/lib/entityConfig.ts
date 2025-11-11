@@ -320,24 +320,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/project',
 
     columns: generateStandardColumns(
-      ['name', 'code', 'descr', 'dl__project_stage', 'budget_allocated_amt', 'planned_start_date', 'planned_end_date'],
-      {
-        overrides: {
-          dl__project_stage: {
-            title: 'Stage'
-          },
-          budget_allocated_amt: {
-            title: 'Budget',
-            render: (value, record) => formatCurrency(value, record.budget_currency)
-          },
-          planned_start_date: {
-            title: 'Start Date'
-          },
-          planned_end_date: {
-            title: 'End Date'
-          }
-        }
-      }
+      ['name', 'code', 'descr', 'dl__project_stage', 'budget_allocated_amt', 'budget_spent_amt', 'planned_start_date', 'planned_end_date', 'actual_start_date', 'actual_end_date', 'complexity', 'priority', 'risk_level', 'project_type', 'manager_employee_id', 'created_ts', 'updated_ts']
     ),
 
     fields: [
@@ -366,31 +349,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     shareable: true,
 
     columns: generateStandardColumns(
-      ['name', 'code', 'descr', 'dl__task_stage', 'dl__task_priority', 'estimated_hours', 'actual_hours', 'assignee_employee_ids'],
-      {
-        overrides: {
-          dl__task_stage: {
-            title: 'Stage'
-          },
-          dl__task_priority: {
-            title: 'Priority'
-          },
-          estimated_hours: {
-            title: 'Est. Hours',
-            render: (value) => value ? `${value}h` : '-'
-          },
-          actual_hours: {
-            title: 'Actual Hours',
-            render: (value) => value ? `${value}h` : '-'
-          },
-          assignee_employee_ids: {
-            title: 'Assignees',
-            sortable: false,
-            filterable: false,
-            render: (value, record) => renderEmployeeNames(value, record)
-          }
-        }
-      }
+      ['name', 'code', 'descr', 'dl__task_stage', 'dl__task_priority', 'estimated_hours', 'actual_hours', 'task_type', 'story_points', 'deliverable', 'assignee_employee_ids', 'created_ts', 'updated_ts']
     ),
 
     fields: [
@@ -424,48 +383,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/wiki',
     shareable: true,
 
-    columns: generateColumns(['title', 'wiki_type', 'publication_status', 'category'], {
-      overrides: {
-        title: {
-          render: (value, record) => React.createElement(
-            'div',
-            null,
-            React.createElement(
-              'div',
-              { className: 'flex items-center gap-2' },
-              record.attr?.icon && React.createElement('span', { className: 'text-lg' }, record.attr.icon),
-              React.createElement('span', { className: 'font-medium text-dark-600' }, value)
-            )
-          )
-        },
-        wiki_type: {
-          title: 'Type',
-          render: (value) => renderBadge(value || 'page', {
-            'page': 'bg-dark-100 text-dark-600',
-            'template': 'bg-purple-100 text-purple-800',
-            'workflow': 'bg-green-100 text-green-800',
-            'guide': 'bg-yellow-100 text-yellow-800',
-            'policy': 'bg-red-100 text-red-800',
-            'checklist': 'bg-indigo-100 text-indigo-800'
-          })
-        },
-        publication_status: {
-          title: 'Status',
-          loadOptionsFromSettings: true,
-          render: (value) => {
-            const status = value || 'draft';
-            return renderBadge(status, {
-              'published': 'bg-green-100 text-green-800',
-              'draft': 'bg-yellow-100 text-yellow-800',
-              'review': 'bg-dark-100 text-dark-600',
-              'archived': 'bg-dark-100 text-dark-600',
-              'deprecated': 'bg-red-100 text-red-800',
-              'private': 'bg-purple-100 text-purple-800'
-            });
-          }
-        }
-      }
-    }),
+    columns: generateColumns(['title', 'wiki_type', 'publication_status', 'category']),
 
     fields: [
       { key: 'name', label: 'Name', type: 'text', required: true },
@@ -507,106 +425,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     shareable: true,
 
     columns: generateColumns(
-      ['name', 'artifact_type', 'visibility', 'security_classification', 'attachment_format', 'attachment_size_bytes', 'entity_type'],
-      {
-        overrides: {
-          name: {
-            width: '300px',
-            render: (value, record) => React.createElement(
-              'div',
-              { className: 'py-1' },
-              React.createElement(
-                'div',
-                { className: 'flex items-center gap-2 mb-0.5' },
-                React.createElement('div', { className: 'font-medium text-dark-600' }, value),
-                record.attachment_object_key && React.createElement(
-                  'div',
-                  { className: 'flex-shrink-0 w-2 h-2 rounded-full bg-green-500', title: 'File uploaded' },
-                  null
-                )
-              ),
-              record.descr && React.createElement('div', { className: 'text-xs text-dark-700 line-clamp-1 mb-1' }, record.descr),
-              React.createElement(
-                'div',
-                { className: 'flex items-center gap-1.5' },
-                record.version > 1 && React.createElement(
-                  'span',
-                  { className: 'inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-dark-100 text-dark-700 rounded border border-dark-400' },
-                  `v${record.version}`
-                ),
-                !record.attachment_object_key && React.createElement(
-                  'span',
-                  { className: 'inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 rounded border border-amber-200' },
-                  'No file'
-                )
-              )
-            )
-          },
-          artifact_type: {
-            title: 'Type',
-            width: '120px',
-            render: (value) => renderBadge(value, {
-              'document': 'bg-dark-100 text-dark-600',
-              'template': 'bg-purple-100 text-purple-800',
-              'image': 'bg-green-100 text-green-800',
-              'video': 'bg-rose-100 text-rose-800',
-              'spreadsheet': 'bg-emerald-100 text-emerald-800',
-              'presentation': 'bg-orange-100 text-orange-800'
-            })
-          },
-          visibility: {
-            width: '110px',
-            render: (value) => renderBadge(value, {
-              'public': 'bg-green-100 text-green-800',
-              'internal': 'bg-dark-100 text-dark-600',
-              'restricted': 'bg-amber-100 text-amber-800',
-              'private': 'bg-dark-100 text-dark-600'
-            })
-          },
-          security_classification: {
-            title: 'Security',
-            width: '120px',
-            render: (value) => renderBadge(value, {
-              'general': 'bg-dark-100 text-dark-600',
-              'confidential': 'bg-orange-100 text-orange-800',
-              'restricted': 'bg-red-100 text-red-800'
-            })
-          },
-          attachment_format: {
-            title: 'Format',
-            width: '90px',
-            render: (value) => value ? React.createElement(
-              'span',
-              { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-dark-100 text-dark-600 rounded border border-dark-300' },
-              value.toUpperCase()
-            ) : '-'
-          },
-          attachment_size_bytes: {
-            title: 'Size',
-            width: '90px',
-            align: 'right' as const,
-            render: (value) => {
-              if (!value) return '-';
-              const kb = value / 1024;
-              const mb = kb / 1024;
-              if (mb >= 1) {
-                return React.createElement('span', { className: 'text-dark-600 font-medium' }, `${mb.toFixed(1)} MB`);
-              }
-              return React.createElement('span', { className: 'text-dark-600 font-medium' }, `${kb.toFixed(0)} KB`);
-            }
-          },
-          entity_type: {
-            title: 'Linked To',
-            width: '110px',
-            render: (value) => value ? renderBadge(value, {
-              'project': 'bg-indigo-100 text-indigo-800',
-              'task': 'bg-cyan-100 text-cyan-800',
-              'office': 'bg-violet-100 text-violet-800',
-              'business': 'bg-fuchsia-100 text-fuchsia-800'
-            }) : '-'
-          }
-        }
-      }
+      ['name', 'code', 'artifact_type', 'visibility', 'security_classification', 'confidentiality', 'compliance_standard', 'attachment_format', 'attachment_size_bytes', 'entity_type', 'legal_review', 'created_by', 'created_ts', 'updated_ts']
     ),
 
     fields: [
@@ -677,13 +496,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/form',
     shareable: true,
 
-    columns: generateColumns(['name'], {
-      overrides: {
-        name: {
-          title: 'Form Name'
-        }
-      }
-    }),
+    columns: generateColumns(['name', 'code', 'form_type', 'descr', 'shared_url', 'internal_url', 'created_ts', 'updated_ts']),
 
     fields: [
       { key: 'name', label: 'Form Name', type: 'text', required: true },
@@ -712,17 +525,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/biz',
 
     columns: generateStandardColumns(
-      ['name', 'code', 'operational_status', 'current_headcount', 'descr'],
-      {
-        overrides: {
-          operational_status: {
-            title: 'Status'
-          },
-          current_headcount: {
-            title: 'Headcount'
-          }
-        }
-      }
+      ['name', 'code', 'operational_status', 'current_headcount', 'office_id', 'descr', 'active_flag', 'created_ts', 'updated_ts']
     ),
 
     fields: [
@@ -750,28 +553,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     pluralName: 'Offices',
     apiEndpoint: '/api/v1/office',
 
-    columns: generateColumns(['name', 'city', 'province', 'office_type'], {
-      overrides: {
-        name: {
-          title: 'Office Name',
-          render: (value, record) => React.createElement(
-            'div',
-            null,
-            React.createElement('div', { className: 'font-medium text-dark-600' }, value),
-            record.address_line1 && React.createElement('div', { className: 'text-sm text-dark-700 truncate max-w-xs' }, record.address_line1)
-          )
-        },
-        city: {
-          title: 'City'
-        },
-        province: {
-          title: 'Province'
-        },
-        office_type: {
-          title: 'Type'
-        }
-      }
-    }),
+    columns: generateColumns(['name', 'code', 'city', 'province', 'country', 'office_type', 'phone', 'email', 'postal_code', 'capacity_employees', 'square_footage', 'created_ts', 'updated_ts']),
 
     fields: [
       { key: 'name', label: 'Office Name', type: 'text', required: true },
@@ -804,22 +586,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     pluralName: 'Employees',
     apiEndpoint: '/api/v1/employee',
 
-    columns: generateColumns(['name', 'employee_number'], {
-      overrides: {
-        name: {
-          title: 'Employee Name',
-          render: (value, record) => React.createElement(
-            'div',
-            null,
-            React.createElement('div', { className: 'font-medium text-dark-600' }, value),
-            record.email && React.createElement('div', { className: 'text-sm text-dark-700' }, record.email)
-          )
-        },
-        employee_number: {
-          title: 'Employee #'
-        }
-      }
-    }),
+    columns: generateColumns(['name', 'code', 'email', 'phone', 'mobile', 'title', 'department', 'employee_type', 'hire_date', 'city', 'province', 'tags', 'created_ts', 'updated_ts']),
 
     fields: [
       { key: 'employee_number', label: 'Employee Number', type: 'text', required: true },
@@ -912,29 +679,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/cust',
 
     columns: generateStandardColumns(
-      ['name', 'code', 'descr', 'dl__customer_opportunity_funnel', 'dl__industry_sector', 'dl__acquisition_channel', 'dl__customer_tier'],
-      {
-        overrides: {
-          name: {
-            title: 'Customer Name'
-          },
-          code: {
-            title: 'Customer Code'
-          },
-          dl__customer_opportunity_funnel: {
-            title: 'Opportunity Funnel'
-          },
-          dl__industry_sector: {
-            title: 'Industry Sector'
-          },
-          dl__acquisition_channel: {
-            title: 'Acquisition Channel'
-          },
-          dl__customer_tier: {
-            title: 'Customer Tier'
-          }
-        }
-      }
+      ['name', 'code', 'cust_number', 'cust_type', 'cust_status', 'primary_contact_name', 'primary_email', 'primary_phone', 'city', 'province', 'postal_code', 'business_type', 'dl__customer_opportunity_funnel', 'dl__industry_sector', 'dl__acquisition_channel', 'dl__customer_tier', 'created_ts', 'updated_ts']
     ),
 
     fields: [
@@ -2015,30 +1760,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/service',
 
     columns: generateStandardColumns(
-      ['name', 'code', 'service_category', 'standard_rate_amt', 'estimated_hours', 'minimum_charge_amt', 'taxable_flag', 'created_ts'],
-      {
-        overrides: {
-          service_category: {
-            title: 'Category'
-          },
-          standard_rate_amt: {
-            title: 'Rate',
-            render: (value) => formatCurrency(value)
-          },
-          estimated_hours: {
-            title: 'Est. Hours',
-            render: (value) => value ? `${value}h` : '-'
-          },
-          minimum_charge_amt: {
-            title: 'Min. Charge',
-            render: (value) => formatCurrency(value)
-          },
-          taxable_flag: {
-            title: 'Taxable',
-            render: (value) => value ? 'Yes' : 'No'
-          }
-        }
-      }
+      ['name', 'code', 'service_category', 'standard_rate_amt', 'estimated_hours', 'minimum_charge_amt', 'skill_level', 'equipment_required', 'permit_required', 'requires_certification_flag', 'warranty_months', 'taxable_flag', 'created_ts', 'updated_ts']
     ),
 
     // ✅ DRY Pattern: Using field generators for automatic field definitions
@@ -2081,32 +1803,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/product',
 
     columns: generateStandardColumns(
-      ['name', 'code', 'product_category', 'unit_price_amt', 'cost_amt', 'on_hand_qty', 'unit_of_measure', 'supplier_name', 'created_ts'],
-      {
-        overrides: {
-          product_category: {
-            title: 'Category'
-          },
-          unit_price_amt: {
-            title: 'Price',
-            render: (value) => formatCurrency(value)
-          },
-          cost_amt: {
-            title: 'Cost',
-            render: (value) => formatCurrency(value)
-          },
-          on_hand_qty: {
-            title: 'On Hand',
-            align: 'right' as const
-          },
-          unit_of_measure: {
-            title: 'UOM'
-          },
-          supplier_name: {
-            title: 'Supplier'
-          }
-        }
-      }
+      ['name', 'code', 'style', 'sku', 'upc', 'product_category', 'dl__product_brand', 'item_level', 'tran_level', 'unit_of_measure', 'reorder_level_qty', 'reorder_qty', 'taxable_flag', 'supplier_part_number', 'active_flag', 'created_ts', 'updated_ts']
     ),
 
     // ✅ DRY Pattern: Using field generators for automatic field definitions
@@ -2152,29 +1849,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     shareable: true,
 
     columns: generateStandardColumns(
-      ['name', 'code', 'dl__quote_stage', 'quote_total_amt', 'customer_name', 'valid_until_date', 'sent_date', 'created_ts'],
-      {
-        overrides: {
-          dl__quote_stage: {
-            title: 'Stage'
-          },
-          quote_total_amt: {
-            title: 'Total',
-            render: (value) => formatCurrency(value)
-          },
-          customer_name: {
-            title: 'Customer'
-          },
-          valid_until_date: {
-            title: 'Valid Until',
-            render: renderDate
-          },
-          sent_date: {
-            title: 'Sent',
-            render: renderDate
-          }
-        }
-      }
+      ['name', 'code', 'dl__quote_stage', 'customer_name', 'customer_email', 'customer_phone', 'subtotal_amt', 'discount_amt', 'tax_amt', 'quote_total_amt', 'valid_until_date', 'prepared_by', 'created_ts', 'updated_ts']
     ),
 
     // ✅ DRY Pattern: Using field generators for automatic field definitions
@@ -2235,35 +1910,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     shareable: true,
 
     columns: generateStandardColumns(
-      ['name', 'code', 'dl__work_order_status', 'scheduled_date', 'assigned_technician_ids', 'total_cost_amt', 'customer_name', 'customer_signature_flag', 'created_ts'],
-      {
-        overrides: {
-          dl__work_order_status: {
-            title: 'Status'
-          },
-          scheduled_date: {
-            title: 'Scheduled',
-            render: renderDate
-          },
-          assigned_technician_ids: {
-            title: 'Technicians',
-            sortable: false,
-            filterable: false,
-            render: (value, record) => renderEmployeeNames(value, record)
-          },
-          total_cost_amt: {
-            title: 'Total Cost',
-            render: (value) => formatCurrency(value)
-          },
-          customer_name: {
-            title: 'Customer'
-          },
-          customer_signature_flag: {
-            title: 'Signed',
-            render: (value) => value ? '✓' : '-'
-          }
-        }
-      }
+      ['name', 'code', 'dl__work_order_status', 'customer_name', 'scheduled_date', 'started_ts', 'completed_ts', 'labor_hours', 'labor_cost_amt', 'materials_cost_amt', 'total_cost_amt', 'phase', 'total_phases', 'quote_id', 'customer_signature_flag', 'created_ts', 'updated_ts']
     ),
 
     // ✅ DRY Pattern: Using field generators for automatic field definitions
@@ -2340,26 +1987,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/workflow',
 
     columns: generateStandardColumns(
-      ['workflow_instance_id', 'workflow_template_name', 'industry_sector', 'current_state_name', 'customer_entity_id', 'created_ts'],
-      {
-        overrides: {
-          workflow_instance_id: {
-            title: 'Instance ID'
-          },
-          workflow_template_name: {
-            title: 'Template'
-          },
-          industry_sector: {
-            title: 'Industry'
-          },
-          current_state_name: {
-            title: 'Current State'
-          },
-          customer_entity_id: {
-            title: 'Customer'
-          }
-        }
-      }
+      ['workflow_instance_id', 'code', 'name', 'workflow_template_name', 'workflow_template_code', 'industry_sector', 'current_state_name', 'current_state_id', 'entity_name', 'entity_id', 'terminal_flag', 'created_ts', 'updated_ts']
     ),
 
     fields: [
@@ -2390,7 +2018,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     shareable: true,
 
     columns: generateStandardColumns(
-      ['name', 'code', 'event_type', 'event_platform_provider_name', 'from_ts', 'to_ts', 'event_addr']
+      ['name', 'code', 'event_type', 'event_platform_provider_name', 'from_ts', 'to_ts', 'timezone', 'event_addr', 'event_instructions', 'created_ts']
     ),
 
     fields: [
@@ -2433,149 +2061,6 @@ export const entityConfigs: Record<string, EntityConfig> = {
   },
 
   // --------------------------------------------------------------------------
-  // BOOKING (Service Appointments)
-  // --------------------------------------------------------------------------
-  booking: {
-    name: 'booking',
-    displayName: 'Booking',
-    pluralName: 'Bookings',
-    apiEndpoint: '/api/v1/booking',
-
-    columns: generateStandardColumns(
-      ['booking_number', 'customer_name', 'service_name', 'requested_date', 'requested_time_start', 'booking_status', 'assigned_employee_name', 'urgency_level', 'created_ts'],
-      {
-        overrides: {
-          booking_number: {
-            title: 'Booking #',
-            sortable: true
-          },
-          customer_name: {
-            title: 'Customer',
-            sortable: true
-          },
-          service_name: {
-            title: 'Service',
-            sortable: true
-          },
-          requested_date: {
-            title: 'Date',
-            sortable: true
-          },
-          requested_time_start: {
-            title: 'Time',
-            sortable: true
-          },
-          booking_status: {
-            title: 'Status',
-            sortable: true,
-            render: (value) => {
-              const statusColors: Record<string, string> = {
-                'pending': 'bg-yellow-100 text-yellow-800',
-                'confirmed': 'bg-blue-100 text-blue-800',
-                'assigned': 'bg-indigo-100 text-indigo-800',
-                'in_progress': 'bg-purple-100 text-purple-800',
-                'completed': 'bg-green-100 text-green-800',
-                'cancelled': 'bg-red-100 text-red-800',
-                'no_show': 'bg-dark-100 text-dark-600'
-              };
-              return renderBadge(value || 'pending', statusColors);
-            }
-          },
-          assigned_employee_name: {
-            title: 'Assigned To',
-            sortable: true
-          },
-          urgency_level: {
-            title: 'Urgency',
-            sortable: true,
-            render: (value) => {
-              const urgencyColors: Record<string, string> = {
-                'low': 'bg-dark-100 text-dark-600',
-                'normal': 'bg-blue-100 text-blue-800',
-                'high': 'bg-orange-100 text-orange-800',
-                'emergency': 'bg-red-100 text-red-800'
-              };
-              return renderBadge(value || 'normal', urgencyColors);
-            }
-          }
-        }
-      }
-    ),
-
-    fields: [
-      { key: 'name', label: 'Booking Name', type: 'text', required: true },
-      { key: 'code', label: 'Code', type: 'text', required: true },
-      { key: 'booking_number', label: 'Booking Number', type: 'text', required: true },
-      { key: 'descr', label: 'Description', type: 'textarea' },
-
-      // Customer Information
-      { key: 'customer_name', label: 'Customer Name', type: 'text', required: true },
-      { key: 'customer_email', label: 'Customer Email', type: 'text' },
-      { key: 'customer_phone', label: 'Customer Phone', type: 'text', required: true },
-      { key: 'customer_address', label: 'Address', type: 'text' },
-      { key: 'customer_city', label: 'City', type: 'text' },
-      { key: 'customer_province', label: 'Province', type: 'text' },
-      { key: 'customer_postal_code', label: 'Postal Code', type: 'text' },
-
-      // Service Details
-      { key: 'service_id', label: 'Service', type: 'select', loadOptionsFromEntity: 'service', required: true },
-      { key: 'service_name', label: 'Service Name', type: 'text', readonly: true },
-      { key: 'service_category', label: 'Service Category', type: 'text', readonly: true },
-
-      // Scheduling
-      { key: 'requested_date', label: 'Requested Date', type: 'date', required: true },
-      { key: 'requested_time_start', label: 'Start Time', type: 'text' },
-      { key: 'requested_time_end', label: 'End Time', type: 'text' },
-      { key: 'scheduled_ts', label: 'Scheduled', type: 'timestamp' },
-
-      // Assignment
-      { key: 'assigned_employee_id', label: 'Assigned Employee', type: 'select', loadOptionsFromEntity: 'employee' },
-      { key: 'assigned_employee_name', label: 'Assigned To', type: 'text', readonly: true },
-
-      // Status & Priority
-      { key: 'booking_status', label: 'Status', type: 'select', options: [
-        { value: 'pending', label: 'Pending' },
-        { value: 'confirmed', label: 'Confirmed' },
-        { value: 'assigned', label: 'Assigned' },
-        { value: 'in_progress', label: 'In Progress' },
-        { value: 'completed', label: 'Completed' },
-        { value: 'cancelled', label: 'Cancelled' },
-        { value: 'no_show', label: 'No Show' }
-      ]},
-      { key: 'urgency_level', label: 'Urgency', type: 'select', options: [
-        { value: 'low', label: 'Low' },
-        { value: 'normal', label: 'Normal' },
-        { value: 'high', label: 'High' },
-        { value: 'emergency', label: 'Emergency' }
-      ]},
-
-      // Pricing
-      { key: 'estimated_cost_amt', label: 'Estimated Cost', type: 'number' },
-      { key: 'quoted_cost_amt', label: 'Quoted Cost', type: 'number' },
-      { key: 'final_cost_amt', label: 'Final Cost', type: 'number' },
-
-      // Additional Info
-      { key: 'special_instructions', label: 'Special Instructions', type: 'textarea' },
-      { key: 'property_access_instructions', label: 'Property Access', type: 'textarea' },
-      { key: 'parking_instructions', label: 'Parking Instructions', type: 'textarea' },
-      { key: 'pet_information', label: 'Pet Information', type: 'textarea' },
-
-      // Feedback
-      { key: 'customer_rating', label: 'Customer Rating', type: 'number' },
-      { key: 'customer_feedback', label: 'Customer Feedback', type: 'textarea' },
-
-      // Metadata
-      { key: 'booking_source', label: 'Source', type: 'text', readonly: true },
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
-      { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
-      { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
-    ],
-
-    supportedViews: ['table'],
-    defaultView: 'table'
-  },
-
-  // --------------------------------------------------------------------------
   // PERSON CALENDAR (Universal Availability/Booking Calendar)
   // --------------------------------------------------------------------------
   person_calendar: {
@@ -2585,70 +2070,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/person-calendar',
 
     columns: generateStandardColumns(
-      ['person_entity_type', 'from_ts', 'to_ts', 'availability_flag', 'title', 'appointment_medium', 'created_ts'],
-      {
-        overrides: {
-          person_entity_type: {
-            title: 'Type',
-            sortable: true,
-            render: (value) => {
-              const typeColors: Record<string, string> = {
-                'employee': 'bg-blue-100 text-blue-800',
-                'client': 'bg-green-100 text-green-800',
-                'customer': 'bg-purple-100 text-purple-800'
-              };
-              return renderBadge(value || 'employee', typeColors);
-            }
-          },
-          from_ts: {
-            title: 'Start Time',
-            sortable: true,
-            render: (value) => value ? new Date(value).toLocaleString('en-CA', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            }) : '-'
-          },
-          to_ts: {
-            title: 'End Time',
-            sortable: true,
-            render: (value) => value ? new Date(value).toLocaleString('en-CA', {
-              hour: '2-digit',
-              minute: '2-digit'
-            }) : '-'
-          },
-          availability_flag: {
-            title: 'Status',
-            sortable: true,
-            render: (value) => {
-              const statusColors: Record<string, string> = {
-                'true': 'bg-green-100 text-green-800',
-                'false': 'bg-red-100 text-red-800'
-              };
-              const displayValue = value ? 'Available' : 'Booked';
-              return renderBadge(displayValue, statusColors);
-            }
-          },
-          title: {
-            title: 'Appointment',
-            sortable: true
-          },
-          appointment_medium: {
-            title: 'Medium',
-            sortable: true,
-            render: (value) => {
-              if (!value) return '-';
-              const mediumColors: Record<string, string> = {
-                'onsite': 'bg-blue-100 text-blue-800',
-                'virtual': 'bg-purple-100 text-purple-800'
-              };
-              return renderBadge(value, mediumColors);
-            }
-          }
-        }
-      }
+      ['name', 'code', 'person_entity_type', 'person_entity_id', 'event_id', 'from_ts', 'to_ts', 'timezone', 'availability_flag', 'title', 'appointment_medium', 'appointment_addr', 'instructions', 'confirmation_sent_flag', 'reminder_sent_flag', 'created_ts', 'updated_ts']
     ),
 
     fields: [
@@ -2722,93 +2144,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/interaction',
 
     columns: generateStandardColumns(
-      ['interaction_number', 'interaction_type', 'channel', 'interaction_ts', 'sentiment_label', 'priority_level', 'content_summary', 'created_ts'],
-      {
-        overrides: {
-          interaction_number: {
-            title: 'Interaction #',
-            sortable: true
-          },
-          interaction_type: {
-            title: 'Type',
-            sortable: true,
-            render: (value) => {
-              const typeColors: Record<string, string> = {
-                'voice_call': 'bg-blue-100 text-blue-800',
-                'chat': 'bg-green-100 text-green-800',
-                'email': 'bg-purple-100 text-purple-800',
-                'sms': 'bg-yellow-100 text-yellow-800',
-                'video_call': 'bg-indigo-100 text-indigo-800',
-                'social_media': 'bg-pink-100 text-pink-800',
-                'in_person': 'bg-gray-100 text-gray-800'
-              };
-              return renderBadge(value || 'chat', typeColors);
-            }
-          },
-          channel: {
-            title: 'Channel',
-            sortable: true,
-            render: (value) => {
-              const channelColors: Record<string, string> = {
-                'phone': 'bg-blue-100 text-blue-800',
-                'live_chat': 'bg-green-100 text-green-800',
-                'whatsapp': 'bg-green-100 text-green-800',
-                'email': 'bg-purple-100 text-purple-800',
-                'facebook': 'bg-blue-100 text-blue-800',
-                'twitter': 'bg-sky-100 text-sky-800',
-                'zoom': 'bg-indigo-100 text-indigo-800',
-                'in_store': 'bg-gray-100 text-gray-800'
-              };
-              return renderBadge(value || 'phone', channelColors);
-            }
-          },
-          interaction_ts: {
-            title: 'Date',
-            sortable: true,
-            render: (value) => value ? new Date(value).toLocaleString('en-CA', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            }) : '-'
-          },
-          sentiment_label: {
-            title: 'Sentiment',
-            sortable: true,
-            render: (value) => {
-              if (!value) return '-';
-              const sentimentColors: Record<string, string> = {
-                'positive': 'bg-green-100 text-green-800',
-                'neutral': 'bg-gray-100 text-gray-800',
-                'negative': 'bg-red-100 text-red-800',
-                'mixed': 'bg-yellow-100 text-yellow-800'
-              };
-              return renderBadge(value, sentimentColors);
-            }
-          },
-          priority_level: {
-            title: 'Priority',
-            sortable: true,
-            render: (value) => {
-              if (!value) return '-';
-              const priorityColors: Record<string, string> = {
-                'low': 'bg-gray-100 text-gray-800',
-                'normal': 'bg-blue-100 text-blue-800',
-                'high': 'bg-orange-100 text-orange-800',
-                'urgent': 'bg-red-100 text-red-800',
-                'critical': 'bg-red-100 text-red-800'
-              };
-              return renderBadge(value, priorityColors);
-            }
-          },
-          content_summary: {
-            title: 'Summary',
-            sortable: false,
-            render: (value) => value ? (value.length > 100 ? value.substring(0, 100) + '...' : value) : '-'
-          }
-        }
-      }
+      ['interaction_number', 'interaction_type', 'interaction_subtype', 'channel', 'interaction_ts', 'duration_seconds', 'wait_time_seconds', 'talk_time_seconds', 'sentiment_score', 'sentiment_label', 'customer_satisfaction_score', 'emotion_tags', 'interaction_reason', 'interaction_category', 'priority_level', 'consent_recorded', 'attachment_count', 'content_summary', 'created_ts', 'updated_ts']
     ),
 
     fields: [
@@ -2903,47 +2239,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/person-calendar',
 
     columns: generateStandardColumns(
-      ['name', 'person_entity_type', 'from_ts', 'to_ts', 'availability_flag', 'title', 'appointment_medium', 'created_ts'],
-      {
-        overrides: {
-          person_entity_type: {
-            title: 'Person Type',
-            width: '110px',
-            render: (value) => renderBadge(value || 'employee', {
-              'employee': 'bg-blue-100 text-blue-800',
-              'client': 'bg-green-100 text-green-800',
-              'customer': 'bg-purple-100 text-purple-800'
-            })
-          },
-          from_ts: {
-            title: 'From',
-            render: renderTimestamp
-          },
-          to_ts: {
-            title: 'To',
-            render: renderTimestamp
-          },
-          availability_flag: {
-            title: 'Available',
-            width: '100px',
-            render: (value) => renderBadge(value ? 'Available' : 'Booked', {
-              'Available': 'bg-green-100 text-green-800',
-              'Booked': 'bg-red-100 text-red-800'
-            })
-          },
-          title: {
-            title: 'Event Title'
-          },
-          appointment_medium: {
-            title: 'Medium',
-            width: '100px',
-            render: (value) => value ? renderBadge(value, {
-              'onsite': 'bg-blue-100 text-blue-800',
-              'virtual': 'bg-purple-100 text-purple-800'
-            }) : '-'
-          }
-        }
-      }
+      ['name', 'code', 'person_entity_type', 'person_entity_id', 'event_id', 'from_ts', 'to_ts', 'timezone', 'availability_flag', 'title', 'appointment_medium', 'appointment_addr', 'instructions', 'confirmation_sent_flag', 'reminder_sent_flag', 'created_ts', 'updated_ts']
     ),
 
     fields: [
@@ -3037,7 +2333,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/message-schema',
 
     columns: generateStandardColumns(
-      ['name', 'code', 'message_delivery_method', 'status', 'subject', 'from_email', 'sms_sender_id'],
+      ['code', 'name', 'message_delivery_method', 'status', 'subject', 'from_email', 'from_name', 'sms_sender_id', 'created_ts'],
       {
         overrides: {
           message_delivery_method: {
@@ -3113,7 +2409,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/message-data',
 
     columns: generateStandardColumns(
-      ['name', 'message_delivery_method', 'status', 'recipient_email', 'recipient_phone', 'recipient_name', 'scheduled_ts', 'sent_ts', 'delivered_ts'],
+      ['code', 'message_delivery_method', 'status', 'recipient_email', 'recipient_phone', 'recipient_name', 'subject', 'scheduled_ts', 'sent_ts', 'delivered_ts', 'created_ts'],
       {
         overrides: {
           message_delivery_method: {
@@ -3179,7 +2475,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/office-hierarchy',
 
     columns: generateStandardColumns(
-      ['name', 'code', 'dl__office_hierarchy_level', 'manager_name', 'parent_name', 'budget_allocated_amt']
+      ['code', 'name', 'dl__office_hierarchy_level', 'parent_id', 'manager_employee_id', 'budget_allocated_amt', 'created_ts']
     ),
 
     fields: [
@@ -3207,7 +2503,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/business-hierarchy',
 
     columns: generateStandardColumns(
-      ['name', 'code', 'dl__business_hierarchy_level', 'manager_name', 'parent_name', 'budget_allocated_amt']
+      ['code', 'name', 'dl__business_hierarchy_level', 'parent_id', 'manager_employee_id', 'budget_allocated_amt', 'created_ts']
     ),
 
     fields: [
@@ -3235,7 +2531,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
     apiEndpoint: '/api/v1/product-hierarchy',
 
     columns: generateStandardColumns(
-      ['name', 'code', 'dl__product_hierarchy_level', 'parent_name']
+      ['code', 'name', 'dl__product_hierarchy_level', 'parent_id', 'created_ts']
     ),
 
     fields: [
