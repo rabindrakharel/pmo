@@ -8,12 +8,13 @@ Multi-person availability and booking management system for PMO platform.
 
 ### Primary Documentation
 
-**[BOOKING_CALENDAR_SYSTEM.md](../../BOOKING_CALENDAR_SYSTEM.md)** - **⭐ NEW: Complete unified booking system**
-- Unified person-calendar service (event + calendar + RSVP + notifications)
-- End-to-end booking workflows
-- Email/SMS calendar invites (.ics files)
-- Enriched calendar API
-- Testing & deployment
+**[PERSON_CALENDAR_SYSTEM.md](../PERSON_CALENDAR_SYSTEM.md)** - **⭐ Complete unified person-calendar system**
+- Orchestrates Event, Calendar, and Message entities
+- Semantic model: Event + Person = Calendar
+- RBAC-based event ownership (permission[5])
+- Email/SMS calendar invites via AWS SES/SNS
+- Enriched calendar API with full event details
+- Testing & deployment guide
 
 **[CALENDAR_SYSTEM.md](./CALENDAR_SYSTEM.md)** - Calendar UI & availability tracking
 - Architecture & design patterns
@@ -36,18 +37,21 @@ Multi-person availability and booking management system for PMO platform.
 http://localhost:5173/calendar
 ```
 
-**Entity Code:** `calendar` (person-calendar entity)
+**Entity Code:** `person-calendar`
 **API Endpoints:**
 - `/api/v1/person-calendar` - Calendar slots (availability)
 - `/api/v1/person-calendar/enriched` - Calendar with full event details
-- `/api/v1/booking/create` - Unified booking service
-- `/api/v1/event` - Event entity
+- `/api/v1/booking/create` - Unified person-calendar service (orchestration)
+- `/api/v1/booking/:eventId/cancel` - Cancel person-calendar
+- `/api/v1/booking/:eventId/reschedule` - Reschedule person-calendar
+- `/api/v1/event` - Event entity CRUD
 
 **Database Tables:**
-- `d_entity_person_calendar` - Calendar availability slots
-- `d_event` - Event details
-- `d_entity_event_person_calendar` - Event RSVP tracking
-- `d_entity_id_map` - Entity linkages
+- `d_event` - Event details (what/when/where)
+- `d_entity_person_calendar` - Availability slots + event link
+- `d_entity_event_person_calendar` - RSVP tracking (attendance)
+- `d_entity_id_map` - Entity relationships (event → service, customer)
+- `entity_id_rbac_map` - Event ownership (permission[5])
 
 ---
 
@@ -62,25 +66,32 @@ http://localhost:5173/calendar
 - ✅ Table and Calendar view modes
 - ✅ Drag-and-drop event creation/rescheduling
 
-### Unified Booking System (NEW)
-- ✅ **One API call** creates complete booking:
-  - Event in `d_event`
-  - Attendees with RSVP in `d_entity_event_person_calendar`
-  - Calendar slots booked in `d_entity_person_calendar`
-  - Entity linkages in `d_entity_id_map`
-  - Email/SMS notifications with .ics calendar invites
+### Unified Person-Calendar Service (Orchestration)
+- ✅ **One API call** creates complete person-calendar booking:
+  1. Event in `d_event` (what/when/where)
+  2. Attendees with RSVP in `d_entity_event_person_calendar`
+  3. Calendar slots booked in `d_entity_person_calendar` (availability → booked)
+  4. Entity relationships in `d_entity_id_map` (event → service, customer)
+  5. Event ownership in `entity_id_rbac_map` (assigned employee gets permission[5])
+  6. Email/SMS notifications via messaging service (AWS SES/SNS)
 
-- ✅ **Email Calendar Invites**:
-  - Compatible with Outlook, Gmail, iCloud
+- ✅ **Email Calendar Invites** (.ics via AWS SES):
+  - Compatible with Outlook, Gmail, iCloud, Apple Calendar
   - Automatic calendar blocking
-  - Includes meeting details, location, attendees
+  - MIME multipart with base64-encoded attachments
+  - Includes meeting details, location, attendees, RSVP tracking
   - Supports onsite and virtual meetings
 
+- ✅ **SMS Notifications** (via AWS SNS):
+  - E.164 phone format (+14165551234)
+  - Concise appointment confirmations
+  - Booking reference numbers
+
 - ✅ **Enriched Calendar API**:
-  - Returns calendar slots with full event details
-  - Person information (name, email)
+  - Returns calendar slots with full event details in one query
+  - Person information (name, email, entity type)
   - Attendees list with RSVP status
-  - No need for multiple API calls
+  - Eliminates N+1 query problems
 
 ---
 
@@ -95,11 +106,25 @@ http://localhost:5173/calendar
 - `EntityMainPage.tsx` - Universal page with view switcher
 - `FilteredDataTable.tsx` - Standard table view
 
-**Services:**
-- `person-calendar-service.routes.ts` - **NEW: Unified booking orchestration**
-- `calendar-enriched.routes.ts` - **NEW: Enriched calendar data**
-- `booking.service.ts` - **NEW: Complete booking workflow**
-- `email.service.ts` - Email + .ics calendar invite generation
+**Services (apps/api/src/modules/person-calendar/):**
+- `person-calendar-service.routes.ts` - Unified person-calendar orchestration
+- `person-calendar.service.ts` - Core orchestration logic
+- `messaging.service.ts` - Email/SMS notifications (AWS SES/SNS)
+- `calendar-enriched.routes.ts` - Enriched calendar data API
+
+**Semantic Model:**
+```
+Event (d_event) + Person (employee/customer) = Calendar
+
+Calendar = {
+  d_entity_person_calendar:          Availability slots + event link
+  d_entity_event_person_calendar:    RSVP tracking
+}
+
+Ownership → entity_id_rbac_map (permission[5])
+Relationships → d_entity_id_map
+Messages → Messaging service (AWS SES/SNS)
+```
 
 ---
 

@@ -1,12 +1,27 @@
 /**
  * Person Calendar Service
- * Orchestrates the complete person-calendar booking flow:
- * 1. Create event in d_event
+ * Orchestrates the complete person-calendar booking flow by bringing together
+ * three independent but interrelated entities: Event, Calendar, and Message
+ *
+ * SEMANTIC MODEL:
+ * - Event (d_event): Independent entity with event details (what/when/where)
+ * - Person (employee/customer): Independent entities (who)
+ * - Calendar: Construct where Event + Person come together via:
+ *   * d_entity_person_calendar: Person availability slots + event link
+ *   * d_entity_event_person_calendar: RSVP tracking (who's attending what)
+ * - Message: Independent entity sent via messaging service (email/SMS)
+ * - Ownership: Event owner stored in entity_id_rbac_map (permission[5])
+ * - Relationships: Event relationships in d_entity_id_map (event → service, customer)
+ *
+ * ORCHESTRATION FLOW:
+ * 1. Create event in d_event (event details: from_ts, to_ts, location, etc.)
  * 2. Link attendees in d_entity_event_person_calendar (RSVP tracking)
- * 3. Book calendar slots in d_entity_person_calendar (mark unavailable)
- * 4. Link entities in d_entity_id_map (event → service, customer, etc.)
- * 5. Send email/SMS notifications with calendar invites
- * @module booking/person-calendar.service
+ * 3. Book calendar slots in d_entity_person_calendar (mark unavailable, link event_id)
+ * 4. Link entities in d_entity_id_map (event → service, customer, project)
+ * 5. Grant event ownership in entity_id_rbac_map (assigned employee gets permission[5])
+ * 6. Send email/SMS notifications via messaging service (calendar invites)
+ *
+ * @module person-calendar/person-calendar.service
  */
 
 import { client } from '../../db/index.js';

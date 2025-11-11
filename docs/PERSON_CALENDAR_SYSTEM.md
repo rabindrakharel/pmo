@@ -4,14 +4,47 @@
 
 ## 🎯 Overview
 
-The PMO platform implements a comprehensive person-calendar system that ties together three independent but interrelated entities:
-- **Events** (`d_event`) - What is happening (independent entity)
-- **Calendar** (`d_entity_person_calendar`) - Who is available when (independent entity)
-- **Messages** - Email/SMS notifications (independent entity via messaging service)
-- **RSVP Tracking** (`d_entity_event_person_calendar`) - Who is attending events
-- **Entity Linkages** (`d_entity_id_map`) - Related entities (service, customer, project)
+The PMO platform implements a comprehensive person-calendar system that orchestrates three independent but interrelated entities: **Event**, **Calendar**, and **Message**.
 
-The person-calendar service orchestrates these three entities to create a unified booking experience with calendar invites (.ics files) sent via AWS SES (email) and AWS SNS (SMS).
+### Core Entities
+
+1. **Event** (`d_event`) - Independent entity
+   - **What** is happening (meeting, appointment, consultation)
+   - **When** it happens (from_ts, to_ts, timezone)
+   - **Where** it happens (event_addr, event_platform)
+   - Event metadata (type, instructions, urgency)
+
+2. **Person** (employee/customer) - Independent entities
+   - Employees (`d_employee`)
+   - Customers (`d_cust`)
+
+3. **Calendar** - Construct where Event + Person come together:
+   - **`d_entity_person_calendar`**: Availability slots + event link
+     - Tracks WHO is available WHEN (15-minute slots)
+     - Links to events via `event_id` when booked
+     - `availability_flag`: true = available, false = booked
+   - **`d_entity_event_person_calendar`**: RSVP tracking
+     - Tracks WHO is attending WHAT event
+     - RSVP status: pending, accepted, declined
+     - Separate from availability - attendance confirmation
+
+4. **Message** - Independent entity
+   - Email calendar invites (.ics) via AWS SES
+   - SMS notifications via AWS SNS
+   - Sent by messaging service
+
+5. **Ownership** - Via RBAC system
+   - Stored in `entity_id_rbac_map`
+   - `permission[5] = Owner` (full control)
+   - Assigned employee owns the event
+
+6. **Relationships** - Via linkage system
+   - Stored in `d_entity_id_map`
+   - Links: event → service, customer, project
+
+### Key Principle: Event + Person = Calendar
+
+**Calendar is not a separate entity** - it's a construct that emerges when events and people are linked together through `d_entity_person_calendar` (availability + event link) and `d_entity_event_person_calendar` (RSVP tracking).
 
 ---
 
@@ -58,17 +91,36 @@ The person-calendar service orchestrates these three entities to create a unifie
 
 ### Relationships
 
-1. **Event ← Calendar Slots**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  entity_id_rbac_map (OWNERSHIP)                                  │
+├──────────────────────────────────────────────────────────────────┤
+│  empid = 'employee-uuid'                                         │
+│  entity = 'event'                                                │
+│  entity_id = 'event-uuid'                                        │
+│  permission = ARRAY[0,1,2,3,4,5]  ← 5 = Owner                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+1. **Event ← Calendar Slots** (`d_entity_person_calendar`)
    - `d_entity_person_calendar.event_id` → `d_event.id`
-   - When a booking is made, calendar slots are marked as unavailable and linked to the event
+   - When booking: calendar slots marked unavailable, linked to event
+   - Purpose: Track who is available when, link to specific events
 
-2. **Event ← RSVP Tracking**
+2. **Event ← RSVP Tracking** (`d_entity_event_person_calendar`)
    - `d_entity_event_person_calendar.event_id` → `d_event.id`
-   - Tracks who is attending the event and their RSVP status
+   - Tracks who is attending and their RSVP status
+   - Purpose: Attendance confirmation separate from availability
 
-3. **Event ← Entity Linkages**
-   - `d_entity_id_map` links event to service, customer, project, etc.
+3. **Event ← Entity Linkages** (`d_entity_id_map`)
+   - Links event → service, customer, project
    - Event acts as parent entity
+   - Purpose: Relationship tracking (not permissions)
+
+4. **Event ← Ownership** (`entity_id_rbac_map`)
+   - Assigned employee gets Owner permission (permission[5])
+   - Full control: view, edit, share, delete, create, manage permissions
+   - Purpose: Access control and ownership tracking
 
 ---
 
