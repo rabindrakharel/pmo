@@ -2,7 +2,7 @@
 
 > **Navigation guide for AI/LLM agents to quickly locate relevant documentation**
 
-**Last Updated:** 2025-11-05
+**Last Updated:** 2025-11-11
 **Platform Version:** 3.1.1 (Production)
 
 ---
@@ -13,13 +13,12 @@
 
 | What You Need | Where to Look | Key File |
 |---------------|---------------|----------|
-| **Complete platform overview** | Root: `CLAUDE.md` | Main index with all features |
+| **Complete platform overview** | Root: `/CLAUDE.md` | Main index with all features |
 | **Database schema & entities** | `datamodel/` | `datamodel.md` (52 tables, NO foreign keys) |
 | **Universal entity system (DRY)** | `entity_design_pattern/` | `universal_entity_system.md` ⭐ |
-| **All API endpoints** | `entity_ui_ux_route_api.md` | Complete API reference (31+ modules) |
+| **All API endpoints** | `api/` | `API_DEVELOPER_GUIDE.md`, `openapi.yaml` |
 | **How AI chat works** | `ai_chat/` | `AI_CHAT_SYSTEM.md` (text + voice) |
-| **How orchestrator works** | `orchestrator/` | `README.md` ⭐ (multi-agent workflows) |
-| **How MCP server works** | `ai_mcp/` | `MCP_SERVER_OVERVIEW.md` (126 tools) |
+| **How MCP server works** | `mcp/` | `MCP_ARCHITECTURE.md` |
 
 ### 🏗️ "I need to build..."
 
@@ -32,8 +31,7 @@
 | **Service workflow** | `service_appointment_task_work_orders/` | `SERVICE_WORKFLOW_ARCHITECTURE.md` ⭐ |
 | **Quote system** | `product_services_quotes/` | `TECHNICAL_REFERENCE.md` ⭐ |
 | **DAG/workflow visualization** | `dag_graph_vizualization/` | `dag_visualizer_two_use_cases.md` |
-| **AI-powered feature** | `ai_chat/`, `ai_mcp/`, `orchestrator/` | All AI folders |
-| **Multi-agent orchestrator workflow** | `orchestrator/` | `README.md` ⭐ (intent graphs, stateful workflows) |
+| **AI-powered feature** | `ai_chat/`, `mcp/` | AI chat and MCP folders |
 
 ### 🐛 "I need to debug..."
 
@@ -41,8 +39,8 @@
 |--------------|---------------|----------|
 | **RBAC permissions** | `datamodel/` | `datamodel.md` (entity_id_rbac_map) |
 | **Column consistency issues** | `entity_design_pattern/` | `COLUMN_CONSISTENCY_UPDATE.md` |
-| **API not working** | Root: `tools.md` | Test scripts & troubleshooting |
-| **Entity linkage broken** | Root: `UnifiedLinkageSystem.md` | d_entity_id_map patterns |
+| **API not working** | `docs/` | `tools.md` (test scripts & troubleshooting) |
+| **Entity linkage broken** | `entity_design_pattern/` | `UnifiedLinkageSystem.md` (d_entity_id_map patterns) |
 | **Settings/dropdowns** | `settings/` | `settings.md` (16 settings tables) |
 | **File uploads** | `s3_service/` | `S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md` |
 | **Styling issues** | `styling/` | `styling_patterns.md` |
@@ -67,9 +65,18 @@
 
 **Files:**
 - `universal_entity_system.md` - **Primary reference** for DRY entity architecture (3 universal pages, default-editable pattern, inline create-then-link)
+- `DRY_ARCHITECTURE.md` - Comprehensive DRY principles guide (95% code reuse, 30+ entity types)
 - `COLUMN_CONSISTENCY_UPDATE.md` - v3.1.1 context-independent column pattern
+- `COLUMN_VISIBILITY_SYSTEM.md` - Column selector and visibility management
+- `ENTITY_METADATA_COHERENCE.md` - Entity metadata from d_entity table
+- `ENTITY_COHERENCE_ANALYSIS.md` - Entity system coherence analysis
+- `UnifiedLinkageSystem.md` - Entity linkage patterns (d_entity_id_map)
+- `navigation_context.md` - Navigation & breadcrumb system
+- `core_algorithm_design_pattern.md` - Core algorithms & patterns
+- `DYNAMIC_ENTITY_BUILDER.md` - Dynamic entity builder system
+- `artifacts.md` - Artifact management system
 
-**Keywords:** universal pages, entity config, DRY, inline editing, add row, create-link-edit, column consistency, FilteredDataTable
+**Keywords:** universal pages, entity config, DRY, inline editing, add row, create-link-edit, column consistency, FilteredDataTable, entity metadata, linkage
 
 ---
 
@@ -78,8 +85,11 @@
 
 **Files:**
 - `datamodel.md` - Complete data model (52 tables, 13 core entities, NO foreign keys, d_entity_id_map linkage)
+- `DDL_STANDARDIZATION_GUIDE.md` - DDL naming conventions and standards
+- `DDL_ROMAN_NUMERAL_MAPPING.md` - Roman numeral prefix mapping for DDL files
+- `NAMING_CONVENTION_MIGRATION_PLAN.md` - Database naming convention migration plan
 
-**Keywords:** database, schema, DDL, tables, relationships, RBAC, entity_id_rbac_map, d_entity_id_map, NO foreign keys
+**Keywords:** database, schema, DDL, tables, relationships, RBAC, entity_id_rbac_map, d_entity_id_map, NO foreign keys, naming conventions
 
 ---
 
@@ -88,8 +98,24 @@
 
 **Files:**
 - `datatable.md` - OOP-based table system (EntityDataTable, SettingsDataTable, horizontal scrollbar with progress)
+- `PAGINATION_STATUS.md` - Pagination implementation status
 
-**Keywords:** datatable, OOP, composition, field-category, settings, auto-configuration, horizontal-scroll, scrollbar
+**Keywords:** datatable, OOP, composition, field-category, settings, auto-configuration, horizontal-scroll, scrollbar, pagination
+
+---
+
+#### `api/` ⭐ **API REFERENCE**
+**When to use:** Understanding API endpoints, routes, modules, OpenAPI spec
+
+**Files:**
+- `API_DEVELOPER_GUIDE.md` - Complete API developer guide with all endpoints
+- `openapi.yaml` - OpenAPI 3.0 specification for all API endpoints
+- `ENTITY_OPTIONS_API.md` - Universal dropdown/select options service
+- `ENTITY_DELETE_FACTORY.md` - Entity delete factory pattern
+- `MODULES_README.md` - API modules overview
+- `PAGINATION_MIGRATION.md` - Pagination migration guide
+
+**Keywords:** API, endpoints, routes, modules, OpenAPI, REST, entity options, dropdowns, delete factory, pagination
 
 ---
 
@@ -100,33 +126,35 @@
 
 **Files:**
 - `AI_CHAT_SYSTEM.md` - Complete AI chat architecture (text + voice, MCP integration, 50 tools, GPT-4/GPT-4o-realtime)
+- `README.md` - AI chat system overview
+- `QUICK_START.md` - Quick start guide for AI chat
+- `AGENT_CONFIG_GUIDE.md` - Agent configuration guide
+- `VOICE_INTEGRATION.md` - Voice chat integration
+- `SESSION_MEMORY.md` - Session memory management
+- `MONITORING.md` - Monitoring and observability
+- `COST_OPTIMIZATION.md` - Cost optimization strategies
+- `PROJECT_TASK_AGENT_CONFIG.md` - Project/task agent configuration
+- `CHAT_TESTS.md` - Chat testing scripts and tools
+- `CHAT_LOGS.md` - Chat logging and debugging
+- `CHANGELOG_AI_CHAT_SERVICE_CATALOG_FIX.md` - Service catalog fix changelog
 
-**Keywords:** AI chat, voice calling, MCP, function tools, booking automation, OpenAI, GPT-4, realtime API, chat widget, customer service
+**Keywords:** AI chat, voice calling, MCP, function tools, booking automation, OpenAI, GPT-4, realtime API, chat widget, customer service, session memory, agent config
 
 ---
 
-#### `ai_mcp/`
+#### `mcp/`
 **When to use:** Model Context Protocol server, API exposure to AI models, tool definitions
 
 **Files:**
-- `MCP_SERVER_OVERVIEW.md` - MCP server architecture (126 API endpoints exposed as tools)
-- `VOICE_AGENT_MCP_INTEGRATION.md` - Voice chat MCP integration
+- `MCP_ARCHITECTURE.md` - MCP server architecture and design
+- `MCP_SERVER_README.md` - MCP server implementation guide
+- `GOAL_LEVEL_TOOL_BOUNDARY_APPROACH.md` - Goal-level tool boundary filtering
+- `ENTITY_BOUNDARY_FILTERING_BRAINSTORM.md` - Entity boundary filtering strategies
+- `DOCUMENTATION_UPDATE_SUMMARY.md` - MCP documentation updates
+- `AGENTIC_FLOW_FIX_CUSTOMER_PROFILE.md` - Customer profile agentic flow fixes
+- `MCP_AND_AGENT_CONFIG_SUMMARY.md` - MCP and agent configuration summary
 
-**Keywords:** MCP, Model Context Protocol, AI tools, API manifest, Claude integration, tool calling
-
----
-
-#### `orchestrator/` ⭐ **MULTI-AGENT ORCHESTRATOR**
-**When to use:** Stateful multi-agent workflows, intent graphs, conversation boundaries, voice + text orchestration
-
-**Files:**
-- `README.md` - **Primary reference** for orchestrator architecture (v1.1, consolidated guide)
-- `NEW_FEATURES.md` - v1.1 enhancements (configurable models, engaging messages, auto-goodbye)
-- `VOICE_ORCHESTRATOR_GUIDE.md` - Voice integration with STT/TTS
-- `QUICK_START_GUIDE.md` - Testing and curl examples
-- `MULTI_AGENT_ORCHESTRATOR.md` - Original guide (superseded by README.md)
-
-**Keywords:** orchestrator, multi-agent, intent graph, stateful workflow, conversation boundaries, voice chat, STT, TTS, Whisper, engaging messages, auto-goodbye, off-topic handling, agent roles, Critic, Evaluator, Worker
+**Keywords:** MCP, Model Context Protocol, AI tools, API manifest, Claude integration, tool calling, goal-level filtering, entity boundaries
 
 ---
 
@@ -203,6 +231,16 @@
 
 ### 📁 Visualization & UI Components
 
+#### `ui_components/`
+**When to use:** Building UI components, kanban boards, specialized widgets
+
+**Files:**
+- `component_Kanban_System.md` - Kanban board implementation (drag-drop, task management, state transitions)
+
+**Keywords:** kanban, task board, drag-drop, UI components, widgets, state transitions
+
+---
+
 #### `dag_graph_vizualization/`
 **When to use:** Workflow visualization, entity lifecycle stages, directed acyclic graphs
 
@@ -233,8 +271,16 @@
 - `DEPLOYMENT_DESIGN.md` - Deployment procedures
 - `DNS_CONFIGURATION_GUIDE.md` - DNS setup
 - `MULTI_DOMAIN_SSL_DEPLOYMENT_GUIDE.md` - SSL certificate management
+- `SES_SNS_SETUP_GUIDE.md` - AWS SES and SNS email service setup
+- `COST_BREAKDOWN.md` - AWS infrastructure cost analysis
+- `INFRASTRUCTURE_IMPROVEMENTS.md` - Infrastructure improvement roadmap
+- `AWS_SETUP.md` - AWS account and service setup guide
+- `COMPLETE_IAM_SETUP.md` - Complete IAM setup instructions
+- `DEPLOYMENT_QUICKSTART.md` - Quick deployment guide
+- `DNS_QUICK_REFERENCE.md` - DNS configuration quick reference
+- `MANUAL_IAM_UPDATE_INSTRUCTIONS.md` - Manual IAM update procedures
 
-**Keywords:** AWS, infrastructure, deployment, Terraform, DNS, SSL, EC2, S3, Lambda
+**Keywords:** AWS, infrastructure, deployment, Terraform, DNS, SSL, EC2, S3, Lambda, SES, SNS, IAM, cost optimization
 
 ---
 
@@ -248,6 +294,26 @@
 
 ---
 
+#### `mobile/`
+**When to use:** Mobile app development, React Native implementation
+
+**Files:**
+- `MOBILE_APP_DESIGN.md` - Mobile application design and architecture
+
+**Keywords:** mobile, React Native, mobile app, mobile design, iOS, Android
+
+---
+
+#### `performance/`
+**When to use:** Performance testing, load testing, benchmarking
+
+**Files:**
+- `PERFORMANCE_TESTING.md` - Performance testing guide and benchmarks
+
+**Keywords:** performance, load testing, benchmarking, optimization, metrics
+
+---
+
 ### 📁 Feature Planning & Analysis
 
 #### `featureadd/`
@@ -257,8 +323,11 @@
 - `ARCHITECTURE_CRITIQUE_AND_RECOMMENDATIONS.md` - Expert platform analysis (7.5/10 rating)
 - `crm_featureadd.md` - CRM feature suggestions
 - `suggest.md` - Feature improvement ideas
+- `suggestions.md` - Additional feature suggestions
+- `critic.md` - Critical analysis and feedback
+- `FLOW_ANALYSIS.md` - System flow analysis
 
-**Keywords:** architecture review, recommendations, feature planning, critique, improvements
+**Keywords:** architecture review, recommendations, feature planning, critique, improvements, flow analysis
 
 ---
 
@@ -268,17 +337,15 @@
 
 | File | Purpose | When to Use |
 |------|---------|-------------|
-| **`entity_ui_ux_route_api.md`** | Complete API reference (31+ modules, 125+ endpoints) | Understanding API structure, routes, all layers |
-| **`UnifiedLinkageSystem.md`** | Entity linkage patterns (d_entity_id_map) | Understanding parent-child relationships, linkage logic |
-| **`ENTITY_OPTIONS_API.md`** | Universal dropdown/select API | Building forms, filters, dropdowns |
 | **`tools.md`** | Management scripts | Daily operations (start-all.sh, db-import.sh, test-api.sh) |
-| **`navigation_context.md`** | Navigation & breadcrumb system | Understanding navigation logic |
-| **`core_algorithm_design_pattern.md`** | Core algorithms & patterns | Understanding platform design philosophy |
-| **`component_Kanban_System.md`** | Kanban board implementation | Building kanban views, drag-drop, task boards |
-| **`wiki.md`** | Collaborative wiki system | Wiki features, Quill editor, real-time editing |
-| **`COLLABORATIVE_WIKI_EDITING.md`** | Real-time wiki collaboration | Multi-user wiki editing |
-| **`artifacts.md`** | Artifact management system | Document/artifact versioning |
 | **`instructionToLLM.md`** | Documentation guidelines | Writing new documentation |
+| **`README.md`** | Documentation index | Finding any documentation quickly (this file) |
+
+**Note:** Most docs have been organized into subfolders. See sections above for:
+- Entity system: `entity_design_pattern/` (includes UnifiedLinkageSystem, navigation_context, core_algorithm_design_pattern, artifacts)
+- API docs: `api/` (includes ENTITY_OPTIONS_API, API_DEVELOPER_GUIDE)
+- UI components: `ui_components/` (includes component_Kanban_System)
+- Wiki: `wiki/` (includes wiki.md, COLLABORATIVE_WIKI_EDITING)
 
 ---
 
@@ -293,10 +360,10 @@
 | **column consistency, context-independent** | `entity_design_pattern/` | `COLUMN_CONSISTENCY_UPDATE.md` ⭐ |
 | **database, schema, DDL, NO foreign keys** | `datamodel/` | `datamodel.md` |
 | **RBAC, permissions, entity_id_rbac_map** | `datamodel/` | `datamodel.md` |
-| **linkage, parent-child, d_entity_id_map** | Root | `UnifiedLinkageSystem.md` |
-| **API, endpoints, routes, modules** | Root | `entity_ui_ux_route_api.md` |
+| **linkage, parent-child, d_entity_id_map** | `entity_design_pattern/` | `UnifiedLinkageSystem.md` |
+| **API, endpoints, routes, modules** | `api/` | `API_DEVELOPER_GUIDE.md`, `openapi.yaml` |
 | **AI chat, voice calling, MCP, GPT-4** | `ai_chat/` | `AI_CHAT_SYSTEM.md` ⭐ |
-| **MCP, Model Context Protocol, tools** | `ai_mcp/` | `MCP_SERVER_OVERVIEW.md` |
+| **MCP, Model Context Protocol, tools** | `mcp/` | `MCP_ARCHITECTURE.md` |
 | **quote, product, service, work order** | `product_services_quotes/` | `TECHNICAL_REFERENCE.md` ⭐ |
 | **service workflow, appointments, skills** | `service_appointment_task_work_orders/` | `SERVICE_WORKFLOW_ARCHITECTURE.md` ⭐ |
 | **calendar, scheduling, availability** | `calendar/` | `CALENDAR_SYSTEM.md` |
@@ -307,9 +374,11 @@
 | **DAG, graph, visualization, workflow** | `dag_graph_vizualization/` | `dag_visualizer_two_use_cases.md` |
 | **deployment, AWS, infrastructure** | `infra_docs/` | `INFRASTRUCTURE_DESIGN.md` |
 | **versioning, history, audit trail** | `versioning/` | `versioning_design.md` |
-| **kanban, task board, drag-drop** | Root | `component_Kanban_System.md` |
-| **wiki, collaborative editing** | Root | `wiki.md`, `COLLABORATIVE_WIKI_EDITING.md` |
-| **tools, scripts, db-import, test-api** | Root | `tools.md` |
+| **kanban, task board, drag-drop** | `ui_components/` | `component_Kanban_System.md` |
+| **wiki, collaborative editing** | `wiki/` | `wiki.md`, `COLLABORATIVE_WIKI_EDITING.md` |
+| **tools, scripts, db-import, test-api** | `docs/` | `tools.md` |
+| **mobile, React Native, mobile app** | `mobile/` | `MOBILE_APP_DESIGN.md` |
+| **performance, load testing, benchmarking** | `performance/` | `PERFORMANCE_TESTING.md` |
 
 ---
 
