@@ -1,6 +1,41 @@
 -- =====================================================
--- Cost Table
--- Tracks project and task-level costs with attachments
+-- COST ENTITY (d_cost) - FINANCIAL TRACKING
+-- =====================================================
+--
+-- SEMANTICS:
+-- • Financial cost tracking for projects, tasks, and other entities
+-- • Supports multi-currency with exchange rates and local currency conversion
+-- • Attachment support for invoices, receipts, and supporting documents via S3/MinIO
+-- • In-place updates (same ID, version++), soft delete preserves audit trail
+--
+-- OPERATIONS:
+-- • CREATE: INSERT with version=1, active_flag=true
+-- • UPDATE: Same ID, version++, updated_ts refreshes
+-- • DELETE: active_flag=false, to_ts=now() (soft delete)
+-- • QUERY: Filter by cost_code, currency, validity period, tags
+--
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY (stable identifier)
+-- • code: varchar(50) UNIQUE - business identifier
+-- • cost_code: varchar(50) NOT NULL - cost category/type code
+-- • cost_amt_lcl: numeric(15,2) NOT NULL - cost in local currency (CAD)
+-- • cost_amt_invoice: numeric(15,2) - original invoice amount (if different currency)
+-- • invoice_currency: varchar(3) DEFAULT 'CAD' - currency code (ISO 4217)
+-- • exch_rate: numeric(10,6) DEFAULT 1.0 - exchange rate for conversion
+-- • cust_budgeted_amt_lcl: numeric(15,2) - customer's budgeted amount
+-- • attachment_*: S3/MinIO object storage fields for receipts/invoices
+-- • from_ts, to_ts: validity period for cost entry
+--
+-- RELATIONSHIPS (NO FOREIGN KEYS):
+-- • Parent: project, task, office, business (via d_entity_id_map)
+-- • Child: attachments stored in S3/MinIO (referenced by attachment_object_key)
+-- • RBAC: entity_id_rbac_map
+--
+-- ATTACHMENT WORKFLOW:
+-- • Upload file to S3/MinIO via presigned URL
+-- • Store object key, bucket, size, format in attachment_* columns
+-- • Retrieve via presigned download URL when viewing cost details
+--
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS app.d_cost (

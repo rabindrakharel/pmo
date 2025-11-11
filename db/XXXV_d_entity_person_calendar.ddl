@@ -315,7 +315,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   c.to_ts,
 --   c.name as slot_name,
 --   ev.name as event_name,
---   ev.event_medium,
+--   ev.event_type,
 --   ev.event_addr,
 --   ev.event_instructions
 -- FROM app.d_entity_person_calendar c
