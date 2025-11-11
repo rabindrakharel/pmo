@@ -724,7 +724,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         SELECT t.* FROM app.d_task t
         WHERE ${sql.join(filters, sql` AND `)}
         ORDER BY
-          CASE t.stage
+          CASE t.dl__task_stage
             WHEN 'backlog' THEN 1
             WHEN 'in_progress' THEN 2
             WHEN 'blocked' THEN 3
