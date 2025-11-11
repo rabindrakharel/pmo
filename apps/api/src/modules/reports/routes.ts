@@ -155,7 +155,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
         conditions.push(sql`report_category = ${report_category}`);
       }
       if (is_public !== undefined) {
-        conditions.push(sql`is_public = ${is_public}`);
+        conditions.push(sql`public_flag = ${is_public}`);
       }
       if (search) {
         conditions.push(sql`(name ILIKE ${'%' + search + '%'} OR descr ILIKE ${'%' + search + '%'})`);
@@ -174,8 +174,8 @@ export async function reportsRoutes(fastify: FastifyInstance) {
           id, code, name, "descr", metadata, report_type,
           report_category, data_source_config, query_definition,
           refresh_frequency, chart_type, visualization_config,
-          is_public, auto_refresh_enabled, email_subscribers,
-          last_execution_time, execution_duration_ms, last_error_message,
+          public_flag as is_public, auto_refresh_enabled_flag as auto_refresh_enabled, email_subscribers,
+          last_execution_ts as last_execution_time, execution_duration_ms, last_error_message,
           primary_entity_type, primary_entity_id, from_ts, to_ts,
           active_flag, created_ts, updated_ts, version
         FROM app.d_reports
@@ -219,8 +219,8 @@ export async function reportsRoutes(fastify: FastifyInstance) {
           id, code, name, "descr", metadata, report_type,
           report_category, data_source_config, query_definition,
           refresh_frequency, chart_type, visualization_config,
-          is_public, auto_refresh_enabled, email_subscribers,
-          last_execution_time, execution_duration_ms, last_error_message,
+          public_flag as is_public, auto_refresh_enabled_flag as auto_refresh_enabled, email_subscribers,
+          last_execution_ts as last_execution_time, execution_duration_ms, last_error_message,
           primary_entity_type, primary_entity_id, from_ts, to_ts,
           active_flag, created_ts, updated_ts, version
         FROM app.d_reports

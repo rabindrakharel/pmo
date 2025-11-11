@@ -143,10 +143,10 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
         conditions.push(sql`worksite_type = ${worksite_type}`);
       }
       if (seasonal_use !== undefined) {
-        conditions.push(sql`seasonal_use = ${seasonal_use}`);
+        conditions.push(sql`seasonal_use_flag = ${seasonal_use}`);
       }
       if (equipment_storage !== undefined) {
-        conditions.push(sql`equipment_storage = ${equipment_storage}`);
+        conditions.push(sql`equipment_storage_flag = ${equipment_storage}`);
       }
       if (search) {
         conditions.push(sql`(name ILIKE ${'%' + search + '%'} OR descr ILIKE ${'%' + search + '%'} OR addr ILIKE ${'%' + search + '%'})`);
@@ -165,11 +165,11 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
           id, code, name, "descr", from_ts, to_ts, active_flag,
           created_ts, updated_ts, version, metadata, worksite_type, addr,
           postal_code, latitude, longitude, time_zone, capacity_workers,
-          equipment_storage, vehicle_parking, security_required,
-          indoor_space_sqft, outdoor_space_sqft, office_space,
-          washroom_facilities, power_available, water_available,
-          safety_rating, safety_last_inspection_date, environmental_permits,
-          seasonal_use, seasonal_period, emergency_contact
+          equipment_storage_flag as equipment_storage, vehicle_parking, security_required_flag as security_required,
+          indoor_space_sqft, outdoor_space_sqft, office_space_flag as office_space,
+          washroom_facilities_flag as washroom_facilities, power_available_flag as power_available, water_available_flag as water_available,
+          dl__worksite_safety_rating as safety_rating, safety_last_inspection_date, environmental_permits,
+          seasonal_use_flag as seasonal_use, seasonal_period, emergency_contact
         FROM app.d_worksite
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY name ASC NULLS LAST, created_ts DESC
@@ -206,11 +206,11 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
           id, code, name, "descr", from_ts, to_ts, active_flag,
           created_ts, updated_ts, version, metadata, worksite_type, addr,
           postal_code, latitude, longitude, time_zone, capacity_workers,
-          equipment_storage, vehicle_parking, security_required,
-          indoor_space_sqft, outdoor_space_sqft, office_space,
-          washroom_facilities, power_available, water_available,
-          safety_rating, safety_last_inspection, environmental_permits,
-          seasonal_use, seasonal_period, emergency_contact
+          equipment_storage_flag as equipment_storage, vehicle_parking, security_required_flag as security_required,
+          indoor_space_sqft, outdoor_space_sqft, office_space_flag as office_space,
+          washroom_facilities_flag as washroom_facilities, power_available_flag as power_available, water_available_flag as water_available,
+          dl__worksite_safety_rating as safety_rating, safety_last_inspection_date, environmental_permits,
+          seasonal_use_flag as seasonal_use, seasonal_period, emergency_contact
         FROM app.d_worksite
         WHERE id = ${id}
       `);

@@ -44,7 +44,11 @@
       "Bash(aws ses list-identities:*)",
       "Bash(aws ses get-identity-verification-attributes:*)",
       "Bash(aws ses verify-email-identity:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(timeout 2 ./tools/logs-api.sh:*)",
+      "Bash(timeout 10 sh:*)",
+      "Bash(/tmp/test-all-entities.sh)",
+      "Bash(PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app -c \"DELETE FROM app.d_entity WHERE code = ''position'';\")"
     ],
     "deny": [],
     "ask": [],

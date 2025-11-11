@@ -24,7 +24,7 @@ const ArtifactSchema = Type.Object({
   attachment_object_key: Type.Optional(Type.String()),
   visibility: Type.Optional(Type.String()),
   security_classification: Type.Optional(Type.String()),
-  is_latest_version: Type.Optional(Type.Boolean()),
+  latest_version_flag: Type.Optional(Type.Boolean()),
   active_flag: Type.Boolean(),
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
@@ -65,7 +65,7 @@ const CreateArtifactSchema = Type.Object({
 
   // Versioning
   parent_artifact_id: Type.Optional(Type.String()),
-  is_latest_version: Type.Optional(Type.Boolean()),
+  latest_version_flag: Type.Optional(Type.Boolean()),
   version: Type.Optional(Type.Number()),
 
   // Status
@@ -109,7 +109,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       conditions.push(sql`active_flag = true`);
 
       if (artifact_type) {
-        conditions.push(sql`artifact_type = ${artifact_type}`);
+        conditions.push(sql`dl__artifact_type = ${artifact_type}`);
       }
 
       // Get total count
@@ -124,8 +124,8 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       const rows = await db.execute(sql`
         SELECT
           id, code, name, descr, metadata,
-          artifact_type, attachment_format, attachment_size_bytes, attachment, entity_type, entity_id,
-          attachment_object_bucket, attachment_object_key, visibility, security_classification,
+          dl__artifact_type as artifact_type, attachment_format, attachment_size_bytes, attachment, entity_type, entity_id,
+          attachment_object_bucket, attachment_object_key, visibility, dl__artifact_security_classification as security_classification,
           latest_version_flag, version, active_flag,
           from_ts, to_ts, created_ts, updated_ts
         FROM app.d_artifact
@@ -157,10 +157,10 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       const result = await db.execute(sql`
         SELECT
           id, code, name, descr, metadata,
-          artifact_type, attachment, attachment_format, attachment_size_bytes,
+          dl__artifact_type as artifact_type, attachment, attachment_format, attachment_size_bytes,
           entity_type, entity_id,
           attachment_object_bucket, attachment_object_key,
-          visibility, security_classification,
+          visibility, dl__artifact_security_classification as security_classification,
           latest_version_flag, version, active_flag,
           from_ts, to_ts, created_ts, updated_ts
         FROM app.d_artifact
@@ -202,11 +202,11 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     try {
       const result = await db.execute(sql`
         INSERT INTO app.d_artifact (
-          code, name, descr, metadata, artifact_type,
+          code, name, descr, metadata, dl__artifact_type,
           attachment_format, attachment_size_bytes,
           attachment_object_bucket, attachment_object_key,
           entity_type, entity_id,
-          visibility, security_classification,
+          visibility, dl__artifact_security_classification,
           active_flag
         ) VALUES (
           ${code},
@@ -261,13 +261,13 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       if (data.attr !== undefined) updates.metadata = data.attr;
 
       // Classification
-      if (data.artifact_type !== undefined) updates.artifact_type = data.artifact_type;
+      if (data.artifact_type !== undefined) updates.dl__artifact_type = data.artifact_type;
       if (data.attachment_format !== undefined) updates.attachment_format = data.attachment_format;
       if (data.attachment_size_bytes !== undefined) updates.attachment_size_bytes = data.attachment_size_bytes;
 
       // Access control
       if (data.visibility !== undefined) updates.visibility = data.visibility;
-      if (data.security_classification !== undefined) updates.security_classification = data.security_classification;
+      if (data.security_classification !== undefined) updates.dl__artifact_security_classification = data.security_classification;
 
       // S3/Storage
       if (data.attachment_object_bucket !== undefined) updates.attachment_object_bucket = data.attachment_object_bucket;
@@ -370,10 +370,10 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       const result = await db.execute(sql`
         INSERT INTO app.d_artifact (
           code, name, descr, metadata,
-          artifact_type, attachment_format, attachment_size_bytes,
+          dl__artifact_type, attachment_format, attachment_size_bytes,
           entity_type, entity_id,
           attachment_object_bucket, attachment_object_key,
-          visibility, security_classification,
+          visibility, dl__artifact_security_classification,
           latest_version_flag, active_flag
         ) VALUES (
           ${code},
@@ -658,9 +658,9 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           attachment_format = ${data.attachment_format || ext},
           attachment_size_bytes = ${data.attachment_size_bytes || data.fileSize || null},
           descr = ${data.descr || current.descr},
-          artifact_type = ${data.artifact_type || current.artifact_type},
+          dl__artifact_type = ${data.artifact_type || current.dl__artifact_type},
           visibility = ${data.visibility || current.visibility},
-          security_classification = ${data.security_classification || current.security_classification},
+          dl__artifact_security_classification = ${data.security_classification || current.dl__artifact_security_classification},
           metadata = ${JSON.stringify({
             ...current.metadata,
             uploadedBy: userId,
