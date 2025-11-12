@@ -38,13 +38,16 @@ CREATE TABLE app.d_workflow_automation (
     execution_count INTEGER DEFAULT 0,           -- Current execution count
     last_executed_ts TIMESTAMPTZ,               -- Last execution timestamp
 
-    -- Metadata
-    created_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    created_by UUID,
-    modified_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    modified_by UUID,
+    -- Standard SCD fields
+    from_ts TIMESTAMPTZ DEFAULT now(),
+    to_ts TIMESTAMPTZ,
+    active_flag BOOLEAN DEFAULT true,
+    created_ts TIMESTAMPTZ DEFAULT now(),
+    updated_ts TIMESTAMPTZ DEFAULT now(),
+    version INTEGER DEFAULT 1
 
-    -- Constraints
+    -- NOTE: Ownership tracked via entity_id_rbac_map with permission[5]=Owner
+    -- Creator automatically receives Owner permission when workflow is created
 );
 
 
@@ -58,14 +61,14 @@ COMMENT ON COLUMN app.d_workflow_automation.actions IS 'JSONB array of actions t
 COMMENT ON COLUMN app.d_workflow_automation.action_scope IS 'same = triggered entity, related = linked entities, specific = target entity';
 
 -- Seed Data
-INSERT INTO app.d_workflow_automation (workflow_name, workflow_description, trigger_entity_type, trigger_action_type, trigger_scope, action_entity_type, action_scope, actions, execution_order, created_by) VALUES
+INSERT INTO app.d_workflow_automation (workflow_name, workflow_description, trigger_entity_type, trigger_action_type, trigger_scope, action_entity_type, action_scope, actions, execution_order) VALUES
 -- Example 1: Auto-assign project manager when project is created
 ('Auto-assign PM on Project Create',
  'Automatically assigns the default project manager when a new project is created',
  'project', 'create', 'all',
  'project', 'same',
  '[{"type": "update_field", "field": "assigned_to", "value": "8260b1b0-5efc-4611-ad33-ee76c0cf7f13"}, {"type": "send_notification", "template": "project_created", "recipients": ["8260b1b0-5efc-4611-ad33-ee76c0cf7f13"]}]'::JSONB,
- 1, '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'),
+ 1),
 
 -- Example 2: Create default tasks when project reaches "planning" stage
 ('Create Planning Tasks',
@@ -73,7 +76,7 @@ INSERT INTO app.d_workflow_automation (workflow_name, workflow_description, trig
  'project', 'status_change', 'all',
  'task', 'related',
  '[{"type": "create_entity", "entity_type": "task", "fields": {"name": "Project Kickoff Meeting", "priority": "high"}}, {"type": "create_entity", "entity_type": "task", "fields": {"name": "Resource Allocation", "priority": "medium"}}, {"type": "create_entity", "entity_type": "task", "fields": {"name": "Timeline Planning", "priority": "high"}}]'::JSONB,
- 2, '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'),
+ 2),
 
 -- Example 3: Notify PM when task is completed
 ('Notify PM on Task Complete',
@@ -81,7 +84,7 @@ INSERT INTO app.d_workflow_automation (workflow_name, workflow_description, trig
  'task', 'status_change', 'all',
  'notification', 'related',
  '[{"type": "send_notification", "template": "task_completed", "recipient_field": "project.assigned_to"}]'::JSONB,
- 3, '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'),
+ 3),
 
 -- Example 4: Update project progress when task status changes
 ('Update Project Progress',
@@ -89,7 +92,7 @@ INSERT INTO app.d_workflow_automation (workflow_name, workflow_description, trig
  'task', 'status_change', 'all',
  'project', 'related',
  '[{"type": "calculate_field", "field": "completion_percentage", "formula": "completed_tasks / total_tasks * 100"}]'::JSONB,
- 4, '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'),
+ 4),
 
 -- Example 5: Archive completed projects
 ('Archive Completed Projects',
@@ -97,7 +100,7 @@ INSERT INTO app.d_workflow_automation (workflow_name, workflow_description, trig
  'project', 'status_change', 'all',
  'project', 'same',
  '[{"type": "update_field", "field": "archived", "value": true}, {"type": "send_notification", "template": "project_archived", "recipients_field": "stakeholders"}]'::JSONB,
- 5, '8260b1b0-5efc-4611-ad33-ee76c0cf7f13');
+ 5);
 
 -- Grant permissions
 GRANT SELECT, INSERT, UPDATE, DELETE ON app.d_workflow_automation TO app;

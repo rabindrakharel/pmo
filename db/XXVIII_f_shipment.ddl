@@ -176,7 +176,6 @@ CREATE TABLE app.f_shipment (
 
     -- Metadata
     notes TEXT,                                         -- Internal shipment notes
-    tags TEXT[]                                         -- Searchable tags
 );
 
 

@@ -205,7 +205,7 @@ const PATTERNS = {
     priority: 11
   },
   array: {
-    names: new Set(['tags']),
+    names: new Set([]),  // Empty - no specific array field names
     dataType: '[]',
     priority: 12
   }
@@ -289,7 +289,7 @@ function formatArray(value: any[]): string {
 // OPTIMIZED TRANSFORMERS (Reduce allocations)
 // ============================================================================
 
-function transformTagsToApi(value: any): string[] {
+function transformArrayToApi(value: any): string[] {
   if (Array.isArray(value)) return value;
   if (typeof value === 'string') {
     return value.split(',').map(s => s.trim()).filter(Boolean);
@@ -297,7 +297,7 @@ function transformTagsToApi(value: any): string[] {
   return [];
 }
 
-function transformTagsToDisplay(value: any): string {
+function transformArrayToDisplay(value: any): string {
   return Array.isArray(value) ? value.join(', ') : String(value || '');
 }
 
@@ -609,12 +609,11 @@ export function detectField(
       align: 'left',
       format: formatArray,
       renderType: 'array',
-      inputType: 'tags',
-      component: 'TagsInput',
+      inputType: 'text',
       editable: true,
-      editType: 'tags',
-      toApi: transformTagsToApi,
-      toDisplay: transformTagsToDisplay,
+      editType: 'text',
+      toApi: transformArrayToApi,
+      toDisplay: transformArrayToDisplay,
       pattern: 'ARRAY',
       category: 'structured'
     };

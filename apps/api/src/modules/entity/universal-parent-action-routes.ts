@@ -21,22 +21,18 @@ const UniversalEntitySchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  tags: Type.Array(Type.String()),
   attr: Type.Object({}),
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
   active: Type.Boolean(),
   created: Type.String(),
-  updated: Type.String(),
-}, { additionalProperties: true });
+  updated: Type.String()}, { additionalProperties: true });
 
 const CreateEntitySchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Array(Type.String())),
   attr: Type.Optional(Type.Object({})),
-  active: Type.Optional(Type.Boolean()),
-}, { additionalProperties: true });
+  active: Type.Optional(Type.Boolean())}, { additionalProperties: true });
 
 const UpdateEntitySchema = Type.Partial(CreateEntitySchema);
 
@@ -53,8 +49,7 @@ const ENTITY_TABLE_MAP: Record<string, string> = {
   'wiki': 'app.d_wiki',
   'form': 'app.d_form_head',
   'task': 'app.d_task',
-  'artifact': 'app.d_artifact',
-};
+  'artifact': 'app.d_artifact'};
 
 // Relationship type configuration
 interface RelationshipConfig {
@@ -68,8 +63,7 @@ const RELATIONSHIP_MAP: Record<string, Record<string, RelationshipConfig>> = {
     'task': { type: 'foreign_key', foreignKeyColumn: 'project_id' },
     'form': { type: 'foreign_key', foreignKeyColumn: 'project_id' },
     'wiki': { type: 'hierarchy_mapping' },
-    'artifact': { type: 'hierarchy_mapping' },
-  },
+    'artifact': { type: 'hierarchy_mapping' }},
   'biz': {
     'project': { type: 'foreign_key', foreignKeyColumn: 'biz_id' },
     'task': { type: 'foreign_key', foreignKeyColumn: 'biz_id' },
@@ -77,33 +71,26 @@ const RELATIONSHIP_MAP: Record<string, Record<string, RelationshipConfig>> = {
     'client': { type: 'foreign_key', foreignKeyColumn: 'biz_id' },
     'employee': { type: 'foreign_key', foreignKeyColumn: 'biz_id' },
     'wiki': { type: 'hierarchy_mapping' },
-    'artifact': { type: 'hierarchy_mapping' },
-  },
+    'artifact': { type: 'hierarchy_mapping' }},
   'worksite': {
     'task': { type: 'foreign_key', foreignKeyColumn: 'worksite_id' },
     'form': { type: 'foreign_key', foreignKeyColumn: 'worksite_id' },
-    'employee': { type: 'foreign_key', foreignKeyColumn: 'worksite_id' },
-  },
+    'employee': { type: 'foreign_key', foreignKeyColumn: 'worksite_id' }},
   'org': {
     'worksite': { type: 'foreign_key', foreignKeyColumn: 'org_id' },
-    'employee': { type: 'foreign_key', foreignKeyColumn: 'primary_org_id' },
-  },
+    'employee': { type: 'foreign_key', foreignKeyColumn: 'primary_org_id' }},
   'hr': {
     'employee': { type: 'foreign_key', foreignKeyColumn: 'hr_position_id' },
-    'role': { type: 'hierarchy_mapping' },
-  },
+    'role': { type: 'hierarchy_mapping' }},
   'client': {
     'project': { type: 'hierarchy_mapping' }, // projects have clients jsonb array
-    'task': { type: 'foreign_key', foreignKeyColumn: 'client_id' },
-  },
+    'task': { type: 'foreign_key', foreignKeyColumn: 'client_id' }},
   'task': {
     'form': { type: 'foreign_key', foreignKeyColumn: 'task_id' },
-    'artifact': { type: 'hierarchy_mapping' },
-  },
+    'artifact': { type: 'hierarchy_mapping' }},
   'role': {
     'employee': { type: 'hierarchy_mapping' }, // Many-to-many relationship
-  },
-};
+  }};
 
 // Helper functions
 function validateEntityType(entityType: string): boolean {
@@ -130,16 +117,14 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
       params: Type.Object({
         parentEntity: Type.String(),
         parentId: Type.String({ format: 'uuid' }),
-        actionEntity: Type.String(),
-      }),
+        actionEntity: Type.String()}),
       querystring: Type.Object({
         page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         active: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
         sortBy: Type.Optional(Type.String()),
-        sortOrder: Type.Optional(Type.String({ enum: ['asc', 'desc'] })),
-      }),
+        sortOrder: Type.Optional(Type.String({ enum: ['asc', 'desc'] }))}),
       response: {
         200: Type.Object({
           data: Type.Array(UniversalEntitySchema),
@@ -149,16 +134,11 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
           parent_info: Type.Object({
             entity_type: Type.String(),
             entity_id: Type.String(),
-            entity_name: Type.String(),
-          }),
-        }),
+            entity_name: Type.String()})}),
         400: Type.Object({ error: Type.String() }),
         401: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
       const { parentEntity, parentId, actionEntity } = request.params as {
@@ -219,8 +199,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
           parent_info: {
             entity_type: parentEntity,
             entity_id: parentId,
-            entity_name: parentInfo[0].name,
-          }
+            entity_name: parentInfo[0].name}
         };
       }
 
@@ -318,8 +297,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         parent_info: {
           entity_type: parentEntity,
           entity_id: parentId,
-          entity_name: parentInfo[0].name,
-        }
+          entity_name: parentInfo[0].name}
       };
     } catch (error) {
       fastify.log.error(`Error fetching ${request.params.actionEntity} entities in ${request.params.parentEntity}:`, error);
@@ -338,24 +316,18 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         parentEntity: Type.String(),
         parentId: Type.String({ format: 'uuid' }),
         actionEntity: Type.String(),
-        actionId: Type.String({ format: 'uuid' }),
-      }),
+        actionId: Type.String({ format: 'uuid' })}),
       response: {
         200: Type.Object({
           entity: UniversalEntitySchema,
           parent_info: Type.Object({
             entity_type: Type.String(),
             entity_id: Type.String(),
-            entity_name: Type.String(),
-          }),
-        }),
+            entity_name: Type.String()})}),
         400: Type.Object({ error: Type.String() }),
         401: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
       const { parentEntity, parentId, actionEntity, actionId } = request.params as {
@@ -440,8 +412,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         parent_info: {
           entity_type: parentEntity,
           entity_id: parentId,
-          entity_name: parentInfo[0].name,
-        }
+          entity_name: parentInfo[0].name}
       };
     } catch (error) {
       fastify.log.error(`Error fetching ${request.params.actionEntity} entity in ${request.params.parentEntity}:`, error);
@@ -459,8 +430,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
       params: Type.Object({
         parentEntity: Type.String(),
         parentId: Type.String({ format: 'uuid' }),
-        actionEntity: Type.String(),
-      }),
+        actionEntity: Type.String()}),
       body: CreateEntitySchema,
       response: {
         201: UniversalEntitySchema,
@@ -468,10 +438,7 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
       const { parentEntity, parentId, actionEntity } = request.params as {
@@ -587,18 +554,14 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         parentEntity: Type.String(),
         parentId: Type.String({ format: 'uuid' }),
         actionEntity: Type.String(),
-        actionId: Type.String({ format: 'uuid' }),
-      }),
+        actionId: Type.String({ format: 'uuid' })}),
       body: UpdateEntitySchema,
       response: {
         200: UniversalEntitySchema,
         400: Type.Object({ error: Type.String() }),
         401: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
       const { parentEntity, parentId, actionEntity, actionId } = request.params as {
@@ -727,17 +690,13 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         parentEntity: Type.String(),
         parentId: Type.String({ format: 'uuid' }),
         actionEntity: Type.String(),
-        actionId: Type.String({ format: 'uuid' }),
-      }),
+        actionId: Type.String({ format: 'uuid' })}),
       response: {
         204: Type.Null(),
         400: Type.Object({ error: Type.String() }),
         401: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
       const { parentEntity, parentId, actionEntity, actionId } = request.params as {

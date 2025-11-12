@@ -26,7 +26,6 @@ interface FileWithMetadata {
   name: string;
   descr: string;
   artifact_type: string;
-  tags: string[];
   objectKey?: string;
   uploadStatus: 'pending' | 'uploading' | 'uploaded' | 'error';
   errorMessage?: string;
@@ -85,7 +84,6 @@ export function ArtifactUploadPage() {
       name: file.name.replace(/\.[^/.]+$/, ''), // Remove file extension
       descr: '',
       artifact_type: 'document',
-      tags: [],
       uploadStatus: 'pending'
     }));
 
@@ -207,7 +205,6 @@ export function ArtifactUploadPage() {
               object_key: file.objectKey,
               file_size_bytes: file.file.size,
               file_format: file.file.name.split('.').pop() || 'unknown',
-              tags: file.tags.length > 0 ? file.tags : null,
               active_flag: true
             };
 
@@ -445,7 +442,6 @@ export function ArtifactUploadPage() {
                       onChange={(e) =>
                         handleMetadataChange(
                           fileData.id,
-                          'tags',
                           e.target.value.split(',').map(t => t.trim()).filter(Boolean)
                         )
                       }

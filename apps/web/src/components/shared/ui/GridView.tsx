@@ -73,8 +73,7 @@ export function GridView<T = any>({
   className = '',
   emptyText = 'No items found',
   renderCustomCard,
-  filters = [],
-}: GridViewProps<T>) {
+  filters = []}: GridViewProps<T>) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
@@ -108,14 +107,12 @@ export function GridView<T = any>({
     3: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3',
     4: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
     5: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5',
-    6: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6',
-  };
+    6: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6'};
 
   const cardSizeClasses = {
     small: 'p-4',
     medium: 'p-6',
-    large: 'p-8',
-  };
+    large: 'p-8'};
 
   const actualGridCols = columns || gridCols;
   const actualEmptyText = emptyMessage || emptyText;

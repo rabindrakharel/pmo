@@ -20,8 +20,7 @@ const FormSchema = Type.Object({
   active_flag: Type.Boolean(),
   created_ts: Type.String(),
   updated_ts: Type.String(),
-  version: Type.Number(),
-});
+  version: Type.Number()});
 
 // Create schema
 const CreateFormSchema = Type.Object({
@@ -32,8 +31,7 @@ const CreateFormSchema = Type.Object({
   form_type: Type.Optional(Type.String()),
   form_schema: Type.Optional(Type.Any()),
   version: Type.Optional(Type.Number()),
-  active_flag: Type.Optional(Type.Boolean()),
-});
+  active_flag: Type.Optional(Type.Boolean())});
 
 const UpdateFormSchema = Type.Partial(CreateFormSchema);
 
@@ -48,19 +46,14 @@ export async function formRoutes(fastify: FastifyInstance) {
         search: Type.Optional(Type.String()),
         page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        show_all_versions: Type.Optional(Type.Boolean()),
-      }),
+        show_all_versions: Type.Optional(Type.Boolean())}),
       response: {
         200: Type.Object({
           data: Type.Array(FormSchema),
           total: Type.Number(),
           limit: Type.Number(),
-          offset: Type.Number(),
-        }),
-        403: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+          offset: Type.Number()}),
+        403: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const userId = request.user?.sub;
       if (!userId) {
@@ -73,8 +66,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         search,
         page = 1,
         limit = 20,
-        show_all_versions = false,
-      } = request.query as any;
+        show_all_versions = false} = request.query as any;
 
       const offset = (page - 1) * limit;
 
@@ -121,7 +113,6 @@ export async function formRoutes(fastify: FastifyInstance) {
         const forms = await db.execute(sql`
           SELECT
             f.id,
-            f.slug,
             f.code,
             f.name,
             f.descr,
@@ -137,29 +128,28 @@ export async function formRoutes(fastify: FastifyInstance) {
             f.version
           FROM app.d_form_head f
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-          ORDER BY f.slug ASC, f.version DESC
+          ORDER BY f.code ASC, f.version DESC
           LIMIT ${limit} OFFSET ${offset}
         `);
 
         return createPaginatedResponse(forms, total, limit, offset);
       } else {
-        // Show only latest version (highest version per slug/code group)
-        // Use DISTINCT ON to get one row per slug with max version
+        // Show only latest version (highest version per code group)
+        // Use DISTINCT ON to get one row per code with max version
         const countResult = await db.execute(sql`
           SELECT COUNT(*) as total
           FROM (
-            SELECT DISTINCT ON (f.slug) f.id
+            SELECT DISTINCT ON (f.code) f.id
             FROM app.d_form_head f
             ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-            ORDER BY f.slug, f.version DESC
+            ORDER BY f.code, f.version DESC
           ) subq
         `);
         const total = Number(countResult[0]?.total || 0);
 
         const forms = await db.execute(sql`
-          SELECT DISTINCT ON (f.slug)
+          SELECT DISTINCT ON (f.code)
             f.id,
-            f.slug,
             f.code,
             f.name,
             f.descr,
@@ -175,7 +165,7 @@ export async function formRoutes(fastify: FastifyInstance) {
             f.version
           FROM app.d_form_head f
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-          ORDER BY f.slug, f.version DESC
+          ORDER BY f.code, f.version DESC
           LIMIT ${limit} OFFSET ${offset}
         `);
 
@@ -187,34 +177,29 @@ export async function formRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get all versions of a form by slug
-  fastify.get('/api/v1/form/versions/:slug', {
+  // Get all versions of a form by ID
+  fastify.get('/api/v1/form/versions/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-      }),
+        id: Type.String()}),
       response: {
         200: Type.Object({
           data: Type.Array(FormSchema),
-          latestVersion: Type.Number(),
-        }),
+          latestVersion: Type.Number()}),
         403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const userId = request.user?.sub;
       if (!userId) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      const { slug } = request.params as { slug: string };
+      const { id } = request.params as { id: string };
 
       const forms = await db.execute(sql`
         SELECT
           f.id,
-          f.slug,
           f.code,
           f.name,
           f.descr,
@@ -229,7 +214,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           f.updated_ts,
           f.version
         FROM app.d_form_head f
-        WHERE f.slug = ${slug}
+        WHERE f.id = ${id}
           AND (
             EXISTS (
               SELECT 1 FROM app.entity_id_rbac_map rbac
@@ -252,8 +237,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       return {
         data: forms,
-        latestVersion,
-      };
+        latestVersion};
     } catch (error) {
       fastify.log.error('Error fetching form versions: ' + String(error));
       return reply.status(500).send({ error: 'Internal server error' });
@@ -265,15 +249,11 @@ export async function formRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String(),
-      }),
+        id: Type.String()}),
       response: {
         200: FormSchema,
         403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const userId = request.user?.sub;
       if (!userId) {
@@ -285,7 +265,6 @@ export async function formRoutes(fastify: FastifyInstance) {
       const forms = await db.execute(sql`
         SELECT
           f.id,
-          f.slug,
           f.code,
           f.name,
           f.descr,
@@ -334,10 +313,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         // Removed schema validation - let Fastify serialize naturally
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const userId = request.user?.sub;
       if (!userId) {
@@ -365,18 +341,16 @@ export async function formRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'No permission to create forms' });
       }
 
-      // Auto-generate slug and code
-      const slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now();
+      // Auto-generate code
       const code = 'FORM-' + Date.now();
 
       // Generate URLs for the form
-      const internalUrl = data.internal_url || `/form/${slug}`;
+      const internalUrl = data.internal_url || `/form/`;
       const sharedUrl = data.shared_url || `/form/${Math.random().toString(36).substring(2, 10)}`;
 
       // Insert form with minimalistic schema
       const result = await db.execute(sql`
         INSERT INTO app.d_form_head (
-          slug,
           code,
           name,
           descr,
@@ -388,7 +362,6 @@ export async function formRoutes(fastify: FastifyInstance) {
           version
         )
         VALUES (
-          ${slug},
           ${code},
           ${data.name},
           ${data.descr || null},
@@ -401,7 +374,6 @@ export async function formRoutes(fastify: FastifyInstance) {
         )
         RETURNING
           id,
-          slug,
           code,
           name,
           descr,
@@ -461,16 +433,12 @@ export async function formRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String(),
-      }),
+        id: Type.String()}),
       body: UpdateFormSchema,
       response: {
         200: FormSchema,
         403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const userId = request.user?.sub;
       if (!userId) {
@@ -531,7 +499,6 @@ export async function formRoutes(fastify: FastifyInstance) {
           WHERE id = ${id}
           RETURNING
             id,
-            slug,
             code,
             name,
             descr,
@@ -572,7 +539,6 @@ export async function formRoutes(fastify: FastifyInstance) {
           WHERE id = ${id}
           RETURNING
             id,
-            slug,
             code,
             name,
             descr,
@@ -606,10 +572,7 @@ export async function formRoutes(fastify: FastifyInstance) {
     schema: {
       params: Type.Object({
         id: Type.String(),
-        submissionId: Type.String(),
-      }),
-    },
-  }, async (request, reply) => {
+        submissionId: Type.String()})}}, async (request, reply) => {
     try {
       const userId = request.user?.sub;
       if (!userId) {
@@ -702,25 +665,19 @@ export async function formRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String(),
-      }),
+        id: Type.String()}),
       querystring: Type.Object({
         page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        status: Type.Optional(Type.String()),
-      }),
+        status: Type.Optional(Type.String())}),
       response: {
         200: Type.Object({
           data: Type.Array(Type.Any()),
           total: Type.Number(),
           limit: Type.Number(),
-          offset: Type.Number(),
-        }),
+          offset: Type.Number()}),
         403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const userId = request.user?.sub;
       if (!userId) {
@@ -789,8 +746,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         data: formData,
         total,
         limit,
-        offset,
-      };
+        offset};
     } catch (error) {
       fastify.log.error('Error fetching form data: ' + String(error));
       return reply.status(500).send({ error: 'Internal server error' });
@@ -803,22 +759,17 @@ export async function formRoutes(fastify: FastifyInstance) {
     schema: {
       params: Type.Object({
         id: Type.String(),
-        submissionId: Type.String(),
-      }),
+        submissionId: Type.String()}),
       body: Type.Object({
         submissionData: Type.Any(),
-        submissionStatus: Type.Optional(Type.String()),
-      }),
+        submissionStatus: Type.Optional(Type.String())}),
       response: {
         200: Type.Object({
           id: Type.String(),
           message: Type.String()
         }),
         403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const userId = request.user?.sub;
       if (!userId) {
@@ -881,22 +832,17 @@ export async function formRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String(),
-      }),
+        id: Type.String()}),
       body: Type.Object({
         submissionData: Type.Any(),
-        submissionStatus: Type.Optional(Type.String()),
-      }),
+        submissionStatus: Type.Optional(Type.String())}),
       response: {
         201: Type.Object({
           id: Type.String(),
           message: Type.String()
         }),
         404: Type.Object({ error: Type.String() }),
-        403: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        403: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const userId = request.user?.sub;
       if (!userId) {
@@ -971,21 +917,16 @@ export async function formRoutes(fastify: FastifyInstance) {
   fastify.get('/api/v1/public/form/:id', {
     schema: {
       params: Type.Object({
-        id: Type.String(),
-      }),
+        id: Type.String()}),
       response: {
         200: FormSchema,
-        404: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const { id } = request.params as { id: string };
 
       const forms = await db.execute(sql`
         SELECT
           f.id,
-          f.slug,
           f.code,
           f.name,
           f.descr,
@@ -1019,22 +960,17 @@ export async function formRoutes(fastify: FastifyInstance) {
   fastify.post('/api/v1/public/form/:id/submit', {
     schema: {
       params: Type.Object({
-        id: Type.String(),
-      }),
+        id: Type.String()}),
       body: Type.Object({
         submissionData: Type.Any(),
-        submissionStatus: Type.Optional(Type.String()),
-      }),
+        submissionStatus: Type.Optional(Type.String())}),
       response: {
         201: Type.Object({
           id: Type.String(),
           message: Type.String()
         }),
         404: Type.Object({ error: Type.String() }),
-        400: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        400: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const { id } = request.params as { id: string };
       const data = request.body as any;

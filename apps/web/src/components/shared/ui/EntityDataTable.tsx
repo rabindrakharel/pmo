@@ -154,8 +154,7 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
             top,
             left: rect.left + window.scrollX,
             width: rect.width,
-            openUpward: shouldOpenUpward,
-          });
+            openUpward: shouldOpenUpward});
         }
       };
 
@@ -205,8 +204,7 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
           fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
           fontSize: '13px',
           minHeight: '32px',
-          maxHeight: '32px',
-        }}
+          maxHeight: '32px'}}
       >
         {selectedOption ? (
           renderSettingBadge(selectedColor, String(selectedOption.label))
@@ -230,8 +228,7 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
             zIndex: 9999,
             boxShadow: dropdownPosition.openUpward
               ? '0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06)'
-              : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-          }}
+              : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'}}
         >
           <div className="py-1">
             {options.map(opt => {
@@ -352,7 +349,7 @@ export interface EntityDataTableProps<T = any> {
   /**
    * Optional data types for auto-generation (for JSONB/array detection)
    * @example
-   * dataTypes={{ metadata: 'jsonb', tags: '[]' }}
+   * dataTypes={{ metadata: 'jsonb'}}
    */
   dataTypes?: Record<string, string>;
   editedData?: any;
@@ -400,8 +397,7 @@ export function EntityDataTable<T = any>({
   allowAddRow = false,
   onAddRow,
   autoGenerateColumns = false,
-  dataTypes,
-}: EntityDataTableProps<T>) {
+  dataTypes}: EntityDataTableProps<T>) {
   // ============================================================================
   // AUTO-GENERATION: Universal Field Detector Integration
   // ============================================================================
@@ -431,8 +427,7 @@ export function EntityDataTable<T = any>({
         editable: col.editable,
         editType: col.editType,
         loadOptionsFromSettings: col.loadFromSettings,
-        loadFromEntity: col.loadFromEntity,
-      } as Column<T>));
+        loadFromEntity: col.loadFromEntity} as Column<T>));
     }
 
     // Fallback: empty columns
@@ -650,8 +645,7 @@ export function EntityDataTable<T = any>({
         label: 'Edit',
         icon: <Edit className="h-4 w-4" />,
         onClick: onEdit,
-        variant: 'primary',
-      });
+        variant: 'primary'});
     }
 
     if (onShare) {
@@ -660,8 +654,7 @@ export function EntityDataTable<T = any>({
         label: 'Share',
         icon: <Share className="h-4 w-4" />,
         onClick: onShare,
-        variant: 'default',
-      });
+        variant: 'default'});
     }
 
     if (onDelete) {
@@ -670,8 +663,7 @@ export function EntityDataTable<T = any>({
         label: 'Delete',
         icon: <Trash2 className="h-4 w-4" />,
         onClick: onDelete,
-        variant: 'danger',
-      });
+        variant: 'danger'});
     }
 
     return actions;
@@ -700,8 +692,7 @@ export function EntityDataTable<T = any>({
                 const buttonVariants = {
                   default: 'text-dark-700 hover:text-dark-600 hover:bg-dark-100',
                   primary: 'text-dark-600 hover:text-dark-600 hover:bg-dark-100',
-                  danger: 'text-red-600 hover:text-red-900 hover:bg-red-50',
-                };
+                  danger: 'text-red-600 hover:text-red-900 hover:bg-red-50'};
 
                 return (
                   <button
@@ -726,8 +717,7 @@ export function EntityDataTable<T = any>({
               })}
             </div>
           );
-        },
-      };
+        }};
 
       filteredColumns = [...filteredColumns, actionsColumn];
     }
@@ -896,8 +886,7 @@ export function EntityDataTable<T = any>({
         return {
           left: newLeft,
           width: newWidth,
-          visible: isVisible,
-        };
+          visible: isVisible};
       });
     };
 
@@ -1324,8 +1313,7 @@ export function EntityDataTable<T = any>({
           ref={tableContainerRef}
           className="overflow-y-auto overflow-x-auto scrollbar-elegant"
           style={{
-            maxHeight: 'calc(100% - 100px)',
-          }}
+            maxHeight: 'calc(100% - 100px)'}}
           onScroll={handleTableScroll}
         >
           <table
@@ -1472,8 +1460,7 @@ export function EntityDataTable<T = any>({
                                     const buttonVariants = {
                                       default: 'text-dark-700 hover:text-dark-600 hover:bg-dark-100',
                                       primary: 'text-dark-600 hover:text-dark-600 hover:bg-dark-100',
-                                      danger: 'text-red-600 hover:text-red-900 hover:bg-red-50',
-                                    };
+                                      danger: 'text-red-600 hover:text-red-900 hover:bg-red-50'};
 
                                     return (
                                       <button
@@ -1703,16 +1690,14 @@ export function EntityDataTable<T = any>({
             left: `${scrollbarStyles.left}px`,
             width: `${scrollbarStyles.width}px`,
             height: '24px',
-            zIndex: 1000,
-          }}
+            zIndex: 1000}}
           onScroll={handleBottomScroll}
         >
           {/* Progress indicator showing scroll position */}
           <div
             className="scrollbar-progress-indicator"
             style={{
-              width: `${scrollProgress}%`,
-            }}
+              width: `${scrollProgress}%`}}
           />
           {/* Scrollbar content */}
           <div className="scrollbar-content" style={{ height: '1px' }} />

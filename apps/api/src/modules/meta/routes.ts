@@ -23,14 +23,12 @@ const MetaItemSchema = Type.Object({
   workflow_sequence: Type.Optional(Type.Number()),
   is_terminal_state: Type.Optional(Type.Boolean()),
   is_success_state: Type.Optional(Type.Boolean()),
-  tags: Type.Optional(Type.Array(Type.String())),
   attr: Type.Optional(Type.Object({})),
   from_ts: Type.Optional(Type.String()),
   to_ts: Type.Optional(Type.String()),
   active: Type.Boolean(),
   created: Type.String(),
-  updated: Type.String(),
-});
+  updated: Type.String()});
 
 const CreateMetaItemSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
@@ -49,10 +47,8 @@ const CreateMetaItemSchema = Type.Object({
   workflow_sequence: Type.Optional(Type.Number()),
   is_terminal_state: Type.Optional(Type.Boolean()),
   is_success_state: Type.Optional(Type.Boolean()),
-  tags: Type.Optional(Type.Array(Type.String())),
   attr: Type.Optional(Type.Object({})),
-  active: Type.Optional(Type.Boolean()),
-});
+  active: Type.Optional(Type.Boolean())});
 
 const UpdateMetaItemSchema = Type.Partial(CreateMetaItemSchema);
 
@@ -63,17 +59,12 @@ export async function metaRoutes(fastify: FastifyInstance) {
     schema: {
       querystring: Type.Object({
         category: Type.Optional(Type.String()),
-        active: Type.Optional(Type.Boolean()),
-      }),
+        active: Type.Optional(Type.Boolean())}),
       response: {
         200: Type.Object({
           data: Type.Array(MetaItemSchema),
-          category: Type.Optional(Type.String()),
-        }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+          category: Type.Optional(Type.String())}),
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { category, active } = request.query as any;
 
 
@@ -94,7 +85,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             is_leaf as is_final,
             false as is_blocked,
             null as icon,
-            null as tags,
+            null as,
             null as attr,
             from_ts,
             to_ts,
@@ -120,7 +111,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             false as is_blocked,
             null as wip_limit,
             null as icon,
-            null as tags,
+            null as,
             null as attr,
             from_ts,
             to_ts,
@@ -144,7 +135,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             level_id as workflow_sequence,
             is_leaf as is_terminal_state,
             is_leaf as is_success_state,
-            null as tags,
+            null as,
             null as attr,
             from_ts,
             to_ts,
@@ -165,7 +156,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             level_id,
             null as duration_weeks,
             level_id as sort_order,
-            null as tags,
+            null as,
             null as attr,
             from_ts,
             to_ts,
@@ -185,7 +176,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             null as descr,
             level_id,
             level_id as sort_order,
-            null as tags,
+            null as,
             null as attr,
             from_ts,
             to_ts,
@@ -206,7 +197,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             level_id,
             null as country_code,
             level_id as sort_order,
-            null as tags,
+            null as,
             null as attr,
             from_ts,
             to_ts,
@@ -230,7 +221,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
             false as is_management_level,
             false as is_executive_level,
             level_id as sort_order,
-            null as tags,
+            null as,
             null as attr,
             from_ts,
             to_ts,
@@ -247,13 +238,12 @@ export async function metaRoutes(fastify: FastifyInstance) {
           SELECT
             id::text,
             level_name as name,
-            slug,
             level_id,
             is_root,
             is_leaf,
             authority_description,
             level_id as sort_order,
-            null as tags,
+            null as,
             null as attr,
             from_ts,
             to_ts,
@@ -270,13 +260,12 @@ export async function metaRoutes(fastify: FastifyInstance) {
           SELECT
             id::text,
             level_name as name,
-            slug,
             level_id,
             is_root,
             is_leaf,
             authority_description,
             level_id as sort_order,
-            null as tags,
+            null as,
             null as attr,
             from_ts,
             to_ts,
@@ -293,8 +282,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
         if (category && !['all', undefined].includes(category)) {
           return {
             data: [],
-            category: category,
-          };
+            category: category};
         }
         
         // Get all meta data (simplified for now)
@@ -324,8 +312,7 @@ export async function metaRoutes(fastify: FastifyInstance) {
 
       return {
         data: results,
-        category: categoryName,
-      };
+        category: categoryName};
     } catch (error) {
       fastify.log.error('Error fetching meta data:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -338,15 +325,11 @@ export async function metaRoutes(fastify: FastifyInstance) {
     schema: {
       params: Type.Object({
         category: Type.String(),
-        id: Type.String(),
-      }),
+        id: Type.String()}),
       response: {
         200: MetaItemSchema,
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { category, id } = request.params as { category: string; id: string };
 
     try {
@@ -410,17 +393,13 @@ export async function metaRoutes(fastify: FastifyInstance) {
     
     schema: {
       params: Type.Object({
-        category: Type.String(),
-      }),
+        category: Type.String()}),
       body: CreateMetaItemSchema,
       response: {
         201: MetaItemSchema,
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { category } = request.params as { category: string };
     const data = request.body as any;
 
@@ -485,17 +464,13 @@ export async function metaRoutes(fastify: FastifyInstance) {
     schema: {
       params: Type.Object({
         category: Type.String(),
-        id: Type.String(),
-      }),
+        id: Type.String()}),
       body: UpdateMetaItemSchema,
       response: {
         200: MetaItemSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { category, id } = request.params as { category: string; id: string };
     const data = request.body as any;
 
@@ -562,16 +537,12 @@ export async function metaRoutes(fastify: FastifyInstance) {
     schema: {
       params: Type.Object({
         category: Type.String(),
-        id: Type.String(),
-      }),
+        id: Type.String()}),
       response: {
         204: Type.Null(),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { category, id } = request.params as { category: string; id: string };
 
     // Check if user has permission to delete meta data (admin-level)

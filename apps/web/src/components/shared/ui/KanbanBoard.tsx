@@ -35,7 +35,7 @@ export interface KanbanBoardProps {
   /**
    * Optional data types for JSONB/array detection
    * @example
-   * dataTypes={{ metadata: 'jsonb', tags: '[]' }}
+   * dataTypes={{ metadata: 'jsonb'}}
    */
   dataTypes?: Record<string, string>;
 
@@ -285,8 +285,7 @@ export function KanbanBoard({
   onCardClick,
   onCardMove,
   renderCard,
-  emptyMessage = 'No columns to display',
-}: KanbanBoardProps) {
+  emptyMessage = 'No columns to display'}: KanbanBoardProps) {
   // ============================================================================
   // NEW ARCHITECTURE: Auto-Generation ONLY
   // ============================================================================

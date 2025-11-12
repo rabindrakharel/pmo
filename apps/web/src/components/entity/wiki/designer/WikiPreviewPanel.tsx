@@ -9,8 +9,7 @@ interface WikiPreviewPanelProps {
     author: string;
     createdDate: string;
     updatedDate: string;
-    tags: string[];
-  };
+    };
 }
 
 export function WikiPreviewPanel({ blocks, title, metadata }: WikiPreviewPanelProps) {
@@ -31,8 +30,7 @@ export function WikiPreviewPanel({ blocks, title, metadata }: WikiPreviewPanelPr
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric',
-    });
+      day: 'numeric'});
   };
 
   const renderBlock = (block: WikiBlock) => {
@@ -45,8 +43,7 @@ export function WikiPreviewPanel({ blocks, title, metadata }: WikiPreviewPanelPr
           3: 'text-2xl font-semibold mt-5 mb-2',
           4: 'text-xl font-semibold mt-4 mb-2',
           5: 'text-lg font-medium mt-3 mb-2',
-          6: 'text-base font-medium mt-2 mb-1',
-        }[block.level || 1];
+          6: 'text-base font-medium mt-2 mb-1'}[block.level || 1];
         return <HeadingTag className={headingClasses}>{block.content}</HeadingTag>;
 
       case 'paragraph':
@@ -171,23 +168,6 @@ export function WikiPreviewPanel({ blocks, title, metadata }: WikiPreviewPanelPr
               <span>Updated {formatDate(metadata.updatedDate)}</span>
             </div>
           </div>
-
-          {/* Tags */}
-          {metadata.tags && metadata.tags.length > 0 && (
-            <div className="flex items-center space-x-2 mt-3">
-              <Tag className="h-4 w-4 text-dark-700" />
-              <div className="flex flex-wrap gap-2">
-                {metadata.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center px-3 py-1 bg-dark-100 text-dark-700 rounded-full text-xs font-medium"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Content */}

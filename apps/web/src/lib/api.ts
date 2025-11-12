@@ -5,9 +5,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localho
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json',
-  },
-});
+    'Content-Type': 'application/json'}});
 
 // Add authentication headers
 apiClient.interceptors.request.use((config) => {
@@ -102,8 +100,7 @@ export const authApi = {
   async configureCustomerEntities(entities: string[]): Promise<CustomerProfile> {
     const response = await apiClient.put('/api/v1/auth/customer/configure', { entities });
     return response.data;
-  },
-};
+  }};
 
 export const projectApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; status?: string; priority?: string }) {
@@ -157,8 +154,7 @@ export const projectApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/project/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const taskApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; status?: string; projectId?: string }) {
@@ -203,8 +199,7 @@ export const taskApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/task/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const settingApi = {
   async get(datalabel: 'task_stage' | 'project_status' | 'project_stage' | 'biz_level' | 'org_level' | 'hr_level' | 'client_level' | 'position_level') {
@@ -230,8 +225,7 @@ export const settingApi = {
   async delete(datalabel: string, id: string) {
     const response = await apiClient.delete(`/api/v1/setting/${datalabel}/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const employeeApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; department?: string; role?: string }) {
@@ -257,8 +251,7 @@ export const employeeApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/employee/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const custApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; type?: string }) {
@@ -289,8 +282,7 @@ export const custApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/cust/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const businessApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; level?: string }) {
@@ -358,8 +350,7 @@ export const businessApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/business/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const officeApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; level?: string }) {
@@ -427,8 +418,7 @@ export const officeApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/office/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const worksiteApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; location?: string }) {
@@ -468,8 +458,7 @@ export const worksiteApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/worksite/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const roleApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; roleType?: string; roleCategory?: string }) {
@@ -495,8 +484,7 @@ export const roleApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/role/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const formApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; showAllVersions?: boolean }) {
@@ -514,8 +502,8 @@ export const formApi = {
     return response.data;
   },
 
-  async getVersions(slug: string) {
-    const response = await apiClient.get(`/api/v1/form/versions/${slug}`);
+  async getVersions(id: string) {
+    const response = await apiClient.get(`/api/v1/form/versions/${id}`);
     return response.data;
   },
 
@@ -539,8 +527,7 @@ export const formApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/form/${id}`);
     return response.data;
-  },
-};
+  }};
 
 // Wiki API
 export const wikiApi = {
@@ -572,8 +559,7 @@ export const wikiApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/wiki/${id}`);
     return response.data;
-  },
-};
+  }};
 
 // Artifacts API
 export const artifactApi = {
@@ -608,8 +594,7 @@ export const artifactApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/artifact/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const positionApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string }) {
@@ -635,8 +620,7 @@ export const positionApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/position/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const marketingApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; status?: string }) {
@@ -662,8 +646,7 @@ export const marketingApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/email-template/${id}`);
     return response.data;
-  },
-};
+  }};
 
 // Product & Operations APIs
 export const serviceApi = {
@@ -690,8 +673,7 @@ export const serviceApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/service/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const productApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; department?: string }) {
@@ -717,8 +699,7 @@ export const productApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/product/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const quoteApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; dl__quote_stage?: string }) {
@@ -750,8 +731,7 @@ export const quoteApi = {
   async getWorkOrders(quoteId: string, params?: { page?: number; pageSize?: number }) {
     const response = await apiClient.get(`/api/v1/quote/${quoteId}/work_order`, { params });
     return response.data;
-  },
-};
+  }};
 
 export const workOrderApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; dl__work_order_status?: string }) {
@@ -777,8 +757,7 @@ export const workOrderApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/work_order/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const inventoryApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string }) {
@@ -804,8 +783,7 @@ export const inventoryApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/inventory/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const orderApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string }) {
@@ -831,8 +809,7 @@ export const orderApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/order/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const invoiceApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string }) {
@@ -858,8 +835,7 @@ export const invoiceApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/invoice/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const shipmentApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string }) {
@@ -885,8 +861,7 @@ export const shipmentApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/shipment/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const costApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; cost_code?: string; invoice_currency?: string }) {
@@ -912,8 +887,7 @@ export const costApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/cost/${id}`);
     return response.data;
-  },
-};
+  }};
 
 export const revenueApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; revenue_code?: string; invoice_currency?: string }) {
@@ -939,8 +913,7 @@ export const revenueApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/revenue/${id}`);
     return response.data;
-  },
-};
+  }};
 
 // Entity Options API - Universal options for dropdowns/selects
 export const entityOptionsApi = {
@@ -983,8 +956,44 @@ export const entityOptionsApi = {
   async getEntitiesByParent(parentType: string, parentId: string, params?: { active_only?: boolean }) {
     const response = await apiClient.get(`/api/v1/entity/${parentType}/${parentId}/children`, { params });
     return response.data;
-  },
-};
+  }};
+
+// ========================================
+// GENERIC ENTITY API FACTORY
+// ========================================
+
+/**
+ * Creates a standard CRUD API for an entity type
+ * Reduces boilerplate for entities that follow standard patterns
+ */
+function createEntityAPI(endpoint: string) {
+  return {
+    async list(params?: { page?: number; pageSize?: number; search?: string; [key: string]: any }) {
+      const response = await apiClient.get(endpoint, { params });
+      return response.data;
+    },
+
+    async get(id: string) {
+      const response = await apiClient.get(`${endpoint}/${id}`);
+      return response.data;
+    },
+
+    async create(data: any) {
+      const response = await apiClient.post(endpoint, data);
+      return response.data;
+    },
+
+    async update(id: string, data: any) {
+      const response = await apiClient.patch(`${endpoint}/${id}`, data);
+      return response.data;
+    },
+
+    async delete(id: string) {
+      const response = await apiClient.delete(`${endpoint}/${id}`);
+      return response.data;
+    }
+  };
+}
 
 // ========================================
 // API FACTORY REGISTRATION
@@ -1064,9 +1073,24 @@ export const calendarApi = {
   async delete(id: string) {
     const response = await apiClient.delete(`/api/v1/person-calendar/${id}`);
     return response.data;
-  },
-};
+  }};
 APIFactory.register('calendar', calendarApi);
+
+// Hierarchy entities (use kebab-case API endpoints)
+APIFactory.register('office_hierarchy', createEntityAPI('/api/v1/office-hierarchy'));
+APIFactory.register('business_hierarchy', createEntityAPI('/api/v1/business-hierarchy'));
+APIFactory.register('product_hierarchy', createEntityAPI('/api/v1/product-hierarchy'));
+
+// Event & Calendar
+APIFactory.register('event', createEntityAPI('/api/v1/event'));
+APIFactory.register('person_calendar', createEntityAPI('/api/v1/person-calendar'));
+
+// Interaction & Communication
+APIFactory.register('interaction', createEntityAPI('/api/v1/interaction'));
+APIFactory.register('message', createEntityAPI('/api/v1/message'));
+
+// Booking
+APIFactory.register('booking', createEntityAPI('/api/v1/booking'));
 
 /**
  * Export the APIFactory for use in components

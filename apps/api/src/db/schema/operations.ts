@@ -28,8 +28,7 @@ export const opsProjectHead = pgTable('ops_project_head', {
   
   // Basic project attributes
   slug: text('slug').unique(),
-  tenantId: uuid('tenant_id'),
-});
+  tenantId: uuid('tenant_id')});
 
 // Project Records (mutable attributes)
 export const opsProjectRecords = pgTable('ops_project_records', {
@@ -44,8 +43,7 @@ export const opsProjectRecords = pgTable('ops_project_records', {
   tags: jsonb('tags').notNull().default('[]'),
   attr: jsonb('attr').notNull().default('{}'),
   created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
-});
+  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow()});
 
 // Task Head (updated for new normalized schema)
 export const opsTaskHead = pgTable('ops_task_head', {
@@ -124,8 +122,7 @@ export const opsTaskHead = pgTable('ops_task_head', {
   clientCommunicationRequired: boolean('client_communication_required').default(false),
   permitRequired: boolean('permit_required').default(false),
   inspectionRequired: boolean('inspection_required').default(false),
-  documentationComplete: boolean('documentation_complete').default(false),
-});
+  documentationComplete: boolean('documentation_complete').default(false)});
 
 // Task Records (mutable attributes)
 export const opsTaskRecords = pgTable('ops_task_records', {
@@ -142,8 +139,7 @@ export const opsTaskRecords = pgTable('ops_task_records', {
   tags: jsonb('tags').notNull().default('[]'),
   attr: jsonb('attr').notNull().default('{}'),
   created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
-});
+  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow()});
 
 // Task-Employee Relationship
 export const relTaskEmployee = pgTable('rel_task_employee', {
@@ -157,8 +153,7 @@ export const relTaskEmployee = pgTable('rel_task_employee', {
   tags: jsonb('tags').notNull().default('[]'),
   attr: jsonb('attr').notNull().default('{}'),
   created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
-});
+  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow()});
 
 // Tasklog Head (structured log entry definition)
 export const opsTasklogHead = pgTable('ops_tasklog_head', {
@@ -185,8 +180,7 @@ export const opsTasklogHead = pgTable('ops_tasklog_head', {
   tags: jsonb('tags').notNull().default('[]'),
   attr: jsonb('attr').notNull().default('{}'),
   created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
-});
+  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow()});
 
 // Tasklog Records (actual log entries)
 export const opsTasklogRecords = pgTable('ops_tasklog_records', {
@@ -206,8 +200,7 @@ export const opsTasklogRecords = pgTable('ops_tasklog_records', {
   tags: jsonb('tags').notNull().default('[]'),
   attr: jsonb('attr').notNull().default('{}'),
   created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
-});
+  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow()});
 
 // Form Head (form definition)
 export const opsFormlogHead = pgTable('ops_formlog_head', {
@@ -236,8 +229,7 @@ export const opsFormlogHead = pgTable('ops_formlog_head', {
   version: integer('version').notNull(),
   attr: jsonb('attr').notNull().default('{}'),
   created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
-});
+  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow()});
 
 // Form Records (form submissions)
 export const opsFormlogRecords = pgTable('ops_formlog_records', {
@@ -257,55 +249,42 @@ export const opsFormlogRecords = pgTable('ops_formlog_records', {
   tags: jsonb('tags').notNull().default('[]'),
   attr: jsonb('attr').notNull().default('{}'),
   inserted: timestamp('inserted', { withTimezone: true }).notNull().defaultNow(),
-  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow(),
-});
+  updated: timestamp('updated', { withTimezone: true }).notNull().defaultNow()});
 
 // Relations
 export const opsProjectHeadRelations = relations(opsProjectHead, ({ one, many }) => ({
   scopeProject: one(dScopeProject, {
     fields: [opsProjectHead.scopeProjectId],
-    references: [dScopeProject.id],
-  }),
+    references: [dScopeProject.id]}),
   records: many(opsProjectRecords),
-  tasks: many(opsTaskHead),
-}));
+  tasks: many(opsTaskHead)}));
 
 export const opsProjectRecordsRelations = relations(opsProjectRecords, ({ one }) => ({
   head: one(opsProjectHead, {
     fields: [opsProjectRecords.headId],
-    references: [opsProjectHead.id],
-  }),
+    references: [opsProjectHead.id]}),
   status: one(metaProjectStatus, {
     fields: [opsProjectRecords.statusId],
-    references: [metaProjectStatus.id],
-  }),
+    references: [metaProjectStatus.id]}),
   stage: one(metaProjectStage, {
     fields: [opsProjectRecords.stageId],
-    references: [metaProjectStage.levelId],
-  }),
-}));
+    references: [metaProjectStage.levelId]})}));
 
 export const opsTaskHeadRelations = relations(opsTaskHead, ({ one, many }) => ({
   assignedEmployee: one(dEmployee, {
     fields: [opsTaskHead.assignedToEmployeeId],
-    references: [dEmployee.id],
-  }),
+    references: [dEmployee.id]}),
   assignedEmployees: many(relTaskEmployee),
   records: many(opsTaskRecords),
-  taskLogs: many(opsTasklogHead),
-}));
+  taskLogs: many(opsTasklogHead)}));
 
 export const opsTaskRecordsRelations = relations(opsTaskRecords, ({ one }) => ({
   head: one(opsTaskHead, {
     fields: [opsTaskRecords.headId],
-    references: [opsTaskHead.id],
-  }),
+    references: [opsTaskHead.id]}),
   status: one(metaTaskStatus, {
     fields: [opsTaskRecords.statusId],
-    references: [metaTaskStatus.id],
-  }),
+    references: [metaTaskStatus.id]}),
   stage: one(metaTaskStage, {
     fields: [opsTaskRecords.stageId],
-    references: [metaTaskStage.id],
-  }),
-}));
+    references: [metaTaskStage.id]})}));

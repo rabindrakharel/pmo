@@ -16,10 +16,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
         limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 20 })),
         offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
-        invoice_status: Type.Optional(Type.String()),
-      }),
-    },
-  }, async (request, reply) => {
+        invoice_status: Type.Optional(Type.String())})}}, async (request, reply) => {
     const { limit = 20, offset: queryOffset, page, invoice_status } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
@@ -57,9 +54,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ['invoice'],
       summary: 'Get invoice by ID',
-      params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-    },
-  }, async (request, reply) => {
+      params: Type.Object({ id: Type.String({ format: 'uuid' }) })}}, async (request, reply) => {
     const { id } = request.params as any;
 
     try {
@@ -82,9 +77,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       tags: ['invoice'],
-      summary: 'Create invoice',
-    },
-  }, async (request, reply) => {
+      summary: 'Create invoice'}}, async (request, reply) => {
     const data = request.body as any;
 
     try {
@@ -120,9 +113,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ['invoice'],
       summary: 'Update invoice',
-      params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-    },
-  }, async (request, reply) => {
+      params: Type.Object({ id: Type.String({ format: 'uuid' }) })}}, async (request, reply) => {
     const { id } = request.params as any;
     const data = request.body as any;
 
@@ -215,9 +206,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ['invoice'],
       summary: 'Delete invoice',
-      params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-    },
-  }, async (request, reply) => {
+      params: Type.Object({ id: Type.String({ format: 'uuid' }) })}}, async (request, reply) => {
     const { id } = request.params as any;
 
     try {

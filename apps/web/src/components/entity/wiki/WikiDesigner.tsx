@@ -24,12 +24,10 @@ export interface WikiBlock {
 export interface WikiPage {
   id?: string;
   name: string;
-  slug: string;
   content?: {
     type: 'blocks';
     blocks: WikiBlock[];
   };
-  tags?: string[];
   metadata?: {
     attr?: {
       icon?: string;
@@ -60,8 +58,6 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
 
   // Metadata state
   const [title, setTitle] = useState(page.name || '');
-  const [slug, setSlug] = useState(page.slug || '');
-  const [tags, setTags] = useState<string[]>(page.tags || []);
   const [pagePath, setPagePath] = useState<string>(page.metadata?.attr?.path || '/wiki');
   const [icon] = useState<string>(page.metadata?.attr?.icon || '📄');
   const [cover] = useState<string>(page.metadata?.attr?.cover || '');
@@ -77,8 +73,7 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
     enabled: Boolean(page.id),
     onSyncStatusChange: (status) => {
       console.log('Collab sync status:', status);
-    },
-  });
+    }});
 
   // Sync local blocks with collaborative blocks
   useEffect(() => {
@@ -93,8 +88,6 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
       setBlocks(page.content.blocks);
     }
     if (page.name !== undefined) setTitle(page.name);
-    if (page.slug !== undefined) setSlug(page.slug);
-    if (page.tags !== undefined) setTags(page.tags);
     if (page.metadata?.attr?.path !== undefined) setPagePath(page.metadata.attr.path);
     if (page.updatedTs !== undefined) setUpdatedDate(page.updatedTs);
   }, [page]);
@@ -103,8 +96,7 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+      coordinateGetter: sortableKeyboardCoordinates})
   );
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
@@ -134,8 +126,7 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
       content: type === 'heading' ? 'Heading' : type === 'paragraph' ? 'Start typing...' : type === 'quote' ? 'Quote' : type === 'code' ? '// Code' : type === 'callout' ? 'Important note' : type === 'list' ? '' : '',
       level: type === 'heading' ? (level || 1) : type === 'list' ? (level || 1) : undefined,
       styles: {},
-      properties: type === 'image' ? { src: '', alt: '' } : type === 'video' ? { src: '' } : type === 'table' ? { rows: 3, cols: 3 } : type === 'list' ? { items: [''] } : {},
-    };
+      properties: type === 'image' ? { src: '', alt: '' } : type === 'video' ? { src: '' } : type === 'table' ? { rows: 3, cols: 3 } : type === 'list' ? { items: [''] } : {}};
 
     const updatedBlocks = [...blocks, newBlock];
     setBlocks(updatedBlocks);
@@ -238,10 +229,8 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
 
       const pageData: Partial<WikiPage> = {
         name: title,
-        slug: slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
         content: { type: 'blocks', blocks },
         content_html: contentHtml,
-        tags,
         metadata: {
           attr: {
             path: pagePath
@@ -249,8 +238,7 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
         },
         publication_status: page.publication_status || 'draft',
         visibility: page.visibility || 'internal',
-        wiki_type: page.wiki_type || 'page',
-      };
+        wiki_type: page.wiki_type || 'page'};
 
       await onSave(pageData);
     } catch (error) {
@@ -273,9 +261,7 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
           metadata={{
             author,
             createdDate,
-            updatedDate,
-            tags,
-          }}
+            updatedDate}}
         />
       );
     }
@@ -296,15 +282,12 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
                 {JSON.stringify(
                   {
                     title,
-                    slug,
-                    tags,
                     icon,
                     cover,
                     path: pagePath,
                     author,
                     createdDate,
-                    updatedDate,
-                  },
+                    updatedDate},
                   null,
                   2
                 )}
@@ -409,16 +392,12 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
         viewMode === 'design' ? (
           <WikiPropertiesPanel
             title={title}
-            slug={slug}
-            tags={tags}
             pagePath={pagePath}
             author={author}
             createdDate={createdDate}
             updatedDate={updatedDate}
             selectedBlock={selectedBlock}
             onUpdateTitle={setTitle}
-            onUpdateSlug={setSlug}
-            onUpdateTags={setTags}
             onUpdatePath={setPagePath}
             onUpdateBlock={(updates) => selectedBlock && handleUpdateBlock(selectedBlock.id, updates)}
           />
@@ -435,8 +414,7 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
         icon: <Save className="h-4 w-4" />,
         onClick: handleSave,
         disabled: isSaving || !title.trim(),
-        loading: isSaving,
-      }}
+        loading: isSaving}}
       trailingActions={
         onExit
           ? [
@@ -445,9 +423,7 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
                 label: 'Exit',
                 icon: <LogOut className="h-4 w-4" />,
                 onClick: onExit,
-                variant: 'secondary' as const,
-              },
-            ]
+                variant: 'secondary' as const}]
           : []
       }
     />

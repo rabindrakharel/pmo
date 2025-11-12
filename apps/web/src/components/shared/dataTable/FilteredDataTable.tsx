@@ -163,8 +163,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     try {
       const token = localStorage.getItem('auth_token');
       const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
+        'Content-Type': 'application/json'};
 
       if (token) {
         headers.Authorization = `Bearer ${token}`;
@@ -250,8 +249,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     try {
       const token = localStorage.getItem('auth_token');
       const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
+        'Content-Type': 'application/json'};
 
       if (token) {
         headers.Authorization = `Bearer ${token}`;
@@ -406,8 +404,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     try {
       const token = localStorage.getItem('auth_token');
       const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
+        'Content-Type': 'application/json'};
 
       if (token) {
         headers.Authorization = `Bearer ${token}`;
@@ -530,8 +527,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     try {
       const token = localStorage.getItem('auth_token');
       const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
+        'Content-Type': 'application/json'};
 
       if (token) {
         headers.Authorization = `Bearer ${token}`;
@@ -576,8 +572,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     try {
       const token = localStorage.getItem('auth_token');
       const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
+        'Content-Type': 'application/json'};
 
       if (token) {
         headers.Authorization = `Bearer ${token}`;
@@ -625,8 +620,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     try {
       const token = localStorage.getItem('auth_token');
       const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
+        'Content-Type': 'application/json'};
 
       if (token) {
         headers.Authorization = `Bearer ${token}`;
@@ -671,8 +665,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     try {
       const token = localStorage.getItem('auth_token');
       const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
+        'Content-Type': 'application/json'};
 
       if (token) {
         headers.Authorization = `Bearer ${token}`;
@@ -735,8 +728,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     total: totalRecords,
     showSizeChanger: true,
     pageSizeOptions: [10, 20, 50, 100],
-    onChange: handlePageChange,
-  };
+    onChange: handlePageChange};
 
   // Handle missing config
   if (!config) {

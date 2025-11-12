@@ -223,9 +223,7 @@ export function createMinimalChildEntityEndpoint(
         INSERT INTO app.${childTableIdentifier} (
           name,
           code,
-          slug,
           descr,
-          tags,
           metadata,
           active_flag,
           created_ts,

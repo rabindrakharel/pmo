@@ -35,8 +35,7 @@ const TaskSchema = Type.Object({
   active_flag: Type.Boolean(),
   created_ts: Type.String(),
   updated_ts: Type.String(),
-  version: Type.Number(),
-});
+  version: Type.Number()});
 
 // Task Records are deprecated - using single table approach from DDL
 
@@ -55,8 +54,7 @@ const CreateTaskSchema = Type.Object({
   // Effort tracking
   estimated_hours: Type.Optional(Type.Number()),
   actual_hours: Type.Optional(Type.Number()),
-  story_points: Type.Optional(Type.Number()),
-});
+  story_points: Type.Optional(Type.Number())});
 
 const UpdateTaskSchema = Type.Partial(CreateTaskSchema);
 
@@ -77,20 +75,15 @@ export async function taskRoutes(fastify: FastifyInstance) {
         search: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
-        page: Type.Optional(Type.Number({ minimum: 1 })),
-      }),
+        page: Type.Optional(Type.Number({ minimum: 1 }))}),
       response: {
         200: Type.Object({
           data: Type.Array(TaskSchema),
           total: Type.Number(),
           limit: Type.Number(),
-          offset: Type.Number(),
-        }),
+          offset: Type.Number()}),
         403: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const {
       project_id, assigned_to_employee_id, dl__task_stage, task_type, task_category,
       worksite_id, client_id, active, search, limit = 20, offset: queryOffset, page
@@ -247,8 +240,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         data: tasks,
         total,
         limit,
-        offset,
-      };
+        offset};
     } catch (error) {
       fastify.log.error('Error fetching tasks:', error);
       console.error('Detailed task error:', error);
@@ -261,16 +253,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       response: {
         // Schema removed to allow flexible response based on actual database columns
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
 
     const userId = (request as any).user?.sub;
@@ -348,8 +336,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         canSeePII: true,
         canSeeFinancial: true,
         canSeeSystemFields: true,
-        canSeeSafetyInfo: true,
-      };
+        canSeeSafetyInfo: true};
 
       return filterUniversalColumns(task[0], userPermissions);
     } catch (error) {
@@ -367,10 +354,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         // Removed schema validation - let Fastify serialize naturally
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const data = request.body as any;
 
     const userId = (request as any).user?.sub;
@@ -444,8 +428,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         canSeePII: true,
         canSeeFinancial: true,
         canSeeSystemFields: true,
-        canSeeSafetyInfo: true,
-      };
+        canSeeSafetyInfo: true};
 
       return reply.status(201).send(filterUniversalColumns(newTask, userPermissions));
     } catch (error) {
@@ -459,17 +442,13 @@ export async function taskRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       body: UpdateTaskSchema,
       response: {
         200: TaskSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
     const data = request.body as any;
 
@@ -557,8 +536,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         canSeePII: true,
         canSeeFinancial: true,
         canSeeSystemFields: true,
-        canSeeSafetyInfo: true,
-      };
+        canSeeSafetyInfo: true};
 
       return filterUniversalColumns(updatedTask, userPermissions);
     } catch (error) {
@@ -582,25 +560,19 @@ export async function taskRoutes(fastify: FastifyInstance) {
       summary: 'Update task status (Kanban)',
       description: 'Updates task status for Kanban drag-drop operations with optimistic UI support',
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       body: Type.Object({
         task_status: Type.String({ enum: ['backlog', 'in_progress', 'blocked', 'done', 'completed'] }),
         position: Type.Optional(Type.Number()),
-        moved_by: Type.Optional(Type.String()),
-      }),
+        moved_by: Type.Optional(Type.String())}),
       response: {
         200: Type.Object({
           id: Type.String(),
           task_status: Type.String(),
-          updated: Type.String(),
-        }),
+          updated: Type.String()}),
         400: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const { id } = request.params as { id: string };
       const { task_status, position, moved_by } = request.body as any;
@@ -638,8 +610,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       return {
         id: String(updateResult[0].id),
         task_status: String(updateResult[0].task_status),
-        updated: String(updateResult[0].updated),
-      };
+        updated: String(updateResult[0].updated)};
     } catch (error) {
       fastify.log.error('Error updating task status:', error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -654,34 +625,25 @@ export async function taskRoutes(fastify: FastifyInstance) {
       summary: 'Get tasks for Kanban view',
       description: 'Returns tasks grouped by status for Kanban board display',
       params: Type.Object({
-        projectId: Type.String({ format: 'uuid' }),
-      }),
+        projectId: Type.String({ format: 'uuid' })}),
       querystring: Type.Object({
         assignee: Type.Optional(Type.String()),
-        priority: Type.Optional(Type.String()),
-      }),
+        priority: Type.Optional(Type.String())}),
       response: {
         200: Type.Object({
           project: Type.Object({
             id: Type.String(),
-            name: Type.String(),
-          }),
+            name: Type.String()}),
           columns: Type.Object({
             backlog: Type.Array(TaskSchema),
             in_progress: Type.Array(TaskSchema),
             blocked: Type.Array(TaskSchema),
-            done: Type.Array(TaskSchema),
-          }),
+            done: Type.Array(TaskSchema)}),
           stats: Type.Object({
             total: Type.Number(),
-            by_status: Type.Record(Type.String(), Type.Number()),
-          }),
-        }),
+            by_status: Type.Record(Type.String(), Type.Number())})}),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const { projectId } = request.params as { projectId: string };
       const { assignee, priority } = request.query as any;
@@ -740,8 +702,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         backlog: tasks.filter(t => t.dl__task_stage === 'backlog'),
         in_progress: tasks.filter(t => t.dl__task_stage === 'in_progress'),
         blocked: tasks.filter(t => t.dl__task_stage === 'blocked'),
-        done: tasks.filter(t => ['done', 'completed'].includes(String(t.dl__task_stage))),
-      };
+        done: tasks.filter(t => ['done', 'completed'].includes(String(t.dl__task_stage)))};
 
       // Calculate stats
       const stats = {
@@ -750,18 +711,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
           backlog: columns.backlog.length,
           in_progress: columns.in_progress.length,
           blocked: columns.blocked.length,
-          done: columns.done.length,
-        },
-      };
+          done: columns.done.length}};
 
       return {
         project: {
           id: String(project[0].id),
-          name: String(project[0].name),
-        },
+          name: String(project[0].name)},
         columns,
-        stats,
-      };
+        stats};
     } catch (error) {
       fastify.log.error('Error fetching Kanban data:', error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -776,8 +733,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       summary: 'Get task case notes',
       description: 'Returns case notes timeline with rich content for task detail view',
       params: Type.Object({
-        taskId: Type.String({ format: 'uuid' }),
-      }),
+        taskId: Type.String({ format: 'uuid' })}),
       response: {
         200: Type.Object({
           task_id: Type.String(),
@@ -794,15 +750,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
               id: Type.String(),
               filename: Type.String(),
               size: Type.Number(),
-              mime_type: Type.String(),
-            })),
-          })),
-        }),
+              mime_type: Type.String()}))}))}),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const { taskId } = request.params as { taskId: string };
       const employeeId = (request as any).user?.sub;
@@ -851,13 +801,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
         created_at: String(note.created_at),
         updated_at: String(note.updated_at),
         mentions: Array.isArray(note.mentions) ? note.mentions.map(String) : [],
-        attachments: Array.isArray(note.attachments) ? note.attachments : [],
-      }));
+        attachments: Array.isArray(note.attachments) ? note.attachments : []}));
 
       return {
         task_id: taskId,
-        notes: formattedNotes,
-      };
+        notes: formattedNotes};
     } catch (error) {
       fastify.log.error('Error fetching case notes:', error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -872,8 +820,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       summary: 'Add case note to task',
       description: 'Adds a new case note with rich content and mentions to task',
       params: Type.Object({
-        taskId: Type.String({ format: 'uuid' }),
-      }),
+        taskId: Type.String({ format: 'uuid' })}),
       body: Type.Object({
         content: Type.String({ minLength: 1 }),
         content_type: Type.Optional(Type.String({ enum: ['case_note', 'rich_note', 'log_entry'] })),
@@ -882,21 +829,15 @@ export async function taskRoutes(fastify: FastifyInstance) {
           filename: Type.String(),
           size: Type.Number(),
           mime_type: Type.String(),
-          data: Type.Optional(Type.String()),
-        }))),
-      }),
+          data: Type.Optional(Type.String())})))}),
       response: {
         201: Type.Object({
           id: Type.String(),
           content: Type.String(),
           author_name: Type.String(),
-          created_at: Type.String(),
-        }),
+          created_at: Type.String()}),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const { taskId } = request.params as { taskId: string };
       const { content, content_type = 'case_note', mentions = [], attachments = [] } = request.body as any;
@@ -949,8 +890,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         id: String(noteResult[0].id),
         content,
         author_name: String(authorName),
-        created_at: String(noteResult[0].created),
-      });
+        created_at: String(noteResult[0].created)});
     } catch (error) {
       fastify.log.error('Error adding case note:', error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -965,8 +905,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       summary: 'Get task activity timeline',
       description: 'Returns chronological activity feed for task with system and user events',
       params: Type.Object({
-        taskId: Type.String({ format: 'uuid' }),
-      }),
+        taskId: Type.String({ format: 'uuid' })}),
       response: {
         200: Type.Object({
           task_id: Type.String(),
@@ -978,14 +917,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
             actor_name: Type.Optional(Type.String()),
             timestamp: Type.String(),
             changes: Type.Optional(Type.Object({})),
-            metadata: Type.Optional(Type.Object({})),
-          })),
-        }),
+            metadata: Type.Optional(Type.Object({}))}))}),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const { taskId } = request.params as { taskId: string };
       const employeeId = (request as any).user?.sub;
@@ -1050,13 +984,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
         actor_name: String(activity.actor_name || 'Unknown'),
         timestamp: String(activity.timestamp),
         changes: undefined, // TODO: Implement change tracking
-        metadata: activity.metadata ? JSON.parse(String(activity.metadata)) : undefined,
-      }));
+        metadata: activity.metadata ? JSON.parse(String(activity.metadata)) : undefined}));
 
       return {
         task_id: taskId,
-        activities: formattedActivities,
-      };
+        activities: formattedActivities};
     } catch (error) {
       fastify.log.error('Error fetching task activity:', error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -1072,8 +1004,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       response: {
         200: Type.Object({
           success: Type.Boolean(),
@@ -1081,14 +1012,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
             id: Type.String(),
             name: Type.String(),
             email: Type.Optional(Type.String()),
-            linkage_id: Type.String(),
-          })),
-        }),
+            linkage_id: Type.String()}))}),
         403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
     const userId = (request as any).user?.sub;
 
@@ -1134,9 +1060,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           id: String(a.id),
           name: String(a.name),
           email: a.email ? String(a.email) : undefined,
-          linkage_id: String(a.linkage_id),
-        })),
-      });
+          linkage_id: String(a.linkage_id)}))});
     } catch (error) {
       fastify.log.error('Error fetching task assignees:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

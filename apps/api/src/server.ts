@@ -24,11 +24,7 @@ const fastify = Fastify({
     transport: {
       target: 'pino-pretty',
       options: {
-        colorize: true,
-      },
-    },
-  } : true,
-}).withTypeProvider<TypeBoxTypeProvider>();
+        colorize: true}}} : true}).withTypeProvider<TypeBoxTypeProvider>();
 
 // Security
 await fastify.register(helmet, {
@@ -54,27 +50,22 @@ await fastify.register(cors, {
     
     return cb(new Error("Not allowed by CORS"), false);
   },
-  credentials: true,
-});
+  credentials: true});
 
 // Rate limiting
 await fastify.register(rateLimit, {
   max: config.NODE_ENV === 'production' ? 100 : 1000, // Higher limit for development
-  timeWindow: '1 minute',
-});
+  timeWindow: '1 minute'});
 
 // JWT
 await fastify.register(jwt, {
-  secret: config.JWT_SECRET,
-});
+  secret: config.JWT_SECRET});
 
 // Multipart/File Upload
 await fastify.register(multipart, {
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB
-    files: 10,
-  },
-});
+    files: 10}});
 
 // WebSocket support for voice calls
 await fastify.register(websocket, {
@@ -92,8 +83,7 @@ await fastify.register(swagger, {
     info: {
       title: 'PMO API',
       description: 'Enterprise PMO Task Management Platform API',
-      version: '1.0.0',
-    },
+      version: '1.0.0'},
     host: config.NODE_ENV === 'production' ? 'api.pmo.com' : `localhost:${config.PORT}`,
     schemes: [config.NODE_ENV === 'production' ? 'https' : 'http'],
     consumes: ['application/json'],
@@ -110,17 +100,13 @@ await fastify.register(swagger, {
       { name: 'admin', description: 'Administration and configuration' },
       { name: 'system', description: 'System endpoints' },
       { name: 'health', description: 'Health checks' },
-    ],
-  },
-});
+    ]}});
 
 await fastify.register(swaggerUI, {
   routePrefix: '/docs',
   uiConfig: {
     docExpansion: 'list',
-    deepLinking: false,
-  },
-});
+    deepLinking: false}});
 
 // Health checks
 fastify.get('/healthz', {
@@ -132,16 +118,10 @@ fastify.get('/healthz', {
         type: 'object',
         properties: {
           status: { type: 'string' },
-          timestamp: { type: 'string' },
-        },
-      },
-    },
-  },
-}, async () => {
+          timestamp: { type: 'string' }}}}}}, async () => {
   return {
     status: 'ok',
-    timestamp: new Date().toISOString(),
-  };
+    timestamp: new Date().toISOString()};
 });
 
 fastify.get('/readyz', {
@@ -154,20 +134,13 @@ fastify.get('/readyz', {
         properties: {
           status: { type: 'string' },
           timestamp: { type: 'string' },
-          checks: { type: 'object' },
-        },
-      },
+          checks: { type: 'object' }}},
       503: {
         type: 'object',
         properties: {
           status: { type: 'string' },
           timestamp: { type: 'string' },
-          checks: { type: 'object' },
-        },
-      },
-    },
-  },
-}, async (request, reply) => {
+          checks: { type: 'object' }}}}}}, async (request, reply) => {
   const checks = {
     database: await testConnection(),
     // Add other checks here (Redis, S3, etc.)
@@ -181,8 +154,7 @@ fastify.get('/readyz', {
   return {
     status,
     timestamp: new Date().toISOString(),
-    checks,
-  };
+    checks};
 });
 
 // JWT authentication decorator
@@ -204,15 +176,12 @@ fastify.setErrorHandler((error, request, reply) => {
     error: error.message, 
     stack: error.stack,
     url: request.url,
-    method: request.method,
-  });
+    method: request.method});
 
   reply.status(500).send({
     error: {
       code: 'INTERNAL_SERVER_ERROR',
-      message: 'An unexpected error occurred',
-    },
-  });
+      message: 'An unexpected error occurred'}});
 });
 
 // Graceful shutdown

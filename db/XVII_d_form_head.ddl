@@ -17,7 +17,7 @@
 --
 -- KEY FIELDS:
 -- • id: uuid PRIMARY KEY (stable, never changes - critical for URL permanence)
--- • slug, code: varchar(50/100) (NO unique constraint - reusable identifiers)
+-- • code: varchar(50) (NO unique constraint - reusable identifier)
 -- • internal_url: varchar(500) (/form/{uuid} - auth required for editing)
 -- • shared_url: varchar(500) (/form/{8-char-random} - public presigned URL, no auth)
 -- • form_schema: jsonb (multi-step structure: {"steps": [{"id", "name", "fields": [...]}]})
@@ -49,7 +49,6 @@
 
 CREATE TABLE app.d_form_head (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    slug varchar(100),  -- No unique constraint
     code varchar(50),   -- No unique constraint
     name varchar(200) NOT NULL,
     descr text,

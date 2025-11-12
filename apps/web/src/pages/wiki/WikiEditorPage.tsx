@@ -42,9 +42,7 @@ export function WikiEditorPage() {
       // Create new page object for new wiki pages
       setPage({
         name: '',
-        slug: '',
         content: { type: 'blocks', blocks: [] },
-        tags: [],
         metadata: {
           attr: {
             icon: '📄',
@@ -56,8 +54,7 @@ export function WikiEditorPage() {
         visibility: 'internal',
         wiki_type: 'page',
         createdTs: new Date().toISOString(),
-        updatedTs: new Date().toISOString(),
-      });
+        updatedTs: new Date().toISOString()});
       setLoading(false);
     }
   }, [editing, id]);
@@ -229,16 +226,13 @@ export function WikiEditorPage() {
               childEntityId: id!,
               childEntityName: page?.name
             }),
-            variant: 'secondary' as const,
-          },
+            variant: 'secondary' as const},
           {
             id: 'share',
             label: '',
             icon: <Share2 className="h-4 w-4" />,
             onClick: () => setIsShareModalOpen(true),
-            variant: 'secondary' as const,
-          },
-        ] : []}
+            variant: 'secondary' as const}] : []}
       />
 
       {/* Success Toast */}

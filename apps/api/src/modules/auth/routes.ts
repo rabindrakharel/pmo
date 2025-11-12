@@ -19,8 +19,7 @@ import {
 // Login request schema
 const LoginRequestSchema = Type.Object({
   email: Type.String({ format: 'email' }),
-  password: Type.String({ minLength: 1 }),
-});
+  password: Type.String({ minLength: 1 })});
 
 // Login response schema
 const LoginResponseSchema = Type.Object({
@@ -28,24 +27,20 @@ const LoginResponseSchema = Type.Object({
   employee: Type.Object({
     id: Type.String(),
     name: Type.String(),
-    email: Type.String(),
-  }),
-});
+    email: Type.String()})});
 
 // User profile schema
 const UserProfileSchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
-  email: Type.String(),
-});
+  email: Type.String()});
 
 // Customer signup request schema
 const CustomerSignupRequestSchema = Type.Object({
   name: Type.String({ minLength: 2 }),
   primary_email: Type.String({ format: 'email' }),
   password: Type.String({ minLength: 8 }),
-  cust_type: Type.Optional(Type.String()),
-});
+  cust_type: Type.Optional(Type.String())});
 
 // Customer signup response schema
 const CustomerSignupResponseSchema = Type.Object({
@@ -54,9 +49,7 @@ const CustomerSignupResponseSchema = Type.Object({
     id: Type.String(),
     name: Type.String(),
     email: Type.String(),
-    entities: Type.Array(Type.String()),
-  }),
-});
+    entities: Type.Array(Type.String())})});
 
 // Customer profile schema
 const CustomerProfileSchema = Type.Object({
@@ -64,13 +57,11 @@ const CustomerProfileSchema = Type.Object({
   name: Type.String(),
   email: Type.String(),
   entities: Type.Array(Type.String()),
-  cust_type: Type.String(),
-});
+  cust_type: Type.String()});
 
 // Entity configuration request schema
 const EntityConfigRequestSchema = Type.Object({
-  entities: Type.Array(Type.String()),
-});
+  entities: Type.Array(Type.String())});
 
 // Permissions summary schema
 const PermissionsSummarySchema = Type.Object({
@@ -78,20 +69,17 @@ const PermissionsSummarySchema = Type.Object({
   isAdmin: Type.Boolean(),
   totalScopes: Type.Number(),
   scopesByType: Type.Record(Type.String(), Type.Number()),
-  permissions: Type.Record(Type.String(), Type.Array(Type.String())),
-});
+  permissions: Type.Record(Type.String(), Type.Array(Type.String()))});
 
 // Scope access schema
 const ScopeAccessSchema = Type.Object({
   scopeType: Type.String(),
   accessibleIds: Type.Array(Type.String()),
-  total: Type.Number(),
-});
+  total: Type.Number()});
 
 // Error response schema
 const ErrorResponseSchema = Type.Object({
-  error: Type.String(),
-});
+  error: Type.String()});
 
 export async function authRoutes(fastify: FastifyInstance) {
   // Login endpoint
@@ -105,10 +93,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         200: LoginResponseSchema,
         401: ErrorResponseSchema,
         400: ErrorResponseSchema,
-        500: ErrorResponseSchema,
-      },
-    },
-  }, async (request, reply) => {
+        500: ErrorResponseSchema}}}, async (request, reply) => {
     const { email, password } = request.body as {
       email: string;
       password: string;
@@ -150,8 +135,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         {
           sub: employee.id as string,
           email: employee.email as string,
-          name: employee.name as string,
-        },
+          name: employee.name as string},
         { expiresIn: config.JWT_EXPIRES_IN }
       );
 
@@ -160,9 +144,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         employee: {
           id: employee.id as string,
           name: employee.name as string,
-          email: employee.email as string,
-        },
-      };
+          email: employee.email as string}};
     } catch (error) {
       fastify.log.error('Login error:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -179,10 +161,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       response: {
         200: UserProfileSchema,
         401: ErrorResponseSchema,
-        500: ErrorResponseSchema,
-      },
-    },
-  }, async (request, reply) => {
+        500: ErrorResponseSchema}}}, async (request, reply) => {
     try {
       // Get authenticated user ID from JWT token
       const userId = (request.user as any)?.sub;
@@ -207,8 +186,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       return {
         id: employee.id as string,
         name: employee.name as string,
-        email: employee.email as string,
-      };
+        email: employee.email as string};
     } catch (error) {
       fastify.log.error('Get profile error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -225,10 +203,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       response: {
         200: PermissionsSummarySchema,
         401: ErrorResponseSchema,
-        500: ErrorResponseSchema,
-      },
-    },
-  }, async (request, reply) => {
+        500: ErrorResponseSchema}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
       
@@ -275,19 +250,14 @@ export async function authRoutes(fastify: FastifyInstance) {
       summary: 'Get accessible entities by type',
       description: 'Get all entities of a specific type that the user has access to',
       params: Type.Object({
-        entityType: Type.String(),
-      }),
+        entityType: Type.String()}),
       querystring: Type.Object({
-        action: Type.Optional(Type.String()),
-      }),
+        action: Type.Optional(Type.String())}),
       response: {
         200: ScopeAccessSchema,
         401: ErrorResponseSchema,
         400: ErrorResponseSchema,
-        500: ErrorResponseSchema,
-      },
-    },
-  }, async (request, reply) => {
+        500: ErrorResponseSchema}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
       const { entityType } = request.params as { entityType: string };
@@ -322,8 +292,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       return {
         scopeType: entityType,
         accessibleIds,
-        total: accessibleIds.length,
-      };
+        total: accessibleIds.length};
     } catch (error) {
       fastify.log.error('Get entities error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -348,16 +317,11 @@ export async function authRoutes(fastify: FastifyInstance) {
             scopeType: Type.String(),
             permissions: Type.Array(Type.String()),
             referenceTable: Type.String(),
-            referenceId: Type.String(),
-          })),
-          summary: PermissionsSummarySchema,
-        }),
+            referenceId: Type.String()})),
+          summary: PermissionsSummarySchema}),
         401: ErrorResponseSchema,
         403: ErrorResponseSchema,
-        500: ErrorResponseSchema,
-      },
-    },
-  }, async (request, reply) => {
+        500: ErrorResponseSchema}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
       
@@ -378,8 +342,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         scopeType: scope.scopeType,
         permissions: Array.from(scope.permissions),
         referenceTable: scope.referenceTable,
-        referenceId: scope.referenceId,
-      }));
+        referenceId: scope.referenceId}));
 
       const summary = await getEmployeePermissionsSummary(employeeId);
 
@@ -387,8 +350,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         employeeId,
         isAdmin: abilities.isAdmin,
         rawPermissions,
-        summary,
-      };
+        summary};
     } catch (error) {
       fastify.log.error('Debug permissions error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -405,12 +367,8 @@ export async function authRoutes(fastify: FastifyInstance) {
       description: 'Logout current user (token cleanup)',
       response: {
         200: Type.Object({
-          message: Type.String(),
-        }),
-        401: ErrorResponseSchema,
-      },
-    },
-  }, async (request, reply) => {
+          message: Type.String()}),
+        401: ErrorResponseSchema}}}, async (request, reply) => {
     // Since we're using stateless JWT tokens, logout is mainly for client-side cleanup
     // In a more sophisticated setup, we could maintain a blacklist of tokens
     return { message: 'Logged out successfully' };
@@ -430,10 +388,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       response: {
         201: CustomerSignupResponseSchema,
         400: ErrorResponseSchema,
-        500: ErrorResponseSchema,
-      },
-    },
-  }, async (request, reply) => {
+        500: ErrorResponseSchema}}}, async (request, reply) => {
     const { name, primary_email, password, cust_type = 'residential' } = request.body as {
       name: string;
       primary_email: string;
@@ -480,7 +435,6 @@ export async function authRoutes(fastify: FastifyInstance) {
           primary_email,
           password_hash,
           entities,
-          slug,
           code
         ) VALUES (
           ${name},
@@ -507,8 +461,7 @@ export async function authRoutes(fastify: FastifyInstance) {
           sub: customer.id as string,
           email: customer.primary_email as string,
           name: customer.name as string,
-          userType: 'customer',
-        },
+          userType: 'customer'},
         { expiresIn: config.JWT_EXPIRES_IN }
       );
 
@@ -519,9 +472,7 @@ export async function authRoutes(fastify: FastifyInstance) {
           id: customer.id as string,
           name: customer.name as string,
           email: customer.primary_email as string,
-          entities: (customer.entities as string[]) || [],
-        },
-      };
+          entities: (customer.entities as string[]) || []}};
     } catch (error) {
       fastify.log.error('Customer signup error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -538,10 +489,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       response: {
         200: CustomerSignupResponseSchema,
         401: ErrorResponseSchema,
-        500: ErrorResponseSchema,
-      },
-    },
-  }, async (request, reply) => {
+        500: ErrorResponseSchema}}}, async (request, reply) => {
     const { email, password } = request.body as {
       email: string;
       password: string;
@@ -600,8 +548,7 @@ export async function authRoutes(fastify: FastifyInstance) {
           sub: customer.id as string,
           email: customer.primary_email as string,
           name: customer.name as string,
-          userType: 'customer',
-        },
+          userType: 'customer'},
         { expiresIn: config.JWT_EXPIRES_IN }
       );
 
@@ -611,9 +558,7 @@ export async function authRoutes(fastify: FastifyInstance) {
           id: customer.id as string,
           name: customer.name as string,
           email: customer.primary_email as string,
-          entities: (customer.entities as string[]) || [],
-        },
-      };
+          entities: (customer.entities as string[]) || []}};
     } catch (error) {
       fastify.log.error('Customer signin error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -630,10 +575,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       response: {
         200: CustomerProfileSchema,
         401: ErrorResponseSchema,
-        500: ErrorResponseSchema,
-      },
-    },
-  }, async (request, reply) => {
+        500: ErrorResponseSchema}}}, async (request, reply) => {
     try {
       const userId = (request.user as any)?.sub;
       const userType = (request.user as any)?.userType;
@@ -659,8 +601,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         name: customer.name as string,
         email: customer.primary_email as string,
         entities: (customer.entities as string[]) || [],
-        cust_type: customer.cust_type as string,
-      };
+        cust_type: customer.cust_type as string};
     } catch (error) {
       fastify.log.error('Get customer profile error:', error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -679,10 +620,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         200: CustomerProfileSchema,
         401: ErrorResponseSchema,
         400: ErrorResponseSchema,
-        500: ErrorResponseSchema,
-      },
-    },
-  }, async (request, reply) => {
+        500: ErrorResponseSchema}}}, async (request, reply) => {
     const { entities } = request.body as { entities: string[] };
 
     try {
@@ -726,8 +664,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         name: customer.name as string,
         email: customer.primary_email as string,
         entities: (customer.entities as string[]) || [],
-        cust_type: customer.cust_type as string,
-      };
+        cust_type: customer.cust_type as string};
     } catch (error) {
       fastify.log.error('Configure customer entities error:', error);
       return reply.status(500).send({ error: 'Internal server error' });

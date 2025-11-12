@@ -63,7 +63,7 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
     tableName: '$defaults',
     defaultBehavior: {
       'api:restrict': true,           // from_ts, to_ts, active, created, updated
-      'flexible': true,               // tags, attr
+      'flexible': true,               //, attr
       'ui:invisible': true,           // id, *_id
       'api:pii_masking': true,        // addr, birth_date, ssn, sin, phone, mobile, emergency_contact
       'ui:search': true,              // name, descr
@@ -96,8 +96,7 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
       
       // Standard searchable fields
       'name': { 'ui:search': true, 'ui:sort': true },
-      'descr': { 'ui:search': true },
-    }
+      'descr': { 'ui:search': true }}
   },
 
   // Meta configuration tables
@@ -105,16 +104,14 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
     tableName: 'app.meta_biz_level',
     defaultBehavior: {},
     columns: {
-      'sort_order': { 'ui:sort': true },
-    }
+      'sort_order': { 'ui:sort': true }}
   },
 
   'app.meta_loc_level': {
     tableName: 'app.meta_loc_level',
     defaultBehavior: {},
     columns: {
-      'sort_order': { 'ui:sort': true },
-    }
+      'sort_order': { 'ui:sort': true }}
   },
 
   'app.meta_hr_level': {
@@ -123,8 +120,7 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
     columns: {
       'sort_order': { 'ui:sort': true },
       'salary_band_min': { 'api:pii_masking': true },
-      'salary_band_max': { 'api:pii_masking': true },
-    }
+      'salary_band_max': { 'api:pii_masking': true }}
   },
 
   'app.meta_project_status': {
@@ -133,8 +129,7 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
     columns: {
       'code': { 'ui:search': true, 'ui:sort': true },
       'sort_id': { 'ui:sort': true },
-      'color_hex': { 'ui:color_field': true },
-    }
+      'color_hex': { 'ui:color_field': true }}
   },
 
   'app.meta_task_status': {
@@ -143,8 +138,7 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
     columns: {
       'code': { 'ui:search': true, 'ui:sort': true },
       'sort_id': { 'ui:sort': true },
-      'color_hex': { 'ui:color_field': true },
-    }
+      'color_hex': { 'ui:color_field': true }}
   },
 
   'app.meta_task_stage': {
@@ -154,8 +148,7 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
       'code': { 'ui:search': true, 'ui:sort': true },
       'sort_id': { 'ui:sort': true },
       'color_hex': { 'ui:color_field': true },
-      'wip_limit': { 'ui:wip_limit': true },
-    }
+      'wip_limit': { 'ui:wip_limit': true }}
   },
 
   // Scope hierarchy tables
@@ -167,8 +160,7 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
       'emergency_contacts': { 'api:pii_masking': true },
       'geom': { 'ui:geographic': true },
       'time_zone': { 'ui:timezone': true },
-      'currency_code': { 'ui:currency': true },
-    }
+      'currency_code': { 'ui:currency': true }}
   },
 
   'app.d_scope_business': {
@@ -179,8 +171,7 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
       'budget_allocated_amt': { 'api:financial_masking': true },
       'approval_limit': { 'api:financial_masking': true },
       'parent_id': { 'ui:hierarchy': true },
-      'cost_center_code': { 'ui:cost_center': true },
-    }
+      'cost_center_code': { 'ui:cost_center': true }}
   },
 
   'app.d_scope_worksite': {
@@ -190,8 +181,7 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
       'worksite_code': { 'ui:search': true },
       'geom': { 'ui:geographic': true },
       'safety_protocols': { 'api:safety_info': true },
-      'access_hours': { 'ui:operational_hours': true },
-    }
+      'access_hours': { 'ui:operational_hours': true }}
   },
 
   'app.d_scope_hr': {
@@ -205,8 +195,7 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
       'approval_limit': { 'api:pii_masking': true },
       'parent_id': { 'ui:hierarchy': true },
       'job_family': { 'ui:job_info': true },
-      'job_level': { 'ui:job_info': true },
-    }
+      'job_level': { 'ui:job_info': true }}
   },
 
   // Domain tables
@@ -222,8 +211,7 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
       'skills': { 'ui:skills': true },
       'certifications': { 'ui:skills': true },
       'education': { 'ui:skills': true },
-      'password_hash': { 'api:auth_field': true },
-    }
+      'password_hash': { 'api:auth_field': true }}
   },
 
   // Operational tables
@@ -241,8 +229,7 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
       'project_sponsors': { 'ui:stakeholders': true },
       'approvers': { 'ui:stakeholders': true },
       'estimated_hours': { 'ui:progress': true },
-      'actual_hours': { 'ui:progress': true },
-    }
+      'actual_hours': { 'ui:progress': true }}
   },
 
   'app.ops_task_head': {
@@ -262,8 +249,7 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
       'planned_end_date': { 'ui:planning': true },
       'depends_on_tasks': { 'ui:dependencies': true },
       'blocks_tasks': { 'ui:dependencies': true },
-      'related_tasks': { 'ui:dependencies': true },
-    }
+      'related_tasks': { 'ui:dependencies': true }}
   },
 
   'app.ops_task_records': {
@@ -284,8 +270,7 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
       'quality_gate_status': { 'ui:quality': true },
       'work_log': { 'ui:logs': true },
       'log_content': { 'ui:logs': true },
-      'attachments': { 'ui:logs': true },
-    }
+      'attachments': { 'ui:logs': true }}
   },
 
   // Relationship tables
@@ -296,10 +281,8 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
       'assignment_type': { 'ui:search': true },
       'assignment_pct': { 'ui:assignment': true },
       'effective_from': { 'ui:assignment': true },
-      'effective_to': { 'ui:assignment': true },
-    }
-  },
-};
+      'effective_to': { 'ui:assignment': true }}
+  }};
 
 /**
  * Get metadata for a specific table and column

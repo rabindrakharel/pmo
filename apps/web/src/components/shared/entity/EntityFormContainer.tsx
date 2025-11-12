@@ -66,7 +66,7 @@ interface EntityFormContainerProps {
   /**
    * Optional data types for auto-generation (for JSONB/array detection)
    * @example
-   * dataTypes={{ metadata: 'jsonb', tags: '[]' }}
+   * dataTypes={{ metadata: 'jsonb'}}
    */
   dataTypes?: Record<string, string>;
 
@@ -114,8 +114,7 @@ export function EntityFormContainer({
         required: generatedConfig.requiredFields.includes(field.key),
         readonly: !field.editable,
         loadOptionsFromSettings: field.loadFromSettings,
-        loadOptionsFromEntity: field.loadFromEntity,
-      } as FieldDef));
+        loadOptionsFromEntity: field.loadFromEntity} as FieldDef));
     }
 
     // Fallback: empty fields
@@ -653,8 +652,8 @@ export function EntityFormContainer({
   // In create mode: include name and code so users can see auto-populated values and edit them
   // Always exclude: slug, id, tags, created_ts, updated_ts
   const excludedFields = mode === 'create'
-    ? ['title', 'slug', 'id', 'tags', 'created_ts', 'updated_ts']
-    : ['name', 'title', 'code', 'slug', 'id', 'tags', 'created_ts', 'updated_ts'];
+    ? ['title', 'id', 'created_ts', 'updated_ts']
+    : ['name', 'title', 'code', 'id', 'created_ts', 'updated_ts'];
   const visibleFields = fields.filter(f => !excludedFields.includes(f.key));
 
   return (

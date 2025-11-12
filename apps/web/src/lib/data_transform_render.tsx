@@ -12,8 +12,7 @@
  * - How to format data for display
  *
  * WHAT THIS FILE DOES:
- * ✅ Transforms data: API ↔ Frontend (tags: string → array)
- * ✅ Detects capabilities: Auto-determines editability by field name
+ * ✅ Transforms data: API ↔ Frontend (* ✅ Detects capabilities: Auto-determines editability by field name
  * ✅ Formats display: "3 days ago", "Oct 28, 2024"
  * ✅ Renders components: MetadataField, MetadataRow
  * ✅ Processes business logic: Validation, coercion, normalization
@@ -42,7 +41,7 @@
  * import { transformForApi, getFieldCapability, formatRelativeTime } from './data_transform_render';
  *
  * // Transform user input for API
- * const apiData = transformForApi({ tags: "tag1, tag2" }); // → { tags: ["tag1", "tag2"] }
+ * const apiData = transformForApi({ tag2" }); // → { "tag2"] }
  *
  * // Detect if field is editable
  * const capability = getFieldCapability({ key: 'tags' }); // → { inlineEditable: true, editType: 'tags' }
@@ -78,22 +77,17 @@ export function transformForApi(data: Record<string, any>, originalRecord?: Reco
       continue;
     }
 
-    // 1. Tags field transformation (string → array)
-    if (key === 'tags' || key.toLowerCase().endsWith('_tags')) {
-      transformed[key] = transformTagsField(value);
-    }
-
-    // 2. Date field transformation (ISO timestamp → yyyy-MM-dd)
-    else if (isDateField(key) && typeof value === 'string') {
+    // 1. Date field transformation (ISO timestamp → yyyy-MM-dd)
+    if (isDateField(key) && typeof value === 'string') {
       transformed[key] = transformDateField(value);
     }
 
-    // 3. Array field transformation (comma-separated string → array)
+    // 2. Array field transformation (comma-separated string → array)
     else if (Array.isArray(originalRecord?.[key])) {
       transformed[key] = transformArrayField(value);
     }
 
-    // 4. File upload field transformation
+    // 3. File upload field transformation
     else if (isFileField(key, value)) {
       // File uploads are handled separately via presigned URLs
       // Remove from payload if it's a File object (not yet uploaded)
@@ -102,42 +96,13 @@ export function transformForApi(data: Record<string, any>, originalRecord?: Reco
       }
     }
 
-    // 5. Empty string handling - convert to null for optional fields
+    // 4. Empty string handling - convert to null for optional fields
     else if (value === '') {
       transformed[key] = null;
     }
   }
 
   return transformed;
-}
-
-/**
- * Transforms tags field from various input formats to API array format
- * Supports:
- * - Array: ["tag1", "tag2"] → ["tag1", "tag2"]
- * - String: "tag1, tag2" → ["tag1", "tag2"]
- * - String: "tag1,tag2" → ["tag1", "tag2"]
- * - Empty: "" → []
- */
-export function transformTagsField(value: any): string[] {
-  // Already an array
-  if (Array.isArray(value)) {
-    return value.filter(v => v && typeof v === 'string' && v.trim() !== '');
-  }
-
-  // String - split by comma
-  if (typeof value === 'string') {
-    if (value.trim() === '') {
-      return [];
-    }
-    return value
-      .split(',')
-      .map(tag => tag.trim())
-      .filter(tag => tag !== '');
-  }
-
-  // Other types - return empty array
-  return [];
 }
 
 /**
@@ -226,7 +191,6 @@ function isFileField(key: string, value: any): boolean {
 /**
  * Transforms display data from API for form editing
  * Handles:
- * - Tags: array → comma-separated string for input
  * - Arrays: array → comma-separated string
  */
 export function transformFromApi(data: Record<string, any>): Record<string, any> {
@@ -238,13 +202,8 @@ export function transformFromApi(data: Record<string, any>): Record<string, any>
       continue;
     }
 
-    // Tags array → comma-separated string for editing
-    if ((key === 'tags' || key.toLowerCase().endsWith('_tags')) && Array.isArray(value)) {
-      transformed[key] = value.join(', ');
-    }
-
-    // Other arrays → comma-separated string
-    else if (Array.isArray(value) && typeof value[0] === 'string') {
+    // Arrays → comma-separated string
+    if (Array.isArray(value) && typeof value[0] === 'string') {
       transformed[key] = value.join(', ');
     }
   }
@@ -406,9 +365,6 @@ export interface FieldCapability {
  * Field naming patterns that indicate specific types
  */
 const FIELD_PATTERNS = {
-  // Tags fields - always editable as comma-separated text
-  tags: /^tags$|_tags$/i,
-
   // Standardized attachment fields - editable with drag-drop upload
   // Primary pattern: "attachment" field (main S3 URI)
   // Supporting fields: attachment_format, attachment_size_bytes, attachment_object_bucket, attachment_object_key
@@ -432,7 +388,6 @@ const FIELD_PATTERNS = {
  * This is the SINGLE SOURCE OF TRUTH - no manual flags needed!
  *
  * Convention over Configuration:
- * - Tags fields: Auto-editable as text
  * - Settings fields (loadOptionsFromSettings): Auto-editable as dropdown
  * - File fields: Auto-editable with drag-drop
  * - Date fields: Auto-editable as date picker
@@ -456,16 +411,7 @@ export function getFieldCapability(column: ColumnDef | FieldDef): FieldCapabilit
     };
   }
 
-  // Rule 2: Tags fields are ALWAYS editable as text (comma-separated)
-  if (FIELD_PATTERNS.tags.test(key)) {
-    return {
-      inlineEditable: true,
-      editType: 'tags',
-      isFileUpload: false
-    };
-  }
-
-  // Rule 3: File/attachment fields are ALWAYS editable with drag-drop
+  // Rule 2: File/attachment fields are ALWAYS editable with drag-drop
   if (FIELD_PATTERNS.file.test(key)) {
     return {
       inlineEditable: true,
@@ -475,7 +421,7 @@ export function getFieldCapability(column: ColumnDef | FieldDef): FieldCapabilit
     };
   }
 
-  // Rule 4: Settings/data label fields with loadOptionsFromSettings are ALWAYS editable as dropdowns
+  // Rule 3: Settings/data label fields with loadOptionsFromSettings are ALWAYS editable as dropdowns
   if (column.loadOptionsFromSettings) {
     return {
       inlineEditable: true,
@@ -486,7 +432,7 @@ export function getFieldCapability(column: ColumnDef | FieldDef): FieldCapabilit
     };
   }
 
-  // Rule 5: Number fields are editable as number inputs
+  // Rule 4: Number fields are editable as number inputs
   if (FIELD_PATTERNS.number.test(key) && !FIELD_PATTERNS.readonly.test(key)) {
     return {
       inlineEditable: true,
@@ -495,7 +441,7 @@ export function getFieldCapability(column: ColumnDef | FieldDef): FieldCapabilit
     };
   }
 
-  // Rule 6: Date fields are editable as date inputs
+  // Rule 5: Date fields are editable as date inputs
   if (FIELD_PATTERNS.date.test(key) && !FIELD_PATTERNS.readonly.test(key)) {
     return {
       inlineEditable: true,
@@ -504,7 +450,7 @@ export function getFieldCapability(column: ColumnDef | FieldDef): FieldCapabilit
     };
   }
 
-  // Rule 7: Simple text fields (name, descr, etc.) are editable by default
+  // Rule 6: Simple text fields (name, descr, etc.) are editable by default
   // UNLESS they're in a readonly entity or have specific patterns
   const isSimpleTextField = /^(name|descr|description|title|notes|comments?)$/i.test(key);
   if (isSimpleTextField) {
@@ -515,7 +461,7 @@ export function getFieldCapability(column: ColumnDef | FieldDef): FieldCapabilit
     };
   }
 
-  // Rule 8: Special columns that should remain readonly
+  // Rule 7: Special columns that should remain readonly
   // These are typically computed, derived, or reference fields that shouldn't be edited directly
   const isSpecialReadonly = /^(parent_id|parent_type|parent_name|child_count|total_|sum_|avg_|max_|min_)$/i.test(key);
   if (isSpecialReadonly) {
@@ -526,7 +472,7 @@ export function getFieldCapability(column: ColumnDef | FieldDef): FieldCapabilit
     };
   }
 
-  // Rule 9: Actions column is never editable
+  // Rule 8: Actions column is never editable
   if (key === '_actions' || key === '_selection') {
     return {
       inlineEditable: false,
@@ -699,8 +645,7 @@ export const COLOR_MAP: Record<string, string> = {
   'gray': 'bg-dark-100 text-dark-600 border border-dark-300',
   'cyan': 'bg-cyan-100 text-cyan-800 border border-cyan-200',
   'pink': 'bg-pink-100 text-pink-800 border border-pink-200',
-  'amber': 'bg-amber-100 text-amber-800 border border-amber-200',
-};
+  'amber': 'bg-amber-100 text-amber-800 border border-amber-200'};
 
 /**
  * Settings Color Cache
@@ -926,54 +871,6 @@ export function renderBadge(
       title: label
     },
     label
-  );
-}
-
-/**
- * TAGS RENDERER
- *
- * Renders an array of tags as colored badges
- *
- * @param tags - Array of tag strings
- * @param maxVisible - Maximum number of tags to show before "+N more"
- * @returns React element with tag badges
- *
- * @example
- * renderTags(['innovation', 'tech', 'ai'], 3)
- */
-export function renderTags(
-  tags: string[] | null | undefined,
-  maxVisible: number = 3
-): React.ReactElement {
-  if (!tags || tags.length === 0) {
-    return React.createElement('span', { className: 'text-dark-600 text-xs italic' }, 'No tags');
-  }
-
-  const visibleTags = tags.slice(0, maxVisible);
-  const remainingCount = tags.length - maxVisible;
-
-  return React.createElement(
-    'div',
-    { className: 'flex items-center gap-1 flex-wrap' },
-    ...visibleTags.map((tag, idx) =>
-      React.createElement(
-        'span',
-        {
-          key: `${tag}-${idx}`,
-          className: 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-dark-100 text-dark-600 border border-dark-300'
-        },
-        tag
-      )
-    ),
-    remainingCount > 0 && React.createElement(
-      'span',
-      {
-        key: 'more',
-        className: 'text-xs text-dark-700 font-medium',
-        title: tags.slice(maxVisible).join(', ')
-      },
-      `+${remainingCount} more`
-    )
   );
 }
 

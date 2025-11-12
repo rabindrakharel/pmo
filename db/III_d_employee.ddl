@@ -282,7 +282,6 @@ DECLARE
     v_last_name text;
     v_full_name text;
     v_email text;
-    v_slug text;
     v_code text;
     v_city text;
     v_province text;
@@ -310,7 +309,6 @@ BEGIN
 
         -- Generate email and identifiers
         v_email := lower(v_first_name || '.' || replace(v_last_name, '''', '') || i || '@huronhome.ca');
-        v_slug := lower(replace(v_full_name, ' ', '-') || '-' || i);
         v_code := 'EMP-' || lpad(i::text, 4, '0');
 
         -- Random Canadian city and province

@@ -12,7 +12,7 @@
 -- • CREATE: INSERT with version=1, active_flag=true
 -- • UPDATE: Same ID, version++, updated_ts refreshes
 -- • DELETE: active_flag=false, to_ts=now() (soft delete)
--- • QUERY: Filter by cost_code, currency, validity period, tags
+-- • QUERY: Filter by cost_code, currency, validity period
 --
 -- KEY FIELDS:
 -- • id: uuid PRIMARY KEY (stable identifier)
@@ -40,12 +40,10 @@
 
 CREATE TABLE IF NOT EXISTS app.d_cost (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  slug varchar(100) UNIQUE NOT NULL,
   code varchar(50) UNIQUE NOT NULL,
   cost_code varchar(50) NOT NULL,
   name varchar(200) NOT NULL,
   descr text,
-  tags text[],
   metadata jsonb DEFAULT '{}'::jsonb,
 
   -- Cost amounts
@@ -82,10 +80,8 @@ CREATE TRIGGER d_cost_updated_ts
 -- Indexes for performance
 CREATE INDEX idx_cost_active ON app.d_cost(active_flag) WHERE active_flag = true;
 CREATE INDEX idx_cost_code ON app.d_cost(cost_code);
-CREATE INDEX idx_cost_slug ON app.d_cost(slug);
 CREATE INDEX idx_cost_currency ON app.d_cost(invoice_currency);
 CREATE INDEX idx_cost_validity ON app.d_cost(from_ts, to_ts) WHERE from_ts IS NOT NULL;
-CREATE INDEX idx_cost_tags ON app.d_cost USING gin(tags);
 
 -- Comments
 COMMENT ON TABLE app.d_cost IS 'Project and task-level cost tracking with attachment support';

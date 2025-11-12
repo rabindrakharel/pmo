@@ -4,63 +4,33 @@ import type { WikiBlock } from '../WikiDesigner';
 
 interface WikiPropertiesPanelProps {
   title: string;
-  slug: string;
-  tags: string[];
-  icon: string;
-  cover: string;
   pagePath: string;
   author: string;
   createdDate: string;
   updatedDate: string;
   selectedBlock?: WikiBlock;
   onUpdateTitle: (title: string) => void;
-  onUpdateSlug: (slug: string) => void;
-  onUpdateTags: (tags: string[]) => void;
-  onUpdateIcon: (icon: string) => void;
-  onUpdateCover: (cover: string) => void;
   onUpdatePath: (path: string) => void;
   onUpdateBlock?: (updates: Partial<WikiBlock>) => void;
 }
 
 export function WikiPropertiesPanel({
   title,
-  slug,
-  tags,
-  icon,
-  cover,
   pagePath,
   author,
   createdDate,
   updatedDate,
   selectedBlock,
   onUpdateTitle,
-  onUpdateSlug,
-  onUpdateTags,
-  onUpdateIcon,
-  onUpdateCover,
   onUpdatePath,
-  onUpdateBlock,
-}: WikiPropertiesPanelProps) {
-  const [tagInput, setTagInput] = React.useState('');
-
-  const handleAddTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      onUpdateTags([...tags, tagInput.trim()]);
-      setTagInput('');
-    }
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    onUpdateTags(tags.filter((tag) => tag !== tagToRemove));
-  };
+  onUpdateBlock}: WikiPropertiesPanelProps) {
 
   const coverOptions = [
     { value: 'gradient-blue', label: 'Blue Gradient', class: 'bg-gradient-to-r from-dark-700 to-indigo-600' },
     { value: 'gradient-purple', label: 'Purple Gradient', class: 'bg-gradient-to-r from-purple-500 to-pink-600' },
     { value: 'gradient-green', label: 'Green Gradient', class: 'bg-gradient-to-r from-green-500 to-teal-600' },
     { value: 'gradient-orange', label: 'Orange Gradient', class: 'bg-gradient-to-r from-orange-500 to-red-600' },
-    { value: 'solid-gray', label: 'Gray', class: 'bg-dark-1000' },
-  ];
+    { value: 'solid-gray', label: 'Gray', class: 'bg-dark-1000' }];
 
   // If a block is selected, show block-specific properties
   if (selectedBlock && onUpdateBlock) {
@@ -120,8 +90,7 @@ export function WikiPropertiesPanel({
                     value={selectedBlock.properties?.src || ''}
                     onChange={(e) =>
                       onUpdateBlock({
-                        properties: { ...selectedBlock.properties, src: e.target.value },
-                      })
+                        properties: { ...selectedBlock.properties, src: e.target.value }})
                     }
                     className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                     placeholder="https://example.com/image.jpg"
@@ -134,8 +103,7 @@ export function WikiPropertiesPanel({
                     value={selectedBlock.properties?.alt || ''}
                     onChange={(e) =>
                       onUpdateBlock({
-                        properties: { ...selectedBlock.properties, alt: e.target.value },
-                      })
+                        properties: { ...selectedBlock.properties, alt: e.target.value }})
                     }
                     className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                     placeholder="Image description"
@@ -153,8 +121,7 @@ export function WikiPropertiesPanel({
                   value={selectedBlock.properties?.src || ''}
                   onChange={(e) =>
                     onUpdateBlock({
-                      properties: { ...selectedBlock.properties, src: e.target.value },
-                    })
+                      properties: { ...selectedBlock.properties, src: e.target.value }})
                   }
                   className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                   placeholder="https://www.youtube.com/embed/..."
@@ -177,8 +144,7 @@ export function WikiPropertiesPanel({
                     value={selectedBlock.properties?.rows || 3}
                     onChange={(e) =>
                       onUpdateBlock({
-                        properties: { ...selectedBlock.properties, rows: parseInt(e.target.value) },
-                      })
+                        properties: { ...selectedBlock.properties, rows: parseInt(e.target.value) }})
                     }
                     className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                   />
@@ -192,8 +158,7 @@ export function WikiPropertiesPanel({
                     value={selectedBlock.properties?.cols || 3}
                     onChange={(e) =>
                       onUpdateBlock({
-                        properties: { ...selectedBlock.properties, cols: parseInt(e.target.value) },
-                      })
+                        properties: { ...selectedBlock.properties, cols: parseInt(e.target.value) }})
                     }
                     className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                   />
@@ -246,21 +211,6 @@ export function WikiPropertiesPanel({
         </div>
       </div>
 
-      {/* Slug */}
-      <div>
-        <label className="block text-xs font-medium text-dark-700 mb-2 flex items-center">
-          <LinkIcon className="h-3 w-3 mr-1" />
-          URL Slug
-        </label>
-        <input
-          type="text"
-          value={slug}
-          onChange={(e) => onUpdateSlug(e.target.value)}
-          className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent font-mono"
-          placeholder="my-wiki-page"
-        />
-      </div>
-
       {/* Path */}
       <div>
         <label className="block text-xs font-medium text-dark-700 mb-2 flex items-center">
@@ -274,48 +224,6 @@ export function WikiPropertiesPanel({
           className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent font-mono"
           placeholder="/wiki"
         />
-      </div>
-
-      {/* Tags */}
-      <div>
-        <label className="block text-xs font-medium text-dark-700 mb-2 flex items-center">
-          <Tag className="h-3 w-3 mr-1" />
-          Tags
-        </label>
-        <div className="space-y-2">
-          <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <span
-                key={tag}
-                className="inline-flex items-center px-2 py-1 bg-dark-100 text-dark-700 text-xs rounded-full"
-              >
-                {tag}
-                <button
-                  onClick={() => handleRemoveTag(tag)}
-                  className="ml-1 hover:text-dark-600"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex space-x-2">
-            <input
-              type="text"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-              className="flex-1 px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
-              placeholder="Add tag..."
-            />
-            <button
-              onClick={handleAddTag}
-              className="px-3 py-2 bg-dark-700 text-white rounded-lg text-sm hover:bg-dark-800"
-            >
-              Add
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Metadata */}

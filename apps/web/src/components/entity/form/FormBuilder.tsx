@@ -137,8 +137,7 @@ export const getFieldIcon = (type: FieldType) => {
     duration: <Timer className="h-4 w-4" />,
     calculation: <Calculator className="h-4 w-4" />,
     percentage: <Percent className="h-4 w-4" />,
-    menu_button: <Menu className="h-4 w-4" />,
-  };
+    menu_button: <Menu className="h-4 w-4" />};
   return iconMap[type] || <Type className="h-4 w-4" />;
 };
 
@@ -148,16 +147,16 @@ export const getFieldIcon = (type: FieldType) => {
 export const DATALABEL_TABLE_COLUMNS: Record<string, { value: string[], display: string[] }> = {
   // Customer-related tables (use cust_ prefix per DB schema)
   cust_service: {
-    value: ['level_id', 'name', 'slug'],
-    display: ['name', 'slug', 'descr']
+    value: ['level_id', 'name'],
+    display: ['name', 'descr']
   },
   cust_status: {
     value: ['level_id', 'name'],
     display: ['name', 'descr']
   },
   cust_level: {
-    value: ['id', 'level_id', 'name', 'slug'],
-    display: ['name', 'slug']
+    value: ['id', 'level_id', 'name'],
+    display: ['name']
   },
   customer_tier: {
     value: ['level_id', 'name'],
@@ -194,8 +193,8 @@ export const DATALABEL_TABLE_COLUMNS: Record<string, { value: string[], display:
     display: ['name', 'descr']
   },
   position_level: {
-    value: ['id', 'level_id', 'name', 'slug'],
-    display: ['name', 'slug']
+    value: ['id', 'level_id', 'name'],
+    display: ['name']
   },
 
   // Sales/CRM tables
@@ -1738,18 +1737,13 @@ export function ModernDateTimePicker({
           {
             name: "offset",
             options: {
-              offset: [0, 5],
-            },
-          },
+              offset: [0, 5]}},
           {
             name: "preventOverflow",
             options: {
               rootBoundary: "viewport",
               tether: false,
-              altAxis: true,
-            },
-          },
-        ]}
+              altAxis: true}}]}
       />
       <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-600 pointer-events-none stroke-[1.5]" />
     </div>
@@ -1821,16 +1815,13 @@ export function DraggableFieldType({ fieldType, onAddField }: { fieldType: { typ
     id: `field-type-${fieldType.type}`,
     data: {
       type: 'field-type',
-      fieldType: fieldType.type,
-    },
-  });
+      fieldType: fieldType.type}});
 
   const style: React.CSSProperties = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     opacity: isDragging ? 0.3 : 1,
     cursor: isDragging ? 'grabbing' : 'grab',
-    transition: isDragging ? 'none' : 'all 0.2s ease',
-  };
+    transition: isDragging ? 'none' : 'all 0.2s ease'};
 
   const handlePlusClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1872,8 +1863,7 @@ export function DraggableFieldType({ fieldType, onAddField }: { fieldType: { typ
 // Droppable Form Canvas Component
 export function DroppableFormCanvas({ children }: { children: React.ReactNode }) {
   const { isOver, setNodeRef } = useDroppable({
-    id: 'form-canvas',
-  });
+    id: 'form-canvas'});
 
   return (
     <div
@@ -1899,8 +1889,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    boxShadow: isDragging ? '0 12px 24px rgba(16, 24, 40, 0.14)' : undefined,
-  };
+    boxShadow: isDragging ? '0 12px 24px rgba(16, 24, 40, 0.14)' : undefined};
 
   // Fetch datalabels dynamically from API
   const [datalabels, setDatalabels] = useState<Array<{ datalabel_name: string; ui_label: string; ui_icon: string | null }>>([]);

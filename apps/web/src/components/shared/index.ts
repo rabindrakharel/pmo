@@ -102,5 +102,4 @@ export {
   InlineTextarea,
   InlineSelect,
   InlineNumber,
-  InlineDate,
-} from './designer/InlineEdit';
+  InlineDate} from './designer/InlineEdit';

@@ -40,23 +40,15 @@ lowlight.register('bash', bash);
 // Custom protected Metadata node component
 function MetadataView(props: any) {
   const { node, updateAttributes } = props;
-  const { author, createdDate, updatedDate, tags, slug, theme, path } = node.attrs as {
+  const { author, createdDate, updatedDate, theme, path } = node.attrs as {
     author?: string;
     createdDate?: string;
     updatedDate?: string;
-    tags?: string[];
-    slug?: string;
     theme?: string;
     path?: string;
   };
-  const [newTag, setNewTag] = useState('');
-  const [slugValue, setSlugValue] = useState(slug || '');
   const [themeValue, setThemeValue] = useState(theme || 'gradient-blue');
   const [pathValue, setPathValue] = useState(path || '/wiki');
-
-  useEffect(() => {
-    setSlugValue(slug || '');
-  }, [slug]);
 
   useEffect(() => {
     setThemeValue(theme || 'gradient-blue');
@@ -72,7 +64,7 @@ function MetadataView(props: any) {
     next = next.replace(/\s+/g, '-');
     if (!next.startsWith('/')) next = `/${next}`;
     // Collapse multiple slashes except leading double slash (unlikely for wiki paths)
-    next = next.replace(/(?!^)\/{2,}/g, '/');
+    next = next.replace(/(?!^)\/{2}/g, '/');
     if (next.length > 1 && next.endsWith('/')) next = next.slice(0, -1);
     return next;
   };
@@ -124,8 +116,7 @@ function MetadataView(props: any) {
         className="metadata-block bg-dark-100 px-4 py-3 rounded-lg border border-dark-300 my-4"
         style={{
           fontSize: '14px',
-          color: '#6b7280',
-        }}
+          color: '#6b7280'}}
         contentEditable={false}
         onClick={stopEvent}
         onMouseDown={(e) => {
@@ -161,29 +152,6 @@ function MetadataView(props: any) {
             placeholder="/wiki"
             className="border-b border-dark-400 bg-transparent pb-0.5 text-sm font-normal text-dark-600 focus:border-dark-600 focus:outline-none"
           />
-          <span className="text-dark-600">/</span>
-          <input
-            value={slugValue}
-            onFocus={stopEvent}
-            onMouseDown={handleFieldMouseDown}
-            onClick={(e) => {
-              stopEvent(e);
-              focusField(e.currentTarget);
-            }}
-            onKeyDown={stopEvent}
-            onKeyUp={stopEvent}
-            onChange={(e) => {
-              e.stopPropagation();
-              const next = e.target.value;
-              setSlugValue(next);
-              updateAttributes({ slug: next });
-              try {
-                window.dispatchEvent(new CustomEvent('wiki:metadata:slug', { detail: next }));
-              } catch {}
-            }}
-            placeholder="page-slug"
-            className="border-b border-dark-400 bg-transparent pb-0.5 text-sm font-normal text-dark-600 focus:border-dark-600 focus:outline-none"
-          />
           <div className="inline-flex items-center gap-2 text-xs text-dark-700">
             <span className="font-semibold uppercase tracking-[0.3em] text-dark-700">Theme</span>
             <select
@@ -214,65 +182,6 @@ function MetadataView(props: any) {
             </select>
           </div>
         </div>
-        <div className="flex items-center gap-2 mt-2">
-          <span>Tags:</span>
-          <div className="flex items-center gap-2 flex-wrap">
-            {Array.isArray(tags) && tags.length > 0 ? (
-              tags.map((tag: string, i: number) => (
-                <span key={i} className="inline-flex items-center px-2 py-0.5 bg-dark-100 text-dark-700 border-0 rounded-full text-xs font-medium">
-                  {tag}
-                  <button
-                    className="ml-1 text-dark-700 hover:text-red-500"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      (e as any).nativeEvent?.stopImmediatePropagation?.();
-                      const next = (tags || []).filter((_, idx) => idx !== i);
-                      updateAttributes({ tags: next });
-                      try { window.dispatchEvent(new CustomEvent('wiki:metadata:tags', { detail: next })); } catch {}
-                    }}
-                    title="Remove"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))
-            ) : (
-              <span className="text-xs text-dark-600 italic">No tags yet</span>
-            )}
-            <input
-              type="text"
-              value={newTag}
-              onChange={(e) => {
-                e.stopPropagation();
-                setNewTag(e.target.value);
-              }}
-              onFocus={stopEvent}
-              onMouseDown={handleFieldMouseDown}
-              onClick={(e) => {
-                stopEvent(e);
-                focusField(e.currentTarget);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  const t = newTag.trim();
-                  if (!t) return;
-                  const set = new Set<string>(Array.isArray(tags) ? tags : []);
-                  set.add(t);
-                  const next = Array.from(set);
-                  updateAttributes({ tags: next });
-                  setNewTag('');
-                  try { window.dispatchEvent(new CustomEvent('wiki:metadata:tags', { detail: next })); } catch {}
-                }
-                e.stopPropagation();
-              }}
-              onKeyUp={stopEvent}
-              placeholder="Add tag and press Enter"
-              className="px-2 py-1 text-xs border border-dark-400 rounded-md bg-dark-100 focus:outline-none focus:ring-2 focus:ring-dark-7000"
-            />
-          </div>
-        </div>
       </div>
     </NodeViewWrapper>
   );
@@ -292,8 +201,6 @@ const MetadataNode = Node.create({
       author: { default: '' },
       createdDate: { default: '' },
       updatedDate: { default: '' },
-      tags: { default: [] },
-      slug: { default: '' },
       theme: { default: 'gradient-blue' },
       path: { default: '/wiki' }
     };
@@ -308,8 +215,6 @@ const MetadataNode = Node.create({
           author: el.getAttribute('data-author') || 'Current User',
           createdDate: el.getAttribute('data-created-date') || new Date().toISOString(),
           updatedDate: el.getAttribute('data-updated-date') || new Date().toISOString(),
-          tags: JSON.parse(el.getAttribute('data-tags') || '[]'),
-          slug: el.getAttribute('data-slug') || '',
           theme: el.getAttribute('data-theme') || 'gradient-blue',
           path: el.getAttribute('data-path') || '/wiki'
         };
@@ -404,8 +309,6 @@ export interface BlockEditorProps {
   author?: string;
   createdDate?: string;
   updatedDate?: string;
-  tags?: string[];
-  slug?: string;
   theme?: string;
   path?: string;
 }
@@ -812,12 +715,10 @@ const ExitBlockKeys = Extension.create({
     };
     return {
       Escape: exit,
-      'Mod-Enter': exit,
-    };
-  },
-});
+      'Mod-Enter': exit};
+  }});
 
-export function BlockEditor({ value, onChange, author, createdDate, updatedDate, tags, slug, theme, path }: BlockEditorProps) {
+export function BlockEditor({ value, onChange, author, createdDate, updatedDate, theme, path }: BlockEditorProps) {
   // Format date helper
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
@@ -844,35 +745,34 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
     const blocks = value || [{ id: 't1', type: 'h1', text: '' }];
     const safe = (input: string | undefined, fallback = '') => (input ?? fallback).replace(/"/g, '&quot;');
     const safeTheme = safe(theme, 'gradient-blue');
-    const safeSlug = safe(slug, '');
     const safePath = safe(path, '/wiki');
-    
+
     // Structure: H1 title -> Metadata -> Rest of content
     let html = '';
     let hasH1 = false;
     let metadataInserted = false;
-    
+
     blocks.forEach((block, index) => {
       const blockHtml = renderBlockToHtml(block);
       html += blockHtml;
-      
+
       // Insert metadata after first H1
       if (block.type === 'h1' && !hasH1 && !metadataInserted) {
-        html += `<div data-type="metadata" data-author="${author || 'Current User'}" data-created-date="${createdDate || new Date().toISOString()}" data-updated-date="${updatedDate || new Date().toISOString()}" data-tags="${JSON.stringify(tags || []).replace(/"/g, '&quot;')}" data-slug="${safeSlug}" data-theme="${safeTheme}" data-path="${safePath}"></div>`;
+        html += `<div data-type="metadata" data-author="${author || 'Current User'}" data-created-date="${createdDate || new Date().toISOString()}" data-updated-date="${updatedDate || new Date().toISOString()}" data-theme="${safeTheme}" data-path="${safePath}"></div>`;
         metadataInserted = true;
         hasH1 = true;
       }
     });
-    
+
     // If no H1 found, add default structure
     if (!hasH1) {
       html = '<h1><br></h1>' +
-             `<div data-type="metadata" data-author="${author || 'Current User'}" data-created-date="${createdDate || new Date().toISOString()}" data-updated-date="${updatedDate || new Date().toISOString()}" data-tags="${JSON.stringify(tags || []).replace(/"/g, '&quot;')}" data-slug="${safeSlug}" data-theme="${safeTheme}" data-path="${safePath}"></div>` + 
+             `<div data-type="metadata" data-author="${author || 'Current User'}" data-created-date="${createdDate || new Date().toISOString()}" data-updated-date="${updatedDate || new Date().toISOString()}" data-theme="${safeTheme}" data-path="${safePath}"></div>` +
              '<p><br></p>' + html;
     }
 
     return html || '<h1><br></h1><div data-type="metadata"></div><p><br></p>';
-  }, [value, author, createdDate, updatedDate, tags, slug, theme, path]);
+  }, [value, author, createdDate, updatedDate, theme, path]);
 
   function renderBlockToHtml(block: Block): string {
     const text = (block.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -907,10 +807,8 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
             ...this.parent?.(),
             style: { default: null },
             width: { default: null },
-            height: { default: null },
-          } as any;
-        },
-      }),
+            height: { default: null }} as any;
+        }}),
       Youtube.configure({ nocookie: true }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Subscript,
@@ -1315,8 +1213,7 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
             fontSize: '16px',
             lineHeight: '1.7',
             fontFamily: '"Inter", "Segoe UI", system-ui, sans-serif',
-            minHeight: 'calc(100vh - 200px)',
-          }}
+            minHeight: 'calc(100vh - 200px)'}}
         />
         {mediaOpen && createPortal(
           <div role="dialog" aria-modal="true" className="fixed inset-0 z-[10000] flex items-center justify-center">

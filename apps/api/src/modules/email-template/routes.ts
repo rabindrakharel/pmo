@@ -5,13 +5,11 @@ import { sql } from 'drizzle-orm';
 
 // Response schema matching email template database structure
 const EmailTemplateSchema = Type.Object({
-  id: Type.String(),
-  slug: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  id: Type.String(), Type.Null()])),
   code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   name: Type.String(),
   subject: Type.String(),
   descr: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  tags: Type.Optional(Type.Any()),
   status: Type.String(),
   template_schema: Type.Any(),
   preview_text: Type.Optional(Type.Union([Type.String(), Type.Null()])),
@@ -24,25 +22,21 @@ const EmailTemplateSchema = Type.Object({
   created_ts: Type.String(),
   updated_ts: Type.String(),
   version: Type.Number(),
-  metadata: Type.Optional(Type.Any()),
-});
+  metadata: Type.Optional(Type.Any())});
 
 // Create schema
 const CreateEmailTemplateSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   subject: Type.String({ minLength: 1 }),
-  slug: Type.Optional(Type.String()),
   code: Type.Optional(Type.String()),
-  descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String(), Type.Any()])),
+  descr: Type.Optional(Type.String()), Type.String(), Type.Any()])),
   status: Type.Optional(Type.String()),
   template_schema: Type.Optional(Type.Any()),
   preview_text: Type.Optional(Type.String()),
   from_name: Type.Optional(Type.String()),
   from_email: Type.Optional(Type.String()),
   reply_to_email: Type.Optional(Type.String()),
-  metadata: Type.Optional(Type.Any()),
-});
+  metadata: Type.Optional(Type.Any())});
 
 const UpdateEmailTemplateSchema = Type.Partial(CreateEmailTemplateSchema);
 
@@ -56,19 +50,14 @@ export async function emailTemplateRoutes(fastify: FastifyInstance) {
         status: Type.Optional(Type.String()),
         search: Type.Optional(Type.String()),
         page: Type.Optional(Type.Number({ minimum: 1 })),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-      }),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 }))}),
       response: {
         200: Type.Object({
           data: Type.Array(EmailTemplateSchema),
           total: Type.Number(),
           limit: Type.Number(),
-          offset: Type.Number(),
-        }),
-        403: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+          offset: Type.Number()}),
+        403: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const userId = request.user?.sub;
       if (!userId) {
@@ -80,8 +69,7 @@ export async function emailTemplateRoutes(fastify: FastifyInstance) {
         status,
         search,
         page = 1,
-        limit = 20,
-      } = request.query as any;
+        limit = 20} = request.query as any;
 
       const offset = (page - 1) * limit;
 
@@ -163,8 +151,7 @@ export async function emailTemplateRoutes(fastify: FastifyInstance) {
         data: templates,
         total,
         limit,
-        offset,
-      };
+        offset};
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch email templates' });
@@ -176,15 +163,11 @@ export async function emailTemplateRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String(),
-      }),
+        id: Type.String()}),
       response: {
         200: EmailTemplateSchema,
         403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const userId = request.user?.sub;
       if (!userId) {
@@ -247,10 +230,7 @@ export async function emailTemplateRoutes(fastify: FastifyInstance) {
       body: CreateEmailTemplateSchema,
       response: {
         201: EmailTemplateSchema,
-        403: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        403: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const userId = request.user?.sub;
       if (!userId) {
@@ -288,10 +268,8 @@ export async function emailTemplateRoutes(fastify: FastifyInstance) {
         INSERT INTO app.d_email_template (
           name,
           subject,
-          slug,
           code,
           descr,
-          tags,
           status,
           template_schema,
           preview_text,
@@ -330,16 +308,12 @@ export async function emailTemplateRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String(),
-      }),
+        id: Type.String()}),
       body: UpdateEmailTemplateSchema,
       response: {
         200: EmailTemplateSchema,
         403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const userId = request.user?.sub;
       if (!userId) {
@@ -437,15 +411,11 @@ export async function emailTemplateRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String(),
-      }),
+        id: Type.String()}),
       response: {
         200: Type.Object({ success: Type.Boolean(), message: Type.String() }),
         403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const userId = request.user?.sub;
       if (!userId) {

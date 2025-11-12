@@ -5,7 +5,7 @@ import { SidebarProvider } from './contexts/SidebarContext';
 import { NavigationHistoryProvider } from './contexts/NavigationHistoryContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { EntityPreviewProvider } from './contexts/EntityPreviewContext';
-import { EntityMetadataProvider } from './contexts/EntityMetadataContext';
+import { EntityMetadataProvider, useEntityMetadata } from './contexts/EntityMetadataContext';
 import { LoginForm } from './components/shared';
 import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPanel';
 
@@ -74,8 +74,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   const { isAuthenticated, isLoading } = useAuth();
+  const { entities, loading: entitiesLoading } = useEntityMetadata();
 
-  if (isLoading) {
+  if (isLoading || entitiesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-dark-700"></div>
@@ -83,15 +84,21 @@ function AppRoutes() {
     );
   }
 
-  // Core entities that use standard auto-generated routing
-  // Note: 'artifact', 'form', 'wiki', 'marketing' use custom routes defined below
-  const coreEntities = ['biz', 'office', 'project', 'task', 'employee', 'role', 'worksite', 'cust', 'position', 'service', 'product', 'quote', 'work_order', 'inventory', 'order', 'invoice', 'shipment', 'cost', 'revenue', 'booking', 'calendar'];
+  // Entities that use custom routes (not auto-generated)
+  const customRouteEntities = ['artifact', 'form', 'wiki', 'marketing', 'workflow'];
 
-  // Generate routes for all core entities from entityConfig
+  // Generate routes for all entities from d_entity table (except those with custom routes)
   const generateEntityRoutes = () => {
-    return coreEntities.map(entityType => {
+    const entityCodes = Array.from(entities.values())
+      .filter(entity => entity.active_flag && !customRouteEntities.includes(entity.code))
+      .map(entity => entity.code);
+
+    return entityCodes.map(entityType => {
       const config = entityConfigs[entityType];
-      if (!config) return null;
+      if (!config) {
+        console.warn(`[AppRoutes] No entityConfig found for entity type: ${entityType}`);
+        return null;
+      }
 
       return (
         <Fragment key={entityType}>

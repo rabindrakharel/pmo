@@ -87,8 +87,7 @@ export function SidebarProvider({ children }: SidebarProviderProps) {
     hideSidebar,
     collapseSidebar,
     uncollapseSidebar,
-    toggleCollapse,
-  };
+    toggleCollapse};
 
   return (
     <SidebarContext.Provider value={value}>

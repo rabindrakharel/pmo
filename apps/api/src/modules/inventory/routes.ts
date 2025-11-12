@@ -13,10 +13,7 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
       summary: 'List inventory',
       querystring: Type.Object({
         limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 20 })),
-        offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
-      }),
-    },
-  }, async (request, reply) => {
+        offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 }))})}}, async (request, reply) => {
     const { limit = 20, offset = 0 } = request.query as any;
 
     try {
@@ -48,9 +45,7 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ['inventory'],
       summary: 'Get inventory by ID',
-      params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-    },
-  }, async (request, reply) => {
+      params: Type.Object({ id: Type.String({ format: 'uuid' }) })}}, async (request, reply) => {
     const { id } = request.params as any;
 
     try {
@@ -73,9 +68,7 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       tags: ['inventory'],
-      summary: 'Create inventory',
-    },
-  }, async (request, reply) => {
+      summary: 'Create inventory'}}, async (request, reply) => {
     const data = request.body as any;
 
     try {
@@ -104,9 +97,7 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ['inventory'],
       summary: 'Update inventory',
-      params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-    },
-  }, async (request, reply) => {
+      params: Type.Object({ id: Type.String({ format: 'uuid' }) })}}, async (request, reply) => {
     const { id } = request.params as any;
     const data = request.body as any;
 
@@ -146,9 +137,7 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ['inventory'],
       summary: 'Delete inventory',
-      params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-    },
-  }, async (request, reply) => {
+      params: Type.Object({ id: Type.String({ format: 'uuid' }) })}}, async (request, reply) => {
     const { id } = request.params as any;
 
     try {

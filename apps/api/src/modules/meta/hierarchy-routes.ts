@@ -24,31 +24,27 @@ const EntityTypeSchema = Type.Object({
   supports_hierarchy: Type.Boolean(),
   requires_parent: Type.Boolean(),
   sort_order: Type.Number(),
-  icon_name: Type.Optional(Type.String()),
-});
+  icon_name: Type.Optional(Type.String())});
 
 // Hierarchy relationship schema
 const HierarchyRelationshipSchema = Type.Object({
   parent_entity: Type.String(),
   action_entity: Type.String(),
   permission_actions: Type.Array(Type.String()),
-  hierarchy_level: Type.Optional(Type.Number()),
-});
+  hierarchy_level: Type.Optional(Type.Number())});
 
 // Navigation structure schema
 const NavigationStructureSchema = Type.Object({
   sidebar_entities: Type.Array(EntityTypeSchema),
   entity_hierarchy: Type.Array(HierarchyRelationshipSchema),
-  user_permissions: Type.Record(Type.String(), Type.Array(Type.String())),
-});
+  user_permissions: Type.Record(Type.String(), Type.Array(Type.String()))});
 
 // Action entity summary for headerTabNavigation
 const ActionEntitySummarySchema = Type.Object({
   entity_type_code: Type.String(),
   display_name: Type.String(),
   permission_actions: Type.Array(Type.String()),
-  total_accessible: Type.Number(),
-});
+  total_accessible: Type.Number()});
 
 export async function hierarchyRoutes(fastify: FastifyInstance) {
 
@@ -60,17 +56,12 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       summary: 'Get eligible parent entity types',
       description: 'Returns valid parent entity types for the specified action entity type',
       querystring: Type.Object({
-        action_entity: Type.String(),
-      }),
+        action_entity: Type.String()}),
       response: {
         200: Type.Object({
-          data: Type.Array(Type.String()),
-        }),
+          data: Type.Array(Type.String())}),
         401: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
       const { action_entity } = request.query as { action_entity: string };
@@ -91,8 +82,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       const eligibleParentTypes = parentTypes.map(row => String(row.parent_entity));
 
       return {
-        data: eligibleParentTypes,
-      };
+        data: eligibleParentTypes};
     } catch (error) {
       fastify.log.error('Error fetching eligible parent types:', error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -108,24 +98,18 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       description: 'Returns available action entities within parent scope for DynamicChildEntityTabs with counts',
       params: Type.Object({
         parentEntity: Type.String(),
-        parentId: Type.String({ format: 'uuid' }),
-      }),
+        parentId: Type.String({ format: 'uuid' })}),
       response: {
         200: Type.Object({
           parent_info: Type.Object({
             entity_type: Type.String(),
             entity_id: Type.String(),
             entity_name: Type.String(),
-            can_create: Type.Array(Type.String()),
-          }),
-          action_entities: Type.Array(ActionEntitySummarySchema),
-        }),
+            can_create: Type.Array(Type.String())}),
+          action_entities: Type.Array(ActionEntitySummarySchema)}),
         401: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
       const { parentEntity, parentId } = request.params as { 
@@ -151,8 +135,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         'hr': 'app.d_office',
         'org': 'app.d_office',
         'client': 'app.d_client',
-        'worksite': 'app.d_worksite',
-      };
+        'worksite': 'app.d_worksite'};
 
       const parentTable = parentTableMap[parentEntity];
       if (!parentTable) {
@@ -202,8 +185,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
             'task': 'app.d_task',
             'wiki': 'app.d_wiki',
             'form': 'app.d_form_head',
-            'artifact': 'app.d_artifact',
-          };
+            'artifact': 'app.d_artifact'};
 
           const actionTable = entityTableMap[entityTypeCode];
           if (actionTable) {
@@ -212,8 +194,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
               'task': { 'project': 'metadata->\'project_id\'', 'biz': 'metadata->\'business_id\'', 'worksite': 'worksite_id' },
               'wiki': { 'biz': 'biz_id', 'project': 'project_id', 'task': 'task_id' },
               'form': { 'biz': 'biz_id', 'project': 'project_id', 'task': 'task_id', 'worksite': 'worksite_id' },
-              'artifact': { 'biz': 'biz_id', 'project': 'project_id', 'task': 'task_id' },
-            };
+              'artifact': { 'biz': 'biz_id', 'project': 'project_id', 'task': 'task_id' }};
 
             const parentColumn = parentColumnMap[entityTypeCode]?.[parentEntity];
             if (parentColumn) {
@@ -247,8 +228,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           entity_type_code: entityTypeCode,
           display_name: displayName,
           permission_actions: permissionActions,
-          total_accessible: contextFilteredCount,
-        });
+          total_accessible: contextFilteredCount});
       }
 
       // Get what user can create in this parent context
@@ -268,10 +248,8 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           entity_type: parentEntity,
           entity_id: parentId,
           entity_name: String(parentInfo[0]?.name || ''),
-          can_create: canCreate,
-        },
-        action_entities: actionSummaries,
-      };
+          can_create: canCreate},
+        action_entities: actionSummaries};
     } catch (error) {
       fastify.log.error('Error fetching action summaries:', error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -288,10 +266,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       response: {
         200: Type.Array(EntityTypeSchema),
         401: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const entityTypes = await db.execute(sql`
         SELECT 
@@ -327,10 +302,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       response: {
         200: Type.Array(HierarchyRelationshipSchema),
         401: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const hierarchyData = await db.execute(sql`
         SELECT 
@@ -365,10 +337,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       response: {
         200: NavigationStructureSchema,
         401: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
       if (!employeeId) {
@@ -422,8 +391,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       return {
         sidebar_entities: sidebarEntities,
         entity_hierarchy: entityHierarchy,
-        user_permissions: userPermissions,
-      };
+        user_permissions: userPermissions};
     } catch (error) {
       fastify.log.error('Error fetching navigation structure:', error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -438,19 +406,14 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       summary: 'Get available action entities for parent entity',
       description: 'Returns action entities that can be created/accessed within the specified parent entity',
       params: Type.Object({
-        parentEntity: Type.String(),
-      }),
+        parentEntity: Type.String()}),
       querystring: Type.Object({
-        parentEntityId: Type.Optional(Type.String({ format: 'uuid' })),
-      }),
+        parentEntityId: Type.Optional(Type.String({ format: 'uuid' }))}),
       response: {
         200: Type.Array(ActionEntitySummarySchema),
         401: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
       const { parentEntity } = request.params as { parentEntity: string };
@@ -499,8 +462,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           entity_type_code: actionEntity.action_entity,
           display_name: actionEntity.display_name,
           permission_actions: actionEntity.permission_actions,
-          total_accessible: accessibleIds.length,
-        });
+          total_accessible: accessibleIds.length});
       }
 
       return result;
@@ -519,21 +481,16 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       description: 'Returns parent hierarchy chain for a specific entity instance (for breadcrumbs)',
       params: Type.Object({
         entityType: Type.String(),
-        entityId: Type.String({ format: 'uuid' }),
-      }),
+        entityId: Type.String({ format: 'uuid' })}),
       response: {
         200: Type.Array(Type.Object({
           entity_type: Type.String(),
           entity_id: Type.String(),
           entity_name: Type.String(),
-          level: Type.Number(),
-        })),
+          level: Type.Number()})),
         401: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
       const { entityType, entityId } = request.params as { entityType: string; entityId: string };
@@ -619,8 +576,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         q: Type.String({ minLength: 2 }),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 50 })),
         entity_types: Type.Optional(Type.Array(Type.String())),
-        scope_filter: Type.Optional(Type.String()),
-      }),
+        scope_filter: Type.Optional(Type.String())}),
       response: {
         200: Type.Object({
           results: Type.Array(Type.Object({
@@ -630,17 +586,12 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
             description: Type.Optional(Type.String()),
             context: Type.Optional(Type.String()),
             match_score: Type.Number(),
-            breadcrumb: Type.Array(Type.String()),
-          })),
+            breadcrumb: Type.Array(Type.String())})),
           total_found: Type.Number(),
           query: Type.String(),
-          entity_counts: Type.Record(Type.String(), Type.Number()),
-        }),
+          entity_counts: Type.Record(Type.String(), Type.Number())}),
         400: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
       const { 
@@ -693,8 +644,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           table: 'app.d_wiki', 
           name_field: 'name', 
           desc_field: 'descr'
-        },
-      };
+        }};
 
       // Filter entity types if specified
       const targetEntityTypes = entity_types.length > 0 
@@ -771,8 +721,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
             description: result.description ? String(result.description) : undefined,
             context: result.context ? String(result.context) : undefined,
             match_score: Number(result.match_score),
-            breadcrumb,
-          };
+            breadcrumb};
         }));
 
         allResults.push(...resultsWithBreadcrumb);
@@ -787,8 +736,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         results: sortedResults,
         total_found: allResults.length,
         query: q,
-        entity_counts,
-      };
+        entity_counts};
     } catch (error) {
       fastify.log.error('Error in global search:', error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -803,21 +751,15 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       summary: 'Get available scope filters',
       description: 'Returns available scope filter options for action bar filtering',
       querystring: Type.Object({
-        entity_type: Type.String(),
-      }),
+        entity_type: Type.String()}),
       response: {
         200: Type.Object({
           scopes: Type.Array(Type.Object({
             scope_type: Type.String(),
             scope_id: Type.String(),
             scope_name: Type.String(),
-            entity_count: Type.Number(),
-          })),
-        }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+            entity_count: Type.Number()}))}),
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
       const { entity_type } = request.query as any;
@@ -873,8 +815,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
             scope_type: 'project',
             scope_id: String(project.id),
             scope_name: String(project.name),
-            entity_count: Number(project.entity_count),
-          });
+            entity_count: Number(project.entity_count)});
         });
       }
 
@@ -931,8 +872,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
             scope_type: 'biz',
             scope_id: String(biz.id),
             scope_name: String(biz.name),
-            entity_count: Number(biz.entity_count),
-          });
+            entity_count: Number(biz.entity_count)});
         });
       }
 

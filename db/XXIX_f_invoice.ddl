@@ -163,7 +163,6 @@ CREATE TABLE app.f_invoice (
     notes TEXT,                                         -- Internal invoice notes
     customer_notes TEXT,                                -- Notes visible to customer
     terms_and_conditions TEXT,                          -- T&C text (snapshot)
-    tags TEXT[]                                         -- Searchable tags
 );
 
 

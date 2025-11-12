@@ -9,12 +9,10 @@ import { s3AttachmentService } from '../../lib/s3-attachments.js';
 // Schema based on d_cost table structure from db/36_d_cost.ddl
 const CostSchema = Type.Object({
   id: Type.String(),
-  slug: Type.String(),
   code: Type.String(),
   cost_code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Any()),
   metadata: Type.Optional(Type.Any()),
   cost_amt_lcl: Type.Number(),
   cost_amt_invoice: Type.Optional(Type.Number()),
@@ -31,16 +29,13 @@ const CostSchema = Type.Object({
   active_flag: Type.Optional(Type.Boolean()),
   created_ts: Type.Optional(Type.String()),
   updated_ts: Type.Optional(Type.String()),
-  version: Type.Optional(Type.Number()),
-});
+  version: Type.Optional(Type.Number())});
 
 const CreateCostSchema = Type.Object({
   name: Type.Optional(Type.String({ minLength: 1 })),
-  slug: Type.Optional(Type.String({ minLength: 1 })),
   code: Type.Optional(Type.String({ minLength: 1 })),
   cost_code: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Union([Type.Array(Type.String()), Type.String()])),
   metadata: Type.Optional(Type.Union([Type.Object({}), Type.String()])),
   cost_amt_lcl: Type.Number(),
   cost_amt_invoice: Type.Optional(Type.Number()),
@@ -52,8 +47,7 @@ const CreateCostSchema = Type.Object({
   attachment_size_bytes: Type.Optional(Type.Number()),
   attachment_object_bucket: Type.Optional(Type.String()),
   attachment_object_key: Type.Optional(Type.String()),
-  active_flag: Type.Optional(Type.Boolean()),
-});
+  active_flag: Type.Optional(Type.Boolean())});
 
 const UpdateCostSchema = Type.Partial(CreateCostSchema);
 
@@ -68,20 +62,15 @@ export async function costRoutes(fastify: FastifyInstance) {
         cost_code: Type.Optional(Type.String()),
         invoice_currency: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 })),
-      }),
+        offset: Type.Optional(Type.Number({ minimum: 0 }))}),
       response: {
         200: Type.Object({
           data: Type.Array(CostSchema),
           total: Type.Number(),
           limit: Type.Number(),
-          offset: Type.Number(),
-        }),
+          offset: Type.Number()}),
         403: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const {
       active, search, cost_code, invoice_currency, limit = 50, offset = 0
     } = request.query as any;
@@ -140,7 +129,7 @@ export async function costRoutes(fastify: FastifyInstance) {
       // Data query
       const costs = await db.execute(sql`
         SELECT
-          c.id, c.code, c.slug, c.cost_code, c.name, c.descr, c.tags, c.metadata,
+          c.id, c.code, c.cost_code, c.name, c.descr, c.metadata,
           c.cost_amt_lcl, c.cost_amt_invoice, c.invoice_currency, c.exch_rate,
           c.cust_budgeted_amt_lcl,
           c.attachment, c.attachment_format, c.attachment_size_bytes,
@@ -164,16 +153,12 @@ export async function costRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       response: {
         200: CostSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as any;
     const userId = (request as any).user?.sub;
 
@@ -215,10 +200,7 @@ export async function costRoutes(fastify: FastifyInstance) {
       response: {
         201: CostSchema,
         403: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const body = request.body as any;
     const userId = (request as any).user?.sub;
 
@@ -240,23 +222,21 @@ export async function costRoutes(fastify: FastifyInstance) {
         return reply.code(403).send({ error: 'Permission denied to create cost' });
       }
 
-      // Generate slug and code if not provided
-      const slug = body.slug || body.name?.toLowerCase().replace(/\s+/g, '-') || `cost-${Date.now()}`;
+      // Generate code if not provided
       const code = body.code || `COST-${Date.now()}`;
       const name = body.name || `Cost ${code}`;
 
       const result = await db.execute(sql`
-        INSERT INTO app.d_cost (
-          slug, code, cost_code, name, descr, tags, metadata,
+        INSERT INTO app.d_cost (code, cost_code, name, descr, metadata,
           cost_amt_lcl, cost_amt_invoice, invoice_currency, exch_rate,
           cust_budgeted_amt_lcl,
           attachment, attachment_format, attachment_size_bytes,
           attachment_object_bucket, attachment_object_key,
           active_flag
         ) VALUES (
-          ${slug}, ${code}, ${body.cost_code},
+          ${code}, ${body.cost_code},
           ${name}, ${body.descr || null},
-          ${JSON.stringify(body.tags || [])}, ${JSON.stringify(body.metadata || {})},
+          ${JSON.stringify(body.metadata || {})},
           ${body.cost_amt_lcl}, ${body.cost_amt_invoice || null},
           ${body.invoice_currency || 'CAD'}, ${body.exch_rate || 1.0},
           ${body.cust_budgeted_amt_lcl || null},
@@ -279,17 +259,13 @@ export async function costRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       body: UpdateCostSchema,
       response: {
         200: CostSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as any;
     const body = request.body as any;
     const userId = (request as any).user?.sub;

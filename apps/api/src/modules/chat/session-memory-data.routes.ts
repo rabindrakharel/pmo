@@ -31,17 +31,12 @@ export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
             completedSessions: Type.Number(),
             totalMessages: Type.Number(),
             dbSizeBytes: Type.Number(),
-            dbPath: Type.String(),
-          }),
-        },
-      },
-    },
+            dbPath: Type.String()})}}},
     async (request, reply) => {
       const stats = await sessionMemoryDataService.getStats();
       return {
         ...stats,
-        dbPath: sessionMemoryDataService.getDbPath(),
-      };
+        dbPath: sessionMemoryDataService.getDbPath()};
     }
   );
 
@@ -57,10 +52,7 @@ export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
         tags: ['Session Memory Data'],
         querystring: Type.Object({
           userId: Type.Optional(Type.String()),
-          active: Type.Optional(Type.Boolean()),
-        }),
-      },
-    },
+          active: Type.Optional(Type.Boolean())})}},
     async (request, reply) => {
       const { userId, active } = request.query as any;
 
@@ -75,8 +67,7 @@ export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
 
       return {
         count: sessions.length,
-        sessions,
-      };
+        sessions};
     }
   );
 
@@ -91,15 +82,10 @@ export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
         description: 'Get session memory data by session ID',
         tags: ['Session Memory Data'],
         params: Type.Object({
-          sessionId: Type.String(),
-        }),
+          sessionId: Type.String()}),
         response: {
           404: Type.Object({
-            error: Type.String(),
-          }),
-        },
-      },
-    },
+            error: Type.String()})}}},
     async (request, reply) => {
       const { sessionId } = request.params as any;
 
@@ -124,8 +110,7 @@ export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
         description: 'Update session memory data fields (partial update)',
         tags: ['Session Memory Data'],
         params: Type.Object({
-          sessionId: Type.String(),
-        }),
+          sessionId: Type.String()}),
         body: Type.Object({
           action: Type.Optional(Type.String()),
           context: Type.Optional(
@@ -135,25 +120,18 @@ export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
               next_node_to_go_to: Type.Optional(Type.String()),
               node_traversed: Type.Optional(Type.Array(Type.String())),
               summary_of_conversation_on_each_step_until_now: Type.Optional(Type.Any()),
-              flags: Type.Optional(Type.Any()),
-            })
+              flags: Type.Optional(Type.Any())})
           ),
           currentNode: Type.Optional(Type.String()),
           completed: Type.Optional(Type.Boolean()),
           conversationEnded: Type.Optional(Type.Boolean()),
-          endReason: Type.Optional(Type.String()),
-        }),
+          endReason: Type.Optional(Type.String())}),
         response: {
           200: Type.Object({
             success: Type.Boolean(),
-            sessionId: Type.String(),
-          }),
+            sessionId: Type.String()}),
           404: Type.Object({
-            error: Type.String(),
-          }),
-        },
-      },
-    },
+            error: Type.String()})}}},
     async (request, reply) => {
       const { sessionId } = request.params as any;
       const updates = request.body as any;
@@ -163,8 +141,7 @@ export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
 
         return {
           success: true,
-          sessionId,
-        };
+          sessionId};
       } catch (error: any) {
         reply.code(404);
         return { error: error.message };
@@ -183,16 +160,11 @@ export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
         description: 'Delete session from session memory data database',
         tags: ['Session Memory Data'],
         params: Type.Object({
-          sessionId: Type.String(),
-        }),
+          sessionId: Type.String()}),
         response: {
           200: Type.Object({
             success: Type.Boolean(),
-            sessionId: Type.String(),
-          }),
-        },
-      },
-    },
+            sessionId: Type.String()})}}},
     async (request, reply) => {
       const { sessionId } = request.params as any;
 
@@ -200,8 +172,7 @@ export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
 
       return {
         success: true,
-        sessionId,
-      };
+        sessionId};
     }
   );
 
@@ -216,15 +187,10 @@ export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
         description: 'Export session as JSON string',
         tags: ['Session Memory Data'],
         params: Type.Object({
-          sessionId: Type.String(),
-        }),
+          sessionId: Type.String()}),
         response: {
           404: Type.Object({
-            error: Type.String(),
-          }),
-        },
-      },
-    },
+            error: Type.String()})}}},
     async (request, reply) => {
       const { sessionId } = request.params as any;
 
@@ -251,16 +217,11 @@ export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
         description: 'Remove old completed sessions from database',
         tags: ['Session Memory Data'],
         body: Type.Object({
-          olderThanDays: Type.Optional(Type.Number({ default: 7 })),
-        }),
+          olderThanDays: Type.Optional(Type.Number({ default: 7 }))}),
         response: {
           200: Type.Object({
             success: Type.Boolean(),
-            removedCount: Type.Number(),
-          }),
-        },
-      },
-    },
+            removedCount: Type.Number()})}}},
     async (request, reply) => {
       const { olderThanDays = 7 } = request.body as any;
 
@@ -268,8 +229,7 @@ export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
 
       return {
         success: true,
-        removedCount,
-      };
+        removedCount};
     }
   );
 
@@ -286,18 +246,13 @@ export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
         response: {
           200: Type.Object({
             success: Type.Boolean(),
-            message: Type.String(),
-          }),
-        },
-      },
-    },
+            message: Type.String()})}}},
     async (request, reply) => {
       await sessionMemoryDataService.clearAll();
 
       return {
         success: true,
-        message: 'All sessions cleared',
-      };
+        message: 'All sessions cleared'};
     }
   );
 
@@ -312,15 +267,10 @@ export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
         description: 'Get only context object for session',
         tags: ['Session Memory Data'],
         params: Type.Object({
-          sessionId: Type.String(),
-        }),
+          sessionId: Type.String()}),
         response: {
           404: Type.Object({
-            error: Type.String(),
-          }),
-        },
-      },
-    },
+            error: Type.String()})}}},
     async (request, reply) => {
       const { sessionId } = request.params as any;
 
@@ -345,15 +295,10 @@ export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
         description: 'Get only messages array for session',
         tags: ['Session Memory Data'],
         params: Type.Object({
-          sessionId: Type.String(),
-        }),
+          sessionId: Type.String()}),
         response: {
           404: Type.Object({
-            error: Type.String(),
-          }),
-        },
-      },
-    },
+            error: Type.String()})}}},
     async (request, reply) => {
       const { sessionId } = request.params as any;
 
@@ -365,8 +310,7 @@ export async function sessionMemoryDataRoutes(fastify: FastifyInstance) {
 
       return {
         count: session.messages.length,
-        messages: session.messages,
-      };
+        messages: session.messages};
     }
   );
 }

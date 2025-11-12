@@ -65,8 +65,7 @@ const EmployeeSchema = Type.Object({
   // Work preferences (DDL columns)
   remote_work_eligible: Type.Optional(Type.Boolean()),  // DDL name (not remote_eligible)
   time_zone: Type.Optional(Type.String()),
-  preferred_language: Type.Optional(Type.String()),
-});
+  preferred_language: Type.Optional(Type.String())});
 
 // CREATE schema - accepts DDL columns + metadata JSONB
 const CreateEmployeeSchema = Type.Object({
@@ -117,8 +116,7 @@ const CreateEmployeeSchema = Type.Object({
   // Work preferences (DDL columns)
   remote_work_eligible: Type.Optional(Type.Boolean()),  // DDL name
   time_zone: Type.Optional(Type.String()),
-  preferred_language: Type.Optional(Type.String()),
-});
+  preferred_language: Type.Optional(Type.String())});
 
 // UPDATE schema - accepts DDL columns (nullable for partial updates)
 const UpdateEmployeeSchema = Type.Object({
@@ -168,8 +166,7 @@ const UpdateEmployeeSchema = Type.Object({
   // Work preferences (DDL columns)
   remote_work_eligible: Type.Optional(Type.Boolean()),  // DDL name
   time_zone: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  preferred_language: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-});
+  preferred_language: Type.Optional(Type.Union([Type.String(), Type.Null()]))});
 
 export async function empRoutes(fastify: FastifyInstance) {
   // List employees
@@ -184,20 +181,15 @@ export async function empRoutes(fastify: FastifyInstance) {
         remote_work_eligible: Type.Optional(Type.Boolean()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 10000 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
-        page: Type.Optional(Type.Number({ minimum: 1 })),
-      }),
+        page: Type.Optional(Type.Number({ minimum: 1 }))}),
       response: {
         200: Type.Object({
           data: Type.Array(Type.Any()),
           total: Type.Number(),
           limit: Type.Number(),
-          offset: Type.Number(),
-        }),
+          offset: Type.Number()}),
         403: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { active_flag, search, employee_type, department, remote_work_eligible, limit = 50, offset: queryOffset, page } = request.query as any;
 
     // Support both page (new) and offset (legacy) parameters
@@ -264,7 +256,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       const employees = await db.execute(sql`
         SELECT
           e.id, e.code, e.name, e."descr",
-          COALESCE(e.metadata->'tags', '[]'::jsonb) as tags,
+          COALESCE(e.metadata->'tags', '[]'::jsonb) as,
           e.from_ts, e.to_ts, e.active_flag, e.created_ts, e.updated_ts, e.version,
           e.email, e.phone, e.mobile, e.first_name, e.last_name,
           e.address_line1, e.address_line2, e.city, e.province, e.postal_code, e.country,
@@ -291,8 +283,7 @@ export async function empRoutes(fastify: FastifyInstance) {
         data: filteredData,
         total,
         limit,
-        offset,
-      };
+        offset};
     } catch (error) {
       fastify.log.error('Error fetching employees:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -304,16 +295,12 @@ export async function empRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       response: {
         // Removed Type.Any() - let Fastify serialize naturally without schema validation
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
 
     const userId = (request as any).user?.sub;
@@ -340,7 +327,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       const employee = await db.execute(sql`
         SELECT
           id, code, name, "descr",
-          COALESCE(metadata->'tags', '[]'::jsonb) as tags,
+          COALESCE(metadata->'tags', '[]'::jsonb) as,
           from_ts, to_ts, active_flag, created_ts, updated_ts, version,
           email, phone, mobile, first_name, last_name,
           address_line1, address_line2, city, province, postal_code, country,
@@ -368,8 +355,7 @@ export async function empRoutes(fastify: FastifyInstance) {
         canSeePII: true,
         canSeeFinancial: true,
         canSeeSystemFields: true,
-        canSeeSafetyInfo: true,
-      };
+        canSeeSafetyInfo: true};
 
       const filtered = filterUniversalColumns(employee[0], userPermissions);
       fastify.log.info(`Filtered data keys: ${Object.keys(filtered).join(', ')}`);
@@ -391,10 +377,7 @@ export async function empRoutes(fastify: FastifyInstance) {
         // Removed Type.Any() - let Fastify serialize naturally without schema validation
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const data = request.body as any;
 
     // Auto-generate missing required fields
@@ -478,8 +461,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
-        canSeeSystemFields: true,
-      };
+        canSeeSystemFields: true};
       
       return reply.status(201).send(filterUniversalColumns(result[0], userPermissions));
     } catch (error) {
@@ -493,17 +475,13 @@ export async function empRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       body: UpdateEmployeeSchema,
       response: {
         // Removed Type.Any() - let Fastify serialize naturally without schema validation
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
     const data = request.body as any;
 
@@ -592,8 +570,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
-        canSeeSystemFields: true,
-      };
+        canSeeSystemFields: true};
       
       return filterUniversalColumns(result[0], userPermissions);
     } catch (error) {
@@ -607,16 +584,12 @@ export async function empRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       response: {
         204: Type.Null(),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
 
 

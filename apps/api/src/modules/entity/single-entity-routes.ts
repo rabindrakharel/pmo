@@ -14,22 +14,18 @@ const UniversalEntitySchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  tags: Type.Array(Type.String()),
   attr: Type.Object({}),
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
   active: Type.Boolean(),
   created: Type.String(),
-  updated: Type.String(),
-}, { additionalProperties: true }); // Allow additional entity-specific fields
+  updated: Type.String()}, { additionalProperties: true }); // Allow additional entity-specific fields
 
 const CreateEntitySchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
-  tags: Type.Optional(Type.Array(Type.String())),
   attr: Type.Optional(Type.Object({})),
-  active: Type.Optional(Type.Boolean()),
-}, { additionalProperties: true });
+  active: Type.Optional(Type.Boolean())}, { additionalProperties: true });
 
 const UpdateEntitySchema = Type.Partial(CreateEntitySchema);
 
@@ -46,8 +42,7 @@ const ENTITY_TABLE_MAP: Record<string, string> = {
   'wiki': 'app.d_wiki',
   'form': 'app.d_form_head',
   'task': 'app.d_task',
-  'artifact': 'app.d_artifact',
-};
+  'artifact': 'app.d_artifact'};
 
 // Valid entity types
 const VALID_ENTITY_TYPES = Object.keys(ENTITY_TABLE_MAP);
@@ -72,29 +67,23 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
       summary: 'List entities of specific type',
       description: 'Returns paginated list of entities with RBAC filtering',
       params: Type.Object({
-        entityType: Type.String(),
-      }),
+        entityType: Type.String()}),
       querystring: Type.Object({
         active: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         sortBy: Type.Optional(Type.String()),
-        sortOrder: Type.Optional(Type.String({ enum: ['asc', 'desc'] })),
-      }),
+        sortOrder: Type.Optional(Type.String({ enum: ['asc', 'desc'] }))}),
       response: {
         200: Type.Object({
           data: Type.Array(UniversalEntitySchema),
           total: Type.Number(),
           limit: Type.Number(),
-          offset: Type.Number(),
-        }),
+          offset: Type.Number()}),
         400: Type.Object({ error: Type.String() }),
         401: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const { entityType } = request.params as { entityType: string };
       const { 
@@ -144,8 +133,7 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
         data: entities,
         total,
         limit,
-        offset,
-      };
+        offset};
     } catch (error) {
       fastify.log.error(`Error fetching ${request.params.entityType} entities:`, error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -161,17 +149,13 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
       description: 'Returns single entity with RBAC check',
       params: Type.Object({
         entityType: Type.String(),
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       response: {
         200: UniversalEntitySchema,
         400: Type.Object({ error: Type.String() }),
         401: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const { entityType, id } = request.params as { entityType: string; id: string };
 
@@ -202,18 +186,14 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
       summary: 'Create new root entity',
       description: 'Creates new root-level entity (for root-capable entities only)',
       params: Type.Object({
-        entityType: Type.String(),
-      }),
+        entityType: Type.String()}),
       body: CreateEntitySchema,
       response: {
         201: UniversalEntitySchema,
         400: Type.Object({ error: Type.String() }),
         401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const { entityType } = request.params as { entityType: string };
       const data = request.body as any;
@@ -300,18 +280,14 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
       description: 'Updates entity with RBAC check',
       params: Type.Object({
         entityType: Type.String(),
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       body: UpdateEntitySchema,
       response: {
         200: UniversalEntitySchema,
         400: Type.Object({ error: Type.String() }),
         401: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const { entityType, id } = request.params as { entityType: string; id: string };
       const data = request.body as any;
@@ -388,17 +364,13 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
       description: 'Soft deletes entity with RBAC check',
       params: Type.Object({
         entityType: Type.String(),
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       response: {
         204: Type.Null(),
         400: Type.Object({ error: Type.String() }),
         401: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const { entityType, id } = request.params as { entityType: string; id: string };
 

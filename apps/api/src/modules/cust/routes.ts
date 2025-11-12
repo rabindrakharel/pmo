@@ -52,8 +52,7 @@ const CustSchema = Type.Object({
   secondary_email: Type.Optional(Type.String()),
   secondary_phone: Type.Optional(Type.String()),
   // Entity configuration
-  entities: Type.Optional(Type.Array(Type.String())),
-});
+  entities: Type.Optional(Type.Array(Type.String()))});
 
 const CreateCustSchema = Type.Object({
   name: Type.String({ minLength: 1 }), // Only name is required
@@ -89,8 +88,7 @@ const CreateCustSchema = Type.Object({
   // Entity configuration
   entities: Type.Optional(Type.Array(Type.String())),
   metadata: Type.Optional(Type.Any()),
-  active_flag: Type.Optional(Type.Boolean()),
-});
+  active_flag: Type.Optional(Type.Boolean())});
 
 const UpdateCustSchema = Type.Partial(CreateCustSchema);
 
@@ -115,10 +113,7 @@ export async function custRoutes(fastify: FastifyInstance) {
         biz_id: Type.Optional(Type.String()),
         page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 })),
-      }),
-    },
-  }, async (request, reply) => {
+        offset: Type.Optional(Type.Number({ minimum: 0 }))})}}, async (request, reply) => {
     const { active, search, cust_type, biz_id, page, limit = 20, offset } = request.query as any;
 
     // Calculate offset from page if page is provided
@@ -178,16 +173,12 @@ export async function custRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       response: {
         200: CustSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
 
 
@@ -213,8 +204,7 @@ export async function custRoutes(fastify: FastifyInstance) {
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
-        canSeeSystemFields: true,
-      };
+        canSeeSystemFields: true};
 
       return filterUniversalColumns(customer[0], userPermissions);
     } catch (error) {
@@ -228,20 +218,15 @@ export async function custRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       response: {
         200: Type.Object({
           customer: CustSchema,
           parent: Type.Optional(CustSchema),
-          children: Type.Array(CustSchema),
-        }),
+          children: Type.Array(CustSchema)}),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
 
 
@@ -278,14 +263,12 @@ export async function custRoutes(fastify: FastifyInstance) {
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
-        canSeeSystemFields: true,
-      };
+        canSeeSystemFields: true};
 
       return {
         customer: filterUniversalColumns(customer, userPermissions),
         parent: parent ? filterUniversalColumns(parent, userPermissions) : null,
-        children: children.map(child => filterUniversalColumns(child, userPermissions)),
-      };
+        children: children.map(child => filterUniversalColumns(child, userPermissions))};
     } catch (error) {
       fastify.log.error('Error fetching customer hierarchy:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -300,10 +283,7 @@ export async function custRoutes(fastify: FastifyInstance) {
         201: CustSchema,
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     // Transform request data (tags string → array, etc.)
     const data = transformRequestBody(request.body as any);
 
@@ -390,8 +370,7 @@ export async function custRoutes(fastify: FastifyInstance) {
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
-        canSeeSystemFields: true,
-      };
+        canSeeSystemFields: true};
       
       return reply.status(201).send(filterUniversalColumns(result[0], userPermissions));
     } catch (error) {
@@ -405,18 +384,14 @@ export async function custRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       body: UpdateCustSchema,
       response: {
         200: CustSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
     // Transform request data (tags string → array, etc.)
     const data = transformRequestBody(request.body as any);
@@ -500,8 +475,7 @@ export async function custRoutes(fastify: FastifyInstance) {
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
-        canSeeSystemFields: true,
-      };
+        canSeeSystemFields: true};
 
       return filterUniversalColumns(result[0], userPermissions);
     } catch (error) {
@@ -515,17 +489,13 @@ export async function custRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       response: {
         204: Type.Null(),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
 
 

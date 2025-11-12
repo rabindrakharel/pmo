@@ -30,8 +30,7 @@ const ArtifactSchema = Type.Object({
   to_ts: Type.Optional(Type.String()),
   created_ts: Type.String(),
   updated_ts: Type.String(),
-  version: Type.Optional(Type.Number()),
-});
+  version: Type.Optional(Type.Number())});
 
 const CreateArtifactSchema = Type.Object({
   // Required fields (will be auto-generated if not provided)
@@ -70,8 +69,7 @@ const CreateArtifactSchema = Type.Object({
 
   // Status
   active_flag: Type.Optional(Type.Boolean()),
-  active: Type.Optional(Type.Boolean()),
-});
+  active: Type.Optional(Type.Boolean())});
 
 const UpdateArtifactSchema = Type.Partial(CreateArtifactSchema);
 
@@ -88,18 +86,13 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
         artifact_type: Type.Optional(Type.String()),
-        active: Type.Optional(Type.Boolean()),
-      }),
+        active: Type.Optional(Type.Boolean())}),
       response: {
         200: Type.Object({
           data: Type.Array(ArtifactSchema),
           total: Type.Integer(),
           limit: Type.Integer(),
-          offset: Type.Integer(),
-        }),
-      },
-    },
-  }, async (request, reply) => {
+          offset: Type.Integer()})}}}, async (request, reply) => {
     const { limit = 20, offset: queryOffset, page, artifact_type, active_flag = true } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
@@ -148,9 +141,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       tags: ['artifact'],
       summary: 'Get artifact by ID',
       params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-      response: { 200: ArtifactSchema },
-    },
-  }, async (request, reply) => {
+      response: { 200: ArtifactSchema }}}, async (request, reply) => {
     const { id } = request.params as any;
 
     try {
@@ -186,9 +177,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         // Removed schema validation - let Fastify serialize naturally
         400: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })
-      },
-    },
-  }, async (request, reply) => {
+      }}}, async (request, reply) => {
     const data = request.body as any;
     const userId = (request as any).user?.sub || 'system';
 
@@ -241,9 +230,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       summary: 'Update artifact',
       params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
       body: UpdateArtifactSchema,
-      response: { 200: ArtifactSchema },
-    },
-  }, async (request, reply) => {
+      response: { 200: ArtifactSchema }}}, async (request, reply) => {
     const { id } = request.params as any;
     const data = request.body as any;
 
@@ -336,17 +323,12 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         contentType: Type.Optional(Type.String({ description: 'MIME type' })),
         fileSize: Type.Optional(Type.Number({ description: 'File size in bytes' })),
         visibility: Type.Optional(Type.String({ enum: ['public', 'internal', 'restricted', 'private'] })),
-        securityClassification: Type.Optional(Type.String({ enum: ['general', 'confidential', 'restricted'] })),
-      }),
+        securityClassification: Type.Optional(Type.String({ enum: ['general', 'confidential', 'restricted'] }))}),
       response: {
         200: Type.Object({
           artifact: ArtifactSchema,
           uploadUrl: Type.String({ description: 'Presigned URL for file upload' }),
-          expiresIn: Type.Number({ description: 'URL expiration time in seconds' }),
-        }),
-      },
-    },
-  }, async (request, reply) => {
+          expiresIn: Type.Number({ description: 'URL expiration time in seconds' })})}}}, async (request, reply) => {
     const userId = (request as any).user?.sub || 'system';
     const data = request.body as any;
 
@@ -357,8 +339,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         entityType: data.entityType,
         entityId: data.entityId,
         fileName: data.fileName,
-        contentType: data.contentType,
-      });
+        contentType: data.contentType});
 
       // Extract file extension from filename
       const fileExtension = data.fileName.split('.').pop() || '';
@@ -399,8 +380,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       return {
         artifact: result[0],
         uploadUrl: uploadResult.url,
-        expiresIn: uploadResult.expiresIn,
-      };
+        expiresIn: uploadResult.expiresIn};
     } catch (error) {
       fastify.log.error({ error }, 'Error creating artifact upload');
       return reply.status(500).send({
@@ -418,19 +398,14 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       summary: 'Download artifact file',
       description: 'Generate presigned download URL for artifact file',
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       response: {
         200: Type.Object({
           url: Type.String({ description: 'Presigned download URL' }),
           objectKey: Type.String({ description: 'S3 object key' }),
           fileName: Type.String({ description: 'Original file name' }),
           fileSize: Type.Optional(Type.Number({ description: 'File size in bytes' })),
-          expiresIn: Type.Number({ description: 'URL expiration time in seconds' }),
-        }),
-      },
-    },
-  }, async (request, reply) => {
+          expiresIn: Type.Number({ description: 'URL expiration time in seconds' })})}}}, async (request, reply) => {
     const { id } = request.params as any;
 
     try {
@@ -476,8 +451,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         objectKey: downloadResult.objectKey,
         fileName: `${artifact.name}.${artifact.attachment_format || 'bin'}`,
         fileSize: artifact.attachment_size_bytes,
-        expiresIn: downloadResult.expiresIn,
-      };
+        expiresIn: downloadResult.expiresIn};
     } catch (error) {
       fastify.log.error({ error }, 'Error generating download URL');
       return reply.status(500).send({
@@ -495,16 +469,11 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       summary: 'Generate preview URL for object key',
       description: 'Generate presigned download URL for any S3 object key (used for cost/revenue attachments)',
       body: Type.Object({
-        objectKey: Type.String({ description: 'S3 object key' }),
-      }),
+        objectKey: Type.String({ description: 'S3 object key' })}),
       response: {
         200: Type.Object({
           url: Type.String({ description: 'Presigned download URL' }),
-          expiresIn: Type.Number({ description: 'URL expiration time in seconds' }),
-        }),
-      },
-    },
-  }, async (request, reply) => {
+          expiresIn: Type.Number({ description: 'URL expiration time in seconds' })})}}}, async (request, reply) => {
     const { objectKey } = request.body as any;
 
     try {
@@ -515,8 +484,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
       return {
         url: downloadResult.url,
-        expiresIn: downloadResult.expiresIn,
-      };
+        expiresIn: downloadResult.expiresIn};
     } catch (error) {
       fastify.log.error({ error }, 'Error generating preview URL');
       return reply.status(500).send({
@@ -535,20 +503,14 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       description: 'Get all artifacts linked to a specific entity',
       params: Type.Object({
         entityType: Type.String({ description: 'Entity type (e.g., "project", "task")' }),
-        entityId: Type.String({ format: 'uuid', description: 'Entity UUID' }),
-      }),
+        entityId: Type.String({ format: 'uuid', description: 'Entity UUID' })}),
       querystring: Type.Object({
         limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 50 })),
-        offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
-      }),
+        offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 }))}),
       response: {
         200: Type.Object({
           data: Type.Array(ArtifactSchema),
-          total: Type.Integer(),
-        }),
-      },
-    },
-  }, async (request, reply) => {
+          total: Type.Integer()})}}}, async (request, reply) => {
     const { entityType, entityId } = request.params as any;
     const { limit = 50, offset = 0 } = request.query as any;
 
@@ -589,8 +551,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       summary: 'Upload new version of artifact',
       description: 'Creates a new version of an existing artifact with SCD Type 2 pattern',
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       body: Type.Object({
         fileName: Type.String(),
         contentType: Type.Optional(Type.String()),
@@ -601,19 +562,14 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         descr: Type.Optional(Type.String()),
         visibility: Type.Optional(Type.String()),
         security_classification: Type.Optional(Type.String()),
-        artifact_type: Type.Optional(Type.String()),
-      }),
+        artifact_type: Type.Optional(Type.String())}),
       response: {
         200: Type.Object({
           oldArtifact: Type.Any(),
           newArtifact: Type.Any(),
           uploadUrl: Type.Union([Type.String(), Type.Null()]),
           expiresIn: Type.Union([Type.Number(), Type.Null()]),
-          objectKey: Type.String(),
-        }),
-      },
-    },
-  }, async (request, reply) => {
+          objectKey: Type.String()})}}}, async (request, reply) => {
     const userId = (request as any).user?.sub || 'system';
     const { id } = request.params as any;
     const data = request.body as any;
@@ -641,8 +597,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           entityType: current.entity_type || 'artifact',
           entityId: id,
           fileName: data.fileName,
-          contentType: data.contentType,
-        });
+          contentType: data.contentType});
         finalObjectKey = uploadResult.objectKey;
         uploadUrl = uploadResult.url;
         expiresIn = uploadResult.expiresIn;
@@ -701,11 +656,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         200: Type.Object({
           data: Type.Array(Type.Any()),
           rootArtifactId: Type.String(),
-          currentVersion: Type.Number(),
-        }),
-      },
-    },
-  }, async (request, reply) => {
+          currentVersion: Type.Number()})}}}, async (request, reply) => {
     const { id } = request.params as any;
 
     try {

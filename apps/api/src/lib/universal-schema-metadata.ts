@@ -527,8 +527,7 @@ const UNIVERSAL_COLUMN_PATTERNS: Record<string, ColumnMetadata> = {
   'deliverables': { 
     'flexible': true, 
     'ui:json': true 
-  },
-};
+  }};
 
 /**
  * Pattern-based classification rules
@@ -814,8 +813,7 @@ export function createPaginatedResponse<T extends Record<string, any>>(
     data,  // Return all columns without filtering
     total,
     limit,
-    offset,
-  };
+    offset};
 }
 
 export default {

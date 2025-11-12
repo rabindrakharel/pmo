@@ -69,8 +69,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric',
-    });
+      day: 'numeric'});
   };
 
   const renderBlock = (block: WikiBlock) => {
@@ -83,8 +82,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
           3: 'text-2xl font-semibold mt-5 mb-2',
           4: 'text-xl font-semibold mt-4 mb-2',
           5: 'text-lg font-medium mt-3 mb-2',
-          6: 'text-base font-medium mt-2 mb-1',
-        }[block.level || 1];
+          6: 'text-base font-medium mt-2 mb-1'}[block.level || 1];
         return <HeadingTag className={headingClasses}>{block.content}</HeadingTag>;
 
       case 'paragraph':

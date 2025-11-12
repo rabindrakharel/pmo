@@ -17,8 +17,7 @@ export const dScopeOrg = pgTable('d_scope_org', {
   hierarchyType: text('hierarchy_type').notNull(), // 'business', 'location'
   attr: jsonb('attr').notNull().default('{}'),
   createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
-  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
-});
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow()});
 
 
 // Scope HR
@@ -35,8 +34,7 @@ export const dScopeHr = pgTable('d_scope_hr', {
   levelName: text('level_name').notNull(),
   attr: jsonb('attr').notNull().default('{}'),
   createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
-  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
-});
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow()});
 
 // Scope Worksite
 export const dScopeWorksite = pgTable('d_scope_worksite', {
@@ -52,8 +50,7 @@ export const dScopeWorksite = pgTable('d_scope_worksite', {
   bizId: uuid('biz_id'),
   attr: jsonb('attr').notNull().default('{}'),
   createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
-  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
-});
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow()});
 
 // Scope Project
 export const dScopeProject = pgTable('d_scope_project', {
@@ -68,8 +65,7 @@ export const dScopeProject = pgTable('d_scope_project', {
   projectCode: text('project_code').unique(),
   attr: jsonb('attr').notNull().default('{}'),
   createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
-  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
-});
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow()});
 
 // Scope Task
 export const dScopeTask = pgTable('d_scope_task', {
@@ -84,8 +80,7 @@ export const dScopeTask = pgTable('d_scope_task', {
   taskHeadId: uuid('task_head_id'),
   attr: jsonb('attr').notNull().default('{}'),
   createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
-  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
-});
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow()});
 
 // Scope App
 export const dScopeApp = pgTable('d_scope_app', {
@@ -100,8 +95,7 @@ export const dScopeApp = pgTable('d_scope_app', {
   appPath: text('app_path').notNull(),
   attr: jsonb('attr').notNull().default('{}'),
   createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
-  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
-});
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow()});
 
 // Employee
 export const dEmployee = pgTable('d_employee', {
@@ -156,8 +150,7 @@ export const dEmployee = pgTable('d_employee', {
   remoteEligible: boolean('remote_eligible').default(false),
   travelRequired: boolean('travel_required').default(false),
   securityClearance: text('security_clearance'),
-  emergencyContact: jsonb('emergency_contact').default('{}'),
-});
+  emergencyContact: jsonb('emergency_contact').default('{}')});
 
 // Role (deprecated - use unified scope system)
 export const dRole = pgTable('d_role', {
@@ -171,8 +164,7 @@ export const dRole = pgTable('d_role', {
   permissions: jsonb('permissions').notNull().default('[]'),
   attr: jsonb('attr').notNull().default('{}'),
   createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
-  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow(),
-});
+  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow()});
 
 // Customer
 export const dCust = pgTable('d_cust', {
@@ -226,8 +218,7 @@ export const dCust = pgTable('d_cust', {
   // Performance tracking
   satisfactionScore: numeric('satisfaction_score', { precision: 3, scale: 1 }),
   totalRevenue: numeric('total_revenue', { precision: 12, scale: 2 }),
-  lastServiceDate: date('last_service_date'),
-});
+  lastServiceDate: date('last_service_date')});
 
 
 
@@ -269,8 +260,7 @@ export const dScopeUnified = pgTable('d_scope_unified', {
   // Metadata and governance
   scopePath: text('scope_path'),
   scopeWeight: integer('scope_weight').default(0),
-  auditEnabled: boolean('audit_enabled').default(true),
-});
+  auditEnabled: boolean('audit_enabled').default(true)});
 
 // Employee-Scope Unified Relationship
 export const relEmployeeScopeUnified = pgTable('rel_employee_scope_unified', {
@@ -310,76 +300,59 @@ export const relEmployeeScopeUnified = pgTable('rel_employee_scope_unified', {
   // Performance and auditing
   usageTracking: boolean('usage_tracking').default(true),
   lastAccessedDate: date('last_accessed_date'),
-  accessCount: integer('access_count').default(0),
-});
+  accessCount: integer('access_count').default(0)});
 
 // Employee Relations
 export const dEmployeeRelations = relations(dEmployee, ({ one, many }) => ({
   reportsTo: one(dEmployee, {
     fields: [dEmployee.reportsToEmployeeId],
-    references: [dEmployee.id],
-  }),
+    references: [dEmployee.id]}),
   directReports: many(dEmployee),
-  scopes: many(relEmployeeScopeUnified),
-}));
+  scopes: many(relEmployeeScopeUnified)}));
 
 // Scope Relations
 export const dScopeUnifiedRelations = relations(dScopeUnified, ({ one, many }) => ({
   parent: one(dScopeUnified, {
     fields: [dScopeUnified.parentScopeId],
-    references: [dScopeUnified.id],
-  }),
+    references: [dScopeUnified.id]}),
   children: many(dScopeUnified),
-  employeePermissions: many(relEmployeeScopeUnified),
-}));
+  employeePermissions: many(relEmployeeScopeUnified)}));
 
 export const relEmployeeScopeUnifiedRelations = relations(relEmployeeScopeUnified, ({ one }) => ({
   employee: one(dEmployee, {
     fields: [relEmployeeScopeUnified.empId],
-    references: [dEmployee.id],
-  }),
+    references: [dEmployee.id]}),
   scope: one(dScopeUnified, {
     fields: [relEmployeeScopeUnified.scopeUnifiedId],
-    references: [dScopeUnified.id],
-  }),
+    references: [dScopeUnified.id]}),
   assignedBy: one(dEmployee, {
     fields: [relEmployeeScopeUnified.assignedByEmployeeId],
-    references: [dEmployee.id],
-  }),
-}));
+    references: [dEmployee.id]})}));
 
 // Relations
 export const dScopeOrgRelations = relations(dScopeOrg, ({ one, many }) => ({
   parent: one(dScopeOrg, {
     fields: [dScopeOrg.parentId],
-    references: [dScopeOrg.id],
-  }),
-  children: many(dScopeOrg),
-}));
+    references: [dScopeOrg.id]}),
+  children: many(dScopeOrg)}));
 
 export const dScopeHrRelations = relations(dScopeHr, ({ one, many }) => ({
   level: one(metaHrLevel, {
     fields: [dScopeHr.levelId],
-    references: [metaHrLevel.levelId],
-  }),
+    references: [metaHrLevel.levelId]}),
   parent: one(dScopeHr, {
     fields: [dScopeHr.parentId],
-    references: [dScopeHr.id],
-  }),
-  children: many(dScopeHr),
-}));
+    references: [dScopeHr.id]}),
+  children: many(dScopeHr)}));
 
 export const dCustRelations = relations(dCust, ({ one, many }) => ({
   parent: one(dCust, {
     fields: [dCust.parentCustId],
-    references: [dCust.id],
-  }),
+    references: [dCust.id]}),
   children: many(dCust),
   accountManagerEmp: one(dEmployee, {
     fields: [dCust.accountManager],
-    references: [dEmployee.id],
-  }),
-}));
+    references: [dEmployee.id]})}));
 
 // Wiki table (from DDL)
 export const dWiki = pgTable('d_wiki', {
@@ -436,6 +409,5 @@ export const dWiki = pgTable('d_wiki', {
   
   // External references
   externalUrl: text('external_url'),
-  attachments: jsonb('attachments').default('[]'),
-});
+  attachments: jsonb('attachments').default('[]')});
 

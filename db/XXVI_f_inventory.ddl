@@ -144,8 +144,8 @@ BEGIN
     IF array_length(v_store_ids, 1) IS NULL OR array_length(v_store_ids, 1) = 0 THEN
         RAISE NOTICE 'No stores found! Creating default store...';
         -- Create a default warehouse if none exists
-        INSERT INTO app.d_office (slug, code, name, descr, office_type, city, province, country)
-        VALUES ('main-warehouse', 'WH-001', 'Main Warehouse', 'Central distribution warehouse', 'warehouse', 'London', 'Ontario', 'Canada')
+        INSERT INTO app.d_office (code, name, descr, office_type, city, province, country)
+        VALUES ('WH-001', 'Main Warehouse', 'Central distribution warehouse', 'warehouse', 'London', 'Ontario', 'Canada')
         RETURNING id INTO v_store_id;
         v_store_ids := ARRAY[v_store_id];
     END IF;

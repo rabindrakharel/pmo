@@ -18,8 +18,7 @@ const RoleSchema = Type.Object({
   toTs: Type.Optional(Type.String()),
   created: Type.String(),
   updated: Type.String(),
-  attr: Type.Optional(Type.Any()),
-});
+  attr: Type.Optional(Type.Any())});
 
 const CreateRoleSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
@@ -31,8 +30,7 @@ const CreateRoleSchema = Type.Object({
   delegationAllowed: Type.Optional(Type.Boolean()),
   active: Type.Optional(Type.Boolean()),
   fromTs: Type.Optional(Type.String({ format: 'date-time' })),
-  attr: Type.Optional(Type.Any()),
-});
+  attr: Type.Optional(Type.Any())});
 
 const UpdateRoleSchema = Type.Partial(CreateRoleSchema);
 
@@ -44,20 +42,15 @@ export async function roleRoutes(fastify: FastifyInstance) {
         active: Type.Optional(Type.Boolean()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
-        page: Type.Optional(Type.Number({ minimum: 1 })),
-      }),
+        page: Type.Optional(Type.Number({ minimum: 1 }))}),
       response: {
         200: Type.Object({
           data: Type.Array(RoleSchema),
           total: Type.Number(),
           limit: Type.Number(),
-          offset: Type.Number(),
-        }),
+          offset: Type.Number()}),
         403: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { active, limit = 20, offset: queryOffset, page } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
@@ -132,16 +125,12 @@ export async function roleRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       response: {
         200: RoleSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
 
 
@@ -203,10 +192,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
         201: RoleSchema,
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const data = request.body as any;
 
 
@@ -275,17 +261,13 @@ export async function roleRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       body: UpdateRoleSchema,
       response: {
         200: RoleSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
     const data = request.body as any;
 
@@ -410,16 +392,12 @@ export async function roleRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       response: {
         204: Type.Null(),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
 
 
@@ -674,8 +652,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       response: {
         200: Type.Object({
           role: RoleSchema,
@@ -683,15 +660,10 @@ export async function roleRoutes(fastify: FastifyInstance) {
             scopeType: Type.String(),
             scopeId: Type.String(),
             scopeName: Type.String(),
-            permissions: Type.Array(Type.Number()),
-          })),
-        }),
+            permissions: Type.Array(Type.Number())}))}),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
 
 
@@ -753,8 +725,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
       return {
         role: transformedRole,
-        permissions,
-      };
+        permissions};
     } catch (error) {
       fastify.log.error('Error fetching role permissions:');
       return reply.status(500).send({ error: 'Internal server error' });

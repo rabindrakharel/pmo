@@ -27,12 +27,7 @@ export async function uploadRoutes(fastify: FastifyInstance) {
             type: 'object',
             properties: {
               url: { type: 'string' },
-              key: { type: 'string' },
-            },
-          },
-        },
-      },
-    },
+              key: { type: 'string' }}}}}},
     async (request: FastifyRequest, reply) => {
       try {
         // Get the uploaded file
@@ -46,8 +41,7 @@ export async function uploadRoutes(fastify: FastifyInstance) {
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
         if (!allowedTypes.includes(data.mimetype)) {
           return reply.status(400).send({
-            error: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
-          });
+            error: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.'});
         }
 
         // Validate file size (max 10MB)
@@ -56,8 +50,7 @@ export async function uploadRoutes(fastify: FastifyInstance) {
 
         if (buffer.length > maxSize) {
           return reply.status(400).send({
-            error: 'File too large. Maximum size is 10MB.',
-          });
+            error: 'File too large. Maximum size is 10MB.'});
         }
 
         // Generate unique entity ID for this upload
@@ -69,8 +62,7 @@ export async function uploadRoutes(fastify: FastifyInstance) {
           entityType: 'upload',
           entityId: uploadId,
           fileName: data.filename,
-          contentType: data.mimetype,
-        });
+          contentType: data.mimetype});
 
         // Upload file content to S3 using presigned URL (simulated - in real use, client does this)
         // For server-side upload, we use the S3 client directly
@@ -80,16 +72,14 @@ export async function uploadRoutes(fastify: FastifyInstance) {
 
         const s3Client = new S3Client({
           region: config.AWS_REGION,
-          credentials: config.AWS_PROFILE ? fromIni({ profile: config.AWS_PROFILE }) : undefined,
-        });
+          credentials: config.AWS_PROFILE ? fromIni({ profile: config.AWS_PROFILE }) : undefined});
 
         await s3Client.send(
           new PutObjectCommand({
             Bucket: config.S3_ATTACHMENTS_BUCKET,
             Key: uploadResult.objectKey,
             Body: buffer,
-            ContentType: data.mimetype,
-          })
+            ContentType: data.mimetype})
         );
 
         // Generate download URL
@@ -97,14 +87,12 @@ export async function uploadRoutes(fastify: FastifyInstance) {
 
         return reply.send({
           url: downloadResult.url,
-          key: uploadResult.objectKey,
-        });
+          key: uploadResult.objectKey});
       } catch (error) {
         console.error('Upload error:', error);
         return reply.status(500).send({
           error: 'Failed to upload file',
-          message: error instanceof Error ? error.message : 'Unknown error',
-        });
+          message: error instanceof Error ? error.message : 'Unknown error'});
       }
     }
   );
@@ -132,15 +120,7 @@ export async function uploadRoutes(fastify: FastifyInstance) {
                   properties: {
                     url: { type: 'string' },
                     key: { type: 'string' },
-                    filename: { type: 'string' },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
+                    filename: { type: 'string' }}}}}}}}},
     async (request: FastifyRequest, reply) => {
       try {
         const files = await request.saveRequestFiles();
@@ -161,8 +141,7 @@ export async function uploadRoutes(fastify: FastifyInstance) {
 
         const s3Client = new S3Client({
           region: config.AWS_REGION,
-          credentials: config.AWS_PROFILE ? fromIni({ profile: config.AWS_PROFILE }) : undefined,
-        });
+          credentials: config.AWS_PROFILE ? fromIni({ profile: config.AWS_PROFILE }) : undefined});
 
         for (const file of files) {
           // Validate file type
@@ -188,8 +167,7 @@ export async function uploadRoutes(fastify: FastifyInstance) {
             entityType: 'upload',
             entityId: uploadId,
             fileName: file.filename,
-            contentType: file.mimetype,
-          });
+            contentType: file.mimetype});
 
           // Upload file content to S3
           await s3Client.send(
@@ -197,8 +175,7 @@ export async function uploadRoutes(fastify: FastifyInstance) {
               Bucket: config.S3_ATTACHMENTS_BUCKET,
               Key: uploadResult.objectKey,
               Body: buffer,
-              ContentType: file.mimetype,
-            })
+              ContentType: file.mimetype})
           );
 
           // Generate download URL
@@ -207,8 +184,7 @@ export async function uploadRoutes(fastify: FastifyInstance) {
           uploadedFiles.push({
             url: downloadResult.url,
             key: uploadResult.objectKey,
-            filename: file.filename,
-          });
+            filename: file.filename});
 
           // Clean up temp file
           await fs.unlink(file.filepath);
@@ -219,8 +195,7 @@ export async function uploadRoutes(fastify: FastifyInstance) {
         console.error('Upload error:', error);
         return reply.status(500).send({
           error: 'Failed to upload files',
-          message: error instanceof Error ? error.message : 'Unknown error',
-        });
+          message: error instanceof Error ? error.message : 'Unknown error'});
       }
     }
   );

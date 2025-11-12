@@ -28,17 +28,12 @@ const s3BackendRoutes: FastifyPluginAsync = async (fastify) => {
         entityType: Type.String({ description: 'Entity type (e.g., "project", "task", "employee")' }),
         entityId: Type.String({ description: 'Entity UUID' }),
         fileName: Type.String({ description: 'Original file name with extension' }),
-        contentType: Type.Optional(Type.String({ description: 'MIME type of the file' })),
-      }),
+        contentType: Type.Optional(Type.String({ description: 'MIME type of the file' }))}),
       response: {
         200: Type.Object({
           url: Type.String({ description: 'Presigned upload URL' }),
           objectKey: Type.String({ description: 'S3 object key (save this to database)' }),
-          expiresIn: Type.Number({ description: 'URL expiration time in seconds' }),
-        }),
-      },
-    },
-  }, async (request) => {
+          expiresIn: Type.Number({ description: 'URL expiration time in seconds' })})}}}, async (request) => {
     const { tenantId, entityType, entityId, fileName, contentType } = request.body as any;
 
     const result = await s3AttachmentService.generatePresignedUploadUrl({
@@ -46,8 +41,7 @@ const s3BackendRoutes: FastifyPluginAsync = async (fastify) => {
       entityType,
       entityId,
       fileName,
-      contentType,
-    });
+      contentType});
 
     return result;
   });
@@ -62,17 +56,12 @@ const s3BackendRoutes: FastifyPluginAsync = async (fastify) => {
       summary: 'Generate presigned download URL',
       description: 'Create a presigned URL for downloading files from S3',
       body: Type.Object({
-        objectKey: Type.String({ description: 'S3 object key from database' }),
-      }),
+        objectKey: Type.String({ description: 'S3 object key from database' })}),
       response: {
         200: Type.Object({
           url: Type.String({ description: 'Presigned download URL' }),
           objectKey: Type.String({ description: 'S3 object key' }),
-          expiresIn: Type.Number({ description: 'URL expiration time in seconds' }),
-        }),
-      },
-    },
-  }, async (request) => {
+          expiresIn: Type.Number({ description: 'URL expiration time in seconds' })})}}}, async (request) => {
     const { objectKey } = request.body as any;
 
     const result = await s3AttachmentService.generatePresignedDownloadUrl(objectKey);
@@ -91,20 +80,14 @@ const s3BackendRoutes: FastifyPluginAsync = async (fastify) => {
       description: 'Retrieve list of all attachments for a specific entity',
       params: Type.Object({
         entityType: Type.String({ description: 'Entity type (e.g., "project", "task")' }),
-        entityId: Type.String({ description: 'Entity UUID' }),
-      }),
+        entityId: Type.String({ description: 'Entity UUID' })}),
       querystring: Type.Object({
-        tenantId: Type.Optional(Type.String({ description: 'Tenant ID (defaults to "demo")' })),
-      }),
+        tenantId: Type.Optional(Type.String({ description: 'Tenant ID (defaults to "demo")' }))}),
       response: {
         200: Type.Array(Type.Object({
           key: Type.String({ description: 'S3 object key' }),
           size: Type.Number({ description: 'File size in bytes' }),
-          lastModified: Type.String({ description: 'Last modified date' }),
-        })),
-      },
-    },
-  }, async (request) => {
+          lastModified: Type.String({ description: 'Last modified date' })}))}}}, async (request) => {
     const { entityType, entityId } = request.params as any;
     const { tenantId } = request.query as any;
 
@@ -127,16 +110,11 @@ const s3BackendRoutes: FastifyPluginAsync = async (fastify) => {
       summary: 'Delete attachment',
       description: 'Delete a file from S3 storage',
       body: Type.Object({
-        objectKey: Type.String({ description: 'S3 object key to delete' }),
-      }),
+        objectKey: Type.String({ description: 'S3 object key to delete' })}),
       response: {
         200: Type.Object({
           success: Type.Boolean(),
-          objectKey: Type.String(),
-        }),
-      },
-    },
-  }, async (request) => {
+          objectKey: Type.String()})}}}, async (request) => {
     const { objectKey } = request.body as any;
 
     const success = await s3AttachmentService.deleteAttachment(objectKey);
@@ -157,18 +135,13 @@ const s3BackendRoutes: FastifyPluginAsync = async (fastify) => {
         200: Type.Object({
           status: Type.String(),
           bucket: Type.String(),
-          connected: Type.Boolean(),
-        }),
-      },
-    },
-  }, async () => {
+          connected: Type.Boolean()})}}}, async () => {
     const connected = await s3AttachmentService.verifyConnection();
 
     return {
       status: connected ? 'healthy' : 'unhealthy',
       bucket: config.S3_ATTACHMENTS_BUCKET,
-      connected,
-    };
+      connected};
   });
 };
 

@@ -32,14 +32,13 @@ const InteractionSchema = Type.Object({
   sentiment_score: Type.Optional(Type.Number()),
   sentiment_label: Type.Optional(Type.String()),
   customer_satisfaction_score: Type.Optional(Type.Number()),
-  emotion_tags: Type.Optional(Type.Array(Type.String())),
+  emotion_tags: Type.Optional(Type.Any()),
   interaction_reason: Type.Optional(Type.String()),
   interaction_category: Type.Optional(Type.String()),
   priority_level: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Any()),
   created_ts: Type.String(),
-  updated_ts: Type.String(),
-});
+  updated_ts: Type.String()});
 
 const CreateInteractionSchema = Type.Object({
   interaction_number: Type.String({ minLength: 1 }),
@@ -57,12 +56,11 @@ const CreateInteractionSchema = Type.Object({
   sentiment_score: Type.Optional(Type.Number()),
   sentiment_label: Type.Optional(Type.String()),
   customer_satisfaction_score: Type.Optional(Type.Number()),
-  emotion_tags: Type.Optional(Type.Array(Type.String())),
+  emotion_tags: Type.Optional(Type.Any()),
   interaction_reason: Type.Optional(Type.String()),
   interaction_category: Type.Optional(Type.String()),
   priority_level: Type.Optional(Type.String()),
-  metadata: Type.Optional(Type.Any()),
-});
+  metadata: Type.Optional(Type.Any())});
 
 const UpdateInteractionSchema = Type.Partial(CreateInteractionSchema);
 
@@ -86,10 +84,7 @@ export async function interactionRoutes(fastify: FastifyInstance) {
         search: Type.Optional(Type.String()),
         page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 })),
-      }),
-    },
-  }, async (request, reply) => {
+        offset: Type.Optional(Type.Number({ minimum: 0 }))})}}, async (request, reply) => {
     const {
       interaction_type,
       channel,
@@ -210,8 +205,7 @@ export async function interactionRoutes(fastify: FastifyInstance) {
         total,
         limit,
         offset: actualOffset,
-        page: page || Math.floor(actualOffset / limit) + 1,
-      };
+        page: page || Math.floor(actualOffset / limit) + 1};
     } catch (error) {
       fastify.log.error('Error fetching interactions:', error);
       return reply.status(500).send({
@@ -230,14 +224,10 @@ export async function interactionRoutes(fastify: FastifyInstance) {
   }>('/api/v1/interaction/:id', {
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       response: {
         200: InteractionSchema,
-        404: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const { id } = request.params;
 
@@ -320,10 +310,7 @@ export async function interactionRoutes(fastify: FastifyInstance) {
     schema: {
       body: CreateInteractionSchema,
       response: {
-        201: InteractionSchema,
-      },
-    },
-  }, async (request, reply) => {
+        201: InteractionSchema}}}, async (request, reply) => {
     try {
       const interaction = request.body;
 
@@ -417,15 +404,11 @@ export async function interactionRoutes(fastify: FastifyInstance) {
   }>('/api/v1/interaction/:id', {
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       body: UpdateInteractionSchema,
       response: {
         200: InteractionSchema,
-        404: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const { id } = request.params;
       const updates = request.body;
@@ -515,14 +498,10 @@ export async function interactionRoutes(fastify: FastifyInstance) {
   }>('/api/v1/interaction/:id', {
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
-      }),
+        id: Type.String({ format: 'uuid' })}),
       response: {
         200: Type.Object({ success: Type.Boolean(), message: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
+        404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const { id } = request.params;
 
