@@ -179,6 +179,7 @@ export async function workflowAutomationRoutes(fastify: FastifyInstance) {
       response: {
         201: WorkflowAutomationSchema,
         400: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
       },
     },
@@ -335,7 +336,7 @@ export async function workflowAutomationRoutes(fastify: FastifyInstance) {
   });
 
   // Delete workflow automation
-  createEntityDeleteEndpoint(fastify, 'workflow-automation', 'd_workflow_automation');
+  createEntityDeleteEndpoint(fastify, 'workflow_automation');
 
   // Execute workflow (manual trigger)
   fastify.post('/api/v1/workflow-automation/:id/execute', {

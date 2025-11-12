@@ -477,12 +477,12 @@ INSERT INTO app.f_logging (
     'system@pmo.internal',
     'system',
     'workflow_automation',
-    'f7a8b9c0-d1e2-3456-g234-567890123456',
+    'f7a8b9c0-d1e2-3456-a234-567890123456',
     4, -- CREATE
     '2025-11-11 09:00:00-05',
     NULL,
     jsonb_build_object(
-        'id', 'f7a8b9c0-d1e2-3456-g234-567890123456',
+        'id', 'f7a8b9c0-d1e2-3456-a234-567890123456',
         'name', 'Auto-assign task on project creation',
         'trigger_event', 'project.created',
         'action_type', 'task.create',
