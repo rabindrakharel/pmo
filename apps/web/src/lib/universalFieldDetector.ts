@@ -91,11 +91,19 @@ export type InputType =
 
 export type EditType =
   | 'text'
-  | 'select'
-  | 'checkbox'
+  | 'number'
   | 'currency'
+  | 'date'
+  | 'datetime'
+  | 'time'
+  | 'select'
+  | 'multiselect'
+  | 'checkbox'
+  | 'textarea'
   | 'tags'
-  | 'jsonb';
+  | 'jsonb'
+  | 'file'
+  | 'dag-select';
 
 export type ComponentType =
   | 'DAGVisualizer'

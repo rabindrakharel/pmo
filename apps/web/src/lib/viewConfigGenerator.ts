@@ -47,7 +47,9 @@ export interface DataTableColumn {
 
   // Inline editing
   editable: boolean;
-  editType?: 'text' | 'select' | 'checkbox' | 'currency' | 'tags' | 'jsonb';
+  editType?: 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time' |
+             'select' | 'multiselect' | 'checkbox' | 'textarea' | 'tags' |
+             'jsonb' | 'file' | 'dag-select';
 
   // Options
   loadFromSettings?: boolean;
