@@ -23,8 +23,8 @@ The **PMO Platform** is an enterprise-grade project management and operations sy
 - **Inline Create-Then-Link** - Automatic parent-child linkage in `d_entity_id_map` (v3.1)
 - **Default-Editable Pattern** - All fields editable with smart input detection (v3.1)
 - **Column Consistency** - Context-independent table columns (v3.1)
-- **Sequential State Visualization** for workflows and sales funnels
-- **Database-Driven Metadata** for runtime configurability
+- **Workflow Visualization** - DAG graphs for stages/funnels from settings tables
+- **Database-Driven Metadata** - `d_entity` table drives all UI (icons, tabs, routing)
 - **AWS Deployment** with automated CI/CD pipeline
 
 **Keywords:** PMO, Project Management, RBAC, Entity System, Fastify, React 19, PostgreSQL, TypeScript, AWS, Terraform, DRY Architecture, Home Services, Canadian Business
@@ -273,6 +273,60 @@ interface EntityAPI {
 - Use `createEntityDeleteEndpoint()` for delete operations with cascading cleanup
 - Use `APIFactory.getAPI()` for type-safe frontend API calls (frontend)
 - Never duplicate route logic across multiple entity modules
+
+### 7. Mandatory UI Component Patterns
+
+> **⚠️ CRITICAL**: See **[UI_UX_PAGE_Components_Modal.md](./docs/UI_UX_PAGE_Components_Modal.md)** for complete reference
+
+**Core Data Model Enforcement:**
+- Every domain is an **entity** (stored in `d_{entity}` tables)
+- Parent-child relationships in **`d_entity_id_map`** (NOT foreign keys)
+- Permissions in **`entity_id_rbac_map`**
+- All entity metadata in **`d_entity`** table (icons, labels, child entities)
+
+**Component Selection:**
+
+| Use Case | Component | Why |
+|----------|-----------|-----|
+| **Entity records** | `EntityDataTable` | CRUD, inline editing, parent-child filtering |
+| **Settings/datalabel** | `SettingsDataTable` | Reordering, color badges |
+| **All forms** | `EntityFormContainer` | Auto-detects 15+ field types |
+| **Entity tabs** | `DynamicChildEntityTabs` | Loads from `d_entity` API |
+| **Workflow stages** | `DAGVisualizer` | `dl__{entity}_stage`, `dl__{entity}_funnel` |
+| **Parent-child links** | `UnifiedLinkageModal` | Creates `d_entity_id_map` records |
+
+**DAG Visualization Pattern (dl__{entity}_stage, dl__{entity}_funnel):**
+
+```typescript
+// Naming convention: dl__{entityname}_{stage|funnel}
+dl__project_stage     // initiation → planning → execution → closure
+dl__task_stage        // backlog → in_progress → blocked → done
+dl__sales_funnel      // lead → qualified → proposal → won/lost
+
+// Data source: setting_datalabel table
+SELECT id, name, parent_ids FROM app.setting_datalabel
+WHERE datalabel = 'dl__project_stage';
+
+// EntityFormContainer auto-detects and renders DAGVisualizer
+```
+
+**Mandatory Checklist:**
+
+- [ ] Use **EntityDataTable** for entity records (NOT custom tables)
+- [ ] Use **SettingsDataTable** for settings/datalabel
+- [ ] Use **EntityFormContainer** for all forms (auto-detection)
+- [ ] Use **DynamicChildEntityTabs** (loads from `d_entity`)
+- [ ] Use **DAGVisualizer** for `dl__{entity}_stage`/`funnel` fields
+- [ ] Store relationships in `d_entity_id_map` (NOT foreign keys)
+- [ ] Store permissions in `entity_id_rbac_map`
+- [ ] Query `d_entity` API for metadata (NEVER hardcode icons/labels/tabs)
+- [ ] Load dropdowns from settings API (`loadOptionsFromSettings: true`)
+
+**Anti-Patterns:**
+- ❌ Creating entity-specific tables/forms
+- ❌ Hardcoding dropdown options, entity metadata, child tabs
+- ❌ Adding foreign keys to entity tables (use `d_entity_id_map`)
+- ❌ Direct S3 upload (use presigned URLs)
 
 ---
 
@@ -542,8 +596,11 @@ Database (PostgreSQL, 52 tables)
 
 | Document | Purpose | When to Use | Key Topics |
 |----------|---------|-------------|------------|
+| **[UI/UX Reusable Components](./docs/UI_UX_PAGE_Components_Modal.md)** | **⭐ MANDATORY component patterns** | ALL entity development - which component to use where | FilteredDataTable, EntityFormContainer, DAGVisualizer, KanbanBoard, CalendarView, DynamicChildEntityTabs, Field auto-detection, Visualization matrix, Anti-patterns |
 | **[Universal Entity System](./docs/entity_design_pattern/universal_entity_system.md)** | Complete DRY entity architecture | Understanding entity pages, column consistency, inline editing | 3 universal pages, EntityConfig, Column consistency v3.1.1, Create-Link-Edit pattern |
 | **[Column Consistency Update](./docs/entity_design_pattern/COLUMN_CONSISTENCY_UPDATE.md)** | v3.1.1 Column consistency implementation | Understanding child entity table behavior | Context-independent columns, API filtering, Verification tests |
+| **[DRY Factory Patterns](./docs/entity_design_pattern/DRY_FACTORY_PATTERNS.md)** | Reusable code generation patterns | Adding new entities with minimal code | Column generation, field generation, field category registry, route factories, API factory |
+| **[Integration Guide](./docs/entity_design_pattern/INTEGRATION_GUIDE.md)** | **⭐ Practical integration examples** | Implementing universal field detector in components | 3-line integration, EntityDataTable, EntityFormContainer, KanbanBoard, DAGVisualizer, Migration checklist |
 | **[Kanban System](./docs/component_Kanban_System.md)** | Task board implementation | Building kanban views, task management | Drag-drop, Column configuration, State transitions |
 | **[Dynamic Forms](./docs/form/form.md)** | JSONB-based form builder | Creating custom forms, form workflows | Form schema, Multi-step wizards, Validation, Submissions |
 | **[AI Chat System](./docs/ai_chat/AI_CHAT_SYSTEM.md)** | Goal-oriented conversational AI platform (v6.0) | Implementing AI-powered customer service | Text chat (SSE), Voice (WebSocket+HTTP), MCP-driven session memory, 60+ API tools, Deep merge, Unified goal agent |
@@ -573,12 +630,17 @@ Finally: infra_docs/INFRASTRUCTURE_DESIGN.md → Deployment architecture
 
 **🏗️ Adding New Features:**
 ```
-New entity type: entity_design_pattern/universal_entity_system.md → Universal pages, config, patterns
-Entity-based feature: entity_design_pattern/universal_entity_system.md → Inline editing, create-then-link
+New entity type: UI_UX_PAGE_Components_Modal.md → Component checklist ⭐
+                 entity_design_pattern/universal_entity_system.md → Universal pages, config, patterns
+                 entity_design_pattern/DRY_FACTORY_PATTERNS.md → Factory patterns
+Entity-based feature: UI_UX_PAGE_Components_Modal.md → Component selection matrix ⭐
+                     entity_design_pattern/universal_entity_system.md → Inline editing, create-then-link
 Parent-child relationships: entity_design_pattern/universal_entity_system.md → Linkage patterns
-Form feature: form/form.md → Dynamic form schemas
+Form feature: UI_UX_PAGE_Components_Modal.md → EntityFormContainer field types ⭐
+             form/form.md → Dynamic form schemas
 File upload: s3_service/S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md → Attachment workflow
 Dropdown/select: ENTITY_OPTIONS_API.md → Universal options API
+Visualization: UI_UX_PAGE_Components_Modal.md → DAG, Calendar, Kanban, Grid patterns ⭐
 ```
 
 **🐛 Debugging Issues:**
@@ -590,30 +652,49 @@ Settings/dropdown: settings/settings.md + ENTITY_OPTIONS_API.md
 Entity creation/linkage: entity_design_pattern/universal_entity_system.md → Inline create-then-link
 Column consistency: entity_design_pattern/universal_entity_system.md → Column patterns
 Inline editing: entity_design_pattern/universal_entity_system.md → Default-editable pattern
+Component selection: UI_UX_PAGE_Components_Modal.md → Which component to use where ⭐
+Custom component: UI_UX_PAGE_Components_Modal.md → Anti-patterns (DON'T create custom) ⭐
 ```
 
 **📝 Implementation Tasks:**
 ```
-New entity type: entity_design_pattern/universal_entity_system.md (Best Practices) + datamodel/datamodel.md (DDL)
+New entity type: UI_UX_PAGE_Components_Modal.md (Mandatory checklist) ⭐
+                entity_design_pattern/universal_entity_system.md (Best Practices)
+                entity_design_pattern/DRY_FACTORY_PATTERNS.md (Factory patterns)
+                datamodel/datamodel.md (DDL)
 New settings category: settings/settings.md + datamodel/datamodel.md (Settings tables)
 Add Row functionality: entity_design_pattern/universal_entity_system.md → Inline create-then-link
 Parent-child linkage: entity_design_pattern/universal_entity_system.md → Create-link-edit pattern
-Kanban view: component_Kanban_System.md
+Kanban view: UI_UX_PAGE_Components_Modal.md → KanbanBoard component ⭐
+Calendar view: UI_UX_PAGE_Components_Modal.md → CalendarView component ⭐
+DAG visualization: UI_UX_PAGE_Components_Modal.md → DAGVisualizer component ⭐
 Form builder: form/form.md
+Entity tabs: UI_UX_PAGE_Components_Modal.md → DynamicChildEntityTabs ⭐
 ```
 
 ### Document Search Keywords
 
 | Keywords | Relevant Documents |
 |----------|-------------------|
+| **reusable components, UI patterns, component selection, which component to use** | `UI_UX_PAGE_Components_Modal.md` ⭐⭐⭐ |
+| **FilteredDataTable, EntityDataTable, SettingsDataTable, data tables** | `UI_UX_PAGE_Components_Modal.md` ⭐, `entity_design_pattern/COLUMN_CONSISTENCY_UPDATE.md` |
+| **EntityFormContainer, form fields, field types, auto-detection** | `UI_UX_PAGE_Components_Modal.md` ⭐ |
+| **DAGVisualizer, workflow stages, dl__*_stage, sequential states** | `UI_UX_PAGE_Components_Modal.md` ⭐, `settings/settings.md` |
+| **KanbanBoard, task board, drag-drop, status columns** | `UI_UX_PAGE_Components_Modal.md` ⭐, `component_Kanban_System.md` |
+| **CalendarView, event scheduling, person filtering, availability** | `UI_UX_PAGE_Components_Modal.md` ⭐, `PERSON_CALENDAR_SYSTEM.md` |
+| **DynamicChildEntityTabs, entity tabs, child navigation** | `UI_UX_PAGE_Components_Modal.md` ⭐, `entity_design_pattern/ENTITY_METADATA_COHERENCE.md` |
+| **visualization patterns, data display, DAG, calendar, timeline, grid** | `UI_UX_PAGE_Components_Modal.md` ⭐ |
+| **anti-patterns, custom components, what not to do** | `UI_UX_PAGE_Components_Modal.md` ⭐ |
 | **universal pages, entity system, DRY, create-link-edit** | `entity_design_pattern/universal_entity_system.md` ⭐ |
 | **inline editing, add row, default-editable** | `entity_design_pattern/universal_entity_system.md` |
 | **linkage, parent-child, d_entity_id_map, relationships** | `entity_design_pattern/universal_entity_system.md`, `datamodel/datamodel.md` |
 | **column consistency, context-independent, child entity tables** | `entity_design_pattern/COLUMN_CONSISTENCY_UPDATE.md` ⭐, `entity_design_pattern/universal_entity_system.md` |
-| **FilteredDataTable, main vs child views** | `entity_design_pattern/COLUMN_CONSISTENCY_UPDATE.md` |
+| **factory patterns, code generation, generateColumns, generateFields** | `entity_design_pattern/DRY_FACTORY_PATTERNS.md` ⭐ |
+| **universal field detector, auto-detection, generateViewConfig, integration, migration** | `entity_design_pattern/INTEGRATION_GUIDE.md` ⭐ |
+| **detectField, generateDataTableConfig, generateFormConfig, generateKanbanConfig** | `entity_design_pattern/INTEGRATION_GUIDE.md` ⭐ |
 | **database, schema, DDL, tables, relationships** | `datamodel/datamodel.md`, `entity_ui_ux_route_api.md` |
 | **API, endpoints, routes, modules** | `entity_ui_ux_route_api.md`, `ENTITY_OPTIONS_API.md`, `s3_service/S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md` |
-| **frontend, React, components, pages** | `entity_design_pattern/universal_entity_system.md`, `entity_ui_ux_route_api.md`, `component_Kanban_System.md`, `form/form.md` |
+| **frontend, React, components, pages** | `UI_UX_PAGE_Components_Modal.md` ⭐, `entity_design_pattern/universal_entity_system.md`, `entity_ui_ux_route_api.md` |
 | **settings, dropdowns, workflows, stages** | `settings/settings.md`, `entity_ui_ux_route_api.md` |
 | **deployment, AWS, infrastructure, Terraform** | `infra_docs/INFRASTRUCTURE_DESIGN.md`, `infra_docs/DEPLOYMENT_DESIGN.md` |
 | **RBAC, permissions, authorization** | `datamodel/datamodel.md`, `entity_ui_ux_route_api.md` |

@@ -2,6 +2,45 @@
 -- TASK DATA (d_task_data) - DATA TABLE
 -- Task updates, comments, and attachments
 -- =====================================================
+--
+-- SEMANTICS:
+-- • Data table for task updates, comments, status changes, and attachments
+-- • Uses Quill Delta format for rich text content (JSONB storage)
+-- • Links to parent task and project via foreign keys (exception to no-FK pattern for data integrity)
+-- • Supports versioned updates with stage (draft, saved)
+-- • Append-only pattern - no soft deletes, preserves complete audit trail
+--
+-- OPERATIONS:
+-- • CREATE: INSERT with stage='draft', created_ts=now()
+-- • UPDATE: Same ID, updated_ts refreshes (for draft edits)
+-- • PUBLISH: UPDATE stage='draft' → 'saved' (finalize update)
+-- • QUERY: Filter by task_id, project_id, update_type, date range
+--
+-- KEY FIELDS:
+-- • id: uuid PRIMARY KEY (stable identifier)
+-- • task_id: uuid NOT NULL REFERENCES d_task(id) - parent task
+-- • project_id: uuid NOT NULL REFERENCES d_project(id) - parent project
+-- • stage: varchar(20) DEFAULT 'draft' - draft|saved (workflow state)
+-- • updated_by_empid: uuid NOT NULL - employee who created this update
+-- • data_richtext: jsonb - Quill Delta format rich text content
+-- • update_type: varchar(50) - comment|status_change|assignment|attachment|form
+-- • hours_logged: decimal(8,2) - time tracking for this update
+-- • status_change_from/to: varchar(50) - captures status transitions
+-- • metadata: jsonb - additional context (form submissions, attachments, etc.)
+--
+-- RELATIONSHIPS (WITH FOREIGN KEYS):
+-- • Parent: task (via task_id FK) - CASCADE DELETE
+-- • Parent: project (via project_id FK) - CASCADE DELETE
+-- • updated_by_empid → d_employee.id (no FK, soft reference)
+-- • Mentions in data_richtext → d_employee records
+-- • Attachments in data_richtext → S3/MinIO objects
+--
+-- RICH TEXT FORMAT (Quill Delta):
+-- • Supports: bold, italic, underline, strike, code, links, lists, headers, code blocks
+-- • Special attributes: mention {id, name, email}, attachment {id, name, format, uri, size}
+-- • See inline examples in CREATE TABLE comments
+--
+-- =====================================================
 
 CREATE TABLE app.d_task_data (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

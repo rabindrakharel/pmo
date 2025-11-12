@@ -318,7 +318,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       const projectCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_project p
-        WHERE p.office_id = ${orgId} AND p.active_flag = true
+        WHERE (p.metadata->>'office_id')::uuid = ${orgId}::uuid AND p.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'project',
@@ -331,7 +331,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       const taskCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.d_task t
-        WHERE t.office_id = ${orgId} AND t.active_flag = true
+        WHERE (t.metadata->>'office_id')::uuid = ${orgId}::uuid AND t.active_flag = true
       `);
       actionSummaries.push({
         actionEntity: 'task',

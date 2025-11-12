@@ -10,28 +10,28 @@
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS app.orchestrator_agent_execution (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4()
-  session_id uuid NOT NULL REFERENCES app.orchestrator_session(id) ON DELETE CASCADE
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id uuid NOT NULL REFERENCES app.orchestrator_session(id) ON DELETE CASCADE,
   agent_type text NOT NULL, -- 'planner', 'worker', 'critic', 'summarizer', 'orchestrator'
   execution_order int NOT NULL, -- Sequential order within session
 
   -- Input/Output
-  input_state jsonb NOT NULL
-  output_state jsonb
+  input_state jsonb NOT NULL,
+  output_state jsonb,
   decision jsonb, -- For planner decisions
 
   -- Status tracking
   status text NOT NULL, -- 'running', 'success', 'failed', 'skipped'
-  error_details jsonb
-  retry_count int DEFAULT 0
+  error_details jsonb,
+  retry_count int DEFAULT 0,
 
   -- Performance metrics
-  duration_ms int
-  tokens_used int
-  cost_cents numeric(10, 2)
+  duration_ms int,
+  tokens_used int,
+  cost_cents numeric(10, 2),
 
   -- Timestamps
-  created_ts timestamptz NOT NULL DEFAULT now()
+  created_ts timestamptz NOT NULL DEFAULT now(),
   completed_ts timestamptz
 
   -- Indexes
@@ -48,25 +48,25 @@ COMMENT ON COLUMN app.orchestrator_agent_execution.decision IS 'Planner agent de
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS app.orchestrator_circuit_breaker (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4()
-  session_id uuid NOT NULL REFERENCES app.orchestrator_session(id) ON DELETE CASCADE
-  agent_type text NOT NULL
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id uuid NOT NULL REFERENCES app.orchestrator_session(id) ON DELETE CASCADE,
+  agent_type text NOT NULL,
 
   -- Failure tracking
-  failure_count int NOT NULL DEFAULT 0
-  last_failure_ts timestamptz
-  failure_threshold int NOT NULL DEFAULT 3
+  failure_count int NOT NULL DEFAULT 0,
+  last_failure_ts timestamptz,
+  failure_threshold int NOT NULL DEFAULT 3,
 
   -- Circuit state
   circuit_state text NOT NULL, -- 'closed', 'open', 'half_open'
-  opened_ts timestamptz
+  opened_ts timestamptz,
   timeout_ms int NOT NULL DEFAULT 60000, -- 60 seconds default
 
   -- Reset tracking
-  last_success_ts timestamptz
-  consecutive_successes int DEFAULT 0
+  last_success_ts timestamptz,
+  consecutive_successes int DEFAULT 0,
 
-  created_ts timestamptz NOT NULL DEFAULT now()
+  created_ts timestamptz NOT NULL DEFAULT now(),
   updated_ts timestamptz NOT NULL DEFAULT now()
 
 );
@@ -81,20 +81,20 @@ COMMENT ON COLUMN app.orchestrator_circuit_breaker.circuit_state IS 'closed=norm
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS app.orchestrator_checkpoint (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4()
-  session_id uuid NOT NULL REFERENCES app.orchestrator_session(id) ON DELETE CASCADE
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id uuid NOT NULL REFERENCES app.orchestrator_session(id) ON DELETE CASCADE,
 
   -- Checkpoint identification
-  checkpoint_name text NOT NULL
-  workflow_state text NOT NULL
+  checkpoint_name text NOT NULL,
+  workflow_state text NOT NULL,
 
   -- State snapshot
-  state_snapshot jsonb NOT NULL
-  variables_snapshot jsonb NOT NULL
+  state_snapshot jsonb NOT NULL,
+  variables_snapshot jsonb NOT NULL,
 
   -- Metadata
-  description text
-  created_by text DEFAULT 'system'
+  description text,
+  created_by text DEFAULT 'system',
   created_ts timestamptz NOT NULL DEFAULT now()
 );
 

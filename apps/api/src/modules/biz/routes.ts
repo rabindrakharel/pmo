@@ -462,9 +462,9 @@ export async function bizRoutes(fastify: FastifyInstance) {
     try {
       const bizUnit = await db.execute(sql`
         SELECT
-          id, name, descr, metadata, parent_id, dl__business_level,
-          code, from_ts, to_ts, active_flag, created_ts, updated_ts, version,
-          office_id, budget_allocated_amt, manager_employee_id
+          id, code, name, descr, metadata,
+          office_id, current_headcount, operational_status,
+          from_ts, to_ts, active_flag, created_ts, updated_ts, version
         FROM app.d_business
         WHERE id = ${id}
       `);
