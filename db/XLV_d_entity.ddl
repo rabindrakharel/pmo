@@ -40,6 +40,8 @@ CREATE TABLE app.d_entity (
     ui_icon varchar(50),
     child_entities jsonb DEFAULT '[]'::jsonb,
     display_order int4 NOT NULL DEFAULT 999,
+    dl_entity_domain varchar(100), -- Domain categorization: Core Management, Organization, Business, Operations, Customers, Retail, Sales & Finance, Content & Docs, Advanced
+    column_metadata jsonb DEFAULT '[]'::jsonb, -- Column definitions: [{orderid, name, descr, datatype, is_nullable, default_value}]
     active_flag boolean DEFAULT true,
     created_ts timestamptz DEFAULT now(),
     updated_ts timestamptz DEFAULT now()
@@ -58,7 +60,7 @@ COMMENT ON COLUMN app.d_entity.child_entities IS 'JSONB array of child entity me
 -- =====================================================
 
 -- Office entity type (has 6 child types)
-INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order, dl_entity_domain)
 VALUES (
   'office',
   'Office',
@@ -72,7 +74,8 @@ VALUES (
     {"entity": "expense", "ui_icon": "Receipt", "ui_label": "Expenses", "order": 5},
     {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 6}
   ]'::jsonb,
-  10
+  10,
+  'Organization'
 );
 
 -- Business entity type (has 3 child types)
@@ -507,3 +510,274 @@ VALUES (
   child_entities = EXCLUDED.child_entities,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
+
+-- =====================================================
+-- DATA CURATION: DOMAIN CATEGORIZATION
+-- =====================================================
+-- Assign entities to business domains for Settings page tabs
+
+-- Core Management domain
+UPDATE app.d_entity SET dl_entity_domain = 'Core Management' 
+WHERE code IN ('project', 'task');
+
+-- Organization domain  
+UPDATE app.d_entity SET dl_entity_domain = 'Organization' 
+WHERE code IN ('office', 'employee', 'role', 'office_hierarchy');
+
+-- Business domain
+UPDATE app.d_entity SET dl_entity_domain = 'Business' 
+WHERE code IN ('business', 'business_hierarchy', 'worksite');
+
+-- Operations domain
+UPDATE app.d_entity SET dl_entity_domain = 'Operations' 
+WHERE code IN ('quote', 'work_order', 'workflow', 'workflow_automation');
+
+-- Customers domain
+UPDATE app.d_entity SET dl_entity_domain = 'Customers' 
+WHERE code IN ('cust', 'interaction');
+
+-- Retail domain
+UPDATE app.d_entity SET dl_entity_domain = 'Retail' 
+WHERE code IN ('service', 'product', 'product_hierarchy', 'inventory', 'order', 'shipment');
+
+-- Sales & Finance domain
+UPDATE app.d_entity SET dl_entity_domain = 'Sales & Finance' 
+WHERE code IN ('invoice', 'expense', 'revenue');
+
+-- Content & Docs domain
+UPDATE app.d_entity SET dl_entity_domain = 'Content & Docs' 
+WHERE code IN ('wiki', 'artifact', 'form', 'reports', 'message_schema', 'message');
+
+-- Advanced domain
+UPDATE app.d_entity SET dl_entity_domain = 'Advanced' 
+WHERE code IN ('event', 'calendar');
+
+-- =====================================================
+-- DATA CURATION: COLUMN METADATA FROM INFORMATION_SCHEMA
+-- =====================================================
+-- Auto-populate column_metadata from database schema
+
+-- Update column_metadata for all entities by querying information_schema
+UPDATE app.d_entity e
+SET column_metadata = (
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'orderid', c.ordinal_position,
+      'name', c.column_name,
+      'descr', col_description((table_schema || '.' || table_name)::regclass::oid, c.ordinal_position),
+      'datatype', 
+        CASE 
+          WHEN c.data_type = 'ARRAY' THEN c.udt_name || '[]'
+          WHEN c.character_maximum_length IS NOT NULL THEN c.data_type || '(' || c.character_maximum_length || ')'
+          WHEN c.numeric_precision IS NOT NULL AND c.numeric_scale IS NOT NULL THEN c.data_type || '(' || c.numeric_precision || ',' || c.numeric_scale || ')'
+          ELSE c.data_type
+        END,
+      'is_nullable', c.is_nullable = 'YES',
+      'default_value', c.column_default
+    ) ORDER BY c.ordinal_position
+  ), '[]'::jsonb)
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'app'
+    AND c.table_name = 'd_' || e.code
+)
+WHERE EXISTS (
+  SELECT 1 
+  FROM information_schema.tables t
+  WHERE t.table_schema = 'app'
+    AND t.table_name = 'd_' || e.code
+);
+
+-- Special handling for entities with different table naming patterns
+
+-- Update for client (table: d_client)
+UPDATE app.d_entity e
+SET column_metadata = (
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'orderid', c.ordinal_position,
+      'name', c.column_name,
+      'descr', col_description((table_schema || '.' || table_name)::regclass::oid, c.ordinal_position),
+      'datatype', 
+        CASE 
+          WHEN c.data_type = 'ARRAY' THEN c.udt_name || '[]'
+          WHEN c.character_maximum_length IS NOT NULL THEN c.data_type || '(' || c.character_maximum_length || ')'
+          WHEN c.numeric_precision IS NOT NULL AND c.numeric_scale IS NOT NULL THEN c.data_type || '(' || c.numeric_precision || ',' || c.numeric_scale || ')'
+          ELSE c.data_type
+        END,
+      'is_nullable', c.is_nullable = 'YES',
+      'default_value', c.column_default
+    ) ORDER BY c.ordinal_position
+  ), '[]'::jsonb)
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'app' AND c.table_name = 'd_client'
+)
+WHERE e.code = 'cust';
+
+-- Update for forms (table: d_form_head)
+UPDATE app.d_entity e
+SET column_metadata = (
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'orderid', c.ordinal_position,
+      'name', c.column_name,
+      'descr', col_description((table_schema || '.' || table_name)::regclass::oid, c.ordinal_position),
+      'datatype', 
+        CASE 
+          WHEN c.data_type = 'ARRAY' THEN c.udt_name || '[]'
+          WHEN c.character_maximum_length IS NOT NULL THEN c.data_type || '(' || c.character_maximum_length || ')'
+          WHEN c.numeric_precision IS NOT NULL AND c.numeric_scale IS NOT NULL THEN c.data_type || '(' || c.numeric_precision || ',' || c.numeric_scale || ')'
+          ELSE c.data_type
+        END,
+      'is_nullable', c.is_nullable = 'YES',
+      'default_value', c.column_default
+    ) ORDER BY c.ordinal_position
+  ), '[]'::jsonb)
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'app' AND c.table_name = 'd_form_head'
+)
+WHERE e.code = 'form';
+
+-- Update for fact tables (f_* instead of d_*)
+UPDATE app.d_entity e
+SET column_metadata = (
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'orderid', c.ordinal_position,
+      'name', c.column_name,
+      'descr', col_description((table_schema || '.' || table_name)::regclass::oid, c.ordinal_position),
+      'datatype', 
+        CASE 
+          WHEN c.data_type = 'ARRAY' THEN c.udt_name || '[]'
+          WHEN c.character_maximum_length IS NOT NULL THEN c.data_type || '(' || c.character_maximum_length || ')'
+          WHEN c.numeric_precision IS NOT NULL AND c.numeric_scale IS NOT NULL THEN c.data_type || '(' || c.numeric_precision || ',' || c.numeric_scale || ')'
+          ELSE c.data_type
+        END,
+      'is_nullable', c.is_nullable = 'YES',
+      'default_value', c.column_default
+    ) ORDER BY c.ordinal_position
+  ), '[]'::jsonb)
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'app' AND c.table_name = 'f_' || e.code
+)
+WHERE e.code IN ('order', 'inventory', 'shipment', 'invoice', 'expense', 'revenue', 'interaction', 'message');
+
+-- Update for message_schema (table: d_message_schema)
+UPDATE app.d_entity e
+SET column_metadata = (
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'orderid', c.ordinal_position,
+      'name', c.column_name,
+      'descr', col_description((table_schema || '.' || table_name)::regclass::oid, c.ordinal_position),
+      'datatype', 
+        CASE 
+          WHEN c.data_type = 'ARRAY' THEN c.udt_name || '[]'
+          WHEN c.character_maximum_length IS NOT NULL THEN c.data_type || '(' || c.character_maximum_length || ')'
+          WHEN c.numeric_precision IS NOT NULL AND c.numeric_scale IS NOT NULL THEN c.data_type || '(' || c.numeric_precision || ',' || c.numeric_scale || ')'
+          ELSE c.data_type
+        END,
+      'is_nullable', c.is_nullable = 'YES',
+      'default_value', c.column_default
+    ) ORDER BY c.ordinal_position
+  ), '[]'::jsonb)
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'app' AND c.table_name = 'd_message_schema'
+)
+WHERE e.code = 'message_schema';
+
+-- Update for quotes (table: fact_quote)
+UPDATE app.d_entity e
+SET column_metadata = (
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'orderid', c.ordinal_position,
+      'name', c.column_name,
+      'descr', col_description((table_schema || '.' || table_name)::regclass::oid, c.ordinal_position),
+      'datatype', 
+        CASE 
+          WHEN c.data_type = 'ARRAY' THEN c.udt_name || '[]'
+          WHEN c.character_maximum_length IS NOT NULL THEN c.data_type || '(' || c.character_maximum_length || ')'
+          WHEN c.numeric_precision IS NOT NULL AND c.numeric_scale IS NOT NULL THEN c.data_type || '(' || c.numeric_precision || ',' || c.numeric_scale || ')'
+          ELSE c.data_type
+        END,
+      'is_nullable', c.is_nullable = 'YES',
+      'default_value', c.column_default
+    ) ORDER BY c.ordinal_position
+  ), '[]'::jsonb)
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'app' AND c.table_name = 'fact_quote'
+)
+WHERE e.code = 'quote';
+
+-- Update for work_order (table: fact_work_order)
+UPDATE app.d_entity e
+SET column_metadata = (
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'orderid', c.ordinal_position,
+      'name', c.column_name,
+      'descr', col_description((table_schema || '.' || table_name)::regclass::oid, c.ordinal_position),
+      'datatype', 
+        CASE 
+          WHEN c.data_type = 'ARRAY' THEN c.udt_name || '[]'
+          WHEN c.character_maximum_length IS NOT NULL THEN c.data_type || '(' || c.character_maximum_length || ')'
+          WHEN c.numeric_precision IS NOT NULL AND c.numeric_scale IS NOT NULL THEN c.data_type || '(' || c.numeric_precision || ',' || c.numeric_scale || ')'
+          ELSE c.data_type
+        END,
+      'is_nullable', c.is_nullable = 'YES',
+      'default_value', c.column_default
+    ) ORDER BY c.ordinal_position
+  ), '[]'::jsonb)
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'app' AND c.table_name = 'fact_work_order'
+)
+WHERE e.code = 'work_order';
+
+-- Update for workflow_automation (table: d_workflow_automation)
+UPDATE app.d_entity e
+SET column_metadata = (
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'orderid', c.ordinal_position,
+      'name', c.column_name,
+      'descr', col_description((table_schema || '.' || table_name)::regclass::oid, c.ordinal_position),
+      'datatype', 
+        CASE 
+          WHEN c.data_type = 'ARRAY' THEN c.udt_name || '[]'
+          WHEN c.character_maximum_length IS NOT NULL THEN c.data_type || '(' || c.character_maximum_length || ')'
+          WHEN c.numeric_precision IS NOT NULL AND c.numeric_scale IS NOT NULL THEN c.data_type || '(' || c.numeric_precision || ',' || c.numeric_scale || ')'
+          ELSE c.data_type
+        END,
+      'is_nullable', c.is_nullable = 'YES',
+      'default_value', c.column_default
+    ) ORDER BY c.ordinal_position
+  ), '[]'::jsonb)
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'app' AND c.table_name = 'd_workflow_automation'
+)
+WHERE e.code = 'workflow_automation';
+
+-- Update for person calendar (table: d_entity_person_calendar)
+UPDATE app.d_entity e
+SET column_metadata = (
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'orderid', c.ordinal_position,
+      'name', c.column_name,
+      'descr', col_description((table_schema || '.' || table_name)::regclass::oid, c.ordinal_position),
+      'datatype', 
+        CASE 
+          WHEN c.data_type = 'ARRAY' THEN c.udt_name || '[]'
+          WHEN c.character_maximum_length IS NOT NULL THEN c.data_type || '(' || c.character_maximum_length || ')'
+          WHEN c.numeric_precision IS NOT NULL AND c.numeric_scale IS NOT NULL THEN c.data_type || '(' || c.numeric_precision || ',' || c.numeric_scale || ')'
+          ELSE c.data_type
+        END,
+      'is_nullable', c.is_nullable = 'YES',
+      'default_value', c.column_default
+    ) ORDER BY c.ordinal_position
+  ), '[]'::jsonb)
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'app' AND c.table_name = 'd_entity_person_calendar'
+)
+WHERE e.code = 'calendar';
+

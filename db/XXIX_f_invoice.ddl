@@ -162,7 +162,7 @@ CREATE TABLE app.f_invoice (
     -- Metadata
     notes TEXT,                                         -- Internal invoice notes
     customer_notes TEXT,                                -- Notes visible to customer
-    terms_and_conditions TEXT,                          -- T&C text (snapshot)
+    terms_and_conditions TEXT                           -- T&C text (snapshot)
 );
 
 

@@ -911,6 +911,95 @@ export async function entityRoutes(fastify: FastifyInstance) {
   });
 
   /**
+   * GET /api/v1/entity/domains
+   * Get all entities grouped by domain
+   * Returns: { domains: [{ domain: string, entities: [...] }] }
+   */
+  fastify.get('/api/v1/entity/domains', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      response: {
+        200: Type.Object({
+          domains: Type.Array(Type.Object({
+            domain: Type.String(),
+            entities: Type.Array(Type.Object({
+              code: Type.String(),
+              name: Type.String(),
+              ui_label: Type.String(),
+              ui_icon: Type.Optional(Type.String()),
+              column_metadata: Type.Array(Type.Any()),
+              display_order: Type.Number()
+            }))
+          }))
+        }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      // Get all entities with their domains
+      const result = await db.execute(sql`
+        SELECT
+          code,
+          name,
+          ui_label,
+          ui_icon,
+          dl_entity_domain,
+          column_metadata,
+          display_order
+        FROM app.d_entity
+        WHERE active_flag = true
+          AND dl_entity_domain IS NOT NULL
+        ORDER BY dl_entity_domain, display_order ASC
+      `);
+
+      // Group entities by domain
+      const domainMap = new Map<string, any[]>();
+
+      result.forEach((row: any) => {
+        const domain = row.dl_entity_domain;
+
+        // Parse column_metadata
+        let columnMetadata = row.column_metadata || [];
+        if (typeof columnMetadata === 'string') {
+          columnMetadata = JSON.parse(columnMetadata);
+        }
+        if (!Array.isArray(columnMetadata)) {
+          columnMetadata = [];
+        }
+
+        const entity = {
+          code: row.code,
+          name: row.name,
+          ui_label: row.ui_label,
+          ui_icon: row.ui_icon,
+          column_metadata: columnMetadata,
+          display_order: row.display_order
+        };
+
+        if (!domainMap.has(domain)) {
+          domainMap.set(domain, []);
+        }
+        domainMap.get(domain)!.push(entity);
+      });
+
+      // Convert map to array
+      const domains = Array.from(domainMap.entries()).map(([domain, entities]) => ({
+        domain,
+        entities
+      }));
+
+      // Sort domains alphabetically
+      domains.sort((a, b) => a.domain.localeCompare(b.domain));
+
+      return { domains };
+    } catch (error) {
+      fastify.log.error('Error fetching entity domains:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
    * GET /api/v1/entity/child-counts/:entity_type/:entity_id
    * Get counts of all child entities for a parent entity instance
    * Used for tab badges (e.g., "Tasks (12)")

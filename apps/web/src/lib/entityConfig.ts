@@ -1553,134 +1553,165 @@ export const entityConfigs: Record<string, EntityConfig> = {
   },
 
   // --------------------------------------------------------------------------
-  // COST
+  // EXPENSE
   // --------------------------------------------------------------------------
-  cost: {
-    name: 'cost',
-    displayName: 'Cost',
-    pluralName: 'Costs',
-    apiEndpoint: '/api/v1/cost',
+  expense: {
+    name: 'expense',
+    displayName: 'Expense',
+    pluralName: 'Expenses',
+    apiEndpoint: '/api/v1/expense',
 
     columns: [
       {
-        key: 'name',
-        title: 'Cost Name',
+        key: 'expense_number',
+        title: 'Expense #',
         sortable: true,
         filterable: true,
         render: (value, record) => React.createElement(
           'div',
           null,
           React.createElement('div', { className: 'font-medium text-dark-600' }, value),
-          record.cost_code && React.createElement('div', { className: 'text-sm text-dark-700' }, record.cost_code)
+          record.vendor_name && React.createElement('div', { className: 'text-sm text-dark-700' }, record.vendor_name)
         )
       },
       {
-        key: 'cost_amt_lcl',
-        title: 'Cost Amount',
+        key: 'expense_date',
+        title: 'Date',
         sortable: true,
-        align: 'right',
-        render: (value, record) => formatCurrency(value, record.invoice_currency || 'CAD')
+        filterable: true,
+        render: (value) => value ? new Date(value).toLocaleDateString() : '-'
       },
       {
-        key: 'cost_amt_invoice',
-        title: 'Invoice Amount',
+        key: 'dl__expense_category',
+        title: 'Category',
         sortable: true,
-        align: 'right',
-        render: (value, record) => formatCurrency(value, record.invoice_currency || 'CAD')
+        filterable: true,
+        loadOptionsFromSettings: true
       },
       {
-        key: 'invoice_currency',
-        title: 'Currency',
+        key: 'dl__expense_subcategory',
+        title: 'Subcategory',
         sortable: true,
-        filterable: true
+        filterable: true,
+        loadOptionsFromSettings: true
       },
       {
-        key: 'cust_budgeted_amt_lcl',
-        title: 'Budgeted Amount',
+        key: 'expense_amount_cad',
+        title: 'Amount',
         sortable: true,
         align: 'right',
         render: (value) => formatCurrency(value, 'CAD')
       },
       {
-        key: 'attachment_format',
-        title: 'Format',
+        key: 'deductible_amount_cad',
+        title: 'Deductible',
         sortable: true,
-        filterable: true,
-        width: '90px',
-        render: (value) => value ? React.createElement(
-          'span',
-          { className: 'inline-flex items-center px-2 py-0.5 text-xs font-mono font-semibold bg-dark-100 text-dark-600 rounded border border-dark-300' },
-          value.toUpperCase()
-        ) : '-'
+        align: 'right',
+        render: (value) => formatCurrency(value, 'CAD')
       },
       {
-        key: 'attachment_size_bytes',
-        title: 'Size',
+        key: 'deductibility_percent',
+        title: 'Deductibility %',
         sortable: true,
-        width: '90px',
-        align: 'right' as const,
-        render: (value) => {
-          if (!value) return '-';
-          const kb = value / 1024;
-          const mb = kb / 1024;
-          if (mb >= 1) {
-            return React.createElement('span', { className: 'text-dark-600 font-medium' }, `${mb.toFixed(1)} MB`);
-          }
-          return React.createElement('span', { className: 'text-dark-600 font-medium' }, `${kb.toFixed(0)} KB`);
-        }
+        align: 'right',
+        render: (value) => value ? `${value}%` : '-'
+      },
+      {
+        key: 'employee_name',
+        title: 'Employee',
+        sortable: true,
+        filterable: true
+      },
+      {
+        key: 'project_name',
+        title: 'Project',
+        sortable: true,
+        filterable: true
+      },
+      {
+        key: 'expense_status',
+        title: 'Status',
+        sortable: true,
+        filterable: true
+      },
+      {
+        key: 'payment_status',
+        title: 'Payment',
+        sortable: true,
+        filterable: true
       }
     ],
 
     fields: [
-      // ========== ATTACHMENT ==========
-      {
-        key: 'attachment',
-        label: 'Invoice Attachment',
-        type: 'text',
-        readonly: true,
-        placeholder: 'S3 URI - Auto-populated from uploaded invoice'
-      },
-      {
-        key: 'attachment_format',
-        label: 'File Format',
-        type: 'text',
-        readonly: true,
-        placeholder: 'Auto-populated from uploaded invoice (e.g., pdf, png, jpg)'
-      },
-      {
-        key: 'attachment_size_bytes',
-        label: 'File Size (bytes)',
-        type: 'number',
-        readonly: true,
-        placeholder: 'Auto-populated from uploaded invoice'
-      },
-
       // ========== BASIC INFORMATION ==========
-      { key: 'name', label: 'Cost Name', type: 'text', required: true, placeholder: 'e.g., Office Supplies Q1 2025' },
-      { key: 'code', label: 'Code', type: 'text', required: true, placeholder: 'e.g., CST-2025-001' },
-      { key: 'cost_code', label: 'Cost Code', type: 'text', required: true, placeholder: 'e.g., EXP-OFFICE-SUPPLIES' },
-      { key: 'descr', label: 'Description', type: 'richtext', placeholder: 'Describe the cost item and its purpose...' },
+      { key: 'expense_number', label: 'Expense Number', type: 'text', required: true, placeholder: 'e.g., EXP-2025-00001' },
+      { key: 'expense_type', label: 'Type', type: 'select', defaultValue: 'standard', options: [
+        { value: 'standard', label: 'Standard' },
+        { value: 'recurring', label: 'Recurring' },
+        { value: 'one_time', label: 'One Time' }
+      ]},
+      { key: 'expense_date', label: 'Expense Date', type: 'date', required: true },
+      { key: 'description', label: 'Description', type: 'richtext', placeholder: 'Describe the expense...' },
+
+      // ========== CRA T2125 CATEGORIES ==========
+      { key: 'dl__expense_category', label: 'Category', type: 'select', loadOptionsFromSettings: true, required: true },
+      { key: 'dl__expense_subcategory', label: 'Subcategory', type: 'select', loadOptionsFromSettings: true },
+      { key: 'dl__expense_code', label: 'Expense Code', type: 'text', placeholder: 'e.g., ADV-GOOGLE' },
+      { key: 'cra_line', label: 'CRA Line', type: 'text', placeholder: 'e.g., 8521' },
+      { key: 'deductibility_percent', label: 'Deductibility %', type: 'number', defaultValue: 100, placeholder: '100' },
 
       // ========== FINANCIAL INFORMATION ==========
-      { key: 'cost_amt_lcl', label: 'Cost Amount (CAD)', type: 'number', required: true, placeholder: '0.00' },
-      { key: 'cost_amt_invoice', label: 'Invoice Amount', type: 'number', placeholder: '0.00' },
-      {
-        key: 'invoice_currency',
-        label: 'Currency',
-        type: 'select',
-        defaultValue: 'CAD',
-        options: [
-          { value: 'CAD', label: 'CAD' },
-          { value: 'USD', label: 'USD' },
-          { value: 'EUR', label: 'EUR' },
-          { value: 'GBP', label: 'GBP' }
-        ]
-      },
-      { key: 'exch_rate', label: 'Exchange Rate', type: 'number', placeholder: '1.00' },
-      { key: 'cust_budgeted_amt_lcl', label: 'Budgeted Amount (CAD)', type: 'number', placeholder: '0.00' },
+      { key: 'expense_amount_cad', label: 'Expense Amount (CAD)', type: 'number', required: true, placeholder: '0.00' },
+      { key: 'deductible_amount_cad', label: 'Deductible Amount (CAD)', type: 'number', readonly: true, placeholder: 'Auto-calculated' },
+      { key: 'tax_rate', label: 'Tax Rate %', type: 'number', placeholder: '13' },
+      { key: 'tax_amount_cad', label: 'Tax Amount', type: 'number', placeholder: '0.00' },
+      { key: 'gst_amount_cad', label: 'GST', type: 'number', placeholder: '0.00' },
+      { key: 'pst_amount_cad', label: 'PST', type: 'number', placeholder: '0.00' },
+      { key: 'hst_amount_cad', label: 'HST', type: 'number', placeholder: '0.00' },
+      { key: 'tax_recoverable_flag', label: 'Tax Recoverable', type: 'checkbox', defaultValue: true },
 
-      // ========== ADDITIONAL ==========,
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' },
+      // ========== RELATIONSHIPS ==========
+      { key: 'vendor_name', label: 'Vendor', type: 'text', placeholder: 'e.g., Google LLC' },
+      { key: 'invoice_id', label: 'Invoice ID', type: 'text', placeholder: 'UUID of related invoice' },
+      { key: 'invoice_number', label: 'Invoice #', type: 'text', placeholder: 'e.g., INV-2025-001' },
+      { key: 'project_id', label: 'Project ID', type: 'text', placeholder: 'UUID' },
+      { key: 'project_name', label: 'Project', type: 'text', placeholder: 'Project name' },
+      { key: 'employee_id', label: 'Employee ID', type: 'text', placeholder: 'UUID' },
+      { key: 'employee_name', label: 'Employee', type: 'text', placeholder: 'Employee name' },
+      { key: 'client_id', label: 'Client ID', type: 'text', placeholder: 'UUID' },
+      { key: 'client_name', label: 'Client', type: 'text', placeholder: 'Client name' },
+
+      // ========== STATUS & PAYMENT ==========
+      { key: 'expense_status', label: 'Status', type: 'select', defaultValue: 'submitted', options: [
+        { value: 'draft', label: 'Draft' },
+        { value: 'submitted', label: 'Submitted' },
+        { value: 'approved', label: 'Approved' },
+        { value: 'rejected', label: 'Rejected' }
+      ]},
+      { key: 'payment_status', label: 'Payment Status', type: 'select', defaultValue: 'unpaid', options: [
+        { value: 'unpaid', label: 'Unpaid' },
+        { value: 'paid', label: 'Paid' },
+        { value: 'pending', label: 'Pending' }
+      ]},
+      { key: 'payment_method', label: 'Payment Method', type: 'text', placeholder: 'e.g., Credit Card' },
+      { key: 'payment_reference', label: 'Payment Reference', type: 'text', placeholder: 'Transaction ID' },
+      { key: 'paid_date', label: 'Paid Date', type: 'date' },
+
+      // ========== REIMBURSEMENT ==========
+      { key: 'reimbursable_flag', label: 'Reimbursable', type: 'checkbox', defaultValue: false },
+      { key: 'reimbursed_flag', label: 'Reimbursed', type: 'checkbox', defaultValue: false },
+      { key: 'reimbursed_date', label: 'Reimbursed Date', type: 'date' },
+
+      // ========== ATTACHMENTS ==========
+      { key: 'attachment', label: 'Attachment', type: 'text', readonly: true, placeholder: 'S3 URI' },
+      { key: 'attachment_format', label: 'File Format', type: 'text', readonly: true, placeholder: 'e.g., pdf' },
+      { key: 'attachment_size_bytes', label: 'File Size (bytes)', type: 'number', readonly: true },
+
+      // ========== ADDITIONAL ==========
+      { key: 'notes', label: 'Notes', type: 'richtext', placeholder: 'Additional notes...' },
+      { key: 'tags', label: 'Tags', type: 'tags', placeholder: 'Add tags...' },
+      { key: 'fiscal_year', label: 'Fiscal Year', type: 'number', readonly: true, placeholder: 'Auto-calculated' },
+      { key: 'accounting_period', label: 'Accounting Period', type: 'text', readonly: true, placeholder: 'Auto-calculated' },
       { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },
       { key: 'updated_ts', label: 'Updated', type: 'timestamp', readonly: true }
     ],
